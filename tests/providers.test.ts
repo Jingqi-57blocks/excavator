@@ -54,7 +54,18 @@ test("codegraph build invokes an already-installed CLI and does not install it",
   await chmod(binary, 0o755);
   const result = await buildCodeGraph({ target, binary, quiet: true });
   assert.equal(result.database, join(target, ".codegraph", "codegraph.db"));
-  assert.deepEqual(JSON.parse(await readFile(log, "utf8")), ["init", target, "--index", "--quiet"]);
+  // `init` indexes by default and rejects --quiet, so neither flag may be passed to it.
+  assert.deepEqual(JSON.parse(await readFile(log, "utf8")), ["init", target]);
+
+  // The target is initialized now, so a refresh rebuilds through `index`, which accepts --quiet.
+  await buildCodeGraph({ target, binary, quiet: true });
+  assert.deepEqual(JSON.parse(await readFile(log, "utf8")), ["index", target, "--quiet"]);
+
+  await buildCodeGraph({ target, binary });
+  assert.deepEqual(JSON.parse(await readFile(log, "utf8")), ["index", target]);
+
+  await buildCodeGraph({ target, binary, force: true, quiet: true });
+  assert.deepEqual(JSON.parse(await readFile(log, "utf8")), ["index", target, "--force", "--quiet"]);
 });
 
 test("codegraph status reports missing CLI and official installation choices without installing", async () => {

@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, writeFile, stat, readdir } from "node:fs/promises";
-import { dirname, join, relative, resolve, sep } from "node:path";
+import { basename, dirname, join, relative, resolve, sep } from "node:path";
 
 export function sha256(value: string | Buffer): string {
   return createHash("sha256").update(value).digest("hex");
@@ -73,6 +73,34 @@ export async function listDirectories(path: string): Promise<string[]> {
 
 export function slugify(value: string): string {
   return value.normalize("NFKD").toLowerCase().replace(/[^\p{Letter}\p{Number}]+/gu, "-").replace(/^-+|-+$/g, "") || "item";
+}
+
+/**
+ * Resolve the per-target directory that holds one project's runs and caches.
+ *
+ * The directory is named after the target's basename so a workspace stays readable
+ * and one project's state can be removed in a single step. A `.target` marker records
+ * the absolute target path; when a different target would claim the same name, the
+ * slug is suffixed with a digest of its path instead of colliding.
+ */
+export async function projectWorkspace(workdir: string, target: string): Promise<string> {
+  const absoluteTarget = resolve(target);
+  const root = resolve(workdir);
+  const base = slugify(basename(absoluteTarget));
+  const preferred = join(root, base);
+  const owner = await readTargetMarker(preferred);
+  if (owner === null || owner === absoluteTarget) return claimWorkspace(preferred, absoluteTarget, owner);
+  return claimWorkspace(join(root, `${base}-${sha256(absoluteTarget).slice(0, 6)}`), absoluteTarget, null);
+}
+
+async function claimWorkspace(path: string, absoluteTarget: string, owner: string | null): Promise<string> {
+  await ensureDir(path);
+  if (owner === null && await readTargetMarker(path) === null) await atomicWrite(join(path, ".target"), `${absoluteTarget}\n`);
+  return path;
+}
+
+async function readTargetMarker(path: string): Promise<string | null> {
+  try { return (await readFile(join(path, ".target"), "utf8")).trim(); } catch { return null; }
 }
 
 export function redactSecrets(text: string): string {

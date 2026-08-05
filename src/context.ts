@@ -4,7 +4,7 @@ import type { Audience, EvidenceItem, FeatureRequest, PreparedContext, ProviderR
 import { CodeGraphIndex } from "./codegraph.ts";
 import { createSnapshot, isLikelySource, type ScannedFile } from "./snapshot.ts";
 import { SourceReader, evidenceFromWindow, manifestSummary, selectProjectDocuments, sourceSearch } from "./source.ts";
-import { Deadline, ensureDir, exists, readJson, sha256, slugify, stableJson, truncate, writeJson } from "./util.ts";
+import { Deadline, ensureDir, exists, projectWorkspace, readJson, sha256, slugify, stableJson, truncate, writeJson } from "./util.ts";
 import { createProviderRegistry, resolveCodeGraphDatabase } from "./providers.ts";
 
 const BUILDER_VERSION = "excavator-context-v14-anchored-detailed-inventory";
@@ -30,6 +30,7 @@ interface CachedFeature {
 
 export interface ContextBuildResult {
   prepared: PreparedContext;
+  projectDir: string;
   stats: {
     graphQueries: number;
     graphQueryCacheHits: number;
@@ -57,7 +58,8 @@ export async function buildContexts(request: ReportRequest): Promise<ContextBuil
   timing.snapshotMs = Date.now() - t0;
   deadline.check("creating source snapshot");
 
-  const cacheRoot = join(request.workdir, "cache");
+  const projectDir = await projectWorkspace(request.workdir, request.target);
+  const cacheRoot = join(projectDir, "cache");
   await ensureDir(cacheRoot);
   const sourceReader = new SourceReader({
     target: request.target,
@@ -137,6 +139,7 @@ export async function buildContexts(request: ReportRequest): Promise<ContextBuil
   timing.totalPrepareMs = Date.now() - t0;
   return {
     prepared: { snapshot, evidence: dedupeEvidence(allEvidence), sharedMarkdown: shared.markdown, documentContexts, featureMarkdowns, featureScopes },
+    projectDir,
     stats: {
       graphQueries: graph?.stats.queries ?? 0,
       graphQueryCacheHits: graph?.stats.hits ?? 0,
