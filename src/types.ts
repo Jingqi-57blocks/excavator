@@ -1,0 +1,335 @@
+export type Audience = "product" | "engineering";
+export type DocumentKind = "overview" | "feature";
+export type RunState = "planned" | "preparing" | "prepared" | "authoring" | "assembled" | "audited" | "complete" | "failed" | "timed-out";
+export type EvidenceMarker = "fact" | "verified" | "inferred" | "unavailable";
+export type ChecklistVerdict = "pending" | "hit" | "searched-not-found" | "cannot-determine";
+export type WorkItemStatus = "pending" | "in_progress" | "found" | "searched-not-found" | "cannot-determine" | "not-applicable";
+export type TraceType = "callflow" | "dataflow" | "business-flow" | "state-transition" | "cross-repository" | "analysis-path";
+export type TraceStatus = "candidate" | "verified" | "unavailable";
+export type Confidence = "high" | "medium" | "low";
+export type CodeGraphMode = "auto" | "off";
+export type DetailLevel = "standard" | "detailed";
+
+export interface FeatureRequest {
+  subject: string;
+  aliases: string[];
+  audiences: Audience[];
+}
+
+export interface ReportRequest {
+  target: string;
+  codegraph?: string;
+  codegraphMode?: CodeGraphMode;
+  language: string;
+  detailLevel?: DetailLevel;
+  workdir: string;
+  overviewAudiences: Audience[];
+  features: FeatureRequest[];
+  budgets: BudgetConfig;
+}
+
+export interface BudgetConfig {
+  prepareMs: number;
+  authorMs: number;
+  maxGraphQueries: number;
+  maxSourceWindows: number;
+  maxSourceCharacters: number;
+  maxFiles: number;
+  maxFeatureNodes: number;
+  maxExpansionDepth: number;
+}
+
+export interface SnapshotRoot {
+  name: string;
+  path: string;
+  gitHead: string | null;
+  gitBranch: string | null;
+  dirty: boolean | null;
+  fileCount: number;
+}
+
+export interface Snapshot {
+  id: string;
+  target: string;
+  createdAt: string;
+  roots: SnapshotRoot[];
+  scannerVersion: string;
+  ignoreRulesDigest: string;
+  sourceManifestDigest: string;
+  codegraphDigest: string | null;
+}
+
+export interface ProviderCapability {
+  id: string;
+  available: boolean;
+  selected: boolean;
+  version?: string;
+  path?: string;
+  selectionReason: string;
+  capabilities: string[];
+  metadata?: Record<string, unknown>;
+}
+
+export interface ProviderRegistry {
+  version: 1;
+  snapshotId: string;
+  createdAt: string;
+  providers: ProviderCapability[];
+  digest: string;
+}
+
+export interface AnalysisScope {
+  version: 1;
+  runId: string;
+  snapshotId: string;
+  createdAt: string;
+  target: string;
+  repositories: Array<{ name: string; path: string; gitHead: string | null; dirty: boolean | null; fileCount: number }>;
+  sourcePolicy: {
+    gitAware: true;
+    includeTracked: true;
+    includeUntrackedNotIgnored: true;
+    excludeIgnoredUntracked: true;
+    scannerVersion: string;
+    ignoreRulesDigest: string;
+    sourceManifestDigest: string;
+  };
+  providerMode: CodeGraphMode;
+  providerRegistryDigest: string;
+  outputLanguage: string;
+  requestedDocuments: string[];
+  budgets: BudgetConfig;
+  runtimeExecution: false;
+  digest: string;
+}
+
+export interface EvidenceItem {
+  id: string;
+  snapshotId: string;
+  kind: "graph" | "source" | "readme" | "manifest" | "git" | "coverage" | "derived" | "search" | "scope" | "provider" | "limitation";
+  title: string;
+  path?: string;
+  startLine?: number;
+  endLine?: number;
+  content?: string;
+  data?: unknown;
+  reason: string;
+  digest: string;
+  sensitive?: boolean;
+  supersedes?: string;
+}
+
+export interface SourceWindow {
+  cacheVersion: string;
+  id: string;
+  snapshotId: string;
+  path: string;
+  startLine: number;
+  endLine: number;
+  content: string;
+  digest: string;
+  reason: string;
+}
+
+export interface SectionClaim {
+  id: string;
+  marker: EvidenceMarker;
+  statement: string;
+  evidenceIds?: string[];
+  traceIds?: string[];
+  workItemIds?: string[];
+  confidence?: Confidence;
+  status?: "candidate" | "verified" | "unavailable";
+  reason?: string;
+  supersedes?: string;
+}
+
+export interface SectionClaimsFile {
+  version: 1 | 2;
+  documentId: string;
+  section: number;
+  claims: SectionClaim[];
+}
+
+export interface TraceStep {
+  index: number;
+  action: string;
+  evidenceIds: string[];
+  claimIds?: string[];
+  location?: string;
+}
+
+export interface TraceRecord {
+  id: string;
+  title: string;
+  type: TraceType;
+  status: TraceStatus;
+  confidence: Confidence;
+  documentIds: string[];
+  steps: TraceStep[];
+  reason?: string;
+  supersedes?: string;
+  createdAt: string;
+}
+
+export interface TraceCatalog {
+  version: 1;
+  runId: string;
+  traces: TraceRecord[];
+}
+
+export interface ChecklistItem {
+  id: string;
+  scope: string;
+  hypothesis: string;
+  verdict: ChecklistVerdict;
+  material: boolean;
+  evidenceIds: string[];
+  searchScope?: string;
+  reason?: string;
+  settledBy?: string;
+  origin: "default" | "open";
+}
+
+export interface InvestigationChecklist {
+  version: 1;
+  runId: string;
+  items: ChecklistItem[];
+}
+
+export interface InvestigationWorkItem {
+  id: string;
+  dimension: string;
+  scope: string;
+  hypothesis: string;
+  status: WorkItemStatus;
+  material: boolean;
+  requiredFor: string[];
+  evidenceIds: string[];
+  traceIds: string[];
+  reportSection?: number;
+  searchScope?: string;
+  reason?: string;
+  settledBy?: string;
+  origin: "default" | "open";
+  startedAt?: string;
+  completedAt?: string;
+  supersedes?: string;
+}
+
+export interface InvestigationPlan {
+  version: 1;
+  runId: string;
+  createdAt: string;
+  items: InvestigationWorkItem[];
+}
+
+export interface TimelineEventInput {
+  stage: string;
+  action: string;
+  subject?: string;
+  documentId?: string;
+  section?: number;
+  evidenceIds?: string[];
+  workItemIds?: string[];
+  traceIds?: string[];
+  data?: Record<string, unknown>;
+}
+
+export interface TimelineEvent extends TimelineEventInput {
+  version: 1;
+  runId: string;
+  sequence: number;
+  at: string;
+  previousDigest: string | null;
+  digest: string;
+}
+
+export interface DocumentPlan {
+  id: string;
+  kind: DocumentKind;
+  audience: Audience;
+  subject?: string;
+  templatePath: string;
+  contextPath: string;
+  sections: Array<{ index: number; title: string; file: string; claimsFile: string; complete: boolean }>;
+  startedAt?: string;
+  completedAt?: string;
+  elapsedMs?: number;
+}
+
+export interface RunManifest {
+  version: 2 | 3;
+  id: string;
+  state: RunState;
+  createdAt: string;
+  updatedAt: string;
+  request: ReportRequest;
+  snapshot: Snapshot | null;
+  documents: DocumentPlan[];
+  evidenceDigest: string;
+  providerRegistryDigest?: string;
+  analysisScopeDigest?: string;
+  metrics: RunMetrics;
+  error?: { stage: string; message: string; stack?: string };
+}
+
+export interface RunMetrics {
+  startedAt: string;
+  finishedAt?: string;
+  timing: Record<string, number>;
+  graphQueries: number;
+  graphQueryCacheHits: number;
+  sourceWindows: number;
+  sourceWindowCacheHits: number;
+  sourceCharacters: number;
+  sourceSearches: number;
+  sourceSearchCacheHits: number;
+  sourceFilesSearched: number;
+  filesConsidered: number;
+  timelineEvents?: number;
+  claims?: number;
+  traces?: number;
+  workItems?: { total: number; complete: number };
+  codegraphCoverage?: { indexed: number; eligible: number; ratio: number };
+  cache: Record<string, "hit" | "miss" | "unused">;
+  warnings: string[];
+}
+
+export interface GraphFile {
+  path: string;
+  language: string;
+  size: number;
+  nodeCount: number;
+  errors: string[];
+}
+
+export interface GraphNode {
+  id: string;
+  kind: string;
+  name: string;
+  qualifiedName: string;
+  filePath: string;
+  language: string;
+  startLine: number;
+  endLine: number;
+  docstring: string | null;
+  signature: string | null;
+}
+
+export interface GraphEdge {
+  source: string;
+  target: string;
+  kind: string;
+  line: number | null;
+  metadata: Record<string, unknown>;
+}
+
+export interface PreparedContext {
+  snapshot: Snapshot;
+  evidence: EvidenceItem[];
+  sharedMarkdown: string;
+  documentContexts: Map<string, string>;
+  featureMarkdowns: Map<string, string>;
+  featureScopes: Map<string, { nodes: GraphNode[]; files: string[]; evidenceIds: string[] }>;
+}

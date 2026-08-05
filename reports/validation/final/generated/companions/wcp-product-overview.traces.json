@@ -1,0 +1,52 @@
+{
+  "documentId": "overview-product",
+  "traces": [
+    {
+      "confidence": "high",
+      "createdAt": "2026-08-05T01:20:00.000Z",
+      "documentIds": [
+        "overview-product"
+      ],
+      "id": "T-overview-product-boundary",
+      "status": "verified",
+      "steps": [
+        {
+          "action": "The web application exposes employee self-service, project tracking, company content and management menus.",
+          "claimIds": [],
+          "evidenceIds": [
+            "S-c8db0a3e19"
+          ],
+          "index": 1
+        },
+        {
+          "action": "The main Go service registers authenticated business APIs, including the leave group.",
+          "claimIds": [],
+          "evidenceIds": [
+            "S-65964e40ad"
+          ],
+          "index": 2
+        },
+        {
+          "action": "The legacy Node service still registers worklog, project, leave, holiday, report and integration routes.",
+          "claimIds": [],
+          "evidenceIds": [
+            "S-6eb609addf"
+          ],
+          "index": 3
+        },
+        {
+          "action": "The review service and authentication service remain separate backend boundaries.",
+          "claimIds": [],
+          "evidenceIds": [
+            "S-3223991b08",
+            "S-71db89c982"
+          ],
+          "index": 4
+        }
+      ],
+      "title": "WCP product surface across the workspace",
+      "type": "cross-repository"
+    }
+  ],
+  "version": 1
+}

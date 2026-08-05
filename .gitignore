@@ -1,0 +1,74 @@
+# --- OS ---
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# --- Editors / IDE ---
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*.swo
+*~
+
+# --- Node ---
+node_modules/
+.npm/
+.node_repl_history
+*.tsbuildinfo
+.eslintcache
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# --- Secrets / local config ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+
+# --- Excavator runtime output ---
+# Default workdir (`--workdir`, defaults to ./.excavator-work): run directories,
+# prompts, checkpoints, caches and source excerpts. They contain local absolute
+# paths and high-volume intermediate evidence and are never committed.
+.excavator-work/
+excavator-work/
+**/runs/
+**/cache/
+
+# Ad-hoc report output directory.
+reports/generated/*
+!reports/generated/.gitkeep
+
+# Local request files (`request.example.json` is the tracked template).
+/request.json
+/request.*.json
+!/request.example.json
+
+# --- CodeGraph index ---
+.codegraph/
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# --- Test / tooling scratch ---
+coverage/
+.nyc_output/
+tmp/
+.tmp/
+*.log
+!reports/**/*.log

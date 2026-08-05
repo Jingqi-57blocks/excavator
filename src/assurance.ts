@@ -1,0 +1,608 @@
+import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
+import type {
+  ChecklistItem,
+  DocumentPlan,
+  EvidenceItem,
+  EvidenceMarker,
+  InvestigationChecklist,
+  InvestigationPlan,
+  InvestigationWorkItem,
+  ReportRequest,
+  RunManifest,
+  SectionClaim,
+  SectionClaimsFile,
+  TraceCatalog
+} from "./types.ts";
+import { exists, nowIso, redactSecrets, safeRelative, sha256, stableJson } from "./util.ts";
+
+export interface AuditFinding {
+  level: "error" | "warning";
+  document: string;
+  message: string;
+}
+
+const PROJECT_HYPOTHESES: Array<[string, string]> = [
+  ["literal-secrets", "Credentials, private keys, tokens or cryptographic secrets are written as source literals."],
+  ["literal-identifiers", "Business behavior compares against literal record, tenant, customer, office, project or role identifiers."],
+  ["guard-polarity", "Equivalent authorization checks use inconsistent negation or allow/deny polarity."],
+  ["shared-storage", "Multiple independently operated parts write the same stored object or declare it with incompatible shapes."],
+  ["duplicate-entrypoints", "The same externally visible entry point is declared by more than one part."],
+  ["uncalled-entrypoints", "Registered entry points have no caller inside the analyzed workspace."],
+  ["discarded-errors", "Errors from external calls, persistence or asynchronous work are neither returned, logged nor persisted."],
+  ["deprecated-or-unfinished", "Current paths contain explicit deprecated, disabled, unfinished or temporary behavior."],
+  ["feature-switches", "Configuration switches materially change which capabilities or background work are available."],
+  ["documentation-drift", "Repository documentation contradicts current manifests, entry points or implementation."],
+  ["external-call-in-transaction", "An external call occurs while a persistence transaction remains open."],
+  ["open-investigation", "The observed facts suggest a material question not covered by the predefined hypotheses."]
+];
+
+const FEATURE_HYPOTHESES: Array<[string, string, number]> = [
+  ["boundary", "The capability boundary, participating repositories, included files and deliberately excluded neighboring behavior are established.", 1],
+  ["ui-entrypoints", "User-facing pages, actions and visible UI entry points are inventoried.", 2],
+  ["api-entrypoints", "HTTP, command, callback and public entry points are inventoried with handler resolution.", 2],
+  ["scheduled-entrypoints", "Scheduled, startup and automated entry points are inventoried.", 2],
+  ["callers", "Workspace-visible callers and the boundary of possible external callers are investigated.", 2],
+  ["normal-flow", "The normal end-to-end execution flow is established from entry to persistence and response.", 3],
+  ["decision-flow", "Approval, rejection or other decision branches are established as ordered traces.", 3],
+  ["reversal-flow", "Cancellation, withdrawal, rollback or reversal behavior is established as an ordered trace.", 3],
+  ["type-variants", "All material business types, categories or variants and their distinct behavior are inventoried.", 4],
+  ["states-and-lifecycle", "States, transitions, terminal states and reversal transitions are inventoried.", 4],
+  ["calculations-and-thresholds", "Calculations, numeric/date thresholds, regional differences and boundary values are investigated.", 4],
+  ["validation-and-duplicates", "Required values, uniqueness, duplicate submission and idempotency behavior are investigated.", 4],
+  ["authorization", "Declared middleware and inline authorization checks are distinguished and investigated.", 5],
+  ["data-scope", "Object-level and list-query data scope rules are investigated by role and action.", 5],
+  ["entities-and-fields", "Core records, relationships and material fields are inventoried.", 6],
+  ["data-and-shared-storage", "Readers, writers, transactions and cross-part shared storage are investigated.", 6],
+  ["model-parity", "Different runtime parts declaring the same stored object are compared for visible shape differences.", 6],
+  ["files-and-integrations", "Files, object storage and external integrations are inventoried with transferred data categories.", 7],
+  ["notifications-and-exports", "Notifications, exports, messages and other observable side effects are inventoried.", 7],
+  ["failure-modes", "Invalid input, missing records, external failure and error propagation paths are investigated.", 8],
+  ["transactions-and-partial-success", "Transaction boundaries, asynchronous work, retries, concurrency and partial-success behavior are investigated.", 8],
+  ["configuration", "Configuration keys, defaults, switches and environment-dependent behavior are investigated.", 9],
+  ["background-work", "Background jobs, schedules, startup work and multi-instance coordination evidence are investigated.", 9],
+  ["connected-change-scope", "Callers, callees, shared records, adjacent capabilities and cross-repository reachability are inventoried.", 10],
+  ["tests", "Tests are mapped to material journeys, rules and failure branches; searched gaps retain receipts.", 11],
+  ["documentation-drift", "Documentation and generated API descriptions are compared with current entry points and implementation.", 11],
+  ["unfinished-and-current-problems", "Explicitly unfinished code, contradictions, duplicate implementations and locatable current problems are investigated.", 11],
+  ["coverage-accounting", "Graph, source, evidence, file and unresolved-reference coverage is quantified with exclusions.", 12],
+  ["open-investigation", "The feature facts suggest a material question not covered by the predefined hypotheses.", 12]
+];
+
+export function createInvestigationChecklist(runId: string, request: ReportRequest): InvestigationChecklist {
+  const items: ChecklistItem[] = [];
+  if (request.overviewAudiences.length) {
+    for (const [name, hypothesis] of PROJECT_HYPOTHESES) items.push(pendingItem(`project:${name}`, "project", hypothesis, name === "open-investigation" ? "open" : "default"));
+  }
+  const seen = new Set<string>();
+  for (const feature of request.features) {
+    const key = featureScopeKey(feature.subject, feature.aliases);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const scope = `feature:${key}`;
+    const detailed = (request.detailLevel ?? "detailed") === "detailed";
+    for (const [name, hypothesis] of FEATURE_HYPOTHESES) items.push(pendingItem(
+      `${scope}:${name}`,
+      scope,
+      hypothesis,
+      name === "open-investigation" ? "open" : "default",
+      detailed && name !== "open-investigation"
+    ));
+  }
+  return { version: 1, runId, items };
+}
+
+function pendingItem(id: string, scope: string, hypothesis: string, origin: ChecklistItem["origin"], material = false): ChecklistItem {
+  return { id, scope, hypothesis, verdict: "pending", material, evidenceIds: [], origin };
+}
+
+export function mergeChecklist(existing: InvestigationChecklist, updates: Partial<ChecklistItem>[]): InvestigationChecklist {
+  const byId = new Map(existing.items.map((item) => [item.id, { ...item }]));
+  for (const update of updates) {
+    if (!update.id) throw new Error("Checklist update is missing id");
+    const current = byId.get(update.id);
+    if (!current) {
+      if (update.origin !== "open") throw new Error(`Unknown checklist item: ${update.id}`);
+      if (!update.scope || !update.hypothesis) throw new Error(`Open checklist item ${update.id} requires scope and hypothesis`);
+      byId.set(update.id, {
+        id: update.id,
+        scope: update.scope,
+        hypothesis: update.hypothesis,
+        verdict: update.verdict ?? "pending",
+        material: update.material ?? false,
+        evidenceIds: update.evidenceIds ?? [],
+        searchScope: update.searchScope,
+        reason: update.reason,
+        settledBy: update.settledBy,
+        origin: "open"
+      });
+      continue;
+    }
+    byId.set(update.id, {
+      ...current,
+      ...update,
+      id: current.id,
+      scope: current.scope,
+      hypothesis: current.hypothesis,
+      origin: current.origin,
+      evidenceIds: update.evidenceIds ?? current.evidenceIds
+    });
+  }
+  return { ...existing, items: [...byId.values()] };
+}
+
+
+export function createInvestigationPlan(runId: string, request: ReportRequest, documents: DocumentPlan[]): InvestigationPlan {
+  const checklist = createInvestigationChecklist(runId, request);
+  const items = checklist.items.map((item): InvestigationWorkItem => ({
+    id: item.id,
+    dimension: item.id.split(":").at(-1) ?? item.id,
+    scope: item.scope,
+    hypothesis: item.hypothesis,
+    status: "pending",
+    material: item.material,
+    requiredFor: documents.filter((document) => requiredForScope(document, item.scope)).map((document) => document.id),
+    evidenceIds: [],
+    traceIds: [],
+    reportSection: item.scope.startsWith("feature:") ? FEATURE_HYPOTHESES.find(([name]) => name === (item.id.split(":").at(-1) ?? ""))?.[2] : undefined,
+    origin: item.origin
+  }));
+  return { version: 1, runId, createdAt: nowIso(), items };
+}
+
+export function mergeWorkItems(existing: InvestigationPlan, updates: Partial<InvestigationWorkItem>[]): InvestigationPlan {
+  const byId = new Map(existing.items.map((item) => [item.id, { ...item }]));
+  for (const update of updates) {
+    if (!update.id) throw new Error("Work item update is missing id");
+    const current = byId.get(update.id);
+    if (!current) {
+      if (update.origin !== "open" || !update.scope || !update.hypothesis) throw new Error(`Unknown work item: ${update.id}`);
+      byId.set(update.id, {
+        id: update.id,
+        dimension: update.dimension ?? update.id.split(":").at(-1) ?? update.id,
+        scope: update.scope,
+        hypothesis: update.hypothesis,
+        status: update.status ?? "pending",
+        material: update.material ?? false,
+        requiredFor: update.requiredFor ?? [],
+        evidenceIds: update.evidenceIds ?? [],
+        traceIds: update.traceIds ?? [],
+        reportSection: update.reportSection,
+        searchScope: update.searchScope,
+        reason: update.reason,
+        settledBy: update.settledBy,
+        origin: "open",
+        startedAt: update.startedAt,
+        completedAt: update.completedAt,
+        supersedes: update.supersedes
+      });
+      continue;
+    }
+    const status = update.status ?? current.status;
+    byId.set(update.id, {
+      ...current,
+      ...update,
+      id: current.id,
+      dimension: current.dimension,
+      scope: current.scope,
+      hypothesis: current.hypothesis,
+      origin: current.origin,
+      requiredFor: current.requiredFor,
+      status,
+      evidenceIds: update.evidenceIds ?? current.evidenceIds,
+      traceIds: update.traceIds ?? current.traceIds,
+      startedAt: update.startedAt ?? current.startedAt ?? (status !== "pending" ? nowIso() : undefined),
+      completedAt: update.completedAt ?? (isCompleteWorkItem(status) ? nowIso() : undefined)
+    });
+  }
+  return { ...existing, items: [...byId.values()] };
+}
+
+export function checklistUpdatesToWorkItems(updates: Partial<ChecklistItem>[]): Partial<InvestigationWorkItem>[] {
+  return updates.map((item) => ({
+    id: item.id,
+    status: item.verdict == null ? undefined : checklistVerdictToStatus(item.verdict),
+    material: item.material,
+    evidenceIds: item.evidenceIds,
+    searchScope: item.searchScope,
+    reason: item.reason,
+    settledBy: item.settledBy,
+    origin: item.origin
+  }));
+}
+
+export function workItemsToChecklist(plan: InvestigationPlan): InvestigationChecklist {
+  return {
+    version: 1,
+    runId: plan.runId,
+    items: plan.items.map((item) => ({
+      id: item.id,
+      scope: item.scope,
+      hypothesis: item.hypothesis,
+      verdict: workItemStatusToVerdict(item.status),
+      material: item.material,
+      evidenceIds: item.evidenceIds,
+      searchScope: item.searchScope,
+      reason: item.reason,
+      settledBy: item.settledBy,
+      origin: item.origin
+    }))
+  };
+}
+
+export async function auditEvidenceCatalog(manifest: RunManifest, evidence: EvidenceItem[]): Promise<AuditFinding[]> {
+  const findings: AuditFinding[] = [];
+  const seen = new Set<string>();
+  for (const item of evidence) {
+    if (seen.has(item.id)) findings.push(error("evidence", `duplicate evidence id: ${item.id}`));
+    seen.add(item.id);
+    if (!manifest.snapshot) {
+      findings.push(error("evidence", `run has no snapshot for evidence ${item.id}`));
+      continue;
+    }
+    if (item.snapshotId !== manifest.snapshot.id) findings.push(error("evidence", `${item.id} belongs to snapshot ${item.snapshotId || "<missing>"}, expected ${manifest.snapshot.id}`));
+    if (item.content != null) {
+      findings.push(...await auditSourceEvidence(manifest, item));
+      continue;
+    }
+    if (item.data === undefined) {
+      findings.push(error("evidence", `${item.id} has neither source content nor structured data`));
+      continue;
+    }
+    const actual = sha256(stableJson(item.data));
+    if (actual !== item.digest) findings.push(error("evidence", `${item.id} structured-data digest does not match its stored data`));
+  }
+  return findings;
+}
+
+async function auditSourceEvidence(manifest: RunManifest, item: EvidenceItem): Promise<AuditFinding[]> {
+  const findings: AuditFinding[] = [];
+  if (!item.path || item.startLine == null || item.endLine == null) return [error("evidence", `${item.id} source evidence is missing path or line range`)];
+  const absolute = resolve(manifest.request.target, item.path);
+  try { safeRelative(manifest.request.target, absolute); } catch { return [error("evidence", `${item.id} source path escapes the target: ${item.path}`)]; }
+  if (!await exists(absolute)) return [error("evidence", `${item.id} source file no longer exists: ${item.path}`)];
+  let raw: string;
+  try { raw = await readFile(absolute, "utf8"); } catch { return [error("evidence", `${item.id} source file is not readable text: ${item.path}`)]; }
+  const lines = raw.split(/\r?\n/);
+  if (item.startLine < 1 || item.endLine < item.startLine || item.endLine > lines.length) {
+    return [error("evidence", `${item.id} has invalid source range ${item.startLine}-${item.endLine}; file has ${lines.length} lines`)];
+  }
+  const selected = redactSecrets(lines.slice(item.startLine - 1, item.endLine).join("\n"));
+  const digest = sha256(selected);
+  if (digest !== item.digest) findings.push(error("evidence", `${item.id} source digest is stale for ${item.path}:${item.startLine}-${item.endLine}`));
+  if (selected !== item.content) findings.push(error("evidence", `${item.id} stored excerpt does not match the current redacted source window`));
+  return findings;
+}
+
+export function auditSectionClaims(options: {
+  documentId: string;
+  sectionIndex: number;
+  sectionText: string;
+  claimsFile: SectionClaimsFile | null;
+  evidenceIds: Set<string>;
+  traceIds?: Set<string>;
+}): AuditFinding[] {
+  const { documentId, sectionIndex, sectionText, claimsFile, evidenceIds, traceIds = new Set<string>() } = options;
+  const findings: AuditFinding[] = [];
+  const visible = visibleText(sectionText);
+  const segments = substantiveSegments(sectionText);
+  const markers = markersIn(visible);
+  const cited = evidenceIdsInSection(sectionText, evidenceIds);
+  if (!claimsFile) {
+    if (!segments.length && !markers.size && !cited.size) return findings;
+    return [error(documentId, `section ${sectionIndex} has substantive statements but no claims file`)];
+  }
+  if (!claimsFile.claims.length && segments.length) findings.push(error(documentId, `section ${sectionIndex} has substantive statements but an empty claims file`));
+  if (claimsFile.documentId !== documentId || claimsFile.section !== sectionIndex) findings.push(error(documentId, `section ${sectionIndex} claims metadata points to ${claimsFile.documentId} section ${claimsFile.section}`));
+  const claimIds = new Set<string>();
+  const declaredEvidence = new Set<string>();
+  const claimMarkers = new Set<EvidenceMarker>();
+  for (const claim of claimsFile.claims) {
+    findings.push(...auditClaim(documentId, sectionIndex, visible, claim, evidenceIds, traceIds));
+    if (claimIds.has(claim.id)) findings.push(error(documentId, `section ${sectionIndex} has duplicate claim id ${claim.id}`));
+    claimIds.add(claim.id);
+    claimMarkers.add(claim.marker);
+    for (const id of claim.evidenceIds ?? []) declaredEvidence.add(id);
+  }
+  const normalizedClaims = claimsFile.claims.map((claim) => normalizeText(claim.statement)).filter(Boolean);
+  for (const segment of segments) {
+    const covered = normalizedClaims.some((statement) => statement.includes(segment) || segment.includes(statement));
+    if (!covered) findings.push(error(documentId, `section ${sectionIndex} has an unclaimed substantive statement: ${segment.slice(0, 120)}`));
+  }
+  for (const marker of markers) if (!claimMarkers.has(marker)) findings.push(error(documentId, `section ${sectionIndex} contains ${marker} wording but declares no ${marker} claim`));
+  for (const id of cited) if (!declaredEvidence.has(id)) findings.push(error(documentId, `section ${sectionIndex} cites ${id} but no section claim declares it`));
+  for (const id of declaredEvidence) if (!cited.has(id)) findings.push(error(documentId, `section ${sectionIndex} claim declares ${id}, but the section evidence block does not cite it`));
+  return findings;
+}
+
+function evidenceIdsInSection(sectionText: string, knownEvidenceIds: Set<string>): Set<string> {
+  const cited = new Set<string>();
+  for (const id of knownEvidenceIds) if (sectionText.includes(id)) cited.add(id);
+  const pattern = /(?<![\p{L}\p{N}_])((?:S|CG|FG|GIT|SEARCH|SCOPE|PROVIDER)-[\p{L}\p{N}][\p{L}\p{N}._:-]*)(?![\p{L}\p{N}_.:-])/gu;
+  for (const match of sectionText.matchAll(pattern)) cited.add(match[1]);
+  return cited;
+}
+
+function auditClaim(documentId: string, sectionIndex: number, visible: string, claim: SectionClaim, evidenceIds: Set<string>, traceIds: Set<string>): AuditFinding[] {
+  const findings: AuditFinding[] = [];
+  if (!claim.id.trim()) findings.push(error(documentId, `section ${sectionIndex} has a claim with no id`));
+  const statement = normalizeText(claim.statement);
+  if (statement.length < 6) findings.push(error(documentId, `claim ${claim.id || "<missing>"} statement is too short to bind to report prose`));
+  else if (!normalizeText(visible).includes(statement)) findings.push(error(documentId, `claim ${claim.id} statement is not present in section ${sectionIndex}`));
+  if (claim.marker === "unavailable") {
+    if (claim.evidenceIds?.length) findings.push(error(documentId, `unavailable claim ${claim.id} must not cite evidence ids`));
+    if (!claim.reason?.trim()) findings.push(error(documentId, `unavailable claim ${claim.id} requires a reason`));
+  } else {
+    if (!claim.evidenceIds?.length) findings.push(error(documentId, `${claim.marker} claim ${claim.id} requires evidence ids`));
+    for (const id of claim.evidenceIds ?? []) if (!evidenceIds.has(id)) findings.push(error(documentId, `claim ${claim.id} references missing evidence id ${id}`));
+  }
+  for (const id of claim.traceIds ?? []) if (!traceIds.has(id)) findings.push(error(documentId, `claim ${claim.id} references missing trace id ${id}`));
+  if (claim.status === "verified" && claim.confidence === "low") findings.push(error(documentId, `verified claim ${claim.id} cannot have low confidence`));
+  return findings;
+}
+
+export function auditChecklist(checklist: InvestigationChecklist, expected: InvestigationChecklist, evidenceById: Map<string, EvidenceItem>): AuditFinding[] {
+  const evidenceIds = new Set(evidenceById.keys());
+  const findings: AuditFinding[] = [];
+  const expectedIds = new Set(expected.items.map((item) => item.id));
+  const seen = new Set<string>();
+  for (const item of checklist.items) {
+    if (seen.has(item.id)) findings.push(error("checklist", `duplicate checklist item: ${item.id}`));
+    seen.add(item.id);
+    if (!expectedIds.has(item.id) && item.origin !== "open") findings.push(error("checklist", `unexpected non-open checklist item: ${item.id}`));
+    if (item.verdict === "pending") findings.push(error("checklist", `checklist item was not dispositioned: ${item.id}`));
+    if (item.verdict === "hit") {
+      if (!item.evidenceIds.length) findings.push(error("checklist", `hit checklist item has no evidence: ${item.id}`));
+    } else if (item.verdict === "searched-not-found") {
+      if (!item.searchScope?.trim()) findings.push(error("checklist", `searched-not-found item has no search scope: ${item.id}`));
+      if (!item.evidenceIds.length) findings.push(error("checklist", `searched-not-found item has no search receipt evidence: ${item.id}`));
+      const receipts = item.evidenceIds.map((id) => evidenceById.get(id)).filter((evidence): evidence is EvidenceItem => evidence?.kind === "search");
+      if (!receipts.length) findings.push(error("checklist", `searched-not-found item cites no SEARCH receipt: ${item.id}`));
+      for (const receipt of receipts) {
+        const data = receipt.data as Record<string, unknown> | undefined;
+        const matches = Array.isArray(data?.matches) ? data.matches : null;
+        if (!data || Number(data.candidateFiles ?? 0) <= 0) findings.push(error("checklist", `search receipt ${receipt.id} covered no candidate files for ${item.id}`));
+        if (data?.truncated === true) findings.push(error("checklist", `search receipt ${receipt.id} was truncated and cannot support searched-not-found for ${item.id}`));
+        if (!matches) findings.push(error("checklist", `search receipt ${receipt.id} has no matches array for ${item.id}`));
+        else if (matches.length) findings.push(error("checklist", `search receipt ${receipt.id} contains matches and cannot support searched-not-found for ${item.id}`));
+      }
+    } else if (item.verdict === "cannot-determine") {
+      if (!item.reason?.trim() || !item.settledBy?.trim()) findings.push(error("checklist", `cannot-determine item requires reason and settledBy: ${item.id}`));
+      if (!item.evidenceIds.length) findings.push(error("checklist", `cannot-determine item has no evidence for the analysis limitation: ${item.id}`));
+      const limitationKinds = new Set(["search", "coverage", "graph", "manifest", "git"]);
+      if (item.evidenceIds.length && !item.evidenceIds.some((id) => limitationKinds.has(evidenceById.get(id)?.kind ?? ""))) {
+        findings.push(error("checklist", `cannot-determine item cites no coverage, graph, manifest, git or search evidence: ${item.id}`));
+      }
+    }
+    for (const id of item.evidenceIds) if (!evidenceIds.has(id)) findings.push(error("checklist", `checklist item ${item.id} references missing evidence id ${id}`));
+  }
+  for (const id of expectedIds) if (!seen.has(id)) findings.push(error("checklist", `required checklist item is missing: ${id}`));
+  return findings;
+}
+
+
+
+const ANALYSIS_METHOD_TERMS: Array<RegExp> = [
+  /\bCodeGraph\b/i,
+  /\bExcavator\b/i,
+  /unresolved[ -]?(?:reference|edge|relation)s?/i,
+  /未解析(?:引用|关系|边)/,
+  /源码回退|source fallback/i,
+  /source window|源码窗口/i,
+  /provider (?:coverage|selection|mode)|provider 覆盖|提供方覆盖/i,
+  /candidate (?:node|file)s?|候选(?:节点|文件)/i,
+  /graph coverage|图覆盖/i,
+  /analysis (?:budget|performance|limitation)|分析(?:预算|性能|限制|不足)/i,
+  /static[- ]review limitation|静态(?:审阅|分析)(?:限制|不足)/i,
+  /handler[- ]resolution|处理角色解析|路由解析能力/i
+];
+
+export function auditTargetProblemAttribution(options: {
+  document: DocumentPlan;
+  sectionIndex: number;
+  sectionText: string;
+}): AuditFinding[] {
+  const { document, sectionIndex, sectionText } = options;
+  const problemSection = document.kind === "overview"
+    ? (document.audience === "product" ? 9 : 11)
+    : (document.audience === "product" ? 10 : 11);
+  if (sectionIndex !== problemSection) return [];
+  const visible = visibleText(sectionText);
+  const findings: AuditFinding[] = [];
+  for (const pattern of ANALYSIS_METHOD_TERMS) {
+    pattern.lastIndex = 0;
+    if (pattern.test(visible)) findings.push(error(document.id, `section ${sectionIndex} contains analysis-method information in a target problem section: ${pattern}`));
+  }
+  return findings;
+}
+
+export function auditDetailedFeatureSection(options: {
+  document: DocumentPlan;
+  detailLevel: "standard" | "detailed" | undefined;
+  sectionIndex: number;
+  sectionText: string;
+  claimsFile: SectionClaimsFile | null;
+}): AuditFinding[] {
+  const { document, detailLevel, sectionIndex, sectionText, claimsFile } = options;
+  if ((detailLevel ?? "detailed") !== "detailed" || document.kind !== "feature" || document.audience !== "engineering") return [];
+  const minimumClaims = [0, 6, 8, 6, 16, 8, 8, 7, 7, 6, 7, 7, 6];
+  const findings: AuditFinding[] = [];
+  const count = claimsFile?.claims.length ?? 0;
+  if (count < minimumClaims[sectionIndex]) findings.push(error(document.id, `detailed section ${sectionIndex} has ${count} claims; minimum is ${minimumClaims[sectionIndex]}`));
+  const tableSections = new Set([1, 2, 4, 5, 6, 7, 8, 9, 11, 12]);
+  const diagramSections = new Set([3, 10]);
+  if (tableSections.has(sectionIndex) && !/^\s*\|.+\|\s*$/m.test(visibleText(sectionText))) findings.push(error(document.id, `detailed section ${sectionIndex} requires an inventory or comparison table`));
+  if (diagramSections.has(sectionIndex) && !/```mermaid[\s\S]*?```/i.test(sectionText)) findings.push(error(document.id, `detailed section ${sectionIndex} requires a Mermaid flow or dependency diagram`));
+  return findings;
+}
+
+export function auditWorkItemClaimCoverage(plan: InvestigationPlan, documents: DocumentPlan[], claimsByDocument: Map<string, Array<{ section: number; claim: SectionClaim }>>): AuditFinding[] {
+  const findings: AuditFinding[] = [];
+  const items = new Map(plan.items.map((item) => [item.id, item]));
+  for (const document of documents) {
+    const claims = claimsByDocument.get(document.id) ?? [];
+    for (const { section, claim } of claims) {
+      for (const id of claim.workItemIds ?? []) {
+        const item = items.get(id);
+        if (!item) { findings.push(error(document.id, `claim ${claim.id} references unknown work item ${id}`)); continue; }
+        if (!item.requiredFor.includes(document.id)) findings.push(error(document.id, `claim ${claim.id} references work item ${id} that is not required for this document`));
+        if (item.reportSection && item.reportSection !== section) findings.push(error(document.id, `claim ${claim.id} links work item ${id} to section ${section}, expected section ${item.reportSection}`));
+      }
+    }
+    for (const item of plan.items.filter((candidate) => candidate.material && candidate.requiredFor.includes(document.id) && candidate.origin !== "open")) {
+      const linked = claims.filter(({ claim }) => (claim.workItemIds ?? []).includes(item.id));
+      if (!linked.length) { findings.push(error(document.id, `material work item ${item.id} is not represented by any report claim`)); continue; }
+      if (item.status === "found") {
+        const grounded = linked.some(({ claim }) => (claim.evidenceIds ?? []).some((id) => item.evidenceIds.includes(id)) || (claim.traceIds ?? []).some((id) => item.traceIds.includes(id)));
+        if (!grounded) findings.push(error(document.id, `claims for material work item ${item.id} do not reuse its evidence or trace`));
+      }
+      if (item.status === "searched-not-found" && !linked.some(({ claim }) => claim.marker === "verified" && (claim.evidenceIds ?? []).some((id) => item.evidenceIds.includes(id)))) {
+        findings.push(error(document.id, `searched-not-found work item ${item.id} requires a linked verified claim using its search receipt`));
+      }
+      if (["cannot-determine", "not-applicable"].includes(item.status) && !linked.some(({ claim }) => claim.marker === "unavailable" || claim.marker === "verified")) {
+        findings.push(error(document.id, `unresolved work item ${item.id} requires a linked unavailable or verified claim`));
+      }
+    }
+  }
+  return findings;
+}
+
+export function validateClaimsInput(documentId: string, section: number, claims: SectionClaim[]): SectionClaimsFile {
+  if (!Array.isArray(claims)) throw new Error("Claims must be an array");
+  for (const claim of claims) {
+    if (!claim || typeof claim !== "object") throw new Error("Each claim must be an object");
+    if (!claim.id || !claim.statement || !["fact", "verified", "inferred", "unavailable"].includes(claim.marker)) throw new Error(`Invalid claim in ${documentId} section ${section}`);
+  }
+  return { version: 2, documentId, section, claims };
+}
+
+
+
+export function auditWorkItems(plan: InvestigationPlan, expected: InvestigationPlan, evidenceById: Map<string, EvidenceItem>, traceIds: Set<string>): AuditFinding[] {
+  const findings: AuditFinding[] = [];
+  const expectedIds = new Set(expected.items.map((item) => item.id));
+  const evidenceIds = new Set(evidenceById.keys());
+  const seen = new Set<string>();
+  for (const item of plan.items) {
+    if (seen.has(item.id)) findings.push(error("workitems", `duplicate work item: ${item.id}`));
+    seen.add(item.id);
+    if (!expectedIds.has(item.id) && item.origin !== "open") findings.push(error("workitems", `unexpected non-open work item: ${item.id}`));
+    if (!item.requiredFor.length && item.origin !== "open") findings.push(error("workitems", `work item has no required documents: ${item.id}`));
+    if (item.status === "pending" || item.status === "in_progress") findings.push(error("workitems", `work item was not completed: ${item.id}`));
+    if (item.status === "found" && !item.evidenceIds.length) findings.push(error("workitems", `found work item has no evidence: ${item.id}`));
+    if (item.status === "not-applicable" && !item.reason?.trim()) findings.push(error("workitems", `not-applicable work item requires a reason: ${item.id}`));
+    if (item.status === "cannot-determine" && (!item.reason?.trim() || !item.settledBy?.trim() || !item.evidenceIds.length)) {
+      findings.push(error("workitems", `cannot-determine work item requires reason, settledBy and limitation evidence: ${item.id}`));
+    }
+    if (item.status === "searched-not-found") {
+      if (!item.searchScope?.trim()) findings.push(error("workitems", `searched-not-found work item has no search scope: ${item.id}`));
+      const receipts = item.evidenceIds.map((id) => evidenceById.get(id)).filter((evidence): evidence is EvidenceItem => evidence?.kind === "search");
+      if (!receipts.length) findings.push(error("workitems", `searched-not-found work item cites no SEARCH receipt: ${item.id}`));
+      for (const receipt of receipts) {
+        const data = receipt.data as Record<string, unknown> | undefined;
+        const matches = Array.isArray(data?.matches) ? data.matches : null;
+        if (!data || Number(data.candidateFiles ?? 0) <= 0 || data.truncated === true || !matches || matches.length) {
+          findings.push(error("workitems", `search receipt ${receipt.id} cannot prove searched-not-found for ${item.id}`));
+        }
+      }
+    }
+    if (item.material && item.status === "found" && ["normal-flow", "decision-flow", "reversal-flow", "states-and-lifecycle", "notifications-and-exports"].includes(item.dimension) && !item.traceIds.length) {
+      findings.push(error("workitems", `material flow work item has no trace: ${item.id}`));
+    }
+    for (const id of item.evidenceIds) if (!evidenceIds.has(id)) findings.push(error("workitems", `work item ${item.id} references missing evidence id ${id}`));
+    for (const id of item.traceIds) if (!traceIds.has(id)) findings.push(error("workitems", `work item ${item.id} references missing trace id ${id}`));
+  }
+  for (const id of expectedIds) if (!seen.has(id)) findings.push(error("workitems", `required work item is missing: ${id}`));
+  return findings;
+}
+
+export function auditTraces(catalog: TraceCatalog, documentIds: Set<string>, evidenceIds: Set<string>, claimIds: Set<string>): AuditFinding[] {
+  const findings: AuditFinding[] = [];
+  const ids = new Set<string>();
+  for (const trace of catalog.traces) {
+    if (!trace.id.trim()) findings.push(error("traces", "trace has no id"));
+    if (ids.has(trace.id)) findings.push(error("traces", `duplicate trace id: ${trace.id}`));
+    ids.add(trace.id);
+    if (!trace.documentIds.length) findings.push(error("traces", `trace ${trace.id} is not linked to a document`));
+    for (const id of trace.documentIds) if (!documentIds.has(id)) findings.push(error("traces", `trace ${trace.id} references unknown document ${id}`));
+    if (trace.status === "unavailable") {
+      if (!trace.reason?.trim()) findings.push(error("traces", `unavailable trace ${trace.id} requires a reason`));
+      continue;
+    }
+    if (!trace.steps.length) findings.push(error("traces", `trace ${trace.id} has no steps`));
+    const stepNumbers = trace.steps.map((step) => step.index);
+    if (stepNumbers.some((value, index) => value !== index + 1)) findings.push(error("traces", `trace ${trace.id} steps are not sequential`));
+    for (const step of trace.steps) {
+      if (!step.action.trim()) findings.push(error("traces", `trace ${trace.id} step ${step.index} has no action`));
+      if (trace.status === "verified" && !step.evidenceIds.length) findings.push(error("traces", `verified trace ${trace.id} step ${step.index} has no evidence`));
+      for (const id of step.evidenceIds) if (!evidenceIds.has(id)) findings.push(error("traces", `trace ${trace.id} references missing evidence id ${id}`));
+      for (const id of step.claimIds ?? []) if (!claimIds.has(id)) findings.push(error("traces", `trace ${trace.id} references missing claim id ${id}`));
+    }
+    if (trace.status === "verified" && trace.confidence === "low") findings.push(error("traces", `verified trace ${trace.id} cannot have low confidence`));
+  }
+  for (const trace of catalog.traces) if (trace.supersedes && !ids.has(trace.supersedes)) findings.push(error("traces", `trace ${trace.id} supersedes missing trace ${trace.supersedes}`));
+  return findings;
+}
+
+function requiredForScope(document: DocumentPlan, scope: string): boolean {
+  if (scope === "project") return document.kind === "overview";
+  if (!scope.startsWith("feature:") || document.kind !== "feature") return false;
+  return document.id.includes(scope.slice("feature:".length));
+}
+function checklistVerdictToStatus(verdict: ChecklistItem["verdict"]): InvestigationWorkItem["status"] {
+  return verdict === "hit" ? "found" : verdict;
+}
+function workItemStatusToVerdict(status: InvestigationWorkItem["status"]): ChecklistItem["verdict"] {
+  if (status === "found") return "hit";
+  if (status === "not-applicable") return "cannot-determine";
+  if (status === "in_progress") return "pending";
+  return status;
+}
+function isCompleteWorkItem(status: InvestigationWorkItem["status"]): boolean {
+  return !["pending", "in_progress"].includes(status);
+}
+
+function substantiveSegments(section: string): string[] {
+  const lines = visibleText(section).split(/\r?\n/);
+  const segments: string[] = [];
+  for (let line of lines) {
+    line = line.trim();
+    if (!line || /^#{1,6}\s+/.test(line) || /^[-| :]+$/.test(line)) continue;
+    if (/^\|?(?:\s*:?-{3,}:?\s*\|)+\s*$/.test(line)) continue;
+    line = line
+      .replace(/^[-*+]\s+/, "")
+      .replace(/^\d+[.)]\s+/, "")
+      .replace(/\*\*([^*]+)\*\*/g, "$1")
+      .replace(/`(?:事实|验证|推断|不可得|fact|verified|inferred|unavailable)`/gi, "")
+      .trim();
+    if (line.startsWith("|") && line.endsWith("|")) {
+      line = line.slice(1, -1).split("|").map((cell) => cell.trim()).filter(Boolean).join("；");
+    }
+    for (const part of line.split(/(?<=[。！？!?；;])\s*|(?<=\.)\s+(?=[A-Z0-9])/u)) {
+      const normalized = normalizeText(part).trim();
+      const semanticLength = (normalized.match(/[\p{Letter}\p{Number}]/gu) ?? []).length;
+      if (semanticLength >= 8) segments.push(normalized);
+    }
+  }
+  return [...new Set(segments)];
+}
+
+function visibleText(section: string): string {
+  return section
+    .replace(/<details[\s\S]*?<\/details>/gi, " ")
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/<!--([\s\S]*?)-->/g, " ");
+}
+
+function markersIn(text: string): Set<EvidenceMarker> {
+  const markers = new Set<EvidenceMarker>();
+  if (/(?:`事实`|\bfact\b)/i.test(text)) markers.add("fact");
+  if (/(?:`验证`|\bverified\b)/i.test(text)) markers.add("verified");
+  if (/(?:`推断`|\binferred\b)/i.test(text)) markers.add("inferred");
+  if (/(?:`不可得`|\bunavailable\b)/i.test(text)) markers.add("unavailable");
+  return markers;
+}
+
+function normalizeText(value: string): string { return value.replace(/[`*_>#-]/g, " ").replace(/\s+/g, " ").trim(); }
+function featureScopeKey(subject: string, aliases: string[]): string { return sha256(stableJson({ subject: subject.trim().toLowerCase(), aliases: [...aliases].sort() })).slice(0, 10); }
+function error(document: string, message: string): AuditFinding { return { level: "error", document, message }; }

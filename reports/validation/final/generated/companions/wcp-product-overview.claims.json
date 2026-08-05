@@ -1,0 +1,495 @@
+{
+  "documentId": "overview-product",
+  "sections": [
+    {
+      "claims": [
+        {
+          "confidence": "high",
+          "evidenceIds": [
+            "GIT-93d5c4e1bea65591c080",
+            "S-c8db0a3e19",
+            "S-65964e40ad",
+            "S-6eb609addf",
+            "S-3223991b08",
+            "S-71db89c982"
+          ],
+          "id": "overview-product-S1-C1",
+          "marker": "fact",
+          "statement": "WCP 当前快照由一个统一前端、一个主平台服务、一个早期 Node 服务、一个绩效与晋升服务和一个身份服务共同组成。",
+          "status": "verified",
+          "traceIds": [
+            "T-overview-product-boundary"
+          ]
+        },
+        {
+          "confidence": "high",
+          "evidenceIds": [
+            "S-c8db0a3e19",
+            "CG-NODES-93d5c4e1bea65591c080"
+          ],
+          "id": "overview-product-S1-C2",
+          "marker": "fact",
+          "statement": "当前源码覆盖员工自助、项目与客户、工时、请假、行政申请、报销、账单、招聘、绩效与晋升等组织活动。",
+          "status": "verified",
+          "traceIds": []
+        },
+        {
+          "confidence": "low",
+          "id": "overview-product-S1-C3",
+          "marker": "unavailable",
+          "reason": "Static source does not include deployment enablement or organizational migration decisions.",
+          "statement": "生产环境实际启用的入口以及组织如何定义新旧服务并存阶段不在静态快照中。",
+          "status": "candidate"
+        }
+      ],
+      "documentId": "overview-product",
+      "section": 1,
+      "version": 2
+    },
+    {
+      "claims": [
+        {
+          "confidence": "high",
+          "evidenceIds": [
+            "S-c8db0a3e19"
+          ],
+          "id": "overview-product-S2-C1",
+          "marker": "fact",
+          "statement": "前端把员工自助、项目跟踪、公司内容和管理后台组合为同一用户界面。",
+          "status": "verified",
+          "traceIds": []
+        },
+        {
+          "confidence": "high",
+          "evidenceIds": [
+            "S-65964e40ad",
+            "S-6eb609addf"
+          ],
+          "id": "overview-product-S2-C2",
+          "marker": "fact",
+          "statement": "主平台 Go 服务承载范围最广的业务 API，早期 Node 服务仍注册工时、项目、请假、假期、报表和集成入口。",
+          "status": "verified",
+          "traceIds": []
+        },
+        {
+          "confidence": "high",
+          "evidenceIds": [
+            "S-3223991b08",
+            "S-71db89c982"
+          ],
+          "id": "overview-product-S2-C3",
+          "marker": "fact",
+          "statement": "绩效服务与身份服务保持独立路由边界。",
+          "status": "verified",
+          "traceIds": [
+            "T-overview-product-boundary"
+          ]
+        }
+      ],
+      "documentId": "overview-product",
+      "section": 2,
+      "version": 2
+    },
+    {
+      "claims": [
+        {
+          "confidence": "high",
+          "evidenceIds": [
+            "S-c8db0a3e19"
+          ],
+          "id": "overview-product-S3-C1",
+          "marker": "fact",
+          "statement": "前端菜单把能力分为个人工作、项目跟踪、公司内容和管理操作。",
+          "status": "verified",
+          "traceIds": []
+        },
+        {
+          "confidence": "high",
+          "evidenceIds": [
+            "S-c8db0a3e19"
+          ],
+          "id": "overview-product-S3-C2",
+          "marker": "fact",
+          "statement": "个人工作包含工时、请假、行政申请和报销，管理能力包含项目、招聘、账单、审批、工时表和员工管理。",
+          "status": "verified",
+          "traceIds": []
+        },
+        {
+          "confidence": "high",
+          "evidenceIds": [
+            "CG-NODES-93d5c4e1bea65591c080",
+            "CG-ROUTES-93d5c4e1bea65591c080",
+            "S-6361355de5"
+          ],
+          "id": "overview-product-S3-C3",
+          "marker": "fact",
+          "statement": "静态路由与节点清单还覆盖绩效、晋升、身份、文件、通知和后台任务。",
+          "status": "verified",
+          "traceIds": []
+        }
+      ],
+      "documentId": "overview-product",
+      "section": 3,
+      "version": 2
+    },
+    {
+      "claims": [
+        {
+          "confidence": "high",
+          "evidenceIds": [
+            "S-f760790d01"
+          ],
+          "id": "overview-product-S4-C1",
+          "marker": "fact",
+          "statement": "主平台定义普通员工、管理员、项目管理、人力资源、绩效管理员、客户、销售、费率管理、办公室管理、发票管理和系统管理员等角色。",
+          "status": "verified",
+          "traceIds": []
+        },
+        {
+          "confidence": "high",
+          "evidenceIds": [
+            "S-c8db0a3e19"
+          ],
+          "id": "overview-product-S4-C2",
+          "marker": "fact",
+          "statement": "前端对项目、招聘、账单、审批和员工管理菜单声明了不同的角色集合。",
+          "status": "verified",
+          "traceIds": []
+        },
+        {
+          "confidence": "high",
+          "evidenceIds": [
+            "S-0dfa358717",
+            "S-67fa2b8d8e"
+          ],
+          "id": "overview-product-S4-C3",
+          "marker": "fact",
+          "statement": "请假等业务还在服务函数内执行对象级审批人、本人、管理员和人力资源判断。",
+          "status": "verified",
+          "traceIds": []
+        },
+        {
+          "confidence": "low",
+          "id": "overview-product-S4-C4",
+          "marker": "unavailable",
+          "reason": "The workspace contains hundreds of entry points and distributed inline guards; exhaustive role-object execution tests were not part of this run.",
+          "statement": "完整的角色乘以入口乘以业务对象权限矩阵尚未由本次静态审查建立。",
+          "status": "candidate"
+        }
+      ],
+      "documentId": "overview-product",
+      "section": 4,
+      "version": 2
+    },
+    {
+      "claims": [
+        {
+          "confidence": "high",
+          "evidenceIds": [
+            "CG-NODES-93d5c4e1bea65591c080",
+            "S-c6de697e4d",
+            "S-76e9776b00"
+          ],
+          "id": "overview-product-S5-C1",
+          "marker": "fact",
+          "statement": "当前产品围绕员工、项目、项目成员、工时、请假、假期额度、审批、账单、绩效记录和候选人等对象工作。",
+          "status": "verified",
+          "traceIds": []
+        },
+        {
+          "confidence": "high",
+          "evidenceIds": [
+            "S-c6de697e4d",
+            "S-76e9776b00"
+          ],
+          "id": "overview-product-S5-C2",
+          "marker": "fact",
+          "statement": "请假对象连接申请人、项目、假期类型、日期、小时、审批记录、额度记录和附件引用。",
+          "status": "verified",
+          "traceIds": []
+        },
+        {
+          "confidence": "high",
+          "evidenceIds": [
+            "S-a1a6aa5fc8",
+            "S-f41d5a8e89"
+          ],
+          "id": "overview-product-S5-C3",
+          "marker": "fact",
+          "statement": "请假生命周期包含多级待审、批准、拒绝、完成、取消和等待负责人同意取消等状态。",
+          "status": "verified",
+          "traceIds": []
+        }
+      ],
+      "documentId": "overview-product",
+      "section": 5,
+      "version": 2
+    },
+    {
+      "claims": [
+        {
+          "confidence": "high",
+          "evidenceIds": [
+            "S-c6de697e4d",
+            "S-76e9776b00",
+            "S-d578182a91",
+            "S-4443576f3f",
+            "S-89cb8f7a6d"
+          ],
+          "id": "overview-product-S6-C1",
+          "marker": "fact",
+          "statement": "主平台 Go 模型和早期 Node 模型都映射到请假、请假明细和年度假期额度等同名数据表。",
+          "status": "verified",
+          "traceIds": []
+        },
+        {
+          "confidence": "high",
+          "evidenceIds": [
+            "S-c6de697e4d",
+            "S-d578182a91"
+          ],
+          "id": "overview-product-S6-C2",
+          "marker": "fact",
+          "statement": "这表明同一业务数据形状由多个服务实现直接映射；是否都在生产写入同一个数据库实例无法由静态源码确认。",
+          "status": "verified",
+          "traceIds": []
+        },
+        {
+          "confidence": "high",
+          "evidenceIds": [
+            "S-d87801d77e",
+            "S-35a6fd64c9",
+            "S-f3cb7b75a1",
+            "S-6fc481bb29"
+          ],
+          "id": "overview-product-S6-C3",
+          "marker": "fact",
+          "statement": "文件、导出、邮件和移动通知会把部分业务内容交给对象存储或外部消息能力。",
+          "status": "verified",
+          "traceIds": []
+        },
+        {
+          "confidence": "low",
+          "id": "overview-product-S6-C4",
+          "marker": "unavailable",
+          "reason": "The reviewed source does not include authoritative production database topology or retention policy.",
+          "statement": "生产数据库拓扑、数据保留期和租户隔离方式不在源码快照中。",
+          "status": "candidate"
+        }
+      ],
+      "documentId": "overview-product",
+      "section": 6,
+      "version": 2
+    },
+    {
+      "claims": [
+        {
+          "confidence": "high",
+          "evidenceIds": [
+            "S-d87801d77e",
+            "S-6a2a2a6280"
+          ],
+          "id": "overview-product-S7-C1",
+          "marker": "fact",
+          "statement": "主平台初始化包含数据库、对象存储、邮件、Google 服务和后台任务等外部依赖。",
+          "status": "verified",
+          "traceIds": []
+        },
+        {
+          "confidence": "high",
+          "evidenceIds": [
+            "S-5c8236a440",
+            "S-fac701474a",
+            "S-6361355de5"
+          ],
+          "id": "overview-product-S7-C2",
+          "marker": "fact",
+          "statement": "早期服务依赖邮件、Slack、Jira 和定时任务，并通过环境配置控制部分行为。",
+          "status": "verified",
+          "traceIds": []
+        },
+        {
+          "confidence": "high",
+          "evidenceIds": [
+            "S-d87801d77e",
+            "S-0dfa358717",
+            "S-4166c03709"
+          ],
+          "id": "overview-product-S7-C3",
+          "marker": "fact",
+          "statement": "应用代码中的失败处理并不统一，有些路径返回错误，有些异步执行只启动 goroutine。",
+          "status": "verified",
+          "traceIds": []
+        }
+      ],
+      "documentId": "overview-product",
+      "section": 7,
+      "version": 2
+    },
+    {
+      "claims": [
+        {
+          "confidence": "high",
+          "evidenceIds": [
+            "S-c8db0a3e19",
+            "S-6361355de5"
+          ],
+          "id": "overview-product-S8-C1",
+          "marker": "fact",
+          "statement": "系统提供审批、员工与项目维护、招聘、账单、导出、政策内容和周期性任务等后台能力。",
+          "status": "verified",
+          "traceIds": []
+        },
+        {
+          "confidence": "high",
+          "evidenceIds": [
+            "S-6361355de5"
+          ],
+          "id": "overview-product-S8-C2",
+          "marker": "fact",
+          "statement": "早期服务仍注册请假邮件、请假完成、下一年度额度、工时提醒和绩效通知任务。",
+          "status": "verified",
+          "traceIds": []
+        },
+        {
+          "confidence": "high",
+          "evidenceIds": [
+            "S-b15037a9b4",
+            "S-2434611856",
+            "S-3e96649c38"
+          ],
+          "id": "overview-product-S8-C3",
+          "marker": "fact",
+          "statement": "部分后台可见性和计费规则直接比较办公室、项目或客户的数字标识。",
+          "status": "verified",
+          "traceIds": []
+        }
+      ],
+      "documentId": "overview-product",
+      "section": 8,
+      "version": 2
+    },
+    {
+      "claims": [
+        {
+          "confidence": "high",
+          "evidenceIds": [
+            "S-1d47c71c0a"
+          ],
+          "id": "overview-product-S9-C1",
+          "marker": "fact",
+          "statement": "主平台源码包含一个固定的对称加密密钥字面量，并由加密和解密函数共同使用。",
+          "status": "verified",
+          "traceIds": []
+        },
+        {
+          "confidence": "high",
+          "evidenceIds": [
+            "S-b15037a9b4",
+            "S-2434611856",
+            "S-3e96649c38"
+          ],
+          "id": "overview-product-S9-C2",
+          "marker": "fact",
+          "statement": "部分运营和分析行为直接依赖办公室、项目或客户的固定数字标识。",
+          "status": "verified",
+          "traceIds": []
+        },
+        {
+          "confidence": "high",
+          "evidenceIds": [
+            "S-65964e40ad",
+            "S-6eb609addf",
+            "S-c6de697e4d",
+            "S-d578182a91",
+            "S-89cb8f7a6d"
+          ],
+          "id": "overview-product-S9-C3",
+          "marker": "fact",
+          "statement": "主平台和早期服务同时保留请假入口并映射相同的请假与额度数据表。",
+          "status": "verified",
+          "traceIds": []
+        },
+        {
+          "confidence": "high",
+          "evidenceIds": [
+            "S-0dfa358717",
+            "S-4166c03709"
+          ],
+          "id": "overview-product-S9-C4",
+          "marker": "fact",
+          "statement": "请假审批和撤销事务路径会在事务回调尚未结束时启动异步通知执行。",
+          "status": "verified",
+          "traceIds": []
+        },
+        {
+          "confidence": "high",
+          "evidenceIds": [
+            "S-c9e7d1d529",
+            "S-9e879b011b"
+          ],
+          "id": "overview-product-S9-C5",
+          "marker": "fact",
+          "statement": "前端 README 的依赖说明与当前 package manifest 并不完全一致。",
+          "status": "verified",
+          "traceIds": []
+        }
+      ],
+      "documentId": "overview-product",
+      "section": 9,
+      "version": 2
+    },
+    {
+      "claims": [
+        {
+          "confidence": "high",
+          "evidenceIds": [
+            "GIT-93d5c4e1bea65591c080",
+            "SCOPE-57a7c467b0d4"
+          ],
+          "id": "overview-product-S10-C1",
+          "marker": "fact",
+          "statement": "本次快照覆盖五个 Git 根目录和 2,007 个 Git-aware 候选文件。",
+          "status": "verified",
+          "traceIds": []
+        },
+        {
+          "confidence": "high",
+          "evidenceIds": [
+            "CG-93d5c4e1bea65591c080",
+            "PROVIDER-891848566cee"
+          ],
+          "id": "overview-product-S10-C2",
+          "marker": "fact",
+          "statement": "CodeGraph 覆盖 1,726 个可索引源码文件中的 1,639 个，覆盖率为 94.96%。",
+          "status": "verified",
+          "traceIds": []
+        },
+        {
+          "confidence": "high",
+          "evidenceIds": [
+            "PROVIDER-891848566cee",
+            "FG-请假管理-b7b1c60e9c-93d5c4e1bea65591c080"
+          ],
+          "id": "overview-product-S10-C3",
+          "marker": "fact",
+          "statement": "图索引未覆盖或语义不足的位置通过当前 snapshot 的源码窗口进行确认。",
+          "status": "verified",
+          "traceIds": []
+        },
+        {
+          "confidence": "low",
+          "id": "overview-product-S10-C4",
+          "marker": "unavailable",
+          "reason": "These questions require runtime configuration, telemetry, database metadata and external consumer records.",
+          "statement": "实际流量、启用任务、数据库约束、通知送达和外部客户端清单无法由静态源码回答。",
+          "status": "candidate"
+        }
+      ],
+      "documentId": "overview-product",
+      "section": 10,
+      "version": 2
+    }
+  ],
+  "version": 1
+}

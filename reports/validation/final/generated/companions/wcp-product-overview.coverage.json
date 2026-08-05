@@ -1,0 +1,249 @@
+{
+  "complete": 12,
+  "documentId": "overview-product",
+  "items": [
+    {
+      "completedAt": "2026-08-05T00:57:07.344Z",
+      "dimension": "literal-secrets",
+      "evidenceIds": [
+        "S-1d47c71c0a"
+      ],
+      "hypothesis": "Credentials, private keys, tokens or cryptographic secrets are written as source literals.",
+      "id": "project:literal-secrets",
+      "material": true,
+      "origin": "default",
+      "requiredFor": [
+        "overview-product"
+      ],
+      "scope": "project",
+      "startedAt": "2026-08-05T00:57:07.344Z",
+      "status": "found",
+      "traceIds": []
+    },
+    {
+      "completedAt": "2026-08-05T00:57:07.344Z",
+      "dimension": "literal-identifiers",
+      "evidenceIds": [
+        "S-b15037a9b4",
+        "S-2434611856",
+        "S-3e96649c38"
+      ],
+      "hypothesis": "Business behavior compares against literal record, tenant, customer, office, project or role identifiers.",
+      "id": "project:literal-identifiers",
+      "material": true,
+      "origin": "default",
+      "requiredFor": [
+        "overview-product"
+      ],
+      "scope": "project",
+      "startedAt": "2026-08-05T00:57:07.344Z",
+      "status": "found",
+      "traceIds": []
+    },
+    {
+      "completedAt": "2026-08-05T00:57:07.344Z",
+      "dimension": "guard-polarity",
+      "evidenceIds": [
+        "CG-93d5c4e1bea65591c080"
+      ],
+      "hypothesis": "Equivalent authorization checks use inconsistent negation or allow/deny polarity.",
+      "id": "project:guard-polarity",
+      "material": true,
+      "origin": "default",
+      "reason": "The review sampled role and object checks but did not normalize every allow/deny expression across 926 route candidates.",
+      "requiredFor": [
+        "overview-product"
+      ],
+      "scope": "project",
+      "settledBy": "A route-by-route authorization model plus executable role and object access tests.",
+      "startedAt": "2026-08-05T00:57:07.344Z",
+      "status": "cannot-determine",
+      "traceIds": []
+    },
+    {
+      "completedAt": "2026-08-05T00:57:07.344Z",
+      "dimension": "shared-storage",
+      "evidenceIds": [
+        "S-c6de697e4d",
+        "S-76e9776b00",
+        "S-d578182a91",
+        "S-4443576f3f",
+        "S-89cb8f7a6d"
+      ],
+      "hypothesis": "Multiple independently operated parts write the same stored object or declare it with incompatible shapes.",
+      "id": "project:shared-storage",
+      "material": true,
+      "origin": "default",
+      "requiredFor": [
+        "overview-product"
+      ],
+      "scope": "project",
+      "startedAt": "2026-08-05T00:57:07.344Z",
+      "status": "found",
+      "traceIds": []
+    },
+    {
+      "completedAt": "2026-08-05T00:57:07.344Z",
+      "dimension": "duplicate-entrypoints",
+      "evidenceIds": [
+        "S-65964e40ad",
+        "S-6eb609addf",
+        "S-99cb397479",
+        "S-b90e8b3565"
+      ],
+      "hypothesis": "The same externally visible entry point is declared by more than one part.",
+      "id": "project:duplicate-entrypoints",
+      "material": true,
+      "origin": "default",
+      "requiredFor": [
+        "overview-product"
+      ],
+      "scope": "project",
+      "startedAt": "2026-08-05T00:57:07.344Z",
+      "status": "found",
+      "traceIds": []
+    },
+    {
+      "completedAt": "2026-08-05T00:57:07.344Z",
+      "dimension": "uncalled-entrypoints",
+      "evidenceIds": [
+        "CG-ROUTES-93d5c4e1bea65591c080"
+      ],
+      "hypothesis": "Registered entry points have no caller inside the analyzed workspace.",
+      "id": "project:uncalled-entrypoints",
+      "material": false,
+      "origin": "default",
+      "reason": "Static workspace callers do not cover mobile clients, public links, automation, or external API consumers.",
+      "requiredFor": [
+        "overview-product"
+      ],
+      "scope": "project",
+      "settledBy": "Production access logs and a maintained external consumer inventory.",
+      "startedAt": "2026-08-05T00:57:07.344Z",
+      "status": "cannot-determine",
+      "traceIds": []
+    },
+    {
+      "completedAt": "2026-08-05T00:57:07.344Z",
+      "dimension": "discarded-errors",
+      "evidenceIds": [
+        "S-b324dcfe0d",
+        "S-0dfa358717",
+        "S-4166c03709"
+      ],
+      "hypothesis": "Errors from external calls, persistence or asynchronous work are neither returned, logged nor persisted.",
+      "id": "project:discarded-errors",
+      "material": true,
+      "origin": "default",
+      "requiredFor": [
+        "overview-product"
+      ],
+      "scope": "project",
+      "startedAt": "2026-08-05T00:57:07.344Z",
+      "status": "found",
+      "traceIds": []
+    },
+    {
+      "completedAt": "2026-08-05T00:57:07.344Z",
+      "dimension": "deprecated-or-unfinished",
+      "evidenceIds": [
+        "S-65964e40ad",
+        "S-6361355de5",
+        "S-c9e7d1d529"
+      ],
+      "hypothesis": "Current paths contain explicit deprecated, disabled, unfinished or temporary behavior.",
+      "id": "project:deprecated-or-unfinished",
+      "material": false,
+      "origin": "default",
+      "requiredFor": [
+        "overview-product"
+      ],
+      "scope": "project",
+      "startedAt": "2026-08-05T00:57:07.344Z",
+      "status": "found",
+      "traceIds": []
+    },
+    {
+      "completedAt": "2026-08-05T00:57:07.344Z",
+      "dimension": "feature-switches",
+      "evidenceIds": [
+        "S-d87801d77e",
+        "S-fac701474a",
+        "S-6361355de5"
+      ],
+      "hypothesis": "Configuration switches materially change which capabilities or background work are available.",
+      "id": "project:feature-switches",
+      "material": false,
+      "origin": "default",
+      "requiredFor": [
+        "overview-product"
+      ],
+      "scope": "project",
+      "startedAt": "2026-08-05T00:57:07.344Z",
+      "status": "found",
+      "traceIds": []
+    },
+    {
+      "completedAt": "2026-08-05T00:57:07.344Z",
+      "dimension": "documentation-drift",
+      "evidenceIds": [
+        "S-c9e7d1d529",
+        "S-9e879b011b"
+      ],
+      "hypothesis": "Repository documentation contradicts current manifests, entry points or implementation.",
+      "id": "project:documentation-drift",
+      "material": false,
+      "origin": "default",
+      "requiredFor": [
+        "overview-product"
+      ],
+      "scope": "project",
+      "startedAt": "2026-08-05T00:57:07.344Z",
+      "status": "found",
+      "traceIds": []
+    },
+    {
+      "completedAt": "2026-08-05T00:57:07.344Z",
+      "dimension": "external-call-in-transaction",
+      "evidenceIds": [
+        "S-0dfa358717",
+        "S-4166c03709"
+      ],
+      "hypothesis": "An external call occurs while a persistence transaction remains open.",
+      "id": "project:external-call-in-transaction",
+      "material": true,
+      "origin": "default",
+      "requiredFor": [
+        "overview-product"
+      ],
+      "scope": "project",
+      "startedAt": "2026-08-05T00:57:07.344Z",
+      "status": "found",
+      "traceIds": []
+    },
+    {
+      "completedAt": "2026-08-05T00:57:07.344Z",
+      "dimension": "open-investigation",
+      "evidenceIds": [
+        "GIT-93d5c4e1bea65591c080",
+        "CG-93d5c4e1bea65591c080"
+      ],
+      "hypothesis": "The observed facts suggest a material question not covered by the predefined hypotheses.",
+      "id": "project:open-investigation",
+      "material": false,
+      "origin": "open",
+      "reason": "Runtime deployment topology, database instances, enabled tasks and actual traffic are outside the static snapshot.",
+      "requiredFor": [
+        "overview-product"
+      ],
+      "scope": "project",
+      "settledBy": "Deployment manifests, runtime configuration, database topology and representative production telemetry.",
+      "startedAt": "2026-08-05T00:57:07.344Z",
+      "status": "cannot-determine",
+      "traceIds": []
+    }
+  ],
+  "material": 7,
+  "total": 12,
+  "version": 1
+}

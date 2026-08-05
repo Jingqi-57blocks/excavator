@@ -1,0 +1,272 @@
+---
+title: "WCP 请假管理技术报告"
+navTitle: "WCP 请假管理技术报告"
+kind: feature
+audience: engineering
+language: zh-CN
+order: 2
+snapshot: 93d5c4e1bea65591c080
+---
+
+# WCP 请假管理技术报告
+
+## 1. 功能职责与技术边界
+
+- 请假功能跨越前端页面、主平台 Go 服务和早期 Node 服务。`事实`
+- 主路径覆盖申请、详情、审批、拒绝、查询、撤销、导出、余额和提示接口。`事实`
+- 节假日日历、项目、员工、工时、对象存储和通知是与请假相邻但独立的能力。`事实`
+
+<details>
+<summary>依据</summary>
+
+- `FG-请假管理-b7b1c60e9c-93d5c4e1bea65591c080`
+- `S-4cd671f9ef`
+- `S-65964e40ad`
+- `S-b90e8b3565`
+- `S-99cb397479`
+- `S-d87801d77e`
+- `S-91b27b3a68`
+- `T-leave-side-effects`
+- Traces: `T-leave-side-effects`
+
+</details>
+
+
+## 2. 入口与调用方
+
+- 主平台在认证的 /v2/leaves 路由组下注册创建、详情、批准、拒绝、分页、撤销、工时简化、导出和提示入口。`事实`
+- Router 使用 JSON、URI 和查询参数绑定，并为分页提供 page=1 和 size=10 的默认值。`事实`
+- 前端 leave-service 封装主平台请假 API，早期 Node 服务仍保留另一套 /leaves 路由。`事实`
+- 工作区外的移动端、公开链接或自动化调用方清单不在本次静态范围中。`不可得`
+
+<details>
+<summary>依据</summary>
+
+- `S-65964e40ad`
+- `S-99cb397479`
+- `S-4cd671f9ef`
+- `S-b90e8b3565`
+
+</details>
+
+
+## 3. 主要执行路径
+
+- 创建路径从前端请求进入认证路由、Router、LeaveService.Creation 和 category/type bridge。`事实`
+- Bridge 计算工作日和小时，按年度消耗额度，并在事务中保存申请、明细和审批记录。`事实`
+- 批准路径更新当前审批记录并进入下一审批层级或最终批准状态。`事实`
+- 拒绝和撤销路径恢复额度并更新申请与审批状态。`事实`
+
+<details>
+<summary>依据</summary>
+
+- `S-4cd671f9ef`
+- `S-65964e40ad`
+- `S-99cb397479`
+- `S-42e00a29c1`
+- `S-eb53fb42fb`
+- `S-d83f1436c1`
+- `S-3baf41fca1`
+- `S-0dfa358717`
+- `S-f51f2a5870`
+- `S-b324dcfe0d`
+- `S-6c64863a83`
+- `S-25f46278bf`
+- `S-5e9dab7c20`
+- `S-4166c03709`
+- Traces: `T-leave-create`、`T-leave-approval`、`T-leave-cancellation`
+
+</details>
+
+
+## 4. 业务规则、状态与一致性
+
+- 主平台定义 PTO、BTO、UTO、Special、Sick、Maternity、Paternity、Marriage、Funeral 和 Prenatal 十类假期。`事实`
+- 状态包含多级待审、HR 待审、批准、拒绝、完成、取消和等待负责人同意取消。`事实`
+- 创建前会拒绝 Presale 或 EOR 项目，并要求 Sick、Maternity、Prenatal 和 Marriage 申请携带附件。`事实`
+- 时间区间校验拒绝结束早于开始以及跨度超过一年的查询。`事实`
+- 并发重复审批是否由数据库锁、唯一约束或幂等键完整阻止没有在所有路径中建立。`不可得`
+
+<details>
+<summary>依据</summary>
+
+- `S-a1a6aa5fc8`
+- `S-f41d5a8e89`
+- `S-42e00a29c1`
+- `S-99cb397479`
+
+</details>
+
+
+## 5. 认证、授权与数据范围
+
+- 整个主平台 leave 路由组统一挂载 Authentication 中间件。`事实`
+- 创建和本人分页使用当前 JWT claims 中的用户身份，而不是接受任意申请人主体。`事实`
+- 批准路径允许管理员、人力资源或与当前待审记录匹配的项目管理人员继续处理。`事实`
+- 详情与管理分页还根据本人、管理员、人力资源和项目管理身份限制可见数据。`事实`
+- 网关、Casbin 或工作区外授权层是否增加额外限制不在当前源码证据中。`不可得`
+
+<details>
+<summary>依据</summary>
+
+- `S-65964e40ad`
+- `S-42e00a29c1`
+- `S-67fa2b8d8e`
+- `S-0dfa358717`
+- `S-6cda3aae3e`
+
+</details>
+
+
+## 6. 数据模型与存储
+
+- 主平台核心实体包括 Leave、LeaveDetail、LeaveApprove、HolidayHour 和 UploadFile。`事实`
+- 申请记录保存用户、项目、类型、日期、小时、消息、取消原因和状态，明细记录按日期保存小时和额度来源。`事实`
+- 年度 HolidayHour 记录保存每种假期的总量和已用 token 字段。`事实`
+- 早期 Node 服务映射相同的 wcp_leave、wcp_leave_detail 和 wcp_holiday_hour 表。`事实`
+
+<details>
+<summary>依据</summary>
+
+- `S-c6de697e4d`
+- `S-76e9776b00`
+- `S-d578182a91`
+- `S-4443576f3f`
+- `S-89cb8f7a6d`
+
+</details>
+
+
+## 7. 文件、消息与外部集成
+
+- 申请可以携带附件引用，主平台同时提供上传、预签名和公开下载文件入口。`事实`
+- 审批、下一审批人和撤销路径构建邮件与移动通知组件。`事实`
+- 导出路径生成包含员工、项目、类型、日期、小时、余额和状态的工作簿。`事实`
+- SimpleForLogTime 提供简化请假区间接口。`事实`
+
+<details>
+<summary>依据</summary>
+
+- `S-42e00a29c1`
+- `S-91b27b3a68`
+- `S-c6de697e4d`
+- `S-6fc481bb29`
+- `S-c2c6223877`
+- `S-dbbb12a929`
+- `S-35a6fd64c9`
+- `S-f3cb7b75a1`
+- `S-99cb397479`
+- `S-e6d324305b`
+- Traces: `T-leave-side-effects`
+
+</details>
+
+
+## 8. 错误、事务与恢复行为
+
+- 创建路径对项目不存在、不支持的项目类型、附件缺失、BTO 办公室限制和试用期 BTO 返回业务错误。`事实`
+- 批准路径在数据库事务内更新审批记录、申请状态和下一审批记录。`事实`
+- 拒绝和撤销路径在事务内恢复年度额度，并在恢复后更新审批与申请状态。`事实`
+- 通知组件在业务路径中通过 goroutine 异步执行，返回结果没有参与事务提交判断。`事实`
+
+<details>
+<summary>依据</summary>
+
+- `S-42e00a29c1`
+- `S-0dfa358717`
+- `S-f51f2a5870`
+- `S-25f46278bf`
+- `S-4166c03709`
+- Traces: `T-leave-approval`、`T-leave-cancellation`
+
+</details>
+
+
+## 9. 配置、开关与后台任务
+
+- 主平台 Setup 参数控制 HTTP 服务、后台任务以及 HolidayInit 的同步或异步启动。`事实`
+- 主平台环境模板声明数据库、对象存储、邮件和其他集成所需的配置键，但本报告不包含配置值。`事实`
+- 早期服务通过环境配置控制下一年度额度日期和周工时提醒，并注册请假与假期任务。`事实`
+- 多实例任务是否有单例锁以及实际启用了哪些任务无法由静态源码确认。`不可得`
+
+<details>
+<summary>依据</summary>
+
+- `S-d87801d77e`
+- `S-6a2a2a6280`
+- `S-6361355de5`
+- `S-fac701474a`
+
+</details>
+
+
+## 10. 依赖与关联范围
+
+- 请假功能依赖员工身份、项目类型、项目负责人、日历计算、年度额度、审批记录、数据库、文件和通知能力。`事实`
+- 前端个人请假、管理列表和审批页面是工作区内可见调用方。`事实`
+- 早期 Node 路由和计划任务仍可改变相同类别的请假与额度数据。`事实`
+- CodeGraph 的功能边界包含 96 个文件，并通过源码回退确认动态调用、GORM 和接口分派。`事实`
+
+<details>
+<summary>依据</summary>
+
+- `S-42e00a29c1`
+- `S-eb53fb42fb`
+- `S-b324dcfe0d`
+- `S-d87801d77e`
+- `S-4cd671f9ef`
+- `S-0163d014df`
+- `S-b90e8b3565`
+- `S-6361355de5`
+- `S-d578182a91`
+- `S-89cb8f7a6d`
+- `FG-请假管理-b7b1c60e9c-93d5c4e1bea65591c080`
+- `PROVIDER-891848566cee`
+- Traces: `T-leave-create`
+
+</details>
+
+
+## 11. 测试、文档与当前实现问题
+
+- 在 2,007 个候选文件中搜索 Go、JavaScript 和 TypeScript 的请假或假期测试声明，没有定位到匹配的业务测试用例。`验证`
+- 主路由仍包含关于未来授权调用的 TODO 注释。`事实`
+- 旧 Node 服务包含另一套请假创建、状态和余额逻辑，并与主平台映射相同数据表。`事实`
+- 批准和撤销流程在事务回调内启动异步通知，因此数据提交与通知结果不是同一个确认边界。`事实`
+- 测试可能使用未匹配的命名、位于外部仓库或只存在于 CI 环境。`不可得`
+
+<details>
+<summary>依据</summary>
+
+- `SEARCH-ecdd86cb5508`
+- `S-65964e40ad`
+- `S-b90e8b3565`
+- `S-d578182a91`
+- `S-89cb8f7a6d`
+- `S-0dfa358717`
+- `S-4166c03709`
+
+</details>
+
+
+## 12. 覆盖与静态审查不可回答的问题
+
+- 请假功能 CodeGraph scope 包含 260 个节点、273 条边和 96 个文件。`事实`
+- 本次报告为关键入口、创建、审批、撤销、模型、通知、导出、旧服务和前端调用补充了当前 snapshot 的源码证据。`事实`
+- 共享 Context 和功能 Context 在相同 snapshot 上缓存，暖运行不再执行图查询或重复读取源码窗口。`事实`
+- 实际启用入口、数据库约束、并发结果、通知送达、S3 权限、历史额度质量和工作区外调用方需要运行时证据。`不可得`
+
+<details>
+<summary>依据</summary>
+
+- `FG-请假管理-b7b1c60e9c-93d5c4e1bea65591c080`
+- `S-99cb397479`
+- `S-42e00a29c1`
+- `S-0dfa358717`
+- `S-4166c03709`
+- `S-c6de697e4d`
+- `S-b90e8b3565`
+- `S-4cd671f9ef`
+- `PROVIDER-891848566cee`
+
+</details>

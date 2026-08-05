@@ -1,0 +1,17 @@
+{
+  "traces": [
+    {
+      "id": "T-example-normal-flow",
+      "title": "Example normal flow",
+      "type": "business-flow",
+      "status": "verified",
+      "confidence": "high",
+      "documentIds": ["feature-example-product"],
+      "steps": [
+        { "index": 1, "action": "The user enters the feature.", "evidenceIds": ["S-example-entry"] },
+        { "index": 2, "action": "The service persists the accepted state.", "evidenceIds": ["S-example-save"] }
+      ],
+      "createdAt": "2026-01-01T00:00:00.000Z"
+    }
+  ]
+}

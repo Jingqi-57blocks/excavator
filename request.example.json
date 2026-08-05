@@ -1,0 +1,19 @@
+{
+  "target": "/path/to/project",
+  "codegraph": "/path/to/project/.codegraph/codegraph.db",
+  "language": "en-US",
+  "workdir": "/tmp/excavator-work",
+  "overviewAudiences": ["product", "engineering"],
+  "features": [
+    {
+      "subject": "Account access",
+      "aliases": ["access", "permission", "role"],
+      "audiences": ["product", "engineering"]
+    },
+    {
+      "subject": "Billing",
+      "aliases": ["invoice", "payment", "billing"],
+      "audiences": ["product"]
+    }
+  ]
+}

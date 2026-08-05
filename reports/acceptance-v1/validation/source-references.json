@@ -1,0 +1,829 @@
+[
+  {
+    "report": "reports/engineering/01-wcp-engineering-overview.md",
+    "references": [
+      {
+        "token": "wcp-ui/package.json",
+        "path": "wcp-ui/package.json",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-service/package.json",
+        "path": "wcp-service/package.json",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-service/Dockerfile",
+        "path": "wcp-service/Dockerfile",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-service-v2/go.mod",
+        "path": "wcp-service-v2/go.mod",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp_review_service/go.mod",
+        "path": "wcp_review_service/go.mod",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-auth/go.mod",
+        "path": "wcp-auth/go.mod",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-service-v2/internal/handlers/handlers.go",
+        "path": "wcp-service-v2/internal/handlers/handlers.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-service/app.js:93-107",
+        "path": "wcp-service/app.js",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 148
+      },
+      {
+        "token": "wcp-auth/internal/handlers/handler.go:18-47",
+        "path": "wcp-auth/internal/handlers/handler.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 47
+      },
+      {
+        "token": "wcp-service-v2/internal/model/billing.go",
+        "path": "wcp-service-v2/internal/model/billing.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-service-v2/internal/cmon/util.go:36-121",
+        "path": "wcp-service-v2/internal/cmon/util.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 640
+      },
+      {
+        "token": "wcp_review_service/internal/review/employee/employee_resource.go:82-103",
+        "path": "wcp_review_service/internal/review/employee/employee_resource.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 391
+      }
+    ],
+    "passed": true
+  },
+  {
+    "report": "reports/engineering/02-leave-engineering.md",
+    "references": [
+      {
+        "token": "wcp-service-v2/internal/handlers/handlers.go",
+        "path": "wcp-service-v2/internal/handlers/handlers.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-service-v2/internal/constant/leave.go",
+        "path": "wcp-service-v2/internal/constant/leave.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-service-v2/internal/constant/holiday.go",
+        "path": "wcp-service-v2/internal/constant/holiday.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-service-v2/internal/handlers/leave/router.go",
+        "path": "wcp-service-v2/internal/handlers/leave/router.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-service-v2/internal/handlers/leave/service.go",
+        "path": "wcp-service-v2/internal/handlers/leave/service.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-service-v2/internal/handlers/leave/brdg_abst.go",
+        "path": "wcp-service-v2/internal/handlers/leave/brdg_abst.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+        "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-service-v2/internal/handlers/leaveHistory/service.go",
+        "path": "wcp-service-v2/internal/handlers/leaveHistory/service.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-service-v2/internal/model/leave.go",
+        "path": "wcp-service-v2/internal/model/leave.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-service-v2/internal/tasks/latam_pto/accrual_test.go",
+        "path": "wcp-service-v2/internal/tasks/latam_pto/accrual_test.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-service/routes/leave.js",
+        "path": "wcp-service/routes/leave.js",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-ui/src/pages/leave",
+        "path": "wcp-ui/src/pages/leave",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      }
+    ],
+    "passed": true
+  },
+  {
+    "report": "reports/engineering/03-worklog-engineering.md",
+    "references": [
+      {
+        "token": "wcp-service/routes/worklogs.js",
+        "path": "wcp-service/routes/worklogs.js",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-service/routes/v2/worklog.js",
+        "path": "wcp-service/routes/v2/worklog.js",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-service/services/worklogServices.js",
+        "path": "wcp-service/services/worklogServices.js",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-service/models/worklog.js",
+        "path": "wcp-service/models/worklog.js",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-service/models/worklogContentDetail.js",
+        "path": "wcp-service/models/worklogContentDetail.js",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-service-v2/internal/model/worklog.go",
+        "path": "wcp-service-v2/internal/model/worklog.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-service-v2/internal/handlers/management/billing.go",
+        "path": "wcp-service-v2/internal/handlers/management/billing.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-service-v2/internal/handlers/management/permission.go",
+        "path": "wcp-service-v2/internal/handlers/management/permission.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-service-v2/internal/tasks/confirm_log/notifier.go",
+        "path": "wcp-service-v2/internal/tasks/confirm_log/notifier.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-ui/src/pages/worklog/components/LogTimeForm.tsx",
+        "path": "wcp-ui/src/pages/worklog/components/LogTimeForm.tsx",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-ui/src/api/worklogApi.ts",
+        "path": "wcp-ui/src/api/worklogApi.ts",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-service/common/scheduleService.js",
+        "path": "wcp-service/common/scheduleService.js",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      }
+    ],
+    "passed": true
+  },
+  {
+    "report": "reports/engineering/04-billing-engineering.md",
+    "references": [
+      {
+        "token": "wcp-service-v2/internal/handlers/handlers.go:227-260",
+        "path": "wcp-service-v2/internal/handlers/handlers.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 570
+      },
+      {
+        "token": "wcp-service-v2/internal/model/billing.go:10-180",
+        "path": "wcp-service-v2/internal/model/billing.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 414
+      },
+      {
+        "token": "wcp-service-v2/internal/handlers/management/permission.go:45-125",
+        "path": "wcp-service-v2/internal/handlers/management/permission.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 127
+      },
+      {
+        "token": "wcp-service-v2/internal/handlers/management/billing.go:1428-1640",
+        "path": "wcp-service-v2/internal/handlers/management/billing.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 3271
+      },
+      {
+        "token": "wcp-service-v2/internal/handlers/management/billing.go:3000-3185",
+        "path": "wcp-service-v2/internal/handlers/management/billing.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 3271
+      }
+    ],
+    "passed": true
+  },
+  {
+    "report": "reports/engineering/05-performance-engineering.md",
+    "references": [
+      {
+        "token": "wcp_review_service/internal/handler/handler.go:26-65",
+        "path": "wcp_review_service/internal/handler/handler.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 135
+      },
+      {
+        "token": "wcp_review_service/internal/constant/review_round.go:1-65",
+        "path": "wcp_review_service/internal/constant/review_round.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 65
+      },
+      {
+        "token": "wcp_review_service/internal/constant/type&status.go:1-44",
+        "path": "wcp_review_service/internal/constant/type&status.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 44
+      },
+      {
+        "token": "wcp_review_service/internal/review/employee/employee_resource.go:82-103",
+        "path": "wcp_review_service/internal/review/employee/employee_resource.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 391
+      },
+      {
+        "token": "wcp_review_service/internal/pkg/cron/cron.go:30-90",
+        "path": "wcp_review_service/internal/pkg/cron/cron.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 270
+      },
+      {
+        "token": "wcp_review_service/internal/middleware/middleware.go:40-55",
+        "path": "wcp_review_service/internal/middleware/middleware.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 210
+      },
+      {
+        "token": "wcp_review_service/internal/middleware/middleware.go:140-175",
+        "path": "wcp_review_service/internal/middleware/middleware.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 210
+      }
+    ],
+    "passed": true
+  },
+  {
+    "report": "reports/engineering/06-recruitment-engineering.md",
+    "references": [
+      {
+        "token": "wcp-service-v2/internal/handlers/handlers.go:262-315",
+        "path": "wcp-service-v2/internal/handlers/handlers.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 570
+      },
+      {
+        "token": "wcp-service-v2/internal/constant/status.go:35-167",
+        "path": "wcp-service-v2/internal/constant/status.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 167
+      },
+      {
+        "token": "wcp-service-v2/internal/constant/space.go:16-75",
+        "path": "wcp-service-v2/internal/constant/space.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 76
+      },
+      {
+        "token": "wcp-service-v2/internal/handlers/projectspace/hiring.go:80-220",
+        "path": "wcp-service-v2/internal/handlers/projectspace/hiring.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 2020
+      },
+      {
+        "token": "wcp-service-v2/internal/handlers/projectspace/permission.go",
+        "path": "wcp-service-v2/internal/handlers/projectspace/permission.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-service-v2/internal/handlers/beisen/router.go",
+        "path": "wcp-service-v2/internal/handlers/beisen/router.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      }
+    ],
+    "passed": true
+  },
+  {
+    "report": "reports/engineering/07-identity-engineering.md",
+    "references": [
+      {
+        "token": "wcp-auth/internal/handlers/handler.go:21-47",
+        "path": "wcp-auth/internal/handlers/handler.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 47
+      },
+      {
+        "token": "wcp-auth/internal/handlers/auth/oauth2_idp.go:28-230",
+        "path": "wcp-auth/internal/handlers/auth/oauth2_idp.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 851
+      },
+      {
+        "token": "wcp-auth/internal/configs/configs.go:17-149",
+        "path": "wcp-auth/internal/configs/configs.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 149
+      },
+      {
+        "token": "wcp-auth/internal/handlers/auth/token.go:10-70",
+        "path": "wcp-auth/internal/handlers/auth/token.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 71
+      },
+      {
+        "token": "wcp_review_service/internal/middleware/middleware.go:140-175",
+        "path": "wcp_review_service/internal/middleware/middleware.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 210
+      }
+    ],
+    "passed": true
+  },
+  {
+    "report": "reports/product/01-wcp-product-overview.md",
+    "references": [
+      {
+        "token": "wcp-ui/src/main.tsx",
+        "path": "wcp-ui/src/main.tsx",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-service-v2/main.go",
+        "path": "wcp-service-v2/main.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-service-v2/init/initialization.go:31-161",
+        "path": "wcp-service-v2/init/initialization.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 161
+      },
+      {
+        "token": "wcp-service/app.js:93-107",
+        "path": "wcp-service/app.js",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 148
+      },
+      {
+        "token": "wcp-service/common/scheduleService.js:18-141",
+        "path": "wcp-service/common/scheduleService.js",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 211
+      },
+      {
+        "token": "wcp_review_service/main.go",
+        "path": "wcp_review_service/main.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-auth/internal/handlers/handler.go:18-47",
+        "path": "wcp-auth/internal/handlers/handler.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 47
+      },
+      {
+        "token": "wcp-service-v2/internal/constant/role.go:7-17",
+        "path": "wcp-service-v2/internal/constant/role.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 52
+      },
+      {
+        "token": "wcp-service-v2/internal/cmon/util.go:36-121",
+        "path": "wcp-service-v2/internal/cmon/util.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 640
+      },
+      {
+        "token": "wcp_review_service/internal/review/employee/employee_resource.go:82-103",
+        "path": "wcp_review_service/internal/review/employee/employee_resource.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 391
+      }
+    ],
+    "passed": true
+  },
+  {
+    "report": "reports/product/02-leave-product.md",
+    "references": [
+      {
+        "token": "wcp-service-v2/internal/handlers/handlers.go",
+        "path": "wcp-service-v2/internal/handlers/handlers.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-service-v2/internal/constant/leave.go",
+        "path": "wcp-service-v2/internal/constant/leave.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-service-v2/internal/handlers/leave/router.go",
+        "path": "wcp-service-v2/internal/handlers/leave/router.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-service-v2/internal/handlers/leave/service.go",
+        "path": "wcp-service-v2/internal/handlers/leave/service.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-service-v2/internal/handlers/leave/brdg_abst.go",
+        "path": "wcp-service-v2/internal/handlers/leave/brdg_abst.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+        "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-service-v2/internal/handlers/leaveHistory/service.go",
+        "path": "wcp-service-v2/internal/handlers/leaveHistory/service.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-service-v2/internal/tasks/latam_pto/accrual.go",
+        "path": "wcp-service-v2/internal/tasks/latam_pto/accrual.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-service/common/scheduleService.js",
+        "path": "wcp-service/common/scheduleService.js",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-ui/src/pages/leave",
+        "path": "wcp-ui/src/pages/leave",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      }
+    ],
+    "passed": true
+  },
+  {
+    "report": "reports/product/03-worklog-product.md",
+    "references": [
+      {
+        "token": "wcp-service/routes/worklogs.js",
+        "path": "wcp-service/routes/worklogs.js",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-service/routes/v2/worklog.js",
+        "path": "wcp-service/routes/v2/worklog.js",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-service/services/worklogServices.js",
+        "path": "wcp-service/services/worklogServices.js",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-service/models/worklog.js",
+        "path": "wcp-service/models/worklog.js",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-service-v2/internal/model/worklog.go",
+        "path": "wcp-service-v2/internal/model/worklog.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-service-v2/internal/handlers/management/billing.go",
+        "path": "wcp-service-v2/internal/handlers/management/billing.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-service-v2/internal/handlers/management/permission.go",
+        "path": "wcp-service-v2/internal/handlers/management/permission.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-ui/src/pages/worklog",
+        "path": "wcp-ui/src/pages/worklog",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-ui/src/pages/worklog/components/LogTimeForm.tsx",
+        "path": "wcp-ui/src/pages/worklog/components/LogTimeForm.tsx",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-service/common/scheduleService.js",
+        "path": "wcp-service/common/scheduleService.js",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      }
+    ],
+    "passed": true
+  },
+  {
+    "report": "reports/product/04-billing-product.md",
+    "references": [
+      {
+        "token": "wcp-service-v2/internal/handlers/handlers.go:227-260",
+        "path": "wcp-service-v2/internal/handlers/handlers.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 570
+      },
+      {
+        "token": "wcp-service-v2/internal/model/billing.go:10-180",
+        "path": "wcp-service-v2/internal/model/billing.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 414
+      },
+      {
+        "token": "wcp-service-v2/internal/handlers/management/permission.go:45-125",
+        "path": "wcp-service-v2/internal/handlers/management/permission.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 127
+      },
+      {
+        "token": "wcp-service-v2/internal/handlers/management/billing.go:1428-1640",
+        "path": "wcp-service-v2/internal/handlers/management/billing.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 3271
+      },
+      {
+        "token": "wcp-service-v2/internal/handlers/management/billing.go:3000-3185",
+        "path": "wcp-service-v2/internal/handlers/management/billing.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 3271
+      }
+    ],
+    "passed": true
+  },
+  {
+    "report": "reports/product/05-performance-product.md",
+    "references": [
+      {
+        "token": "wcp_review_service/internal/handler/handler.go:26-65",
+        "path": "wcp_review_service/internal/handler/handler.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 135
+      },
+      {
+        "token": "wcp_review_service/internal/constant/review_round.go:1-65",
+        "path": "wcp_review_service/internal/constant/review_round.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 65
+      },
+      {
+        "token": "wcp_review_service/internal/constant/type&status.go:1-44",
+        "path": "wcp_review_service/internal/constant/type&status.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 44
+      },
+      {
+        "token": "wcp_review_service/internal/review/employee/employee_resource.go:82-103",
+        "path": "wcp_review_service/internal/review/employee/employee_resource.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 391
+      },
+      {
+        "token": "wcp_review_service/internal/pkg/cron/cron.go:30-90",
+        "path": "wcp_review_service/internal/pkg/cron/cron.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 270
+      },
+      {
+        "token": "wcp_review_service/internal/middleware/middleware.go:40-55",
+        "path": "wcp_review_service/internal/middleware/middleware.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 210
+      }
+    ],
+    "passed": true
+  },
+  {
+    "report": "reports/product/06-recruitment-product.md",
+    "references": [
+      {
+        "token": "wcp-service-v2/internal/handlers/handlers.go:262-315",
+        "path": "wcp-service-v2/internal/handlers/handlers.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 570
+      },
+      {
+        "token": "wcp-service-v2/internal/constant/status.go:35-167",
+        "path": "wcp-service-v2/internal/constant/status.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 167
+      },
+      {
+        "token": "wcp-service-v2/internal/constant/space.go:16-75",
+        "path": "wcp-service-v2/internal/constant/space.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 76
+      },
+      {
+        "token": "wcp-service-v2/internal/handlers/projectspace/hiring.go:80-220",
+        "path": "wcp-service-v2/internal/handlers/projectspace/hiring.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": 2020
+      },
+      {
+        "token": "wcp-service-v2/internal/handlers/beisen/router.go",
+        "path": "wcp-service-v2/internal/handlers/beisen/router.go",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-ui/src/human-resource",
+        "path": "wcp-ui/src/human-resource",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      },
+      {
+        "token": "wcp-ui/src/project-source",
+        "path": "wcp-ui/src/project-source",
+        "exists": true,
+        "line_range_valid": true,
+        "line_count": null
+      }
+    ],
+    "passed": true
+  }
+]

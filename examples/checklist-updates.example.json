@@ -1,0 +1,19 @@
+{
+  "items": [
+    {
+      "id": "project:literal-secrets",
+      "verdict": "searched-not-found",
+      "material": false,
+      "evidenceIds": ["CG-example"],
+      "searchScope": "all prepared configuration, value and bounded source evidence"
+    },
+    {
+      "id": "project:external-call-in-transaction",
+      "verdict": "cannot-determine",
+      "material": false,
+      "evidenceIds": [],
+      "reason": "Transaction boundaries were not represented for the analyzed language.",
+      "settledBy": "A source review that follows transaction creation through external call sites."
+    }
+  ]
+}

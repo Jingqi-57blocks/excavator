@@ -1,0 +1,16 @@
+{
+  "claims": [
+    {
+      "id": "claim-001",
+      "marker": "fact",
+      "statement": "The application exposes a browser interface and an HTTP service.",
+      "evidenceIds": ["CG-example", "S-example"]
+    },
+    {
+      "id": "claim-002",
+      "marker": "unavailable",
+      "statement": "Production traffic is unavailable from static source review.",
+      "reason": "No runtime telemetry is part of the reviewed snapshot."
+    }
+  ]
+}

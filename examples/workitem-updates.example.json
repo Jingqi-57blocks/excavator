@@ -1,0 +1,11 @@
+{
+  "items": [
+    {
+      "id": "feature:example:entrypoints-and-flow",
+      "status": "found",
+      "material": true,
+      "evidenceIds": ["S-example"],
+      "traceIds": ["T-example-normal-flow"]
+    }
+  ]
+}

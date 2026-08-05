@@ -1,0 +1,241 @@
+{
+  "documentId": "feature-请假管理-b7b1c60e9c-engineering",
+  "traces": [
+    {
+      "confidence": "high",
+      "createdAt": "2026-08-05T01:20:00.000Z",
+      "documentIds": [
+        "feature-请假管理-b7b1c60e9c-engineering"
+      ],
+      "id": "T-leave-create",
+      "status": "verified",
+      "steps": [
+        {
+          "action": "The frontend leave client submits a leave request to the main service.",
+          "claimIds": [],
+          "evidenceIds": [
+            "S-4cd671f9ef"
+          ],
+          "index": 1
+        },
+        {
+          "action": "The authenticated /v2/leaves route dispatches POST requests to leave.Creation.",
+          "claimIds": [],
+          "evidenceIds": [
+            "S-65964e40ad"
+          ],
+          "index": 2
+        },
+        {
+          "action": "The router binds the request representation and delegates to LeaveService.Creation.",
+          "claimIds": [],
+          "evidenceIds": [
+            "S-99cb397479"
+          ],
+          "index": 3
+        },
+        {
+          "action": "The service loads the current identity and project, applies project, attachment, office and probation checks, and chooses a category/type implementation.",
+          "claimIds": [],
+          "evidenceIds": [
+            "S-42e00a29c1"
+          ],
+          "index": 4
+        },
+        {
+          "action": "The bridge calculation creates dated details, consumes balances by year and persists leave-related records in a transaction.",
+          "claimIds": [],
+          "evidenceIds": [
+            "S-eb53fb42fb",
+            "S-d83f1436c1",
+            "S-3baf41fca1"
+          ],
+          "index": 5
+        },
+        {
+          "action": "Approval records and asynchronous approval notifications are created for the next approver.",
+          "claimIds": [],
+          "evidenceIds": [
+            "S-b324dcfe0d",
+            "S-6fc481bb29"
+          ],
+          "index": 6
+        }
+      ],
+      "title": "Authenticated leave creation flow",
+      "type": "business-flow"
+    },
+    {
+      "confidence": "high",
+      "createdAt": "2026-08-05T01:20:00.000Z",
+      "documentIds": [
+        "feature-请假管理-b7b1c60e9c-engineering"
+      ],
+      "id": "T-leave-approval",
+      "status": "verified",
+      "steps": [
+        {
+          "action": "The approve route binds the leave identifier and approver description.",
+          "claimIds": [],
+          "evidenceIds": [
+            "S-99cb397479"
+          ],
+          "index": 1
+        },
+        {
+          "action": "The service rejects already completed approval records and permits the current approver, HR or administrators according to inline checks.",
+          "claimIds": [],
+          "evidenceIds": [
+            "S-0dfa358717"
+          ],
+          "index": 2
+        },
+        {
+          "action": "A database transaction updates the current approval record and advances the leave to the next approval state or the approved state.",
+          "claimIds": [],
+          "evidenceIds": [
+            "S-0dfa358717",
+            "S-f51f2a5870"
+          ],
+          "index": 3
+        },
+        {
+          "action": "The implementation creates the next level approval record when another level is required.",
+          "claimIds": [],
+          "evidenceIds": [
+            "S-b324dcfe0d",
+            "S-6c64863a83"
+          ],
+          "index": 4
+        },
+        {
+          "action": "The service starts asynchronous notifications for the applicant and the next approver.",
+          "claimIds": [],
+          "evidenceIds": [
+            "S-0dfa358717",
+            "S-c2c6223877"
+          ],
+          "index": 5
+        }
+      ],
+      "title": "Leave approval state progression",
+      "type": "state-flow"
+    },
+    {
+      "confidence": "high",
+      "createdAt": "2026-08-05T01:20:00.000Z",
+      "documentIds": [
+        "feature-请假管理-b7b1c60e9c-engineering"
+      ],
+      "id": "T-leave-cancellation",
+      "status": "verified",
+      "steps": [
+        {
+          "action": "The API exposes cancellation application and direct cancellation handlers in addition to rejection.",
+          "claimIds": [],
+          "evidenceIds": [
+            "S-65964e40ad",
+            "S-99cb397479"
+          ],
+          "index": 1
+        },
+        {
+          "action": "The service selects a cancellation path from the current leave state and current identity.",
+          "claimIds": [],
+          "evidenceIds": [
+            "S-5e9dab7c20"
+          ],
+          "index": 2
+        },
+        {
+          "action": "The recovery implementation opens a database transaction and reconstructs balance restoration from leave details and year sources.",
+          "claimIds": [],
+          "evidenceIds": [
+            "S-4166c03709"
+          ],
+          "index": 3
+        },
+        {
+          "action": "The transaction updates approval and leave states after restoring the affected holiday balances.",
+          "claimIds": [],
+          "evidenceIds": [
+            "S-4166c03709",
+            "S-25f46278bf"
+          ],
+          "index": 4
+        },
+        {
+          "action": "Notification composites are executed asynchronously after they are built inside the business path.",
+          "claimIds": [],
+          "evidenceIds": [
+            "S-4166c03709",
+            "S-dbbb12a929"
+          ],
+          "index": 5
+        }
+      ],
+      "title": "Leave rejection and cancellation recovery flow",
+      "type": "state-flow"
+    },
+    {
+      "confidence": "medium",
+      "createdAt": "2026-08-05T01:20:00.000Z",
+      "documentIds": [
+        "feature-请假管理-b7b1c60e9c-engineering"
+      ],
+      "id": "T-leave-side-effects",
+      "status": "verified",
+      "steps": [
+        {
+          "action": "Leave requests can carry uploaded file references and use the platform upload/download capability.",
+          "claimIds": [],
+          "evidenceIds": [
+            "S-42e00a29c1",
+            "S-c6de697e4d",
+            "S-91b27b3a68"
+          ],
+          "index": 1
+        },
+        {
+          "action": "Approval, rejection and cancellation paths build email and mobile notification composites.",
+          "claimIds": [],
+          "evidenceIds": [
+            "S-6fc481bb29",
+            "S-c2c6223877",
+            "S-dbbb12a929"
+          ],
+          "index": 2
+        },
+        {
+          "action": "The export path queries leave records and creates a workbook with employee, project, type, date, hours, balance and status fields.",
+          "claimIds": [],
+          "evidenceIds": [
+            "S-35a6fd64c9",
+            "S-f3cb7b75a1"
+          ],
+          "index": 3
+        },
+        {
+          "action": "The simple leave interval endpoint supplies a reduced representation for adjacent worklog and management calculations.",
+          "claimIds": [],
+          "evidenceIds": [
+            "S-99cb397479",
+            "S-e6d324305b"
+          ],
+          "index": 4
+        },
+        {
+          "action": "The legacy service still schedules leave completion, holiday initialization and leave mail work.",
+          "claimIds": [],
+          "evidenceIds": [
+            "S-6361355de5"
+          ],
+          "index": 5
+        }
+      ],
+      "title": "Leave side effects and connected consumers",
+      "type": "data-flow"
+    }
+  ],
+  "version": 1
+}

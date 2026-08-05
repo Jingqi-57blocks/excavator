@@ -1,0 +1,385 @@
+{
+  "source_checks": [
+    {
+      "name": "billing routes",
+      "path": "wcp-service-v2/internal/handlers/handlers.go",
+      "pattern": "billingGrp := v2\\.Group\\(\"/billing\"",
+      "passed": true
+    },
+    {
+      "name": "billing manual route",
+      "path": "wcp-service-v2/internal/handlers/handlers.go",
+      "pattern": "billingGrp\\.POST\\(\"/manual\"",
+      "passed": true
+    },
+    {
+      "name": "billing statuses",
+      "path": "wcp-service-v2/internal/model/billing.go",
+      "pattern": "BillingStatusLeaderConfirmed",
+      "passed": true
+    },
+    {
+      "name": "invoice statuses",
+      "path": "wcp-service-v2/internal/model/billing.go",
+      "pattern": "InvoiceStatusPartialPayment",
+      "passed": true
+    },
+    {
+      "name": "payment types",
+      "path": "wcp-service-v2/internal/model/billing.go",
+      "pattern": "PaymentType|CashEquity",
+      "passed": true
+    },
+    {
+      "name": "billing permission",
+      "path": "wcp-service-v2/internal/handlers/management/permission.go",
+      "pattern": "HasConfirmLogPermission|HasWriteBillingPermission",
+      "passed": true
+    },
+    {
+      "name": "billing comment limit",
+      "path": "wcp-service-v2/internal/handlers/management/billing.go",
+      "pattern": "500",
+      "passed": true
+    },
+    {
+      "name": "billing other expense limit",
+      "path": "wcp-service-v2/internal/handlers/management/billing.go",
+      "pattern": "999999\\.99",
+      "passed": true
+    },
+    {
+      "name": "performance routes",
+      "path": "wcp_review_service/internal/handler/handler.go",
+      "pattern": "invite-client/:key",
+      "passed": true
+    },
+    {
+      "name": "performance statuses",
+      "path": "wcp_review_service/internal/constant/review_round.go",
+      "pattern": "SelfReviewDone",
+      "passed": true
+    },
+    {
+      "name": "performance auth expression",
+      "path": "wcp_review_service/internal/review/employee/employee_resource.go",
+      "pattern": "IsMainReviewer",
+      "passed": false
+    },
+    {
+      "name": "performance cron",
+      "path": "wcp_review_service/internal/pkg/cron/cron.go",
+      "pattern": "CronSpec|AddFunc",
+      "passed": true
+    },
+    {
+      "name": "performance no timeout client",
+      "path": "wcp_review_service/internal/middleware/middleware.go",
+      "pattern": "client := &http\\.Client\\{\\}",
+      "passed": true
+    },
+    {
+      "name": "recruit position route",
+      "path": "wcp-service-v2/internal/handlers/handlers.go",
+      "pattern": "/prospa.*position",
+      "passed": true
+    },
+    {
+      "name": "recruit status",
+      "path": "wcp-service-v2/internal/constant/status.go",
+      "pattern": "Onboarding|Onboarded",
+      "passed": true
+    },
+    {
+      "name": "space status",
+      "path": "wcp-service-v2/internal/constant/space.go",
+      "pattern": "Awaiting Interview|Pending Decision",
+      "passed": true
+    },
+    {
+      "name": "hiring transaction",
+      "path": "wcp-service-v2/internal/handlers/projectspace/hiring.go",
+      "pattern": "Transaction",
+      "passed": true
+    },
+    {
+      "name": "auth routes",
+      "path": "wcp-auth/internal/handlers/handler.go",
+      "pattern": "/oauth/authorize",
+      "passed": false
+    },
+    {
+      "name": "auth metadata",
+      "path": "wcp-auth/internal/handlers/handler.go",
+      "pattern": "well-known/oauth-authorization-server",
+      "passed": true
+    },
+    {
+      "name": "auth code map",
+      "path": "wcp-auth/internal/handlers/auth/oauth2_idp.go",
+      "pattern": "map\\[string\\].*authorization|authCodes|authorizationCodes",
+      "passed": true
+    },
+    {
+      "name": "auth pkce optional",
+      "path": "wcp-auth/internal/handlers/auth/oauth2_idp.go",
+      "pattern": "challenge == \"\"",
+      "passed": true
+    },
+    {
+      "name": "auth config clients",
+      "path": "wcp-auth/internal/configs/configs.go",
+      "pattern": "Clients\\s+\\[\\]OAuth2ClientCfg",
+      "passed": true
+    },
+    {
+      "name": "auth claims typo",
+      "path": "wcp-auth/internal/handlers/auth/token.go",
+      "pattern": "json:\"pricinpal\"",
+      "passed": true
+    },
+    {
+      "name": "leave routes",
+      "path": "wcp-service-v2/internal/handlers/handlers.go",
+      "pattern": "v2\\.Group\\(\"/leaves\"",
+      "passed": true
+    },
+    {
+      "name": "worklog legacy route",
+      "path": "wcp-service/routes/worklogs.js",
+      "pattern": "router\\.(post|get|put|patch|delete)",
+      "passed": true
+    }
+  ],
+  "reports": [
+    {
+      "file": "reports/engineering/02-leave-engineering.md",
+      "audience": "engineering",
+      "bytes": 21940,
+      "lines": 305,
+      "sections": 12,
+      "required_section_matches": 12,
+      "required_section_slots": 12,
+      "tables": 14,
+      "mermaid": 2,
+      "problem_section": true,
+      "recommendation_terms_in_problem": [],
+      "term_matches": 6,
+      "term_slots": 7,
+      "score": 92.9,
+      "passed": false
+    },
+    {
+      "file": "reports/engineering/01-wcp-engineering-overview.md",
+      "audience": "engineering",
+      "bytes": 21869,
+      "lines": 265,
+      "sections": 12,
+      "required_section_matches": 12,
+      "required_section_slots": 12,
+      "tables": 4,
+      "mermaid": 1,
+      "problem_section": true,
+      "recommendation_terms_in_problem": [],
+      "term_matches": 9,
+      "term_slots": 9,
+      "score": 95.0,
+      "passed": true
+    },
+    {
+      "file": "reports/engineering/06-recruitment-engineering.md",
+      "audience": "engineering",
+      "bytes": 8338,
+      "lines": 171,
+      "sections": 12,
+      "required_section_matches": 12,
+      "required_section_slots": 12,
+      "tables": 4,
+      "mermaid": 3,
+      "problem_section": true,
+      "recommendation_terms_in_problem": [],
+      "term_matches": 7,
+      "term_slots": 7,
+      "score": 100.0,
+      "passed": true
+    },
+    {
+      "file": "reports/engineering/05-performance-engineering.md",
+      "audience": "engineering",
+      "bytes": 8571,
+      "lines": 174,
+      "sections": 12,
+      "required_section_matches": 12,
+      "required_section_slots": 12,
+      "tables": 3,
+      "mermaid": 3,
+      "problem_section": true,
+      "recommendation_terms_in_problem": [],
+      "term_matches": 6,
+      "term_slots": 6,
+      "score": 100.0,
+      "passed": true
+    },
+    {
+      "file": "reports/engineering/04-billing-engineering.md",
+      "audience": "engineering",
+      "bytes": 11061,
+      "lines": 201,
+      "sections": 12,
+      "required_section_matches": 12,
+      "required_section_slots": 12,
+      "tables": 6,
+      "mermaid": 3,
+      "problem_section": true,
+      "recommendation_terms_in_problem": [],
+      "term_matches": 6,
+      "term_slots": 6,
+      "score": 100.0,
+      "passed": true
+    },
+    {
+      "file": "reports/engineering/07-identity-engineering.md",
+      "audience": "engineering",
+      "bytes": 8983,
+      "lines": 181,
+      "sections": 12,
+      "required_section_matches": 12,
+      "required_section_slots": 12,
+      "tables": 3,
+      "mermaid": 3,
+      "problem_section": true,
+      "recommendation_terms_in_problem": [
+        "建议"
+      ],
+      "term_matches": 7,
+      "term_slots": 7,
+      "score": 92.0,
+      "passed": false
+    },
+    {
+      "file": "reports/engineering/03-worklog-engineering.md",
+      "audience": "engineering",
+      "bytes": 17593,
+      "lines": 257,
+      "sections": 12,
+      "required_section_matches": 12,
+      "required_section_slots": 12,
+      "tables": 1,
+      "mermaid": 3,
+      "problem_section": true,
+      "recommendation_terms_in_problem": [],
+      "term_matches": 7,
+      "term_slots": 7,
+      "score": 90.0,
+      "passed": true
+    },
+    {
+      "file": "reports/product/01-wcp-product-overview.md",
+      "audience": "product",
+      "bytes": 22957,
+      "lines": 323,
+      "sections": 10,
+      "required_section_matches": 12,
+      "required_section_slots": 12,
+      "tables": 5,
+      "mermaid": 2,
+      "problem_section": true,
+      "recommendation_terms_in_problem": [],
+      "term_matches": 9,
+      "term_slots": 9,
+      "score": 100.0,
+      "passed": true
+    },
+    {
+      "file": "reports/product/03-worklog-product.md",
+      "audience": "product",
+      "bytes": 19911,
+      "lines": 268,
+      "sections": 12,
+      "required_section_matches": 12,
+      "required_section_slots": 12,
+      "tables": 5,
+      "mermaid": 2,
+      "problem_section": true,
+      "recommendation_terms_in_problem": [],
+      "term_matches": 7,
+      "term_slots": 7,
+      "score": 100.0,
+      "passed": true
+    },
+    {
+      "file": "reports/product/04-billing-product.md",
+      "audience": "product",
+      "bytes": 12519,
+      "lines": 200,
+      "sections": 12,
+      "required_section_matches": 11,
+      "required_section_slots": 12,
+      "tables": 5,
+      "mermaid": 2,
+      "problem_section": true,
+      "recommendation_terms_in_problem": [
+        "建议"
+      ],
+      "term_matches": 7,
+      "term_slots": 7,
+      "score": 89.9,
+      "passed": false
+    },
+    {
+      "file": "reports/product/06-recruitment-product.md",
+      "audience": "product",
+      "bytes": 10217,
+      "lines": 189,
+      "sections": 12,
+      "required_section_matches": 11,
+      "required_section_slots": 12,
+      "tables": 5,
+      "mermaid": 2,
+      "problem_section": true,
+      "recommendation_terms_in_problem": [
+        "推荐",
+        "推荐",
+        "建议"
+      ],
+      "term_matches": 7,
+      "term_slots": 7,
+      "score": 89.9,
+      "passed": false
+    },
+    {
+      "file": "reports/product/05-performance-product.md",
+      "audience": "product",
+      "bytes": 9511,
+      "lines": 177,
+      "sections": 12,
+      "required_section_matches": 11,
+      "required_section_slots": 12,
+      "tables": 5,
+      "mermaid": 2,
+      "problem_section": true,
+      "recommendation_terms_in_problem": [],
+      "term_matches": 6,
+      "term_slots": 6,
+      "score": 97.9,
+      "passed": true
+    },
+    {
+      "file": "reports/product/02-leave-product.md",
+      "audience": "product",
+      "bytes": 18373,
+      "lines": 261,
+      "sections": 12,
+      "required_section_matches": 12,
+      "required_section_slots": 12,
+      "tables": 4,
+      "mermaid": 1,
+      "problem_section": true,
+      "recommendation_terms_in_problem": [],
+      "term_matches": 9,
+      "term_slots": 9,
+      "score": 100.0,
+      "passed": true
+    }
+  ]
+}
