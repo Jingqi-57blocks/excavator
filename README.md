@@ -102,32 +102,47 @@ excavator codegraph status --target ./workspace
 To build or refresh an index with an already-installed CodeGraph CLI:
 
 ```bash
-excavator codegraph build --target ./workspace --quiet
+excavator codegraph build --target ./workspace
 ```
 
-For a new target this invokes `codegraph init <target> --index`; for an initialized target it invokes `codegraph index <target>`. `--force`, `--quiet`, and `--binary /custom/path/codegraph` are supported. If the CLI is missing, Excavator prints installation choices and stops without downloading or installing anything.
+For a new target this invokes `codegraph init <target>`, which indexes as part of initialization; for an already-initialized target it invokes `codegraph index <target>`, which rebuilds the index from scratch. The returned `command` reports the exact arguments used.
+
+Supported options:
+
+- `--binary /custom/path/codegraph` selects a CodeGraph executable.
+- `--force` passes CodeGraph's own `--force`, which only permits a path that looks like a home directory or filesystem root. It does not force a rebuild; `codegraph index` already rebuilds.
+- `--quiet` suppresses progress output and applies to the refresh path only, because CodeGraph's `init` does not accept it.
+
+If the CLI is missing, Excavator prints installation choices and stops without downloading or installing anything.
 
 ## Cache and recovery
 
+A workdir holds one directory per analyzed target, named after the target's basename. Runs and caches for a target live together, so a project's state can be inspected or removed in one step.
+
 ```text
 .excavator-work/
-├── cache/
-│   ├── contexts/
-│   ├── features/
-│   └── source-windows/
-└── runs/
-    └── <run-id>/
-        ├── context/
-        ├── prompts/
-        ├── sections/
-        ├── claims/
-        ├── reports/
-        ├── audit/
-        ├── evidence.json
-        ├── checklist.json
-        ├── run.json
-        └── metrics.json
+└── <project>/
+    ├── .target                     # absolute path this directory belongs to
+    ├── cache/
+    │   ├── contexts/<snapshot-id>/
+    │   ├── features/<snapshot-id>/
+    │   ├── searches/<snapshot-id>/
+    │   └── source-windows/
+    └── runs/
+        └── <run-id>/
+            ├── context/
+            ├── prompts/
+            ├── sections/
+            ├── claims/
+            ├── reports/
+            ├── audit/
+            ├── evidence.json
+            ├── checklist.json
+            ├── run.json
+            └── metrics.json
 ```
+
+When two targets share a basename, the second directory is suffixed with a digest of its absolute path. The `.target` marker records ownership, so a target always resolves to the same directory.
 
 Cache keys include the source snapshot, optional provider identity, builder version and normalized request. Completed sections and claims are written atomically. A resumed run starts at the first incomplete section and reuses prepared context. Orphan temporary files left by a killed process are ignored.
 

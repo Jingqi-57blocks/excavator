@@ -114,7 +114,7 @@ Do not install CodeGraph automatically. When the user explicitly asks to inspect
 
 ```bash
 excavator codegraph status --target /workspace/project
-excavator codegraph build --target /workspace/project --quiet
+excavator codegraph build --target /workspace/project
 ```
 
 `codegraph build` only invokes an existing `codegraph` executable. If it is missing, return the installation choices emitted by the command and let the user decide. Never execute installer commands on the user's behalf as part of report generation.
@@ -132,10 +132,10 @@ A combined request is one investigation, not several independent runs.
 
 ## Authoring workflow
 
-The prepare command creates:
+The prepare command creates a run under the target's own directory inside the workdir, `<workdir>/<project>/runs/<run-id>/`, alongside that target's caches. Use the `runDir` value the command prints rather than composing the path:
 
 ```text
-runs/<run-id>/
+<workdir>/<project>/runs/<run-id>/
 ├── context/
 ├── evidence.json
 ├── analysis-scope.json

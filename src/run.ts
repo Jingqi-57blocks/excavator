@@ -16,6 +16,11 @@ export const SOURCE_SEARCH_VERSION = "source-search-v3-ranking-v1-redaction-v3";
 const PROJECT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const REFERENCES = join(PROJECT_ROOT, "skills", "excavator", "references");
 
+/** Caches live beside `runs/` inside the per-target project directory: `<workdir>/<project>/cache`. */
+function projectCacheDir(runDir: string): string {
+  return resolve(runDir, "..", "..", "cache");
+}
+
 export async function prepareRun(request: ReportRequest): Promise<{ runDir: string; manifest: RunManifest }> {
   const preparedStarted = Date.now();
   const result = await buildContexts(request);
@@ -23,7 +28,7 @@ export async function prepareRun(request: ReportRequest): Promise<{ runDir: stri
   const timestamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
   const requestDigest = sha256(stableJson({ overview: request.overviewAudiences, features: request.features, language: request.language, detailLevel: effectiveRequest.detailLevel })).slice(0, 8);
   const runId = `run-${timestamp}-${result.prepared.snapshot.id.slice(0, 8)}-${requestDigest}-${randomUUID().slice(0, 8)}`;
-  const runDir = join(request.workdir, "runs", runId);
+  const runDir = join(result.projectDir, "runs", runId);
   await ensureDir(runDir);
   await ensureDir(join(runDir, "context"));
   await ensureDir(join(runDir, "context", "features"));
@@ -192,7 +197,7 @@ export async function addSourceEvidence(runDirInput: string, relativePath: strin
   const reader = new SourceReader({
     target: manifest.request.target,
     snapshotId: manifest.snapshot.id,
-    cacheDir: join(manifest.request.workdir, "cache"),
+    cacheDir: projectCacheDir(runDir),
     maxWindows: remainingWindows,
     maxCharacters: remainingCharacters
   });
@@ -232,7 +237,7 @@ export async function searchSourceEvidence(runDirInput: string, termsInput: stri
     ? current.files.filter((file) => pathPrefixes.some((prefix) => file.relativePath === prefix || file.relativePath.startsWith(`${prefix}/`)))
     : current.files;
   const key = sha256(stableJson({ searchVersion: SOURCE_SEARCH_VERSION, snapshotId: manifest.snapshot.id, terms: [...terms].sort(), pathPrefixes: [...pathPrefixes].sort(), maxResults, regex: Boolean(options.regex), caseSensitive: Boolean(options.caseSensitive) }));
-  const cachePath = join(manifest.request.workdir, "cache", "searches", manifest.snapshot.id, `${key}.json`);
+  const cachePath = join(projectCacheDir(runDir), "searches", manifest.snapshot.id, `${key}.json`);
   let data: Record<string, unknown>;
   let cacheHit = false;
   if (await exists(cachePath)) {

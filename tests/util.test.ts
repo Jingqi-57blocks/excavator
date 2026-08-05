@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { basename, join, resolve } from "node:path";
 import { redactSecrets } from "../src/util.ts";
 
 test("secret redaction covers typed declarations, JSON, YAML and environment assignments", () => {
@@ -63,4 +64,26 @@ test("redaction preserves parseable package manifests with token-related package
   const manifest = JSON.stringify({ dependencies: { jsonwebtoken: "^9.0.0", "gpt3-tokenizer": "^1.1.5" } }, null, 2);
   const redacted = redactSecrets(manifest);
   assert.deepEqual(JSON.parse(redacted), JSON.parse(manifest));
+});
+
+test("project workspace isolates targets by name and resolves basename collisions", async () => {
+  const { readFile } = await import("node:fs/promises");
+  const { projectWorkspace } = await import("../src/util.ts");
+  const { tempDir } = await import("./helpers.ts");
+
+  const workdir = await tempDir("excavator-workspace-");
+  const alpha = await tempDir("excavator-alpha-");
+  const beta = await tempDir("excavator-beta-");
+
+  const first = await projectWorkspace(workdir, join(alpha, "api"));
+  const second = await projectWorkspace(workdir, join(beta, "api"));
+  const firstAgain = await projectWorkspace(workdir, join(alpha, "api"));
+
+  assert.equal(basename(first), "api", "the first target keeps the plain basename");
+  assert.notEqual(second, first, "a different target never shares a directory");
+  assert.match(basename(second), /^api-[0-9a-f]{6}$/, "a colliding target is suffixed with a path digest");
+  assert.equal(firstAgain, first, "resolving the same target twice is stable");
+
+  assert.equal((await readFile(join(first, ".target"), "utf8")).trim(), resolve(alpha, "api"));
+  assert.equal((await readFile(join(second, ".target"), "utf8")).trim(), resolve(beta, "api"));
 });

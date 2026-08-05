@@ -29,9 +29,10 @@ export async function buildCodeGraph(options: { target: string; binary?: string;
     throw new Error(`CodeGraph CLI was not found. Install it separately, then rerun this command. macOS/Linux: ${instructions.macosLinux} | Windows: ${instructions.windows} | npm: ${instructions.npm}`);
   }
   const initialized = await exists(join(target, ".codegraph"));
-  const args = initialized ? ["index", target] : ["init", target, "--index"];
+  // `init` indexes by default and rejects --quiet; `index` rebuilds from scratch and accepts it.
+  const args = initialized ? ["index", target] : ["init", target];
   if (options.force) args.push("--force");
-  if (options.quiet) args.push("--quiet");
+  if (options.quiet && initialized) args.push("--quiet");
   await run(binary, args, target);
   const database = join(target, ".codegraph", "codegraph.db");
   if (!await exists(database)) throw new Error(`CodeGraph completed without producing ${database}`);
@@ -48,7 +49,9 @@ export function installationInstructions(): { macosLinux: string; windows: strin
 
 async function run(binary: string, args: string[], cwd: string): Promise<void> {
   await new Promise<void>((done, reject) => {
-    const child = spawn(binary, args, { cwd, stdio: "inherit" });
+    // CodeGraph writes progress to stdout; route it to stderr so this command's own
+    // stdout stays a single parseable JSON document like every other Excavator command.
+    const child = spawn(binary, args, { cwd, stdio: ["ignore", 2, 2] });
     child.once("error", reject);
     child.once("exit", (code, signal) => code === 0 ? done() : reject(new Error(`CodeGraph exited with ${signal ? `signal ${signal}` : `code ${code}`}`)));
   });
