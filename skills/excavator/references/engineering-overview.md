@@ -55,6 +55,8 @@ Explain configuration sources, safe environment templates, containers, CI eviden
 
 Explain test types and distribution, repository documentation, explicit TODO or deprecation markers, structural conflicts, shared writes, duplicate entries, and unresolved dependencies. Describe current problems without solutions.
 
+List only problems attributable to the reviewed target snapshot. Do not include CodeGraph or Excavator limitations, unresolved graph references, source fallback, provider coverage, analysis budgets, static-review limitations or analysis performance. Those belong only in section 12 or in an Excavator validation report.
+
 ## 12. Coverage and unresolved information
 
 Explain the Git-aware file boundary, CodeGraph support, source fallback, query and source budgets, unresolved nodes, excluded files, and questions that require runtime or infrastructure information.

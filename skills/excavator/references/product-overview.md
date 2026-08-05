@@ -48,17 +48,6 @@ Explain administration, approvals, finance, bulk operations, import and export, 
 Include only target-attributable contradictions, reachable permission problems, shared writes, rule differences, explicitly unfinished target code, target documentation conflicts, and target entry points with no caller found after a complete recorded search. Each item states its target evidence, what the current target code permits, priority, and confidence. Do not include remediation.
 
 Do not include CodeGraph or Excavator limitations, unresolved graph references, source fallback, provider coverage, analysis budgets, static-review limitations or analysis performance. Those belong only in section 10 or in an Excavator validation report.
-""
-)
-p.write_text(s)
-
-p=Path('skills/excavator/references/engineering-overview.md')
-s=p.read_text()
-s=s.replace(
-"## 11. Tests, documentation, and current technical problems
-
-Explain test types and distribution, repository documentation, explicit TODO or deprecation markers, structural conflicts, shared writes, duplicate entries, and unresolved dependencies. Describe current problems without solutions.
-",
 
 ## 10. Coverage and source snapshot
 

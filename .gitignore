@@ -45,6 +45,7 @@ lerna-debug.log*
 # paths and high-volume intermediate evidence and are never committed.
 .excavator-work/
 excavator-work/
+.work/
 **/runs/
 **/cache/
 
