@@ -9,9 +9,10 @@ model: opus
 硬性规则：
 
 - 实现与测试同批完成；npm test 全绿；不许删除或跳过既有测试。
-- commit message 格式：`<Linear ID>: <描述>`。
+- commit message 格式：`<Linear ID>: <描述>`；无对应 Linear issue 的杂务提交用 `chore: <描述>`。
 - 新逻辑开新文件，单一职责；注释只加关键处。
 - Core 保持零运行时 npm 依赖、零模型调用。
 - 只做方案范围内的事；方案框内的微观选择自主决定，超框或拿不准即停下报告。范围外发现写入报告返回，不顺手修改。
-- 不操作 Linear、不合并 feat→main 的 PR。
+- 冒烟验证：涉及 CLI 或工件行为的改动，对 tests/fixtures/sample-target 真实跑一遍相关命令，把关键输出作为证据。
+- 不操作 Linear；不合并任何 PR——合并由主线在评审通过后执行。
 - 完成后报告：改动摘要、测试输出、冒烟证据、遗留问题。

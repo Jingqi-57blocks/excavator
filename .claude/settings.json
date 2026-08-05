@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm test)",
+      "Bash(npm test:*)",
+      "Bash(npm run test:*)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=$(jq -r '.tool_input.file_path // empty'); case \"$f\" in */src/*|*/tests/*|*/packages/*) cd \"${CLAUDE_PROJECT_DIR:-.}\" || exit 0; out=$(npm test 2>&1) || { echo \"$out\" | tail -40 1>&2; exit 2; } ;; esac",
+            "timeout": 180,
+            "statusMessage": "Source changed — running npm test"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cmd=$(jq -r '.tool_input.command // empty'); case \"$cmd\" in *\"git push\"*) : ;; *) exit 0 ;; esac; if printf ' %s ' \"$cmd\" | grep -qE '[^-A-Za-z0-9_]main[^-A-Za-z0-9_]'; then echo 'Blocked: direct push to main is forbidden (docs/development.md). Merge via PR instead.' 1>&2; exit 2; fi; br=$(cd \"${CLAUDE_PROJECT_DIR:-.}\" && git branch --show-current 2>/dev/null); if [ \"$br\" = \"main\" ]; then echo 'Blocked: current branch is main; switch to a feat branch before pushing.' 1>&2; exit 2; fi",
+            "timeout": 10,
+            "statusMessage": "Checking push target"
+          }
+        ]
+      }
+    ]
+  }
+}
