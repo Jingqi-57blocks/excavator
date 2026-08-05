@@ -11,6 +11,7 @@
 
   { "file": "invalid/evidence-missing-digest.json", "schema": "evidence", "valid": false, "errorPathIncludes": "required property 'digest'" },
   { "file": "invalid/evidence-multi-snapshot.json", "schema": "evidence", "valid": false, "errorPathIncludes": "/snapshotId type" },
+  { "file": "invalid/evidence-bad-id.json", "schema": "evidence", "valid": false, "errorPathIncludes": "/id pattern" },
   { "file": "invalid/finding-evidence-basis-without-ids.json", "schema": "finding", "valid": false, "errorPathIncludes": "required property 'evidenceIds'" },
   { "file": "invalid/finding-inference-without-reason.json", "schema": "finding", "valid": false, "errorPathIncludes": "required property 'reason'" },
   { "file": "invalid/finding-unknown-type.json", "schema": "finding", "valid": false, "errorPathIncludes": "/type enum" },

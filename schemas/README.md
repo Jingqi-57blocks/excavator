@@ -26,6 +26,9 @@ itself never loads Ajv and never compiles schemas at runtime.
   an edit in place.
 - Inside v1, every artifact object sets `additionalProperties: false`. Unknown fields are rejected rather than ignored,
   so a consumer can tell a v1 artifact from a later one without guessing.
+- Artifact ids (`artifactId`) accept any Unicode letter or digit, then letters, digits or `_.:-`. Ids embed the subject
+  they were derived from — a feature scope named in the user's language produces an id in that language — so the
+  character set is Unicode-wide rather than ASCII; only a leading separator and whitespace are excluded.
 - Payloads of the seven non-comparison, non-sufficiency finding types are deliberately minimal (`summary` only, extra
   properties allowed). Deeper definitions are earned by real consumers (`docs/direction.md` §十七), not written ahead of
   them.

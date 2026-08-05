@@ -12,8 +12,9 @@
       "minLength": 1
     },
     "artifactId": {
+      "description": "Unicode letter or digit first, then letters, digits or _.:- so ids may embed a subject written in the user's language.",
       "type": "string",
-      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+      "pattern": "^[\\p{L}\\p{N}][\\p{L}\\p{N}_.:-]*$"
     },
     "confidence": {
       "enum": ["high", "medium", "low"]

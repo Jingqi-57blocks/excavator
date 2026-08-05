@@ -11,7 +11,8 @@
     "snapshotIds": {
       "type": "array",
       "items": { "$ref": "common.schema.json#/$defs/snapshotId" },
-      "minItems": 1
+      "minItems": 1,
+      "uniqueItems": true
     },
     "dimensions": {
       "type": "array",

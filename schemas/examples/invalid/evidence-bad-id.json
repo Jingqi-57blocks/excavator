@@ -1,0 +1,10 @@
+{
+  "id": "-FG 请假管理 ce218177cc",
+  "schemaVersion": 1,
+  "snapshotId": "snap-4f1c9a2b",
+  "kind": "graph",
+  "title": "CodeGraph scope for 请假管理",
+  "reason": "Artifact ids may embed a localized subject, but not a leading hyphen or whitespace.",
+  "digest": "sha256:3f0b7c1e94a2d658be3c0f7d215a9e846b0da72c19f5348ade7061bc4d29f501",
+  "provider": "codegraph"
+}

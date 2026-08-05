@@ -137,21 +137,24 @@ test("real run artifacts map onto the v1 evidence and claim contracts", async ()
   const runDir = await prepareSampleRun();
   const catalog = (await readJson(join(runDir, "evidence.json"))) as { evidence: EvidenceItem[] };
 
-  // Deterministic sample covering both provider derivations. Feature-scope graph evidence is
-  // left out on purpose: its id embeds the feature subject verbatim, so a non-ASCII subject
-  // produces an id that the v1 artifactId pattern rejects and Phase 1A must normalize.
+  // Deterministic sample covering both provider derivations plus feature-scope evidence, whose
+  // id embeds the feature subject verbatim and is therefore non-ASCII for a localized subject.
   const graphItem = catalog.evidence.find((item) => item.kind === "graph" && item.id.startsWith("CG-"));
+  const featureItem = catalog.evidence.find((item) => item.id.startsWith("FG-"));
   const sourceItems = catalog.evidence.filter((item) => item.kind === "source").slice(0, 2);
-  const sample = [graphItem, ...sourceItems].filter((item): item is EvidenceItem => Boolean(item));
-  assert.ok(sample.length >= 3, `expected at least three mappable evidence items, got ${sample.length}`);
+  assert.ok(graphItem, "the prepared run produced no CodeGraph census evidence");
+  assert.ok(featureItem, "the prepared run produced no feature-scope evidence");
+  assert.match(featureItem.id, /[^\x00-\x7F]/, `expected the feature-scope id to carry the localized subject, got ${featureItem.id}`);
+  assert.equal(sourceItems.length, 2);
 
+  const sample = [graphItem, featureItem, ...sourceItems];
   for (const item of sample) {
     const mapped = toContractEvidence(item);
     assert.equal(validateEvidence(mapped), true, `${item.id} failed the evidence contract:\n${renderErrors(validateEvidence.errors)}`);
+    assert.equal(mapped.id, item.id, "the mapping must not rewrite ids");
   }
-  assert.equal(sample.filter((item) => item.kind === "source").length, 2);
-  assert.equal(toContractEvidence(sample[0]).provider, "codegraph");
-  assert.equal(toContractEvidence(sample[1]).provider, "source");
+  assert.equal(toContractEvidence(featureItem).provider, "codegraph");
+  assert.equal(toContractEvidence(sourceItems[0]).provider, "source");
 
   const sectionClaim: SectionClaim = {
     id: "claim-3-fact",
