@@ -1,0 +1,23 @@
+[
+  { "file": "valid/evidence-source.json", "schema": "evidence", "valid": true },
+  { "file": "valid/evidence-search.json", "schema": "evidence", "valid": true },
+  { "file": "valid/finding-relation.json", "schema": "finding", "valid": true },
+  { "file": "valid/finding-inference.json", "schema": "finding", "valid": true },
+  { "file": "valid/finding-comparison.json", "schema": "finding", "valid": true },
+  { "file": "valid/finding-provider-sufficiency.json", "schema": "finding", "valid": true },
+  { "file": "valid/claim-bound-to-finding.json", "schema": "claim", "valid": true },
+  { "file": "valid/claim-unavailable-unbound.json", "schema": "claim", "valid": true },
+  { "file": "valid/coverage-mixed.json", "schema": "coverage", "valid": true },
+
+  { "file": "invalid/evidence-missing-digest.json", "schema": "evidence", "valid": false, "errorPathIncludes": "required property 'digest'" },
+  { "file": "invalid/evidence-multi-snapshot.json", "schema": "evidence", "valid": false, "errorPathIncludes": "/snapshotId type" },
+  { "file": "invalid/evidence-bad-id.json", "schema": "evidence", "valid": false, "errorPathIncludes": "/id pattern" },
+  { "file": "invalid/finding-evidence-basis-without-ids.json", "schema": "finding", "valid": false, "errorPathIncludes": "required property 'evidenceIds'" },
+  { "file": "invalid/finding-inference-without-reason.json", "schema": "finding", "valid": false, "errorPathIncludes": "required property 'reason'" },
+  { "file": "invalid/finding-unknown-type.json", "schema": "finding", "valid": false, "errorPathIncludes": "/type enum" },
+  { "file": "invalid/finding-comparison-missing-before.json", "schema": "finding", "valid": false, "errorPathIncludes": "/payload required must have required property 'beforeSnapshotId'" },
+  { "file": "invalid/finding-sufficiency-with-total-score.json", "schema": "finding", "valid": false, "errorPathIncludes": "/payload not" },
+  { "file": "invalid/claim-empty-statement.json", "schema": "claim", "valid": false, "errorPathIncludes": "/statement minLength" },
+  { "file": "invalid/claim-unbound-non-unavailable.json", "schema": "claim", "valid": false, "errorPathIncludes": "anyOf" },
+  { "file": "invalid/coverage-bad-status.json", "schema": "coverage", "valid": false, "errorPathIncludes": "/dimensions/0/status enum" }
+]

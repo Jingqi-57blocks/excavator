@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "snapshotIds": ["snap-4f1c9a2b"],
+  "dimensions": [
+    {
+      "dimension": "api-entry-points",
+      "status": "found",
+      "evidenceIds": ["SRC-src-server-ts-1-12"],
+      "findingIds": ["FND-relation-0001"]
+    },
+    {
+      "dimension": "feature-flags",
+      "status": "searched-not-found",
+      "evidenceIds": ["SEARCH-9c31f0"],
+      "notes": "Searched every manifest-listed file for flag and toggle identifiers."
+    },
+    {
+      "dimension": "ui-component-relations",
+      "status": "provider-unsupported",
+      "notes": "The structured provider does not index Vue single-file components."
+    },
+    {
+      "dimension": "notification-delivery",
+      "status": "external-unknown",
+      "notes": "Delivery happens in a third-party service outside the workspace."
+    }
+  ]
+}

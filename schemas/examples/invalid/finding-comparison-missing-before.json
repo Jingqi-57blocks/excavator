@@ -1,0 +1,13 @@
+{
+  "id": "FND-comparison-0013",
+  "schemaVersion": 1,
+  "type": "comparison",
+  "basis": "evidence",
+  "snapshotIds": ["snap-4f1c9a2b", "snap-8d20e7c4"],
+  "evidenceIds": ["SRC-after-src-server-ts-1-14"],
+  "creationMethod": "deterministic",
+  "payload": {
+    "afterSnapshotId": "snap-8d20e7c4",
+    "summary": "A comparison that never states which snapshot it compares against."
+  }
+}

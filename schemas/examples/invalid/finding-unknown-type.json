@@ -1,0 +1,12 @@
+{
+  "id": "FND-mystery-0001",
+  "schemaVersion": 1,
+  "type": "architecture-smell",
+  "basis": "evidence",
+  "snapshotIds": ["snap-4f1c9a2b"],
+  "evidenceIds": ["SRC-src-server-ts-1-12"],
+  "creationMethod": "agent-interpreted",
+  "payload": {
+    "summary": "A finding type outside the nine categories of the v1 contract."
+  }
+}

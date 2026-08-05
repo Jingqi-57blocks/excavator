@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://excavator.57blocks.dev/schemas/v1/evidence.schema.json",
+  "title": "Evidence",
+  "description": "A source or structured observation bound to exactly one Snapshot (direction.md §十二 rule 1).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "schemaVersion", "snapshotId", "kind", "reason", "digest"],
+  "properties": {
+    "id": { "$ref": "common.schema.json#/$defs/artifactId" },
+    "schemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+    "snapshotId": {
+      "description": "Singular by contract: Evidence never spans Snapshots.",
+      "$ref": "common.schema.json#/$defs/snapshotId"
+    },
+    "kind": {
+      "enum": [
+        "graph",
+        "source",
+        "readme",
+        "manifest",
+        "git",
+        "coverage",
+        "derived",
+        "search",
+        "scope",
+        "provider",
+        "limitation"
+      ]
+    },
+    "title": { "type": "string" },
+    "path": { "type": "string" },
+    "startLine": { "type": "integer", "minimum": 1 },
+    "endLine": { "type": "integer", "minimum": 1 },
+    "content": { "type": "string" },
+    "data": true,
+    "reason": { "type": "string", "minLength": 1 },
+    "digest": { "type": "string", "minLength": 1 },
+    "provider": {
+      "description": "Identifier of the provider that produced this observation.",
+      "type": "string"
+    },
+    "sensitive": { "type": "boolean" },
+    "supersedes": { "$ref": "common.schema.json#/$defs/artifactId" }
+  }
+}

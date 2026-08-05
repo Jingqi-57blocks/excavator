@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://excavator.57blocks.dev/schemas/v1/claim.schema.json",
+  "title": "Claim",
+  "description": "A sentence or table row in formal output, bound to Findings or Evidence. A Claim may reference a Comparison Finding (direction.md §十二 rule 5).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "schemaVersion", "statement"],
+  "properties": {
+    "id": { "$ref": "common.schema.json#/$defs/artifactId" },
+    "schemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+    "statement": { "type": "string", "minLength": 1 },
+    "marker": { "enum": ["fact", "verified", "inferred", "unavailable"] },
+    "findingIds": { "$ref": "common.schema.json#/$defs/idArray" },
+    "evidenceIds": { "$ref": "common.schema.json#/$defs/idArray" },
+    "documentId": { "type": "string" },
+    "section": { "type": "integer", "minimum": 1 },
+    "reason": { "type": "string" },
+    "supersedes": { "$ref": "common.schema.json#/$defs/artifactId" }
+  },
+  "anyOf": [
+    { "required": ["findingIds"], "properties": { "findingIds": { "type": "array", "minItems": 1 } } },
+    { "required": ["evidenceIds"], "properties": { "evidenceIds": { "type": "array", "minItems": 1 } } },
+    { "required": ["marker"], "properties": { "marker": { "const": "unavailable" } } }
+  ]
+}

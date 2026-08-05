@@ -1,0 +1,15 @@
+{
+  "id": "SRC-src-server-ts-1-12",
+  "schemaVersion": 1,
+  "snapshotId": "snap-4f1c9a2b",
+  "kind": "source",
+  "title": "src/server.ts:1-12",
+  "path": "src/server.ts",
+  "startLine": 1,
+  "endLine": 12,
+  "content": "app.get('/leave', requireManager, listLeave);\n",
+  "reason": "The leave listing route and its guard are read directly from source.",
+  "digest": "sha256:7b2d1c0a5e8f4936ab1d5c9e2f7043bd6c81a4f0e3d29b7c5a6180ef34cd2b91",
+  "provider": "source",
+  "sensitive": false
+}

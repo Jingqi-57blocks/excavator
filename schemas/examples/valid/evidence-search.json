@@ -1,0 +1,16 @@
+{
+  "id": "SEARCH-9c31f0",
+  "schemaVersion": 1,
+  "snapshotId": "snap-4f1c9a2b",
+  "kind": "search",
+  "title": "search: requireManager",
+  "data": {
+    "terms": ["requireManager"],
+    "searchVersion": "source-search-1",
+    "filesSearched": 3,
+    "matches": [{ "path": "src/server.ts", "line": 3 }]
+  },
+  "reason": "Prove that the manager guard is defined only in the API layer.",
+  "digest": "sha256:1a9f4b6d8c07e253fa0b3d5e79c1284f6b0da35c17e9482df6031ac5b8d47e60",
+  "provider": "source"
+}

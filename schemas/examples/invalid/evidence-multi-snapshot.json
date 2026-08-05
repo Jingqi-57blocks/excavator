@@ -1,0 +1,13 @@
+{
+  "id": "SRC-src-auth-ts-1-8-multi",
+  "schemaVersion": 1,
+  "snapshotId": ["snap-4f1c9a2b", "snap-8d20e7c4"],
+  "kind": "source",
+  "title": "src/auth.ts:1-8",
+  "path": "src/auth.ts",
+  "startLine": 1,
+  "endLine": 8,
+  "reason": "Evidence belongs to exactly one snapshot; a list of snapshots is not allowed.",
+  "digest": "sha256:5c8e0a1f7b93d426ae0f3d18c95b2e746fa0d3915c7e846b2df01a3c69b5e847",
+  "provider": "source"
+}

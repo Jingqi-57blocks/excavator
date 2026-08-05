@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://excavator.57blocks.dev/schemas/v1/common.schema.json",
+  "title": "Excavator v1 shared definitions",
+  "$defs": {
+    "schemaVersion": {
+      "description": "Artifact contract version. Bumped together with the $id version segment.",
+      "const": 1
+    },
+    "snapshotId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "artifactId": {
+      "description": "Unicode letter or digit first, then letters, digits or _.:- so ids may embed a subject written in the user's language.",
+      "type": "string",
+      "pattern": "^[\\p{L}\\p{N}][\\p{L}\\p{N}_.:-]*$"
+    },
+    "confidence": {
+      "enum": ["high", "medium", "low"]
+    },
+    "creationMethod": {
+      "description": "deterministic: produced by Core from graph, diff or structured data. agent-interpreted: drafted by the host agent from Evidence and validated by Core.",
+      "enum": ["deterministic", "agent-interpreted"]
+    },
+    "idArray": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/artifactId" },
+      "uniqueItems": true
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "id": "CLAIM-eng-overview-3-2",
+  "schemaVersion": 1,
+  "statement": "Only managers can list leave requests through GET /leave.",
+  "marker": "verified",
+  "findingIds": ["FND-relation-0001"],
+  "evidenceIds": ["SRC-src-server-ts-1-12"],
+  "documentId": "engineering-overview",
+  "section": 3
+}

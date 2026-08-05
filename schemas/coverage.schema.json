@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://excavator.57blocks.dev/schemas/v1/coverage.schema.json",
+  "title": "Coverage",
+  "description": "Per-dimension accountability: what was investigated, what was found, and what stays unknown.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "snapshotIds", "dimensions"],
+  "properties": {
+    "schemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+    "snapshotIds": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/snapshotId" },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "dimensions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/dimension" }
+    }
+  },
+  "$defs": {
+    "dimension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dimension", "status"],
+      "properties": {
+        "dimension": { "type": "string", "minLength": 1 },
+        "status": {
+          "enum": ["found", "searched-not-found", "provider-unsupported", "unresolved", "external-unknown"]
+        },
+        "evidenceIds": { "$ref": "common.schema.json#/$defs/idArray" },
+        "findingIds": { "$ref": "common.schema.json#/$defs/idArray" },
+        "notes": { "type": "string" }
+      }
+    }
+  }
+}

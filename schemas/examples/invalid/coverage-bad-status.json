@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "snapshotIds": ["snap-4f1c9a2b"],
+  "dimensions": [
+    {
+      "dimension": "background-jobs",
+      "status": "probably-fine",
+      "notes": "A status outside the five accountable coverage states."
+    }
+  ]
+}
