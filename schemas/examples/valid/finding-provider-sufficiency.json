@@ -1,0 +1,25 @@
+{
+  "id": "FND-sufficiency-0001",
+  "schemaVersion": 1,
+  "type": "provider-sufficiency",
+  "basis": "evidence",
+  "snapshotIds": ["snap-4f1c9a2b"],
+  "evidenceIds": ["PROVIDER-registry-4f1c9a2b", "COVERAGE-codegraph-4f1c9a2b"],
+  "confidence": "medium",
+  "limitations": ["Vue single-file components are not indexed by the structured provider."],
+  "creationMethod": "deterministic",
+  "sourceProviders": ["codegraph", "source"],
+  "createdAt": "2026-08-05T09:11:05.000Z",
+  "payload": {
+    "requiredCapabilities": ["symbol-query", "relation-expansion", "entry-point-discovery"],
+    "availableCapabilities": ["symbol-query", "relation-expansion"],
+    "targetCoverage": { "indexed": 2, "eligible": 3, "ratio": 0.67, "unindexedPaths": ["src/LeavePanel.vue"] },
+    "unresolvedRelations": 4,
+    "sourceFallbackUsed": true,
+    "keyRelationsSourceConfirmed": true,
+    "ceilingReasons": [
+      "Entry-point discovery is unavailable for the UI layer.",
+      "Four references from the indexed routes stayed unresolved."
+    ]
+  }
+}

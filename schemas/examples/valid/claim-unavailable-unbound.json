@@ -1,0 +1,9 @@
+{
+  "id": "CLAIM-eng-overview-6-1",
+  "schemaVersion": 1,
+  "statement": "The production deployment topology cannot be determined from this workspace.",
+  "marker": "unavailable",
+  "documentId": "engineering-overview",
+  "section": 6,
+  "reason": "No infrastructure manifests or deployment configuration exist inside the snapshot boundary."
+}

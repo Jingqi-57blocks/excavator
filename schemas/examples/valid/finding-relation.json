@@ -1,0 +1,18 @@
+{
+  "id": "FND-relation-0001",
+  "schemaVersion": 1,
+  "type": "relation",
+  "basis": "evidence",
+  "snapshotIds": ["snap-4f1c9a2b"],
+  "evidenceIds": ["SRC-src-server-ts-1-12", "GRAPH-route-1"],
+  "confidence": "high",
+  "creationMethod": "deterministic",
+  "sourceProviders": ["codegraph", "source"],
+  "createdAt": "2026-08-05T09:12:44.000Z",
+  "payload": {
+    "summary": "GET /leave calls listLeave after the requireManager guard.",
+    "from": "route:GET /leave",
+    "to": "function:listLeave",
+    "relation": "calls"
+  }
+}

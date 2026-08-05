@@ -1,0 +1,18 @@
+{
+  "id": "FND-comparison-0002",
+  "schemaVersion": 1,
+  "type": "comparison",
+  "basis": "evidence",
+  "snapshotIds": ["snap-4f1c9a2b", "snap-8d20e7c4"],
+  "evidenceIds": ["SRC-src-server-ts-1-12", "SRC-after-src-server-ts-1-14"],
+  "confidence": "medium",
+  "creationMethod": "deterministic",
+  "sourceProviders": ["source"],
+  "createdAt": "2026-08-05T09:20:10.000Z",
+  "payload": {
+    "beforeSnapshotId": "snap-4f1c9a2b",
+    "afterSnapshotId": "snap-8d20e7c4",
+    "summary": "The manager guard moved from the route definition into listLeave.",
+    "changedPaths": ["src/server.ts"]
+  }
+}

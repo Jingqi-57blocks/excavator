@@ -1,0 +1,13 @@
+{
+  "id": "FND-relation-0009",
+  "schemaVersion": 1,
+  "type": "relation",
+  "basis": "evidence",
+  "snapshotIds": ["snap-4f1c9a2b"],
+  "confidence": "high",
+  "creationMethod": "deterministic",
+  "createdAt": "2026-08-05T09:30:00.000Z",
+  "payload": {
+    "summary": "An evidence-based finding that cites no evidence."
+  }
+}

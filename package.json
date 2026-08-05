@@ -16,5 +16,8 @@
     "test:unit": "node --experimental-strip-types --test tests/*.test.ts packages/excavator-html/tests/*.test.ts",
     "test:workspace": "node --experimental-strip-types tests/workspace-smoke.ts",
     "check": "node --experimental-strip-types src/cli.ts help >/dev/null && npm test"
+  },
+  "devDependencies": {
+    "ajv": "^8.20.0"
   }
 }

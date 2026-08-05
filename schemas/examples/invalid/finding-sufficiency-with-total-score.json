@@ -1,0 +1,19 @@
+{
+  "id": "FND-sufficiency-0014",
+  "schemaVersion": 1,
+  "type": "provider-sufficiency",
+  "basis": "evidence",
+  "snapshotIds": ["snap-4f1c9a2b"],
+  "evidenceIds": ["PROVIDER-registry-4f1c9a2b"],
+  "creationMethod": "deterministic",
+  "payload": {
+    "requiredCapabilities": ["symbol-query"],
+    "availableCapabilities": ["symbol-query"],
+    "targetCoverage": { "indexed": 3, "eligible": 3, "ratio": 1 },
+    "unresolvedRelations": 0,
+    "sourceFallbackUsed": false,
+    "keyRelationsSourceConfirmed": true,
+    "ceilingReasons": [],
+    "totalScore": 0.92
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "id": "FND-permission-0007",
+  "schemaVersion": 1,
+  "type": "permission",
+  "basis": "inference",
+  "snapshotIds": ["snap-4f1c9a2b"],
+  "confidence": "low",
+  "limitations": ["No runtime configuration is available in the workspace."],
+  "creationMethod": "agent-interpreted",
+  "sourceProviders": ["source"],
+  "createdAt": "2026-08-05T09:13:02.000Z",
+  "reason": "Role names appear only in guard identifiers; no policy file confirms the mapping, so this is an inference over source naming.",
+  "payload": {
+    "summary": "Leave approval is probably restricted to the manager role."
+  }
+}

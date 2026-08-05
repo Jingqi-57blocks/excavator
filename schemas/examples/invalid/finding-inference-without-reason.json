@@ -1,0 +1,14 @@
+{
+  "id": "FND-impact-0011",
+  "schemaVersion": 1,
+  "type": "impact",
+  "basis": "inference",
+  "snapshotIds": ["snap-4f1c9a2b"],
+  "evidenceIds": ["SRC-src-server-ts-1-12"],
+  "confidence": "low",
+  "creationMethod": "agent-interpreted",
+  "createdAt": "2026-08-05T09:31:00.000Z",
+  "payload": {
+    "summary": "An inferred finding that never states why it is an inference."
+  }
+}

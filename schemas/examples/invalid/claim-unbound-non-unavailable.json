@@ -1,0 +1,8 @@
+{
+  "id": "CLAIM-eng-overview-4-2",
+  "schemaVersion": 1,
+  "statement": "The scheduler retries failed leave notifications three times.",
+  "marker": "fact",
+  "documentId": "engineering-overview",
+  "section": 4
+}

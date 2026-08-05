@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://excavator.57blocks.dev/schemas/v1/finding.schema.json",
+  "title": "Finding",
+  "description": "Shared envelope plus a payload discriminated by finding type. A Finding may reference several Snapshots (direction.md §十二 rule 2).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "schemaVersion", "type", "basis", "snapshotIds", "creationMethod", "payload"],
+  "properties": {
+    "id": { "$ref": "common.schema.json#/$defs/artifactId" },
+    "schemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+    "type": {
+      "enum": [
+        "relation",
+        "business-rule",
+        "state-transition",
+        "data-access",
+        "permission",
+        "impact",
+        "comparison",
+        "provider-sufficiency",
+        "coverage"
+      ]
+    },
+    "basis": {
+      "description": "What the finding rests on: observed evidence, an inference over evidence, or a recorded unavailability.",
+      "enum": ["evidence", "inference", "unavailable"]
+    },
+    "snapshotIds": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/snapshotId" },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "evidenceIds": { "$ref": "common.schema.json#/$defs/idArray" },
+    "confidence": { "$ref": "common.schema.json#/$defs/confidence" },
+    "limitations": { "type": "array", "items": { "type": "string" } },
+    "creationMethod": { "$ref": "common.schema.json#/$defs/creationMethod" },
+    "sourceProviders": { "type": "array", "items": { "type": "string" } },
+    "createdAt": { "type": "string" },
+    "reason": { "type": "string" },
+    "payload": { "type": "object" }
+  },
+  "allOf": [
+    {
+      "if": { "required": ["basis"], "properties": { "basis": { "const": "evidence" } } },
+      "then": { "required": ["evidenceIds"], "properties": { "evidenceIds": { "type": "array", "minItems": 1 } } }
+    },
+    {
+      "if": { "required": ["basis"], "properties": { "basis": { "enum": ["inference", "unavailable"] } } },
+      "then": { "required": ["reason"], "properties": { "reason": { "type": "string", "minLength": 1 } } }
+    },
+    {
+      "if": { "required": ["type"], "properties": { "type": { "const": "comparison" } } },
+      "then": { "properties": { "payload": { "$ref": "#/$defs/comparisonPayload" } } }
+    },
+    {
+      "if": { "required": ["type"], "properties": { "type": { "const": "provider-sufficiency" } } },
+      "then": { "properties": { "payload": { "$ref": "#/$defs/providerSufficiencyPayload" } } }
+    },
+    {
+      "if": {
+        "required": ["type"],
+        "properties": {
+          "type": {
+            "enum": ["relation", "business-rule", "state-transition", "data-access", "permission", "impact", "coverage"]
+          }
+        }
+      },
+      "then": { "properties": { "payload": { "$ref": "#/$defs/minimalPayload" } } }
+    }
+  ],
+  "$defs": {
+    "minimalPayload": {
+      "description": "Minimal contract for payload types whose deep definition waits for a real consumer.",
+      "type": "object",
+      "required": ["summary"],
+      "properties": { "summary": { "type": "string", "minLength": 1 } }
+    },
+    "comparisonPayload": {
+      "description": "Comparison findings state before and after explicitly (direction.md §十二 rule 3).",
+      "type": "object",
+      "required": ["beforeSnapshotId", "afterSnapshotId", "summary"],
+      "properties": {
+        "beforeSnapshotId": { "$ref": "common.schema.json#/$defs/snapshotId" },
+        "afterSnapshotId": { "$ref": "common.schema.json#/$defs/snapshotId" },
+        "summary": { "type": "string", "minLength": 1 }
+      }
+    },
+    "providerSufficiencyPayload": {
+      "description": "Sufficiency verdicts are explainable and auditable; no single overall score may decide them (direction.md §八).",
+      "type": "object",
+      "required": [
+        "requiredCapabilities",
+        "availableCapabilities",
+        "targetCoverage",
+        "unresolvedRelations",
+        "sourceFallbackUsed",
+        "keyRelationsSourceConfirmed",
+        "ceilingReasons"
+      ],
+      "properties": {
+        "requiredCapabilities": { "type": "array", "items": { "type": "string" } },
+        "availableCapabilities": { "type": "array", "items": { "type": "string" } },
+        "targetCoverage": { "type": "object" },
+        "unresolvedRelations": { "type": "integer", "minimum": 0 },
+        "sourceFallbackUsed": { "type": "boolean" },
+        "keyRelationsSourceConfirmed": { "type": "boolean" },
+        "ceilingReasons": { "type": "array", "items": { "type": "string" } }
+      },
+      "not": { "anyOf": [{ "required": ["score"] }, { "required": ["totalScore"] }] }
+    }
+  }
+}
