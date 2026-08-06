@@ -133,7 +133,7 @@ test("audit rejects stale source evidence after the target changes", async () =>
   assert.ok(audit.findings.some((item) => /snapshot changed|stale|does not match/i.test(item.message)));
 });
 
-test("author timeout stops before the next section and can resume", async () => {
+test("author timeout stops after saving the checkpointed section and can resume", async () => {
   const request = await makeRequest(5);
   request.overviewAudiences = ["product"];
   request.features = [];
@@ -144,8 +144,41 @@ test("author timeout stops before the next section and can resume", async () => 
   await new Promise((resolve) => setTimeout(resolve, 15));
   await assert.rejects(() => checkpointSection(runDir, document.id, 2, sectionText(document.sections[1].title, 2, id), sectionClaims(2, id)), /timeout/i);
   const resumed = await resumeRun(runDir);
-  assert.equal(resumed.next[0].section, 2);
+  assert.equal(resumed.next[0].section, 3, "the timed-out section was saved, so resume continues after it");
   assert.equal(resumed.manifest.state, "authoring");
+});
+
+test("a timed-out checkpoint keeps the section it was given and resumes from the next one", async () => {
+  const request = await makeRequest(5);
+  request.overviewAudiences = ["product"];
+  request.features = [];
+  const { runDir, manifest } = await prepareRun(request);
+  const document = manifest.documents[0];
+  const id = await evidenceId(runDir);
+  await checkpointSection(runDir, document.id, 1, sectionText(document.sections[0].title, 1, id), sectionClaims(1, id));
+  await new Promise((resolve) => setTimeout(resolve, 15));
+  await assert.rejects(
+    () => checkpointSection(runDir, document.id, 2, sectionText(document.sections[1].title, 2, id), sectionClaims(2, id)),
+    /Authoring timeout for .* after saving section 2/
+  );
+
+  const saved = await readFile(document.sections[1].file, "utf8");
+  assert.match(saved, /第 2 章/, "the content handed to the timed-out checkpoint must survive");
+  assert.ok(JSON.parse(await readFile(document.sections[1].claimsFile, "utf8")).claims.length > 0);
+
+  const persisted = JSON.parse(await readFile(join(runDir, "run.json"), "utf8")) as RunManifest;
+  assert.equal(persisted.state, "timed-out");
+  assert.equal(persisted.documents[0].sections[1].complete, true);
+  assert.ok(persisted.metrics.warnings.some((warning) => /section 2 was saved before stopping/.test(warning)));
+  const diagnostics = JSON.parse(await readFile(join(runDir, "audit", `${document.id}-timeout.json`), "utf8"));
+  assert.equal(diagnostics.stoppedAfterSection, 2);
+
+  const resumed = await resumeRun(runDir);
+  assert.equal(resumed.manifest.state, "authoring");
+  assert.equal(resumed.next[0].section, 3);
+  await checkpointSection(runDir, document.id, 3, sectionText(document.sections[2].title, 3, id), sectionClaims(3, id));
+  const afterResume = JSON.parse(await readFile(join(runDir, "run.json"), "utf8")) as RunManifest;
+  assert.equal(afterResume.documents[0].sections[2].complete, true);
 });
 
 test("a completed document can be revised without reusing its expired author timer", async () => {

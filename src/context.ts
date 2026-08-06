@@ -7,7 +7,7 @@ import { SourceReader, evidenceFromWindow, manifestSummary, selectProjectDocumen
 import { Deadline, ensureDir, exists, projectWorkspace, readJson, sha256, slugify, stableJson, truncate, writeJson } from "./util.ts";
 import { createProviderRegistry, resolveCodeGraphDatabase } from "./providers.ts";
 
-const BUILDER_VERSION = "excavator-context-v14-anchored-detailed-inventory";
+const BUILDER_VERSION = "excavator-context-v15-visible-truncation";
 
 interface CachedShared {
   snapshotId: string;
@@ -26,6 +26,7 @@ interface CachedFeature {
   files: string[];
   evidence: EvidenceItem[];
   markdown: string;
+  warnings: string[];
 }
 
 export interface ContextBuildResult {
@@ -125,6 +126,7 @@ export async function buildContexts(request: ReportRequest): Promise<ContextBuil
       timing[`feature:${key}Ms`] = Date.now() - started;
       await writeJson(cachePath, cached);
     }
+    warnings.push(...(cached.warnings ?? []));
     allEvidence.push(...cached.evidence.filter((item) => !allEvidence.some((existing) => existing.id === item.id)));
     featureScopes.set(key, { nodes: cached.nodes as any[], files: cached.files, evidenceIds: cached.evidence.map((item) => item.id) });
     featureMarkdowns.set(key, cached.markdown);
@@ -234,7 +236,7 @@ async function buildSharedContext(snapshot: Snapshot, files: ScannedFile[], grap
     })));
     for (const spec of specs.slice(0, 5)) {
       try { evidence.push(evidenceFromWindow(await sourceReader.window(spec.path, spec.start, spec.end, spec.reason))); }
-      catch { break; }
+      catch (error) { warnings.push(`Shared context route fallback truncated: ${(error as Error).message}`); break; }
     }
   }
 
@@ -245,6 +247,10 @@ async function buildSharedContext(snapshot: Snapshot, files: ScannedFile[], grap
 async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], feature: FeatureRequest, graph: CodeGraphIndex | null, graphPaths: Set<string>, sourceReader: SourceReader, deadline: Deadline, maxNodes: number, depth: number): Promise<CachedFeature> {
   const terms = [...new Set([feature.subject, ...feature.aliases].flatMap(tokenize))].filter(Boolean);
   const evidence: EvidenceItem[] = [];
+  const warnings: string[] = [];
+  const truncated = (stage: string, error: unknown): void => {
+    warnings.push(`Feature "${feature.subject}" evidence truncated at ${stage}: ${(error as Error).message}`);
+  };
   let nodes: any[] = [];
   let edges: any[] = [];
   let unresolved: any[] = [];
@@ -275,7 +281,7 @@ async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], fea
   for (const spec of sourceSpecs.slice(0, 18)) {
     deadline.check(`reading balanced feature source for ${feature.subject}`);
     try { evidence.push(evidenceFromWindow(await sourceReader.window(spec.path, spec.start, spec.end, spec.reason))); }
-    catch { break; }
+    catch (error) { truncated("balanced graph windows", error); break; }
   }
 
   const needBroadFallback = !graph || nodes.length < 5 || unresolved.length > Math.max(5, nodes.length / 3);
@@ -291,7 +297,7 @@ async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], fea
   })));
   for (const spec of fallbackSpecs.slice(0, needBroadFallback ? 10 : 5)) {
     try { evidence.push(evidenceFromWindow(await sourceReader.window(spec.path, spec.start, spec.end, spec.reason))); }
-    catch { break; }
+    catch (error) { truncated("search fallback windows", error); break; }
   }
 
   const graphFileSet = new Set(graphFiles);
@@ -308,13 +314,13 @@ async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], fea
   }
   for (const spec of mergeWindows(semanticSpecs).slice(0, 14)) {
     try { evidence.push(evidenceFromWindow(await sourceReader.window(spec.path, spec.start, spec.end, spec.reason))); }
-    catch { break; }
+    catch (error) { truncated("semantic category windows", error); break; }
   }
 
   const scopeFiles = [...new Set([...graphFiles, ...evidence.map((item) => item.path).filter(Boolean) as string[]])].sort();
   const inventory = buildFeatureInventory(nodes, scopeFiles);
-  const markdown = renderFeatureMarkdown(feature, terms, nodes, edges, unresolved, scopeFiles, evidence, needBroadFallback, inventory);
-  return { snapshotId: snapshot.id, key: featureCacheKey(feature), subject: feature.subject, aliases: feature.aliases, nodes, files: scopeFiles, evidence: dedupeEvidence(evidence), markdown };
+  const markdown = renderFeatureMarkdown(feature, terms, nodes, edges, unresolved, scopeFiles, evidence, needBroadFallback, inventory, warnings);
+  return { snapshotId: snapshot.id, key: featureCacheKey(feature), subject: feature.subject, aliases: feature.aliases, nodes, files: scopeFiles, evidence: dedupeEvidence(evidence), markdown, warnings };
 }
 
 function renderSharedMarkdown(snapshot: Snapshot, graphSummary: unknown, coverage: { indexed: number; eligible: number; ratio: number }, docs: Array<Record<string, unknown>>, representativeNodes: any[], routes: any[], evidence: EvidenceItem[], warnings: string[]): string {
@@ -412,7 +418,7 @@ ${role}
 `;
 }
 
-function renderFeatureMarkdown(feature: FeatureRequest, terms: string[], nodes: any[], edges: any[], unresolved: any[], files: string[], evidence: EvidenceItem[], broadFallback: boolean, inventory: FeatureInventoryEntry[]): string {
+function renderFeatureMarkdown(feature: FeatureRequest, terms: string[], nodes: any[], edges: any[], unresolved: any[], files: string[], evidence: EvidenceItem[], broadFallback: boolean, inventory: FeatureInventoryEntry[], truncations: string[]): string {
   const compactNodes = nodes.slice(0, 100).map((node) => ({ id: node.id, kind: node.kind, name: node.name, file: node.filePath, lines: `${node.startLine}-${node.endLine}`, signature: node.signature ? truncate(String(node.signature), 180) : null }));
   const compactEdges = edges.slice(0, 160).map((edge) => ({ source: edge.source, target: edge.target, kind: edge.kind, line: edge.line, refName: edge.metadata?.refName, confidence: edge.metadata?.confidence }));
   const edgeKinds = Object.entries(edges.reduce((acc: Record<string, number>, edge: any) => { acc[edge.kind] = (acc[edge.kind] ?? 0) + 1; return acc; }, {})).sort((a, b) => Number(b[1]) - Number(a[1]));
@@ -431,6 +437,7 @@ ${terms.map((term) => `- ${term}`).join("\n")}
 - Files in the working boundary: ${files.length}.
 - Unresolved graph references: ${unresolved.length}.
 - Broad source fallback used: ${broadFallback ? "yes" : "no"}.
+- Evidence truncation: ${truncations.length ? truncations.join(" | ") : "none"}
 
 ## Authoring inventory
 

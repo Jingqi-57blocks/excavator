@@ -96,6 +96,31 @@ test("feature fallback merges overlapping search windows in the same file", asyn
   }
 });
 
+test("starved evidence collection reports truncation instead of silently stopping", async () => {
+  const target = await copyFixture();
+  const workdir = await tempDir();
+  const starved = request(target, undefined, workdir);
+  starved.budgets.maxSourceWindows = 1;
+
+  const result = await buildContexts(starved);
+  const truncation = result.stats.warnings.filter((warning) => /evidence truncated at/.test(warning));
+  assert.ok(truncation.length > 0, `expected a truncation warning, got ${JSON.stringify(result.stats.warnings)}`);
+  assert.ok(truncation.every((warning) => /^Feature "请假管理" evidence truncated at .+: .+/.test(warning)));
+  assert.ok(truncation.some((warning) => /Source window budget exceeded/.test(warning)), "the warning must carry the underlying budget cause");
+
+  const featureContext = [...result.prepared.featureMarkdowns.values()][0] ?? "";
+  assert.match(featureContext, /- Evidence truncation: .*evidence truncated at/);
+});
+
+test("a feature context with an ample window budget records no truncation", async () => {
+  const target = await copyFixture();
+  const workdir = await tempDir();
+  const result = await buildContexts(request(target, undefined, workdir));
+  const featureContext = [...result.prepared.featureMarkdowns.values()][0] ?? "";
+  assert.match(featureContext, /- Evidence truncation: none/);
+  assert.ok(!result.stats.warnings.some((warning) => /evidence truncated at/.test(warning)));
+});
+
 test("project document selection skips empty files and deduplicates generated API formats per root", () => {
   const files = [
     { absolutePath: "/x/a/README.md", relativePath: "a/README.md", size: 20, extension: ".md", rootName: "a" },

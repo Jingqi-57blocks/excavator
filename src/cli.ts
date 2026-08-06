@@ -5,17 +5,7 @@ import type { Audience, BudgetConfig, ChecklistItem, FeatureRequest, Investigati
 import { addSourceEvidence, assembleRun, auditRun, beginDocument, checkpointSection, prepareRun, resumeRun, runStatus, searchSourceEvidence, updateChecklist, updateTraces, updateWorkItems } from "./run.ts";
 import { stableJson } from "./util.ts";
 import { buildCodeGraph, codeGraphStatus } from "./codegraph-command.ts";
-
-const DEFAULT_BUDGETS: BudgetConfig = {
-  prepareMs: 180_000,
-  authorMs: 720_000,
-  maxGraphQueries: 40,
-  maxSourceWindows: 70,
-  maxSourceCharacters: 160_000,
-  maxFiles: 100_000,
-  maxFeatureNodes: 220,
-  maxExpansionDepth: 2
-};
+import { deriveDefaultBudgets, plannedDocumentCount } from "./budgets.ts";
 
 async function main(): Promise<void> {
   const [command = "help", ...argv] = process.argv.slice(2);
@@ -146,6 +136,8 @@ async function requestFromArgs(argv: string[]): Promise<ReportRequest> {
 }
 
 function normalizeRequest(raw: Partial<ReportRequest>, args: Record<string, string>): ReportRequest {
+  const overviewAudiences = (raw.overviewAudiences ?? []).flatMap((value) => audiences(String(value)));
+  const features = (raw.features ?? []).map((feature) => ({ subject: feature.subject, aliases: feature.aliases ?? [], audiences: feature.audiences?.flatMap((value) => audiences(String(value))) ?? ["product"] }));
   return {
     target: resolve(String(raw.target ?? required(args.target, "target"))),
     codegraph: raw.codegraph ? resolve(String(raw.codegraph)) : args.codegraph ? resolve(args.codegraph) : undefined,
@@ -153,9 +145,9 @@ function normalizeRequest(raw: Partial<ReportRequest>, args: Record<string, stri
     language: String(raw.language ?? args.language ?? "en-US"),
     detailLevel: raw.detailLevel === "standard" || args.detail === "standard" ? "standard" : "detailed",
     workdir: resolve(String(raw.workdir ?? args.workdir ?? ".excavator-work")),
-    overviewAudiences: (raw.overviewAudiences ?? []).flatMap((value) => audiences(String(value))),
-    features: (raw.features ?? []).map((feature) => ({ subject: feature.subject, aliases: feature.aliases ?? [], audiences: feature.audiences?.flatMap((value) => audiences(String(value))) ?? ["product"] })),
-    budgets: { ...DEFAULT_BUDGETS, ...(raw.budgets ?? {}), ...budgetOverrides(args) }
+    overviewAudiences,
+    features,
+    budgets: { ...defaultBudgets({ overviewAudiences, features }), ...(raw.budgets ?? {}), ...budgetOverrides(args) }
   };
 }
 
@@ -168,8 +160,12 @@ function baseRequest(args: Record<string, string>, docs: Pick<ReportRequest, "ov
     detailLevel: args.detail === "standard" ? "standard" : "detailed",
     workdir: resolve(args.workdir ?? ".excavator-work"),
     ...docs,
-    budgets: { ...DEFAULT_BUDGETS, ...budgetOverrides(args) }
+    budgets: { ...defaultBudgets(docs), ...budgetOverrides(args) }
   };
+}
+
+function defaultBudgets(docs: Pick<ReportRequest, "overviewAudiences" | "features">): BudgetConfig {
+  return deriveDefaultBudgets(plannedDocumentCount(docs.overviewAudiences, docs.features), docs.features.length);
 }
 
 function budgetOverrides(args: Record<string, string>): Partial<BudgetConfig> {

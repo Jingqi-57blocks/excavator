@@ -39,7 +39,7 @@ export class CodeGraphIndex {
       this.stats.hits += 1;
       return cached as T[];
     }
-    if (this.stats.queries >= this.maxQueries) throw new Error(`CodeGraph query budget exceeded (${this.maxQueries})`);
+    if (this.stats.queries >= this.maxQueries) throw new Error(`CodeGraph query budget exceeded (${this.maxQueries}); increase --max-graph-queries (e.g. ${this.maxQueries * 2})`);
     this.stats.queries += 1;
     const rows = this.db.prepare(sql).all(...params) as T[];
     this.cache.set(key, rows);
