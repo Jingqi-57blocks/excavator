@@ -14,6 +14,14 @@ test("redaction keeps covering the two assignment shapes", () => {
   assert.equal(redactSecrets('"api_key": "sk-live-4242"'), '"api_key": <redacted>');
 });
 
+test("a sensitive word inside the value does not shield key material that carries digits", () => {
+  assert.equal(redactSecrets('client_secret: "my-secret-2024"'), "client_secret: <redacted>");
+  const pair = 'var p = new Dictionary<string,string> { { "client_secret", "sk-live-secret-4242" } };';
+  const redacted = redactSecrets(pair);
+  assert.doesNotMatch(redacted, /sk-live-secret-4242/);
+  assert.match(redacted, /\{ "client_secret", "<redacted>" \}/, "the digitless name literal keeps its exemption");
+});
+
 test("redaction leaves values that are structure, types or names alone", () => {
   const preserved = [
     "mcpToken: {",

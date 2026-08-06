@@ -165,8 +165,18 @@ function shouldRedactValue(raw: string): boolean {
   if (value.startsWith("{") || value.startsWith("[")) return false;
   if (MEMBER_EXPRESSION_PATTERN.test(value)) return false;
   const quoted = value.match(QUOTED_VALUE_PATTERN);
-  if (quoted && isSensitiveIdentifier(quoted[1] ?? quoted[2] ?? "")) return false;
+  if (quoted && isNameLikeLiteral(quoted[1] ?? quoted[2] ?? "")) return false;
   return true;
+}
+
+/**
+ * A quoted string that reads as a name rather than as key material: it hits the sensitive
+ * word list, and carries no digit. Names like `tb_token` or `client_credentials` spell the
+ * word out and stop there; credential material almost always mixes digits in, so a digit
+ * revokes the exemption and `"my-secret-2024"` stays redacted.
+ */
+function isNameLikeLiteral(content: string): boolean {
+  return !/[0-9]/.test(content) && isSensitiveIdentifier(content);
 }
 
 function trailingPunctuation(raw: string): string {
