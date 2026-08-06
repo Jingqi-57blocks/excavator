@@ -11,7 +11,7 @@ import { atomicWrite, ensureDir, exists, nowIso, readJson, sha256, slugify, stab
 import { collectClaims, createAnalysisScope, emptyTraceCatalog, mergeTraces, writeReportCompanions } from "./assurance-artifacts.ts";
 import { appendTimeline, auditTimeline, readTimeline } from "./timeline.ts";
 
-export const SOURCE_SEARCH_VERSION = "source-search-v3-ranking-v1-redaction-v3";
+export const SOURCE_SEARCH_VERSION = "source-search-v3-ranking-v1-redaction-v4";
 
 const PROJECT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const REFERENCES = join(PROJECT_ROOT, "skills", "excavator", "references");

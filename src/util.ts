@@ -103,6 +103,11 @@ async function readTargetMarker(path: string): Promise<string | null> {
   try { return (await readFile(join(path, ".target"), "utf8")).trim(); } catch { return null; }
 }
 
+const IDENTIFIER_PATTERN = /[A-Za-z_][A-Za-z0-9_.-]*/g;
+const STRING_LITERAL_PATTERN = /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g;
+const QUOTED_VALUE_PATTERN = /^"((?:[^"\\]|\\.)*)"$|^'((?:[^'\\]|\\.)*)'$/;
+const MEMBER_EXPRESSION_PATTERN = /^[A-Za-z_$][A-Za-z0-9_$]*(\.[A-Za-z_$][A-Za-z0-9_$]*)+$/;
+
 export function redactSecrets(text: string): string {
   const lines = text.split(/\r?\n/);
   return lines.map((line) => redactSecretLine(line)).join("\n");
@@ -114,14 +119,27 @@ function redactSecretLine(line: string): string {
   if (equals >= 0) {
     const prefix = line.slice(0, equals);
     const value = line.slice(equals + 1);
-    const identifiers = prefix.match(/[A-Za-z_][A-Za-z0-9_.-]*/g) ?? [];
+    const identifiers = prefix.match(IDENTIFIER_PATTERN) ?? [];
     if (identifiers.some((identifier) => sensitive(identifier)) && shouldRedactValue(value)) {
       return `${line.slice(0, equals + 1)}${value.match(/^\s*/)?.[0] ?? " "}<redacted>${trailingPunctuation(value)}`;
     }
   }
   const mapping = line.match(/^(\s*["']?([A-Za-z_][A-Za-z0-9_.-]*)["']?\s*:\s*)(.*)$/);
   if (mapping && sensitive(mapping[2]) && shouldRedactValue(mapping[3])) return `${mapping[1]}<redacted>${trailingPunctuation(mapping[3])}`;
-  return line;
+  return redactSensitiveStringLiterals(line);
+}
+
+/**
+ * Shape-independent fallback for assignments the two shapes above cannot see:
+ * C# comma pairs `{ "client_secret", "…" }`, Python `dict(…)`, Go composite literals.
+ * When the line mentions a sensitive identifier anywhere, every quoted literal on it is
+ * judged on its own. Name-like literals stay put by the value rules, so what disappears
+ * is the value beside the name, not the name itself.
+ */
+function redactSensitiveStringLiterals(line: string): string {
+  const identifiers = line.match(IDENTIFIER_PATTERN) ?? [];
+  if (!identifiers.some((identifier) => isSensitiveIdentifier(identifier))) return line;
+  return line.replace(STRING_LITERAL_PATTERN, (literal) => (shouldRedactValue(literal) ? `${literal[0]}<redacted>${literal[0]}` : literal));
 }
 
 function isSensitiveIdentifier(identifier: string): boolean {
@@ -135,9 +153,19 @@ function isSensitiveIdentifier(identifier: string): boolean {
   return /(^|_)(privatekey|apikey|aeskey|accesskey|clientsecret|private_key|api_key|aes_key|access_key|client_secret)($|_)/.test(normalized);
 }
 
+/**
+ * Value-side veto: a sensitive name alone never justifies redaction. Structure openers,
+ * member expressions and name-like quoted strings are what surrounds a secret, not the
+ * secret itself, and redacting them destroys evidence. A bare identifier stays redacted,
+ * because `API_KEY=abcd1234` is indistinguishable from a real credential.
+ */
 function shouldRedactValue(raw: string): boolean {
   const value = raw.trim().replace(/[,;]$/, "").trim();
   if (!value || value.startsWith("${") || value === "null" || value === "true" || value === "false" || /^-?\d+(?:\.\d+)?$/.test(value)) return false;
+  if (value.startsWith("{") || value.startsWith("[")) return false;
+  if (MEMBER_EXPRESSION_PATTERN.test(value)) return false;
+  const quoted = value.match(QUOTED_VALUE_PATTERN);
+  if (quoted && isSensitiveIdentifier(quoted[1] ?? quoted[2] ?? "")) return false;
   return true;
 }
 
