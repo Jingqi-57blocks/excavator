@@ -302,15 +302,6 @@ export async function checkpointSection(runDirInput: string, documentId: string,
   const revisingCompletedDocument = Boolean(document.completedAt);
   if (!document.startedAt) document.startedAt = nowIso();
   const elapsed = Date.now() - Date.parse(document.startedAt);
-  if (!revisingCompletedDocument && elapsed > manifest.request.budgets.authorMs) {
-    document.elapsedMs = elapsed;
-    manifest.state = "timed-out";
-    manifest.updatedAt = nowIso();
-    manifest.metrics.warnings.push(`${document.id} authoring exceeded ${manifest.request.budgets.authorMs}ms before section ${sectionIndex}.`);
-    await writeJson(path, manifest);
-    await writeJson(join(runDir, "audit", `${document.id}-timeout.json`), diagnoseTimeout(manifest, documentId, sectionIndex));
-    throw new Error(`Authoring timeout for ${document.id}: ${elapsed}ms > ${manifest.request.budgets.authorMs}ms`);
-  }
   const normalized = normalizeSection(content, section.title);
   const revision = await archiveCheckpoint(runDir, documentId, sectionIndex, section.file, section.claimsFile);
   await atomicWrite(section.file, normalized);
@@ -327,10 +318,21 @@ export async function checkpointSection(runDirInput: string, documentId: string,
   }
   if (manifest.documents.every((item) => item.sections.every((sectionItem) => sectionItem.complete))) manifest.state = "prepared";
   if (claims) manifest.metrics.claims = await countClaims(runDir, manifest.documents);
-  await appendTimeline(runDir, manifest.id, { stage: "authoring", action: revision ? "section.revised" : "section.checkpoint", documentId, section: sectionIndex, evidenceIds: [...new Set((claims ?? []).flatMap((claim) => claim.evidenceIds ?? []))], traceIds: [...new Set((claims ?? []).flatMap((claim) => claim.traceIds ?? []))], data: { revision } });
+  // The author budget stops the next section, never this one: the work is already on disk.
+  const timedOut = !revisingCompletedDocument && elapsed > manifest.request.budgets.authorMs;
+  if (timedOut) {
+    document.elapsedMs = elapsed;
+    manifest.state = "timed-out";
+    manifest.metrics.warnings.push(`${document.id} authoring exceeded ${manifest.request.budgets.authorMs}ms; section ${sectionIndex} was saved before stopping.`);
+  }
+  await appendTimeline(runDir, manifest.id, { stage: "authoring", action: revision ? "section.revised" : "section.checkpoint", documentId, section: sectionIndex, evidenceIds: [...new Set((claims ?? []).flatMap((claim) => claim.evidenceIds ?? []))], traceIds: [...new Set((claims ?? []).flatMap((claim) => claim.traceIds ?? []))], data: timedOut ? { revision, timedOut: true } : { revision } });
   manifest.metrics.timelineEvents = (manifest.metrics.timelineEvents ?? 0) + 1;
   await writeJson(path, manifest);
   await writeJson(join(runDir, "metrics.json"), manifest.metrics);
+  if (timedOut) {
+    await writeJson(join(runDir, "audit", `${document.id}-timeout.json`), diagnoseTimeout(manifest, documentId, sectionIndex));
+    throw new Error(`Authoring timeout for ${document.id} after saving section ${sectionIndex}: ${elapsed}ms > ${manifest.request.budgets.authorMs}ms`);
+  }
   return manifest;
 }
 
@@ -612,7 +614,7 @@ function diagnoseTimeout(manifest: RunManifest, documentId: string, sectionIndex
   return {
     runId: manifest.id,
     documentId,
-    stoppedBeforeSection: sectionIndex,
+    stoppedAfterSection: sectionIndex,
     authorBudgetMs: manifest.request.budgets.authorMs,
     metrics: manifest.metrics,
     likelyCauses: [
