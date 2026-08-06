@@ -325,11 +325,42 @@ export interface GraphEdge {
   metadata: Record<string, unknown>;
 }
 
+export type FactPackCategory = "entrypoints" | "entities" | "states" | "config-keys" | "jobs" | "external-calls";
+export type FactPackMethod = "graph" | "scan" | "graph+scan" | "none";
+
+export interface FactPackItem {
+  category: FactPackCategory;
+  name: string;
+  filePath: string;
+  line: number;
+  endLine?: number;
+  detail?: string;
+  source: "graph" | "scan";
+}
+
+export interface FactPackCoverage {
+  category: FactPackCategory;
+  method: FactPackMethod;
+  itemCount: number;
+  truncated: boolean;
+  note?: string;
+}
+
+export interface FeatureFactPack {
+  version: "factpack-v1";
+  snapshotId: string;
+  featureKey: string;
+  items: FactPackItem[];
+  coverage: FactPackCoverage[];
+  warnings: string[];
+}
+
 export interface PreparedContext {
   snapshot: Snapshot;
   evidence: EvidenceItem[];
   sharedMarkdown: string;
   documentContexts: Map<string, string>;
   featureMarkdowns: Map<string, string>;
+  featureFactPacks: Map<string, FeatureFactPack>;
   featureScopes: Map<string, { nodes: GraphNode[]; files: string[]; evidenceIds: string[] }>;
 }

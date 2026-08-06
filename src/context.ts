@@ -1,13 +1,14 @@
 import { basename, join } from "node:path";
 import { readFile } from "node:fs/promises";
-import type { Audience, EvidenceItem, FeatureRequest, PreparedContext, ProviderRegistry, ReportRequest, Snapshot } from "./types.ts";
+import type { Audience, EvidenceItem, FeatureFactPack, FeatureRequest, PreparedContext, ProviderRegistry, ReportRequest, Snapshot } from "./types.ts";
 import { CodeGraphIndex } from "./codegraph.ts";
 import { createSnapshot, isLikelySource, type ScannedFile } from "./snapshot.ts";
 import { SourceReader, evidenceFromWindow, manifestSummary, selectProjectDocuments, sourceSearch } from "./source.ts";
 import { Deadline, ensureDir, exists, projectWorkspace, readJson, sha256, slugify, stableJson, truncate, writeJson } from "./util.ts";
 import { createProviderRegistry, resolveCodeGraphDatabase } from "./providers.ts";
+import { buildFactPack, factPackEvidence, renderFactPackSection } from "./factpack.ts";
 
-const BUILDER_VERSION = "excavator-context-v15-visible-truncation";
+const BUILDER_VERSION = "excavator-context-v16-fact-pack";
 
 interface CachedShared {
   snapshotId: string;
@@ -26,6 +27,7 @@ interface CachedFeature {
   files: string[];
   evidence: EvidenceItem[];
   markdown: string;
+  factPack: FeatureFactPack;
   warnings: string[];
 }
 
@@ -105,6 +107,7 @@ export async function buildContexts(request: ReportRequest): Promise<ContextBuil
   const documentContexts = new Map<string, string>();
   const featureScopes = new Map<string, { nodes: any[]; files: string[]; evidenceIds: string[] }>();
   const featureMarkdowns = new Map<string, string>();
+  const featureFactPacks = new Map<string, FeatureFactPack>();
 
   for (const audience of request.overviewAudiences) {
     const id = `overview-${audience}`;
@@ -130,6 +133,7 @@ export async function buildContexts(request: ReportRequest): Promise<ContextBuil
     allEvidence.push(...cached.evidence.filter((item) => !allEvidence.some((existing) => existing.id === item.id)));
     featureScopes.set(key, { nodes: cached.nodes as any[], files: cached.files, evidenceIds: cached.evidence.map((item) => item.id) });
     featureMarkdowns.set(key, cached.markdown);
+    featureFactPacks.set(key, cached.factPack);
     for (const audience of feature.audiences) {
       const id = `feature-${key}-${audience}`;
       documentContexts.set(id, renderFeatureContext(audience, request.language, feature.subject, key));
@@ -140,7 +144,7 @@ export async function buildContexts(request: ReportRequest): Promise<ContextBuil
   const sourceStats = sourceReader.stats;
   timing.totalPrepareMs = Date.now() - t0;
   return {
-    prepared: { snapshot, evidence: dedupeEvidence(allEvidence), sharedMarkdown: shared.markdown, documentContexts, featureMarkdowns, featureScopes },
+    prepared: { snapshot, evidence: dedupeEvidence(allEvidence), sharedMarkdown: shared.markdown, documentContexts, featureMarkdowns, featureFactPacks, featureScopes },
     projectDir,
     stats: {
       graphQueries: graph?.stats.queries ?? 0,
@@ -318,9 +322,23 @@ async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], fea
   }
 
   const scopeFiles = [...new Set([...graphFiles, ...evidence.map((item) => item.path).filter(Boolean) as string[]])].sort();
+  const key = featureCacheKey(feature);
+  const boundary = new Set(scopeFiles);
+  const factPack = await buildFactPack({
+    snapshotId: snapshot.id,
+    featureKey: key,
+    nodes,
+    boundaryFiles: scopeFiles,
+    files: files.filter((file) => boundary.has(file.relativePath)),
+    graph,
+    sourceReader,
+    deadline,
+    boundaryNodesCapped: nodes.length >= maxNodes
+  });
+  evidence.push(...factPackEvidence(factPack));
   const inventory = buildFeatureInventory(nodes, scopeFiles);
-  const markdown = renderFeatureMarkdown(feature, terms, nodes, edges, unresolved, scopeFiles, evidence, needBroadFallback, inventory, warnings);
-  return { snapshotId: snapshot.id, key: featureCacheKey(feature), subject: feature.subject, aliases: feature.aliases, nodes, files: scopeFiles, evidence: dedupeEvidence(evidence), markdown, warnings };
+  const markdown = renderFeatureMarkdown(feature, terms, nodes, edges, unresolved, scopeFiles, evidence, needBroadFallback, inventory, warnings, factPack);
+  return { snapshotId: snapshot.id, key, subject: feature.subject, aliases: feature.aliases, nodes, files: scopeFiles, evidence: dedupeEvidence(evidence), markdown, factPack, warnings: [...warnings, ...factPack.warnings] };
 }
 
 function renderSharedMarkdown(snapshot: Snapshot, graphSummary: unknown, coverage: { indexed: number; eligible: number; ratio: number }, docs: Array<Record<string, unknown>>, representativeNodes: any[], routes: any[], evidence: EvidenceItem[], warnings: string[]): string {
@@ -418,7 +436,7 @@ ${role}
 `;
 }
 
-function renderFeatureMarkdown(feature: FeatureRequest, terms: string[], nodes: any[], edges: any[], unresolved: any[], files: string[], evidence: EvidenceItem[], broadFallback: boolean, inventory: FeatureInventoryEntry[], truncations: string[]): string {
+function renderFeatureMarkdown(feature: FeatureRequest, terms: string[], nodes: any[], edges: any[], unresolved: any[], files: string[], evidence: EvidenceItem[], broadFallback: boolean, inventory: FeatureInventoryEntry[], truncations: string[], factPack: FeatureFactPack): string {
   const compactNodes = nodes.slice(0, 100).map((node) => ({ id: node.id, kind: node.kind, name: node.name, file: node.filePath, lines: `${node.startLine}-${node.endLine}`, signature: node.signature ? truncate(String(node.signature), 180) : null }));
   const compactEdges = edges.slice(0, 160).map((edge) => ({ source: edge.source, target: edge.target, kind: edge.kind, line: edge.line, refName: edge.metadata?.refName, confidence: edge.metadata?.confidence }));
   const edgeKinds = Object.entries(edges.reduce((acc: Record<string, number>, edge: any) => { acc[edge.kind] = (acc[edge.kind] ?? 0) + 1; return acc; }, {})).sort((a, b) => Number(b[1]) - Number(a[1]));
@@ -446,6 +464,8 @@ This inventory is a coverage map, not a source of truth by itself. Complete ever
 | Report section | Category | Candidate nodes | Candidate files | Representative paths |
 |---:|---|---:|---:|---|
 ${inventory.map((item) => `| ${item.section} | ${item.label} | ${item.nodeCount} | ${item.fileCount} | ${item.examples.map((value) => `\`${value}\``).join("<br>") || "—"} |`).join("\n")}
+
+${renderFactPackSection(factPack)}
 
 ## Files
 
