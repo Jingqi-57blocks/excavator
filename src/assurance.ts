@@ -318,7 +318,9 @@ export function auditSectionClaims(options: {
 function evidenceIdsInSection(sectionText: string, knownEvidenceIds: Set<string>): Set<string> {
   const cited = new Set<string>();
   for (const id of knownEvidenceIds) if (sectionText.includes(id)) cited.add(id);
-  const pattern = /(?<![\p{L}\p{N}_])((?:S|CG|FG|GIT|SEARCH|SCOPE|PROVIDER)-[\p{L}\p{N}][\p{L}\p{N}._:-]*)(?![\p{L}\p{N}_.:-])/gu;
+  // The id body must end on a letter or digit: a trailing separator is never part of an id,
+  // and letting one in turns `<!--E:S-d59eb3a823-->` into the pseudo id `S-d59eb3a823--`.
+  const pattern = /(?<![\p{L}\p{N}_])((?:S|CG|FG|GIT|SEARCH|SCOPE|PROVIDER)-[\p{L}\p{N}](?:[\p{L}\p{N}._:-]*[\p{L}\p{N}])?)(?![\p{L}\p{N}_.:-])/gu;
   for (const match of sectionText.matchAll(pattern)) cited.add(match[1]);
   return cited;
 }
