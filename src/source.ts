@@ -5,7 +5,7 @@ import type { ScannedFile } from "./snapshot.ts";
 import { atomicWrite, ensureDir, exists, readJson, redactSecrets, sha256, truncate, writeJson } from "./util.ts";
 
 const TEXTUAL_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".go", ".py", ".java", ".kt", ".kts", ".rb", ".php", ".cs", ".fs", ".rs", ".c", ".h", ".cc", ".cpp", ".hpp", ".swift", ".scala", ".vue", ".svelte", ".sql", ".yaml", ".yml", ".json", ".toml", ".xml", ".html", ".css", ".scss", ".md", ".sh"]);
-export const SOURCE_WINDOW_CACHE_VERSION = "source-window-v3-redaction-v3";
+export const SOURCE_WINDOW_CACHE_VERSION = "source-window-v3-redaction-v4";
 
 const MANIFEST_NAMES = new Set(["package.json", "go.mod", "Cargo.toml", "pyproject.toml", "requirements.txt", "pom.xml", "build.gradle", "build.gradle.kts", "Gemfile", "composer.json", "Dockerfile", "docker-compose.yml", "docker-compose.yaml", "Makefile"]);
 
