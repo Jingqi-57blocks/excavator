@@ -7,6 +7,7 @@ import { SourceReader, evidenceFromWindow, manifestSummary, selectProjectDocumen
 import { Deadline, ensureDir, exists, projectWorkspace, readJson, sha256, slugify, stableJson, truncate, writeJson } from "./util.ts";
 import { createProviderRegistry, resolveCodeGraphDatabase } from "./providers.ts";
 import { buildFactPack, factPackEvidence, renderFactPackSection } from "./factpack.ts";
+import { legacyWorkspaceWarning } from "./workspace-residue.ts";
 
 const BUILDER_VERSION = "excavator-context-v16-fact-pack";
 
@@ -62,6 +63,7 @@ export async function buildContexts(request: ReportRequest): Promise<ContextBuil
   deadline.check("creating source snapshot");
 
   const projectDir = await projectWorkspace(request.workdir, request.target);
+  const legacyResidue = await legacyWorkspaceWarning(request.workdir, request.target, projectDir);
   const cacheRoot = join(projectDir, "cache");
   await ensureDir(cacheRoot);
   const sourceReader = new SourceReader({
@@ -75,6 +77,7 @@ export async function buildContexts(request: ReportRequest): Promise<ContextBuil
   let graph: CodeGraphIndex | null = null;
   let codegraphOpenError: string | undefined;
   const warnings: string[] = [];
+  if (legacyResidue) warnings.push(legacyResidue);
   if (effectiveCodegraph && await exists(effectiveCodegraph)) {
     try { graph = new CodeGraphIndex(effectiveCodegraph, request.budgets.maxGraphQueries, deadline, files.map((file) => file.relativePath)); }
     catch (error) { codegraphOpenError = (error as Error).message; warnings.push(`CodeGraph could not be opened; source fallback is active: ${codegraphOpenError}`); }
