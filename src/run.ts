@@ -9,6 +9,7 @@ import { createSnapshot } from "./snapshot.ts";
 import { auditChecklist, auditDetailedFeatureSection, auditEvidenceCatalog, auditSectionClaims, auditTargetProblemAttribution, auditTraces, auditWorkItemClaimCoverage, auditWorkItems, checklistUpdatesToWorkItems, createInvestigationChecklist, createInvestigationPlan, mergeChecklist, mergeWorkItems, type AuditFinding, validateClaimsInput, workItemsToChecklist } from "./assurance.ts";
 import { atomicWrite, ensureDir, exists, nowIso, readJson, sha256, slugify, stableJson, writeJson } from "./util.ts";
 import { collectClaims, createAnalysisScope, emptyTraceCatalog, mergeTraces, writeReportCompanions } from "./assurance-artifacts.ts";
+import { scaffoldSectionClaims } from "./claims-scaffold.ts";
 import { appendTimeline, auditTimeline, readTimeline } from "./timeline.ts";
 
 export const SOURCE_SEARCH_VERSION = "source-search-v3-ranking-v1-redaction-v4";
@@ -337,6 +338,22 @@ export async function checkpointSection(runDirInput: string, documentId: string,
     throw new Error(`Authoring timeout for ${document.id} after saving section ${sectionIndex}: ${elapsed}ms > ${manifest.request.budgets.authorMs}ms`);
   }
   return manifest;
+}
+
+/**
+ * Read-only helper: turn a section's markdown into a claims skeleton the author can fill in and pass
+ * back to `checkpoint --claims`. It reuses `scaffoldSectionClaims` (and thus the audit's own
+ * `substantiveSegments`), so every stub matches a substantive segment the audit will demand a claim
+ * for. The run is consulted only to validate the document/section and stamp the metadata; nothing is
+ * mutated and no timeline event is recorded.
+ */
+export async function scaffoldClaims(runDirInput: string, documentId: string, sectionIndex: number, sectionText: string): Promise<SectionClaimsFile> {
+  const runDir = resolve(runDirInput);
+  const manifest = await readJson<RunManifest>(join(runDir, "run.json"));
+  const document = manifest.documents.find((item) => item.id === documentId);
+  if (!document) throw new Error(`Unknown document: ${documentId}`);
+  if (!document.sections.some((item) => item.index === sectionIndex)) throw new Error(`Unknown section ${sectionIndex} for ${documentId}`);
+  return { version: 2, documentId, section: sectionIndex, claims: scaffoldSectionClaims(sectionText) };
 }
 
 export async function assembleRun(runDirInput: string): Promise<RunManifest> {

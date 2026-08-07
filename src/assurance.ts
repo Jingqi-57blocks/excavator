@@ -578,7 +578,7 @@ function isCompleteWorkItem(status: InvestigationWorkItem["status"]): boolean {
   return !["pending", "in_progress"].includes(status);
 }
 
-function substantiveSegments(section: string): string[] {
+export function substantiveSegments(section: string): string[] {
   const lines = visibleText(section).split(/\r?\n/);
   const segments: string[] = [];
   for (let line of lines) {
