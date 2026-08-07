@@ -47,7 +47,7 @@ const EXCLUDED_FILES = [
   /^Icon\r$/i, /^\._/, /^\.LSOverride$/i, /\.sw[op]$/i, /~$/
 ];
 const SAFE_ENV_SAMPLE = /^\.env\.(sample|example|template|defaults?)$/i;
-const SOURCE_EXTENSIONS = new Set([
+export const SOURCE_EXTENSIONS = new Set([
   ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs", ".go", ".py", ".java", ".kt", ".kts", ".rb", ".php",
   ".cs", ".fs", ".rs", ".c", ".h", ".cc", ".cpp", ".hpp", ".swift", ".scala", ".vue", ".svelte", ".sql",
   ".yaml", ".yml", ".json", ".toml", ".xml", ".html", ".css", ".scss", ".md", ".sh", ".proto", ".graphql", ".gql", ".tf", ".hcl", ".astro"

@@ -4,7 +4,11 @@ import type { EvidenceItem, SourceWindow } from "./types.ts";
 import type { ScannedFile } from "./snapshot.ts";
 import { atomicWrite, ensureDir, exists, readJson, redactSecrets, REDACTION_VERSION, sha256, truncate, writeJson } from "./util.ts";
 
-const TEXTUAL_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".go", ".py", ".java", ".kt", ".kts", ".rb", ".php", ".cs", ".fs", ".rs", ".c", ".h", ".cc", ".cpp", ".hpp", ".swift", ".scala", ".vue", ".svelte", ".sql", ".yaml", ".yml", ".json", ".toml", ".xml", ".html", ".css", ".scss", ".md", ".sh"]);
+// The content-search corpus. It MUST cover every text extension the snapshot scans (`SOURCE_EXTENSIONS`
+// in snapshot.ts); otherwise a `searched-not-found` verdict silently omits files that were scanned but
+// never searchable. The scanned-implies-searchable invariant is enforced by tests/search-corpus.test.ts.
+// Order mirrors SOURCE_EXTENSIONS so the two sets are easy to diff. See 57B-347.
+export const TEXTUAL_EXTENSIONS = new Set([".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs", ".go", ".py", ".java", ".kt", ".kts", ".rb", ".php", ".cs", ".fs", ".rs", ".c", ".h", ".cc", ".cpp", ".hpp", ".swift", ".scala", ".vue", ".svelte", ".sql", ".yaml", ".yml", ".json", ".toml", ".xml", ".html", ".css", ".scss", ".md", ".sh", ".proto", ".graphql", ".gql", ".tf", ".hcl", ".astro"]);
 export const SOURCE_WINDOW_CACHE_VERSION = `source-window-v3-${REDACTION_VERSION}`;
 
 const MANIFEST_NAMES = new Set(["package.json", "go.mod", "Cargo.toml", "pyproject.toml", "requirements.txt", "pom.xml", "build.gradle", "build.gradle.kts", "Gemfile", "composer.json", "Dockerfile", "docker-compose.yml", "docker-compose.yaml", "Makefile"]);
