@@ -135,6 +135,65 @@ test("project document selection skips empty files and deduplicates generated AP
   assert.ok(!selected.some((file) => file.relativePath.endsWith("Makefile")));
 });
 
+test("project document selection ranks contract-facing files ahead of the README", () => {
+  const files = [
+    { absolutePath: "/x/README.md", relativePath: "README.md", size: 4000, extension: ".md", rootName: "root" },
+    { absolutePath: "/x/src/routes/user.ts", relativePath: "src/routes/user.ts", size: 800, extension: ".ts", rootName: "root" },
+    { absolutePath: "/x/schema.graphql", relativePath: "schema.graphql", size: 1200, extension: ".graphql", rootName: "root" },
+    { absolutePath: "/x/package.json", relativePath: "package.json", size: 600, extension: ".json", rootName: "root" }
+  ];
+  const selected = selectProjectDocuments(files, 14);
+  const readmeRank = selected.findIndex((file) => file.relativePath === "README.md");
+  assert.ok(readmeRank >= 0, "the README stays eligible");
+  for (const contract of ["src/routes/user.ts", "schema.graphql", "package.json"]) {
+    const rank = selected.findIndex((file) => file.relativePath === contract);
+    assert.ok(rank >= 0 && rank < readmeRank, `${contract} must rank ahead of the README (README at ${readmeRank}, ${contract} at ${rank})`);
+  }
+});
+
+test("project document selection admits safe env, compose and front-end route config as candidates", () => {
+  const files = [
+    { absolutePath: "/x/.env.example", relativePath: ".env.example", size: 60, extension: ".example", rootName: "root" },
+    { absolutePath: "/x/docker-compose.yml", relativePath: "docker-compose.yml", size: 300, extension: ".yml", rootName: "root" },
+    { absolutePath: "/x/src/router/menu.ts", relativePath: "src/router/menu.ts", size: 500, extension: ".ts", rootName: "root" },
+    { absolutePath: "/x/src/widget.ts", relativePath: "src/widget.ts", size: 500, extension: ".ts", rootName: "root" }
+  ];
+  const selected = new Set(selectProjectDocuments(files, 14).map((file) => file.relativePath));
+  assert.ok(selected.has(".env.example"), "a non-secret env sample is a candidate");
+  assert.ok(selected.has("docker-compose.yml"), "compose orchestration is a candidate");
+  assert.ok(selected.has("src/router/menu.ts"), "front-end menu/route config is a candidate");
+  assert.ok(!selected.has("src/widget.ts"), "a plain source file with no contract signal is not a project document");
+});
+
+test("project document selection stays diverse under the cap: README and entrypoints survive a route swarm", () => {
+  const files = [
+    { absolutePath: "/x/README.md", relativePath: "README.md", size: 1200, extension: ".md", rootName: "root" },
+    { absolutePath: "/x/src/server.ts", relativePath: "src/server.ts", size: 400, extension: ".ts", rootName: "root" },
+    { absolutePath: "/x/src/app.ts", relativePath: "src/app.ts", size: 400, extension: ".ts", rootName: "root" },
+    { absolutePath: "/x/package.json", relativePath: "package.json", size: 300, extension: ".json", rootName: "root" },
+    { absolutePath: "/x/Dockerfile", relativePath: "Dockerfile", size: 200, extension: "", rootName: "root" },
+    { absolutePath: "/x/docker-compose.yml", relativePath: "docker-compose.yml", size: 200, extension: ".yml", rootName: "root" },
+    { absolutePath: "/x/Makefile", relativePath: "Makefile", size: 200, extension: "", rootName: "root" },
+    { absolutePath: "/x/openapi.yaml", relativePath: "openapi.yaml", size: 500, extension: ".yaml", rootName: "root" },
+    // A route swarm large enough to fill the cap on its own if a single category could monopolize it.
+    ...Array.from({ length: 10 }, (_, index) => ({
+      absolutePath: `/x/src/routes/route${index}.ts`,
+      relativePath: `src/routes/route${index}.ts`,
+      size: 300,
+      extension: ".ts",
+      rootName: "root"
+    }))
+  ];
+  const selected = selectProjectDocuments(files, 14);
+  const paths = new Set(selected.map((file) => file.relativePath));
+  assert.equal(selected.length, 14, "the cap is fully used");
+  assert.ok(paths.has("README.md"), "the README is never dropped");
+  assert.ok(paths.has("src/server.ts") && paths.has("src/app.ts"), "both entrypoints survive the route swarm");
+  const routeCount = selected.filter((file) => file.relativePath.startsWith("src/routes/")).length;
+  assert.ok(routeCount < selected.length - 3, `no single category monopolizes the cap (routes filled ${routeCount}/${selected.length})`);
+  assert.notEqual(selected[0].relativePath, "README.md", "the README is de-weighted, never first");
+});
+
 
 test("source search supports regex and case sensitivity without matching identifier substrings", async () => {
   const root = await tempDir();
