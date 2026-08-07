@@ -7,7 +7,7 @@ import { buildContexts, featureCacheKey } from "./context.ts";
 import { FACT_PACK_CATEGORIES, factPackEvidenceId } from "./factpack.ts";
 import { SourceReader, evidenceFromWindow, sourceSearch, type SourceSearchStats } from "./source.ts";
 import { createSnapshot } from "./snapshot.ts";
-import { ASSURANCE_VERSION, auditChecklist, auditDetailedFeatureSection, auditEvidenceCatalog, auditSectionClaims, auditTargetProblemAttribution, auditTraces, auditWorkItemClaimCoverage, auditWorkItems, checklistUpdatesToWorkItems, createInvestigationChecklist, createInvestigationPlan, mergeChecklist, mergeWorkItems, type AuditFinding, validateClaimsInput, workItemsToChecklist } from "./assurance.ts";
+import { ASSURANCE_VERSION, auditChecklist, auditDetailedFeatureSection, auditEvidenceCatalog, auditSectionClaims, auditSectionEvidenceMarkers, auditTargetProblemAttribution, auditTraces, auditWorkItemClaimCoverage, auditWorkItems, checklistUpdatesToWorkItems, createInvestigationChecklist, createInvestigationPlan, hasEvidenceMarkers, mergeChecklist, mergeWorkItems, runUsesCurrentAssurance, type AuditFinding, validateClaimsInput, workItemsToChecklist } from "./assurance.ts";
 import { atomicWrite, ensureDir, exists, nowIso, readJson, REDACTION_VERSION, sha256, slugify, stableJson, writeJson } from "./util.ts";
 import { collectClaims, createAnalysisScope, emptyTraceCatalog, mergeTraces, writeReportCompanions } from "./assurance-artifacts.ts";
 import { scaffoldSectionClaims } from "./claims-scaffold.ts";
@@ -458,7 +458,7 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
       if (!/<details>/i.test(text)) findings.push({ level: "warning", document: document.id, message: "no collapsed evidence block was found" });
       const forbidden = [/修复建议/g, /改进建议/g, /解决方案/g, /推荐采用/g, /recommendation/gi, /should fix/gi, /we recommend/gi];
       for (const pattern of forbidden) if (pattern.test(text)) findings.push({ level: "error", document: document.id, message: `recommendation language is not allowed: ${pattern}` });
-      if (!/事实|推断|验证|不可得|fact|inferred|verified|unavailable/i.test(text)) findings.push({ level: "warning", document: document.id, message: "no visible evidence-level wording was found" });
+      if (!hasEvidenceMarkers(text)) findings.push({ level: "warning", document: document.id, message: "no evidence-level marker was found in the report prose" });
     } else if (!singleDocument) {
       // A single-document audit runs mid-authoring, before assembly, so a missing report is expected there.
       findings.push({ level: "error", document: document.id, message: "assembled report is missing" });
@@ -478,6 +478,7 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
       const claimsFile = await exists(section.claimsFile) ? await readJson<SectionClaimsFile>(section.claimsFile) : null;
       if (claimsFile) claimsByDocument.set(document.id, [...(claimsByDocument.get(document.id) ?? []), ...claimsFile.claims.map((claim) => ({ section: section.index, claim }))]);
       findings.push(...auditSectionClaims({ documentId: document.id, sectionIndex: section.index, sectionText, claimsFile, evidenceIds, traceIds }));
+      findings.push(...auditSectionEvidenceMarkers({ documentId: document.id, sectionIndex: section.index, sectionText, strict: runUsesCurrentAssurance(manifest) }));
       findings.push(...auditDetailedFeatureSection({ document, detailLevel: manifest.request.detailLevel, sectionIndex: section.index, sectionText, claimsFile, factEvidence: featureFactEvidence }));
       findings.push(...auditTargetProblemAttribution({ document, sectionIndex: section.index, sectionText }));
       if (/事实|推断|验证|fact|inferred|verified/i.test(sectionText) && !/<details>/i.test(sectionText)) {

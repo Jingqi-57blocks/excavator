@@ -25,13 +25,14 @@ export interface AuditFinding {
 
 /**
  * Version of the strict-assurance contract a run is audited against. It combines a strict-check
- * generation (`v1`) with the redaction marker, so it changes whenever redaction changes or a future
- * batch tightens the strict checks — bump the `v<n>` prefix when adding new strict checks (C2).
- * A run stamps this at prepare (`manifest.assuranceVersion`); audit uses it to gate re-derivation:
- * only runs prepared under the current version are held to today's strict re-derivation, while older
- * or field-less runs are grandfathered so a later redaction/check bump never retroactively fails them.
+ * generation (`v2`) with the redaction marker, so it changes whenever redaction changes or a future
+ * batch tightens the strict checks — bump the `v<n>` prefix when adding new strict checks. `v2` adds
+ * the substantive-section evidence-marker check (C3) on top of `v1`'s source re-derivation gate.
+ * A run stamps this at prepare (`manifest.assuranceVersion`); audit uses it to gate those strict
+ * checks: only runs prepared under the current version are held to them, while older or field-less
+ * runs are grandfathered so a later redaction/check bump never retroactively fails them.
  */
-export const ASSURANCE_VERSION = `assurance-v1-${REDACTION_VERSION}`;
+export const ASSURANCE_VERSION = `assurance-v2-${REDACTION_VERSION}`;
 
 /** Strict re-derivation checks apply only to runs prepared under exactly the current version. */
 export function runUsesCurrentAssurance(manifest: RunManifest): boolean {
@@ -680,13 +681,42 @@ function visibleText(section: string): string {
     .replace(/<!--([\s\S]*?)-->/g, " ");
 }
 
-function markersIn(text: string): Set<EvidenceMarker> {
+export function markersIn(text: string): Set<EvidenceMarker> {
   const markers = new Set<EvidenceMarker>();
   if (/(?:`事实`|\bfact\b)/i.test(text)) markers.add("fact");
   if (/(?:`验证`|\bverified\b)/i.test(text)) markers.add("verified");
   if (/(?:`推断`|\binferred\b)/i.test(text)) markers.add("inferred");
   if (/(?:`不可得`|\bunavailable\b)/i.test(text)) markers.add("unavailable");
   return markers;
+}
+
+/**
+ * The one rule for "does this prose carry an evidence-level marker". Document- and section-level
+ * checks both route through `markersIn` over `visibleText`, so they cannot drift onto different rules:
+ * a bare backtick-free word like an incidental "事实" in prose is not a marker, only a real
+ * `事实`/`验证`/`推断`/`不可得` (or the English marker words the paragraph audit already accepts) is.
+ */
+export function hasEvidenceMarkers(text: string): boolean {
+  return markersIn(visibleText(text)).size > 0;
+}
+
+/**
+ * The report's "evidence levels are annotated" conclusion is only trustworthy if every substantive
+ * section actually carries an evidence-level marker in its visible prose. This reuses the same
+ * `markersIn` primitive the paragraph-level claim audit uses, via `hasEvidenceMarkers`, so it cannot
+ * diverge from the document-level check. It is gated by assurance version: a run prepared under the
+ * current version is held to it as a hard error, while an older or field-less run is grandfathered
+ * (the weaker document-level warning still applies) so this tightening never retroactively fails it.
+ */
+export function auditSectionEvidenceMarkers(options: {
+  documentId: string;
+  sectionIndex: number;
+  sectionText: string;
+  strict: boolean;
+}): AuditFinding[] {
+  const { documentId, sectionIndex, sectionText, strict } = options;
+  if (!strict || !substantiveSegments(sectionText).length || hasEvidenceMarkers(sectionText)) return [];
+  return [error(documentId, `section ${sectionIndex} has substantive statements but no evidence-level marker`)];
 }
 
 function normalizeText(value: string): string { return value.replace(/[`*_>#-]/g, " ").replace(/\s+/g, " ").trim(); }
