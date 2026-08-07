@@ -14,12 +14,27 @@ import type {
   SectionClaimsFile,
   TraceCatalog
 } from "./types.ts";
-import { exists, nowIso, redactSecrets, safeRelative, sha256, stableJson } from "./util.ts";
+import { exists, nowIso, redactSecrets, REDACTION_VERSION, safeRelative, sha256, stableJson } from "./util.ts";
 
 export interface AuditFinding {
   level: "error" | "warning";
   document: string;
   message: string;
+}
+
+/**
+ * Version of the strict-assurance contract a run is audited against. It combines a strict-check
+ * generation (`v1`) with the redaction marker, so it changes whenever redaction changes or a future
+ * batch tightens the strict checks — bump the `v<n>` prefix when adding new strict checks (C2).
+ * A run stamps this at prepare (`manifest.assuranceVersion`); audit uses it to gate re-derivation:
+ * only runs prepared under the current version are held to today's strict re-derivation, while older
+ * or field-less runs are grandfathered so a later redaction/check bump never retroactively fails them.
+ */
+export const ASSURANCE_VERSION = `assurance-v1-${REDACTION_VERSION}`;
+
+/** Strict re-derivation checks apply only to runs prepared under exactly the current version. */
+export function runUsesCurrentAssurance(manifest: RunManifest): boolean {
+  return manifest.assuranceVersion === ASSURANCE_VERSION;
 }
 
 const PROJECT_HYPOTHESES: Array<[string, string]> = [
@@ -256,6 +271,16 @@ export async function auditEvidenceCatalog(manifest: RunManifest, evidence: Evid
 }
 
 async function auditSourceEvidence(manifest: RunManifest, item: EvidenceItem): Promise<AuditFinding[]> {
+  // Legacy runs predate the current redaction/strict-check version. Re-deriving the redacted window
+  // with today's logic would spuriously fail them, so grandfather the re-derivation checks and
+  // instead verify the archived excerpt against its own stored digest: catalog tampering is still
+  // caught, without reading a source file that may have drifted since the run was created.
+  if (!runUsesCurrentAssurance(manifest)) {
+    if (item.content != null && sha256(item.content) !== item.digest) {
+      return [error("evidence", `${item.id} stored excerpt does not match its own recorded digest`)];
+    }
+    return [];
+  }
   const findings: AuditFinding[] = [];
   if (!item.path || item.startLine == null || item.endLine == null) return [error("evidence", `${item.id} source evidence is missing path or line range`)];
   const absolute = resolve(manifest.request.target, item.path);
