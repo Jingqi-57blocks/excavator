@@ -99,7 +99,8 @@ async function main(): Promise<void> {
       }
       case "assemble": print(await assembleRun(required(parseArgs(argv).run, "--run"))); break;
       case "audit": {
-        const result = await auditRun(required(parseArgs(argv).run, "--run"));
+        const args = parseArgs(argv);
+        const result = await auditRun(required(args.run, "--run"), args.document ? { documentId: args.document } : {});
         print(result);
         if (result.findings.some((finding) => finding.level === "error")) process.exitCode = 1;
         break;
@@ -231,7 +232,7 @@ Commands:
   trace      Record call, data, business, state or cross-repository traces
   resume     List incomplete sections and resume a stopped run
   assemble   Join completed sections into Markdown reports
-  audit      Validate snapshot, evidence, claims, checklist and report structure
+  audit      Validate snapshot, evidence, claims, checklist and report structure; --document <id> scopes to one document
   status     Show progress and timing
 
 Examples:
@@ -245,6 +246,7 @@ Examples:
   excavator workitem --run <run> --file workitem-updates.json
   excavator trace --run <run> --file traces.json
   excavator checklist --run <run> --file checklist-updates.json
+  excavator audit --run <run> --document <id>
   excavator report --request request.json
 
 Report detail:

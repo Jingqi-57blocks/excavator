@@ -95,6 +95,48 @@ test("material work items must be visible in the assigned chapter and reuse thei
   assert.deepEqual(grounded, []);
 });
 
+test("coverage completeness degrades to advisory under a scoped audit while claim-attribution defects stay errors", () => {
+  const document = featureDocument();
+  const itemId = "feature:account:calculations-and-thresholds";
+  const plan: InvestigationPlan = {
+    version: 1,
+    runId: "run-test",
+    createdAt: new Date(0).toISOString(),
+    items: [{
+      id: itemId,
+      dimension: "calculations-and-thresholds",
+      scope: "feature:account",
+      hypothesis: "Thresholds are inventoried.",
+      status: "found",
+      material: true,
+      requiredFor: [document.id],
+      evidenceIds: ["S-rule"],
+      traceIds: [],
+      reportSection: 4,
+      origin: "default"
+    }]
+  };
+
+  // Default (full-set) scope: an unrepresented material item is a hard error.
+  const strict = auditWorkItemClaimCoverage(plan, [document], new Map([[document.id, []]]));
+  assert.ok(strict.some((item) => item.level === "error" && /not represented/.test(item.message)));
+
+  // Scoped audit: the same completeness gap is advisory, never a hard error.
+  const advisory = auditWorkItemClaimCoverage(plan, [document], new Map([[document.id, []]]), { coverageLevel: "warning" });
+  assert.ok(advisory.some((item) => item.level === "warning" && /not represented/.test(item.message)));
+  assert.ok(!advisory.some((item) => item.level === "error"));
+
+  // A claim pointing at an unknown work item is a defect the single document proves; it stays an error.
+  const misattributed = auditWorkItemClaimCoverage(plan, [document], new Map([[document.id, [{ section: 4, claim: {
+    id: "C-bad",
+    marker: "fact",
+    statement: "The limit is eight hours.",
+    evidenceIds: ["S-rule"],
+    workItemIds: ["feature:account:no-such-item"]
+  } }]]]), { coverageLevel: "warning" });
+  assert.ok(misattributed.some((item) => item.level === "error" && /unknown work item/.test(item.message)));
+});
+
 import { join } from "node:path";
 import { readFile } from "node:fs/promises";
 import { prepareRun } from "../src/run.ts";

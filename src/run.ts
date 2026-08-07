@@ -364,10 +364,35 @@ export async function assembleRun(runDirInput: string): Promise<RunManifest> {
   return manifest;
 }
 
-export async function auditRun(runDirInput: string): Promise<{ manifest: RunManifest; findings: AuditFinding[] }> {
+/** Downgrade error findings to warnings so a scoped audit surfaces run-wide checks without failing on them. */
+function toAdvisory(findings: AuditFinding[]): AuditFinding[] {
+  return findings.map((finding) => (finding.level === "error" ? { ...finding, level: "warning" } : finding));
+}
+
+/**
+ * Audit a whole run, or a single document when `options.documentId` is given.
+ *
+ * A single-document audit is a scoped read used mid-authoring: it checks that document's
+ * sections/claims and the global evidence-catalog integrity as hard errors, but it never certifies
+ * the run as a whole. Checks that inherently require the full document set — plan and checklist
+ * completion, and material work-item coverage — degrade to advisory (warning) findings, and the
+ * scoped audit does not mutate run state, metrics, the timeline or the run-wide audit record.
+ *
+ * A full-run audit no longer lets one missing/incomplete document pollute the others: a document is
+ * evaluated for coverage only once its sections are all checkpointed (claims live on disk
+ * independent of assembly), and an incomplete document is reported as a single targeted finding
+ * instead of a per-work-item cascade against every document.
+ */
+export async function auditRun(runDirInput: string, options: { documentId?: string } = {}): Promise<{ manifest: RunManifest; findings: AuditFinding[] }> {
   const runDir = resolve(runDirInput);
   const path = join(runDir, "run.json");
   const manifest = await readJson<RunManifest>(path);
+  const singleDocument = options.documentId !== undefined;
+  const scopedDocuments = singleDocument ? manifest.documents.filter((document) => document.id === options.documentId) : manifest.documents;
+  if (singleDocument && !scopedDocuments.length) throw new Error(`Unknown document: ${options.documentId}`);
+  // Run-wide completeness certifications cannot be asserted from a partial scope: keep them advisory.
+  const runWide = singleDocument ? toAdvisory : (items: AuditFinding[]) => items;
+  const coverageLevel = singleDocument ? "warning" : "error";
   const findings: AuditFinding[] = [];
   const evidenceCatalog = await readJson<{ evidence: EvidenceItem[] }>(join(runDir, "evidence.json"));
   const evidenceIds = new Set(evidenceCatalog.evidence.map((item) => item.id));
@@ -392,21 +417,32 @@ export async function auditRun(runDirInput: string): Promise<{ manifest: RunMani
     if (current.snapshot.codegraphDigest !== manifest.snapshot.codegraphDigest) findings.push({ level: "error", document: "snapshot", message: "CodeGraph identity changed after context preparation" });
   }
 
-  for (const document of manifest.documents) {
+  const incompleteDocuments: DocumentPlan[] = [];
+  for (const document of scopedDocuments) {
     const reportPath = join(runDir, "reports", reportFileName(document));
-    if (!await exists(reportPath)) {
+    const reportExists = await exists(reportPath);
+    if (reportExists) {
+      const text = await readFile(reportPath, "utf8");
+      const headings = [...text.matchAll(/^##\s+/gm)].length;
+      if (headings !== document.sections.length) findings.push({ level: "error", document: document.id, message: `expected ${document.sections.length} sections, found ${headings}` });
+      if (!/<details>/i.test(text)) findings.push({ level: "warning", document: document.id, message: "no collapsed evidence block was found" });
+      const forbidden = [/修复建议/g, /改进建议/g, /解决方案/g, /推荐采用/g, /recommendation/gi, /should fix/gi, /we recommend/gi];
+      for (const pattern of forbidden) if (pattern.test(text)) findings.push({ level: "error", document: document.id, message: `recommendation language is not allowed: ${pattern}` });
+      if (!/事实|推断|验证|不可得|fact|inferred|verified|unavailable/i.test(text)) findings.push({ level: "warning", document: document.id, message: "no visible evidence-level wording was found" });
+    } else if (!singleDocument) {
+      // A single-document audit runs mid-authoring, before assembly, so a missing report is expected there.
       findings.push({ level: "error", document: document.id, message: "assembled report is missing" });
-      continue;
     }
-    const text = await readFile(reportPath, "utf8");
-    const headings = [...text.matchAll(/^##\s+/gm)].length;
-    if (headings !== document.sections.length) findings.push({ level: "error", document: document.id, message: `expected ${document.sections.length} sections, found ${headings}` });
-    if (!/<details>/i.test(text)) findings.push({ level: "warning", document: document.id, message: "no collapsed evidence block was found" });
-    const forbidden = [/修复建议/g, /改进建议/g, /解决方案/g, /推荐采用/g, /recommendation/gi, /should fix/gi, /we recommend/gi];
-    for (const pattern of forbidden) if (pattern.test(text)) findings.push({ level: "error", document: document.id, message: `recommendation language is not allowed: ${pattern}` });
-    if (!/事实|推断|验证|不可得|fact|inferred|verified|unavailable/i.test(text)) findings.push({ level: "warning", document: document.id, message: "no visible evidence-level wording was found" });
 
+    // Section claims live on disk from checkpoint, independent of assembly: read them regardless of
+    // report existence so a checkpointed document is audited even when the run was never assembled.
     for (const section of document.sections) {
+      if (!await exists(section.file)) {
+        // A section marked complete must have its checkpointed file on disk (fail closed); a section
+        // that was never checkpointed is legitimately absent mid-authoring and is simply skipped.
+        if (section.complete) findings.push({ level: "error", document: document.id, message: `checkpointed section ${section.index} file is missing` });
+        continue;
+      }
       const sectionText = await readFile(section.file, "utf8");
       const claimsFile = await exists(section.claimsFile) ? await readJson<SectionClaimsFile>(section.claimsFile) : null;
       if (claimsFile) claimsByDocument.set(document.id, [...(claimsByDocument.get(document.id) ?? []), ...claimsFile.claims.map((claim) => ({ section: section.index, claim }))]);
@@ -417,20 +453,32 @@ export async function auditRun(runDirInput: string): Promise<{ manifest: RunMani
         findings.push({ level: "error", document: document.id, message: `section ${section.index} contains supported claims but has no evidence block` });
       }
     }
+    if (!document.sections.every((section) => section.complete)) incompleteDocuments.push(document);
   }
 
   findings.push(...auditTraces(traces, new Set(manifest.documents.map((document) => document.id)), evidenceIds, new Set(allClaims.keys())));
   const expectedPlan = createInvestigationPlan(manifest.id, manifest.request, manifest.documents);
-  findings.push(...auditWorkItems(plan, expectedPlan, evidenceById, traceIds));
-  findings.push(...auditWorkItemClaimCoverage(plan, manifest.documents, claimsByDocument));
+  findings.push(...runWide(auditWorkItems(plan, expectedPlan, evidenceById, traceIds)));
+  // Claim-attribution defects run over every scoped document (they are always errors and detectable
+  // per document); completeness is certified only for documents whose sections are all checkpointed,
+  // so an incomplete document contributes one targeted finding, never a per-work-item false cascade.
+  const completeDocumentIds = new Set(scopedDocuments.filter((document) => document.sections.every((section) => section.complete)).map((document) => document.id));
+  findings.push(...auditWorkItemClaimCoverage(plan, scopedDocuments, claimsByDocument, { coverageLevel, completeDocumentIds }));
+  for (const document of incompleteDocuments) {
+    const complete = document.sections.filter((section) => section.complete).length;
+    findings.push({ level: coverageLevel, document: document.id, message: `document is incomplete (${complete}/${document.sections.length} sections checkpointed); work-item coverage was not evaluated` });
+  }
   for (const message of await auditTimeline(runDir, manifest.id)) findings.push({ level: "error", document: "timeline", message });
 
   const expectedChecklist = createInvestigationChecklist(manifest.id, manifest.request);
   if (!await exists(join(runDir, "checklist.json"))) findings.push({ level: "error", document: "checklist", message: "checklist.json is missing" });
   else {
     const checklist = await readJson<InvestigationChecklist>(join(runDir, "checklist.json"));
-    findings.push(...auditChecklist(checklist, expectedChecklist, evidenceById));
+    findings.push(...runWide(auditChecklist(checklist, expectedChecklist, evidenceById)));
   }
+
+  // A scoped audit reports its findings but does not certify or mutate the run.
+  if (singleDocument) return { manifest, findings };
 
   const audit = { runId: manifest.id, createdAt: nowIso(), findings };
   await writeJson(join(runDir, "audit", "audit.json"), audit);
