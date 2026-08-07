@@ -1,6 +1,6 @@
 ---
 id: excavator-writing-rules
-version: 1.0.0
+version: 1.1.0
 ---
 
 # Excavator writing rules
@@ -100,6 +100,19 @@ Each section is checkpointed with a claims sidecar. A claim binds one exact visi
 - a claim statement is copied exactly from the section, not paraphrased in metadata.
 
 Before audit, every required item in `workitems.json` is completed. A missing, pending, or in-progress item is an omission, not a successful report. `searched-not-found` records the searched scope and a complete zero-result search receipt; `cannot-determine` records the missing information, what would settle it, and evidence for the static-analysis limitation. Material flow, lifecycle, and side-effect findings use a verified trace with evidence for every step. `checklist.json` is only a compatibility projection.
+
+## Claim binding contract
+
+The audit segments each section into substantive statements and requires every one to be covered by a claim. These rules are fixed; `excavator claims scaffold --run <run> --document <id> --section <n> --file section.md` emits one stub per substantive segment using this exact segmentation, so hand-deriving it is unnecessary — fill the stubs' `evidenceIds`/`workItemIds` and adjust markers.
+
+- **Invisible text is excluded first.** Collapsed `<details>` blocks, fenced code blocks, and HTML comments do not produce segments and are not scanned for statement prose.
+- **Structural lines are dropped.** Headings (`#`–`######`) and table separator rows (the `| --- | --- |` line) never yield a segment.
+- **List and emphasis wrappers are peeled.** Leading list markers (`-`, `*`, `+`, `1.`, `1)`), `**bold**` wrappers, and backtick-wrapped evidence-marker words (`fact`/`verified`/`inferred`/`unavailable` and their localized equivalents) are removed before segmentation.
+- **Table rows bind per cell.** A row that starts and ends with `|` is split on `|`; empty cells are dropped and the remaining cells are joined with the full-width separator `；`. Because segmentation then splits on `；`, each cell becomes its own candidate statement — a claim must cover each substantive cell, not the row as a whole. Header cells count too.
+- **Statements split on terminators.** Within a line, text is split after `。！？!?；;` and after a period that is followed by whitespace and an uppercase letter or digit.
+- **The substantive threshold is 8 semantic characters.** A candidate is substantive only when it contains at least 8 semantic characters, where a semantic character matches `\p{Letter}` or `\p{Number}` (Unicode letters and digits). Punctuation, spaces and symbols do not count toward the threshold.
+- **Normalization is shared by segments and claims.** Both a segment and a claim `statement` are normalized the same way before comparison: the characters `` ` ``, `*`, `_`, `>`, `#` and `-` are replaced with a space, runs of whitespace collapse to one space, and the result is trimmed.
+- **Coverage is containment, either direction.** A substantive segment is covered when some claim's normalized statement contains the segment or is contained by it. An uncovered segment is an `unclaimed substantive statement` error. Separately, a claim `statement` must normalize to at least 6 characters and appear verbatim in the section's normalized visible text.
 
 ## Trace accounting
 

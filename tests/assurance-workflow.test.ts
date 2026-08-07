@@ -2,9 +2,10 @@ import { auditSectionClaims, auditTargetProblemAttribution } from "../src/assura
 import test from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
-import { readFile, readdir, writeFile } from "node:fs/promises";
-import type { EvidenceItem, InvestigationPlan, ReportRequest, SectionClaim, TraceRecord } from "../src/types.ts";
+import { readFile, readdir, rm, writeFile } from "node:fs/promises";
+import type { Audience, DocumentPlan, EvidenceItem, InvestigationPlan, ReportRequest, SectionClaim, TraceRecord } from "../src/types.ts";
 import { assembleRun, auditRun, checkpointSection, prepareRun, searchSourceEvidence, updateTraces, updateWorkItems } from "../src/run.ts";
+import { slugify } from "../src/util.ts";
 import { copyFixture, createCodeGraphFixture, tempDir } from "./helpers.ts";
 
 async function request(options: { feature?: boolean; graph?: boolean } = {}): Promise<ReportRequest> {
@@ -236,4 +237,132 @@ test("target problem sections allow target-attributable contradictions", () => {
     sectionText: "## Current problems\n\nThe production threshold is 166 hours while the target test asserts 200 hours."
   });
   assert.equal(findings.length, 0);
+});
+
+
+// --- 57B-338: audit scoping (single-document mode) and partial-set robustness ---
+
+async function multiFeatureRequest(features: Array<{ subject: string; aliases: string[] }>): Promise<ReportRequest> {
+  const target = await copyFixture();
+  const workdir = await tempDir();
+  return {
+    target,
+    codegraph: undefined,
+    codegraphMode: "off",
+    language: "zh-CN",
+    detailLevel: "standard",
+    workdir,
+    overviewAudiences: [],
+    features: features.map((feature) => ({ subject: feature.subject, aliases: feature.aliases, audiences: ["product"] as Audience[] })),
+    budgets: { prepareMs: 30_000, authorMs: 30_000, maxGraphQueries: 40, maxSourceWindows: 50, maxSourceCharacters: 120_000, maxFiles: 10_000, maxFeatureNodes: 80, maxExpansionDepth: 2 }
+  };
+}
+
+async function authorSection(runDir: string, document: DocumentPlan, index: number, title: string, evidenceId: string): Promise<void> {
+  await checkpointSection(runDir, document.id, index, text(title, index, evidenceId), [
+    { id: `${document.id}-C${index}`, marker: "fact", statement: `第 ${index} 节记录当前状态。`, evidenceIds: [evidenceId], confidence: "high", status: "verified" }
+  ]);
+}
+
+// Author section 1 with an extra claim that binds a material work item, so the document genuinely covers it.
+async function authorWithBoundary(runDir: string, document: DocumentPlan, evidenceId: string, boundaryItemId: string): Promise<void> {
+  const boundary = "该能力的边界由记录的证据确立。";
+  const body = `## ${document.sections[0].title}\n\n第 1 节记录当前状态。\`事实\`\n\n${boundary} \`事实\`\n\n<details><summary>依据</summary>\n\n- ${evidenceId}\n\n</details>\n`;
+  await checkpointSection(runDir, document.id, 1, body, [
+    { id: `${document.id}-C1`, marker: "fact", statement: "第 1 节记录当前状态。", evidenceIds: [evidenceId], confidence: "high", status: "verified" },
+    { id: `${document.id}-C1-boundary`, marker: "fact", statement: boundary, evidenceIds: [evidenceId], workItemIds: [boundaryItemId], confidence: "high", status: "verified" }
+  ]);
+  for (const section of document.sections.slice(1)) await authorSection(runDir, document, section.index, section.title, evidenceId);
+}
+
+test("full audit reads a checkpointed document's claims from disk so a missing report no longer cascades coverage errors", async () => {
+  const { runDir, manifest } = await prepareRun(await multiFeatureRequest([
+    { subject: "Leave management", aliases: ["leave"] },
+    { subject: "Access control", aliases: ["access"] }
+  ]));
+  const evidenceId = await firstEvidence(runDir);
+  const [docA, docB] = manifest.documents;
+  const plan = JSON.parse(await readFile(join(runDir, "workitems.json"), "utf8")) as InvestigationPlan;
+  const boundaryA = plan.items.find((item) => item.dimension === "boundary" && item.requiredFor.includes(docA.id));
+  const boundaryB = plan.items.find((item) => item.dimension === "boundary" && item.requiredFor.includes(docB.id));
+  assert.ok(boundaryA && boundaryB);
+  await authorWithBoundary(runDir, docA, evidenceId, boundaryA.id);
+  await authorWithBoundary(runDir, docB, evidenceId, boundaryB.id);
+  await updateWorkItems(runDir, [
+    { id: boundaryA.id, status: "found", material: true, evidenceIds: [evidenceId] },
+    { id: boundaryB.id, status: "found", material: true, evidenceIds: [evidenceId] }
+  ]);
+  await assembleRun(runDir);
+
+  // Both documents are complete and their material boundary work item is represented: no coverage cascade.
+  const before = await auditRun(runDir);
+  assert.deepEqual(before.findings.filter((finding) => /not represented/.test(finding.message)), []);
+
+  // Delete docB's assembled report; its checkpointed sections and claims remain on disk.
+  await rm(join(runDir, "reports", `${slugify(docB.subject!)}-${docB.audience}.md`));
+  const after = await auditRun(runDir);
+
+  // docB reports one targeted finding — the missing report — not a per-work-item coverage cascade.
+  assert.deepEqual(after.findings.filter((finding) => finding.document === docB.id).map((finding) => finding.message), ["assembled report is missing"]);
+  assert.ok(!after.findings.some((finding) => finding.document === docB.id && /not represented/.test(finding.message)));
+  // docA is untouched and its material work item is still covered.
+  assert.ok(!after.findings.some((finding) => finding.document === docA.id && /not represented|coverage was not evaluated/.test(finding.message)));
+});
+
+test("single-document audit certifies one complete document as clean while sibling documents stay incomplete", async () => {
+  const { runDir, manifest } = await prepareRun(await multiFeatureRequest([
+    { subject: "Leave management", aliases: ["leave"] },
+    { subject: "Access control", aliases: ["access"] }
+  ]));
+  const evidenceId = await firstEvidence(runDir);
+  const [docA, docB] = manifest.documents;
+  for (const section of docA.sections) await authorSection(runDir, docA, section.index, section.title, evidenceId);
+  // Leave docB incomplete: its final section is never checkpointed, and the run is never assembled.
+  for (const section of docB.sections.slice(0, -1)) await authorSection(runDir, docB, section.index, section.title, evidenceId);
+
+  const full = await auditRun(runDir);
+  assert.ok(full.findings.some((finding) => finding.level === "error"), "full audit of a partial, unassembled run must report errors");
+
+  const scoped = await auditRun(runDir, { documentId: docA.id });
+  assert.deepEqual(scoped.findings.filter((finding) => finding.level === "error"), []);
+  // Run-wide certifications are downgraded to advisory, not dropped: the plan's pending items still surface as warnings.
+  assert.ok(scoped.findings.some((finding) => finding.level === "warning" && /was not completed/.test(finding.message)));
+  // The scoped audit never evaluates the sibling document.
+  assert.ok(scoped.findings.every((finding) => finding.document !== docB.id));
+});
+
+test("single-document audit rejects an unknown document id", async () => {
+  const { runDir } = await prepareRun(await multiFeatureRequest([{ subject: "Leave management", aliases: ["leave"] }]));
+  await assert.rejects(() => auditRun(runDir, { documentId: "no-such-document" }), /Unknown document/);
+});
+
+test("single-document audit runs claim-attribution checks on an incomplete document", async () => {
+  const { runDir, manifest } = await prepareRun(await multiFeatureRequest([{ subject: "Leave management", aliases: ["leave"] }]));
+  const evidenceId = await firstEvidence(runDir);
+  const document = manifest.documents[0];
+  // Checkpoint only section 1, with a claim that mis-attributes an unknown work item; leave the rest unauthored.
+  const body = `## ${document.sections[0].title}\n\n第 1 节记录当前状态。\`事实\`\n\n<details><summary>依据</summary>\n\n- ${evidenceId}\n\n</details>\n`;
+  await checkpointSection(runDir, document.id, 1, body, [
+    { id: "C-1", marker: "fact", statement: "第 1 节记录当前状态。", evidenceIds: [evidenceId], workItemIds: ["feature:leave-management:no-such-item"], confidence: "high", status: "verified" }
+  ]);
+  const scoped = await auditRun(runDir, { documentId: document.id });
+  // Attribution is detectable from the single document and stays a hard error even while the document is incomplete.
+  assert.ok(scoped.findings.some((finding) => finding.level === "error" && /references unknown work item/.test(finding.message)));
+});
+
+test("full audit fails closed when a checkpointed section file is deleted", async () => {
+  const { runDir, manifest } = await prepareRun(await request());
+  await authorAll(runDir, manifest);
+  await completeWorkItems(runDir);
+  await assembleRun(runDir);
+  const baseline = await auditRun(runDir);
+  assert.deepEqual(baseline.findings.filter((finding) => finding.level === "error"), []);
+  assert.equal(baseline.manifest.state, "complete");
+
+  // Delete a section file for a section still marked complete; its claims file stays on disk.
+  const document = manifest.documents[0];
+  await rm(document.sections[1].file);
+  const after = await auditRun(runDir);
+  assert.ok(after.findings.some((finding) => finding.level === "error" && /checkpointed section 2 file is missing/.test(finding.message)));
+  assert.notEqual(after.manifest.state, "complete");
 });

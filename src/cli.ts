@@ -2,13 +2,18 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { Audience, BudgetConfig, ChecklistItem, FeatureRequest, InvestigationWorkItem, ReportRequest, SectionClaim, TraceRecord } from "./types.ts";
-import { addSourceEvidence, assembleRun, auditRun, beginDocument, checkpointSection, prepareRun, resumeRun, runStatus, searchSourceEvidence, updateChecklist, updateTraces, updateWorkItems } from "./run.ts";
+import { addSourceEvidence, assembleRun, auditRun, beginDocument, checkpointSection, prepareRun, resumeRun, runStatus, scaffoldClaims, searchSourceEvidence, updateChecklist, updateTraces, updateWorkItems } from "./run.ts";
 import { stableJson } from "./util.ts";
 import { buildCodeGraph, codeGraphStatus } from "./codegraph-command.ts";
 import { deriveDefaultBudgets, plannedDocumentCount } from "./budgets.ts";
 
 async function main(): Promise<void> {
   const [command = "help", ...argv] = process.argv.slice(2);
+  // Any command invoked with --help/-h prints that command's own usage and exits without running.
+  if (!["help", "--help", "-h"].includes(command) && requestsHelp(argv)) {
+    const key = resolveHelpKey(command, argv);
+    if (key) { console.log(commandHelp(key)); return; }
+  }
   try {
     switch (command) {
       case "prepare":
@@ -42,6 +47,15 @@ async function main(): Promise<void> {
         if (subcommand === "status") print(await codeGraphStatus(target, args.binary ?? "codegraph"));
         else if (subcommand === "build") print(await buildCodeGraph({ target, binary: args.binary, force: args.force === "true", quiet: args.quiet === "true" }));
         else throw new Error(`Unknown codegraph subcommand: ${subcommand}`);
+        break;
+      }
+      case "claims": {
+        const [subcommand = "scaffold", ...rest] = argv;
+        const args = parseArgs(rest);
+        if (subcommand === "scaffold") {
+          const content = await readFile(required(args.file, "--file"), "utf8");
+          print(await scaffoldClaims(required(args.run, "--run"), required(args.document, "--document"), Number(required(args.section, "--section")), content));
+        } else throw new Error(`Unknown claims subcommand: ${subcommand}`);
         break;
       }
       case "begin": {
@@ -99,7 +113,8 @@ async function main(): Promise<void> {
       }
       case "assemble": print(await assembleRun(required(parseArgs(argv).run, "--run"))); break;
       case "audit": {
-        const result = await auditRun(required(parseArgs(argv).run, "--run"));
+        const args = parseArgs(argv);
+        const result = await auditRun(required(args.run, "--run"), args.document ? { documentId: args.document } : {});
         print(result);
         if (result.findings.some((finding) => finding.level === "error")) process.exitCode = 1;
         break;
@@ -226,12 +241,13 @@ Commands:
   source     Record a bounded source excerpt as evidence
   search     Search source under the run snapshot and record a reusable receipt
   checkpoint Save one completed section and its claims atomically
+  claims     Scaffold a claims skeleton from a section's markdown
   checklist  Record compatibility checklist dispositions
   workitem   Update the investigation plan and coverage ledger
   trace      Record call, data, business, state or cross-repository traces
   resume     List incomplete sections and resume a stopped run
   assemble   Join completed sections into Markdown reports
-  audit      Validate snapshot, evidence, claims, checklist and report structure
+  audit      Validate snapshot, evidence, claims, checklist and report structure; --document <id> scopes to one document
   status     Show progress and timing
 
 Examples:
@@ -241,16 +257,238 @@ Examples:
   excavator codegraph build --target ./workspace --quiet
   excavator feature --target ./workspace --subject "Account access" --aliases access,permission,role --audience both --detail detailed
   excavator search --run <run> --query "\\bTODO\\b|@deprecated" --regex --case-sensitive --reason "investigate unfinished behavior"
+  excavator claims scaffold --run <run> --document <id> --section 1 --file section.md
   excavator checkpoint --run <run> --document <id> --section 1 --file section.md --claims claims.json
   excavator workitem --run <run> --file workitem-updates.json
   excavator trace --run <run> --file traces.json
   excavator checklist --run <run> --file checklist-updates.json
+  excavator audit --run <run> --document <id>
   excavator report --request request.json
 
 Report detail:
   --detail detailed   Default. Requires a chapter inventory, fine-grained material work-item coverage and minimum report density.
   --detail standard   Compact mode for smoke tests and intentionally brief reports.
+
+Run any command with --help (or -h) to see its flags and one example, e.g. \`excavator audit --help\`.
 `;
+}
+
+interface CommandHelp { synopsis: string; flags: string[]; example: string; }
+
+// One entry per command (and per subcommand for the ones that take a subcommand). Keys with a space
+// are `<command> <subcommand>`; they take priority over the bare command when the subcommand matches.
+const COMMAND_HELP: Record<string, CommandHelp> = {
+  overview: {
+    synopsis: "overview --target <dir> [--audience product|engineering|both] [--detail standard|detailed] [--no-codegraph]",
+    flags: [
+      "--target <dir>       Source workspace to analyze (required)",
+      "--audience <who>     product, engineering, or both (default product)",
+      "--detail <level>     detailed (default) or standard",
+      "--no-codegraph       Prepare without a CodeGraph index",
+      "--codegraph <db>     Use an existing CodeGraph database",
+      "--language <tag>     Output language (default en-US)"
+    ],
+    example: "excavator overview --target ./workspace --audience both"
+  },
+  feature: {
+    synopsis: "feature --target <dir> --subject <text> [--aliases a,b,c] [--audience product|engineering|both] [--detail standard|detailed]",
+    flags: [
+      "--target <dir>       Source workspace to analyze (required)",
+      "--subject <text>     Feature name to investigate (required)",
+      "--aliases a,b,c      Comma-separated alternate names",
+      "--audience <who>     product, engineering, or both (default product)",
+      "--detail <level>     detailed (default) or standard"
+    ],
+    example: 'excavator feature --target ./workspace --subject "Account access" --aliases access,role --audience both'
+  },
+  report: {
+    synopsis: "report (--request <json> | --target <dir> --overview <who> --feature <text> ...)",
+    flags: [
+      "--request <json>     Read a full ReportRequest from a JSON file",
+      "--target <dir>       Source workspace to analyze (required without --request)",
+      "--overview <who>     Overview audiences, e.g. product,engineering",
+      "--feature <text>     Repeatable feature subject; pair with --feature-aliases / --feature-audience"
+    ],
+    example: "excavator report --request request.json"
+  },
+  prepare: {
+    synopsis: "prepare (--request <json> | --target <dir> --overview <who> --feature <text> ...)",
+    flags: [
+      "--request <json>     Read a full ReportRequest from a JSON file",
+      "--target <dir>       Source workspace to analyze (required without --request)"
+    ],
+    example: "excavator prepare --request request.json"
+  },
+  codegraph: {
+    synopsis: "codegraph <status|build> --target <dir> [--binary <path>]",
+    flags: [
+      "status               Report whether a usable CodeGraph index exists",
+      "build                Build or refresh the CodeGraph index",
+      "--target <dir>       Source workspace (required)",
+      "--binary <path>      CodeGraph executable (default codegraph)"
+    ],
+    example: "excavator codegraph status --target ./workspace"
+  },
+  "codegraph status": {
+    synopsis: "codegraph status --target <dir> [--binary <path>]",
+    flags: [
+      "--target <dir>       Source workspace (required)",
+      "--binary <path>      CodeGraph executable (default codegraph)"
+    ],
+    example: "excavator codegraph status --target ./workspace"
+  },
+  "codegraph build": {
+    synopsis: "codegraph build --target <dir> [--binary <path>] [--force] [--quiet]",
+    flags: [
+      "--target <dir>       Source workspace (required)",
+      "--binary <path>      CodeGraph executable (default codegraph)",
+      "--force              Rebuild even when an index already exists",
+      "--quiet              Suppress CodeGraph progress output"
+    ],
+    example: "excavator codegraph build --target ./workspace --quiet"
+  },
+  begin: {
+    synopsis: "begin --run <dir> --document <id>",
+    flags: [
+      "--run <dir>          Run directory (required)",
+      "--document <id>      Document to start or restart (required)"
+    ],
+    example: "excavator begin --run <run> --document overview-product"
+  },
+  source: {
+    synopsis: "source --run <dir> --path <file> --start <n> --end <n> --reason <text>",
+    flags: [
+      "--run <dir>          Run directory (required)",
+      "--path <file>        Source file relative to the target (required)",
+      "--start <n>          First line of the excerpt (required)",
+      "--end <n>            Last line of the excerpt (required)",
+      "--reason <text>      Why the excerpt is recorded (required)"
+    ],
+    example: 'excavator source --run <run> --path src/server.ts --start 3 --end 5 --reason "route handler"'
+  },
+  search: {
+    synopsis: "search --run <dir> (--query <expr> | --terms a,b) --reason <text> [--regex] [--case-sensitive] [--max-results <n>] [--path-prefixes a,b]",
+    flags: [
+      "--run <dir>          Run directory (required)",
+      "--query <expr>       Single search expression (or use --terms)",
+      "--terms a,b          Comma-separated literal terms",
+      "--reason <text>      Why the search is recorded (required)",
+      "--regex              Treat the query as a regular expression",
+      "--case-sensitive     Match case exactly",
+      "--max-results <n>    Cap the receipt (default 50)",
+      "--path-prefixes a,b  Restrict the search to these path prefixes"
+    ],
+    example: 'excavator search --run <run> --query "\\bTODO\\b" --regex --reason "find unfinished work"'
+  },
+  checkpoint: {
+    synopsis: "checkpoint --run <dir> --document <id> --section <n> --file <md> [--claims <json>]",
+    flags: [
+      "--run <dir>          Run directory (required)",
+      "--document <id>      Document being authored (required)",
+      "--section <n>        Section index (required)",
+      "--file <md>          Section markdown to save (required)",
+      "--claims <json>      Claims sidecar (array or {claims:[...]})"
+    ],
+    example: "excavator checkpoint --run <run> --document <id> --section 1 --file section.md --claims claims.json"
+  },
+  claims: {
+    synopsis: "claims scaffold --run <dir> --document <id> --section <n> --file <md>",
+    flags: [
+      "scaffold             Emit a claims skeleton, one stub per substantive segment",
+      "--run <dir>          Run directory (required)",
+      "--document <id>      Document the section belongs to (required)",
+      "--section <n>        Section index (required)",
+      "--file <md>          Section markdown to segment (required)"
+    ],
+    example: "excavator claims scaffold --run <run> --document <id> --section 1 --file section.md"
+  },
+  "claims scaffold": {
+    synopsis: "claims scaffold --run <dir> --document <id> --section <n> --file <md>",
+    flags: [
+      "--run <dir>          Run directory (required)",
+      "--document <id>      Document the section belongs to (required)",
+      "--section <n>        Section index (required)",
+      "--file <md>          Section markdown to segment (required)"
+    ],
+    example: "excavator claims scaffold --run <run> --document <id> --section 1 --file section.md"
+  },
+  checklist: {
+    synopsis: "checklist --run <dir> --file <json>",
+    flags: [
+      "--run <dir>          Run directory (required)",
+      "--file <json>        Checklist dispositions (array or {items:[...]}) (required)"
+    ],
+    example: "excavator checklist --run <run> --file checklist-updates.json"
+  },
+  workitem: {
+    synopsis: "workitem --run <dir> --file <json>",
+    flags: [
+      "--run <dir>          Run directory (required)",
+      "--file <json>        Work-item updates (array or {items:[...]}) (required)"
+    ],
+    example: "excavator workitem --run <run> --file workitem-updates.json"
+  },
+  trace: {
+    synopsis: "trace --run <dir> --file <json>",
+    flags: [
+      "--run <dir>          Run directory (required)",
+      "--file <json>        Trace records (array or {traces:[...]}) (required)"
+    ],
+    example: "excavator trace --run <run> --file traces.json"
+  },
+  assemble: {
+    synopsis: "assemble --run <dir>",
+    flags: ["--run <dir>          Run directory (required)"],
+    example: "excavator assemble --run <run>"
+  },
+  audit: {
+    synopsis: "audit --run <dir> [--document <id>]",
+    flags: [
+      "--run <dir>          Run directory (required)",
+      "--document <id>      Scope the audit to one document (advisory run-wide checks)"
+    ],
+    example: "excavator audit --run <run> --document <id>"
+  },
+  resume: {
+    synopsis: "resume --run <dir>",
+    flags: ["--run <dir>          Run directory (required)"],
+    example: "excavator resume --run <run>"
+  },
+  status: {
+    synopsis: "status --run <dir>",
+    flags: ["--run <dir>          Run directory (required)"],
+    example: "excavator status --run <run>"
+  }
+};
+
+/**
+ * True only when `-h`/`--help` appears in flag position. It walks the args with the same
+ * value-consumption rule as `parseArgs` (a `--flag` swallows the next non-`--` token as its value),
+ * so a value that happens to equal `-h`/`--help` — e.g. `--query -h` — is not misread as a help
+ * request and the real command still runs.
+ */
+function requestsHelp(argv: string[]): boolean {
+  for (let index = 0; index < argv.length; index += 1) {
+    const token = argv[index];
+    if (token === "-h" || token === "--help") return true;
+    if (token.startsWith("--")) {
+      const next = argv[index + 1];
+      if (next && !next.startsWith("--")) index += 1;
+    }
+  }
+  return false;
+}
+
+/** Resolve which help entry a `<command> [subcommand] --help` invocation should print. */
+function resolveHelpKey(command: string, argv: string[]): string | null {
+  const first = argv[0];
+  if (first && !first.startsWith("-") && COMMAND_HELP[`${command} ${first}`]) return `${command} ${first}`;
+  return COMMAND_HELP[command] ? command : null;
+}
+
+function commandHelp(key: string): string {
+  const help = COMMAND_HELP[key];
+  return `Excavator ${key}\n\nUsage:\n  excavator ${help.synopsis}\n\nFlags:\n${help.flags.map((flag) => `  ${flag}`).join("\n")}\n\nExample:\n  ${help.example}\n`;
 }
 
 await main();
