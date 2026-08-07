@@ -132,10 +132,10 @@ A combined request is one investigation, not several independent runs.
 
 ## Authoring workflow
 
-The prepare command creates a run under the target's own directory inside the workdir, `<workdir>/<project>/runs/<run-id>/`, alongside that target's caches. Use the `runDir` value the command prints rather than composing the path:
+The prepare command creates a run under the target's own directory inside the workdir, `<workdir>/<project>[-<hash>]/runs/<run-id>/`, alongside that target's caches. The `<project>` segment is the target's basename; the `-<hash>` suffix is added only when a different target would collide on that basename. Use the `runDir` value the command prints rather than composing the path. When runs from the old un-suffixed `<workdir>/<project>/runs/` layout are stranded by such a collision, prepare emits a warning that names the old path; those historical runs are not picked up automatically.
 
 ```text
-<workdir>/<project>/runs/<run-id>/
+<workdir>/<project>[-<hash>]/runs/<run-id>/
 ├── context/
 ├── evidence.json
 ├── analysis-scope.json
@@ -154,6 +154,14 @@ The prepare command creates a run under the target's own directory inside the wo
 ├── run.json
 └── metrics.json
 ```
+
+Budgets derive from the request size (the number of requested documents and features), not a fixed ceiling. Check status after each major section and stop when the authoring budget is exceeded. A budget timeout stops the *next* section, never the one in hand: the current section is checkpointed to disk before the run stops, and `excavator resume --run <run-dir>` continues from the first incomplete section.
+
+Plan the following before drafting, not at audit:
+
+- **Evidence-level markers are mandatory.** Every substantive section must carry a real backtick evidence-level marker in its visible prose — `fact`, `verified`, `inferred`, or `unavailable`, or their localized equivalents in the requested output language. Under the current assurance version, a substantive section with no real marker is a hard audit error, not a warning. See `references/writing-rules.md` for the marker semantics and the claim binding contract.
+- **Material flows need a verified trace, planned up front.** A material work item for a normal, decision, or reversal flow, a state lifecycle, or a side effect (notifications or exports) that ends `found` requires a verified trace. A `found` flow item with no trace is a hard audit error, so plan the traces while investigating rather than discovering the requirement at audit.
+- **The feature fact pack is a floor, not a ceiling.** Each feature scope carries a deterministic fact pack (`context/features/<feature>.factpack.json`, also rendered as a section of the scope) that enumerates six categories — entrypoints, entities, states, config-keys, jobs, external-calls — each item at `file:line`, with a per-category coverage row (method, item count, truncated flag, note). It is an enumeration of what was found inside the feature boundary, not a sample. When a category is marked truncated or carries an incompleteness note, treat it as a floor: investigate beyond it with `search` and `source`, and do not treat the listed items as the complete set.
 
 For each document:
 
@@ -184,7 +192,17 @@ For each document:
      --reason "why this excerpt is needed"
    ```
 
-6. Save each section and its claims immediately:
+6. Generate the claims skeleton from the written section, then fill it in:
+
+   ```bash
+   excavator claims scaffold \
+     --run <run-dir> --document <document-id> --section <n> \
+     --file <section.md>
+   ```
+
+   It emits one claim stub per substantive segment using the exact segmentation the audit enforces, so a hand-derived skeleton can never drift from what audit expects. Each stub defaults to the `fact` marker with empty `evidenceIds` and `workItemIds`; fill in the evidence and work-item links and adjust each marker to the right evidence level before checkpointing.
+
+7. Save each section and its claims immediately:
 
    ```bash
    excavator checkpoint \
@@ -194,7 +212,7 @@ For each document:
 
    Each claim names an exact statement that appears in the section. `fact`, `verified`, and `inferred` claims cite evidence IDs that also appear in the section's collapsed evidence block. `unavailable` claims carry a reason and no evidence IDs.
 
-7. Treat `workitems.json` as the primary investigation plan and coverage ledger. Every required item ends as `found`, `searched-not-found`, `cannot-determine`, or `not-applicable`:
+8. Treat `workitems.json` as the primary investigation plan and coverage ledger. Every required item ends as `found`, `searched-not-found`, `cannot-determine`, or `not-applicable`:
 
    ```bash
    excavator workitem --run <run-dir> --file <workitem-updates.json>
@@ -202,21 +220,28 @@ For each document:
 
    Do not delete a required item. A search that finds nothing records its searched scope and supporting `SEARCH-*` receipt. An item that static analysis cannot answer records why, what would settle it, and evidence establishing the limitation. `checklist.json` is retained as a compatibility projection and may still be updated through the legacy `checklist` command.
 
-8. Record traces for evidenced call flows, business flows, data flows, state transitions, cross-repository paths, and analysis paths:
+9. Record traces for evidenced call flows, business flows, data flows, state transitions, cross-repository paths, and analysis paths:
 
    ```bash
    excavator trace --run <run-dir> --file <trace-updates.json>
    ```
 
-   A verified trace has sequential steps and evidence for every step. Claims and work items may cite trace IDs. Material feature work items for normal flow, lifecycle, or side effects require a trace when their status is `found`.
+   A verified trace has sequential steps and evidence for every step. Claims and work items may cite trace IDs. As stated above, a material feature work item for a normal, decision, or reversal flow, a lifecycle, or a side effect requires a verified trace when its status is `found`.
 
-9. Check status after every major section. Stop when the authoring budget is exceeded; do not silently extend it.
-10. Assemble and audit:
+10. Check status after every major section. Stop when the authoring budget is exceeded; do not silently extend it. Once a document's sections are all checkpointed, audit that document in isolation before moving on:
 
-   ```bash
-   excavator assemble --run <run-dir>
-   excavator audit --run <run-dir>
-   ```
+    ```bash
+    excavator audit --run <run-dir> --document <document-id>
+    ```
+
+    A single-document audit checks that document's sections, claims, and the shared evidence catalog as hard errors, but run-wide completeness checks (plan and checklist completion, material work-item coverage) degrade to advisory findings and no run state is mutated. Use it mid-authoring; it does not replace the final full-run audit.
+
+11. Assemble and audit the whole run:
+
+    ```bash
+    excavator assemble --run <run-dir>
+    excavator audit --run <run-dir>
+    ```
 
 ## Recovery
 
@@ -272,6 +297,7 @@ The audit must fail when any of these is true:
 - a source range is outside the target, outside the file, stale, or from another snapshot;
 - a structured evidence digest no longer matches;
 - a section has substantive prose but no claims sidecar;
+- a substantive section carries no real evidence-level marker (under the current assurance version);
 - any substantive sentence or table row is not bound to a claim;
 - a claim statement is not present in the section;
 - claim evidence is not cited in that section's evidence block;
