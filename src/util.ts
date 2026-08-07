@@ -103,6 +103,13 @@ async function readTargetMarker(path: string): Promise<string | null> {
   try { return (await readFile(join(path, ".target"), "utf8")).trim(); } catch { return null; }
 }
 
+/**
+ * Version of the redaction algorithm below. Downstream cache keys (source windows, searches) and
+ * the assurance version embed this marker so a change to redaction invalidates stale caches and
+ * flags runs prepared under an older redaction. Bump it whenever `redactSecrets` behavior changes.
+ */
+export const REDACTION_VERSION = "redaction-v4";
+
 const IDENTIFIER_PATTERN = /[A-Za-z_][A-Za-z0-9_.-]*/g;
 const STRING_LITERAL_PATTERN = /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g;
 const QUOTED_VALUE_PATTERN = /^"((?:[^"\\]|\\.)*)"$|^'((?:[^'\\]|\\.)*)'$/;

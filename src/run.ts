@@ -6,13 +6,13 @@ import type { Audience, ChecklistItem, DocumentPlan, EvidenceItem, Investigation
 import { buildContexts, featureCacheKey } from "./context.ts";
 import { SourceReader, evidenceFromWindow, sourceSearch } from "./source.ts";
 import { createSnapshot } from "./snapshot.ts";
-import { auditChecklist, auditDetailedFeatureSection, auditEvidenceCatalog, auditSectionClaims, auditTargetProblemAttribution, auditTraces, auditWorkItemClaimCoverage, auditWorkItems, checklistUpdatesToWorkItems, createInvestigationChecklist, createInvestigationPlan, mergeChecklist, mergeWorkItems, type AuditFinding, validateClaimsInput, workItemsToChecklist } from "./assurance.ts";
-import { atomicWrite, ensureDir, exists, nowIso, readJson, sha256, slugify, stableJson, writeJson } from "./util.ts";
+import { ASSURANCE_VERSION, auditChecklist, auditDetailedFeatureSection, auditEvidenceCatalog, auditSectionClaims, auditTargetProblemAttribution, auditTraces, auditWorkItemClaimCoverage, auditWorkItems, checklistUpdatesToWorkItems, createInvestigationChecklist, createInvestigationPlan, mergeChecklist, mergeWorkItems, type AuditFinding, validateClaimsInput, workItemsToChecklist } from "./assurance.ts";
+import { atomicWrite, ensureDir, exists, nowIso, readJson, REDACTION_VERSION, sha256, slugify, stableJson, writeJson } from "./util.ts";
 import { collectClaims, createAnalysisScope, emptyTraceCatalog, mergeTraces, writeReportCompanions } from "./assurance-artifacts.ts";
 import { scaffoldSectionClaims } from "./claims-scaffold.ts";
 import { appendTimeline, auditTimeline, readTimeline } from "./timeline.ts";
 
-export const SOURCE_SEARCH_VERSION = "source-search-v3-ranking-v1-redaction-v4";
+export const SOURCE_SEARCH_VERSION = `source-search-v3-ranking-v1-${REDACTION_VERSION}`;
 
 const PROJECT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const REFERENCES = join(PROJECT_ROOT, "skills", "excavator", "references");
@@ -99,6 +99,7 @@ export async function prepareRun(request: ReportRequest): Promise<{ runDir: stri
     evidenceDigest: sha256(stableJson(evidence)),
     providerRegistryDigest: providerRegistry.digest,
     analysisScopeDigest: analysisScope.digest,
+    assuranceVersion: ASSURANCE_VERSION,
     metrics: {
       startedAt: new Date(preparedStarted).toISOString(),
       timing: result.stats.timing,

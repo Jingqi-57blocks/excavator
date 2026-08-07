@@ -2,10 +2,10 @@ import { readFile } from "node:fs/promises";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import type { EvidenceItem, SourceWindow } from "./types.ts";
 import type { ScannedFile } from "./snapshot.ts";
-import { atomicWrite, ensureDir, exists, readJson, redactSecrets, sha256, truncate, writeJson } from "./util.ts";
+import { atomicWrite, ensureDir, exists, readJson, redactSecrets, REDACTION_VERSION, sha256, truncate, writeJson } from "./util.ts";
 
 const TEXTUAL_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".go", ".py", ".java", ".kt", ".kts", ".rb", ".php", ".cs", ".fs", ".rs", ".c", ".h", ".cc", ".cpp", ".hpp", ".swift", ".scala", ".vue", ".svelte", ".sql", ".yaml", ".yml", ".json", ".toml", ".xml", ".html", ".css", ".scss", ".md", ".sh"]);
-export const SOURCE_WINDOW_CACHE_VERSION = "source-window-v3-redaction-v4";
+export const SOURCE_WINDOW_CACHE_VERSION = `source-window-v3-${REDACTION_VERSION}`;
 
 const MANIFEST_NAMES = new Set(["package.json", "go.mod", "Cargo.toml", "pyproject.toml", "requirements.txt", "pom.xml", "build.gradle", "build.gradle.kts", "Gemfile", "composer.json", "Dockerfile", "docker-compose.yml", "docker-compose.yaml", "Makefile"]);
 

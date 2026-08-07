@@ -270,6 +270,8 @@ export interface RunManifest {
   evidenceDigest: string;
   providerRegistryDigest?: string;
   analysisScopeDigest?: string;
+  /** Strict-assurance/redaction version this run was prepared under; audit gates re-derivation on it. Absent on runs prepared before the field existed. */
+  assuranceVersion?: string;
   metrics: RunMetrics;
   error?: { stage: string; message: string; stack?: string };
 }
