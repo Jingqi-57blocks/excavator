@@ -1,4 +1,4 @@
-import type { CodeGraphIndex } from "./codegraph.ts";
+import type { GraphReader } from "./codegraph.ts";
 import type { ScannedFile } from "./snapshot.ts";
 import type { SourceReader } from "./source.ts";
 import { sourceSearch } from "./source.ts";
@@ -165,7 +165,7 @@ export interface FactPackInput {
   featureKey: string;
   /** The boundary: scanned files of the feature scope. Both graph and scan enumerate over exactly these. */
   files: ScannedFile[];
-  graph: CodeGraphIndex | null;
+  graph: GraphReader | null;
   sourceReader: SourceReader;
   deadline?: Deadline;
   /** The upstream feature node cap was reached, so the boundary file set itself may be short. */

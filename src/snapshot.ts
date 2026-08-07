@@ -265,7 +265,7 @@ export async function scanFiles(targetInput: string, maxFiles = 100_000): Promis
   return (await scanWorkspace(targetInput, maxFiles)).files;
 }
 
-export async function createSnapshot(targetInput: string, codegraphPath?: string, maxFiles = 100_000): Promise<{ snapshot: Snapshot; files: ScannedFile[] }> {
+export async function createSnapshot(targetInput: string, codegraphPath?: string | string[], maxFiles = 100_000): Promise<{ snapshot: Snapshot; files: ScannedFile[] }> {
   const target = resolve(targetInput);
   const { files, ignoreRulesDigest } = await scanWorkspace(target, maxFiles);
   const roots = await discoverRoots(target);
@@ -283,9 +283,22 @@ export async function createSnapshot(targetInput: string, codegraphPath?: string
   }
   const sourceManifestDigest = hash.digest("hex");
   let codegraphDigest: string | null = null;
-  if (codegraphPath && await exists(codegraphPath)) {
-    const info = await stat(codegraphPath);
-    codegraphDigest = sha256(`${resolve(codegraphPath)}:${info.size}:${Math.trunc(info.mtimeMs)}`);
+  const codegraphPaths = codegraphPath == null ? [] : Array.isArray(codegraphPath) ? codegraphPath : [codegraphPath];
+  if (codegraphPaths.length === 1) {
+    // A single database keeps its original identity formula so single-module snapshots are unchanged.
+    const [path] = codegraphPaths;
+    if (await exists(path)) {
+      const info = await stat(path);
+      codegraphDigest = sha256(`${resolve(path)}:${info.size}:${Math.trunc(info.mtimeMs)}`);
+    }
+  } else if (codegraphPaths.length > 1) {
+    const parts: string[] = [];
+    for (const path of [...codegraphPaths].sort()) {
+      if (!await exists(path)) continue;
+      const info = await stat(path);
+      parts.push(`${resolve(path)}:${info.size}:${Math.trunc(info.mtimeMs)}`);
+    }
+    if (parts.length) codegraphDigest = sha256(parts.join("\n"));
   }
   const identity = {
     target,

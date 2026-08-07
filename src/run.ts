@@ -42,7 +42,7 @@ function factPackEvidenceForDocument(document: DocumentPlan, manifest: RunManife
 export async function prepareRun(request: ReportRequest): Promise<{ runDir: string; manifest: RunManifest }> {
   const preparedStarted = Date.now();
   const result = await buildContexts(request);
-  const effectiveRequest: ReportRequest = { ...request, detailLevel: request.detailLevel ?? "detailed", codegraph: result.stats.codegraphPath };
+  const effectiveRequest: ReportRequest = { ...request, detailLevel: request.detailLevel ?? "detailed", codegraph: result.stats.codegraphPath, codegraphModules: result.stats.codegraphModulePaths };
   const timestamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
   const requestDigest = sha256(stableJson({ overview: request.overviewAudiences, features: request.features, language: request.language, detailLevel: effectiveRequest.detailLevel })).slice(0, 8);
   const runId = `run-${timestamp}-${result.prepared.snapshot.id.slice(0, 8)}-${requestDigest}-${randomUUID().slice(0, 8)}`;
@@ -251,7 +251,7 @@ export async function searchSourceEvidence(runDirInput: string, termsInput: stri
   const pathPrefixes = [...new Set((options.pathPrefixes ?? []).map((prefix) => prefix.replaceAll("\\", "/").replace(/^\.\//, "").replace(/\/+$/, "")).filter(Boolean))];
   if (pathPrefixes.some((prefix) => prefix === ".." || prefix.startsWith("../") || prefix.includes("/../"))) throw new Error("Source search path prefix escapes the target");
 
-  const current = await createSnapshot(manifest.request.target, manifest.request.codegraph, manifest.request.budgets.maxFiles);
+  const current = await createSnapshot(manifest.request.target, manifest.request.codegraphModules ?? manifest.request.codegraph, manifest.request.budgets.maxFiles);
   if (current.snapshot.id !== manifest.snapshot.id) {
     throw new Error("Source snapshot changed after context preparation");
   }
@@ -442,7 +442,7 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
 
   findings.push(...await auditEvidenceCatalog(manifest, evidenceCatalog.evidence));
   if (manifest.snapshot) {
-    const current = await createSnapshot(manifest.request.target, manifest.request.codegraph, manifest.request.budgets.maxFiles);
+    const current = await createSnapshot(manifest.request.target, manifest.request.codegraphModules ?? manifest.request.codegraph, manifest.request.budgets.maxFiles);
     if (current.snapshot.id !== manifest.snapshot.id) findings.push({ level: "error", document: "snapshot", message: "source snapshot changed after context preparation" });
     if (current.snapshot.codegraphDigest !== manifest.snapshot.codegraphDigest) findings.push({ level: "error", document: "snapshot", message: "CodeGraph identity changed after context preparation" });
   }

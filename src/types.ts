@@ -19,6 +19,9 @@ export interface FeatureRequest {
 export interface ReportRequest {
   target: string;
   codegraph?: string;
+  /** Resolved per-module database paths (multi-module targets). Persisted so the snapshot identity — its
+   * `codegraphDigest` — is reproducible when `source`/`audit` rebuild the snapshot after preparation. */
+  codegraphModules?: string[];
   codegraphMode?: CodeGraphMode;
   language: string;
   detailLevel?: DetailLevel;
