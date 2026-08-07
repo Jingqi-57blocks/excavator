@@ -10,10 +10,14 @@ import { scanFiles } from "../src/snapshot.ts";
 import { buildContexts } from "../src/context.ts";
 import { prepareRun } from "../src/run.ts";
 import { Deadline, stableJson } from "../src/util.ts";
-import type { EvidenceItem, FactPackCategory, FeatureFactPack, GraphNode, ReportRequest } from "../src/types.ts";
+import type { EvidenceItem, FactPackCategory, FeatureFactPack, ReportRequest } from "../src/types.ts";
 import { copyFixture, createCodeGraphFixture, createCodeGraphSchema, insertGraphFile, insertGraphNode, tempDir } from "./helpers.ts";
 
 const BOUNDARY_SOURCES: Record<string, string> = {
+  // Inside the boundary, but nothing in it matches the feature vocabulary: a scored scope node
+  // set never returns this route, so it is the case the pack must still enumerate.
+  "src/api/balance-routes.ts": `app.get("/balance", listBalance);
+`,
   "src/api/leave-routes.ts": `import { Hono } from "hono";
 export const app = new Hono();
 const router = app;
@@ -58,7 +62,6 @@ interface Boundary {
   paths: string[];
   reader: SourceReader;
   graph: CodeGraphIndex | null;
-  nodes: GraphNode[];
 }
 
 async function scannedBoundary(sources: Record<string, string>): Promise<Boundary> {
@@ -75,8 +78,7 @@ async function scannedBoundary(sources: Record<string, string>): Promise<Boundar
     files,
     paths: files.map((file) => file.relativePath),
     reader: new SourceReader({ target, snapshotId: "snapshot-fact-pack", cacheDir: join(workdir, "cache"), maxWindows: 20, maxCharacters: 100_000 }),
-    graph: null,
-    nodes: []
+    graph: null
   };
 }
 
@@ -87,23 +89,22 @@ async function boundary(withGraph: boolean): Promise<Boundary> {
 
   const dbPath = join(workdir, "codegraph.db");
   const db: DatabaseSync = createCodeGraphSchema(dbPath);
+  insertGraphFile(db, "src/api/balance-routes.ts");
   insertGraphFile(db, "src/api/leave-routes.ts");
   insertGraphFile(db, "src/models/leave-request.ts");
   insertGraphFile(db, "src/models/leave-status.ts");
+  insertGraphNode(db, { id: "route-balance", kind: "route", name: "GET /balance", filePath: "src/api/balance-routes.ts", startLine: 1, endLine: 1, signature: "app.get(\"/balance\", listBalance)" });
   insertGraphNode(db, { id: "route-leave", kind: "route", name: "GET /leave", filePath: "src/api/leave-routes.ts", startLine: 4, endLine: 4, signature: "app.get(\"/leave\", listLeave)" });
   insertGraphNode(db, { id: "model-leave", kind: "class", name: "LeaveRequest", filePath: "src/models/leave-request.ts", startLine: 1, endLine: 6, signature: "class LeaveRequest" });
   insertGraphNode(db, { id: "enum-leave", kind: "enum", name: "LeaveStatus", filePath: "src/models/leave-status.ts", startLine: 1, endLine: 5, signature: "enum LeaveStatus" });
   db.close();
-  const graph = new CodeGraphIndex(dbPath, 40, new Deadline(30_000, "fact pack test"), paths);
-  return { ...scope, graph, nodes: graph.searchNodes(["leave"], 50) };
+  return { ...scope, graph: new CodeGraphIndex(dbPath, 40, new Deadline(30_000, "fact pack test"), paths) };
 }
 
 function pack(scope: Boundary, limits?: { maxItemsPerCategory?: number; maxEntityWindows?: number }): Promise<FeatureFactPack> {
   return buildFactPack({
     snapshotId: "snapshot-fact-pack",
     featureKey: "leave-management-abc123",
-    nodes: scope.nodes,
-    boundaryFiles: scope.paths,
     files: scope.files,
     graph: scope.graph,
     sourceReader: scope.reader,
@@ -128,6 +129,7 @@ test("a fact pack enumerates every category inside the boundary and prefers the 
   assert.deepEqual(factPack.coverage.map((entry) => entry.category), FACT_PACK_CATEGORIES);
 
   assert.deepEqual(items(factPack, "entrypoints"), [
+    { name: "GET /balance", location: "src/api/balance-routes.ts:1", source: "graph" },
     { name: "GET /leave", location: "src/api/leave-routes.ts:4", source: "graph" },
     { name: "app.post /leave/:id/approve", location: "src/api/leave-routes.ts:5", source: "scan" },
     { name: "router.delete /leave/:id", location: "src/api/leave-routes.ts:6", source: "scan" }
@@ -171,8 +173,29 @@ test("a fact pack without CodeGraph scans what it can and reports the graph-only
     [["entrypoints", "scan"], ["entities", "none"], ["states", "scan"], ["config-keys", "scan"], ["jobs", "scan"], ["external-calls", "scan"]]
   );
   assert.equal(coverage(factPack, "entities").itemCount, 0);
-  assert.deepEqual(items(factPack, "entrypoints").map((item) => item.name), ["app.get /leave", "app.post /leave/:id/approve", "router.delete /leave/:id"]);
+  assert.deepEqual(items(factPack, "entrypoints").map((item) => item.name), ["app.get /balance", "app.get /leave", "app.post /leave/:id/approve", "router.delete /leave/:id"]);
   assert.ok(factPack.items.every((item) => item.source === "scan"));
+});
+
+test("a boundary route the feature scope ranking never returns is still enumerated", async () => {
+  const scope = await boundary(true);
+  const scopeNodes = scope.graph!.searchNodes(["leave"], 50);
+  assert.ok(
+    !scopeNodes.some((node) => node.id === "route-balance"),
+    "precondition: the feature vocabulary does not reach this route, so a scope-node enumeration would miss it"
+  );
+
+  const factPack = await pack(scope);
+  const balance = factPack.items.find((item) => item.name === "GET /balance");
+  scope.graph?.close();
+
+  assert.deepEqual(balance && { category: balance.category, filePath: balance.filePath, line: balance.line, source: balance.source }, {
+    category: "entrypoints",
+    filePath: "src/api/balance-routes.ts",
+    line: 1,
+    source: "graph"
+  });
+  assert.equal(coverage(factPack, "entrypoints").truncated, false, "reaching further than the scope is not a truncation");
 });
 
 test("the same snapshot and scope build a byte-identical fact pack", async () => {

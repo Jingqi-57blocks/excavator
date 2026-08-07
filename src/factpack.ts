@@ -14,8 +14,10 @@ const ENTITY_WINDOW_LINES = 60;
 const ENTITY_FIELD_LINES = 12;
 /** `sourceSearch` stops after this many matched lines per file; a file at the cap may hide further facts. */
 const SCAN_FILE_MATCH_CAP = 20;
+/** Ceiling for one kind-in-boundary graph query; reaching it is reported, never swallowed. */
+const GRAPH_QUERY_LIMIT = 500;
 
-const ENTITY_NODE_KINDS = new Set(["class", "interface", "model"]);
+const ENTITY_NODE_KINDS = ["class", "interface", "model"];
 const ENTITY_PATH_PATTERN = /model|entity|schema|migration/i;
 const ENTITY_FIELD_PATTERNS: RegExp[] = [
   /^\s*(?:readonly\s+|public\s+|private\s+|protected\s+|export\s+)?[A-Za-z_$][\w$]*\??\s*:\s*[^\s;,{]/,
@@ -30,8 +32,10 @@ interface ScanStrategy {
 
 interface CategoryStrategy {
   category: FactPackCategory;
-  graphKinds: Set<string> | null;
-  graphFilter?: (node: GraphNode) => boolean;
+  /** Node kinds queried by kind across the whole boundary, not filtered out of a scored scope set. */
+  graphKinds: string[] | null;
+  /** Narrows the queried files before the graph is asked, so the query ceiling is spent on candidates. */
+  graphPathFilter?: RegExp;
   scan: ScanStrategy | null;
   /** Config keys collapse by key name; every other category collapses by source location. */
   dedupeBy: "location" | "name";
@@ -40,7 +44,7 @@ interface CategoryStrategy {
 const CATEGORY_STRATEGIES: CategoryStrategy[] = [
   {
     category: "entrypoints",
-    graphKinds: new Set(["route"]),
+    graphKinds: ["route"],
     dedupeBy: "location",
     scan: {
       caseSensitive: true,
@@ -61,13 +65,13 @@ const CATEGORY_STRATEGIES: CategoryStrategy[] = [
   {
     category: "entities",
     graphKinds: ENTITY_NODE_KINDS,
-    graphFilter: (node) => ENTITY_PATH_PATTERN.test(node.filePath),
+    graphPathFilter: ENTITY_PATH_PATTERN,
     dedupeBy: "location",
     scan: null
   },
   {
     category: "states",
-    graphKinds: new Set(["enum"]),
+    graphKinds: ["enum"],
     dedupeBy: "location",
     scan: {
       caseSensitive: true,
@@ -159,32 +163,30 @@ const CONFIG_KEY_PATTERNS: RegExp[] = [
 export interface FactPackInput {
   snapshotId: string;
   featureKey: string;
-  /** Feature scope nodes; only nodes inside the boundary file set are enumerated. */
-  nodes: GraphNode[];
-  boundaryFiles: string[];
-  /** Scanned files restricted to the boundary. */
+  /** The boundary: scanned files of the feature scope. Both graph and scan enumerate over exactly these. */
   files: ScannedFile[];
   graph: CodeGraphIndex | null;
   sourceReader: SourceReader;
   deadline?: Deadline;
-  /** The upstream feature node cap was reached, so graph-backed categories may be incomplete. */
-  boundaryNodesCapped?: boolean;
+  /** The upstream feature node cap was reached, so the boundary file set itself may be short. */
+  scopeNodesCapped?: boolean;
   limits?: { maxItemsPerCategory?: number; maxEntityWindows?: number };
 }
 
 /**
  * Enumerate the six fact categories inside one feature boundary.
  *
- * The pack is an enumeration, not a sample: graph nodes of a category are taken in full and
- * source scanning fills the categories the graph cannot answer. Everything the budgets cut is
- * reported through `coverage.truncated`, a coverage note and a warning; nothing is dropped silently.
- * The boundary is the feature scope only — facts outside it are not this artifact's claim.
+ * The pack is an enumeration, not a sample. Graph-backed categories are asked of the index by
+ * kind across the whole boundary rather than filtered out of the scored, capped feature scope,
+ * so a route the scope ranking dropped is still enumerated. Source scanning fills the categories
+ * the graph cannot answer. Everything a budget cuts is reported through `coverage.truncated`, a
+ * coverage note and a warning; nothing is dropped silently. The boundary is the feature scope
+ * only — facts outside it are not this artifact's claim.
  */
 export async function buildFactPack(input: FactPackInput): Promise<FeatureFactPack> {
   const maxItems = Math.max(1, input.limits?.maxItemsPerCategory ?? DEFAULT_MAX_ITEMS_PER_CATEGORY);
   const maxEntityWindows = Math.max(0, input.limits?.maxEntityWindows ?? DEFAULT_MAX_ENTITY_WINDOWS);
-  const boundary = new Set(input.boundaryFiles.map(normalizePath));
-  const nodes = input.nodes.filter((node) => node && boundary.has(normalizePath(String(node.filePath))));
+  const boundaryPaths = [...new Set(input.files.map((file) => normalizePath(file.relativePath)))].sort(compareStrings);
   const items: FactPackItem[] = [];
   const coverage: FactPackCoverage[] = [];
   const warnings: string[] = [];
@@ -196,9 +198,11 @@ export async function buildFactPack(input: FactPackInput): Promise<FeatureFactPa
     const collected: FactPackItem[] = [];
 
     if (input.graph && strategy.graphKinds) {
-      const graphNodes = nodes
-        .filter((node) => strategy.graphKinds!.has(String(node.kind)) && (strategy.graphFilter?.(node) ?? true))
-        .sort(compareNodes);
+      const queried = strategy.graphPathFilter ? boundaryPaths.filter((path) => strategy.graphPathFilter!.test(path)) : boundaryPaths;
+      const graphNodes = input.graph.nodesByKindInFiles(strategy.graphKinds, queried, GRAPH_QUERY_LIMIT).sort(compareNodes);
+      if (graphNodes.length >= GRAPH_QUERY_LIMIT) {
+        notes.push(`the graph query for ${strategy.graphKinds.join("/")} nodes returned its ${GRAPH_QUERY_LIMIT}-node ceiling across ${queried.length} boundary files`);
+      }
       const wantsFieldDetail = strategy.category === "entities";
       let windowBudgetSpent = false;
       for (const node of graphNodes) {
@@ -225,8 +229,11 @@ export async function buildFactPack(input: FactPackInput): Promise<FeatureFactPa
       if (wantsFieldDetail && graphNodes.length > maxEntityWindows) {
         notes.push(`entity field windows capped at ${maxEntityWindows}; ${graphNodes.length - maxEntityWindows} later entities carry only their graph signature`);
       }
-      if (input.boundaryNodesCapped) notes.push("the feature graph node set was already capped upstream, so graph-backed items may be incomplete");
     }
+
+    // The upstream node cap no longer truncates the enumeration itself, but it can shorten the
+    // boundary file list this pack enumerates over, which reaches every category.
+    if (input.scopeNodesCapped) notes.push("the feature scope node cap was reached upstream, so the boundary file set this category was enumerated over may be short");
 
     if (strategy.scan) {
       const scanned = await scanCategory(strategy, input.files, maxItems, notes);

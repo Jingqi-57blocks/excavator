@@ -327,13 +327,11 @@ async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], fea
   const factPack = await buildFactPack({
     snapshotId: snapshot.id,
     featureKey: key,
-    nodes,
-    boundaryFiles: scopeFiles,
     files: files.filter((file) => boundary.has(file.relativePath)),
     graph,
     sourceReader,
     deadline,
-    boundaryNodesCapped: nodes.length >= maxNodes
+    scopeNodesCapped: nodes.length >= maxNodes
   });
   evidence.push(...factPackEvidence(factPack));
   const inventory = buildFeatureInventory(nodes, scopeFiles);

@@ -309,6 +309,8 @@ test("CodeGraph records outside the Git-aware source manifest are excluded from 
   const graph = new CodeGraphIndex(dbPath, 30, new Deadline(30_000, "test"), ["src/server.ts"]);
   assert.deepEqual(graph.files().map((file) => file.path), ["src/server.ts"]);
   assert.equal(graph.searchNodes(["SecretGeneratedFunction"]).length, 0);
+  assert.equal(graph.nodesByKindInFiles(["function"], ["ignored/generated.ts"]).length, 0, "a kind query cannot reach outside the source manifest either");
+  assert.deepEqual(graph.nodesByKindInFiles(["route"], ["src/server.ts"]).map((node) => node.name), ["GET /leave"]);
   assert.equal(graph.summary().fileCount, 1);
   graph.close();
 });
