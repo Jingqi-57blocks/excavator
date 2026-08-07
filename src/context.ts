@@ -1,7 +1,8 @@
 import { basename, join } from "node:path";
 import { readFile } from "node:fs/promises";
 import type { Audience, EvidenceItem, FeatureFactPack, FeatureRequest, PreparedContext, ProviderRegistry, ReportRequest, Snapshot } from "./types.ts";
-import { CodeGraphIndex } from "./codegraph.ts";
+import { CodeGraphIndex, type GraphReader } from "./codegraph.ts";
+import { CodeGraphSet } from "./codegraph-set.ts";
 import { createSnapshot, isLikelySource, type ScannedFile } from "./snapshot.ts";
 import { SourceReader, evidenceFromWindow, manifestSummary, selectProjectDocuments, sourceSearch } from "./source.ts";
 import { Deadline, ensureDir, exists, projectWorkspace, readJson, sha256, slugify, stableJson, truncate, writeJson } from "./util.ts";
@@ -44,6 +45,7 @@ export interface ContextBuildResult {
     filesConsidered: number;
     codegraphCoverage?: { indexed: number; eligible: number; ratio: number };
     codegraphPath?: string;
+    codegraphModulePaths?: string[];
     codegraphSource: "explicit" | "auto" | "disabled" | "unavailable";
     providerRegistry: ProviderRegistry;
     cache: Record<string, "hit" | "miss" | "unused">;
@@ -57,8 +59,9 @@ export async function buildContexts(request: ReportRequest): Promise<ContextBuil
   const timing: Record<string, number> = {};
   const t0 = Date.now();
   const codegraphResolution = await resolveCodeGraphDatabase(request.target, request.codegraph, request.codegraphMode ?? "auto");
+  const moduleDatabases = codegraphResolution.modules;
   const effectiveCodegraph = codegraphResolution.path;
-  const { snapshot, files } = await createSnapshot(request.target, effectiveCodegraph, request.budgets.maxFiles);
+  const { snapshot, files } = await createSnapshot(request.target, moduleDatabases ? moduleDatabases.map((module) => module.path) : effectiveCodegraph, request.budgets.maxFiles);
   timing.snapshotMs = Date.now() - t0;
   deadline.check("creating source snapshot");
 
@@ -74,19 +77,25 @@ export async function buildContexts(request: ReportRequest): Promise<ContextBuil
     maxCharacters: request.budgets.maxSourceCharacters
   });
 
-  let graph: CodeGraphIndex | null = null;
+  let graph: GraphReader | null = null;
   let codegraphOpenError: string | undefined;
   const warnings: string[] = [];
   if (legacyResidue) warnings.push(legacyResidue);
-  if (effectiveCodegraph && await exists(effectiveCodegraph)) {
-    try { graph = new CodeGraphIndex(effectiveCodegraph, request.budgets.maxGraphQueries, deadline, files.map((file) => file.relativePath)); }
+  const allowedPaths = files.map((file) => file.relativePath);
+  if (moduleDatabases) {
+    try { graph = new CodeGraphSet(moduleDatabases.map((module) => ({ module: { id: module.id, dir: module.dir }, path: module.path })), allowedPaths, request.budgets.maxGraphQueries, deadline); }
+    catch (error) { codegraphOpenError = (error as Error).message; warnings.push(`CodeGraph could not be opened; source fallback is active: ${codegraphOpenError}`); }
+  } else if (effectiveCodegraph && await exists(effectiveCodegraph)) {
+    try { graph = new CodeGraphIndex(effectiveCodegraph, request.budgets.maxGraphQueries, deadline, allowedPaths); }
     catch (error) { codegraphOpenError = (error as Error).message; warnings.push(`CodeGraph could not be opened; source fallback is active: ${codegraphOpenError}`); }
   } else {
     warnings.push(codegraphResolution.source === "disabled"
       ? "CodeGraph is disabled; source analysis is active for the full target."
       : "No CodeGraph database is available; source analysis is active for the full target.");
   }
-  if (codegraphResolution.source === "auto") warnings.push(`Using auto-detected CodeGraph database: ${effectiveCodegraph}`);
+  if (codegraphResolution.source === "auto") warnings.push(moduleDatabases
+    ? `Using ${moduleDatabases.length} auto-detected per-module CodeGraph databases; cross-module relationships fall to source.`
+    : `Using auto-detected CodeGraph database: ${effectiveCodegraph}`);
   if (request.codegraph && codegraphResolution.source === "unavailable") warnings.push(`The requested CodeGraph database is unavailable: ${request.codegraph}`);
 
   const cache: Record<string, "hit" | "miss" | "unused"> = { shared: "miss" };
@@ -158,6 +167,7 @@ export async function buildContexts(request: ReportRequest): Promise<ContextBuil
       filesConsidered: files.length,
       codegraphCoverage: shared.metrics.coverage,
       codegraphPath: effectiveCodegraph,
+      codegraphModulePaths: moduleDatabases?.map((module) => module.path),
       codegraphSource: codegraphResolution.source,
       providerRegistry,
       cache,
@@ -167,7 +177,7 @@ export async function buildContexts(request: ReportRequest): Promise<ContextBuil
   };
 }
 
-async function buildSharedContext(snapshot: Snapshot, files: ScannedFile[], graph: CodeGraphIndex | null, sourceReader: SourceReader, deadline: Deadline): Promise<CachedShared> {
+async function buildSharedContext(snapshot: Snapshot, files: ScannedFile[], graph: GraphReader | null, sourceReader: SourceReader, deadline: Deadline): Promise<CachedShared> {
   const evidence: EvidenceItem[] = [];
   const warnings: string[] = [];
   let graphPaths = new Set<string>();
@@ -251,7 +261,7 @@ async function buildSharedContext(snapshot: Snapshot, files: ScannedFile[], grap
   return { snapshotId: snapshot.id, evidence: dedupeEvidence(evidence), markdown, graphFilePaths: [...graphPaths], metrics: { coverage, warnings } };
 }
 
-async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], feature: FeatureRequest, graph: CodeGraphIndex | null, graphPaths: Set<string>, sourceReader: SourceReader, deadline: Deadline, maxNodes: number, depth: number): Promise<CachedFeature> {
+async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], feature: FeatureRequest, graph: GraphReader | null, graphPaths: Set<string>, sourceReader: SourceReader, deadline: Deadline, maxNodes: number, depth: number): Promise<CachedFeature> {
   const terms = [...new Set([feature.subject, ...feature.aliases].flatMap(tokenize))].filter(Boolean);
   const evidence: EvidenceItem[] = [];
   const warnings: string[] = [];

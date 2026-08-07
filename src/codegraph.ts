@@ -2,22 +2,72 @@ import { DatabaseSync } from "node:sqlite";
 import type { GraphEdge, GraphFile, GraphNode } from "./types.ts";
 import { Deadline, sha256, stableJson } from "./util.ts";
 
-interface QueryStats {
+export interface QueryStats {
   queries: number;
   hits: number;
 }
 
-export class CodeGraphIndex {
+export interface GraphSummary {
+  fileCount: number;
+  nodeCount: number;
+  edgeCount: number;
+  unresolvedCount: number;
+  languages: Array<{ language: string; files: number }>;
+  nodeKinds: Array<{ kind: string; count: number }>;
+  edgeKinds: Array<{ kind: string; count: number }>;
+  roots: Array<{ root: string; files: number; nodes: number }>;
+}
+
+/**
+ * The read surface every graph provider exposes. `CodeGraphIndex` is the single-database provider;
+ * `CodeGraphSet` fans the same surface across per-module databases. Consumers depend on this
+ * interface so single-module and multi-module targets share one code path.
+ */
+export interface GraphReader {
+  metadata(): Record<string, string>;
+  files(): GraphFile[];
+  summary(): GraphSummary;
+  representativeNodes(limit?: number): GraphNode[];
+  routeSummary(limit?: number): GraphNode[];
+  searchNodes(terms: string[], limit?: number): GraphNode[];
+  searchNodesInFiles(terms: string[], filePaths: string[], limit?: number): GraphNode[];
+  nodesByKindInFiles(kinds: string[], filePaths: string[], limit?: number): GraphNode[];
+  expand(seedIds: string[], depth: number, maxNodes: number): { nodes: GraphNode[]; edges: GraphEdge[] };
+  unresolvedForNodeIds(nodeIds: string[], limit?: number): Array<Record<string, unknown>>;
+  readonly stats: QueryStats;
+  close(): void;
+}
+
+/**
+ * A query budget shared by one or more `CodeGraphIndex` instances. A multi-module target opens one
+ * index per module but must not multiply the caller's `--max-graph-queries` ceiling, so the whole
+ * set draws from a single counter.
+ */
+export class QueryBudget {
+  readonly max: number;
+  queries = 0;
+  hits = 0;
+
+  constructor(max: number) { this.max = max; }
+
+  recordHit(): void { this.hits += 1; }
+
+  spend(): void {
+    if (this.queries >= this.max) throw new Error(`CodeGraph query budget exceeded (${this.max}); increase --max-graph-queries (e.g. ${this.max * 2})`);
+    this.queries += 1;
+  }
+}
+
+export class CodeGraphIndex implements GraphReader {
   readonly path: string;
-  private readonly maxQueries: number;
+  private readonly budget: QueryBudget;
   private readonly deadline: Deadline;
   private readonly db: DatabaseSync;
   private readonly cache = new Map<string, unknown[]>();
-  readonly stats: QueryStats = { queries: 0, hits: 0 };
 
-  constructor(path: string, maxQueries: number, deadline: Deadline, allowedPaths?: Iterable<string>) {
+  constructor(path: string, budget: number | QueryBudget, deadline: Deadline, allowedPaths?: Iterable<string>) {
     this.path = path;
-    this.maxQueries = maxQueries;
+    this.budget = typeof budget === "number" ? new QueryBudget(budget) : budget;
     this.deadline = deadline;
     this.db = new DatabaseSync(path, { readOnly: true });
     this.db.exec("CREATE TEMP TABLE allowed_files(path TEXT PRIMARY KEY)");
@@ -31,16 +81,17 @@ export class CodeGraphIndex {
 
   close(): void { this.db.close(); }
 
+  get stats(): QueryStats { return { queries: this.budget.queries, hits: this.budget.hits }; }
+
   private query<T extends Record<string, unknown>>(sql: string, params: unknown[] = []): T[] {
     this.deadline.check("querying CodeGraph");
     const key = sha256(`${sql}\n${stableJson(params)}`);
     const cached = this.cache.get(key);
     if (cached) {
-      this.stats.hits += 1;
+      this.budget.recordHit();
       return cached as T[];
     }
-    if (this.stats.queries >= this.maxQueries) throw new Error(`CodeGraph query budget exceeded (${this.maxQueries}); increase --max-graph-queries (e.g. ${this.maxQueries * 2})`);
-    this.stats.queries += 1;
+    this.budget.spend();
     const rows = this.db.prepare(sql).all(...params) as T[];
     this.cache.set(key, rows);
     return rows;
