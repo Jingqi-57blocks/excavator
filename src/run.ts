@@ -2,9 +2,10 @@ import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Audience, ChecklistItem, DocumentPlan, EvidenceItem, InvestigationChecklist, InvestigationPlan, InvestigationWorkItem, ReportRequest, RunManifest, SectionClaim, SectionClaimsFile, TraceCatalog, TraceRecord } from "./types.ts";
+import type { Audience, ChecklistItem, DocumentPlan, EvidenceItem, InvestigationChecklist, InvestigationPlan, InvestigationWorkItem, ReportRequest, RunManifest, SearchReceipt, SectionClaim, SectionClaimsFile, TraceCatalog, TraceRecord } from "./types.ts";
 import { buildContexts, featureCacheKey } from "./context.ts";
-import { SourceReader, evidenceFromWindow, sourceSearch } from "./source.ts";
+import { FACT_PACK_CATEGORIES, factPackEvidenceId } from "./factpack.ts";
+import { SourceReader, evidenceFromWindow, sourceSearch, type SourceSearchStats } from "./source.ts";
 import { createSnapshot } from "./snapshot.ts";
 import { ASSURANCE_VERSION, auditChecklist, auditDetailedFeatureSection, auditEvidenceCatalog, auditSectionClaims, auditTargetProblemAttribution, auditTraces, auditWorkItemClaimCoverage, auditWorkItems, checklistUpdatesToWorkItems, createInvestigationChecklist, createInvestigationPlan, mergeChecklist, mergeWorkItems, type AuditFinding, validateClaimsInput, workItemsToChecklist } from "./assurance.ts";
 import { atomicWrite, ensureDir, exists, nowIso, readJson, REDACTION_VERSION, sha256, slugify, stableJson, writeJson } from "./util.ts";
@@ -12,7 +13,7 @@ import { collectClaims, createAnalysisScope, emptyTraceCatalog, mergeTraces, wri
 import { scaffoldSectionClaims } from "./claims-scaffold.ts";
 import { appendTimeline, auditTimeline, readTimeline } from "./timeline.ts";
 
-export const SOURCE_SEARCH_VERSION = `source-search-v3-ranking-v1-${REDACTION_VERSION}`;
+export const SOURCE_SEARCH_VERSION = `source-search-v4-ranking-v1-${REDACTION_VERSION}`;
 
 const PROJECT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const REFERENCES = join(PROJECT_ROOT, "skills", "excavator", "references");
@@ -20,6 +21,22 @@ const REFERENCES = join(PROJECT_ROOT, "skills", "excavator", "references");
 /** Caches live beside `runs/` inside the per-target project directory: `<workdir>/<project>/cache`. */
 function projectCacheDir(runDir: string): string {
   return resolve(runDir, "..", "..", "cache");
+}
+
+/**
+ * The `FACT-*` fact-pack evidence belonging to a feature document, for enumeration reconciliation.
+ * Feature documents are `feature-<featureKey>-<audience>`; each category's evidence id is derived
+ * deterministically from the same key and the snapshot, so the lookup is exact. Overview documents,
+ * snapshot-less or older runs (no fact-pack evidence in the catalog) resolve to an empty set.
+ */
+function factPackEvidenceForDocument(document: DocumentPlan, manifest: RunManifest, evidenceById: Map<string, EvidenceItem>): EvidenceItem[] {
+  if (document.kind !== "feature" || !manifest.snapshot) return [];
+  const feature = manifest.request.features.find((candidate) => `feature-${featureCacheKey(candidate)}-${document.audience}` === document.id);
+  if (!feature) return [];
+  const key = featureCacheKey(feature);
+  return FACT_PACK_CATEGORIES
+    .map((category) => evidenceById.get(factPackEvidenceId(key, category, manifest.snapshot!.id)))
+    .filter((item): item is EvidenceItem => Boolean(item));
 }
 
 export async function prepareRun(request: ReportRequest): Promise<{ runDir: string; manifest: RunManifest }> {
@@ -243,21 +260,15 @@ export async function searchSourceEvidence(runDirInput: string, termsInput: stri
     : current.files;
   const key = sha256(stableJson({ searchVersion: SOURCE_SEARCH_VERSION, snapshotId: manifest.snapshot.id, terms: [...terms].sort(), pathPrefixes: [...pathPrefixes].sort(), maxResults, regex: Boolean(options.regex), caseSensitive: Boolean(options.caseSensitive) }));
   const cachePath = join(projectCacheDir(runDir), "searches", manifest.snapshot.id, `${key}.json`);
-  let data: Record<string, unknown>;
+  const cached = await exists(cachePath) ? await readJson<SearchReceipt>(cachePath) : null;
+  let data: SearchReceipt;
   let cacheHit = false;
-  if (await exists(cachePath)) {
-    const cached = await readJson<Record<string, unknown>>(cachePath);
-    if (cached.searchVersion === SOURCE_SEARCH_VERSION) {
-      data = cached;
-      cacheHit = true;
-    } else {
-      data = {};
-    }
+  if (cached && cached.searchVersion === SOURCE_SEARCH_VERSION) {
+    data = cached;
+    cacheHit = true;
   } else {
-    data = {};
-  }
-  if (!cacheHit) {
-    const matches = await sourceSearch(scopedFiles, terms, { maxResults, regex: options.regex, caseSensitive: options.caseSensitive });
+    const stats: SourceSearchStats = { total: 0, returned: 0, truncated: false };
+    const matches = await sourceSearch(scopedFiles, terms, { maxResults, regex: options.regex, caseSensitive: options.caseSensitive }, stats);
     data = {
       searchVersion: SOURCE_SEARCH_VERSION,
       terms,
@@ -266,7 +277,8 @@ export async function searchSourceEvidence(runDirInput: string, termsInput: stri
       maxResults,
       regex: Boolean(options.regex),
       caseSensitive: Boolean(options.caseSensitive),
-      truncated: matches.length >= maxResults,
+      truncated: stats.truncated,
+      ...(stats.truncated ? { atLeast: stats.total } : {}),
       matches: matches.map((match) => ({ path: match.file.relativePath, line: match.line, excerpt: match.excerpt, matchedTerms: match.matchedTerms, score: match.score }))
     };
     await writeJson(cachePath, data);
@@ -454,6 +466,7 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
 
     // Section claims live on disk from checkpoint, independent of assembly: read them regardless of
     // report existence so a checkpointed document is audited even when the run was never assembled.
+    const featureFactEvidence = factPackEvidenceForDocument(document, manifest, evidenceById);
     for (const section of document.sections) {
       if (!await exists(section.file)) {
         // A section marked complete must have its checkpointed file on disk (fail closed); a section
@@ -465,7 +478,7 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
       const claimsFile = await exists(section.claimsFile) ? await readJson<SectionClaimsFile>(section.claimsFile) : null;
       if (claimsFile) claimsByDocument.set(document.id, [...(claimsByDocument.get(document.id) ?? []), ...claimsFile.claims.map((claim) => ({ section: section.index, claim }))]);
       findings.push(...auditSectionClaims({ documentId: document.id, sectionIndex: section.index, sectionText, claimsFile, evidenceIds, traceIds }));
-      findings.push(...auditDetailedFeatureSection({ document, detailLevel: manifest.request.detailLevel, sectionIndex: section.index, sectionText, claimsFile }));
+      findings.push(...auditDetailedFeatureSection({ document, detailLevel: manifest.request.detailLevel, sectionIndex: section.index, sectionText, claimsFile, factEvidence: featureFactEvidence }));
       findings.push(...auditTargetProblemAttribution({ document, sectionIndex: section.index, sectionText }));
       if (/事实|推断|验证|fact|inferred|verified/i.test(sectionText) && !/<details>/i.test(sectionText)) {
         findings.push({ level: "error", document: document.id, message: `section ${section.index} contains supported claims but has no evidence block` });

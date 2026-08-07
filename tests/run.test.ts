@@ -316,6 +316,23 @@ test("source searches create cached, snapshot-bound receipt evidence", async () 
   assert.equal(persisted.metrics.sourceSearchCacheHits, 1);
 });
 
+test("a search receipt reports truncation honestly with a lower-bound count", async () => {
+  const request = await makeRequest();
+  request.overviewAudiences = ["product"];
+  request.features = [];
+  const { runDir } = await prepareRun(request);
+  // A widespread token capped at one match: the receipt returns far fewer than were found.
+  const truncated = await searchSourceEvidence(runDir, ["app"], "find a widespread token", { maxResults: 1 });
+  assert.equal(truncated.truncated, true);
+  assert.ok(Array.isArray(truncated.matches) && truncated.matches.length === 1);
+  assert.ok(typeof truncated.atLeast === "number" && (truncated.atLeast as number) > truncated.matches.length);
+  // A cap wider than the match set: the receipt is exhaustive and carries no truncation flag or count.
+  const exhaustive = await searchSourceEvidence(runDir, ["__no_such_token_anywhere__"], "find nothing", { maxResults: 50 });
+  assert.equal(exhaustive.truncated, false);
+  assert.equal(exhaustive.atLeast, undefined);
+  assert.ok(Array.isArray(exhaustive.matches) && exhaustive.matches.length === 0);
+});
+
 
 test("searched-not-found checklist dispositions reject non-search evidence", async () => {
   const request = await makeRequest();

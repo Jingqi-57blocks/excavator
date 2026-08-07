@@ -5,6 +5,7 @@ import type {
   DocumentPlan,
   EvidenceItem,
   EvidenceMarker,
+  FactPackCategory,
   InvestigationChecklist,
   InvestigationPlan,
   InvestigationWorkItem,
@@ -345,7 +346,7 @@ function evidenceIdsInSection(sectionText: string, knownEvidenceIds: Set<string>
   for (const id of knownEvidenceIds) if (sectionText.includes(id)) cited.add(id);
   // The id body must end on a letter or digit: a trailing separator is never part of an id,
   // and letting one in turns `<!--E:S-d59eb3a823-->` into the pseudo id `S-d59eb3a823--`.
-  const pattern = /(?<![\p{L}\p{N}_])((?:S|CG|FG|GIT|SEARCH|SCOPE|PROVIDER)-[\p{L}\p{N}](?:[\p{L}\p{N}._:-]*[\p{L}\p{N}])?)(?![\p{L}\p{N}_.:-])/gu;
+  const pattern = /(?<![\p{L}\p{N}_])((?:S|CG|FG|GIT|SEARCH|SCOPE|PROVIDER|FACT)-[\p{L}\p{N}](?:[\p{L}\p{N}._:-]*[\p{L}\p{N}])?)(?![\p{L}\p{N}_.:-])/gu;
   for (const match of sectionText.matchAll(pattern)) cited.add(match[1]);
   return cited;
 }
@@ -449,8 +450,9 @@ export function auditDetailedFeatureSection(options: {
   sectionIndex: number;
   sectionText: string;
   claimsFile: SectionClaimsFile | null;
+  factEvidence?: EvidenceItem[];
 }): AuditFinding[] {
-  const { document, detailLevel, sectionIndex, sectionText, claimsFile } = options;
+  const { document, detailLevel, sectionIndex, sectionText, claimsFile, factEvidence } = options;
   if ((detailLevel ?? "detailed") !== "detailed" || document.kind !== "feature" || document.audience !== "engineering") return [];
   const minimumClaims = [0, 6, 8, 6, 16, 8, 8, 7, 7, 6, 7, 7, 6];
   const findings: AuditFinding[] = [];
@@ -460,7 +462,50 @@ export function auditDetailedFeatureSection(options: {
   const diagramSections = new Set([3, 10]);
   if (tableSections.has(sectionIndex) && !/^\s*\|.+\|\s*$/m.test(visibleText(sectionText))) findings.push(error(document.id, `detailed section ${sectionIndex} requires an inventory or comparison table`));
   if (diagramSections.has(sectionIndex) && !/```mermaid[\s\S]*?```/i.test(sectionText)) findings.push(error(document.id, `detailed section ${sectionIndex} requires a Mermaid flow or dependency diagram`));
+  findings.push(...reconcileFactPack(document, sectionIndex, sectionText, factEvidence ?? []));
   return findings;
+}
+
+/** The enumerating chapter that must cover each fact pack category; other sections reconcile nothing. */
+const FACT_PACK_SECTIONS: Record<number, FactPackCategory[]> = {
+  2: ["entrypoints"],
+  4: ["states"],
+  6: ["entities"],
+  7: ["external-calls"],
+  9: ["config-keys", "jobs"]
+};
+
+/**
+ * Advisory enumeration reconciliation: the enumerating chapter must represent every fact pack item of
+ * the categories it owns. Under-coverage is a warning, never an error, and only non-truncated
+ * categories are enforced — a truncated category (e.g. a 405-item entrypoint boundary) is already
+ * declared incomplete, so holding the prose to it would flood the report. An absent fact pack (older
+ * run, no `FACT-*` evidence passed) reconciles nothing.
+ */
+function reconcileFactPack(document: DocumentPlan, sectionIndex: number, sectionText: string, factEvidence: EvidenceItem[]): AuditFinding[] {
+  const categories = FACT_PACK_SECTIONS[sectionIndex];
+  if (!categories || !factEvidence.length) return [];
+  const findings: AuditFinding[] = [];
+  for (const category of categories) {
+    const data = factEvidence.find((item) => (item.data as { category?: string } | undefined)?.category === category)?.data as
+      | { items?: Array<{ name?: string; filePath?: string; line?: number }>; coverage?: { truncated?: boolean } }
+      | undefined;
+    if (!data || data.coverage?.truncated) continue;
+    const uncovered = (data.items ?? []).filter((item) => !factItemCovered(sectionText, item));
+    if (!uncovered.length) continue;
+    const sample = uncovered.slice(0, 5).map((item) => item.name || `${item.filePath ?? "?"}:${item.line ?? "?"}`).join(", ");
+    findings.push(warning(document.id, `detailed section ${sectionIndex} enumeration under-covers fact pack category ${category}: ${uncovered.length} item(s) not represented (e.g. ${sample})`));
+  }
+  return findings;
+}
+
+/** Lenient by design: any mention of the item name or its `path:line` location counts as coverage. */
+function factItemCovered(sectionText: string, item: { name?: string; filePath?: string; line?: number }): boolean {
+  const name = (item.name ?? "").trim();
+  const path = (item.filePath ?? "").trim();
+  if (name.length >= 3 && sectionText.includes(name)) return true;
+  if (path && item.line != null && sectionText.includes(`${path}:${item.line}`)) return true;
+  return false;
 }
 
 /**
@@ -647,3 +692,4 @@ function markersIn(text: string): Set<EvidenceMarker> {
 function normalizeText(value: string): string { return value.replace(/[`*_>#-]/g, " ").replace(/\s+/g, " ").trim(); }
 function featureScopeKey(subject: string, aliases: string[]): string { return sha256(stableJson({ subject: subject.trim().toLowerCase(), aliases: [...aliases].sort() })).slice(0, 10); }
 function error(document: string, message: string): AuditFinding { return { level: "error", document, message }; }
+function warning(document: string, message: string): AuditFinding { return { level: "warning", document, message }; }

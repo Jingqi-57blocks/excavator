@@ -131,6 +131,25 @@ export interface SourceWindow {
   reason: string;
 }
 
+/**
+ * The persisted `data` payload of a `SEARCH-*` evidence item. A search returns at most `maxResults`
+ * ranked matches; when the underlying match set was larger, `truncated` is true and `atLeast` records
+ * a lower bound on the real match count. This keeps a `searched`/`searched-not-found` receipt from
+ * silently implying an exhaustive scan. `atLeast` is present only when `truncated` is true.
+ */
+export interface SearchReceipt {
+  searchVersion: string;
+  terms: string[];
+  pathPrefixes: string[];
+  candidateFiles: number;
+  maxResults: number;
+  regex: boolean;
+  caseSensitive: boolean;
+  truncated: boolean;
+  atLeast?: number;
+  matches: Array<{ path: string; line: number; excerpt: string; matchedTerms: string[]; score: number }>;
+}
+
 export interface SectionClaim {
   id: string;
   marker: EvidenceMarker;

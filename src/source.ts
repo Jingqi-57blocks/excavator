@@ -136,7 +136,19 @@ export interface SourceSearchMatch {
   score: number;
 }
 
-export function sourceSearch(files: ScannedFile[], terms: string[], options: SourceSearchOptions = {}): Promise<SourceSearchMatch[]> {
+/**
+ * Optional out-parameter: the caller passes an object and reads back how the returned set relates to
+ * everything that matched. `total` is a lower bound on the real match count — each file stops after
+ * 20 matched lines — so `truncated` (more matched than returned, or a file hit its per-file cap)
+ * means the returned matches are provably not exhaustive.
+ */
+export interface SourceSearchStats {
+  total: number;
+  returned: number;
+  truncated: boolean;
+}
+
+export function sourceSearch(files: ScannedFile[], terms: string[], options: SourceSearchOptions = {}, stats?: SourceSearchStats): Promise<SourceSearchMatch[]> {
   const clean = [...new Set(terms.map((term) => term.trim()).filter((term) => options.regex ? term.length > 0 : term.length >= 2))];
   if (!clean.length) return Promise.resolve([]);
   const flags = options.caseSensitive ? "" : "i";
@@ -155,6 +167,10 @@ export function sourceSearch(files: ScannedFile[], terms: string[], options: Sou
   const retained = Math.max(250, max * 5);
   return (async () => {
     let results: SourceSearchMatch[] = [];
+    // `total` counts every match seen (independent of the intermediate pruning of `results`), so it
+    // survives as an honest lower bound on the real count; `capped` records that a file stopped early.
+    let total = 0;
+    let capped = false;
     for (const file of candidates) {
       let text: string;
       try { text = await readFile(file.absolutePath, "utf8"); } catch { continue; }
@@ -166,12 +182,19 @@ export function sourceSearch(files: ScannedFile[], terms: string[], options: Sou
         const matchedTerms = clean.filter((_, termIndex) => expressions[termIndex].test(line));
         const excerpt = redactSecrets(lines.slice(Math.max(0, index - 1), Math.min(lines.length, index + 2)).join("\n"));
         results.push({ file, line: index + 1, excerpt, matchedTerms, score: searchScore(file, line, matchedTerms, clean, options) });
+        total += 1;
         fileMatches += 1;
-        if (fileMatches >= 20) break;
+        if (fileMatches >= 20) { capped = true; break; }
       }
       if (results.length > retained * 2) results = rankSearchMatches(results).slice(0, retained);
     }
-    return rankSearchMatches(results).slice(0, max);
+    const ranked = rankSearchMatches(results).slice(0, max);
+    if (stats) {
+      stats.total = total;
+      stats.returned = ranked.length;
+      stats.truncated = total > ranked.length || capped;
+    }
+    return ranked;
   })();
 }
 
