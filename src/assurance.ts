@@ -5,6 +5,7 @@ import type {
   DocumentPlan,
   EvidenceItem,
   EvidenceMarker,
+  FactPackCategory,
   InvestigationChecklist,
   InvestigationPlan,
   InvestigationWorkItem,
@@ -14,12 +15,28 @@ import type {
   SectionClaimsFile,
   TraceCatalog
 } from "./types.ts";
-import { exists, nowIso, redactSecrets, safeRelative, sha256, stableJson } from "./util.ts";
+import { exists, nowIso, redactSecrets, REDACTION_VERSION, safeRelative, sha256, stableJson } from "./util.ts";
 
 export interface AuditFinding {
   level: "error" | "warning";
   document: string;
   message: string;
+}
+
+/**
+ * Version of the strict-assurance contract a run is audited against. It combines a strict-check
+ * generation (`v2`) with the redaction marker, so it changes whenever redaction changes or a future
+ * batch tightens the strict checks — bump the `v<n>` prefix when adding new strict checks. `v2` adds
+ * the substantive-section evidence-marker check (C3) on top of `v1`'s source re-derivation gate.
+ * A run stamps this at prepare (`manifest.assuranceVersion`); audit uses it to gate those strict
+ * checks: only runs prepared under the current version are held to them, while older or field-less
+ * runs are grandfathered so a later redaction/check bump never retroactively fails them.
+ */
+export const ASSURANCE_VERSION = `assurance-v2-${REDACTION_VERSION}`;
+
+/** Strict re-derivation checks apply only to runs prepared under exactly the current version. */
+export function runUsesCurrentAssurance(manifest: RunManifest): boolean {
+  return manifest.assuranceVersion === ASSURANCE_VERSION;
 }
 
 const PROJECT_HYPOTHESES: Array<[string, string]> = [
@@ -256,6 +273,16 @@ export async function auditEvidenceCatalog(manifest: RunManifest, evidence: Evid
 }
 
 async function auditSourceEvidence(manifest: RunManifest, item: EvidenceItem): Promise<AuditFinding[]> {
+  // Legacy runs predate the current redaction/strict-check version. Re-deriving the redacted window
+  // with today's logic would spuriously fail them, so grandfather the re-derivation checks and
+  // instead verify the archived excerpt against its own stored digest: catalog tampering is still
+  // caught, without reading a source file that may have drifted since the run was created.
+  if (!runUsesCurrentAssurance(manifest)) {
+    if (item.content != null && sha256(item.content) !== item.digest) {
+      return [error("evidence", `${item.id} stored excerpt does not match its own recorded digest`)];
+    }
+    return [];
+  }
   const findings: AuditFinding[] = [];
   if (!item.path || item.startLine == null || item.endLine == null) return [error("evidence", `${item.id} source evidence is missing path or line range`)];
   const absolute = resolve(manifest.request.target, item.path);
@@ -320,7 +347,7 @@ function evidenceIdsInSection(sectionText: string, knownEvidenceIds: Set<string>
   for (const id of knownEvidenceIds) if (sectionText.includes(id)) cited.add(id);
   // The id body must end on a letter or digit: a trailing separator is never part of an id,
   // and letting one in turns `<!--E:S-d59eb3a823-->` into the pseudo id `S-d59eb3a823--`.
-  const pattern = /(?<![\p{L}\p{N}_])((?:S|CG|FG|GIT|SEARCH|SCOPE|PROVIDER)-[\p{L}\p{N}](?:[\p{L}\p{N}._:-]*[\p{L}\p{N}])?)(?![\p{L}\p{N}_.:-])/gu;
+  const pattern = /(?<![\p{L}\p{N}_])((?:S|CG|FG|GIT|SEARCH|SCOPE|PROVIDER|FACT)-[\p{L}\p{N}](?:[\p{L}\p{N}._:-]*[\p{L}\p{N}])?)(?![\p{L}\p{N}_.:-])/gu;
   for (const match of sectionText.matchAll(pattern)) cited.add(match[1]);
   return cited;
 }
@@ -424,8 +451,9 @@ export function auditDetailedFeatureSection(options: {
   sectionIndex: number;
   sectionText: string;
   claimsFile: SectionClaimsFile | null;
+  factEvidence?: EvidenceItem[];
 }): AuditFinding[] {
-  const { document, detailLevel, sectionIndex, sectionText, claimsFile } = options;
+  const { document, detailLevel, sectionIndex, sectionText, claimsFile, factEvidence } = options;
   if ((detailLevel ?? "detailed") !== "detailed" || document.kind !== "feature" || document.audience !== "engineering") return [];
   const minimumClaims = [0, 6, 8, 6, 16, 8, 8, 7, 7, 6, 7, 7, 6];
   const findings: AuditFinding[] = [];
@@ -435,7 +463,50 @@ export function auditDetailedFeatureSection(options: {
   const diagramSections = new Set([3, 10]);
   if (tableSections.has(sectionIndex) && !/^\s*\|.+\|\s*$/m.test(visibleText(sectionText))) findings.push(error(document.id, `detailed section ${sectionIndex} requires an inventory or comparison table`));
   if (diagramSections.has(sectionIndex) && !/```mermaid[\s\S]*?```/i.test(sectionText)) findings.push(error(document.id, `detailed section ${sectionIndex} requires a Mermaid flow or dependency diagram`));
+  findings.push(...reconcileFactPack(document, sectionIndex, sectionText, factEvidence ?? []));
   return findings;
+}
+
+/** The enumerating chapter that must cover each fact pack category; other sections reconcile nothing. */
+const FACT_PACK_SECTIONS: Record<number, FactPackCategory[]> = {
+  2: ["entrypoints"],
+  4: ["states"],
+  6: ["entities"],
+  7: ["external-calls"],
+  9: ["config-keys", "jobs"]
+};
+
+/**
+ * Advisory enumeration reconciliation: the enumerating chapter must represent every fact pack item of
+ * the categories it owns. Under-coverage is a warning, never an error, and only non-truncated
+ * categories are enforced — a truncated category (e.g. a 405-item entrypoint boundary) is already
+ * declared incomplete, so holding the prose to it would flood the report. An absent fact pack (older
+ * run, no `FACT-*` evidence passed) reconciles nothing.
+ */
+function reconcileFactPack(document: DocumentPlan, sectionIndex: number, sectionText: string, factEvidence: EvidenceItem[]): AuditFinding[] {
+  const categories = FACT_PACK_SECTIONS[sectionIndex];
+  if (!categories || !factEvidence.length) return [];
+  const findings: AuditFinding[] = [];
+  for (const category of categories) {
+    const data = factEvidence.find((item) => (item.data as { category?: string } | undefined)?.category === category)?.data as
+      | { items?: Array<{ name?: string; filePath?: string; line?: number }>; coverage?: { truncated?: boolean } }
+      | undefined;
+    if (!data || data.coverage?.truncated) continue;
+    const uncovered = (data.items ?? []).filter((item) => !factItemCovered(sectionText, item));
+    if (!uncovered.length) continue;
+    const sample = uncovered.slice(0, 5).map((item) => item.name || `${item.filePath ?? "?"}:${item.line ?? "?"}`).join(", ");
+    findings.push(warning(document.id, `detailed section ${sectionIndex} enumeration under-covers fact pack category ${category}: ${uncovered.length} item(s) not represented (e.g. ${sample})`));
+  }
+  return findings;
+}
+
+/** Lenient by design: any mention of the item name or its `path:line` location counts as coverage. */
+function factItemCovered(sectionText: string, item: { name?: string; filePath?: string; line?: number }): boolean {
+  const name = (item.name ?? "").trim();
+  const path = (item.filePath ?? "").trim();
+  if (name.length >= 3 && sectionText.includes(name)) return true;
+  if (path && item.line != null && sectionText.includes(`${path}:${item.line}`)) return true;
+  return false;
 }
 
 /**
@@ -610,7 +681,7 @@ function visibleText(section: string): string {
     .replace(/<!--([\s\S]*?)-->/g, " ");
 }
 
-function markersIn(text: string): Set<EvidenceMarker> {
+export function markersIn(text: string): Set<EvidenceMarker> {
   const markers = new Set<EvidenceMarker>();
   if (/(?:`事实`|\bfact\b)/i.test(text)) markers.add("fact");
   if (/(?:`验证`|\bverified\b)/i.test(text)) markers.add("verified");
@@ -619,6 +690,36 @@ function markersIn(text: string): Set<EvidenceMarker> {
   return markers;
 }
 
+/**
+ * The one rule for "does this prose carry an evidence-level marker". Document- and section-level
+ * checks both route through `markersIn` over `visibleText`, so they cannot drift onto different rules:
+ * a bare backtick-free word like an incidental "事实" in prose is not a marker, only a real
+ * `事实`/`验证`/`推断`/`不可得` (or the English marker words the paragraph audit already accepts) is.
+ */
+export function hasEvidenceMarkers(text: string): boolean {
+  return markersIn(visibleText(text)).size > 0;
+}
+
+/**
+ * The report's "evidence levels are annotated" conclusion is only trustworthy if every substantive
+ * section actually carries an evidence-level marker in its visible prose. This reuses the same
+ * `markersIn` primitive the paragraph-level claim audit uses, via `hasEvidenceMarkers`, so it cannot
+ * diverge from the document-level check. It is gated by assurance version: a run prepared under the
+ * current version is held to it as a hard error, while an older or field-less run is grandfathered
+ * (the weaker document-level warning still applies) so this tightening never retroactively fails it.
+ */
+export function auditSectionEvidenceMarkers(options: {
+  documentId: string;
+  sectionIndex: number;
+  sectionText: string;
+  strict: boolean;
+}): AuditFinding[] {
+  const { documentId, sectionIndex, sectionText, strict } = options;
+  if (!strict || !substantiveSegments(sectionText).length || hasEvidenceMarkers(sectionText)) return [];
+  return [error(documentId, `section ${sectionIndex} has substantive statements but no evidence-level marker`)];
+}
+
 function normalizeText(value: string): string { return value.replace(/[`*_>#-]/g, " ").replace(/\s+/g, " ").trim(); }
 function featureScopeKey(subject: string, aliases: string[]): string { return sha256(stableJson({ subject: subject.trim().toLowerCase(), aliases: [...aliases].sort() })).slice(0, 10); }
 function error(document: string, message: string): AuditFinding { return { level: "error", document, message }; }
+function warning(document: string, message: string): AuditFinding { return { level: "warning", document, message }; }

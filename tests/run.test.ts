@@ -4,7 +4,7 @@ import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { spawn } from "node:child_process";
 import { readFile, writeFile, readdir } from "node:fs/promises";
-import type { EvidenceItem, ReportRequest, SectionClaim } from "../src/types.ts";
+import type { EvidenceItem, ReportRequest, RunManifest, SectionClaim } from "../src/types.ts";
 import { assembleRun, auditRun, checkpointSection, prepareRun, resumeRun, searchSourceEvidence, updateChecklist } from "../src/run.ts";
 import { copyFixture, createCodeGraphFixture, tempDir } from "./helpers.ts";
 
@@ -27,6 +27,12 @@ async function makeRequest(authorMs = 30_000): Promise<ReportRequest> {
 
 function sectionText(title: string, index: number, evidenceId: string): string {
   return `## ${title}\n\n这是第 ${index} 章的当前状态说明。\`事实\`\n\n**这意味着什么** 本章事实帮助读者理解后续内容。\`推断\`\n\n<details>\n<summary>依据</summary>\n\n- ${evidenceId}\n\n</details>\n`;
+}
+
+// The same substantive prose and claims as `sectionText`, but with the backtick evidence-level markers
+// stripped: a section whose statements a reader cannot tell the evidence level of.
+function markerlessSectionText(title: string, index: number, evidenceId: string): string {
+  return `## ${title}\n\n这是第 ${index} 章的当前状态说明。\n\n**这意味着什么** 本章事实帮助读者理解后续内容。\n\n<details>\n<summary>依据</summary>\n\n- ${evidenceId}\n\n</details>\n`;
 }
 
 function sectionClaims(index: number, evidenceId: string): SectionClaim[] {
@@ -277,6 +283,38 @@ test("audit rejects substantive prose that is not bound to a section claim", asy
   assert.ok(audit.findings.some((item) => /unclaimed substantive statement/i.test(item.message)), JSON.stringify(audit.findings, null, 2));
 });
 
+test("a current-version run errors on a substantive section with no evidence-level marker; an older run grandfathers it", async () => {
+  const request = await makeRequest();
+  request.overviewAudiences = ["product"];
+  request.features = [];
+  const { runDir, manifest } = await prepareRun(request);
+  const id = await evidenceId(runDir);
+  const document = manifest.documents[0];
+  for (const section of document.sections) {
+    await checkpointSection(runDir, document.id, section.index, markerlessSectionText(section.title, section.index, id), sectionClaims(section.index, id));
+  }
+  await dispositionChecklist(runDir, id);
+  await assembleRun(runDir);
+
+  // The run was prepared under the current ASSURANCE_VERSION, so the unmarked sections are hard errors.
+  const current = await auditRun(runDir);
+  assert.ok(
+    current.findings.some((item) => item.level === "error" && /substantive statements but no evidence-level marker/.test(item.message)),
+    JSON.stringify(current.findings, null, 2)
+  );
+
+  // Downgrade the stamped version: a run prepared before this slice must be grandfathered, not failed.
+  const runPath = join(runDir, "run.json");
+  const persisted = JSON.parse(await readFile(runPath, "utf8")) as RunManifest;
+  persisted.assuranceVersion = "assurance-v0-redaction-v3";
+  await writeFile(runPath, JSON.stringify(persisted, null, 2));
+  const legacy = await auditRun(runDir);
+  assert.ok(
+    !legacy.findings.some((item) => item.level === "error" && /substantive statements but no evidence-level marker/.test(item.message)),
+    JSON.stringify(legacy.findings, null, 2)
+  );
+});
+
 test("cannot-determine checklist dispositions require evidence for the limitation", async () => {
   const request = await makeRequest();
   request.overviewAudiences = ["product"];
@@ -314,6 +352,23 @@ test("source searches create cached, snapshot-bound receipt evidence", async () 
   const persisted = JSON.parse(await readFile(join(runDir, "run.json"), "utf8"));
   assert.equal(persisted.metrics.sourceSearches, 1);
   assert.equal(persisted.metrics.sourceSearchCacheHits, 1);
+});
+
+test("a search receipt reports truncation honestly with a lower-bound count", async () => {
+  const request = await makeRequest();
+  request.overviewAudiences = ["product"];
+  request.features = [];
+  const { runDir } = await prepareRun(request);
+  // A widespread token capped at one match: the receipt returns far fewer than were found.
+  const truncated = await searchSourceEvidence(runDir, ["app"], "find a widespread token", { maxResults: 1 });
+  assert.equal(truncated.truncated, true);
+  assert.ok(Array.isArray(truncated.matches) && truncated.matches.length === 1);
+  assert.ok(typeof truncated.atLeast === "number" && (truncated.atLeast as number) > truncated.matches.length);
+  // A cap wider than the match set: the receipt is exhaustive and carries no truncation flag or count.
+  const exhaustive = await searchSourceEvidence(runDir, ["__no_such_token_anywhere__"], "find nothing", { maxResults: 50 });
+  assert.equal(exhaustive.truncated, false);
+  assert.equal(exhaustive.atLeast, undefined);
+  assert.ok(Array.isArray(exhaustive.matches) && exhaustive.matches.length === 0);
 });
 
 

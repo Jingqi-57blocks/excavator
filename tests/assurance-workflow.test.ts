@@ -202,6 +202,23 @@ test("evidence id scanner still recognizes plain and Unicode ids", () => {
   assert.deepEqual(citedEvidenceIds("依据 SEARCH-1a2b3c 与 GIT-9f0e1d。"), ["GIT-9f0e1d", "SEARCH-1a2b3c"]);
 });
 
+test("the pseudo-id scanner flags a fabricated FACT- id but accepts a declared catalog one", () => {
+  // A FACT-* token in prose that no claim declares is a fabricated citation, flagged like any prefix.
+  assert.deepEqual(citedEvidenceIds("- FACT-xyz"), ["FACT-xyz"]);
+  assert.deepEqual(citedEvidenceIds("依据 FACT-leave-mana-entrypoints-f70ad25f。"), ["FACT-leave-mana-entrypoints-f70ad25f"]);
+
+  // A real fact-pack id the catalog carries and a section claim declares raises no pseudo-id finding.
+  const factId = "FACT-leave-mana-entrypoints-f70ad25f";
+  const findings = auditSectionClaims({
+    documentId: "doc",
+    sectionIndex: 1,
+    sectionText: `第 1 节枚举入口 ${factId}。\`事实\``,
+    claimsFile: { version: 2, documentId: "doc", section: 1, claims: [{ id: "C-1", marker: "fact", statement: "第 1 节枚举入口", evidenceIds: [factId] }] },
+    evidenceIds: new Set([factId])
+  });
+  assert.ok(!findings.some((finding) => /FACT-/.test(finding.message)), JSON.stringify(findings));
+});
+
 test("target problem sections reject analyser limitations", () => {
   const document = {
     id: "leave-product",
