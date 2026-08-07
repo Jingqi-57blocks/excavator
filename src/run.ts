@@ -131,6 +131,9 @@ export async function prepareRun(request: ReportRequest): Promise<{ runDir: stri
   for (const [key, markdown] of result.prepared.featureMarkdowns) {
     await atomicWrite(join(runDir, "context", "features", `${key}.md`), markdown);
   }
+  for (const [key, factPack] of result.prepared.featureFactPacks) {
+    await writeJson(join(runDir, "context", "features", `${key}.factpack.json`), factPack);
+  }
   await writeJson(join(runDir, "run.json"), manifest);
   await writeJson(join(runDir, "metrics.json"), manifest.metrics);
   await writeJson(join(runDir, "checklist.json"), workItemsToChecklist(plan));
@@ -582,13 +585,25 @@ For a feature document, the document instructions identify the reusable feature-
 Use the report contract's chapter order exactly. In section 1, begin with one localized level-one report title that identifies the audience, then write the localized level-two chapter heading. Write one section at a time and checkpoint it immediately. Every checkpoint must include a claims JSON file: every substantive sentence or table row is bound to an exact statement in the section; supported claims cite evidence IDs that also appear in that section's collapsed evidence block. Claims also list the work-item IDs they satisfy. Every material work item required for this document must be represented by at least one claim in its assigned section and must reuse that work item's evidence or trace.
 
 When the requested detail level above is \`detailed\`, do not compress distinct rules, states, types, thresholds, entry points, records, jobs or side effects into a few summary sentences. Build the section inventory first, then enumerate every material distinct item supported by the prepared evidence. Use the contract-required tables and Mermaid diagrams. The feature context is a candidate corpus, not a finished summary.
-
+${factPackInstructions(document, detailLevel)}
 Do not repeat investigation already present in the prepared context. When the prepared context does not identify a path, use the Excavator search command and retain its \`SEARCH-*\` receipt. Open source only when the context is insufficient, and record every additional source window through the Excavator source command before using it. Complete every pending work item before audit and ensure each material item appears in the report. A \`cannot-determine\` checklist result must cite evidence for the analysis limitation.
 
 Describe current state and current problems only. Do not provide recommendations, remediation, future architecture, migration steps, or action items. A target problem must be attributable to the target snapshot. Never place CodeGraph/Excavator limitations, unresolved graph references, source fallback, provider coverage, analysis budgets or static-review limitations in a target risk/current-problem section; put them only in the coverage chapter or an Excavator validation report.
 `;
 }
 
+
+/**
+ * Detailed feature chapters must account for the prepared fact pack item by item.
+ * The pack is the enumeration floor: an item may be grouped and counted, but never dropped in silence.
+ */
+function factPackInstructions(document: DocumentPlan, detailLevel: "standard" | "detailed"): string {
+  if (document.kind !== "feature" || detailLevel !== "detailed") return "";
+  const key = document.id.replace(/^feature-/, "").replace(new RegExp(`-${document.audience}$`), "");
+  return `
+The feature scope file carries a \`## Fact pack\` section, and the same enumeration is machine-readable in \`context/features/${key}.factpack.json\`: the categories \`entrypoints\`, \`entities\`, \`states\`, \`config-keys\`, \`jobs\` and \`external-calls\`. The enumerating chapters — entry points, rules and states, data, configuration and integrations — must cover every fact pack item of the matching category: each item either appears in that chapter, or is folded into an explicitly counted group such as "N further items of kind X". Cite the category's \`FACT-*\` evidence id in the chapter that covers it. When source reading contradicts a fact pack item, say so explicitly and state which reading the source supports; a fact pack category marked truncated must be reported as incomplete rather than presented as a full inventory. Silently omitting an item is a defect.
+`;
+}
 
 async function archiveCheckpoint(runDir: string, documentId: string, sectionIndex: number, sectionFile: string, claimsFile: string): Promise<boolean> {
   let archived = false;

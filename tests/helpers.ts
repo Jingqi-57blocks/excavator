@@ -11,7 +11,28 @@ export async function copyFixture(name = "sample-target"): Promise<string> {
   return target;
 }
 
-export function createCodeGraphFixture(path: string): void {
+export interface GraphNodeFixture {
+  id: string;
+  kind: string;
+  name: string;
+  filePath: string;
+  startLine: number;
+  endLine: number;
+  signature?: string | null;
+}
+
+export function insertGraphFile(db: DatabaseSync, path: string, nodeCount = 1, language = "typescript"): void {
+  db.prepare("INSERT INTO files VALUES (?, ?, ?, ?, ?, ?, ?, ?)").run(path, `hash-${path}`, language, 400, Date.now(), Date.now(), nodeCount, "[]");
+}
+
+export function insertGraphNode(db: DatabaseSync, node: GraphNodeFixture, language = "typescript"): void {
+  db.prepare("INSERT INTO nodes VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+    node.id, node.kind, node.name, node.name, node.filePath, language, node.startLine, node.endLine, 1, 80,
+    null, node.signature ?? null, "public", 1, 0, 0, 0, "[]", "[]", null, Date.now()
+  );
+}
+
+export function createCodeGraphSchema(path: string): DatabaseSync {
   const db = new DatabaseSync(path);
   db.exec(`
     CREATE TABLE files (path TEXT PRIMARY KEY, content_hash TEXT NOT NULL, language TEXT NOT NULL, size INTEGER NOT NULL, modified_at INTEGER NOT NULL, indexed_at INTEGER NOT NULL, node_count INTEGER DEFAULT 0, errors TEXT);
@@ -22,6 +43,11 @@ export function createCodeGraphFixture(path: string): void {
   `);
   db.prepare("INSERT INTO project_metadata VALUES (?, ?, ?)").run("index_state", "complete", Date.now());
   db.prepare("INSERT INTO project_metadata VALUES (?, ?, ?)").run("indexed_with_version", "test", Date.now());
+  return db;
+}
+
+export function createCodeGraphFixture(path: string): void {
+  const db = createCodeGraphSchema(path);
   db.prepare("INSERT INTO files VALUES (?, ?, ?, ?, ?, ?, ?, ?)").run("src/server.ts", "hash", "typescript", 300, Date.now(), Date.now(), 4, "[]");
   const insertNode = db.prepare("INSERT INTO nodes VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
   insertNode.run("route-1", "route", "GET /leave", "GET /leave", "src/server.ts", "typescript", 5, 5, 1, 50, null, "app.get('/leave', requireManager, listLeave)", "public", 0, 0, 0, 0, "[]", "[]", null, Date.now());
