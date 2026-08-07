@@ -5,7 +5,7 @@ import type { ScannedFile } from "./snapshot.ts";
 import { atomicWrite, ensureDir, exists, readJson, redactSecrets, sha256, truncate, writeJson } from "./util.ts";
 
 const TEXTUAL_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".go", ".py", ".java", ".kt", ".kts", ".rb", ".php", ".cs", ".fs", ".rs", ".c", ".h", ".cc", ".cpp", ".hpp", ".swift", ".scala", ".vue", ".svelte", ".sql", ".yaml", ".yml", ".json", ".toml", ".xml", ".html", ".css", ".scss", ".md", ".sh"]);
-export const SOURCE_WINDOW_CACHE_VERSION = "source-window-v3-redaction-v3";
+export const SOURCE_WINDOW_CACHE_VERSION = "source-window-v3-redaction-v4";
 
 const MANIFEST_NAMES = new Set(["package.json", "go.mod", "Cargo.toml", "pyproject.toml", "requirements.txt", "pom.xml", "build.gradle", "build.gradle.kts", "Gemfile", "composer.json", "Dockerfile", "docker-compose.yml", "docker-compose.yaml", "Makefile"]);
 
@@ -44,7 +44,7 @@ export class SourceReader {
         return cached;
       }
     }
-    if (this.windows >= this.options.maxWindows) throw new Error(`Source window budget exceeded (${this.options.maxWindows})`);
+    if (this.windows >= this.options.maxWindows) throw new Error(`Source window budget exceeded (${this.options.maxWindows}); increase --max-source-windows (e.g. ${this.options.maxWindows * 2})`);
     const absolute = resolve(this.options.target, normalized);
     if (!absolute.startsWith(`${resolve(this.options.target)}/`) && absolute !== resolve(this.options.target)) throw new Error(`Source path escapes target: ${relativePath}`);
     const raw = await readFile(absolute, "utf8");
@@ -53,7 +53,7 @@ export class SourceReader {
     const requestedEnd = Math.min(lines.length, Math.max(safeStart, endLine));
     const safeEnd = Math.min(requestedEnd, safeStart + 239);
     const selected = redactSecrets(lines.slice(safeStart - 1, safeEnd).join("\n"));
-    if (this.characters + selected.length > this.options.maxCharacters) throw new Error(`Source character budget exceeded (${this.options.maxCharacters})`);
+    if (this.characters + selected.length > this.options.maxCharacters) throw new Error(`Source character budget exceeded (${this.options.maxCharacters}); increase --max-source-characters (e.g. ${this.options.maxCharacters * 2})`);
     const value: SourceWindow = {
       cacheVersion: SOURCE_WINDOW_CACHE_VERSION,
       id: `S-${key.slice(0, 10)}`,

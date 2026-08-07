@@ -39,7 +39,7 @@ export class CodeGraphIndex {
       this.stats.hits += 1;
       return cached as T[];
     }
-    if (this.stats.queries >= this.maxQueries) throw new Error(`CodeGraph query budget exceeded (${this.maxQueries})`);
+    if (this.stats.queries >= this.maxQueries) throw new Error(`CodeGraph query budget exceeded (${this.maxQueries}); increase --max-graph-queries (e.g. ${this.maxQueries * 2})`);
     this.stats.queries += 1;
     const rows = this.db.prepare(sql).all(...params) as T[];
     this.cache.set(key, rows);
@@ -169,6 +169,35 @@ export class CodeGraphIndex {
           file_path, start_line
         LIMIT ?
       `, [...batch, ...termParams, limit - results.length]);
+      results.push(...rows.map(toNode));
+    }
+    return results.slice(0, limit);
+  }
+
+  /**
+   * Every node of the given kinds inside the given files — an enumeration, not a search.
+   * Callers that must not miss a route or an entity ask by kind over a known boundary instead
+   * of filtering a scored, capped scope set. Kinds and paths are sorted so repeated calls hit
+   * the query cache, and the row order is stable for byte-identical artifacts.
+   */
+  nodesByKindInFiles(kinds: string[], filePaths: string[], limit = 500): GraphNode[] {
+    const cleanKinds = [...new Set(kinds.map((kind) => kind.trim()).filter(Boolean))].sort();
+    const files = [...new Set(filePaths.map(normalizePath).filter(Boolean))].sort();
+    if (!cleanKinds.length || !files.length || limit <= 0) return [];
+    const kindPlaceholders = cleanKinds.map(() => "?").join(",");
+    const results: GraphNode[] = [];
+    for (let offset = 0; offset < files.length && results.length < limit; offset += 300) {
+      const batch = files.slice(offset, offset + 300);
+      const filePlaceholders = batch.map(() => "?").join(",");
+      const rows = this.query<Record<string, unknown>>(`
+        SELECT id, kind, name, qualified_name, file_path, language, start_line, end_line, docstring, signature
+        FROM nodes
+        WHERE kind IN (${kindPlaceholders})
+          AND file_path IN (${filePlaceholders})
+          AND EXISTS (SELECT 1 FROM allowed_files a WHERE a.path = nodes.file_path)
+        ORDER BY file_path, start_line, name
+        LIMIT ?
+      `, [...cleanKinds, ...batch, limit - results.length]);
       results.push(...rows.map(toNode));
     }
     return results.slice(0, limit);

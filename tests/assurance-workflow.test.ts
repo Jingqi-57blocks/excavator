@@ -1,4 +1,4 @@
-import { auditTargetProblemAttribution } from "../src/assurance.ts";
+import { auditSectionClaims, auditTargetProblemAttribution } from "../src/assurance.ts";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
@@ -169,6 +169,37 @@ test("audit recognizes Unicode and provider/scope evidence identifiers in sectio
   assert.ok(!audit.findings.some((finding) => /evidence block does not cite/i.test(finding.message)), JSON.stringify(audit.findings, null, 2));
 });
 
+
+// The scanner is internal; the ids it extracts surface one-for-one as "cites <id>" findings
+// when the section declares no evidence, so the findings are a faithful readout of the scan.
+function citedEvidenceIds(sectionText: string, knownEvidenceIds: string[] = []): string[] {
+  const findings = auditSectionClaims({
+    documentId: "doc",
+    sectionIndex: 1,
+    sectionText,
+    claimsFile: { version: 2, documentId: "doc", section: 1, claims: [] },
+    evidenceIds: new Set(knownEvidenceIds)
+  });
+  return findings
+    .flatMap((finding) => finding.message.match(/cites (\S+) but no section claim declares it/)?.[1] ?? [])
+    .sort();
+}
+
+test("evidence id scanner never emits ids that end on a separator", () => {
+  assert.deepEqual(citedEvidenceIds("<!--E:S-d59eb3a823-->", ["S-d59eb3a823"]), ["S-d59eb3a823"]);
+  assert.deepEqual(citedEvidenceIds("- S-abc--", ["S-abc"]), ["S-abc"]);
+  assert.deepEqual(citedEvidenceIds("- S-abc.", ["S-abc"]), ["S-abc"]);
+  assert.deepEqual(citedEvidenceIds("- S-abc:", ["S-abc"]), ["S-abc"]);
+  // A separator-terminated token that matches no catalogued id is no longer reported at all,
+  // which is what stops one stray marker from cascading into hundreds of false findings.
+  assert.deepEqual(citedEvidenceIds("<!--E:S-d59eb3a823-->"), []);
+});
+
+test("evidence id scanner still recognizes plain and Unicode ids", () => {
+  assert.deepEqual(citedEvidenceIds("- SEARCH-1a2b3c"), ["SEARCH-1a2b3c"]);
+  assert.deepEqual(citedEvidenceIds("- FG-请假管理-abc12"), ["FG-请假管理-abc12"]);
+  assert.deepEqual(citedEvidenceIds("依据 SEARCH-1a2b3c 与 GIT-9f0e1d。"), ["GIT-9f0e1d", "SEARCH-1a2b3c"]);
+});
 
 test("target problem sections reject analyser limitations", () => {
   const document = {
