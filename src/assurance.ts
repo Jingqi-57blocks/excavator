@@ -15,6 +15,7 @@ import type {
   SectionClaimsFile,
   TraceCatalog
 } from "./types.ts";
+import { validateComparisonSides } from "./claim-comparison.ts";
 import { exists, nowIso, redactSecrets, REDACTION_VERSION, safeRelative, sha256, stableJson } from "./util.ts";
 
 export interface AuditFinding {
@@ -559,6 +560,8 @@ export function validateClaimsInput(documentId: string, section: number, claims:
   for (const claim of claims) {
     if (!claim || typeof claim !== "object") throw new Error("Each claim must be an object");
     if (!claim.id || !claim.statement || !["fact", "verified", "inferred", "unavailable"].includes(claim.marker)) throw new Error(`Invalid claim in ${documentId} section ${section}`);
+    const sideViolations = validateComparisonSides(claim);
+    if (sideViolations.length) throw new Error(`Invalid comparison sides in ${documentId} section ${section}: ${sideViolations.join("; ")}`);
   }
   return { version: 2, documentId, section, claims };
 }

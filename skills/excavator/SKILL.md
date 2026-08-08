@@ -160,6 +160,7 @@ Budgets derive from the request size (the number of requested documents and feat
 Plan the following before drafting, not at audit:
 
 - **Evidence-level markers are mandatory.** Every substantive section must carry a real backtick evidence-level marker in its visible prose — `fact`, `verified`, `inferred`, or `unavailable`, or their localized equivalents in the requested output language. Under the current assurance version, a substantive section with no real marker is a hard audit error, not a warning. See `references/writing-rules.md` for the marker semantics and the claim binding contract.
+- **Equivalence needs every side.** A `fact` claim that asserts equivalence, consistency, sameness, or shared values or behavior across implementations, modules, repositories, or runtime parts must cite evidence for every compared side and group it in the claim's `sides` field; when only one side is observed, record the other's evidence or downgrade to `inferred`.
 - **Material flows need a verified trace, planned up front.** A material work item for a normal, decision, or reversal flow, a state lifecycle, or a side effect (notifications or exports) that ends `found` requires a verified trace. A `found` flow item with no trace is a hard audit error, so plan the traces while investigating rather than discovering the requirement at audit.
 - **The feature fact pack is a floor, not a ceiling.** Each feature scope carries a deterministic fact pack (`context/features/<feature>.factpack.json`, also rendered as a section of the scope) that enumerates six categories — entrypoints, entities, states, config-keys, jobs, external-calls — each item at `file:line`, with a per-category coverage row (method, item count, truncated flag, note). It is an enumeration of what was found inside the feature boundary, not a sample. When a category is marked truncated or carries an incompleteness note, treat it as a floor: investigate beyond it with `search` and `source`, and do not treat the listed items as the complete set.
 
@@ -306,7 +307,10 @@ The audit must fail when any of these is true:
 - a required work item remains pending, is removed, or cites invalid evidence;
 - a material flow work item has no verified trace;
 - a trace contains missing evidence, claims, documents, or non-sequential steps;
+- a claim declares comparison `sides` with fewer than two groups, overlapping groups, or evidence the claim does not cite;
 - the target source or CodeGraph identity changes after preparation.
+
+Audit also warns — without failing — when a `fact` claim uses comparative wording but cites a single source unit and declares no `sides`, so a single-sided equivalence is surfaced for the author to cite the other side or downgrade.
 
 These rules are framework- and project-independent. Never add a target-project name, hard-coded route, table, role, repository, business identifier, or special-case parser to satisfy a real-project test. Express every fix as a generic invariant or a synthetic fixture.
 

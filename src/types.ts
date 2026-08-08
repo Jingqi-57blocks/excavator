@@ -164,6 +164,10 @@ export interface SectionClaim {
   status?: "candidate" | "verified" | "unavailable";
   reason?: string;
   supersedes?: string;
+  /** Optional per-side grouping of `evidenceIds` for a cross-source comparison claim: each group is a
+   * non-empty, pairwise-disjoint subset naming one compared side. Additive — claims without it are
+   * unaffected. Validated by `validateComparisonSides`. */
+  sides?: string[][];
 }
 
 export interface SectionClaimsFile {

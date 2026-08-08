@@ -1,6 +1,6 @@
 ---
 id: excavator-writing-rules
-version: 1.1.0
+version: 1.2.0
 ---
 
 # Excavator writing rules
@@ -19,6 +19,10 @@ Every material statement uses one of four semantic levels:
 Render these semantic markers naturally and consistently in the requested output language. Do not copy the English marker words into a report when they would be unnatural in that language.
 
 CodeGraph is a navigation index, not the complete source of truth. When graph data is missing, unresolved, ambiguous, unsupported, or lacks the semantic detail needed for a statement, read a bounded source window and record it as evidence.
+
+### Comparison claims cite every side
+
+A claim that asserts equivalence, consistency, sameness, or shared values or behavior across implementations, modules, repositories, or runtime parts is a multi-source claim. Mark it `fact` only when it cites evidence for every compared side and groups that evidence per side in the claim's `sides` field (each group is a non-empty, non-overlapping subset of the claim's `evidenceIds`). When only one side has recorded evidence, either record the missing side's evidence first or downgrade the claim to `inferred` and name which side was observed. `fact` is reserved for what the cited evidence directly shows; a single-sided citation cannot establish a two-sided equivalence, and splitting one comparison into two single-sided `fact` claims does not satisfy this rule.
 
 ## Current state only
 
