@@ -11,6 +11,13 @@
       "marker": "unavailable",
       "statement": "Production traffic is unavailable from static source review.",
       "reason": "No runtime telemetry is part of the reviewed snapshot."
+    },
+    {
+      "id": "claim-003",
+      "marker": "fact",
+      "statement": "The web service and the background worker read the same retry-limit constant.",
+      "evidenceIds": ["S-web-service", "S-worker"],
+      "sides": [["S-web-service"], ["S-worker"]]
     }
   ]
 }
