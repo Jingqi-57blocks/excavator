@@ -1,0 +1,25 @@
+{
+  "runId": "run-observe-mini-b",
+  "version": 1,
+  "traces": [
+    {
+      "id": "TR-1",
+      "type": "business-flow",
+      "status": "verified",
+      "documentIds": ["feature-doc-a-product"],
+      "steps": [
+        { "index": 1, "action": "authenticate the request", "evidenceIds": ["S-b1"] },
+        { "index": 2, "action": "issue a session token", "evidenceIds": ["S-b2"] }
+      ]
+    },
+    {
+      "id": "TR-2",
+      "type": "side-effect",
+      "status": "verified",
+      "documentIds": ["feature-doc-b-product"],
+      "steps": [
+        { "index": 1, "action": "write an audit log entry", "evidenceIds": ["S-b4"] }
+      ]
+    }
+  ]
+}

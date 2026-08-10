@@ -9,6 +9,7 @@ const PROJECT_ROOT = join(import.meta.dirname, "..", "..");
 const CLI = join("eval", "cli.ts");
 const RUN_MINI = join(import.meta.dirname, "fixtures", "run-mini");
 const RUN_OBSERVE_MINI = join(import.meta.dirname, "fixtures", "run-observe-mini");
+const RUN_OBSERVE_MINI_B = join(import.meta.dirname, "fixtures", "run-observe-mini-b");
 const EXPECTED_FAIL = join(RUN_MINI, "expected-fail.json");
 const EXPECTED_PASS = join(RUN_MINI, "expected-pass.json");
 
@@ -112,11 +113,51 @@ test("view exits 2 on a missing run dir and on a run dir without metrics.json", 
   assert.match(noMetrics.stderr, /metrics\.json not found/);
 });
 
+test("compare renders the A->B delta view and exits 0", async () => {
+  const { code, stdout } = await cli(["compare", "--a", RUN_OBSERVE_MINI, "--b", RUN_OBSERVE_MINI_B]);
+  assert.equal(code, 0);
+  assert.match(stdout, /=== run comparison \(A -> B\) ===/);
+  assert.match(stdout, /=== metrics delta ===/);
+  assert.match(stdout, /=== knowledge delta ===/);
+  // wall-clock improvement label + the two honesty caveats.
+  assert.match(stdout, /total \(startedAt -> finishedAt\): 6m 10s -> 5m 0s.*\[improvement\]/);
+  assert.match(stdout, /authoring: 3m 20s -> 3m 30s.*\[regression\]/);
+  assert.match(stdout, /gap-attribution caveat/);
+  assert.match(stdout, /NEVER by claim id/);
+  // knowledge deltas.
+  assert.match(stdout, /\+ svc\/audit\/log\.go:8-25/);
+  assert.match(stdout, /- svc\/notify\/email\.go:5-30/);
+  assert.match(stdout, /data-scope: found -> searched-not-found/);
+});
+
+test("compare --json emits the RunComparison top-level shape and exits 0", async () => {
+  const { code, stdout } = await cli(["compare", "--a", RUN_OBSERVE_MINI, "--b", RUN_OBSERVE_MINI_B, "--json"]);
+  assert.equal(code, 0);
+  const comparison = JSON.parse(stdout);
+  assert.deepEqual(Object.keys(comparison).sort(), ["a", "b", "knowledge", "metrics", "notable"]);
+  assert.deepEqual(Object.keys(comparison.knowledge).sort(), ["coverage", "factAnchors", "markerDistribution", "relations", "unknowns"]);
+  assert.equal(comparison.a.runId, "run-observe-mini");
+  assert.equal(comparison.b.runId, "run-observe-mini-b");
+  const total = comparison.metrics.flatMap((g: any) => g.metrics).find((m: any) => m.metric === "totalWallMs");
+  assert.deepEqual({ delta: total.delta, pct: total.pct, assessment: total.assessment }, { delta: -70000, pct: -18.9, assessment: "improvement" });
+});
+
+test("compare exits 2 on a missing run dir and on a missing --b flag", async () => {
+  const missingDir = await cli(["compare", "--a", RUN_OBSERVE_MINI, "--b", join(RUN_OBSERVE_MINI_B, "nope")]);
+  assert.equal(missingDir.code, 2);
+  assert.match(missingDir.stderr, /run directory not found/);
+
+  const missingFlag = await cli(["compare", "--a", RUN_OBSERVE_MINI]);
+  assert.equal(missingFlag.code, 2);
+  assert.match(missingFlag.stderr, /missing required flag --b/);
+});
+
 test("help prints usage; an unknown command errors with a nonzero, non-diff exit", async () => {
   const help = await cli(["help"]);
   assert.equal(help.code, 0);
   assert.match(help.stdout, /extract --run/);
   assert.match(help.stdout, /view {4}--run/);
+  assert.match(help.stdout, /compare --a/);
 
   const bogus = await cli(["nope"]);
   assert.equal(bogus.code, 2);

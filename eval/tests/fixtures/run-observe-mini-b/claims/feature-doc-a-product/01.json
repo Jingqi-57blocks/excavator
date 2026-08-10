@@ -1,0 +1,23 @@
+{
+  "documentId": "feature-doc-a-product",
+  "claims": [
+    {
+      "id": "claim-1",
+      "marker": "fact",
+      "statement": "The login handler authenticates the incoming request.",
+      "evidenceIds": ["S-b1"]
+    },
+    {
+      "id": "claim-2",
+      "marker": "fact",
+      "statement": "A session token is issued after successful authentication.",
+      "evidenceIds": ["S-b2"]
+    },
+    {
+      "id": "claim-3",
+      "marker": "inferred",
+      "statement": "Row visibility is narrowed by a per-viewer data-scope filter.",
+      "evidenceIds": ["S-b3"]
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "evidence": [
+    {
+      "id": "GIT-snapmini",
+      "kind": "git",
+      "snapshotId": "snap-observe-mini",
+      "title": "Source snapshot",
+      "reason": "record the immutable source boundary"
+    },
+    {
+      "id": "S-a1",
+      "kind": "source",
+      "snapshotId": "snap-observe-mini",
+      "path": "svc/auth/login.go",
+      "startLine": 10,
+      "endLine": 42,
+      "title": "svc/auth/login.go",
+      "content": "func Login(w http.ResponseWriter, r *http.Request) { ... }"
+    },
+    {
+      "id": "S-a2",
+      "kind": "source",
+      "snapshotId": "snap-observe-mini",
+      "path": "svc/auth/login.go",
+      "startLine": 44,
+      "endLine": 60,
+      "title": "svc/auth/login.go",
+      "content": "token := issueToken(user) ..."
+    },
+    {
+      "id": "S-a3",
+      "kind": "source",
+      "snapshotId": "snap-observe-mini",
+      "path": "svc/scope/query.go",
+      "startLine": 100,
+      "endLine": 133,
+      "title": "svc/scope/query.go",
+      "content": "q = q.Where(\"tenant_id = ?\", viewer.TenantID) ..."
+    },
+    {
+      "id": "S-a4",
+      "kind": "source",
+      "snapshotId": "snap-observe-mini",
+      "path": "svc/notify/email.go",
+      "startLine": 5,
+      "endLine": 30,
+      "title": "svc/notify/email.go",
+      "content": "func sendApprovalEmail(to string, req Request) error { ... }"
+    }
+  ]
+}

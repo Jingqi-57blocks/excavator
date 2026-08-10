@@ -1,0 +1,25 @@
+{
+  "runId": "run-observe-mini",
+  "version": 1,
+  "traces": [
+    {
+      "id": "TR-auth",
+      "type": "business-flow",
+      "status": "verified",
+      "documentIds": ["feature-doc-a-product"],
+      "steps": [
+        { "index": 1, "action": "authenticate the request", "evidenceIds": ["S-a1"] },
+        { "index": 2, "action": "issue a session token", "evidenceIds": ["S-a2"] }
+      ]
+    },
+    {
+      "id": "TR-notify",
+      "type": "side-effect",
+      "status": "verified",
+      "documentIds": ["feature-doc-b-product"],
+      "steps": [
+        { "index": 1, "action": "send the approval email", "evidenceIds": ["S-a4"] }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "runId": "run-observe-mini-b",
+  "version": 1,
+  "createdAt": "2026-01-01T00:00:00.000Z",
+  "items": [
+    {
+      "id": "project:authorization",
+      "dimension": "authorization",
+      "scope": "project",
+      "status": "found",
+      "hypothesis": "Authorization is enforced by role checks.",
+      "evidenceIds": ["S-b1"]
+    },
+    {
+      "id": "project:data-scope",
+      "dimension": "data-scope",
+      "scope": "project",
+      "status": "searched-not-found",
+      "hypothesis": "A per-viewer data-scope filter narrows visible rows.",
+      "evidenceIds": []
+    },
+    {
+      "id": "project:notifications-and-exports",
+      "dimension": "notifications-and-exports",
+      "scope": "project",
+      "status": "found",
+      "hypothesis": "Approval emits notifications or exports.",
+      "evidenceIds": []
+    },
+    {
+      "id": "project:guard-polarity",
+      "dimension": "guard-polarity",
+      "scope": "project",
+      "status": "cannot-determine",
+      "hypothesis": "Equivalent authorization checks use inconsistent negation polarity.",
+      "reason": "Guard polarity needs a runtime authorization context; static source cannot settle it.",
+      "settledBy": "runtime end-to-end permission test",
+      "evidenceIds": []
+    }
+  ]
+}
