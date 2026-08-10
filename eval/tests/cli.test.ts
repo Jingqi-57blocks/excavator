@@ -8,6 +8,7 @@ import { tmpdir } from "node:os";
 const PROJECT_ROOT = join(import.meta.dirname, "..", "..");
 const CLI = join("eval", "cli.ts");
 const RUN_MINI = join(import.meta.dirname, "fixtures", "run-mini");
+const RUN_OBSERVE_MINI = join(import.meta.dirname, "fixtures", "run-observe-mini");
 const EXPECTED_FAIL = join(RUN_MINI, "expected-fail.json");
 const EXPECTED_PASS = join(RUN_MINI, "expected-pass.json");
 
@@ -22,7 +23,9 @@ async function cli(args: string[]): Promise<{ code: number | null; stdout: strin
   child.stderr.setEncoding("utf8");
   child.stdout.on("data", (chunk) => { stdout += chunk; });
   child.stderr.on("data", (chunk) => { stderr += chunk; });
-  const code = await new Promise<number | null>((done) => child.once("exit", done));
+  // Wait for "close" (stdio streams drained), not "exit": larger --json payloads
+  // exceed the pipe buffer and are still arriving when "exit" fires.
+  const code = await new Promise<number | null>((done) => child.once("close", done));
   return { code, stdout, stderr };
 }
 
@@ -78,10 +81,42 @@ test("extract --out writes Knowledge JSON to a file", async () => {
   assert.equal(written.facts.length, 5);
 });
 
+test("view renders the text view of a run and exits 0", async () => {
+  const { code, stdout } = await cli(["view", "--run", RUN_OBSERVE_MINI]);
+  assert.equal(code, 0);
+  assert.match(stdout, /=== run ===/);
+  assert.match(stdout, /GAP-ATTRIBUTED/);
+  assert.match(stdout, /=== time split ===/);
+  assert.match(stdout, /=== process narrative ===/);
+  assert.match(stdout, /reflection\/notes\.pinned/); // unknown stage+action rendered, no crash
+});
+
+test("view --json emits the RunStats top-level shape and exits 0", async () => {
+  const { code, stdout } = await cli(["view", "--run", RUN_OBSERVE_MINI, "--json"]);
+  assert.equal(code, 0);
+  const stats = JSON.parse(stdout);
+  assert.deepEqual(Object.keys(stats).sort(), [
+    "anomalies", "counters", "documentSplit", "header", "narrative",
+    "prepareTiming", "runDir", "searchCounters", "searches", "stages", "topGaps", "warnings"
+  ]);
+  assert.equal(stats.header.audit.outcome, "passed");
+});
+
+test("view exits 2 on a missing run dir and on a run dir without metrics.json", async () => {
+  const missingDir = await cli(["view", "--run", join(RUN_OBSERVE_MINI, "does-not-exist")]);
+  assert.equal(missingDir.code, 2);
+  assert.match(missingDir.stderr, /run directory not found/);
+
+  const noMetrics = await cli(["view", "--run", import.meta.dirname]);
+  assert.equal(noMetrics.code, 2);
+  assert.match(noMetrics.stderr, /metrics\.json not found/);
+});
+
 test("help prints usage; an unknown command errors with a nonzero, non-diff exit", async () => {
   const help = await cli(["help"]);
   assert.equal(help.code, 0);
   assert.match(help.stdout, /extract --run/);
+  assert.match(help.stdout, /view {4}--run/);
 
   const bogus = await cli(["nope"]);
   assert.equal(bogus.code, 2);

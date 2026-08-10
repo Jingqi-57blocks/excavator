@@ -51,3 +51,9 @@
 
 - **overview:product §3/§8 "表或列表"张力（advisory 噪声候选，非缺陷）**（fable 评审）：这两节的模板 directive 允许"表或嵌套列表"，但它们在 `READABILITY_TABLE_SECTIONS` advisory 集合内——作者按 directive 选列表仍会收到"consider a table (advisory)"warning。措辞为建议式、不改通过性，属批准集合内既定选择。若后续 warning 噪声反馈集中于此，把这两节判定放宽为"table 或 Markdown list 任一即可"。
 - **模板 directive 比 advisory 检查更严的保守不对称（记录，非缺陷）**：部分模板强制要求表格（feature:product §4 states、§12 coverage、overview:product §6/§10、engineering-overview §12）但对应索引不在 advisory 集合——directive 比检查严。刻意保守（漏提醒而非误提醒）。后续可对齐。
+
+## 批次 57B-360（run 可观测性 · view 增量）产生
+
+- **图查询无 timeline 事件，per-query 过程叙事需 Core 改动（决策押后 · R3）**：`eval view` 的过程叙事逐条渲染 timeline 事件，但图查询在 timeline 中**没有事件**（metrics 仅报 `graphQueries`/`graphQueryCacheHits` 计数）。要给图查询做 per-query 过程叙事，需 Core 往 timeline 加图查询事件（动哈希链事件流），属 Core 改动，决策押后。view 现状：图查询只显示计数，并在渲染中注明"no per-query timeline events exist"。
+
+- **view 渲染健壮性备忘（非阻断，下增量收）**（fable 评审）：① `render-run-stats.ts` searches 段 `identity:` 行把 `sourceSearches + sourceSearchCacheHits` 之和标为 "timeline events"、未与实际 timeline 搜索事件数比对——退化/截断数据下措辞会显矛盾；改 "expected to equal" 或不等时记 anomaly。② `run-stats.ts computeGaps` 遇不可解析时间戳静默得 0 gap 且 prevAt 变 NaN 级联，不抛异常（前向兼容 OK）但应补 "unparseable timestamp" anomaly。③ header runId 回退读 raw[0] 而非排序后 events[0]（纯装饰）。

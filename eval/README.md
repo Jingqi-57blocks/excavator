@@ -20,9 +20,61 @@ producing a run (authoring); everything the harness does is a pure function of f
 ```
 npm run eval -- extract --run <dir> [--out <file>]
 npm run eval -- diff --run <dir> --expected <file> [--json] [--prepare-only]
+npm run eval -- view --run <dir> [--json]
 ```
 
 `diff` exits **1** on any mustFind missing, forbidden violation, or coverage failure; **0** otherwise.
+
+`view` has no semantic-fail concept: it exits **0** on success and **2** on error (missing run dir,
+missing `metrics.json`/`timeline.jsonl`, malformed timeline). It is read-only on the run dir.
+
+## `view` — run observability
+
+Renders one existing run's `metrics.json` + `timeline.jsonl` into a readable view. Default output is
+text; `--json` emits the structured `RunStats` model (consumed by the next increment — cross-run
+metrics delta — so it is internal/evolving and carries **no** stability promise). `view` reads only
+those two files; it produces `run-stats.ts` (pure `runDir → RunStats`) and renders via
+`render-run-stats.ts` (which owns every human string).
+
+- `run-stats.ts` — `runDir → RunStats`. Read-only, zero-dep. Exports the `RunStats` types.
+- `render-run-stats.ts` — `RunStats → string`. Owns the honesty legend, action-specific narrative
+  summaries, and the generic fallback for UNKNOWN actions/stages.
+
+### Wall-clock attribution (the gap algorithm)
+
+Excavator records event timestamps, not per-step durations, so per-stage/per-document wall clock is
+**gap-attributed**:
+
+- events are ordered by `sequence` (file order out of order is a WARN in `anomalies`, never a failure);
+- `metrics.startedAt → at[event 1]` is the **prepare** stage's opening gap (event 1 is `run.prepared`);
+- for every later event `i`, `gap = at[i] − at[i−1]`, charged to the **stage of event `i`** — the event
+  that *closes* the gap, i.e. where the wall time went;
+- negative gaps (clock skew) clamp to 0 and raise an `anomaly`;
+- the run total is the authoritative `startedAt → finishedAt`, kept next to `metrics.timing.totalMs`
+  as a cross-check.
+
+Per-document split buckets each gap to the **last-seen** `document.begin` (a `document.begin`'s own
+opening gap lands in the document it opens; gaps before the first one go to `(before first document)`).
+
+### Honesty legend (mandatory, rendered in every text view)
+
+The gap-attributed wall clock **includes the host agent's own thinking and CLI execution between
+calls**, which Excavator cannot observe or separate out. Only the Core prepare timings
+(`metrics.timing`) are directly measured. The **top-N longest gaps** table exists to show that
+invisible latency as raw fact rather than smoothing it away. The view runs **no audit** and does
+**not** verify the timeline hash chain.
+
+### Counter attribution semantics (shown raw, never reconciled)
+
+- **Searches** — the view prints one line per `source.search` timeline event *and* the metrics
+  counters side by side, because they legitimately differ and are never silently reconciled:
+  `metrics.sourceSearches` counts cache **misses** only, `metrics.sourceSearchCacheHits` counts cache
+  **hits** only, so `sourceSearches + sourceSearchCacheHits = ` the number of timeline search events.
+  `metrics.sourceFilesSearched` counts files scanned across cache-missing searches (a cache hit scans
+  none).
+- **Graph queries** — reported as **counts only** (`graphQueries` / `graphQueryCacheHits`). There are
+  no graph-query timeline events, so a per-query narrative is impossible without a Core change to the
+  hash-chain event stream (out of scope — see `docs/pending-decisions.md`).
 
 ## Diff semantics (summary)
 
