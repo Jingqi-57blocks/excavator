@@ -37,6 +37,20 @@
       "statement": "无法确定休假额度的年度结转规则",
       "evidenceIds": [],
       "workItemIds": ["feature:leave-x:carryover"]
+    },
+    {
+      "id": "claim-6",
+      "marker": "fact",
+      "statement": "邮件、短信与推送通知",
+      "evidenceIds": ["SEARCH-b23d913a3175"],
+      "workItemIds": ["feature:leave-x:notifications"]
+    },
+    {
+      "id": "claim-7",
+      "marker": "fact",
+      "statement": "nodemailer、sendEmail、smtp、webhook",
+      "evidenceIds": ["SEARCH-b23d913a3175"],
+      "workItemIds": ["feature:leave-x:notifications"]
     }
   ]
 }

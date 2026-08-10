@@ -47,7 +47,7 @@ test("diff --json emits a machine-readable Diff with the documented top-level sh
   const { code, stdout } = await cli(["diff", "--run", RUN_MINI, "--expected", EXPECTED_FAIL, "--json"]);
   assert.equal(code, 1);
   const diff = JSON.parse(stdout);
-  assert.deepEqual(Object.keys(diff).sort(), ["coverageFailures", "forbiddenHits", "found", "missing", "summary"]);
+  assert.deepEqual(Object.keys(diff).sort(), ["coverageFailures", "forbiddenExempted", "forbiddenHits", "found", "missing", "summary"]);
   assert.equal(diff.summary.mustFindMissing, 2);
   assert.equal(diff.missing.every((entry: any) => typeof entry.id === "string" && typeof entry.attribution === "string"), true);
 });
@@ -69,7 +69,7 @@ test("extract prints Knowledge JSON to stdout", async () => {
   const { code, stdout } = await cli(["extract", "--run", RUN_MINI]);
   assert.equal(code, 0);
   const knowledge = JSON.parse(stdout);
-  assert.equal(knowledge.facts.length, 5);
+  assert.equal(knowledge.facts.length, 7);
   assert.equal(knowledge.unknowns.length, 2);
 });
 
@@ -79,7 +79,7 @@ test("extract --out writes Knowledge JSON to a file", async () => {
   const { code } = await cli(["extract", "--run", RUN_MINI, "--out", out]);
   assert.equal(code, 0);
   const written = JSON.parse(await readFile(out, "utf8"));
-  assert.equal(written.facts.length, 5);
+  assert.equal(written.facts.length, 7);
 });
 
 test("view renders the text view of a run and exits 0", async () => {
