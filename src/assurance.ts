@@ -403,6 +403,10 @@ export function auditChecklist(checklist: InvestigationChecklist, expected: Inve
       if (item.evidenceIds.length && !item.evidenceIds.some((id) => limitationKinds.has(evidenceById.get(id)?.kind ?? ""))) {
         findings.push(error("checklist", `cannot-determine item cites no coverage, graph, manifest, git or search evidence: ${item.id}`));
       }
+    } else if (item.verdict === "not-applicable") {
+      // A not-applicable item is a valid disposition backed only by a reason, mirroring the work-item
+      // contract (auditWorkItems); it is not the strict analysis-limitation shape of cannot-determine.
+      if (!item.reason?.trim()) findings.push(error("checklist", `not-applicable item requires a reason: ${item.id}`));
     }
     for (const id of item.evidenceIds) if (!evidenceIds.has(id)) findings.push(error("checklist", `checklist item ${item.id} references missing evidence id ${id}`));
   }
@@ -644,8 +648,8 @@ function checklistVerdictToStatus(verdict: ChecklistItem["verdict"]): Investigat
 }
 function workItemStatusToVerdict(status: InvestigationWorkItem["status"]): ChecklistItem["verdict"] {
   if (status === "found") return "hit";
-  if (status === "not-applicable") return "cannot-determine";
   if (status === "in_progress") return "pending";
+  // searched-not-found, cannot-determine and not-applicable share their name across both vocabularies.
   return status;
 }
 function isCompleteWorkItem(status: InvestigationWorkItem["status"]): boolean {

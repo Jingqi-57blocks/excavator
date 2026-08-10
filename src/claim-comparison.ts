@@ -52,19 +52,21 @@ export function validateComparisonSides(claim: SectionClaim): string[] {
 /**
  * The advisory trigger wordlist — zh + en only for v1 (the prevention writing-rule covers every
  * language). A statement matches when it asserts equivalence, sameness, or shared values/behavior
- * across sources. It deliberately EXCLUDES wording that reads comparative but is not a cross-source
- * equivalence assertion: `统一` / `unified` (one shared thing, not two things being compared), the
- * noun `一致性` ("consistency" as a quality — hence the `一致(?!性)` negative lookahead), and bare
- * `both`. Fine-tuning the list is allowed as long as the positive/negative controls keep passing.
+ * across sources. The CJK patterns require comparison CONTEXT rather than a bare noun-compound
+ * substring: a comparison connective (`与…相同/一致/等价/共享/同样`, `两者…`, `共享同一`) must be present,
+ * so ordinary compounds (`共享读取`, `同一天`, `同一员工`, `行为一致性`) do not fire. It also EXCLUDES
+ * wording that reads comparative but is not a cross-source equivalence assertion: `统一` / `unified`
+ * (one shared thing, not two things being compared), the noun `一致性` ("consistency" as a quality —
+ * hence the `保持一致(?!性)` negative lookahead), and bare `both`. Fine-tuning the list is allowed as
+ * long as the positive/negative controls keep passing.
  */
 const COMPARATIVE_PATTERNS: RegExp[] = [
-  /共享/,
+  /共享同一/,
+  /与[^，。；\n]{1,24}(?:相同|一致|等价|共享|同样)/,
+  /两者[^，。；\n]{0,12}(?:相同|一致|等价)/,
   /等价/,
-  /相同/,
-  /同一/,
-  /保持一致/,
   /镜像/,
-  /一致(?!性)/,
+  /保持一致(?!性)/,
   /\bequivalent\b/i,
   /\bidentical\b/i,
   /\bmirrors\b/i,

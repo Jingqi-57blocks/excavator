@@ -229,11 +229,11 @@ export async function buildFactPack(input: FactPackInput): Promise<FeatureFactPa
       if (wantsFieldDetail && graphNodes.length > maxEntityWindows) {
         notes.push(`entity field windows capped at ${maxEntityWindows}; ${graphNodes.length - maxEntityWindows} later entities carry only their graph signature`);
       }
+      // The upstream feature-scope node cap shortens the graph node set (and the boundary derived from
+      // it) that this graph-backed category enumerated over, so its enumeration may be short. Scan-only
+      // categories never consult the capped node set, so the note must not truncate them (57B-354).
+      if (input.scopeNodesCapped) notes.push("the feature scope node cap was reached upstream, so the graph node set this category was enumerated over may be short");
     }
-
-    // The upstream node cap no longer truncates the enumeration itself, but it can shorten the
-    // boundary file list this pack enumerates over, which reaches every category.
-    if (input.scopeNodesCapped) notes.push("the feature scope node cap was reached upstream, so the boundary file set this category was enumerated over may be short");
 
     if (strategy.scan) {
       const scanned = await scanCategory(strategy, input.files, maxItems, notes);
