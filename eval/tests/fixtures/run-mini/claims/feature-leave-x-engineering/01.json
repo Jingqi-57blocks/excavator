@@ -1,0 +1,42 @@
+{
+  "documentId": "feature-leave-x-engineering",
+  "section": 1,
+  "version": 2,
+  "claims": [
+    {
+      "id": "claim-1",
+      "marker": "fact",
+      "statement": "系统按项目经理与 HR 进行两级审批，终审通过后扣减假期余额",
+      "evidenceIds": ["S-approval1", "S-balance1"],
+      "workItemIds": ["feature:leave-x:approval"]
+    },
+    {
+      "id": "claim-2",
+      "marker": "fact",
+      "statement": "授权基于员工、经理、HR 三种角色，经理只能查看其直接下属的请假",
+      "evidenceIds": ["S-auth1", "S-roles1"],
+      "workItemIds": ["feature:leave-x:authorization"]
+    },
+    {
+      "id": "claim-3",
+      "marker": "inferred",
+      "statement": "审批通过后系统向员工发送邮件通知",
+      "evidenceIds": ["S-approval1"],
+      "workItemIds": ["feature:leave-x:notifications"]
+    },
+    {
+      "id": "claim-4",
+      "marker": "fact",
+      "statement": "审批通过后系统向员工发送邮件通知并抄送 HR",
+      "evidenceIds": ["S-approval1"],
+      "workItemIds": ["feature:leave-x:notifications"]
+    },
+    {
+      "id": "claim-5",
+      "marker": "unavailable",
+      "statement": "无法确定休假额度的年度结转规则",
+      "evidenceIds": [],
+      "workItemIds": ["feature:leave-x:carryover"]
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "target": "",
+  "workdir": "",
+  "codegraphMode": "off",
+  "language": "zh-CN",
+  "detailLevel": "detailed",
+  "overviewAudiences": [],
+  "features": [
+    {
+      "subject": "请假管理",
+      "aliases": ["leave", "leave request", "approval", "balance", "授权", "审批", "余额", "数据范围"],
+      "audiences": ["engineering"]
+    }
+  ],
+  "budgets": {
+    "prepareMs": 60000,
+    "authorMs": 60000,
+    "maxGraphQueries": 20,
+    "maxSourceWindows": 120,
+    "maxSourceCharacters": 400000,
+    "maxFiles": 10000,
+    "maxFeatureNodes": 120,
+    "maxExpansionDepth": 2
+  }
+}

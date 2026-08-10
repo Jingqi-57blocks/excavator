@@ -1,0 +1,45 @@
+{
+  "version": "expected-knowledge-v1",
+  "target": "run-mini",
+  "items": [
+    {
+      "id": "approval",
+      "kind": "fact",
+      "mustFind": true,
+      "anchors": [{ "root": "leave-svc", "path": "src/approval.ts", "lines": "30-60" }],
+      "statementPatterns": ["两级审批", "扣减.*余额"]
+    },
+    {
+      "id": "authz",
+      "kind": "fact",
+      "mustFind": true,
+      "anchors": [{ "path": "src/roles.ts" }],
+      "statementPatterns": ["三种角色|三类角色"]
+    },
+    {
+      "id": "rel-approval",
+      "kind": "relation",
+      "mustFind": true,
+      "anchors": [{ "root": "leave-svc", "path": "src/approval.ts", "lines": "30-60" }],
+      "stepPatterns": ["一级审批|二级审批"]
+    },
+    {
+      "id": "unknown-carryover",
+      "kind": "unknown",
+      "mustFind": true,
+      "anchors": [],
+      "patterns": ["结转", "无法确定|cannot"]
+    }
+  ],
+  "forbidden": [
+    {
+      "id": "no-sms",
+      "patterns": ["短信|SMS"],
+      "markers": ["fact", "verified"]
+    }
+  ],
+  "coverage": [
+    { "dimension": "authorization", "expect": ["found"] },
+    { "dimension": "data-scope", "expect": ["searched-not-found"] }
+  ]
+}
