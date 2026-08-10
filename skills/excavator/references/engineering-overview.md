@@ -11,6 +11,8 @@ order: 30
 
 Audience: developers and technical leads. Describe the current business and implementation landscape, including repositories, stacks, runtime boundaries, communication, data, files, configuration, jobs, tests, and current technical problems. Do not propose a target architecture or remediation.
 
+Present inventories and comparisons — repositories and runtime units, stacks, interfaces and entry points, data models, identity and authorization, external integrations, configuration and jobs, and tests — as Markdown tables, and present enumerated items as Markdown lists rather than prose paragraphs. Tables are preferred for inventories and comparisons; use tables and Mermaid diagrams wherever they improve comprehension.
+
 ## 1. System purpose, scope, and source snapshot
 
 Explain the business problem, target workspace, repository revisions, uncommitted changes, Git-aware source boundary, and static-review limits.

@@ -118,6 +118,20 @@ The audit segments each section into substantive statements and requires every o
 - **Normalization is shared by segments and claims.** Both a segment and a claim `statement` are normalized the same way before comparison: the characters `` ` ``, `*`, `_`, `>`, `#` and `-` are replaced with a space, runs of whitespace collapse to one space, and the result is trimmed.
 - **Coverage is containment, either direction.** A substantive segment is covered when some claim's normalized statement contains the segment or is contained by it. An uncovered segment is an `unclaimed substantive statement` error. Separately, a claim `statement` must normalize to at least 6 characters and appear verbatim in the section's normalized visible text.
 
+## Report section derivation
+
+For a feature report, every investigation dimension carries an auto-derived `reportSection` that maps it to a canonical chapter index: boundary → 1; entry points and callers → 2; normal, decision and reversal flows → 3; types, states, calculations and validation → 4; authorization and data scope → 5; entities and storage → 6; files, integrations and notifications → 7; failure modes and transactions → 8; configuration and background work → 9; connected change scope → 10; tests, documentation and unfinished code → 11; coverage and open investigation → 12.
+
+This number is only the work-item-to-section link the audit checks when a claim cites a work item; it does not set the report's chapter titles. The report's chapter headings always follow the per-type template you are writing, so a product chapter may carry a different title or order than the dimension number — that divergence is expected, not an error. Overview documents carry no `reportSection`, so the link is enforced only for feature reports.
+
+## Easy-to-miss audit rules
+
+Three rules trip authors most often. Each is a hard audit **error**, not a warning:
+
+- **Reverse evidence-block rule.** Every evidence id listed in a section's `<details>` block must be cited by at least one claim in that same section. The check runs in the direction authors do not expect: declaring an evidence id in the evidence block but never binding it to a claim is an error, not a harmless extra. List only the evidence ids the section's claims actually cite.
+- **`unavailable` claims need a reason and no evidence.** An `unavailable` claim must carry a `reason` and must cite no evidence ids. Omitting the reason, or attaching evidence ids to an `unavailable` claim, fails the audit.
+- **`searched-not-found` needs a clean search receipt.** A `searched-not-found` disposition requires a zero-match, non-truncated `SEARCH-*` receipt. A receipt that contains any match, or that is marked `truncated: true`, cannot support `searched-not-found`; investigate further or choose a different disposition.
+
 ## Trace accounting
 
 Use traces when a report describes an ordered process rather than an isolated fact. A trace may represent a call flow, business flow, data flow, state transition, cross-repository path, or analysis path. Each verified step cites evidence. Claims may cite trace IDs in addition to evidence IDs. Do not convert a list of similarly named files into a flow unless the connection is established.
