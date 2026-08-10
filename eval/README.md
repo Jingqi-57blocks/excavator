@@ -21,12 +21,14 @@ producing a run (authoring); everything the harness does is a pure function of f
 npm run eval -- extract --run <dir> [--out <file>]
 npm run eval -- diff --run <dir> --expected <file> [--json] [--prepare-only]
 npm run eval -- view --run <dir> [--json]
+npm run eval -- compare --a <dir> --b <dir> [--json]
 ```
 
 `diff` exits **1** on any mustFind missing, forbidden violation, or coverage failure; **0** otherwise.
 
-`view` has no semantic-fail concept: it exits **0** on success and **2** on error (missing run dir,
-missing `metrics.json`/`timeline.jsonl`, malformed timeline). It is read-only on the run dir.
+`view` and `compare` have no semantic-fail concept: they exit **0** on success and **2** on error
+(missing run dir, missing `metrics.json`/`timeline.jsonl`, malformed timeline). Both are read-only on
+the run dirs.
 
 ## `view` — run observability
 
@@ -76,6 +78,43 @@ invisible latency as raw fact rather than smoothing it away. The view runs **no 
   no graph-query timeline events, so a per-query narrative is impossible without a Core change to the
   hash-chain event stream (out of scope — see `docs/pending-decisions.md`).
 
+## `compare` — cross-run A→B delta
+
+The payoff of the eval loop: point it at **two existing runs** and it answers "did run B get faster /
+find more-or-fewer facts / gain-or-lose coverage vs run A". It is the read that turns single-run views
+into "did my change help?". Pure, deterministic, read-only, zero-dep, no model calls, **not** wired into
+audit — a report, not a gate.
+
+It reuses the same extractors as `view` and `extract`: the CLI loads both runs into `RunStats`
+(`run-stats.ts`) and `Knowledge` (`knowledge.ts`) and passes the four models to the pure
+`compareRuns(...)` in `compare-runs.ts`; `render-run-comparison.ts` owns every human string.
+
+- `compare-runs.ts` — pure `(RunStats_A, RunStats_B, Knowledge_A, Knowledge_B) → RunComparison`. No I/O.
+- `render-run-comparison.ts` — `RunComparison → string`.
+
+### What it reports
+
+- **Metrics delta** — total & `metrics.timing` wall clock, Core prepare timings, per-stage wall clock
+  (union of stage names, `0` for a stage absent in one run), and the counters (searches,
+  `sourceFilesSearched`, source windows, graph queries, `sourceCharacters`, claims/traces/workItems).
+  Each carries `a`, `b`, `delta = b − a`, and `pct = round((delta/a)·100, 1dp)` (`null` when `a == 0`).
+- **Knowledge delta** — fact-anchors **gained**/**lost**/retained, the fact **marker distribution**
+  delta, **relations** gained/lost (best-effort), **coverage** status changes by dimension, and the
+  **unknowns** count delta.
+
+### Two caveats (rendered in the honesty note)
+
+1. **Wall-clock deltas inherit the gap-attribution caveat** from `view`: per-stage and total wall clock
+   include the host agent's own thinking and CLI execution between timeline events, which Excavator
+   cannot observe or separate out. Only the Core prepare timings are directly measured. Because of this,
+   **improvement/regression is asserted only for these lower-is-better time metrics**; count deltas get a
+   direction arrow and no value judgement (more claims is not inherently "better").
+2. **Knowledge deltas align by cited-evidence anchor, not by id.** Facts are matched by their cited
+   **source-window anchor** — same `path` **and** overlapping `[startLine, endLine]` range. Claim and
+   trace ids are **not** stable across runs, so they are never used for alignment. Relation alignment is
+   best-effort by the same anchor rule; coverage aligns by `dimension` (a stable label). All output lists
+   are sorted (anchors by path/line, dimensions/markers in a fixed order) so the report is deterministic.
+
 ## Diff semantics (summary)
 
 - **fact hit** — a claim whose cited `S-*` window matches an anchor (path in three forms:
@@ -114,3 +153,7 @@ The point of the harness is that most iterations never call a model:
   capability, so the `no-email-notification` forbidden pin catches that specific hallucination.
 - `tests/fixtures/run-mini/` — hand-written run artifacts (evidence/claims/traces/workitems/checklist/
   factpack/scope) plus `expected-pass.json` / `expected-fail.json` that drive the deterministic tests.
+- `tests/fixtures/run-observe-mini/` & `run-observe-mini-b/` — a synthetic run pair for `view` and
+  `compare`. `-b` is a deliberate variant of the first: faster overall but one slower stage, fewer
+  searches, one gained fact-anchor (`svc/audit/log.go`), one lost (`svc/notify/email.go`), a coverage
+  dimension that regressed `found → searched-not-found`, and a shifted marker distribution.

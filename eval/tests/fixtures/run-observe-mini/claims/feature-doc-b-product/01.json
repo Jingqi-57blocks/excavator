@@ -1,0 +1,17 @@
+{
+  "documentId": "feature-doc-b-product",
+  "claims": [
+    {
+      "id": "claim-b1",
+      "marker": "fact",
+      "statement": "Approval sends a notification email to the requester.",
+      "evidenceIds": ["S-a4"]
+    },
+    {
+      "id": "claim-b2",
+      "marker": "unavailable",
+      "statement": "The retention window for archived exports cannot be determined from source.",
+      "evidenceIds": []
+    }
+  ]
+}

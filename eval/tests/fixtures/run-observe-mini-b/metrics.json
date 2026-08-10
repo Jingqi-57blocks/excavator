@@ -1,0 +1,27 @@
+{
+  "startedAt": "2026-01-01T00:00:00.000Z",
+  "finishedAt": "2026-01-01T00:05:00.000Z",
+  "timing": {
+    "snapshotMs": 100,
+    "totalPrepareMs": 300,
+    "sharedContextMs": 80,
+    "feature:doc-scope-abc123Ms": 200,
+    "totalMs": 300000
+  },
+  "graphQueries": 3,
+  "graphQueryCacheHits": 1,
+  "sourceWindows": 4,
+  "sourceWindowCacheHits": 1,
+  "sourceCharacters": 6000,
+  "sourceSearches": 0,
+  "sourceSearchCacheHits": 1,
+  "sourceFilesSearched": 2,
+  "filesConsidered": 40,
+  "timelineEvents": 9,
+  "claims": 4,
+  "traces": 2,
+  "workItems": { "complete": 4, "total": 4 },
+  "codegraphCoverage": { "indexed": 22, "eligible": 40, "ratio": 0.55 },
+  "cache": { "feature:doc-scope-abc123": "hit", "shared": "miss" },
+  "warnings": []
+}

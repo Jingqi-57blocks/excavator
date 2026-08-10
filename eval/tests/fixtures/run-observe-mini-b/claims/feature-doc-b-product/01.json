@@ -1,0 +1,11 @@
+{
+  "documentId": "feature-doc-b-product",
+  "claims": [
+    {
+      "id": "claim-4",
+      "marker": "fact",
+      "statement": "An audit log entry records each approval action.",
+      "evidenceIds": ["S-b4"]
+    }
+  ]
+}

@@ -3,9 +3,10 @@
 //   extract --run <dir> [--out <file>]                     dump normalized Knowledge as JSON
 //   diff --run <dir> --expected <file> [--json] [--prepare-only]
 //   view --run <dir> [--json]                              render one run's metrics + timeline
+//   compare --a <dir> --b <dir> [--json]                   cross-run A->B metrics + knowledge delta
 // diff exits 1 on any mustFind missing / forbidden violation / coverage failure; 0 otherwise.
 // --prepare-only runs ONLY the anchor-in-scope containment check (zero model, sub-second).
-// view has no semantic-fail concept: exit 0 on success, 2 on error (like every other harness error).
+// view/compare have no semantic-fail concept: exit 0 on success, 2 on error (like every other harness error).
 
 import { writeFileSync } from "node:fs";
 import { extractKnowledge } from "./knowledge.ts";
@@ -13,9 +14,13 @@ import { loadExpected } from "./expected.ts";
 import { checkContainment, diffKnowledge, exitCodeFor, type Containment, type Diff } from "./diff.ts";
 import { computeRunStats } from "./run-stats.ts";
 import { renderRunStats } from "./render-run-stats.ts";
+import { compareRuns } from "./compare-runs.ts";
+import { renderRunComparison } from "./render-run-comparison.ts";
 
 interface Flags {
   run?: string;
+  a?: string;
+  b?: string;
   expected?: string;
   out?: string;
   json: boolean;
@@ -27,6 +32,8 @@ function parseFlags(argv: string[]): Flags {
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "--run") flags.run = argv[++i];
+    else if (arg === "--a") flags.a = argv[++i];
+    else if (arg === "--b") flags.b = argv[++i];
     else if (arg === "--expected") flags.expected = argv[++i];
     else if (arg === "--out") flags.out = argv[++i];
     else if (arg === "--json") flags.json = true;
@@ -45,7 +52,8 @@ const USAGE = `eval harness
 
   extract --run <dir> [--out <file>]
   diff    --run <dir> --expected <file> [--json] [--prepare-only]
-  view    --run <dir> [--json]`;
+  view    --run <dir> [--json]
+  compare --a <dir> --b <dir> [--json]`;
 
 function renderContainment(containment: Containment): string {
   const lines = [`=== prepare containment (${containment.contained.length}/${containment.contained.length + containment.missing.length} anchors in scope) ===`];
@@ -111,6 +119,19 @@ function runView(flags: Flags): number {
   return 0;
 }
 
+function runCompare(flags: Flags): number {
+  const dirA = requireFlag(flags.a, "--a");
+  const dirB = requireFlag(flags.b, "--b");
+  const comparison = compareRuns(
+    computeRunStats(dirA),
+    computeRunStats(dirB),
+    extractKnowledge(dirA),
+    extractKnowledge(dirB)
+  );
+  process.stdout.write(`${flags.json ? JSON.stringify(comparison, null, 2) : renderRunComparison(comparison)}\n`);
+  return 0;
+}
+
 function main(argv: string[]): number {
   const [command, ...rest] = argv;
   if (!command || command === "help" || command === "--help" || command === "-h") {
@@ -121,6 +142,7 @@ function main(argv: string[]): number {
   if (command === "extract") return runExtract(flags);
   if (command === "diff") return runDiff(flags);
   if (command === "view") return runView(flags);
+  if (command === "compare") return runCompare(flags);
   throw new Error(`unknown command: ${command}`);
 }
 
