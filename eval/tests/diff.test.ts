@@ -3,10 +3,11 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { extractKnowledge, type Knowledge, type KnowledgeFact } from "../knowledge.ts";
-import { validateExpected } from "../expected.ts";
-import { diffKnowledge } from "../diff.ts";
+import { loadExpected, validateExpected } from "../expected.ts";
+import { checkContainment, diffKnowledge } from "../diff.ts";
 
 const RUN_MINI = join(import.meta.dirname, "fixtures", "run-mini");
+const LEAVE_MINI_EXPECTED = join(import.meta.dirname, "..", "fixtures", "leave-mini", "expected-knowledge.json");
 
 function readExpected(name: string): unknown {
   return JSON.parse(readFileSync(join(RUN_MINI, name), "utf8"));
@@ -146,12 +147,39 @@ test("coverage honesty: expecting searched-not-found passes when the run honestl
   assert.deepEqual(failedDimensions, ["notifications-and-exports"]);
 });
 
+test("leave-mini forbidden pin: honest negation is exempt, single-facet 'sends email' is caught", () => {
+  const expected = loadExpected(LEAVE_MINI_EXPECTED);
+  const knowledge = knowledgeWith({
+    facts: [
+      fact({ ref: "d#honest", marker: "fact", statement: "系统不发送任何邮件/短信/推送通知，审批结果只落库并出现在列表里" }),
+      fact({ ref: "d#halluc", marker: "fact", statement: "二级审批通过后系统会向申请人发送电子邮件并抄送经理" })
+    ]
+  });
+  const hits = diffKnowledge(knowledge, expected).forbiddenHits;
+  assert.equal(hits.length, 1, `expected exactly one hit, got ${JSON.stringify(hits)}`);
+  assert.equal(hits[0].id, "no-notification-send");
+  assert.equal(hits[0].ref, "d#halluc");
+  assert.ok(!hits.some((hit) => hit.ref === "d#honest"), "the honest negation must not be flagged");
+});
+
+test("anchorInHorizon is path-boundary-safe: src/auth.ts is not satisfied by src/auth.tsx in scope text", () => {
+  const expected = validateExpected({
+    version: "expected-knowledge-v1",
+    target: "t",
+    items: [{ id: "x", kind: "fact", mustFind: true, anchors: [{ path: "src/auth.ts" }] }]
+  });
+  const prefixOnly = knowledgeWith({ prepareHorizon: { files: [], scopeText: "see `svc/src/auth.tsx` for details" } });
+  const wholeToken = knowledgeWith({ prepareHorizon: { files: [], scopeText: "see `svc/src/auth.ts` for details" } });
+  assert.deepEqual(checkContainment(prefixOnly, expected).missing.map((entry) => entry.id), ["x"]);
+  assert.equal(checkContainment(wholeToken, expected).allContained, true);
+});
+
 test("validateExpected rejects malformed specs (version, kind, anchors, regex)", () => {
   const base = { version: "expected-knowledge-v1", target: "t", items: [{ id: "x", kind: "fact", mustFind: true, anchors: [{ path: "a.ts" }] }] };
   assert.throws(() => validateExpected({ ...base, version: "v2" }), /version/);
   assert.throws(() => validateExpected({ ...base, items: [{ id: "x", kind: "banana", mustFind: true, anchors: [{ path: "a.ts" }] }] }), /kind/);
   assert.throws(() => validateExpected({ ...base, items: [{ id: "x", kind: "fact", mustFind: true, anchors: [] }] }), /anchor/);
-  assert.throws(() => validateExpected({ ...base, items: [{ id: "x", kind: "fact", mustFind: true, anchors: [{ path: "a.ts" }], statementPatterns: ["("] }] }), /u-flag regex/);
+  assert.throws(() => validateExpected({ ...base, items: [{ id: "x", kind: "fact", mustFind: true, anchors: [{ path: "a.ts" }], statementPatterns: ["("] }] }), /not a valid regex/);
   assert.throws(() => validateExpected({ ...base, items: [{ id: "x", kind: "unknown", mustFind: false, anchors: [] }] }), /patterns.*required/);
   assert.throws(() => validateExpected({ ...base, items: [base.items[0], base.items[0]] }), /duplicate item id/);
 });

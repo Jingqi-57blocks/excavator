@@ -50,7 +50,7 @@
       "kind": "fact",
       "mustFind": true,
       "anchors": [{ "path": "src/leave-request.ts" }],
-      "statementPatterns": ["pending|待审", "level1Approved|一级", "approved|通过"]
+      "statementPatterns": ["pending|待审|待批|level1Approved|一级审批|approved|审批通过|rejected|驳回|状态机|生命周期|状态流转"]
     },
     {
       "id": "flow-balance-deduct",
@@ -103,10 +103,24 @@
   ],
   "forbidden": [
     {
-      "id": "no-email-notification",
-      "patterns": ["邮件|email|短信|SMS|推送|push", "通知|notify|notification"],
+      "id": "no-notification-send",
+      "patterns": [
+        "发送|发出|发起|推送|下发|群发|寄送|投递|通报|sends?|sent|sending|dispatch|deliver|notif(y|ies|ied)",
+        "邮件|电子邮件|email|e-?mail|短信|SMS|推送|通知|notification|message"
+      ],
+      "unless": [
+        "不.{0,6}(发送|发出|发起|推送|发|通知)",
+        "不会.{0,6}(发送|推送|通知)",
+        "没有?.{0,8}(邮件|短信|推送|通知|发送)",
+        "未.{0,6}(发送|推送|通知)",
+        "无.{0,8}(邮件|短信|推送|通知)",
+        "do(es)?\\s+not\\s+(send|email|notify|notice)",
+        "not\\s+(send|sent|email|notify)",
+        "no\\s+.{0,20}(email|notification|sms|notice|message)",
+        "without\\s+.{0,20}(notification|email|message)"
+      ],
       "markers": ["fact", "verified"],
-      "note": "leave-mini 刻意不实现任何通知能力；任何断言发送邮件/短信通知的 fact 级声明都是幻觉。"
+      "note": "leave-mini 刻意不实现任何通知能力。只有断言'发送某渠道'的 fact 级声明才算幻觉；诚实地声明'不发送任何通知'由 unless 豁免，不应被判为幻觉。"
     }
   ],
   "coverage": [

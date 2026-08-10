@@ -40,6 +40,9 @@ export interface ForbiddenItem {
   patterns: Pattern[];
   /** A claim with one of these markers whose statement matches all patterns is a violation. */
   markers: Marker[];
+  /** Exemption: a match is dropped when any `unless` pattern also matches the claim's statement
+   * (e.g. a negation like "不发送邮件通知" — an honest claim that the capability is absent). */
+  unless?: Pattern[];
   note?: string;
 }
 
@@ -74,9 +77,11 @@ function requireString(value: unknown, where: string): string {
 function compilePattern(value: unknown, where: string): Pattern {
   const raw = requireString(value, where);
   try {
-    return { raw, re: new RegExp(raw, "u") };
+    // `iu`: unicode + case-insensitive so `email`/`SMS` also match `Email`/`sms`
+    // (a case-sensitive `u` left a hallucination-recall hole).
+    return { raw, re: new RegExp(raw, "iu") };
   } catch (error) {
-    return fail(where, `not a valid u-flag regex (${(error as Error).message})`);
+    return fail(where, `not a valid regex (${(error as Error).message})`);
   }
 }
 
@@ -143,6 +148,8 @@ function parseForbidden(value: any, i: number): ForbiddenItem {
     patterns: compilePatterns(value.patterns, `${where}.patterns`, { required: true })!,
     markers: parseMarkers(value.markers, `${where}.markers`) ?? [...DEFAULT_FORBIDDEN_MARKERS]
   };
+  const unless = compilePatterns(value.unless, `${where}.unless`, { required: false });
+  if (unless) item.unless = unless;
   if (value.note !== undefined) item.note = requireString(value.note, `${where}.note`);
   return item;
 }

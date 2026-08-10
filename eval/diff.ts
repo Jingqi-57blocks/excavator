@@ -86,11 +86,25 @@ function allPatternsMatch(patterns: Pattern[] | undefined, text: string): boolea
   return patterns.every((pattern) => pattern.re.test(text));
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Does `text` reference `path` as a whole path token rather than as a prefix of a longer name?
+ * A plain substring check lets `src/auth.ts` match inside `src/auth.tsx`; this requires a
+ * non-continuation boundary on both sides. A leading `/` is allowed so a bare path still matches
+ * its rooted occurrence (endsWith semantics); a trailing `\w`/`.` is rejected so `.ts` ≠ `.tsx`.
+ */
+function textContainsPath(text: string, path: string): boolean {
+  return new RegExp(`(?:^|[^\\w.-])${escapeRegExp(path)}(?![\\w.])`, "u").test(text);
+}
+
 /** Is any of the item's anchor files present in the prepared horizon (fact pack files or scope text)? */
 function anchorInHorizon(anchor: Anchor, horizon: Knowledge["prepareHorizon"]): boolean {
   if (horizon.files.some((file) => pathMatches(file, anchor))) return true;
   const rooted = anchor.root ? `${anchor.root}/${anchor.path}` : anchor.path;
-  return horizon.scopeText.includes(rooted) || horizon.scopeText.includes(anchor.path);
+  return textContainsPath(horizon.scopeText, rooted) || textContainsPath(horizon.scopeText, anchor.path);
 }
 
 function findFact(item: ExpectedItem, knowledge: Knowledge): string | null {
@@ -138,6 +152,8 @@ function detectForbidden(forbidden: ForbiddenItem[], knowledge: Knowledge): Forb
     for (const fact of knowledge.facts) {
       if (!rule.markers.includes(fact.marker)) continue;
       if (!allPatternsMatch(rule.patterns, fact.statement)) continue;
+      // Exempt honest negations ("... does NOT send ...") so the pin never punishes the report it rewards.
+      if (rule.unless && rule.unless.some((pattern) => pattern.re.test(fact.statement))) continue;
       hits.push({ id: rule.id, ref: fact.ref, marker: fact.marker, statement: fact.statement });
     }
   }

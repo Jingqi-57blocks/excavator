@@ -52,7 +52,8 @@
   "forbidden": [
     {
       "id": "no-email",
-      "patterns": ["邮件|email", "通知|notification"],
+      "patterns": ["发送|发出|推送|sends?|notif(y|ies|ied)", "邮件|email|短信|SMS|通知|notification"],
+      "unless": ["不.{0,6}(发送|推送|通知)", "没有?.{0,8}(邮件|短信|通知|发送)"],
       "markers": ["fact", "verified"]
     }
   ],
