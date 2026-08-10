@@ -42,6 +42,19 @@ function sectionClaims(index: number, evidenceId: string): SectionClaim[] {
   ];
 }
 
+// The generic section plus one `verified` claim that cites a SEARCH receipt — the shape the
+// receipt-support audit inspects. `verifiedStatement` is copied verbatim into both prose and claim.
+function searchSection(title: string, index: number, sourceId: string, searchId: string, verifiedStatement: string): string {
+  return `## ${title}\n\n这是第 ${index} 章的当前状态说明。\`事实\`\n\n**这意味着什么** 本章事实帮助读者理解后续内容。\`推断\`\n\n${verifiedStatement}\`验证\`\n\n<details>\n<summary>依据</summary>\n\n- ${sourceId}\n- ${searchId}\n\n</details>\n`;
+}
+
+function searchSectionClaims(index: number, sourceId: string, searchId: string, verifiedStatement: string): SectionClaim[] {
+  return [
+    ...sectionClaims(index, sourceId),
+    { id: `claim-${index}-search`, marker: "verified", statement: verifiedStatement, evidenceIds: [searchId] }
+  ];
+}
+
 async function evidenceId(runDir: string): Promise<string> {
   const catalog = JSON.parse(await readFile(join(runDir, "evidence.json"), "utf8")) as { evidence: EvidenceItem[] };
   return catalog.evidence.find((item) => item.kind === "source")?.id ?? catalog.evidence[0].id;
@@ -422,4 +435,42 @@ test("a localized level-one report title becomes front matter metadata", async (
   const report = await readFile(join(runDir, "reports", "product-overview.md"), "utf8");
   assert.match(report, /title: "项目概览（非技术）"/);
   assert.match(report, /navTitle: "项目概览（非技术）"/);
+});
+
+test("audit rejects a verified claim whose SEARCH receipt cannot support its count, and passes once it is honest", async () => {
+  const request = await makeRequest();
+  request.overviewAudiences = ["product"];
+  request.features = [];
+  const { runDir, manifest } = await prepareRun(request);
+  const id = await evidenceId(runDir);
+  // A real zero-match receipt: the fixture marker term appears nowhere in the immutable snapshot.
+  const receipt = await searchSourceEvidence(runDir, ["__excavator_no_such_fixture_marker__"], "prove the login-path hit search completed", { maxResults: 10 });
+  const searchId = String((receipt.evidence as EvidenceItem).id);
+  assert.equal((receipt.matches as unknown[]).length, 0, "the marker term must not exist in the fixture");
+  const document = manifest.documents[0];
+  const target = document.sections[0];
+
+  for (const section of document.sections) {
+    if (section.index === target.index) {
+      await checkpointSection(runDir, document.id, section.index, searchSection(section.title, section.index, id, searchId, "系统在登录路径上出现 3 处命中。"), searchSectionClaims(section.index, id, searchId, "系统在登录路径上出现 3 处命中。"));
+    } else {
+      await checkpointSection(runDir, document.id, section.index, sectionText(section.title, section.index, id), sectionClaims(section.index, id));
+    }
+  }
+  await dispositionChecklist(runDir, id);
+  await assembleRun(runDir);
+
+  const bad = await auditRun(runDir);
+  assert.ok(
+    bad.findings.some((item) => item.level === "error" && /claim-.*-search/.test(item.message) && /exact count of 3/.test(item.message)),
+    JSON.stringify(bad.findings, null, 2)
+  );
+
+  // Make the count honest: a zero-match receipt supports a "not found (0 处)" statement.
+  await checkpointSection(runDir, document.id, target.index, searchSection(target.title, target.index, id, searchId, "系统在登录路径上未发现命中（0 处）。"), searchSectionClaims(target.index, id, searchId, "系统在登录路径上未发现命中（0 处）。"));
+  await assembleRun(runDir);
+
+  const good = await auditRun(runDir);
+  assert.equal(good.findings.filter((item) => item.level === "error").length, 0, JSON.stringify(good.findings, null, 2));
+  assert.equal(good.manifest.state, "complete");
 });

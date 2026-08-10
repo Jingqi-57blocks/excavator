@@ -1,0 +1,128 @@
+{
+  "evidence": [
+    {
+      "data": {
+        "candidateFiles": 995,
+        "caseSensitive": false,
+        "matches": [],
+        "maxResults": 50,
+        "pathPrefixes": [],
+        "regex": true,
+        "searchVersion": "source-search-v4-ranking-v1-redaction-v4",
+        "terms": [
+          "^[[:space:]]*//.*\\[Test\\]"
+        ],
+        "truncated": false
+      },
+      "digest": "8ba4da4965ca8f5814ee36ecb1e65133b03e65991a320fe40af79e16c88b7dd6",
+      "id": "SEARCH-5fa4a75ef122",
+      "kind": "search",
+      "reason": "locate commented-out test declarations (POSIX class, reproduces cebreo zero-match)",
+      "snapshotId": "3701b1af12e4ac10b2ae",
+      "title": "Source search: ^[[:space:]]*//.*\\[Test\\]"
+    },
+    {
+      "data": {
+        "candidateFiles": 995,
+        "caseSensitive": false,
+        "matches": [
+          {
+            "excerpt": "\n//         [SetUp]\n//         public void SetUp()",
+            "line": 21,
+            "matchedTerms": [
+              "//\\s*\\[SetUp\\]"
+            ],
+            "path": "src/UNMC/UNMC.UnitTests/BusinessObjectTests/ESwLogsHelperTests.cs",
+            "score": 30
+          },
+          {
+            "excerpt": "\n//         [SetUp]\n//         public void SetUp()",
+            "line": 45,
+            "matchedTerms": [
+              "//\\s*\\[SetUp\\]"
+            ],
+            "path": "src/UNMC/UNMC.UnitTests/BusinessObjectTests/RecorderTests.cs",
+            "score": 30
+          },
+          {
+            "excerpt": "\n//     [SetUp]\n//     public void SetUp()",
+            "line": 17,
+            "matchedTerms": [
+              "//\\s*\\[SetUp\\]"
+            ],
+            "path": "src/UNMC/UNMC.UnitTests/BusinessObjectTests/SplitRecordingHelperTests.cs",
+            "score": 30
+          },
+          {
+            "excerpt": "\n//         [SetUp]\n//         public void SetUp()",
+            "line": 28,
+            "matchedTerms": [
+              "//\\s*\\[SetUp\\]"
+            ],
+            "path": "src/UNMC/UNMC.UnitTests/ServiceTests/DemoManagerTests.cs",
+            "score": 30
+          },
+          {
+            "excerpt": "\n//         [SetUp]\n//         public void SetUp()",
+            "line": 41,
+            "matchedTerms": [
+              "//\\s*\\[SetUp\\]"
+            ],
+            "path": "src/UNMC/UNMC.UnitTests/ServiceTests/DeviceLibraryTests.cs",
+            "score": 30
+          },
+          {
+            "excerpt": "\n//         [SetUp]\n//         public void Setup()",
+            "line": 21,
+            "matchedTerms": [
+              "//\\s*\\[SetUp\\]"
+            ],
+            "path": "src/UNMC/UNMC.UnitTests/ServiceTests/NavigationServiceTests.cs",
+            "score": 30
+          },
+          {
+            "excerpt": "\n//         [SetUp]\n//         public void SetUp()",
+            "line": 23,
+            "matchedTerms": [
+              "//\\s*\\[SetUp\\]"
+            ],
+            "path": "src/UNMC/UNMC.UnitTests/ServiceTests/StateMachineTaskedTests.cs",
+            "score": 30
+          },
+          {
+            "excerpt": "\n//         [SetUp]\n//         public void SetUp()",
+            "line": 36,
+            "matchedTerms": [
+              "//\\s*\\[SetUp\\]"
+            ],
+            "path": "src/UNMC/UNMC.UnitTests/ServiceTests/UploadServiceTests.cs",
+            "score": 30
+          },
+          {
+            "excerpt": "\n// \t\t[SetUp]\n// \t\tpublic void Setup()",
+            "line": 44,
+            "matchedTerms": [
+              "//\\s*\\[SetUp\\]"
+            ],
+            "path": "src/UNMC/UNMC.UnitTests/SetupStateMachineTests/PairWithRecorderManagerTest.cs",
+            "score": 30
+          }
+        ],
+        "maxResults": 50,
+        "pathPrefixes": [],
+        "regex": true,
+        "searchVersion": "source-search-v4-ranking-v1-redaction-v4",
+        "terms": [
+          "//\\s*\\[SetUp\\]"
+        ],
+        "truncated": false
+      },
+      "digest": "0ba46cb860a7106b20b6083bd1dc1d15d823b05d45c887b665d4d2922de804bc",
+      "id": "SEARCH-25309d9ce1e3",
+      "kind": "search",
+      "reason": "count commented-out test setup declarations (complete, non-truncated receipt)",
+      "snapshotId": "3701b1af12e4ac10b2ae",
+      "title": "Source search: //\\s*\\[SetUp\\]"
+    }
+  ]
+}

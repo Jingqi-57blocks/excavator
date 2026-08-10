@@ -1,0 +1,31 @@
+{
+  "claims": [
+    {
+      "evidenceIds": [
+        "SEARCH-5fa4a75ef122"
+      ],
+      "id": "claim-zero-count",
+      "marker": "verified",
+      "statement": "检索确认代码库中存在被注释掉的测试声明，共发现 112 处命中。"
+    },
+    {
+      "evidenceIds": [
+        "SEARCH-25309d9ce1e3"
+      ],
+      "id": "claim-hasmatch-exact",
+      "marker": "verified",
+      "statement": "检索确认被注释掉的测试初始化声明命中 9 处。"
+    },
+    {
+      "evidenceIds": [
+        "SEARCH-25309d9ce1e3"
+      ],
+      "id": "claim-hasmatch-lower",
+      "marker": "verified",
+      "statement": "检索确认被注释掉的测试初始化声明不少于 5 处。"
+    }
+  ],
+  "documentId": "overview-engineering",
+  "section": 1,
+  "version": 2
+}

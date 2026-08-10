@@ -1,6 +1,6 @@
 ---
 id: excavator-writing-rules
-version: 1.2.0
+version: 1.3.0
 ---
 
 # Excavator writing rules
@@ -23,6 +23,10 @@ CodeGraph is a navigation index, not the complete source of truth. When graph da
 ### Comparison claims cite every side
 
 A claim that asserts equivalence, consistency, sameness, or shared values or behavior across implementations, modules, repositories, or runtime parts is a multi-source claim. Mark it `fact` only when it cites evidence for every compared side and groups that evidence per side in the claim's `sides` field (each group is a non-empty, non-overlapping subset of the claim's `evidenceIds`). When only one side has recorded evidence, either record the missing side's evidence first or downgrade the claim to `inferred` and name which side was observed. `fact` is reserved for what the cited evidence directly shows; a single-sided citation cannot establish a two-sided equivalence, and splitting one comparison into two single-sided `fact` claims does not satisfy this rule.
+
+### Count claims match their SEARCH receipts
+
+When a statement gives a hit count and cites a `SEARCH-*` receipt, the count must be provable from that receipt. An exact count must equal the receipt's `matches.length`, or the sum across every cited receipt when each one is complete. A receipt marked `truncated: true` proves only a lower bound, so cite it only with lower-bound wording (the requested language's equivalent of "at least N" / "more than N"); stating an exact count against a truncated receipt is an audit error. A `verified` or `fact` claim that cites only zero-match receipts must read as a negative finding (the language's equivalent of "not found" / "0 occurrences"), never as a positive count. A search receipt counts matched lines, not entities, so do not state an item count whose only evidence is a search.
 
 ## Current state only
 
