@@ -2,13 +2,14 @@ import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Audience, ChecklistItem, DocumentPlan, EvidenceItem, InvestigationChecklist, InvestigationPlan, InvestigationWorkItem, ReportRequest, RunManifest, SearchReceipt, SectionClaim, SectionClaimsFile, TraceCatalog, TraceRecord } from "./types.ts";
+import type { Audience, ChecklistItem, DocumentPlan, EvidenceItem, InvestigationChecklist, InvestigationPlan, InvestigationWorkItem, KnowledgeArtifact, ReportRequest, RunManifest, SearchReceipt, SectionClaim, SectionClaimsFile, TraceCatalog, TraceRecord } from "./types.ts";
 import { buildContexts, featureCacheKey } from "./context.ts";
 import { FACT_PACK_CATEGORIES, factPackEvidenceId } from "./factpack.ts";
 import { SourceReader, evidenceFromWindow, sourceSearch, type SourceSearchStats } from "./source.ts";
 import { createSnapshot } from "./snapshot.ts";
 import { ASSURANCE_VERSION, auditChecklist, auditDetailedFeatureSection, auditEvidenceCatalog, auditReadabilityTables, auditSectionClaims, auditSectionEvidenceMarkers, auditTargetProblemAttribution, auditTraces, auditWorkItemClaimCoverage, auditWorkItems, checklistUpdatesToWorkItems, createInvestigationChecklist, createInvestigationPlan, hasEvidenceMarkers, mergeChecklist, mergeWorkItems, runUsesCurrentAssurance, type AuditFinding, validateClaimsInput, workItemsToChecklist } from "./assurance.ts";
 import { auditComparativeClaims } from "./claim-comparison.ts";
+import { auditFrozenKnowledge, buildKnowledge, freezePreconditions, knowledgeDigest, normalizeSupplement, recordSupplement } from "./freeze.ts";
 import { atomicWrite, ensureDir, exists, nowIso, readJson, REDACTION_VERSION, runIdTimestamp, sha256, slugify, stableJson, writeJson } from "./util.ts";
 import { collectClaims, createAnalysisScope, emptyTraceCatalog, mergeTraces, writeReportCompanions } from "./assurance-artifacts.ts";
 import { scaffoldSectionClaims } from "./claims-scaffold.ts";
@@ -215,11 +216,88 @@ export async function beginDocument(runDirInput: string, documentId: string): Pr
   return manifest;
 }
 
-export async function addSourceEvidence(runDirInput: string, relativePath: string, startLine: number, endLine: number, reason: string): Promise<Record<string, unknown>> {
+/** The supplement flag pair a runtime mutator may carry, threaded from the CLI. */
+export type SupplementInput = { reason?: string; workItemId?: string } | undefined;
+
+function frozenGateError(command: string): Error {
+  return new Error(`Run is frozen; \`${command}\` after freeze requires a supplement: pass --supplement-reason "<why the frozen knowledge is insufficient>" and --supplement-workitem <existing work item id>. Consume the frozen investigation knowledge as-is unless it is genuinely incomplete.`);
+}
+
+/**
+ * The write-time freeze gate shared by the five runtime mutators. Before freeze it is a no-op (the flag
+ * pair is still validated, but historical and unfrozen runs are unaffected). After freeze a mutation must
+ * carry a supplement whose work item resolves in `workitems.json`; otherwise it is refused. Returns the
+ * normalized supplement to record, or undefined for an ordinary pre-freeze mutation.
+ */
+async function enforceFreezeGate(runDir: string, manifest: RunManifest, command: string, supplement: SupplementInput): Promise<{ reason: string; workItemId: string } | undefined> {
+  const normalized = normalizeSupplement(supplement?.reason, supplement?.workItemId);
+  if (!manifest.frozenAt) return undefined;
+  if (!normalized) throw frozenGateError(command);
+  const plan = await readJson<InvestigationPlan>(join(runDir, "workitems.json"));
+  if (!plan.items.some((item) => item.id === normalized.workItemId)) {
+    throw new Error(`Supplement work item not found in workitems.json: ${normalized.workItemId}. Pass --supplement-workitem with an existing work item id.`);
+  }
+  return normalized;
+}
+
+/** Timeline `data` fields that mark a post-freeze investigation mutation as a recorded supplement. */
+function supplementTimelineData(supplement: { reason: string; workItemId: string } | undefined): Record<string, unknown> {
+  return supplement ? { supplement: true, supplementReason: supplement.reason, workItemId: supplement.workItemId } : {};
+}
+
+/**
+ * Freeze a run: verify the investigation-side gate, then write `knowledge.json`, stamp
+ * `manifest.frozenAt`/`knowledgeDigest`, append the `investigation.frozen` timeline event and initialize
+ * the supplement counter. On a precondition failure nothing is written and `frozen: false` is returned
+ * with the gap list; freezing an already-frozen run is refused (post-freeze change goes through supplements).
+ */
+export async function freezeRun(runDirInput: string): Promise<{ manifest: RunManifest; findings: AuditFinding[]; frozen: boolean; knowledge?: KnowledgeArtifact }> {
+  const runDir = resolve(runDirInput);
+  const runPath = join(runDir, "run.json");
+  const manifest = await readJson<RunManifest>(runPath);
+  if (manifest.frozenAt) throw new Error(`Run is already frozen at ${manifest.frozenAt}; re-freeze is not supported. Post-freeze changes go through the supplement channel.`);
+  const evidenceCatalog = await readJson<{ evidence: EvidenceItem[] }>(join(runDir, "evidence.json"));
+  const evidenceById = new Map(evidenceCatalog.evidence.map((item) => [item.id, item]));
+  const plan = await readJson<InvestigationPlan>(join(runDir, "workitems.json"));
+  const traces = await readJson<TraceCatalog>(join(runDir, "traces.json"));
+  const expectedPlan = createInvestigationPlan(manifest.id, manifest.request, manifest.documents);
+  const documentIds = new Set(manifest.documents.map((document) => document.id));
+  let snapshotDrift: { snapshotChanged: boolean; codegraphChanged: boolean } | null = null;
+  if (manifest.snapshot) {
+    const current = await createSnapshot(manifest.request.target, manifest.request.codegraphModules ?? manifest.request.codegraph, manifest.request.budgets.maxFiles);
+    snapshotDrift = { snapshotChanged: current.snapshot.id !== manifest.snapshot.id, codegraphChanged: current.snapshot.codegraphDigest !== manifest.snapshot.codegraphDigest };
+  }
+  const findings = await freezePreconditions({ manifest, plan, expectedPlan, evidence: evidenceCatalog.evidence, evidenceById, traces, documentIds, snapshotDrift });
+  if (findings.some((finding) => finding.level === "error")) return { manifest, findings, frozen: false };
+
+  const factPacks: Record<string, unknown> = {};
+  for (const feature of manifest.request.features) {
+    const key = featureCacheKey(feature);
+    const packPath = join(runDir, "context", "features", `${key}.factpack.json`);
+    if (await exists(packPath)) factPacks[key] = await readJson<unknown>(packPath);
+  }
+  const crossFeaturePath = join(runDir, "context", "cross-feature.json");
+  const crossFeature = await exists(crossFeaturePath) ? await readJson<unknown>(crossFeaturePath) : null;
+  const frozenAt = nowIso();
+  const knowledge = buildKnowledge({ manifest, plan, evidence: evidenceCatalog.evidence, traces, factPacks, crossFeature, frozenAt });
+  await writeJson(join(runDir, "knowledge.json"), knowledge);
+  manifest.frozenAt = frozenAt;
+  manifest.knowledgeDigest = knowledgeDigest(knowledge);
+  manifest.metrics.supplements = manifest.metrics.supplements ?? 0;
+  manifest.updatedAt = nowIso();
+  await appendTimeline(runDir, manifest.id, { stage: "investigation", action: "investigation.frozen", data: { knowledgeDigest: manifest.knowledgeDigest, evidence: knowledge.evidenceIds.length, workItems: { total: plan.items.length, disposed: knowledge.completeness.disposed }, traces: knowledge.traceIds.length } });
+  manifest.metrics.timelineEvents = (manifest.metrics.timelineEvents ?? 0) + 1;
+  await writeJson(runPath, manifest);
+  await writeJson(join(runDir, "metrics.json"), manifest.metrics);
+  return { manifest, findings, frozen: true, knowledge };
+}
+
+export async function addSourceEvidence(runDirInput: string, relativePath: string, startLine: number, endLine: number, reason: string, supplement?: SupplementInput): Promise<Record<string, unknown>> {
   const runDir = resolve(runDirInput);
   const runPath = join(runDir, "run.json");
   const manifest = await readJson<RunManifest>(runPath);
   if (!manifest.snapshot) throw new Error("Run has no source snapshot");
+  const supp = await enforceFreezeGate(runDir, manifest, "source", supplement);
   const remainingWindows = Math.max(0, manifest.request.budgets.maxSourceWindows - manifest.metrics.sourceWindows);
   const remainingCharacters = Math.max(0, manifest.request.budgets.maxSourceCharacters - manifest.metrics.sourceCharacters);
   const reader = new SourceReader({
@@ -239,18 +317,21 @@ export async function addSourceEvidence(runDirInput: string, relativePath: strin
   manifest.metrics.sourceWindowCacheHits += reader.stats.hits;
   manifest.metrics.sourceCharacters += reader.stats.characters;
   manifest.updatedAt = nowIso();
-  await appendTimeline(runDir, manifest.id, { stage: "investigation", action: "source.window", subject: relativePath, evidenceIds: [window.id], data: { startLine, endLine, reason, cacheHit: reader.stats.hits > 0 } });
+  if (supp) manifest.metrics.supplements = (manifest.metrics.supplements ?? 0) + 1;
+  await appendTimeline(runDir, manifest.id, { stage: "investigation", action: "source.window", subject: relativePath, evidenceIds: [window.id], data: { startLine, endLine, reason, cacheHit: reader.stats.hits > 0, ...supplementTimelineData(supp) } });
   manifest.metrics.timelineEvents = (manifest.metrics.timelineEvents ?? 0) + 1;
   await writeJson(runPath, manifest);
   await writeJson(join(runDir, "metrics.json"), manifest.metrics);
+  if (supp) await recordSupplement(runDir, "source", [window.id], supp);
   return { evidence: evidenceFromWindow(window), cacheHit: reader.stats.hits > 0 };
 }
 
-export async function searchSourceEvidence(runDirInput: string, termsInput: string[], reason: string, options: { maxResults?: number; pathPrefixes?: string[]; regex?: boolean; caseSensitive?: boolean } = {}): Promise<Record<string, unknown>> {
+export async function searchSourceEvidence(runDirInput: string, termsInput: string[], reason: string, options: { maxResults?: number; pathPrefixes?: string[]; regex?: boolean; caseSensitive?: boolean } = {}, supplement?: SupplementInput): Promise<Record<string, unknown>> {
   const runDir = resolve(runDirInput);
   const runPath = join(runDir, "run.json");
   const manifest = await readJson<RunManifest>(runPath);
   if (!manifest.snapshot) throw new Error("Run has no source snapshot");
+  const supp = await enforceFreezeGate(runDir, manifest, "search", supplement);
   const terms = [...new Set(termsInput.map((term) => term.trim()).filter((term) => options.regex ? term.length > 0 : term.length >= 2))];
   if (!terms.length) throw new Error(options.regex ? "Regex source search requires a non-empty expression" : "Source search requires at least one term of two or more characters");
   const maxResults = Math.min(200, Math.max(1, options.maxResults ?? 50));
@@ -307,10 +388,12 @@ export async function searchSourceEvidence(runDirInput: string, termsInput: stri
   manifest.metrics.sourceSearchCacheHits = (manifest.metrics.sourceSearchCacheHits ?? 0) + (cacheHit ? 1 : 0);
   manifest.metrics.sourceFilesSearched = (manifest.metrics.sourceFilesSearched ?? 0) + (cacheHit ? 0 : scopedFiles.length);
   manifest.updatedAt = nowIso();
-  await appendTimeline(runDir, manifest.id, { stage: "investigation", action: "source.search", evidenceIds: [item.id], data: { terms, pathPrefixes, maxResults, cacheHit, matchCount: Array.isArray(data.matches) ? data.matches.length : 0, reason } });
+  if (supp) manifest.metrics.supplements = (manifest.metrics.supplements ?? 0) + 1;
+  await appendTimeline(runDir, manifest.id, { stage: "investigation", action: "source.search", evidenceIds: [item.id], data: { terms, pathPrefixes, maxResults, cacheHit, matchCount: Array.isArray(data.matches) ? data.matches.length : 0, reason, ...supplementTimelineData(supp) } });
   manifest.metrics.timelineEvents = (manifest.metrics.timelineEvents ?? 0) + 1;
   await writeJson(runPath, manifest);
   await writeJson(join(runDir, "metrics.json"), manifest.metrics);
+  if (supp) await recordSupplement(runDir, "search", [item.id], supp);
   return { evidence: item, cacheHit, ...data };
 }
 
@@ -524,6 +607,10 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
     findings.push(...runWide(auditChecklist(checklist, expectedChecklist, evidenceById)));
   }
 
+  // Frozen-knowledge consistency: run-level assertions, self-gated on knowledge.json existing, so an
+  // unfrozen or legacy run is untouched. A scoped audit keeps them advisory like the other run-wide checks.
+  findings.push(...runWide(await auditFrozenKnowledge(runDir, manifest, evidenceCatalog.evidence, plan, traces)));
+
   // A scoped audit reports its findings but does not certify or mutate the run.
   if (singleDocument) return { manifest, findings };
 
@@ -545,8 +632,10 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
   return { manifest, findings };
 }
 
-export async function updateChecklist(runDirInput: string, updates: Partial<ChecklistItem>[]): Promise<InvestigationChecklist> {
+export async function updateChecklist(runDirInput: string, updates: Partial<ChecklistItem>[], supplement?: SupplementInput): Promise<InvestigationChecklist> {
   const runDir = resolve(runDirInput);
+  const manifest = await readJson<RunManifest>(join(runDir, "run.json"));
+  const supp = await enforceFreezeGate(runDir, manifest, "checklist", supplement);
   const path = join(runDir, "checklist.json");
   const existing = await readJson<InvestigationChecklist>(path);
   const merged = mergeChecklist(existing, updates);
@@ -554,41 +643,51 @@ export async function updateChecklist(runDirInput: string, updates: Partial<Chec
   const planPath = join(runDir, "workitems.json");
   const plan = mergeWorkItems(await readJson<InvestigationPlan>(planPath), checklistUpdatesToWorkItems(updates));
   await writeJson(planPath, plan);
-  const manifest = await readJson<RunManifest>(join(runDir, "run.json"));
+  const ids = updates.map((item) => item.id).filter((id): id is string => Boolean(id));
   manifest.metrics.workItems = { total: plan.items.length, complete: plan.items.filter((item) => !["pending", "in_progress"].includes(item.status)).length };
-  await appendTimeline(runDir, manifest.id, { stage: "investigation", action: "workitems.updated", workItemIds: updates.map((item) => item.id).filter((id): id is string => Boolean(id)) });
+  if (supp) manifest.metrics.supplements = (manifest.metrics.supplements ?? 0) + 1;
+  await appendTimeline(runDir, manifest.id, { stage: "investigation", action: "workitems.updated", workItemIds: ids, ...(supp ? { data: supplementTimelineData(supp) } : {}) });
   manifest.metrics.timelineEvents = (manifest.metrics.timelineEvents ?? 0) + 1;
   await writeJson(join(runDir, "run.json"), manifest);
   await writeJson(join(runDir, "metrics.json"), manifest.metrics);
+  if (supp) await recordSupplement(runDir, "checklist", ids, supp);
   return merged;
 }
 
-export async function updateWorkItems(runDirInput: string, updates: Partial<InvestigationWorkItem>[]): Promise<InvestigationPlan> {
+export async function updateWorkItems(runDirInput: string, updates: Partial<InvestigationWorkItem>[], supplement?: SupplementInput): Promise<InvestigationPlan> {
   const runDir = resolve(runDirInput);
+  const manifest = await readJson<RunManifest>(join(runDir, "run.json"));
+  const supp = await enforceFreezeGate(runDir, manifest, "workitem", supplement);
   const path = join(runDir, "workitems.json");
   const plan = mergeWorkItems(await readJson<InvestigationPlan>(path), updates);
   await writeJson(path, plan);
   await writeJson(join(runDir, "checklist.json"), workItemsToChecklist(plan));
-  const manifest = await readJson<RunManifest>(join(runDir, "run.json"));
+  const ids = updates.map((item) => item.id).filter((id): id is string => Boolean(id));
   manifest.metrics.workItems = { total: plan.items.length, complete: plan.items.filter((item) => !["pending", "in_progress"].includes(item.status)).length };
-  await appendTimeline(runDir, manifest.id, { stage: "investigation", action: "workitems.updated", workItemIds: updates.map((item) => item.id).filter((id): id is string => Boolean(id)) });
+  if (supp) manifest.metrics.supplements = (manifest.metrics.supplements ?? 0) + 1;
+  await appendTimeline(runDir, manifest.id, { stage: "investigation", action: "workitems.updated", workItemIds: ids, ...(supp ? { data: supplementTimelineData(supp) } : {}) });
   manifest.metrics.timelineEvents = (manifest.metrics.timelineEvents ?? 0) + 1;
   await writeJson(join(runDir, "run.json"), manifest);
   await writeJson(join(runDir, "metrics.json"), manifest.metrics);
+  if (supp) await recordSupplement(runDir, "workitem", ids, supp);
   return plan;
 }
 
-export async function updateTraces(runDirInput: string, updates: TraceRecord[]): Promise<TraceCatalog> {
+export async function updateTraces(runDirInput: string, updates: TraceRecord[], supplement?: SupplementInput): Promise<TraceCatalog> {
   const runDir = resolve(runDirInput);
+  const manifest = await readJson<RunManifest>(join(runDir, "run.json"));
+  const supp = await enforceFreezeGate(runDir, manifest, "trace", supplement);
   const path = join(runDir, "traces.json");
   const catalog = mergeTraces(await readJson<TraceCatalog>(path), updates);
   await writeJson(path, catalog);
-  const manifest = await readJson<RunManifest>(join(runDir, "run.json"));
+  const ids = updates.map((trace) => trace.id);
   manifest.metrics.traces = catalog.traces.length;
-  await appendTimeline(runDir, manifest.id, { stage: "investigation", action: "traces.updated", traceIds: updates.map((trace) => trace.id) });
+  if (supp) manifest.metrics.supplements = (manifest.metrics.supplements ?? 0) + 1;
+  await appendTimeline(runDir, manifest.id, { stage: "investigation", action: "traces.updated", traceIds: ids, ...(supp ? { data: supplementTimelineData(supp) } : {}) });
   manifest.metrics.timelineEvents = (manifest.metrics.timelineEvents ?? 0) + 1;
   await writeJson(join(runDir, "run.json"), manifest);
   await writeJson(join(runDir, "metrics.json"), manifest.metrics);
+  if (supp) await recordSupplement(runDir, "trace", ids, supp);
   return catalog;
 }
 
@@ -681,7 +780,7 @@ Use the report contract's chapter order exactly. In section 1, begin with one lo
 
 When the requested detail level above is \`detailed\`, do not compress distinct rules, states, types, thresholds, entry points, records, jobs or side effects into a few summary sentences. Build the section inventory first, then enumerate every material distinct item supported by the prepared evidence. Use the contract-required tables and Mermaid diagrams. The feature context is a candidate corpus, not a finished summary.
 ${factPackInstructions(document, detailLevel)}
-Do not repeat investigation already present in the prepared context. When the prepared context does not identify a path, use the Excavator search command and retain its \`SEARCH-*\` receipt. Open source only when the context is insufficient, and record every additional source window through the Excavator source command before using it. Complete every pending work item before audit and ensure each material item appears in the report. A \`cannot-determine\` checklist result must cite evidence for the analysis limitation.
+The investigation is frozen before authoring: \`evidence.json\`, \`workitems.json\`, \`traces.json\` and the prepared context are complete and are the authoring input. Consume them as they are; do not re-investigate to fill a gap. When a claim seems to lack evidence, first decide whether it is an expression problem — the evidence you need is almost always already in the catalog under a different framing. Only when the frozen knowledge is genuinely incomplete, open a supplement: re-run the relevant Excavator command with \`--supplement-reason "<why the frozen knowledge is insufficient>" --supplement-workitem <work item id>\`, which performs the operation and records the exception in the coverage ledger. Ensure each material item appears in the report.
 
 Describe current state and current problems only. Do not provide recommendations, remediation, future architecture, migration steps, or action items. A target problem must be attributable to the target snapshot. Never place CodeGraph/Excavator limitations, unresolved graph references, source fallback, provider coverage, analysis budgets or static-review limitations in a target risk/current-problem section; put them only in the coverage chapter or an Excavator validation report.
 `;

@@ -2,7 +2,7 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { Audience, BudgetConfig, ChecklistItem, FeatureRequest, InvestigationWorkItem, ReportRequest, SectionClaim, TraceRecord } from "./types.ts";
-import { addSourceEvidence, assembleRun, auditRun, beginDocument, checkpointSection, prepareRun, resumeRun, runStatus, scaffoldClaims, searchSourceEvidence, updateChecklist, updateTraces, updateWorkItems } from "./run.ts";
+import { addSourceEvidence, assembleRun, auditRun, beginDocument, checkpointSection, freezeRun, prepareRun, resumeRun, runStatus, scaffoldClaims, searchSourceEvidence, updateChecklist, updateTraces, updateWorkItems, type SupplementInput } from "./run.ts";
 import { stableJson } from "./util.ts";
 import { buildCodeGraph, codeGraphStatus } from "./codegraph-command.ts";
 import { deriveDefaultBudgets, plannedDocumentCount } from "./budgets.ts";
@@ -62,12 +62,20 @@ async function main(): Promise<void> {
       case "begin": {
         const args = parseArgs(argv);
         const manifest = await beginDocument(required(args.run, "--run"), required(args.document, "--document"));
-        print({ state: manifest.state, document: args.document, startedAt: manifest.documents.find((item) => item.id === args.document)?.startedAt });
+        const notice = manifest.frozenAt ? {} : { notice: "This run is not frozen; freeze the investigation before authoring so knowledge is stable: excavator freeze --run <run-dir>." };
+        print({ state: manifest.state, document: args.document, startedAt: manifest.documents.find((item) => item.id === args.document)?.startedAt, ...notice });
+        break;
+      }
+      case "freeze": {
+        const args = parseArgs(argv);
+        const result = await freezeRun(required(args.run, "--run"));
+        print(result);
+        if (!result.frozen) process.exitCode = 1;
         break;
       }
       case "source": {
         const args = parseArgs(argv);
-        print(await addSourceEvidence(required(args.run, "--run"), required(args.path, "--path"), Number(required(args.start, "--start")), Number(required(args.end, "--end")), required(args.reason, "--reason")));
+        print(await addSourceEvidence(required(args.run, "--run"), required(args.path, "--path"), Number(required(args.start, "--start")), Number(required(args.end, "--end")), required(args.reason, "--reason"), supplementFrom(args)));
         break;
       }
       case "search": {
@@ -77,7 +85,8 @@ async function main(): Promise<void> {
           required(args.run, "--run"),
           terms,
           required(args.reason, "--reason"),
-          { maxResults: args.maxResults ? Number(args.maxResults) : undefined, pathPrefixes: csv(args.pathPrefixes ?? args.pathPrefix), regex: args.regex === "true", caseSensitive: args.caseSensitive === "true" }
+          { maxResults: args.maxResults ? Number(args.maxResults) : undefined, pathPrefixes: csv(args.pathPrefixes ?? args.pathPrefix), regex: args.regex === "true", caseSensitive: args.caseSensitive === "true" },
+          supplementFrom(args)
         ));
         break;
       }
@@ -96,20 +105,20 @@ async function main(): Promise<void> {
       case "checklist": {
         const args = parseArgs(argv);
         const raw = JSON.parse(await readFile(required(args.file, "--file"), "utf8")) as Partial<ChecklistItem>[] | { items: Partial<ChecklistItem>[] };
-        const checklist = await updateChecklist(required(args.run, "--run"), Array.isArray(raw) ? raw : raw.items);
+        const checklist = await updateChecklist(required(args.run, "--run"), Array.isArray(raw) ? raw : raw.items, supplementFrom(args));
         print(checklist);
         break;
       }
       case "workitem": {
         const args = parseArgs(argv);
         const raw = JSON.parse(await readFile(required(args.file, "--file"), "utf8")) as Partial<InvestigationWorkItem>[] | { items: Partial<InvestigationWorkItem>[] };
-        print(await updateWorkItems(required(args.run, "--run"), Array.isArray(raw) ? raw : raw.items));
+        print(await updateWorkItems(required(args.run, "--run"), Array.isArray(raw) ? raw : raw.items, supplementFrom(args)));
         break;
       }
       case "trace": {
         const args = parseArgs(argv);
         const raw = JSON.parse(await readFile(required(args.file, "--file"), "utf8")) as TraceRecord[] | { traces: TraceRecord[] };
-        print(await updateTraces(required(args.run, "--run"), Array.isArray(raw) ? raw : raw.traces));
+        print(await updateTraces(required(args.run, "--run"), Array.isArray(raw) ? raw : raw.traces, supplementFrom(args)));
         break;
       }
       case "assemble": print(await assembleRun(required(parseArgs(argv).run, "--run"))); break;
@@ -224,6 +233,13 @@ function audiences(value: string): Audience[] {
   return [...new Set(result.length ? result : ["product"] as Audience[])];
 }
 
+/** Build the supplement flag pair from parsed args; undefined when neither flag is present. Mutual-
+ *  requirement and work-item resolution are enforced in the Core mutator, not here. */
+function supplementFrom(args: Record<string, string>): SupplementInput {
+  if (!args.supplementReason && !args.supplementWorkitem) return undefined;
+  return { reason: args.supplementReason, workItemId: args.supplementWorkitem };
+}
+
 function csv(value?: string): string[] { return (value ?? "").split(",").map((item) => item.trim()).filter(Boolean); }
 function camel(value: string): string { return value.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()); }
 function required(value: string | undefined, name: string): string { if (!value) throw new Error(`Missing ${name}`); return value; }
@@ -239,6 +255,7 @@ Commands:
   prepare    Alias of report; accepts --request request.json
   codegraph  Inspect or build an optional CodeGraph index
   begin      Start or restart one document authoring timer
+  freeze     Freeze the completed investigation into knowledge.json before authoring
   source     Record a bounded source excerpt as evidence
   search     Search source under the run snapshot and record a reusable receipt
   checkpoint Save one completed section and its claims atomically
@@ -256,6 +273,7 @@ Examples:
   excavator overview --target ./workspace --no-codegraph --audience both
   excavator codegraph status --target ./workspace
   excavator codegraph build --target ./workspace --quiet
+  excavator freeze --run <run>
   excavator feature --target ./workspace --subject "Account access" --aliases access,permission,role --audience both --detail detailed
   excavator search --run <run> --query "\\bTODO\\b|@deprecated" --regex --case-sensitive --reason "investigate unfinished behavior"
   excavator claims scaffold --run <run> --document <id> --section 1 --file section.md
@@ -356,28 +374,37 @@ const COMMAND_HELP: Record<string, CommandHelp> = {
     ],
     example: "excavator begin --run <run> --document overview-product"
   },
+  freeze: {
+    synopsis: "freeze --run <dir>",
+    flags: ["--run <dir>          Run directory (required)"],
+    example: "excavator freeze --run <run>"
+  },
   source: {
-    synopsis: "source --run <dir> --path <file> --start <n> --end <n> --reason <text>",
+    synopsis: "source --run <dir> --path <file> --start <n> --end <n> --reason <text> [--supplement-reason <text> --supplement-workitem <id>]",
     flags: [
-      "--run <dir>          Run directory (required)",
-      "--path <file>        Source file relative to the target (required)",
-      "--start <n>          First line of the excerpt (required)",
-      "--end <n>            Last line of the excerpt (required)",
-      "--reason <text>      Why the excerpt is recorded (required)"
+      "--run <dir>              Run directory (required)",
+      "--path <file>            Source file relative to the target (required)",
+      "--start <n>              First line of the excerpt (required)",
+      "--end <n>                Last line of the excerpt (required)",
+      "--reason <text>          Why the excerpt is recorded (required)",
+      "--supplement-reason <text>  Post-freeze only: why the frozen knowledge is insufficient",
+      "--supplement-workitem <id>  Post-freeze only: the existing work item this supplement is charged to"
     ],
     example: 'excavator source --run <run> --path src/server.ts --start 3 --end 5 --reason "route handler"'
   },
   search: {
-    synopsis: "search --run <dir> (--query <expr> | --terms a,b) --reason <text> [--regex] [--case-sensitive] [--max-results <n>] [--path-prefixes a,b]",
+    synopsis: "search --run <dir> (--query <expr> | --terms a,b) --reason <text> [--regex] [--case-sensitive] [--max-results <n>] [--path-prefixes a,b] [--supplement-reason <text> --supplement-workitem <id>]",
     flags: [
-      "--run <dir>          Run directory (required)",
-      "--query <expr>       Single search expression (or use --terms)",
-      "--terms a,b          Comma-separated literal terms",
-      "--reason <text>      Why the search is recorded (required)",
-      "--regex              Treat the query as a regular expression",
-      "--case-sensitive     Match case exactly",
-      "--max-results <n>    Cap the receipt (default 50)",
-      "--path-prefixes a,b  Restrict the search to these path prefixes"
+      "--run <dir>              Run directory (required)",
+      "--query <expr>           Single search expression (or use --terms)",
+      "--terms a,b              Comma-separated literal terms",
+      "--reason <text>          Why the search is recorded (required)",
+      "--regex                  Treat the query as a regular expression",
+      "--case-sensitive         Match case exactly",
+      "--max-results <n>        Cap the receipt (default 50)",
+      "--path-prefixes a,b      Restrict the search to these path prefixes",
+      "--supplement-reason <text>  Post-freeze only: why the frozen knowledge is insufficient",
+      "--supplement-workitem <id>  Post-freeze only: the existing work item this supplement is charged to"
     ],
     example: 'excavator search --run <run> --query "\\bTODO\\b" --regex --reason "find unfinished work"'
   },
@@ -414,26 +441,32 @@ const COMMAND_HELP: Record<string, CommandHelp> = {
     example: "excavator claims scaffold --run <run> --document <id> --section 1 --file section.md"
   },
   checklist: {
-    synopsis: "checklist --run <dir> --file <json>",
+    synopsis: "checklist --run <dir> --file <json> [--supplement-reason <text> --supplement-workitem <id>]",
     flags: [
-      "--run <dir>          Run directory (required)",
-      "--file <json>        Checklist dispositions (array or {items:[...]}) (required)"
+      "--run <dir>              Run directory (required)",
+      "--file <json>            Checklist dispositions (array or {items:[...]}) (required)",
+      "--supplement-reason <text>  Post-freeze only: why the frozen knowledge is insufficient",
+      "--supplement-workitem <id>  Post-freeze only: the existing work item this supplement is charged to"
     ],
     example: "excavator checklist --run <run> --file checklist-updates.json"
   },
   workitem: {
-    synopsis: "workitem --run <dir> --file <json>",
+    synopsis: "workitem --run <dir> --file <json> [--supplement-reason <text> --supplement-workitem <id>]",
     flags: [
-      "--run <dir>          Run directory (required)",
-      "--file <json>        Work-item updates (array or {items:[...]}) (required)"
+      "--run <dir>              Run directory (required)",
+      "--file <json>            Work-item updates (array or {items:[...]}) (required)",
+      "--supplement-reason <text>  Post-freeze only: why the frozen knowledge is insufficient",
+      "--supplement-workitem <id>  Post-freeze only: the existing work item this supplement is charged to"
     ],
     example: "excavator workitem --run <run> --file workitem-updates.json"
   },
   trace: {
-    synopsis: "trace --run <dir> --file <json>",
+    synopsis: "trace --run <dir> --file <json> [--supplement-reason <text> --supplement-workitem <id>]",
     flags: [
-      "--run <dir>          Run directory (required)",
-      "--file <json>        Trace records (array or {traces:[...]}) (required)"
+      "--run <dir>              Run directory (required)",
+      "--file <json>            Trace records (array or {traces:[...]}) (required)",
+      "--supplement-reason <text>  Post-freeze only: why the frozen knowledge is insufficient",
+      "--supplement-workitem <id>  Post-freeze only: the existing work item this supplement is charged to"
     ],
     example: "excavator trace --run <run> --file traces.json"
   },
