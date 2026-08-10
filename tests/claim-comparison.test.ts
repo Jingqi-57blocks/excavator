@@ -64,6 +64,29 @@ test("comparativeWording matches the bilingual positive phrasings", () => {
   assert.ok(comparativeWording("前端枚举与 v2 后端保持一致"));
 });
 
+// --- 57B-354 #6b: comparison CONTEXT is required, not a bare noun-compound substring --------------
+
+test("comparativeWording fires only on cross-source comparison context", () => {
+  // Positives: real single-sided-fact defects the advisory must still catch.
+  for (const positive of [
+    "v2 与遗留实现共享同一批数值阈值",
+    "遗留 wcp service 与 v2 共享 16 与 40 小时分级阈值",
+    "前端枚举 LeaveStatus 与 v2 后端保持一致"
+  ]) assert.ok(comparativeWording(positive), `expected a match: ${positive}`);
+
+  // Negatives: ordinary compounds that read comparative but assert no cross-source equivalence.
+  for (const negative of [
+    "共享读取",
+    "同一天",
+    "同一自然日",
+    "同一员工",
+    "保持一致性",
+    "相邻耦合",
+    "相互对应",
+    "行为一致性"
+  ]) assert.equal(comparativeWording(negative), false, `expected no match: ${negative}`);
+});
+
 // --- Structural: malformed sides must error / throw -----------------------------------------------
 
 const STRUCTURAL_CASES: Array<{ name: string; claim: SectionClaim }> = [

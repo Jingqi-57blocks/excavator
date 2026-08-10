@@ -198,6 +198,28 @@ test("a boundary route the feature scope ranking never returns is still enumerat
   assert.equal(coverage(factPack, "entrypoints").truncated, false, "reaching further than the scope is not a truncation");
 });
 
+test("the scope-node cap flags only graph-derived categories, never a full-coverage scan-only one", async () => {
+  const scope = await boundary(true);
+  const factPack = await buildFactPack({
+    snapshotId: "snapshot-fact-pack",
+    featureKey: "leave-management-abc123",
+    files: scope.files,
+    graph: scope.graph,
+    sourceReader: scope.reader,
+    scopeNodesCapped: true
+  });
+  scope.graph?.close();
+
+  // Scan-only categories never consult the capped graph node set, so a full-coverage one is not truncated.
+  for (const category of ["config-keys", "jobs", "external-calls"] as const) {
+    assert.equal(coverage(factPack, category).truncated, false, `${category} must not be flagged truncated by the node cap`);
+  }
+  // Graph-derived categories enumerated over the capped node set, so the cap still marks them incomplete.
+  for (const category of ["entrypoints", "entities", "states"] as const) {
+    assert.equal(coverage(factPack, category).truncated, true, `${category} must carry the node-cap truncation`);
+  }
+});
+
 test("the same snapshot and scope build a byte-identical fact pack", async () => {
   const scope = await boundary(true);
   const first = await pack(scope);
