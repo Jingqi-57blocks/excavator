@@ -1,14 +1,18 @@
 #!/usr/bin/env node
-// eval harness CLI. Two commands:
+// eval harness CLI. Commands:
 //   extract --run <dir> [--out <file>]                     dump normalized Knowledge as JSON
 //   diff --run <dir> --expected <file> [--json] [--prepare-only]
+//   view --run <dir> [--json]                              render one run's metrics + timeline
 // diff exits 1 on any mustFind missing / forbidden violation / coverage failure; 0 otherwise.
 // --prepare-only runs ONLY the anchor-in-scope containment check (zero model, sub-second).
+// view has no semantic-fail concept: exit 0 on success, 2 on error (like every other harness error).
 
 import { writeFileSync } from "node:fs";
 import { extractKnowledge } from "./knowledge.ts";
 import { loadExpected } from "./expected.ts";
 import { checkContainment, diffKnowledge, exitCodeFor, type Containment, type Diff } from "./diff.ts";
+import { computeRunStats } from "./run-stats.ts";
+import { renderRunStats } from "./render-run-stats.ts";
 
 interface Flags {
   run?: string;
@@ -40,7 +44,8 @@ function requireFlag(value: string | undefined, name: string): string {
 const USAGE = `eval harness
 
   extract --run <dir> [--out <file>]
-  diff    --run <dir> --expected <file> [--json] [--prepare-only]`;
+  diff    --run <dir> --expected <file> [--json] [--prepare-only]
+  view    --run <dir> [--json]`;
 
 function renderContainment(containment: Containment): string {
   const lines = [`=== prepare containment (${containment.contained.length}/${containment.contained.length + containment.missing.length} anchors in scope) ===`];
@@ -100,6 +105,12 @@ function runDiff(flags: Flags): number {
   return exitCodeFor(diff);
 }
 
+function runView(flags: Flags): number {
+  const stats = computeRunStats(requireFlag(flags.run, "--run"));
+  process.stdout.write(`${flags.json ? JSON.stringify(stats, null, 2) : renderRunStats(stats)}\n`);
+  return 0;
+}
+
 function main(argv: string[]): number {
   const [command, ...rest] = argv;
   if (!command || command === "help" || command === "--help" || command === "-h") {
@@ -109,12 +120,16 @@ function main(argv: string[]): number {
   const flags = parseFlags(rest);
   if (command === "extract") return runExtract(flags);
   if (command === "diff") return runDiff(flags);
+  if (command === "view") return runView(flags);
   throw new Error(`unknown command: ${command}`);
 }
 
+// Set process.exitCode rather than calling process.exit(): a large stdout write
+// to a pipe is async, and process.exit() would truncate it at the pipe buffer.
+// With exitCode the process ends naturally once stdout has drained.
 try {
-  process.exit(main(process.argv.slice(2)));
+  process.exitCode = main(process.argv.slice(2));
 } catch (error) {
   process.stderr.write(`error: ${(error as Error).message}\n`);
-  process.exit(2);
+  process.exitCode = 2;
 }

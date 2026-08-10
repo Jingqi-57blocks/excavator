@@ -1,0 +1,30 @@
+{
+  "startedAt": "2026-01-01T00:00:00.000Z",
+  "finishedAt": "2026-01-01T00:06:10.000Z",
+  "timing": {
+    "snapshotMs": 120,
+    "totalPrepareMs": 340,
+    "sharedContextMs": 95,
+    "feature:doc-scope-abc123Ms": 210,
+    "totalMs": 371000
+  },
+  "graphQueries": 4,
+  "graphQueryCacheHits": 1,
+  "sourceWindows": 3,
+  "sourceWindowCacheHits": 1,
+  "sourceCharacters": 5120,
+  "sourceSearches": 1,
+  "sourceSearchCacheHits": 1,
+  "sourceFilesSearched": 5,
+  "filesConsidered": 42,
+  "timelineEvents": 15,
+  "claims": 8,
+  "traces": 2,
+  "workItems": { "complete": 3, "total": 4 },
+  "codegraphCoverage": { "indexed": 20, "eligible": 40, "ratio": 0.5 },
+  "cache": { "feature:doc-scope-abc123": "hit", "shared": "miss" },
+  "warnings": [
+    "synthetic fixture: fact pack for doc-b was not fully enumerated",
+    "second warning line, present to exercise passthrough"
+  ]
+}
