@@ -162,6 +162,22 @@ test("leave-mini forbidden pin: honest negation is exempt, single-facet 'sends e
   assert.ok(!hits.some((hit) => hit.ref === "d#honest"), "the honest negation must not be flagged");
 });
 
+test("leave-mini forbidden pin exempts implement/exist negations (real authored claims) but not a positive send", () => {
+  const expected = loadExpected(LEAVE_MINI_EXPECTED);
+  const knowledge = knowledgeWith({
+    facts: [
+      // Two real fact-marked claims from an authored run that the pin previously false-flagged.
+      fact({ ref: "d#c12", marker: "fact", statement: "邮件、短信与推送通知，README 声明刻意不实现" }),
+      fact({ ref: "d#c14", marker: "fact", statement: "README 明确声明本服务刻意不实现任何邮件、短信或推送通知，审批结果只落库并出现在列表接口里" }),
+      fact({ ref: "d#provide", marker: "fact", statement: "本服务不提供任何邮件或短信通知功能" }),
+      // Positive control: a real hallucination with no negation must STILL be caught.
+      fact({ ref: "d#halluc", marker: "fact", statement: "系统会向申请人发送电子邮件通知" })
+    ]
+  });
+  const hits = diffKnowledge(knowledge, expected).forbiddenHits;
+  assert.deepEqual(hits.map((hit) => hit.ref), ["d#halluc"], `only the positive send should flag, got ${JSON.stringify(hits)}`);
+});
+
 test("anchorInHorizon is path-boundary-safe: src/auth.ts is not satisfied by src/auth.tsx in scope text", () => {
   const expected = validateExpected({
     version: "expected-knowledge-v1",

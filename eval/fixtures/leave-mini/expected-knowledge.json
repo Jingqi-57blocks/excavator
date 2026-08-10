@@ -109,18 +109,20 @@
         "邮件|电子邮件|email|e-?mail|短信|SMS|推送|通知|notification|message"
       ],
       "unless": [
-        "不.{0,6}(发送|发出|发起|推送|发|通知)",
-        "不会.{0,6}(发送|推送|通知)",
-        "没有?.{0,8}(邮件|短信|推送|通知|发送)",
-        "未.{0,6}(发送|推送|通知)",
-        "无.{0,8}(邮件|短信|推送|通知)",
-        "do(es)?\\s+not\\s+(send|email|notify|notice)",
-        "not\\s+(send|sent|email|notify)",
-        "no\\s+.{0,20}(email|notification|sms|notice|message)",
-        "without\\s+.{0,20}(notification|email|message)"
+        "不.{0,8}(发送|发出|发起|推送|下发|群发|寄送|投递|通报|发|通知)",
+        "不会.{0,8}(发送|推送|通知)",
+        "没有?.{0,10}(邮件|短信|推送|通知|发送|实现|提供)",
+        "未.{0,8}(发送|推送|通知|实现|提供)",
+        "无.{0,10}(邮件|短信|推送|通知)",
+        "(刻意|故意|特意)?不(实现|提供|支持|包含|含|做)",
+        "不[^。！？；\\n]{0,12}(实现|提供|支持)",
+        "do(es)?\\s+not\\s+(implement|provide|support|send|email|notify|notice)",
+        "not\\s+(implement|provide|support|send|sent|email|notify)",
+        "no\\s+.{0,24}(notification|email|sms|push|notice|message)",
+        "without\\s+.{0,20}(notification|email|message|sms)"
       ],
       "markers": ["fact", "verified"],
-      "note": "leave-mini 刻意不实现任何通知能力。只有断言'发送某渠道'的 fact 级声明才算幻觉；诚实地声明'不发送任何通知'由 unless 豁免，不应被判为幻觉。"
+      "note": "leave-mini 刻意不实现任何通知能力。只有断言'发送某渠道'（发送动词 + 渠道，且无否定）的 fact 级声明才算幻觉。unless 覆盖两类诚实否定：一是'不发送/没有/未/无 通知'，二是'刻意不实现/不提供/不支持 通知'——两者都不应被判为幻觉。"
     }
   ],
   "coverage": [
