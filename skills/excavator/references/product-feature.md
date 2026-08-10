@@ -53,6 +53,8 @@ Explain relevant configuration keys, whether defaults are visible, environment o
 
 List only target-attributable feature problems: locatable rule gaps, implementation differences, permission or data-scope defects, contradictory target tests or documentation, explicitly unfinished target code, discarded target errors, and target entries with no caller found after a complete recorded search. Explain connected entries, records, scheduled work, and other capabilities without recommendations. Present the problems as a Markdown table or a Markdown list (problem, target evidence, what current code permits, confidence), and enumerate the connected entries, records, scheduled work, and capabilities as a Markdown list.
 
+When `context/cross-feature.json` is present, name the adjacent capabilities this feature shares files, business objects or configuration keys with, grounded in that deterministic prepared context; state what is shared rather than predicting that a change must affect the other capability.
+
 Do not list CodeGraph limitations, unresolved graph references, source fallback, provider coverage, candidate counts, static-review limitations, Excavator behavior, prompt quality, audit limitations or analysis performance here. Put those only in section 12 or in an Excavator validation report.
 
 ## 11. Glossary

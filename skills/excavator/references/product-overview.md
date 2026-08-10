@@ -25,6 +25,8 @@ Explain the user-facing applications, independently operated services, and backg
 
 Organize domains, capabilities, and user actions in business language. Cover employee-facing use, administration, external users, automation, import and export, notifications, and third-party integrations. Explain relationships between capabilities without expanding the internal implementation of one feature. Present the domain-to-capability map as a Markdown table or a nested Markdown list rather than a prose paragraph.
 
+When `context/cross-feature.json` is present (a run that covers two or more features), include a cross-feature relationship matrix or table grounded in it: for each related pair of capabilities, show what they share (files, business objects, configuration keys). This is deterministic prepared context, not an audited claim; honor its notes, including that cross-module relationships are limited to shared files, objects and configuration keys.
+
 ## 4. Users, roles, and permission boundary
 
 List the main user groups and roles, the operations and data scopes that can be confirmed, and the boundary between permissions declared at entry points and permissions enforced inside processing logic. State the limitation when a complete matrix cannot be established. Present roles and their confirmed operations and data scopes as a Markdown table (role, confirmed operations, data scope).

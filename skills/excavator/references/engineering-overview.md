@@ -37,6 +37,8 @@ Explain user-interface routes, HTTP APIs, public APIs, callbacks, commands, sche
 
 Explain major packages, modules, components, service layers, data layers, and call directions. Identify highly connected nodes, cycles, or truncated areas without substituting artifact counts for architecture explanation.
 
+When `context/cross-feature.json` is present (a run that covers two or more features), include a cross-feature relationship matrix or table grounded in it: for each related pair of features, show the files, entities and configuration keys they share. This is deterministic prepared context (set intersection over feature scopes and fact packs), not an audited claim; honor its notes, including that cross-module CodeGraph edges are not represented, so the relationships are limited to shared files, entities and configuration keys.
+
 ## 7. Data models, storage, and files
 
 Explain database technologies, ORM or query approaches, shared tables or models, read/write boundaries, transaction evidence, caches, object storage, upload/download paths, and exported files.

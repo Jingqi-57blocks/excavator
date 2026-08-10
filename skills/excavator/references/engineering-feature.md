@@ -71,6 +71,8 @@ Explain configuration-key names, whether defaults are visible, feature switches,
 
 Explain callers, callees, shared data, adjacent capabilities, jobs, and external dependencies. State reachability and connection, not a prediction that a change must break something.
 
+When `context/cross-feature.json` is present, name the adjacent features this feature shares files, entities or configuration keys with, grounded in that deterministic prepared context (set intersection over feature scopes and fact packs). State what is shared; honor its notes, including that cross-module CodeGraph edges are not represented.
+
 ## 11. Tests, documentation, and current implementation problems
 
 Explain target test evidence, target documentation, explicitly unfinished target code, target contradictions, entries with no caller found after a complete recorded search, and current locatable target problems.
