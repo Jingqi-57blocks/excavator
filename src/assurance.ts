@@ -450,6 +450,57 @@ export function auditTargetProblemAttribution(options: {
   return findings;
 }
 
+/**
+ * Advisory readability nudge (warning-only; NOT version-gated; does NOT touch the hard path).
+ *
+ * The engineering-FEATURE detailed path already HARD-requires inventory/comparison tables via
+ * `auditDetailedFeatureSection`. The other three document contracts — product feature, product
+ * overview, engineering overview — carried no table requirement at all, which is why their reports
+ * came out as walls of prose. For a designated inventory/comparison section that has substantive
+ * prose but no Markdown table in its reading flow, this emits a single `warning`. It never emits an
+ * `error`, never gates on `ASSURANCE_VERSION`, and never runs for engineering-feature documents.
+ *
+ * The per-(kind, audience) section-index sets below (1-based, indices as they appear in the four
+ * reference templates) list only the clearly-tabular inventory/comparison chapters. Deliberately
+ * omitted: narrative openings (purpose/boundary), ordered journeys/flows and runtime topology
+ * (Mermaid's job), pure-risk problem prose with no inventory, and the coverage/analysis-boundary
+ * meta-chapters. A tests-and-problems chapter is included only where it carries a tests/documentation
+ * inventory (the engineering templates), not a product report's pure-risk chapter.
+ */
+const READABILITY_TABLE_SECTIONS: Record<string, Set<number>> = {
+  // product-overview.md §2 system parts, §3 capability map, §4 roles/permission boundary,
+  // §5 business objects+states, §7 external dependencies, §8 back-office capabilities.
+  // Omitted: §1 purpose, §6 data movement (a flow narrative), §9 pure risks, §10 coverage.
+  "overview:product": new Set([2, 3, 4, 5, 7, 8]),
+  // engineering-overview.md §2 repositories/units, §3 stack, §5 interfaces/entry points,
+  // §7 data models/storage, §8 identity/auth, §9 external integrations, §10 config/jobs,
+  // §11 tests+problems (tests inventory). Omitted: §1 purpose/snapshot, §4 topology (Mermaid),
+  // §6 call structure (graph), §12 coverage.
+  "overview:engineering": new Set([2, 3, 5, 7, 8, 9, 10, 11]),
+  // product-feature.md §3 rules, §5 role-by-action, §6 data/fields, §7 side effects,
+  // §8 failure modes, §9 config/switches, §11 glossary. Omitted: §1 boundary, §2 journey (flow),
+  // §4 states (Mermaid state diagram is mandated there), §10 problems+connected, §12 coverage.
+  "feature:product": new Set([3, 5, 6, 7, 8, 9, 11])
+  // "feature:engineering" is intentionally absent: it stays on the hard `auditDetailedFeatureSection` path.
+};
+
+export function auditReadabilityTables(options: {
+  document: DocumentPlan;
+  sectionIndex: number;
+  sectionText: string;
+}): AuditFinding[] {
+  const { document, sectionIndex, sectionText } = options;
+  const sections = READABILITY_TABLE_SECTIONS[`${document.kind}:${document.audience}`];
+  if (!sections || !sections.has(sectionIndex)) return [];
+  // Only nudge a chapter that actually carries inventory-style prose; a heading-only or empty section
+  // has nothing to tabulate. Reuse the same substantive-segment primitive the claim audit relies on.
+  if (!substantiveSegments(sectionText).length) return [];
+  // Reuse the exact table regex and visible-text scope the engineering-feature hard path uses, so a
+  // table living only inside a collapsed evidence block does not count as a tabular reading flow.
+  if (/^\s*\|.+\|\s*$/m.test(visibleText(sectionText))) return [];
+  return [warning(document.id, `section ${sectionIndex} is an inventory/comparison chapter with no Markdown table; consider presenting the items as a table (advisory)`)];
+}
+
 export function auditDetailedFeatureSection(options: {
   document: DocumentPlan;
   detailLevel: "standard" | "detailed" | undefined;

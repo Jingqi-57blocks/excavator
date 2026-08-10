@@ -319,8 +319,10 @@ test("full audit reads a checkpointed document's claims from disk so a missing r
   await rm(join(runDir, "reports", `${slugify(docB.subject!)}-${docB.audience}.md`));
   const after = await auditRun(runDir);
 
-  // docB reports one targeted finding — the missing report — not a per-work-item coverage cascade.
-  assert.deepEqual(after.findings.filter((finding) => finding.document === docB.id).map((finding) => finding.message), ["assembled report is missing"]);
+  // docB reports one targeted error — the missing report — not a per-work-item coverage cascade.
+  // Advisory readability-table warnings (prose-only fixture sections carry no Markdown table) are a
+  // separate, non-failing layer, so scope the exact-match to error-level findings.
+  assert.deepEqual(after.findings.filter((finding) => finding.document === docB.id && finding.level === "error").map((finding) => finding.message), ["assembled report is missing"]);
   assert.ok(!after.findings.some((finding) => finding.document === docB.id && /not represented/.test(finding.message)));
   // docA is untouched and its material work item is still covered.
   assert.ok(!after.findings.some((finding) => finding.document === docA.id && /not represented|coverage was not evaluated/.test(finding.message)));

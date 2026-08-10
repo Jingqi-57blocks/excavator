@@ -62,7 +62,7 @@ Then follow the generated prompt files. Every completed section is checkpointed 
   --run <run-dir> --file checklist-updates.json
 ```
 
-Claims bind exact visible statements to evidence IDs. The checklist prevents a predefined investigation category from disappearing silently; every item ends as `hit`, `searched-not-found`, or `cannot-determine`.
+Claims bind exact visible statements to evidence IDs. The checklist prevents a predefined investigation category from disappearing silently; every item ends as `hit`, `searched-not-found`, `cannot-determine`, or `not-applicable`.
 
 ## Source fallback
 
