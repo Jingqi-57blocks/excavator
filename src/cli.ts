@@ -6,6 +6,7 @@ import { addSourceEvidence, assembleRun, auditRun, beginDocument, checkpointSect
 import { stableJson } from "./util.ts";
 import { buildCodeGraph, codeGraphStatus } from "./codegraph-command.ts";
 import { deriveDefaultBudgets, plannedDocumentCount } from "./budgets.ts";
+import { DEFAULT_WORKDIR } from "./defaults.ts";
 
 async function main(): Promise<void> {
   const [command = "help", ...argv] = process.argv.slice(2);
@@ -159,7 +160,7 @@ function normalizeRequest(raw: Partial<ReportRequest>, args: Record<string, stri
     codegraphMode: args.noCodegraph === "true" ? "off" : raw.codegraphMode ?? "auto",
     language: String(raw.language ?? args.language ?? "en-US"),
     detailLevel: raw.detailLevel === "standard" || args.detail === "standard" ? "standard" : "detailed",
-    workdir: resolve(String(raw.workdir ?? args.workdir ?? ".excavator-work")),
+    workdir: resolve(String(raw.workdir ?? args.workdir ?? DEFAULT_WORKDIR)),
     overviewAudiences,
     features,
     budgets: { ...defaultBudgets({ overviewAudiences, features }), ...(raw.budgets ?? {}), ...budgetOverrides(args) }
@@ -173,7 +174,7 @@ function baseRequest(args: Record<string, string>, docs: Pick<ReportRequest, "ov
     codegraphMode: args.noCodegraph === "true" ? "off" : "auto",
     language: args.language ?? "en-US",
     detailLevel: args.detail === "standard" ? "standard" : "detailed",
-    workdir: resolve(args.workdir ?? ".excavator-work"),
+    workdir: resolve(args.workdir ?? DEFAULT_WORKDIR),
     ...docs,
     budgets: { ...defaultBudgets(docs), ...budgetOverrides(args) }
   };

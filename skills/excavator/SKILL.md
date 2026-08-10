@@ -93,7 +93,7 @@ Example:
 {
   "target": "/workspace/project",
   "language": "en-US",
-  "workdir": "/workspace/excavator-work",
+  "workdir": "/workspace/.work",
   "overviewAudiences": ["product", "engineering"],
   "features": [
     {

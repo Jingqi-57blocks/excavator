@@ -47,6 +47,16 @@ export function safeRelative(root: string, candidate: string): string {
 
 export function nowIso(): string { return new Date().toISOString(); }
 
+/**
+ * Run-id timestamp in LOCAL time, `YYYY_MM_DD_HH_MM`. Minute resolution is intentional: the run-id
+ * appends a random UUID segment, so the timestamp is a human-readable ordinal, not the uniqueness
+ * guarantee. Distinct from `nowIso()`, which stays UTC ISO-8601 for machine `createdAt` fields.
+ */
+export function runIdTimestamp(date: Date = new Date()): string {
+  const pad = (value: number): string => String(value).padStart(2, "0");
+  return [date.getFullYear(), pad(date.getMonth() + 1), pad(date.getDate()), pad(date.getHours()), pad(date.getMinutes())].join("_");
+}
+
 export class Deadline {
   readonly startedAt = Date.now();
   readonly limitMs: number;

@@ -49,6 +49,39 @@ test("merging runs orders overview pages ahead of features regardless of per-run
   assert.equal(result.pages[0].output, "index.html", "the product overview stays the landing page");
 });
 
+test("build derives <parent>/html-reports when --output is omitted for a single directory input", async () => {
+  const root = await temp();
+  const reports = join(root, "reports");
+  await mkdir(reports);
+  const runId = "run-2026_08_10_09_30-abcd1234-ef567890-0011aabb";
+  await writeFile(join(reports, "overview.md"), page({ title: "Overview", navTitle: "Overview", kind: "overview", audience: "product", order: "1", language: "en-US", run: runId }, "Overview"));
+
+  const result = await buildSite({ inputs: [reports] });
+  assert.equal(result.output, join(root, "html-reports"), "the default output sits beside the input directory");
+  const index = await readFile(join(root, "html-reports", "index.html"), "utf8");
+  assert.match(index, new RegExp(`Run: ${runId}`), "the run-id from front matter reaches the footer");
+});
+
+test("a report without a run front-matter key renders no run line", async () => {
+  const root = await temp();
+  const reports = join(root, "reports");
+  await mkdir(reports);
+  await writeFile(join(reports, "overview.md"), page({ title: "Overview", navTitle: "Overview", kind: "overview", audience: "product", order: "1", language: "en-US" }, "Overview"));
+  await buildSite({ inputs: [reports], output: join(root, "site") });
+  const index = await readFile(join(root, "site", "index.html"), "utf8");
+  assert.doesNotMatch(index, /Run:/, "an absent run key stays graceful for older reports");
+});
+
+test("omitting --output errors for a file input or multiple inputs", async () => {
+  const root = await temp();
+  const reports = join(root, "reports");
+  await mkdir(reports);
+  const file = join(reports, "overview.md");
+  await writeFile(file, page({ title: "Overview", navTitle: "Overview", kind: "overview", audience: "product", order: "1", language: "en-US" }, "Overview"));
+  await assert.rejects(buildSite({ inputs: [file] }), /--output is required/, "a single file input has no unambiguous default output");
+  await assert.rejects(buildSite({ inputs: [reports, reports] }), /--output is required/, "multiple inputs have no unambiguous default output");
+});
+
 test("aria labels follow the report language", async () => {
   const root = await temp();
   const zhOut = join(root, "zh");
