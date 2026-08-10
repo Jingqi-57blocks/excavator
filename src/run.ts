@@ -154,6 +154,11 @@ export async function prepareRun(request: ReportRequest): Promise<{ runDir: stri
   for (const [key, factPack] of result.prepared.featureFactPacks) {
     await writeJson(join(runDir, "context", "features", `${key}.factpack.json`), factPack);
   }
+  // Cross-feature relationships need at least two features to have any pair to relate; single-feature
+  // and overview-only runs skip the artifact, matching the shared-context section's own condition.
+  if (request.features.length >= 2) {
+    await writeJson(join(runDir, "context", "cross-feature.json"), result.prepared.crossFeature);
+  }
   await writeJson(join(runDir, "run.json"), manifest);
   await writeJson(join(runDir, "metrics.json"), manifest.metrics);
   await writeJson(join(runDir, "checklist.json"), workItemsToChecklist(plan));

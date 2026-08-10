@@ -8,6 +8,7 @@ import { SourceReader, evidenceFromWindow, manifestSummary, selectProjectDocumen
 import { Deadline, ensureDir, exists, projectWorkspace, readJson, sha256, slugify, stableJson, truncate, writeJson } from "./util.ts";
 import { createProviderRegistry, resolveCodeGraphDatabase } from "./providers.ts";
 import { buildFactPack, factPackEvidence, renderFactPackSection } from "./factpack.ts";
+import { computeCrossFeatureRelationships, renderCrossFeatureSection } from "./cross-feature.ts";
 import { legacyWorkspaceWarning } from "./workspace-residue.ts";
 
 const BUILDER_VERSION = "excavator-context-v16-fact-pack";
@@ -154,9 +155,24 @@ export async function buildContexts(request: ReportRequest): Promise<ContextBuil
 
   graph?.close();
   const sourceStats = sourceReader.stats;
+
+  // Cross-feature relationships are computed after every feature is prepared, so they cannot live in
+  // the per-snapshot shared-context cache (which is feature-independent). The section is appended to
+  // this run's shared markdown only when the run carries at least two features; single-feature and
+  // overview-only runs have no pair to relate and skip both the section and the artifact.
+  const crossFeature = computeCrossFeatureRelationships(
+    request.features.map((feature) => {
+      const key = featureCacheKey(feature);
+      return { key, subject: feature.subject, files: featureScopes.get(key)?.files ?? [], factPack: featureFactPacks.get(key)! };
+    }).filter((entry) => entry.factPack)
+  );
+  const sharedMarkdown = request.features.length >= 2
+    ? `${shared.markdown}\n\n${renderCrossFeatureSection(crossFeature)}`
+    : shared.markdown;
+
   timing.totalPrepareMs = Date.now() - t0;
   return {
-    prepared: { snapshot, evidence: dedupeEvidence(allEvidence), sharedMarkdown: shared.markdown, documentContexts, featureMarkdowns, featureFactPacks, featureScopes },
+    prepared: { snapshot, evidence: dedupeEvidence(allEvidence), sharedMarkdown, documentContexts, featureMarkdowns, featureFactPacks, featureScopes, crossFeature },
     projectDir,
     stats: {
       graphQueries: graph?.stats.queries ?? 0,
@@ -418,6 +434,7 @@ function renderOverviewContext(audience: Audience, language: string): string {
 - Audience: ${audience}
 - Output language: ${language}
 - Read the shared project context once from \`context/shared.md\`.
+- When two or more features are prepared, the shared context ends with a "Cross-feature relationships" section and the same data is in \`context/cross-feature.json\`; use it for the cross-feature relationship matrix. It is deterministic prepared context, not an audited claim.
 - Read the evidence catalog from \`evidence.json\` only when a cited item needs full detail.
 - Describe the current source snapshot only. State observed problems, but do not recommend fixes or future architecture.
 - Inference from code is allowed when marked and grounded.

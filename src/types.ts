@@ -1,3 +1,5 @@
+import type { CrossFeatureRelationships } from "./cross-feature.ts";
+
 export type Audience = "product" | "engineering";
 export type DocumentKind = "overview" | "feature";
 export type RunState = "planned" | "preparing" | "prepared" | "authoring" | "assembled" | "audited" | "complete" | "failed" | "timed-out";
@@ -391,4 +393,5 @@ export interface PreparedContext {
   featureMarkdowns: Map<string, string>;
   featureFactPacks: Map<string, FeatureFactPack>;
   featureScopes: Map<string, { nodes: GraphNode[]; files: string[]; evidenceIds: string[] }>;
+  crossFeature: CrossFeatureRelationships;
 }
