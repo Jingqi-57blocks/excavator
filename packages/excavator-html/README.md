@@ -4,8 +4,7 @@ A standalone Markdown-to-static-HTML converter. It imports no Excavator analysis
 
 ```bash
 ./packages/excavator-html/src/cli.ts build \
-  --input .excavator-work/runs/<run-id>/reports \
-  --output ./report-site \
+  --input .work/<project>/runs/<run-id>/reports \
   --title "Project report"
 ```
 

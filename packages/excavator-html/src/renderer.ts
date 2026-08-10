@@ -17,7 +17,8 @@ interface Page {
   outputName: string;
 }
 
-export async function buildSite(options: { inputs: string[]; output: string; title?: string }): Promise<{ pages: Array<{ title: string; output: string }>; output: string }> {
+export async function buildSite(options: { inputs: string[]; output?: string; title?: string }): Promise<{ pages: Array<{ title: string; output: string }>; output: string }> {
+  const output = resolveOutputDir(options.inputs, options.output);
   const inputFiles = await expandInputs(options.inputs);
   if (!inputFiles.length) throw new Error("No Markdown files were found");
   const pages: Page[] = [];
@@ -42,13 +43,27 @@ export async function buildSite(options: { inputs: string[]; output: string; tit
   const overview = pages.find((page) => page.metadata.kind === "overview" && page.metadata.audience === "product") ?? pages.find((page) => page.metadata.kind === "overview") ?? pages[0];
   for (const page of pages) page.outputName = page === overview ? "index.html" : `${slug(page.stem)}.html`;
 
-  const output = resolve(options.output);
   await mkdir(join(output, "assets"), { recursive: true });
   await copyFile(join(HERE, "report.css"), join(output, "assets", "report.css"));
   await copyFile(join(HERE, "report.js"), join(output, "assets", "report.js"));
   const siteTitle = options.title || overview.title;
   for (const page of pages) await writeFile(join(output, page.outputName), renderPage(page, pages, siteTitle), "utf8");
   return { pages: pages.map((page) => ({ title: page.title, output: page.outputName })), output };
+}
+
+/**
+ * Resolve the site output directory. An explicit `--output` is resolved as given. When it is
+ * omitted, a default is derived only for a single directory input: `<parent-of-input>/html-reports`
+ * — so `build --input <run>/reports` writes to `<run>/html-reports/`. The directory is read from the
+ * raw input because {@link expandInputs} discards it in favour of the file list. A file input or
+ * multiple inputs have no unambiguous parent, so an omitted output stays an error there.
+ */
+export function resolveOutputDir(inputs: string[], output: string | undefined): string {
+  if (output) return resolve(output);
+  if (inputs.length === 1 && extname(inputs[0]).toLowerCase() !== ".md") {
+    return join(dirname(resolve(inputs[0])), "html-reports");
+  }
+  throw new Error("--output is required unless a single directory --input is given");
 }
 
 async function expandInputs(inputs: string[]): Promise<string[]> {
@@ -73,7 +88,8 @@ function renderPage(page: Page, pages: Page[], siteTitle: string): string {
   const language = page.metadata.language || "zh-CN";
   const labels = ariaLabels(language);
   const snapshot = page.metadata.snapshot ? `Source snapshot: ${escapeHtml(page.metadata.snapshot)}` : "Static source review";
-  return `<!DOCTYPE html>\n<html lang="${escapeHtml(language)}"><head><meta charset="utf-8"/><meta content="width=device-width,initial-scale=1" name="viewport"/><title>${escapeHtml(page.title)}</title><link href="assets/report.css" rel="stylesheet"/></head><body>\n<header class="site-header"><div class="header-inner"><a class="brand" href="index.html">${escapeHtml(siteTitle)}</a><nav aria-label="${escapeHtml(labels.reportModules)}" class="global-nav">${nav}</nav></div></header>\n<div class="layout"><aside class="sidebar"><p class="sidebar-label">本页目录</p><nav aria-label="${escapeHtml(labels.tableOfContents)}" class="toc" id="toc"></nav></aside><main class="main"><section class="hero"><h1>${escapeHtml(page.title)}</h1></section>${moduleHub}<article class="content">${content}</article><div class="diagram-status">图表无法渲染。请连接网络后重新加载。</div></main></div>\n<footer class="footer">${snapshot}</footer><button aria-label="${escapeHtml(labels.backToTop)}" class="back-to-top">↑</button><dialog class="diagram-dialog" id="diagramDialog"><div class="dialog-head"><strong>图表详情</strong><button class="dialog-close">关闭</button></div><div class="dialog-body"></div></dialog><script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script><script src="assets/report.js"></script></body></html>`;
+  const runLine = page.metadata.run ? ` · Run: ${escapeHtml(page.metadata.run)}` : "";
+  return `<!DOCTYPE html>\n<html lang="${escapeHtml(language)}"><head><meta charset="utf-8"/><meta content="width=device-width,initial-scale=1" name="viewport"/><title>${escapeHtml(page.title)}</title><link href="assets/report.css" rel="stylesheet"/></head><body>\n<header class="site-header"><div class="header-inner"><a class="brand" href="index.html">${escapeHtml(siteTitle)}</a><nav aria-label="${escapeHtml(labels.reportModules)}" class="global-nav">${nav}</nav></div></header>\n<div class="layout"><aside class="sidebar"><p class="sidebar-label">本页目录</p><nav aria-label="${escapeHtml(labels.tableOfContents)}" class="toc" id="toc"></nav></aside><main class="main"><section class="hero"><h1>${escapeHtml(page.title)}</h1></section>${moduleHub}<article class="content">${content}</article><div class="diagram-status">图表无法渲染。请连接网络后重新加载。</div></main></div>\n<footer class="footer">${snapshot}${runLine}</footer><button aria-label="${escapeHtml(labels.backToTop)}" class="back-to-top">↑</button><dialog class="diagram-dialog" id="diagramDialog"><div class="dialog-head"><strong>图表详情</strong><button class="dialog-close">关闭</button></div><div class="dialog-body"></div></dialog><script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script><script src="assets/report.js"></script></body></html>`;
 }
 
 /**

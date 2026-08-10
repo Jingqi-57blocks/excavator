@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { basename, join, resolve } from "node:path";
-import { redactSecrets } from "../src/util.ts";
+import { redactSecrets, runIdTimestamp } from "../src/util.ts";
 
 test("secret redaction covers typed declarations, JSON, YAML and environment assignments", () => {
   const input = [
@@ -28,6 +28,14 @@ test("secret redaction covers typed declarations, JSON, YAML and environment ass
   assert.match(redacted, /"access_token": <redacted>,/);
   assert.match(redacted, /"jsonwebtoken": "\^9\.0\.0",/);
   assert.match(redacted, /"gpt3-tokenizer": "\^1\.1\.5"/);
+});
+
+test("runIdTimestamp formats a run-id stamp in local time, zero-padded, YYYY_MM_DD_HH_MM", () => {
+  // Dates are built from LOCAL components, so the getters return those same components in any
+  // timezone and the assertion is timezone-stable. Month is 0-based: 7 => August, 0 => January.
+  assert.equal(runIdTimestamp(new Date(2026, 7, 10, 9, 30)), "2026_08_10_09_30");
+  assert.equal(runIdTimestamp(new Date(2026, 0, 5, 3, 7)), "2026_01_05_03_07", "single digits are padded to two");
+  assert.match(runIdTimestamp(new Date(2026, 11, 31, 23, 59)), /^\d{4}_\d{2}_\d{2}_\d{2}_\d{2}$/);
 });
 
 test("source window cache ignores legacy unversioned excerpts", async () => {

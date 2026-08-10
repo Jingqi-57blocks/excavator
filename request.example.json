@@ -2,7 +2,7 @@
   "target": "/path/to/project",
   "codegraph": "/path/to/project/.codegraph/codegraph.db",
   "language": "en-US",
-  "workdir": "/tmp/excavator-work",
+  "workdir": "/tmp/.work",
   "overviewAudiences": ["product", "engineering"],
   "features": [
     {

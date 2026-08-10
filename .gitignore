@@ -40,12 +40,13 @@ lerna-debug.log*
 *.cer
 
 # --- Excavator runtime output ---
-# Default workdir (`--workdir`, defaults to ./.excavator-work): run directories,
+# Default workdir (`--workdir`, defaults to ./.work): run directories,
 # prompts, checkpoints, caches and source excerpts. They contain local absolute
-# paths and high-volume intermediate evidence and are never committed.
+# paths and high-volume intermediate evidence and are never committed. The legacy
+# `.excavator-work`/`excavator-work` names stay ignored for older workspaces.
+.work/
 .excavator-work/
 excavator-work/
-.work/
 **/runs/
 **/cache/
 

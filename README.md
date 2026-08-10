@@ -42,7 +42,7 @@ npm test
   --target /path/to/project \
   --audience both \
   --language zh-CN \
-  --workdir /tmp/excavator-work
+  --workdir /tmp/.work
 ```
 
 For mixed requests use a request file:
@@ -120,7 +120,7 @@ If the CLI is missing, Excavator prints installation choices and stops without d
 A workdir holds one directory per analyzed target, named after the target's basename. Runs and caches for a target live together, so a project's state can be inspected or removed in one step.
 
 ```text
-.excavator-work/
+.work/
 └── <project>/
     ├── .target                     # absolute path this directory belongs to
     ├── cache/
@@ -164,8 +164,7 @@ Use `begin` before authoring. `checkpoint` stops the document when its authoring
 
 ```bash
 ./packages/excavator-html/src/cli.ts build \
-  --input .excavator-work/runs/<run-id>/reports \
-  --output ./report-site \
+  --input .work/<project>/runs/<run-id>/reports \
   --title "Project report"
 ```
 
