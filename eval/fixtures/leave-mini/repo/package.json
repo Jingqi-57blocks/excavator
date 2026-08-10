@@ -1,0 +1,8 @@
+{
+  "name": "leave-mini",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "description": "Synthetic leave-management target for the Excavator eval harness (authorization + two-level approval).",
+  "dependencies": { "hono": "^4.0.0" }
+}

@@ -1,0 +1,51 @@
+{
+  "evidence": [
+    {
+      "id": "GIT-snapmini",
+      "kind": "git",
+      "snapshotId": "snap-mini",
+      "title": "Source snapshot",
+      "reason": "record the immutable source boundary"
+    },
+    {
+      "id": "S-approval1",
+      "kind": "source",
+      "snapshotId": "snap-mini",
+      "path": "leave-svc/src/approval.ts",
+      "startLine": 30,
+      "endLine": 60,
+      "title": "leave-svc/src/approval.ts",
+      "content": "export function approveLevel2(...) { balances.deduct(...) }"
+    },
+    {
+      "id": "S-balance1",
+      "kind": "source",
+      "snapshotId": "snap-mini",
+      "path": "leave-svc/src/balance.ts",
+      "startLine": 5,
+      "endLine": 20,
+      "title": "leave-svc/src/balance.ts",
+      "content": "deduct(employeeId, days) { if (days > current) throw ... }"
+    },
+    {
+      "id": "S-roles1",
+      "kind": "source",
+      "snapshotId": "snap-mini",
+      "path": "leave-svc/src/roles.ts",
+      "startLine": 1,
+      "endLine": 15,
+      "title": "leave-svc/src/roles.ts",
+      "content": "type Role = employee | manager | hr"
+    },
+    {
+      "id": "S-auth1",
+      "kind": "source",
+      "snapshotId": "snap-mini",
+      "path": "leave-svc/src/auth.ts",
+      "startLine": 10,
+      "endLine": 25,
+      "title": "leave-svc/src/auth.ts",
+      "content": "requireRole(actor, required) { ... }"
+    }
+  ]
+}

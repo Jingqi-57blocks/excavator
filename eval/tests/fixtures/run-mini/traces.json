@@ -1,0 +1,28 @@
+{
+  "runId": "run-mini",
+  "version": 1,
+  "traces": [
+    {
+      "id": "TR-approval",
+      "type": "business-flow",
+      "status": "verified",
+      "confidence": "high",
+      "documentIds": ["feature-leave-x-engineering"],
+      "title": "请假申请从提交到终审落库的正常流程",
+      "steps": [
+        {
+          "index": 1,
+          "action": "员工提交休假申请",
+          "evidenceIds": ["S-approval1"],
+          "claimIds": ["claim-1"]
+        },
+        {
+          "index": 2,
+          "action": "经理一级审批，随后 HR 二级审批并扣减余额",
+          "evidenceIds": ["S-approval1", "S-balance1"],
+          "claimIds": ["claim-1"]
+        }
+      ]
+    }
+  ]
+}

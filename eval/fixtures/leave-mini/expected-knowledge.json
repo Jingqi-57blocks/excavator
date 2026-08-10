@@ -1,0 +1,130 @@
+{
+  "version": "expected-knowledge-v1",
+  "target": "leave-mini",
+  "items": [
+    {
+      "id": "authz-three-roles",
+      "kind": "fact",
+      "mustFind": true,
+      "anchors": [{ "path": "src/roles.ts" }],
+      "statementPatterns": ["员工|employee", "经理|manager", "HR|hr"],
+      "markers": ["fact", "verified"]
+    },
+    {
+      "id": "authz-data-scope",
+      "kind": "fact",
+      "mustFind": true,
+      "anchors": [{ "path": "src/scope.ts" }],
+      "statementPatterns": ["自己|本人", "下属|直属", "全部|所有"]
+    },
+    {
+      "id": "authz-l1-guard",
+      "kind": "fact",
+      "mustFind": true,
+      "anchors": [{ "path": "src/auth.ts" }],
+      "statementPatterns": ["直属经理|直接经理", "一级|level.?1"]
+    },
+    {
+      "id": "authz-l2-guard",
+      "kind": "fact",
+      "mustFind": true,
+      "anchors": [{ "path": "src/auth.ts" }],
+      "statementPatterns": ["HR", "二级|终审|level.?2"]
+    },
+    {
+      "id": "authz-submit-role",
+      "kind": "fact",
+      "mustFind": true,
+      "anchors": [{ "path": "src/server.ts" }],
+      "statementPatterns": ["提交|申请|submit", "员工|employee"]
+    },
+    {
+      "id": "flow-two-level",
+      "kind": "fact",
+      "mustFind": true,
+      "anchors": [{ "path": "src/approval.ts" }],
+      "statementPatterns": ["两级|一级.*二级|经理.*HR"]
+    },
+    {
+      "id": "flow-status-lifecycle",
+      "kind": "fact",
+      "mustFind": true,
+      "anchors": [{ "path": "src/leave-request.ts" }],
+      "statementPatterns": ["pending|待审|待批|level1Approved|一级审批|approved|审批通过|rejected|驳回|状态机|生命周期|状态流转"]
+    },
+    {
+      "id": "flow-balance-deduct",
+      "kind": "fact",
+      "mustFind": true,
+      "anchors": [{ "path": "src/approval.ts" }, { "path": "src/balance.ts" }],
+      "statementPatterns": ["扣减|deduct", "余额|balance", "二级|终审|approved"]
+    },
+    {
+      "id": "flow-unpaid-no-deduct",
+      "kind": "fact",
+      "mustFind": true,
+      "anchors": [{ "path": "src/approval.ts" }],
+      "statementPatterns": ["无薪|unpaid", "不扣减|不占用"]
+    },
+    {
+      "id": "flow-reject-no-deduct",
+      "kind": "fact",
+      "mustFind": true,
+      "anchors": [{ "path": "src/approval.ts" }],
+      "statementPatterns": ["驳回|reject", "不扣减|不占用|rejected"]
+    },
+    {
+      "id": "flow-balance-insufficient",
+      "kind": "fact",
+      "mustFind": true,
+      "anchors": [{ "path": "src/balance.ts" }],
+      "statementPatterns": ["余额不足|不足", "错误|抛|error|不做部分"]
+    },
+    {
+      "id": "rel-approval-flow",
+      "kind": "relation",
+      "mustFind": true,
+      "anchors": [{ "path": "src/approval.ts" }],
+      "stepPatterns": ["审批|approve"]
+    },
+    {
+      "id": "rel-list-scope",
+      "kind": "relation",
+      "mustFind": false,
+      "anchors": [{ "path": "src/server.ts" }, { "path": "src/scope.ts" }]
+    },
+    {
+      "id": "unknown-carryover",
+      "kind": "unknown",
+      "mustFind": false,
+      "anchors": [],
+      "patterns": ["结转|累计|carry"]
+    }
+  ],
+  "forbidden": [
+    {
+      "id": "no-notification-send",
+      "patterns": [
+        "发送|发出|发起|推送|下发|群发|寄送|投递|通报|sends?|sent|sending|dispatch|deliver|notif(y|ies|ied)",
+        "邮件|电子邮件|email|e-?mail|短信|SMS|推送|通知|notification|message"
+      ],
+      "unless": [
+        "不.{0,6}(发送|发出|发起|推送|发|通知)",
+        "不会.{0,6}(发送|推送|通知)",
+        "没有?.{0,8}(邮件|短信|推送|通知|发送)",
+        "未.{0,6}(发送|推送|通知)",
+        "无.{0,8}(邮件|短信|推送|通知)",
+        "do(es)?\\s+not\\s+(send|email|notify|notice)",
+        "not\\s+(send|sent|email|notify)",
+        "no\\s+.{0,20}(email|notification|sms|notice|message)",
+        "without\\s+.{0,20}(notification|email|message)"
+      ],
+      "markers": ["fact", "verified"],
+      "note": "leave-mini 刻意不实现任何通知能力。只有断言'发送某渠道'的 fact 级声明才算幻觉；诚实地声明'不发送任何通知'由 unless 豁免，不应被判为幻觉。"
+    }
+  ],
+  "coverage": [
+    { "dimension": "authorization", "expect": ["found"] },
+    { "dimension": "data-scope", "expect": ["found"] }
+  ]
+}

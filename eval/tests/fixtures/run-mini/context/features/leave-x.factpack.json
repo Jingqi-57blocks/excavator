@@ -1,0 +1,17 @@
+{
+  "version": "factpack-v1",
+  "snapshotId": "snap-mini",
+  "featureKey": "leave-x",
+  "warnings": [],
+  "coverage": [
+    { "category": "entrypoints", "method": "scan", "itemCount": 1, "truncated": false },
+    { "category": "entities", "method": "scan", "itemCount": 4, "truncated": false }
+  ],
+  "items": [
+    { "category": "entrypoints", "name": "approveLevel2", "filePath": "leave-svc/src/approval.ts", "line": 30, "endLine": 60, "source": "scan" },
+    { "category": "entities", "name": "BalanceStore", "filePath": "leave-svc/src/balance.ts", "line": 5, "endLine": 20, "source": "scan" },
+    { "category": "entities", "name": "Role", "filePath": "leave-svc/src/roles.ts", "line": 1, "endLine": 15, "source": "scan" },
+    { "category": "entities", "name": "requireRole", "filePath": "leave-svc/src/auth.ts", "line": 10, "endLine": 25, "source": "scan" },
+    { "category": "entities", "name": "canViewLeave", "filePath": "leave-svc/src/scope.ts", "line": 1, "endLine": 18, "source": "scan" }
+  ]
+}
