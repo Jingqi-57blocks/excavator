@@ -98,6 +98,20 @@ now complete and frozen. `manifest.frozenAt`/`manifest.knowledgeDigest` are stam
 `investigation.frozen` timeline event is appended. The digest covers the frozen core (everything except
 `supplements`), so appending a supplement never changes it.
 
+Freeze also renders one authoring packet per document under `context/authoring/<document-id>.md`: a
+deterministic, model-free view of the frozen knowledge organized by the report section each work item is
+assigned to (`reportSection`). Each section block lists its work items, the fact-pack items whose category
+that section owns (states, entry points, config keys, jobs, entities, external calls — mapped from the
+work-item dimension, not from any target's names), and the frozen evidence — source excerpts clipped to a
+line/character ceiling, fact-pack and search receipts as summary lines, and traces as one-line references,
+deduplicated across sections. The packet copies nothing that is not already frozen and is a regenerable
+view, not part of the frozen core: it carries no digest and changing it cannot pollute the assurance chain.
+It addresses transport — knowledge that was mined but never reached the section that needed it — and the
+wall-clock and context cost of re-reading `evidence.json`; it cannot deepen an investigation, so knowledge
+the investigation never recorded cannot appear in it. A warning-level audit advisory,
+`auditAuthoringPacketConsumption`, self-gated on the packet existing, flags a section whose listed evidence
+no claim consumed — a whole section ignoring its packet, never a depth shortfall.
+
 Under the current assurance version freeze is a hard precondition of authoring, enforced at two points
 that move together. `begin` refuses to start authoring a run that is not yet frozen. As a backstop for
 any path that bypasses `begin`, the audit fails a run that carries authoring activity but no preceding

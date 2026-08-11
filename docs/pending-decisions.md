@@ -99,3 +99,10 @@ e2e 结论：freeze 机制在真实产物上正确（freeze 门抓出真缺口�
 - **(c) fact-pack thresholds 类目（扫 `> \d+`）——倾向否决**：同文件 `service.go:1558 style.Font.Size = 16`、`:1626 SetRowHeight(...,40)` 是呈现常量，纯确定性扫描无法区分业务阈值与噪声，信号被淹。
 
 另记：**`reconcileFactPack` 扩展到 product 报告**（advisory）——本次 WCP 案例因 fact-pack 六类目全 truncated 而无效，优先级低，留证待议。
+
+## 批次 57B-359 增量3（authoring packet）评审产生（fable 复核，2026-08-11）
+
+判定"可合"（九项重点逐条核实：纯确定性字节级/不 bump 版本/knowledge-v1 零改动/advisory warning-only/框架无关映射/摘录纪律/接线；离线回放独立复跑运输保证成立）。三项非阻塞残差：
+- **open 起源 feature workitem 无 reportSection 时静默落不进任何 packet block（残差）**：`src/authoring-packet.ts` 按 `reportSection` 分块，而 `mergeWorkItems`（assurance.ts）允许 open feature 项 reportSection=undefined → 其证据不被 packet 运输、不进 advisory 应覆盖集（渲染与 advisory 共派生故内部一致无误报），但 Completeness 头部计数含它、块里看不见。候选：open feature 项强制 reportSection，或渲染 "unassigned" 块。
+- **advisory 消费集只认 claim.evidenceIds 不认 traceIds（残差，合方案 §1.3/R5）**：作者以 verified trace 引用满足 workitem 时，底层 S- id 仍可能被 advisory 警告。方案明文按证据 id 对账、已接受 warning 噪声；留后续降噪候选。
+- **featureKeyOf 反推逻辑三处拷贝（残差，归 57B-361）**：`src/authoring-packet.ts` 的 `featureKeyOf` 与 `src/run.ts` 的 `feature-<key>-<audience>` 反推是第二/三份拷贝（正推在 run.ts）。57B-361 src/ 重组时收敛为单一导出。

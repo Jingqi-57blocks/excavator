@@ -2,7 +2,8 @@ import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Audience, ChecklistItem, DocumentPlan, EvidenceItem, InvestigationChecklist, InvestigationPlan, InvestigationWorkItem, KnowledgeArtifact, ReportRequest, RunManifest, SearchReceipt, SectionClaim, SectionClaimsFile, TraceCatalog, TraceRecord } from "./types.ts";
+import type { Audience, ChecklistItem, DocumentPlan, EvidenceItem, FeatureFactPack, InvestigationChecklist, InvestigationPlan, InvestigationWorkItem, KnowledgeArtifact, ReportRequest, RunManifest, SearchReceipt, SectionClaim, SectionClaimsFile, TraceCatalog, TraceRecord } from "./types.ts";
+import { auditAuthoringPacketConsumption, buildAuthoringPacket } from "./authoring-packet.ts";
 import { buildContexts, featureCacheKey } from "./context.ts";
 import { FACT_PACK_CATEGORIES, factPackEvidenceId } from "./factpack.ts";
 import { SourceReader, evidenceFromWindow, sourceSearch, type SourceSearchStats } from "./source.ts";
@@ -287,11 +288,20 @@ export async function freezeRun(runDirInput: string): Promise<{ manifest: RunMan
   const frozenAt = nowIso();
   const knowledge = buildKnowledge({ manifest, plan, evidence: evidenceCatalog.evidence, traces, factPacks, crossFeature, frozenAt });
   await writeJson(join(runDir, "knowledge.json"), knowledge);
+  // Render the per-document authoring packets from the just-frozen knowledge: a deterministic, model-free
+  // view organized by report section that the author reads before writing each section. Regenerable view,
+  // not a ledger, so it is written after knowledge.json but before the manifest is stamped frozen.
+  let authoringPackets = 0;
+  for (const document of manifest.documents) {
+    const markdown = buildAuthoringPacket(document, plan, evidenceById, traces, factPacks as Record<string, FeatureFactPack>);
+    await atomicWrite(join(runDir, "context", "authoring", `${document.id}.md`), markdown);
+    authoringPackets += 1;
+  }
   manifest.frozenAt = frozenAt;
   manifest.knowledgeDigest = knowledgeDigest(knowledge);
   manifest.metrics.supplements = manifest.metrics.supplements ?? 0;
   manifest.updatedAt = nowIso();
-  await appendTimeline(runDir, manifest.id, { stage: "investigation", action: "investigation.frozen", data: { knowledgeDigest: manifest.knowledgeDigest, evidence: knowledge.evidenceIds.length, workItems: { total: plan.items.length, disposed: knowledge.completeness.disposed }, traces: knowledge.traceIds.length } });
+  await appendTimeline(runDir, manifest.id, { stage: "investigation", action: "investigation.frozen", data: { knowledgeDigest: manifest.knowledgeDigest, evidence: knowledge.evidenceIds.length, workItems: { total: plan.items.length, disposed: knowledge.completeness.disposed }, traces: knowledge.traceIds.length, authoringPackets } });
   manifest.metrics.timelineEvents = (manifest.metrics.timelineEvents ?? 0) + 1;
   await writeJson(runPath, manifest);
   await writeJson(join(runDir, "metrics.json"), manifest.metrics);
@@ -601,6 +611,9 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
   // so an incomplete document contributes one targeted finding, never a per-work-item false cascade.
   const completeDocumentIds = new Set(scopedDocuments.filter((document) => document.sections.every((section) => section.complete)).map((document) => document.id));
   findings.push(...auditWorkItemClaimCoverage(plan, scopedDocuments, claimsByDocument, { coverageLevel, completeDocumentIds }));
+  // Authoring-packet consumption advisory: warning-only and self-gated on the packet file existing, so an
+  // unfrozen or packet-less run is untouched. It is always advisory, so a scoped audit needs no downgrade.
+  findings.push(...await auditAuthoringPacketConsumption(runDir, scopedDocuments, plan, claimsByDocument));
   for (const document of incompleteDocuments) {
     const complete = document.sections.filter((section) => section.complete).length;
     findings.push({ level: coverageLevel, document: document.id, message: `document is incomplete (${complete}/${document.sections.length} sections checkpointed); work-item coverage was not evaluated` });
@@ -783,6 +796,8 @@ Read these inputs before writing:
 - Evidence catalog: \`evidence.json\`
 - Investigation work items: \`workitems.json\`
 - Compatibility checklist: \`checklist.json\`
+
+If \`context/authoring/${document.id}.md\` exists (written by freeze), read it before writing: it lists, per section, the work items, deterministic facts and frozen evidence that section must cover — cover each listed item or state explicitly why it does not apply.
 
 For a feature document, the document instructions identify the reusable feature-scope file under \`context/features/\`.
 

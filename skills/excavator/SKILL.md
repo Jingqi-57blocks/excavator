@@ -137,6 +137,7 @@ The prepare command creates a run under the target's own directory inside the wo
 ```text
 <workdir>/<project>[-<hash>]/runs/<run-id>/
 ├── context/
+│   └── authoring/            # per-document authoring packets (written by freeze)
 ├── evidence.json
 ├── analysis-scope.json
 ├── provider-status.json
@@ -192,6 +193,7 @@ Establish the following while investigating, not at audit:
 - **Equivalence needs every side.** A `fact` claim that asserts equivalence, consistency, sameness, or shared values or behavior across implementations, modules, repositories, or runtime parts must cite evidence for every compared side and group it in the claim's `sides` field; when only one side is observed, record the other's evidence or downgrade to `inferred`.
 - **Material flows need a verified trace, planted up front.** A material work item for a normal, decision, or reversal flow, a state lifecycle, or a side effect (notifications or exports) that ends `found` requires a verified trace. A `found` flow item with no trace is a hard audit error, so record the trace while investigating rather than discovering the requirement at audit.
 - **The feature fact pack is a floor, not a ceiling.** Each feature scope carries a deterministic fact pack (`context/features/<feature>.factpack.json`, also rendered as a section of the scope) that enumerates six categories — entrypoints, entities, states, config-keys, jobs, external-calls — each item at `file:line`, with a per-category coverage row (method, item count, truncated flag, note). It is an enumeration of what was found inside the feature boundary, not a sample. When a category is marked truncated or carries an incompleteness note, treat it as a floor: investigate beyond it with `search` and `source`, and do not treat the listed items as the complete set.
+- **Tiers and levels have a selecting condition.** When a states or flow enumeration lists tiers or levels — approval tiers, escalation levels, graded thresholds — locate the condition that selects each tier before disposing the decision-flow or calculations-and-thresholds item. The tier names are the shallow half; the numeric or record condition that routes into each tier is the half a report needs.
 
 `checklist.json` is retained as a compatibility projection and may still be updated through the legacy `checklist` command.
 
@@ -203,7 +205,7 @@ When every required work item is disposed and every material flow is traced, fre
 excavator freeze --run <run-dir>
 ```
 
-Freeze is a deterministic gate: it admits the run only when the investigation would already pass audit — every required item disposed, every `found` material flow carrying a verified trace, the evidence catalog and its digest intact, and the snapshot unchanged. On a non-zero exit it reports the exact gaps — items still pending, flows still missing a trace — so continue investigating and freeze again. On success it writes `knowledge.json`, the frozen record authoring consumes. Freeze once; a change after freeze goes through the supplement channel described below.
+Freeze is a deterministic gate: it admits the run only when the investigation would already pass audit — every required item disposed, every `found` material flow carrying a verified trace, the evidence catalog and its digest intact, and the snapshot unchanged. On a non-zero exit it reports the exact gaps — items still pending, flows still missing a trace — so continue investigating and freeze again. On success it writes `knowledge.json`, the frozen record authoring consumes, and renders one authoring packet per document under `context/authoring/<document-id>.md`: a deterministic, model-free view of the frozen knowledge organized by report section, listing the work items, deterministic facts and evidence excerpts each section must cover. Freeze once; a change after freeze goes through the supplement channel described below.
 
 Under the current assurance version freeze is a hard precondition of authoring, not a suggestion: `excavator begin` refuses an unfrozen run, and a run authored without — or before — a freeze fails audit. Runs prepared under an older assurance version are grandfathered and keep the earlier soft guidance.
 
@@ -222,7 +224,7 @@ For each document:
    excavator begin --run <run-dir> --document <document-id>
    ```
 
-3. Write one template section at a time, drawing on the frozen evidence, work items and traces already in the run.
+3. Write one template section at a time. Start from that section's block in `context/authoring/<document-id>.md`, drawing on the frozen evidence, work items and traces already in the run: cover every work item, deterministic fact and evidence excerpt the block lists for the section, or state explicitly why it does not apply.
 4. Generate the claims skeleton from the written section, then fill it in:
 
    ```bash
