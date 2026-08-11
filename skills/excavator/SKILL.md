@@ -150,6 +150,7 @@ The prepare command creates a run under the target's own directory inside the wo
 ├── sections/
 ├── claims/
 ├── history/
+├── drafts/                     # pending parallel-draft receipts, cleared by collect
 ├── reports/
 │   └── companions/
 ├── audit/
@@ -219,6 +220,8 @@ Budgets derive from the request size (the number of requested documents and feat
 
 Authoring consumes the frozen knowledge and does not re-investigate. Every substantive section must carry a real backtick evidence-level marker in its visible prose — `fact`, `verified`, `inferred`, or `unavailable`, or their localized equivalents in the requested output language. Under the current assurance version, a substantive section with no real marker is a hard audit error, not a warning. See `references/writing-rules.md` for the marker semantics and the claim binding contract.
 
+Author each document one section at a time. Two shapes produce the same audited result: a fully serial `checkpoint` per section (below), and — when the host can run concurrent writing subtasks — a parallel `draft` per section followed by one serial `collect` (see *Parallel drafting*). The parallel shape only moves where each section's timeline event is recorded, into `collect`; the workflow remains valid fully serial.
+
 For each document:
 
 1. Read its prompt file.
@@ -264,6 +267,28 @@ For each document:
    excavator audit --run <run-dir>
    ```
 
+### Parallel drafting
+
+The per-section work in steps 3–5 — read the section's packet block, write the section, scaffold and fill its claims — is independent across sections once the investigation is frozen, so the host may run it concurrently. When the host can run concurrent writing subtasks, `begin` each document serially as in step 2, then spawn one writing subtask per not-yet-complete section. Each subtask reads its section block in `context/authoring/<document-id>.md` and the document prompt, writes the section, scaffolds and fills its claims, and records the section with `draft` in place of `checkpoint`:
+
+```bash
+excavator draft \
+  --run <run-dir> --document <document-id> --section <n> \
+  --file <section.md> --claims <section-claims.json>
+```
+
+`draft` writes only that section's files and a receipt under `drafts/`; it never touches the shared timeline, manifest or metrics, so concurrent drafts of different sections cannot collide. It runs the same section and claims validation `checkpoint` does, and refuses an unfrozen run exactly as `begin` does. A host that cannot run concurrent subtasks simply keeps using `checkpoint` and never needs `draft` or `collect`.
+
+**Concurrency contract.** While drafts are in flight, the only run-changing command that may run is `draft`. Keep `begin`, `checkpoint`, `collect`, `assemble`, `audit` and any supplement (a `source`, `search`, `workitem`, `checklist` or `trace` carrying `--supplement-reason`) in serial segments — never concurrent with a draft or with each other. `status` and `claims scaffold` are read-only and may run anytime. Draft exactly one writer per section. If a subtask finds a knowledge gap while writing, do not open a supplement in parallel: record the gap and defer it to a serial segment after collect.
+
+**Collect barrier.** When every drafting subtask has finished, record them all with one serial `collect`:
+
+```bash
+excavator collect --run <run-dir>
+```
+
+`collect` reads the receipts in a deterministic order — document order, then section index — and appends each section's timeline event and manifest update one at a time, so the append-only hash chain is identical to a serial run's. It is a no-op when nothing is pending, so it is safe to rerun. After collect, run the per-document scoped `audit`, then `assemble` and audit the whole run exactly as in steps 6–7. A revised section after collect may go back through `draft` (and another `collect`) or through `checkpoint`; both paths are valid.
+
 When the frozen knowledge is genuinely insufficient — a claim you cannot ground in any existing evidence, or a work item whose frozen disposition is wrong — do not re-open routine investigation and do not edit the artifacts silently. First decide whether it is an expression problem; the evidence you need is usually already in the catalog under a different framing. Only when it is a real knowledge gap, re-run the relevant command with a supplement, which performs the operation and records the exception in the coverage ledger:
 
 ```bash
@@ -285,6 +310,8 @@ excavator resume --run <run-dir>
 ```
 
 Resume from the first incomplete section. Do not rebuild CodeGraph, shared context, feature scopes, or completed sections. If the original model session cannot resume, read the document prompt, completed sections, and only the incremental context needed for the next section.
+
+A failed parallel drafting subtask leaves no receipt, so its section is never collected and stays incomplete — `resume` and `status` list it like any other unwritten section. Re-draft that section and run `collect` again; an uncollected receipt left over from an interrupted run is recorded by the next `collect` and, until then, surfaces as an audit warning.
 
 ## Report contracts
 

@@ -179,6 +179,25 @@ export interface SectionClaimsFile {
   claims: SectionClaim[];
 }
 
+/**
+ * The commit marker a parallel `draft` writes last, after a section and its claims are on disk, under
+ * `drafts/<documentId>/<NN>.json`. It records what `collect` needs to append the section's timeline
+ * event serially: whether the draft overwrote a prior checkpoint (`revision`), the true completion
+ * moment (`draftedAt`), and the evidence/trace ids the event carries. A draft that dies mid-write leaves
+ * no receipt, so `collect` never records a half-written section. Additive — no ledger reads it but `collect`.
+ */
+export interface DraftReceipt {
+  version: 1;
+  runId: string;
+  documentId: string;
+  section: number;
+  draftedAt: string;
+  revision: boolean;
+  evidenceIds: string[];
+  traceIds: string[];
+  hasClaims: boolean;
+}
+
 export interface TraceStep {
   index: number;
   action: string;
