@@ -16,6 +16,7 @@ import { collectClaims, createAnalysisScope, emptyTraceCatalog, mergeTraces, wri
 import { scaffoldSectionClaims } from "./claims-scaffold.ts";
 import { appendTimeline, auditTimeline, readTimeline } from "./timeline.ts";
 import { runScopeSlug } from "./run-label.ts";
+import { auditPendingDrafts } from "./parallel-authoring.ts";
 
 export const SOURCE_SEARCH_VERSION = `source-search-v4-ranking-v1-${REDACTION_VERSION}`;
 
@@ -614,6 +615,10 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
   // Authoring-packet consumption advisory: warning-only and self-gated on the packet file existing, so an
   // unfrozen or packet-less run is untouched. It is always advisory, so a scoped audit needs no downgrade.
   findings.push(...await auditAuthoringPacketConsumption(runDir, scopedDocuments, plan, claimsByDocument));
+  // Uncollected-drafts advisory: warning-only, self-gated on the `drafts/` directory existing, so a run
+  // that never used the parallel `draft`/`collect` path is untouched. It flags section drafts written but
+  // never recorded into the timeline by `collect` — additive, always advisory, no downgrade needed.
+  findings.push(...await auditPendingDrafts(runDir));
   for (const document of incompleteDocuments) {
     const complete = document.sections.filter((section) => section.complete).length;
     findings.push({ level: coverageLevel, document: document.id, message: `document is incomplete (${complete}/${document.sections.length} sections checkpointed); work-item coverage was not evaluated` });
@@ -756,7 +761,7 @@ function referencePath(kind: "overview" | "feature", audience: Audience): string
   return join(REFERENCES, `${audience}-${kind}.md`);
 }
 
-function normalizeSection(content: string, expectedTitle: string): string {
+export function normalizeSection(content: string, expectedTitle: string): string {
   const trimmed = content.trim();
   if (!trimmed) throw new Error("Section content is empty");
   if (/^##\s+/m.test(trimmed)) return `${trimmed}\n`;
@@ -824,7 +829,7 @@ The feature scope file carries a \`## Fact pack\` section, and the same enumerat
 `;
 }
 
-async function archiveCheckpoint(runDir: string, documentId: string, sectionIndex: number, sectionFile: string, claimsFile: string): Promise<boolean> {
+export async function archiveCheckpoint(runDir: string, documentId: string, sectionIndex: number, sectionFile: string, claimsFile: string): Promise<boolean> {
   let archived = false;
   const stamp = nowIso().replace(/[:.]/g, "-");
   if (await exists(sectionFile)) {

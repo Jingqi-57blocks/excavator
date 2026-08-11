@@ -43,7 +43,10 @@ audit (also reconciles post-freeze mutations against the frozen record)
 The core loop has two phases split by `freeze`. Investigation prepares and disposes the plan; freeze
 records the frozen knowledge; authoring consumes it and produces the report. This confines run-to-run
 variance to the expression layer — reproducibility (see `direction.md`) never required byte-identical
-prose, only a stable evidence set, work-item disposition and trace set before writing begins.
+prose, only a stable evidence set, work-item disposition and trace set before writing begins. Authoring
+sections are independent against the frozen knowledge, so they may be drafted in parallel and recorded by
+a single serial barrier (see *Parallel authoring*); the section checkpoints and timeline are identical to
+a fully serial run.
 
 ## Source and provider boundary
 
@@ -147,6 +150,31 @@ Verified trace steps require evidence. Material feature work items for normal fl
 ## Checkpoint and correction model
 
 Sections and claims are written atomically. Revising an existing checkpoint archives the prior section and claims under `history/<document>/` before replacement. The timeline distinguishes a first checkpoint from a revision.
+
+## Parallel authoring
+
+Section generation is the wall-clock cost of authoring, and once the investigation is frozen the sections
+are independent — each faces the same immutable frozen knowledge and its own authoring-packet block. That
+lets writing run in parallel while accounting stays serial, split across two commands. `draft` does the
+parallel-safe half of a checkpoint: it normalizes and validates the section and its claims, archives any
+prior checkpoint, writes the `sections/`, `claims/` and `history/` files, and finally writes a receipt
+under `drafts/<document>/<NN>.json` as the commit marker. Every path it writes is unique to one
+(document, section), so any number of drafts run concurrently with provably disjoint write sets; it never
+touches the shared ledger (`timeline.jsonl`, `run.json`, `metrics.json`, `knowledge.json`) and replicates
+the `begin` freeze gate so it cannot bypass freeze. A draft that dies mid-write leaves no receipt, so a
+half-written section is never recorded.
+
+`collect` is the single-writer barrier. It reads the pending receipts in a deterministic order (document
+order, then section index) and, one at a time, verifies the drafted files are on disk, marks the section
+complete, appends its `section.checkpoint`/`section.revised` event through the unchanged `appendTimeline`,
+and persists the manifest and metrics. Because every append happens in one process in order, sequence
+numbers stay contiguous and the hash chain stays intact by construction — the timeline is indistinguishable
+from a serial run's and passes the same `auditTimeline`. The claims metric and the author-budget check run
+once at the end; a budget overrun marks the run timed-out with a warning but keeps every collected section.
+With nothing pending `collect` is a no-op, so it is safe to rerun. Concurrency correctness rests on the
+disjoint write sets and the single-writer barrier — statically reviewable — not on a lock; the serial
+`checkpoint` path is unchanged and the two interoperate on one run. A warning-only audit advisory,
+self-gated on `drafts/` existing, flags receipts drafted but never collected.
 
 ## Report companions
 

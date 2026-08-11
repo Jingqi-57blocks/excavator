@@ -5,6 +5,7 @@ import { readFile, readdir } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import type { ReportRequest } from "../src/types.ts";
 import { assembleRun, checkpointSection, freezeRun, prepareRun } from "../src/run.ts";
+import { collectDrafts, draftSection } from "../src/parallel-authoring.ts";
 import { slugify } from "../src/util.ts";
 import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, tempDir } from "./helpers.ts";
 
@@ -110,7 +111,7 @@ test("SKILL.md references only excavator commands, subcommands and flags the CLI
   // Anti-vacuity floor: the SKILL commits to the whole authoring workflow. If the extractor silently
   // degrades, or the workflow examples are gutted, this catches it before the per-invocation checks.
   const commandsSeen = new Set(invocations.map((invocation) => invocation.command));
-  for (const core of ["prepare", "begin", "freeze", "source", "search", "claims", "checkpoint", "workitem", "trace", "audit", "assemble", "resume", "codegraph"]) {
+  for (const core of ["prepare", "begin", "freeze", "source", "search", "claims", "checkpoint", "draft", "collect", "workitem", "trace", "audit", "assemble", "resume", "codegraph"]) {
     assert.ok(commandsSeen.has(core), `SKILL.md no longer shows a \`${core}\` example`);
   }
 
@@ -193,6 +194,9 @@ test("SKILL.md run-directory layout matches what the CLI produces", async () => 
   for (const section of document.sections) await checkpointSection(runDir, document.id, section.index, body(section.title));
   // Re-checkpoint the first section so archiveCheckpoint writes the documented history/ directory.
   await checkpointSection(runDir, document.id, document.sections[0].index, body(document.sections[0].title));
+  // Exercise the parallel draft/collect path so the documented drafts/ directory is produced.
+  await draftSection(runDir, document.id, document.sections[0].index, body(document.sections[0].title));
+  await collectDrafts(runDir);
   await assembleRun(runDir);
 
   // Every documented entry must exist somewhere under the run directory. Matching on basename keeps the

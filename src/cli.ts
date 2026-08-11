@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { Audience, BudgetConfig, ChecklistItem, FeatureRequest, InvestigationWorkItem, ReportRequest, SectionClaim, TraceRecord } from "./types.ts";
 import { addSourceEvidence, assembleRun, auditRun, beginDocument, checkpointSection, freezeRun, prepareRun, resumeRun, runStatus, scaffoldClaims, searchSourceEvidence, updateChecklist, updateTraces, updateWorkItems, type SupplementInput } from "./run.ts";
+import { collectDrafts, draftSection } from "./parallel-authoring.ts";
 import { stableJson } from "./util.ts";
 import { buildCodeGraph, codeGraphStatus } from "./codegraph-command.ts";
 import { deriveDefaultBudgets, plannedDocumentCount } from "./budgets.ts";
@@ -100,6 +101,24 @@ async function main(): Promise<void> {
         }
         const manifest = await checkpointSection(required(args.run, "--run"), required(args.document, "--document"), Number(required(args.section, "--section")), content, claims);
         print({ state: manifest.state, document: args.document, section: Number(args.section) });
+        break;
+      }
+      case "draft": {
+        const args = parseArgs(argv);
+        const content = await readFile(required(args.file, "--file"), "utf8");
+        let claims: SectionClaim[] | undefined;
+        if (args.claims) {
+          const raw = JSON.parse(await readFile(args.claims, "utf8")) as SectionClaim[] | { claims: SectionClaim[] };
+          claims = Array.isArray(raw) ? raw : raw.claims;
+        }
+        const receipt = await draftSection(required(args.run, "--run"), required(args.document, "--document"), Number(required(args.section, "--section")), content, claims);
+        print({ drafted: { document: receipt.documentId, section: receipt.section, revision: receipt.revision, hasClaims: receipt.hasClaims } });
+        break;
+      }
+      case "collect": {
+        const args = parseArgs(argv);
+        const result = await collectDrafts(required(args.run, "--run"));
+        print({ state: result.manifest.state, collected: result.collected.length, sections: result.collected.map((receipt) => ({ document: receipt.documentId, section: receipt.section, revision: receipt.revision })) });
         break;
       }
       case "checklist": {
@@ -259,6 +278,8 @@ Commands:
   source     Record a bounded source excerpt as evidence
   search     Search source under the run snapshot and record a reusable receipt
   checkpoint Save one completed section and its claims atomically
+  draft      Draft one section in parallel-safe isolation; leaves a receipt for collect
+  collect    Serially record all pending section drafts into the timeline and manifest
   claims     Scaffold a claims skeleton from a section's markdown
   checklist  Record compatibility checklist dispositions
   workitem   Update the investigation plan and coverage ledger
@@ -278,6 +299,8 @@ Examples:
   excavator search --run <run> --query "\\bTODO\\b|@deprecated" --regex --case-sensitive --reason "investigate unfinished behavior"
   excavator claims scaffold --run <run> --document <id> --section 1 --file section.md
   excavator checkpoint --run <run> --document <id> --section 1 --file section.md --claims claims.json
+  excavator draft --run <run> --document <id> --section 1 --file section.md --claims claims.json
+  excavator collect --run <run>
   excavator workitem --run <run> --file workitem-updates.json
   excavator trace --run <run> --file traces.json
   excavator checklist --run <run> --file checklist-updates.json
@@ -420,6 +443,24 @@ const COMMAND_HELP: Record<string, CommandHelp> = {
       "--claims <json>      Claims sidecar (array or {claims:[...]})"
     ],
     example: "excavator checkpoint --run <run> --document <id> --section 1 --file section.md --claims claims.json"
+  },
+  draft: {
+    synopsis: "draft --run <dir> --document <id> --section <n> --file <md> [--claims <json>]",
+    flags: [
+      "--run <dir>          Run directory (required)",
+      "--document <id>      Document being authored (required)",
+      "--section <n>        Section index (required)",
+      "--file <md>          Section markdown to draft (required)",
+      "--claims <json>      Claims sidecar (array or {claims:[...]})"
+    ],
+    example: "excavator draft --run <run> --document <id> --section 1 --file section.md --claims claims.json",
+    notes: "Parallel-safe: writes only this section's files and a receipt, never the shared timeline or manifest. Run one draft per section concurrently, then a single `collect`."
+  },
+  collect: {
+    synopsis: "collect --run <dir>",
+    flags: ["--run <dir>          Run directory (required)"],
+    example: "excavator collect --run <run>",
+    notes: "Serial barrier: records every pending section draft into the timeline and manifest in a deterministic order. A no-op when nothing is pending, so it is safe to rerun."
   },
   claims: {
     synopsis: "claims scaffold --run <dir> --document <id> --section <n> --file <md>",
