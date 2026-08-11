@@ -5,7 +5,7 @@ import { pathToFileURL } from "node:url";
 import { spawn } from "node:child_process";
 import { readFile, writeFile, readdir } from "node:fs/promises";
 import type { EvidenceItem, ReportRequest, RunManifest, SectionClaim } from "../src/types.ts";
-import { assembleRun, auditRun, checkpointSection, prepareRun, resumeRun, searchSourceEvidence, updateChecklist } from "../src/run.ts";
+import { assembleRun, auditRun, checkpointSection, freezeRun, prepareRun, resumeRun, searchSourceEvidence, updateChecklist } from "../src/run.ts";
 import { copyFixture, createCodeGraphFixture, tempDir } from "./helpers.ts";
 
 async function makeRequest(authorMs = 30_000): Promise<ReportRequest> {
@@ -62,12 +62,16 @@ async function dispositionChecklist(runDir: string, _id: string): Promise<void> 
 
 async function completeRun(runDir: string, manifest: Awaited<ReturnType<typeof prepareRun>>["manifest"]): Promise<string> {
   const id = await evidenceId(runDir);
+  // Freeze-before-authoring order (assurance v3): dispose the plan and freeze first, then author. A run
+  // authored without — or before — a freeze fails the audit-time order gate.
+  await dispositionChecklist(runDir, id);
+  const frozen = await freezeRun(runDir);
+  assert.equal(frozen.frozen, true, JSON.stringify(frozen.findings, null, 2));
   for (const document of manifest.documents) {
     for (const section of document.sections) {
       await checkpointSection(runDir, document.id, section.index, sectionText(section.title, section.index, id), sectionClaims(section.index, id));
     }
   }
-  await dispositionChecklist(runDir, id);
   await assembleRun(runDir);
   return id;
 }
@@ -323,6 +327,8 @@ test("cannot-determine checklist dispositions require evidence for the limitatio
   const id = await completeRun(runDir, manifest);
   const checklistPath = join(runDir, "checklist.json");
   const checklist = JSON.parse(await readFile(checklistPath, "utf8")) as { items: Array<{ id: string }> };
+  // completeRun freezes before authoring (assurance v3), so this post-freeze re-disposition must carry a
+  // supplement charged to the same work item; the audit still rejects the evidence-less cannot-determine.
   await updateChecklist(runDir, [{
     id: checklist.items[0].id,
     verdict: "cannot-determine",
@@ -330,7 +336,7 @@ test("cannot-determine checklist dispositions require evidence for the limitatio
     evidenceIds: [],
     reason: "The synthetic fixture does not expose runtime configuration.",
     settledBy: "Runtime configuration and traffic evidence."
-  }]);
+  }], { reason: "the frozen disposition needs a cannot-determine re-classification", workItemId: checklist.items[0].id });
   await assembleRun(runDir);
   const audit = await auditRun(runDir);
   assert.ok(audit.findings.some((item) => /cannot-determine item has no evidence/i.test(item.message)));

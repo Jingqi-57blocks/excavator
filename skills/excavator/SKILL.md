@@ -205,6 +205,8 @@ excavator freeze --run <run-dir>
 
 Freeze is a deterministic gate: it admits the run only when the investigation would already pass audit — every required item disposed, every `found` material flow carrying a verified trace, the evidence catalog and its digest intact, and the snapshot unchanged. On a non-zero exit it reports the exact gaps — items still pending, flows still missing a trace — so continue investigating and freeze again. On success it writes `knowledge.json`, the frozen record authoring consumes. Freeze once; a change after freeze goes through the supplement channel described below.
 
+Under the current assurance version freeze is a hard precondition of authoring, not a suggestion: `excavator begin` refuses an unfrozen run, and a run authored without — or before — a freeze fails audit. Runs prepared under an older assurance version are grandfathered and keep the earlier soft guidance.
+
 ## Authoring workflow
 
 Budgets derive from the request size (the number of requested documents and features), not a fixed ceiling. Check status after each major section and stop when the authoring budget is exceeded. A budget timeout stops the *next* section, never the one in hand: the current section is checkpointed to disk before the run stops, and `excavator resume --run <run-dir>` continues from the first incomplete section.
@@ -332,6 +334,8 @@ The audit must fail when any of these is true:
 - a material flow work item has no verified trace;
 - a trace contains missing evidence, claims, documents, or non-sequential steps;
 - a claim declares comparison `sides` with fewer than two groups, overlapping groups, or evidence the claim does not cite;
+- a current-version run is authored without first freezing the investigation, or was authored before the freeze;
+- a frozen evidence id, work item or trace is deleted from the run after freeze;
 - an investigation artifact is mutated after freeze without a recorded supplement;
 - the frozen knowledge digest no longer matches the run manifest;
 - the target source or CodeGraph identity changes after preparation.

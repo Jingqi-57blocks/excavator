@@ -9,7 +9,7 @@ import { SourceReader, evidenceFromWindow, sourceSearch, type SourceSearchStats 
 import { createSnapshot } from "./snapshot.ts";
 import { ASSURANCE_VERSION, auditChecklist, auditDetailedFeatureSection, auditEvidenceCatalog, auditEvidenceMarkerPlacement, auditReadabilityTables, auditSectionClaims, auditSectionEvidenceMarkers, auditTargetProblemAttribution, auditTraces, auditWorkItemClaimCoverage, auditWorkItems, checklistUpdatesToWorkItems, createInvestigationChecklist, createInvestigationPlan, hasEvidenceMarkers, mergeChecklist, mergeWorkItems, runUsesCurrentAssurance, type AuditFinding, validateClaimsInput, workItemsToChecklist } from "./assurance.ts";
 import { auditComparativeClaims } from "./claim-comparison.ts";
-import { auditFrozenKnowledge, buildKnowledge, freezePreconditions, knowledgeDigest, normalizeSupplement, recordSupplement } from "./freeze.ts";
+import { auditFreezeOrder, auditFrozenKnowledge, buildKnowledge, freezePreconditions, knowledgeDigest, normalizeSupplement, recordSupplement } from "./freeze.ts";
 import { atomicWrite, ensureDir, exists, nowIso, readJson, REDACTION_VERSION, runIdTimestamp, sha256, slugify, stableJson, writeJson } from "./util.ts";
 import { collectClaims, createAnalysisScope, emptyTraceCatalog, mergeTraces, writeReportCompanions } from "./assurance-artifacts.ts";
 import { scaffoldSectionClaims } from "./claims-scaffold.ts";
@@ -201,6 +201,11 @@ export async function beginDocument(runDirInput: string, documentId: string): Pr
   const runDir = resolve(runDirInput);
   const path = join(runDir, "run.json");
   const manifest = await readJson<RunManifest>(path);
+  // Freeze-before-authoring hard gate: under the current assurance version an unfrozen run cannot begin
+  // authoring. Older runs (prepared before this version) are grandfathered and keep the soft path.
+  if (runUsesCurrentAssurance(manifest) && !manifest.frozenAt) {
+    throw new Error(`Run is not frozen; the current assurance version requires freezing the investigation before authoring. Run \`excavator freeze --run ${runDir}\` first.`);
+  }
   const document = manifest.documents.find((item) => item.id === documentId);
   if (!document) throw new Error(`Unknown document: ${documentId}`);
   if (!document.startedAt || document.completedAt) {
@@ -612,6 +617,9 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
   // Frozen-knowledge consistency: run-level assertions, self-gated on knowledge.json existing, so an
   // unfrozen or legacy run is untouched. A scoped audit keeps them advisory like the other run-wide checks.
   findings.push(...runWide(await auditFrozenKnowledge(runDir, manifest, evidenceCatalog.evidence, plan, traces)));
+  // Freeze-before-authoring order gate: a run-wide assertion (needs the whole timeline), so a scoped
+  // audit downgrades it to advisory exactly like the other run-wide checks above.
+  findings.push(...runWide(await auditFreezeOrder(runDir, manifest)));
 
   // A scoped audit reports its findings but does not certify or mutate the run.
   if (singleDocument) return { manifest, findings };

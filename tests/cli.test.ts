@@ -58,13 +58,8 @@ test("audit CLI exits non-zero on errors and zero after complete assurance", asy
   const { runDir, manifest } = await prepareRun(await request());
   const id = await sourceEvidenceId(runDir);
   const document = manifest.documents[0];
-  for (const section of document.sections) await checkpointSection(runDir, document.id, section.index, text(section.title, id));
-  await assembleRun(runDir);
 
-  const failed = await cli(["audit", "--run", runDir]);
-  assert.equal(failed.code, 1, failed.stderr || failed.stdout);
-
-  for (const section of document.sections) await checkpointSection(runDir, document.id, section.index, text(section.title, id), claims(section.index, id));
+  // Freeze-before-authoring order (assurance v3): dispose the checklist and freeze before any authoring.
   const search = await cli(["search", "--run", runDir, "--terms", "__excavator_no_such_fixture_marker__", "--reason", "complete checklist search receipt", "--max-results", "10"]);
   assert.equal(search.code, 0, search.stderr || search.stdout);
   const searchId = JSON.parse(search.stdout).evidence.id;
@@ -76,8 +71,18 @@ test("audit CLI exits non-zero on errors and zero after complete assurance", asy
     evidenceIds: [searchId],
     searchScope: "all candidate source files in the immutable synthetic fixture snapshot"
   })));
-  await assembleRun(runDir);
+  const frozen = await cli(["freeze", "--run", runDir]);
+  assert.equal(frozen.code, 0, frozen.stderr || frozen.stdout);
 
+  // Authoring the sections without claims leaves the run un-auditable: the audit CLI exits non-zero.
+  for (const section of document.sections) await checkpointSection(runDir, document.id, section.index, text(section.title, id));
+  await assembleRun(runDir);
+  const failed = await cli(["audit", "--run", runDir]);
+  assert.equal(failed.code, 1, failed.stderr || failed.stdout);
+
+  // Re-checkpoint each section with its claims; the frozen, fully-authored run now audits clean.
+  for (const section of document.sections) await checkpointSection(runDir, document.id, section.index, text(section.title, id), claims(section.index, id));
+  await assembleRun(runDir);
   const passed = await cli(["audit", "--run", runDir]);
   assert.equal(passed.code, 0, passed.stderr || passed.stdout);
 });

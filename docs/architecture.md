@@ -98,6 +98,14 @@ now complete and frozen. `manifest.frozenAt`/`manifest.knowledgeDigest` are stam
 `investigation.frozen` timeline event is appended. The digest covers the frozen core (everything except
 `supplements`), so appending a supplement never changes it.
 
+Under the current assurance version freeze is a hard precondition of authoring, enforced at two points
+that move together. `begin` refuses to start authoring a run that is not yet frozen. As a backstop for
+any path that bypasses `begin`, the audit fails a run that carries authoring activity but no preceding
+`investigation.frozen` event: no freeze event at all, or a first authoring event whose sequence precedes
+the freeze (authored, then froze). Both checks are gated on the run's stamped assurance version, so a run
+prepared before freeze became mandatory is grandfathered — the older soft guidance still applies and the
+gate never retroactively fails it.
+
 After freeze the five runtime mutators (`search`, `source`, `workitem`, `checklist`, `trace`) refuse a
 change unless it carries a supplement — a `--supplement-reason` and the `--supplement-workitem` it is
 charged to (both required, and the work item must resolve in `workitems.json`). A recorded supplement
@@ -105,6 +113,8 @@ appends to `knowledge.json.supplements[]`, increments `metrics.supplements` and 
 event. The audit reconciles the frozen record against the current run: every added evidence id, changed
 work-item disposition or added trace must be charged to a supplement, and every gated investigation
 timeline event after the freeze must carry the supplement marker — a silent bypass is an audit error.
+The reconciliation is symmetric: a supplement only ever adds, so a frozen evidence id, work item or trace
+that has vanished from the run is a silent deletion of recorded knowledge and is always an error.
 These checks are self-gated on `knowledge.json` existing, so runs that were never frozen (including
 legacy runs) are unaffected.
 
