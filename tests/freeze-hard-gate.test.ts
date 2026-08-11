@@ -148,6 +148,11 @@ test("deleting a frozen work item or trace after freeze fails the audit as a sil
   catalog.traces = catalog.traces.filter((item) => item.id !== trace.id);
   await writeFile(join(runDir, "traces.json"), JSON.stringify(catalog, null, 2));
 
+  const evidenceCatalog = JSON.parse(await readFile(join(runDir, "evidence.json"), "utf8")) as { evidence: EvidenceItem[] };
+  const removedEvidenceId = evidenceCatalog.evidence[0]?.id;
+  evidenceCatalog.evidence.splice(0, 1);
+  await writeFile(join(runDir, "evidence.json"), JSON.stringify(evidenceCatalog, null, 2));
+
   const audit = await auditRun(runDir);
   assert.ok(
     audit.findings.some((finding) => finding.level === "error" && finding.document === "knowledge" && /frozen work item .* is no longer present/.test(finding.message)),
@@ -157,5 +162,9 @@ test("deleting a frozen work item or trace after freeze fails the audit as a sil
     audit.findings.some((finding) => finding.level === "error" && finding.document === "knowledge" && /frozen trace .* is no longer present/.test(finding.message)),
     JSON.stringify(audit.findings, null, 2)
   );
-  assert.ok(removedItemId);
+  assert.ok(
+    audit.findings.some((finding) => finding.level === "error" && finding.document === "knowledge" && /frozen evidence .* is no longer present/.test(finding.message)),
+    JSON.stringify(audit.findings, null, 2)
+  );
+  assert.ok(removedItemId && removedEvidenceId);
 });
