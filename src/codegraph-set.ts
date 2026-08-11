@@ -136,6 +136,17 @@ export class CodeGraphSet implements GraphReader {
     return { nodes, edges };
   }
 
+  edgesAmong(nodeIds: string[]): GraphEdge[] {
+    const byModule = this.groupIds(nodeIds);
+    const edges: GraphEdge[] = [];
+    for (const member of this.members) {
+      const ids = byModule.get(member.module.id);
+      if (!ids?.length) continue;
+      edges.push(...member.index.edgesAmong(ids).map((edge) => this.globalEdge(member, edge)));
+    }
+    return edges;
+  }
+
   unresolvedForNodeIds(nodeIds: string[], limit = 200): Array<Record<string, unknown>> {
     const byModule = this.groupIds(nodeIds);
     const rows: Array<Record<string, unknown>> = [];

@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import type { Audience, EvidenceItem, FeatureFactPack, FeatureRequest, PreparedContext, ProviderRegistry, ReportRequest, Snapshot } from "./types.ts";
 import { CodeGraphIndex, type GraphReader } from "./codegraph.ts";
 import { CodeGraphSet } from "./codegraph-set.ts";
+import { pruneFeatureGraph } from "./feature-prune.ts";
 import { createSnapshot, isLikelySource, type ScannedFile } from "./snapshot.ts";
 import { SourceReader, evidenceFromWindow, manifestSummary, selectProjectDocuments, sourceSearch } from "./source.ts";
 import { Deadline, ensureDir, exists, projectWorkspace, readJson, sha256, slugify, stableJson, truncate, writeJson } from "./util.ts";
@@ -295,8 +296,13 @@ async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], fea
     const anchoredFiles = [...new Set(primarySeeds.map((node) => node.filePath))];
     const actionSeeds = actionTerms.length ? graph.searchNodesInFiles(actionTerms, anchoredFiles, Math.min(60, maxNodes)) : [];
     const seeds = dedupeNodes([...primarySeeds, ...actionSeeds]);
-    const expanded = graph.expand(seeds.map((node) => node.id), Math.min(depth, 2), Math.max(maxNodes, seeds.length));
-    const pruned = pruneFeatureGraph(expanded.nodes, expanded.edges, seeds, anchorTerms, maxNodes);
+    // Candidate pool: expand cap ×6 so depth-2 neighbourhoods are not starved (a per-module cap of
+    // maxNodes let level-0 exhaust before the depth-2 ring was ever visited). Then close the pool
+    // over its own internal edges so hop2↔hop2 relationships (which layered BFS never captures) are
+    // present for the prune's structural-rescue bridge signal and the retained edge set.
+    const expanded = graph.expand(seeds.map((node) => node.id), Math.min(depth, 2), Math.max(maxNodes, seeds.length) * 6);
+    const poolEdges = graph.edgesAmong(expanded.nodes.map((node) => node.id));
+    const pruned = pruneFeatureGraph(expanded.nodes, [...expanded.edges, ...poolEdges], seeds, anchorTerms, maxNodes);
     nodes = pruned.nodes;
     edges = pruned.edges;
     unresolved = graph.unresolvedForNodeIds(nodes.map((node) => node.id), 150);
@@ -596,33 +602,6 @@ function featureAnchorTerms(terms: string[]): string[] {
 function dedupeNodes(nodes: any[]): any[] {
   const seen = new Set<string>();
   return nodes.filter((node) => { const id = String(node.id); if (seen.has(id)) return false; seen.add(id); return true; });
-}
-
-function pruneFeatureGraph(nodes: any[], edges: any[], seeds: any[], anchorTerms: string[], maxNodes: number): { nodes: any[]; edges: any[] } {
-  const seedIds = new Set(seeds.map((node) => String(node.id)));
-  const directlyConnected = new Set<string>();
-  for (const edge of edges) if (seedIds.has(String(edge.source)) || seedIds.has(String(edge.target))) {
-    directlyConnected.add(String(edge.source));
-    directlyConnected.add(String(edge.target));
-  }
-  const score = (node: any): number => {
-    const path = String(node.filePath ?? "").toLowerCase();
-    const name = String(node.name ?? "").toLowerCase();
-    const signature = String(node.signature ?? "").toLowerCase();
-    let value = seedIds.has(String(node.id)) ? 1000 : directlyConnected.has(String(node.id)) ? 120 : 0;
-    for (const term of anchorTerms) {
-      const lower = term.toLowerCase();
-      if (path.includes(lower)) value += 220;
-      if (name.includes(lower)) value += 160;
-      if (signature.includes(lower)) value += 80;
-    }
-    if (/common\/components|common\/use|vendor|bootstrap|min\.js/i.test(path)) value -= 180;
-    if (/(^|\/)(tests?|__tests__)(\/|$)|\.(test|spec)\./i.test(path)) value += 20;
-    return value;
-  };
-  const retained = [...nodes].sort((a, b) => score(b) - score(a) || String(a.filePath).localeCompare(String(b.filePath))).slice(0, maxNodes);
-  const ids = new Set(retained.map((node) => String(node.id)));
-  return { nodes: retained, edges: edges.filter((edge) => ids.has(String(edge.source)) && ids.has(String(edge.target))) };
 }
 
 function balancedFeatureNodes(nodes: any[], terms: string[], limit: number): any[] {
