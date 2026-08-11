@@ -130,3 +130,13 @@ e2e 结论：freeze 机制在真实产物上正确（freeze 门抓出真缺口�
 - **旧报告窗口计数 tokenize 口径差异（无害）**：coder 机械复现 56 窗口/32 srcOnly vs 方案 64/37，但 gold 取材三桶（11 node-overlap / 4 file-in-FG-node-cut / 12 neither）与方案一致，gold 不受影响。差异来自 markdown 证据抽取 tokenize 口径。
 - **gold `_meta` 文档精度 nit**：T3 桶算术标注（"4 个 node-cut"实际 3 条）+ 一处 note 行号 :268 vs 实际 267——纯 provenance 文字，锚是 name 匹配不影响判定。后续顺手订正。
 - **coveredBySourceWindow 方向性预期未兑现（无碍）**：方案预期 optional miss 相当部分 true，本 demo run 实际只 2 条 UI modal（S-窗口集与旧好报告 run 不同）；机制两分支已测试覆盖。
+
+## 批次 57B-371（pruneFeatureGraph 两段式剪枝）评审产生（fable 复核 high effort，2026-08-12）
+
+判定"可合"（十项重点逐条对代码验证：硬上限三重保证永不超cap、stage1逐字节零churn、缩写骨架运行时派生框架无关、桥信号出边方向性排hub、edgesAmong四项、门测试13/13且nodeCount=250有效；387 pass）。范围外残差（本切片未动 diff、另议）：
+- **application 别名污染（比本切片更大的单一污染源）**：anchorTerms 的 `application` 把 promotion 路由 + application 模块（ApplicationForward/LeaderApplication/PeerApplication）拉进 leave 边界，占 ~3 救援席。是 Target Resolution 的下一个杠杆——别名生成质量（feature.aliases）本身该收窄。归 57B-320 后续切片。
+- **stage1 tie-break localeCompare 的 locale 稳定性隐患**：stage1 评分逐字节搬移时保留了原 `localeCompare`（locale 相关、字节稳定性隐患）；本切片为保零churn未动，新救援代码已用普通字典序 compareStr。后续可把 stage1 也统一为字节序。
+- **FG 主排名含 import/file kind 节点占席**：这些结构节点占 maxNodes 预算但对边界召回价值低；后续可在主排名过滤。
+- **expand edge LIMIT 截断时 kind 字母序隐性优先级**：截断恰落在同(kind,source,target)多行时行序依赖 sqlite 内部序（同 db 双跑字节一致已覆盖）；异构 sqlite 构建下留意。
+- **巨仓残差**：hop-1 圈 > 6×maxNodes 时仍会 expand 饥饿（优雅降级、不劣于现状）。
+- 理论角落：cap<quota（≤8 极端配置）stage1 空席、seeds 可能被救援顶掉——默认 220/demo 250 不可达，纯理论。

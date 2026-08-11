@@ -10,7 +10,7 @@
 // --prepare-only runs ONLY the anchor-in-scope containment check (zero model, sub-second).
 // view/compare have no semantic-fail concept: exit 0 on success, 2 on error (like every other harness error).
 
-import { writeFileSync } from "node:fs";
+import { writeFileSync, existsSync } from "node:fs";
 import { extractKnowledge } from "./knowledge.ts";
 import { loadExpected } from "./expected.ts";
 import { checkContainment, diffKnowledge, exitCodeFor, type Containment, type Diff } from "./diff.ts";
@@ -20,6 +20,7 @@ import { compareRuns } from "./compare-runs.ts";
 import { renderRunComparison } from "./render-run-comparison.ts";
 import { loadBoundaryGold } from "./boundary-gold.ts";
 import { boundaryRecall, boundaryReportFromRun, loadNodesFile, exitCodeFor as boundaryExitCode, type BoundaryReport } from "./boundary.ts";
+import { buildPoolFromRun, loadPrunePool, prunePoolToNodes, writePrunePool } from "./prune-replay.ts";
 
 interface Flags {
   run?: string;
@@ -29,12 +30,15 @@ interface Flags {
   gold?: string;
   nodes?: string;
   out?: string;
+  pool?: string;
+  emitPool?: string;
+  modules: string[];
   json: boolean;
   prepareOnly: boolean;
 }
 
 function parseFlags(argv: string[]): Flags {
-  const flags: Flags = { json: false, prepareOnly: false };
+  const flags: Flags = { json: false, prepareOnly: false, modules: [] };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "--run") flags.run = argv[++i];
@@ -44,6 +48,9 @@ function parseFlags(argv: string[]): Flags {
     else if (arg === "--gold") flags.gold = argv[++i];
     else if (arg === "--nodes") flags.nodes = argv[++i];
     else if (arg === "--out") flags.out = argv[++i];
+    else if (arg === "--pool") flags.pool = argv[++i];
+    else if (arg === "--emit-pool") flags.emitPool = argv[++i];
+    else if (arg === "--module") flags.modules.push(argv[++i]);
     else if (arg === "--json") flags.json = true;
     else if (arg === "--prepare-only") flags.prepareOnly = true;
     else throw new Error(`unknown argument: ${arg}`);
@@ -62,7 +69,8 @@ const USAGE = `eval harness
   diff    --run <dir> --expected <file> [--json] [--prepare-only]
   view    --run <dir> [--json]
   compare --a <dir> --b <dir> [--json]
-  boundary (--run <dir> | --nodes <file>) --gold <file> [--json]`;
+  boundary (--run <dir> | --nodes <file>) --gold <file> [--json]
+  prune-replay (--pool <file> | --run <dir> --module <db> [--module <db>...]) --gold <file> [--emit-pool <file>] [--json]`;
 
 function renderContainment(containment: Containment): string {
   const lines = [`=== prepare containment (${containment.contained.length}/${containment.contained.length + containment.missing.length} anchors in scope) ===`];
@@ -140,6 +148,36 @@ function runBoundary(flags: Flags): number {
   return boundaryExitCode(report);
 }
 
+/**
+ * Replay the improved prune and report boundary recall. `--pool` runs the frozen fixture (zero I/O
+ * beyond the file); `--run` + `--module` rebuilds the pool from real databases and, with
+ * `--emit-pool`, freezes it. Missing databases are a graceful skip (exit 0), never a hard failure,
+ * so CI stays green without the (un-committed) databases.
+ */
+function runPruneReplay(flags: Flags): number {
+  const gold = loadBoundaryGold(requireFlag(flags.gold, "--gold"));
+  if (flags.pool) {
+    const report = boundaryRecall(prunePoolToNodes(loadPrunePool(flags.pool)), gold);
+    process.stdout.write(`${flags.json ? JSON.stringify(report, null, 2) : renderBoundary(report)}\n`);
+    return boundaryExitCode(report);
+  }
+  const runDir = requireFlag(flags.run, "--run");
+  if (!flags.modules.length) throw new Error("prune-replay needs --pool, or --run with at least one --module <db>");
+  const missing = flags.modules.filter((db) => !existsSync(db));
+  if (missing.length) {
+    process.stdout.write(`prune-replay skipped: module database(s) not present: ${missing.join(", ")}\n`);
+    return 0;
+  }
+  const pool = buildPoolFromRun(runDir, flags.modules);
+  if (flags.emitPool) {
+    writePrunePool(flags.emitPool, pool);
+    process.stdout.write(`emitted pool: ${pool.nodes.length} nodes, ${pool.edges.length} edges, ${pool.seeds.length} seeds -> ${flags.emitPool}\n`);
+  }
+  const report = boundaryRecall(prunePoolToNodes(pool), gold);
+  process.stdout.write(`${flags.json ? JSON.stringify(report, null, 2) : renderBoundary(report)}\n`);
+  return boundaryExitCode(report);
+}
+
 function runExtract(flags: Flags): number {
   const knowledge = extractKnowledge(requireFlag(flags.run, "--run"));
   const text = JSON.stringify(knowledge, null, 2);
@@ -194,6 +232,7 @@ function main(argv: string[]): number {
   if (command === "view") return runView(flags);
   if (command === "compare") return runCompare(flags);
   if (command === "boundary") return runBoundary(flags);
+  if (command === "prune-replay") return runPruneReplay(flags);
   throw new Error(`unknown command: ${command}`);
 }
 

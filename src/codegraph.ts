@@ -33,6 +33,7 @@ export interface GraphReader {
   searchNodesInFiles(terms: string[], filePaths: string[], limit?: number): GraphNode[];
   nodesByKindInFiles(kinds: string[], filePaths: string[], limit?: number): GraphNode[];
   expand(seedIds: string[], depth: number, maxNodes: number): { nodes: GraphNode[]; edges: GraphEdge[] };
+  edgesAmong(nodeIds: string[]): GraphEdge[];
   unresolvedForNodeIds(nodeIds: string[], limit?: number): Array<Record<string, unknown>>;
   readonly stats: QueryStats;
   close(): void;
@@ -292,6 +293,47 @@ export class CodeGraphIndex implements GraphReader {
       `, batch).map(toNode));
     }
     return { nodes, edges };
+  }
+
+  /**
+   * Every relationship edge whose BOTH endpoints lie inside the given node set — the "edges among
+   * pool" closure that BFS misses (a level expansion never captures an edge between two same-level
+   * nodes). Reuses expand's allowed_files join so no edge crosses the module boundary, and the same
+   * five relationship kinds. Source ids are chunked well under SQLite's 999-parameter limit; targets
+   * are filtered to the pool in memory. A running total cap bounds the result, and if the query
+   * budget is already spent the closure is skipped gracefully (it is an enrichment, never essential).
+   */
+  edgesAmong(nodeIds: string[]): GraphEdge[] {
+    const pool = new Set(nodeIds.map(String));
+    if (pool.size === 0) return [];
+    const ids = [...pool].sort();
+    const totalLimit = Math.max(pool.size * 8, 2000);
+    const seen = new Set<string>();
+    const edges: GraphEdge[] = [];
+    for (let offset = 0; offset < ids.length && edges.length < totalLimit; offset += 900) {
+      if (this.budget.queries >= this.budget.max) break; // budget spent: skip the rest gracefully
+      const chunk = ids.slice(offset, offset + 900);
+      const placeholders = chunk.map(() => "?").join(",");
+      const rows = this.query<Record<string, unknown>>(`
+        SELECT e.source, e.target, e.kind, e.line, e.metadata
+        FROM edges e
+        JOIN nodes sn ON sn.id = e.source JOIN allowed_files sa ON sa.path = sn.file_path
+        JOIN nodes tn ON tn.id = e.target JOIN allowed_files ta ON ta.path = tn.file_path
+        WHERE e.source IN (${placeholders})
+          AND e.kind IN ('calls','references','instantiates','implements','extends')
+        ORDER BY e.kind, e.source, e.target
+        LIMIT ?
+      `, [...chunk, totalLimit]);
+      for (const row of rows) {
+        if (!pool.has(String(row.target))) continue; // both endpoints must be in the pool
+        const key = `${String(row.source)}\u0001${String(row.target)}\u0001${String(row.kind)}\u0001${row.line ?? ""}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        edges.push(toEdge(row));
+        if (edges.length >= totalLimit) break;
+      }
+    }
+    return edges;
   }
 
   routeSummary(limit = 80): GraphNode[] {
