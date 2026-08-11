@@ -25,14 +25,46 @@ export function renderMarkdown(markdown: string): string {
     if (!line.trim()) { index += 1; continue; }
 
     if (/^<details[\s>]/i.test(line.trim())) {
-      const block: string[] = [line];
+      const openLine = line;
       index += 1;
+      let depth = detailsDepth(openLine);
+      if (depth <= 0) {
+        // A whole `<details>…</details>` that opens and closes on one line is passed through as raw
+        // HTML — its inner markup is authored by hand and must not be re-rendered.
+        out.push(openLine);
+        continue;
+      }
+      // Multi-line block: collect the inner lines until depth returns to zero (its matching close),
+      // counting nested `<details>` so a nested block's close is not mistaken for this one's.
+      const content: string[] = [];
+      let closeLine = "";
+      let closed = false;
       while (index < lines.length) {
-        block.push(lines[index]);
-        if (/<\/details>/i.test(lines[index])) { index += 1; break; }
+        const current = lines[index];
+        depth += detailsDepth(current);
+        if (depth <= 0) { closeLine = current; closed = true; index += 1; break; }
+        content.push(current);
         index += 1;
       }
-      out.push(block.join("\n"));
+      if (!closed) {
+        // No matching close before end of input: keep the current swallow-to-EOF behavior, raw.
+        out.push([openLine, ...content].join("\n"));
+        continue;
+      }
+      const parts = [openLine];
+      let bodyStart = 0;
+      // A `<summary>…</summary>` on the first inner line is the block's label: keep it verbatim,
+      // never routed through inline() and never treated as body prose.
+      if (content.length && /^<summary>.*<\/summary>$/i.test(content[0].trim())) {
+        parts.push(content[0]);
+        bodyStart = 1;
+      }
+      // Everything after the summary is real markdown (lists, tables, paragraphs, tag chips) and is
+      // rendered recursively — renderMarkdown is a pure function and safely reentrant.
+      const inner = renderMarkdown(content.slice(bodyStart).join("\n"));
+      if (inner) parts.push(inner);
+      parts.push(closeLine);
+      out.push(parts.join("\n"));
       continue;
     }
 
@@ -112,6 +144,13 @@ function paragraphs(value: string): string { return value.split(/\n{2,}/).map((p
 function isBlockStart(lines: string[], index: number): boolean {
   const line = lines[index];
   return /^#{1,6}\s+/.test(line) || /^```/.test(line) || /^>\s?/.test(line) || /^\s*[-*+]\s+/.test(line) || /^\s*\d+[.)]\s+/.test(line) || /^<details[\s>]/i.test(line.trim()) || /^---+$/.test(line.trim()) || isTableHeader(lines, index);
+}
+
+/** Net `<details>` nesting a line contributes: opens minus closes, so a block's matching close is found by depth. */
+function detailsDepth(line: string): number {
+  const opens = (line.match(/<details[\s>]/gi) ?? []).length;
+  const closes = (line.match(/<\/details>/gi) ?? []).length;
+  return opens - closes;
 }
 
 function isTableHeader(lines: string[], index: number): boolean {
