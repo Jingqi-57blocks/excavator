@@ -121,3 +121,12 @@ e2e 结论：freeze 机制在真实产物上正确（freeze 门抓出真缺口�
 - **collect 超时不写 `audit/<doc>-timeout.json` 诊断文件（待裁定，判可接受）**：checkpointSection 超时会写该诊断文件（run.ts:456），但方案只授权 export normalizeSection/archiveCheckpoint、未授权 diagnoseTimeout，故 collect 超时仅置 timed-out+warning、不写诊断文件。全库 grep：该文件**无任何程序消费方**（resume/audit/eval/SKILL 都不读），纯人读产物；timed-out+warning 已入账、resume 可续。coder 守授权边界上报而非扩权。候选：是否 export diagnoseTimeout 补 collect 侧诊断对等——低优先。
 - **并行 run 的 per-event "TIMED OUT" 标记永不出现（R2 时间语义，已 PR 披露）**：collect 预算在全部 append 之后才判，超时不打在 timeline 事件上；stage 级总墙钟不受影响。
 - **hasClaims sidecar 缺失 fail-closed 分支无对应测试（轻微覆盖缺口）**：parallel-authoring.ts:147，后续补。
+
+## 批次 57B-370（边界召回度量地基）评审产生（fable 复核 high effort，2026-08-11）
+
+判定"可合"（九项重点逐条实证：确定性/FG shape 判别防假贷记/路径语义同一/gold 三层/基线10-13可信/NUL修复等价；364 pass；独立复跑真实run确定性 + 独立重算fixture投影一致）。残差：
+- **leave-mini boundary gold 后续切片**：本切片只建 wcp-leave boundary gold（真实 run）。若 57B-371 需 CI 内端到端真 prepare 验证，可给 leave-mini 建 boundary gold 作后续切片。
+- **T3 informational 未逐条裁定实质性**：15 条 optional 是疑似额外边界缺口，照方案不进闸门，57B-371 用作诊断即可。
+- **旧报告窗口计数 tokenize 口径差异（无害）**：coder 机械复现 56 窗口/32 srcOnly vs 方案 64/37，但 gold 取材三桶（11 node-overlap / 4 file-in-FG-node-cut / 12 neither）与方案一致，gold 不受影响。差异来自 markdown 证据抽取 tokenize 口径。
+- **gold `_meta` 文档精度 nit**：T3 桶算术标注（"4 个 node-cut"实际 3 条）+ 一处 note 行号 :268 vs 实际 267——纯 provenance 文字，锚是 name 匹配不影响判定。后续顺手订正。
+- **coveredBySourceWindow 方向性预期未兑现（无碍）**：方案预期 optional miss 相当部分 true，本 demo run 实际只 2 条 UI modal（S-窗口集与旧好报告 run 不同）；机制两分支已测试覆盖。

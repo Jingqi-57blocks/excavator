@@ -1,0 +1,239 @@
+// Deterministic, zero-model boundary-recall metric. The measured object is the
+// FEATURE-GRAPH NODE SET (the output of pruneFeatureGraph), NOT claims and NOT the
+// wider evidence file set: 57B-371's intervention point is the prune, so the metric
+// must isolate "did the graph capture this material symbol" from downstream fallback
+// search. `boundaryRecall` is a pure function of (nodes, gold); the run adapters below
+// read evidence.json to produce those nodes (and, in run mode, an informational
+// "covered by a source window" signal that never affects the pass/fail verdict).
+//
+// Path/line anchor semantics are shared with knowledge-diff via diff.ts's exported
+// `pathMatches` / `parseLines`, so both tools resolve an anchor identically.
+
+import { readFileSync, existsSync, statSync } from "node:fs";
+import { join } from "node:path";
+import { pathMatches, parseLines } from "./diff.ts";
+import type { BoundaryAnchor, BoundaryGold, BoundaryGoldItem } from "./boundary-gold.ts";
+
+/** A feature-graph node reduced to what boundary matching needs. */
+export interface BoundaryNode {
+  filePath: string;
+  name: string;
+  startLine?: number;
+  endLine?: number;
+}
+
+/** A source (S-*) evidence window: path + line range. Used only for the run-mode informational signal. */
+export interface SourceWindow {
+  path: string;
+  startLine: number;
+  endLine: number;
+}
+
+export interface BoundaryFound {
+  id: string;
+  mustFind: boolean;
+  /** The node that satisfied the item. */
+  via: string;
+}
+
+export interface BoundaryMiss {
+  id: string;
+  mustFind: boolean;
+  /** Run mode only: is the miss's anchor covered by any source window (fallback could still reach it)?
+   *  Informational — distinguishes "graph missed but downstream may recover" from "fully out of bounds".
+   *  Never affects the exit code. Undefined in --nodes mode (no evidence.json to read windows from). */
+  coveredBySourceWindow?: boolean;
+}
+
+export interface BoundarySummary {
+  /** Y: total mustFind items. */
+  mustFind: number;
+  /** X: mustFind items found in the node set. */
+  mustFindFound: number;
+  mustFindMissing: number;
+  optional: number;
+  optionalFound: number;
+  optionalMissing: number;
+  /** Size of the node set the recall was measured against (for 57B-371 boundedness assertions). */
+  nodeCount: number;
+  /** Distinct files in the node set. */
+  fileCount: number;
+  /** The only gate: every mustFind item is in-bounds. */
+  pass: boolean;
+}
+
+export interface BoundaryReport {
+  target: string;
+  found: BoundaryFound[];
+  missing: BoundaryMiss[];
+  summary: BoundarySummary;
+}
+
+function describeNode(node: BoundaryNode): string {
+  if (node.startLine !== undefined && node.endLine !== undefined) {
+    return `${node.filePath}::${node.name} [${node.startLine}-${node.endLine}]`;
+  }
+  return `${node.filePath}::${node.name}`;
+}
+
+/** Does a node satisfy a single anchor? path (three-form) + (name exact | lines overlap | path-only). */
+function anchorMatchesNode(anchor: BoundaryAnchor, node: BoundaryNode): boolean {
+  if (!pathMatches(node.filePath, anchor)) return false;
+  if (anchor.name !== undefined) return node.name === anchor.name;
+  const range = parseLines(anchor.lines);
+  if (!range) return true; // path-only anchor: file presence suffices
+  if (node.startLine === undefined || node.endLine === undefined) return false;
+  return node.startLine <= range.end && node.endLine >= range.start;
+}
+
+/** First node (in order) satisfying any of the item's OR anchors, or null. */
+function findNode(item: BoundaryGoldItem, nodes: BoundaryNode[]): BoundaryNode | null {
+  for (const node of nodes) {
+    if (item.anchors.some((anchor) => anchorMatchesNode(anchor, node))) return node;
+  }
+  return null;
+}
+
+/** Compare a feature-graph node set against a boundary gold. Pure: a deterministic function of its inputs. */
+export function boundaryRecall(nodes: BoundaryNode[], gold: BoundaryGold): BoundaryReport {
+  const found: BoundaryFound[] = [];
+  const missing: BoundaryMiss[] = [];
+  for (const item of gold.items) {
+    const node = findNode(item, nodes);
+    if (node) found.push({ id: item.id, mustFind: item.mustFind, via: describeNode(node) });
+    else missing.push({ id: item.id, mustFind: item.mustFind });
+  }
+
+  const mustFindItems = gold.items.filter((item) => item.mustFind).length;
+  const mustFindFound = found.filter((entry) => entry.mustFind).length;
+  const mustFindMissing = missing.filter((entry) => entry.mustFind).length;
+  const optional = gold.items.length - mustFindItems;
+  const optionalFound = found.length - mustFindFound;
+  const optionalMissing = missing.length - mustFindMissing;
+  const summary: BoundarySummary = {
+    mustFind: mustFindItems,
+    mustFindFound,
+    mustFindMissing,
+    optional,
+    optionalFound,
+    optionalMissing,
+    nodeCount: nodes.length,
+    fileCount: new Set(nodes.map((node) => node.filePath)).size,
+    pass: mustFindMissing === 0
+  };
+  return { target: gold.target, found, missing, summary };
+}
+
+/** Is any of an item's anchors covered by a source window? (path match; if the anchor has lines, ranges overlap.) */
+function anchorCoveredBySource(anchor: BoundaryAnchor, windows: SourceWindow[]): boolean {
+  const range = parseLines(anchor.lines);
+  return windows.some((window) => {
+    if (!pathMatches(window.path, anchor)) return false;
+    if (!range) return true; // name-only / path-only anchor: file presence in a window suffices
+    return window.startLine <= range.end && window.endLine >= range.start;
+  });
+}
+
+/** Annotate each miss with `coveredBySourceWindow`. Pure given the report, gold, and windows. */
+export function annotateSourceCoverage(report: BoundaryReport, gold: BoundaryGold, windows: SourceWindow[]): BoundaryReport {
+  const byId = new Map(gold.items.map((item) => [item.id, item]));
+  const missing = report.missing.map((miss) => {
+    const item = byId.get(miss.id);
+    const covered = item ? item.anchors.some((anchor) => anchorCoveredBySource(anchor, windows)) : false;
+    return { ...miss, coveredBySourceWindow: covered };
+  });
+  return { ...report, missing };
+}
+
+/** Exit code: any mustFind miss -> 1; else 0. Errors are the CLI's responsibility (exit 2). */
+export function exitCodeFor(report: BoundaryReport): number {
+  return report.summary.pass ? 0 : 1;
+}
+
+// ---- run / file adapters (I/O boundary) ----
+
+function projectNode(raw: any): BoundaryNode {
+  const node: BoundaryNode = { filePath: String(raw.filePath), name: String(raw.name ?? "") };
+  if (Number.isFinite(raw.startLine)) node.startLine = raw.startLine;
+  if (Number.isFinite(raw.endLine)) node.endLine = raw.endLine;
+  return node;
+}
+
+function nodeKey(node: BoundaryNode): string {
+  return `${node.filePath}\u0000${node.name}\u0000${node.startLine ?? ""}\u0000${node.endLine ?? ""}`;
+}
+
+function dedupeNodes(raw: any[]): BoundaryNode[] {
+  const out: BoundaryNode[] = [];
+  const seen = new Set<string>();
+  for (const entry of raw) {
+    if (!entry || typeof entry.filePath !== "string") continue;
+    const node = projectNode(entry);
+    const key = nodeKey(node);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(node);
+  }
+  return out;
+}
+
+/** Is an evidence entry a feature-graph scope catalog? Shape discriminant, NOT id prefix:
+ *  a graph entry whose data carries both a `nodes` and a `seeds` array. CG-* / CG-NODES-* are also
+ *  `kind:"graph"` but lack this shape (whole-project sampling), and mixing them in would falsely credit
+ *  the boundary with nodes the feature graph never selected. */
+function isFeatureGraphEntry(entry: any): boolean {
+  return entry?.kind === "graph" && Array.isArray(entry?.data?.nodes) && Array.isArray(entry?.data?.seeds);
+}
+
+function readEvidenceCatalog(runDir: string): any[] {
+  if (!existsSync(runDir) || !statSync(runDir).isDirectory()) throw new Error(`run directory not found: ${runDir}`);
+  const file = join(runDir, "evidence.json");
+  if (!existsSync(file)) throw new Error(`evidence.json not found in ${runDir}`);
+  const catalog = JSON.parse(readFileSync(file, "utf8"));
+  return Array.isArray(catalog) ? catalog : catalog.evidence ?? [];
+}
+
+function nodesFromCatalog(list: any[]): BoundaryNode[] {
+  const raw: any[] = [];
+  for (const entry of list) {
+    if (isFeatureGraphEntry(entry)) raw.push(...entry.data.nodes);
+  }
+  return dedupeNodes(raw);
+}
+
+function sourceWindowsFromCatalog(list: any[]): SourceWindow[] {
+  const windows: SourceWindow[] = [];
+  for (const entry of list) {
+    if (entry?.kind !== "source" || typeof entry.path !== "string") continue;
+    windows.push({
+      path: entry.path,
+      startLine: Number.isFinite(entry.startLine) ? entry.startLine : 0,
+      endLine: Number.isFinite(entry.endLine) ? entry.endLine : Number.MAX_SAFE_INTEGER
+    });
+  }
+  return windows;
+}
+
+/** Feature-graph node set of a run (union of every FG scope catalog). The reuse interface for 57B-371:
+ *  replay improved-prune output through `boundaryRecall(nodesFromRun(dir), gold)`. */
+export function nodesFromRun(runDir: string): BoundaryNode[] {
+  return nodesFromCatalog(readEvidenceCatalog(runDir));
+}
+
+/** Run-mode report: reads evidence.json once, computes recall, and annotates each miss with the
+ *  informational `coveredBySourceWindow` signal from the same evidence snapshot. */
+export function boundaryReportFromRun(runDir: string, gold: BoundaryGold): BoundaryReport {
+  const list = readEvidenceCatalog(runDir);
+  const report = boundaryRecall(nodesFromCatalog(list), gold);
+  return annotateSourceCoverage(report, gold, sourceWindowsFromCatalog(list));
+}
+
+/** Load a projected node set from a JSON file (the `--nodes` path / a pinned fixture).
+ *  Accepts `{ nodes: [...] }` or a bare array; each node keeps filePath/name/startLine/endLine. */
+export function loadNodesFile(file: string): BoundaryNode[] {
+  if (!existsSync(file)) throw new Error(`nodes file not found: ${file}`);
+  const raw = JSON.parse(readFileSync(file, "utf8"));
+  const list = Array.isArray(raw) ? raw : raw?.nodes;
+  if (!Array.isArray(list)) throw new Error(`nodes file has no node array: ${file}`);
+  return dedupeNodes(list);
+}

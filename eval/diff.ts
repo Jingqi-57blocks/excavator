@@ -65,7 +65,7 @@ export interface Diff {
   summary: DiffSummary;
 }
 
-function parseLines(lines: string | undefined): { start: number; end: number } | null {
+export function parseLines(lines: string | undefined): { start: number; end: number } | null {
   if (!lines) return null;
   const match = lines.match(/(\d+)(?:\D+(\d+))?/);
   if (!match) return null;
@@ -75,7 +75,7 @@ function parseLines(lines: string | undefined): { start: number; end: number } |
 }
 
 /** Three-form path match: `root/path` exact | `endsWith("/"+path)` | bare `path` exact. */
-function pathMatches(candidate: string, anchor: Anchor): boolean {
+export function pathMatches(candidate: string, anchor: Anchor): boolean {
   const rooted = anchor.root ? `${anchor.root}/${anchor.path}` : anchor.path;
   return candidate === rooted || candidate.endsWith(`/${anchor.path}`) || candidate === anchor.path;
 }

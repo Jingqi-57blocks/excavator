@@ -1,0 +1,42 @@
+{
+  "evidence": [
+    {
+      "id": "FG-mini-1",
+      "kind": "graph",
+      "data": {
+        "seeds": [{ "id": "seed-1", "filePath": "mymod/internal/handlers/router.go", "name": "Route" }],
+        "nodes": [
+          { "id": "n1", "kind": "function", "name": "Alpha", "filePath": "mymod/internal/svc/a.go", "startLine": 10, "endLine": 20 },
+          { "id": "n2", "kind": "function", "name": "Beta", "filePath": "mymod/internal/svc/b.go", "startLine": 5, "endLine": 15 }
+        ],
+        "edges": []
+      }
+    },
+    {
+      "id": "FG-mini-2",
+      "kind": "graph",
+      "data": {
+        "seeds": [{ "id": "seed-2", "filePath": "othermod/routes/x.js", "name": "route" }],
+        "nodes": [
+          { "id": "n3", "kind": "route", "name": "GET /things", "filePath": "othermod/routes/x.js", "startLine": 1, "endLine": 3 },
+          { "id": "n1", "kind": "function", "name": "Alpha", "filePath": "mymod/internal/svc/a.go", "startLine": 10, "endLine": 20 }
+        ],
+        "edges": []
+      }
+    },
+    {
+      "id": "CG-NODES-mini",
+      "kind": "graph",
+      "data": [
+        { "id": "n9", "kind": "function", "name": "Decoy", "filePath": "mymod/internal/svc/decoy.go", "startLine": 1, "endLine": 9 }
+      ]
+    },
+    {
+      "id": "CG-mini",
+      "kind": "graph",
+      "data": { "summary": { "files": 3 }, "coverage": {}, "metadata": {} }
+    },
+    { "id": "S-cov", "kind": "source", "path": "mymod/internal/svc/c.go", "startLine": 100, "endLine": 120, "content": "..." },
+    { "id": "S-other", "kind": "source", "path": "mymod/internal/svc/a.go", "startLine": 10, "endLine": 20, "content": "..." }
+  ]
+}

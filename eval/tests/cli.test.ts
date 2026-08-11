@@ -10,6 +10,9 @@ const CLI = join("eval", "cli.ts");
 const RUN_MINI = join(import.meta.dirname, "fixtures", "run-mini");
 const RUN_OBSERVE_MINI = join(import.meta.dirname, "fixtures", "run-observe-mini");
 const RUN_OBSERVE_MINI_B = join(import.meta.dirname, "fixtures", "run-observe-mini-b");
+const BOUNDARY_RUN_MINI = join(import.meta.dirname, "fixtures", "boundary-run-mini");
+const BOUNDARY_GOLD_FAIL = join(BOUNDARY_RUN_MINI, "gold-fail.json");
+const BOUNDARY_GOLD_PASS = join(BOUNDARY_RUN_MINI, "gold-pass.json");
 const EXPECTED_FAIL = join(RUN_MINI, "expected-fail.json");
 const EXPECTED_PASS = join(RUN_MINI, "expected-pass.json");
 
@@ -152,12 +155,61 @@ test("compare exits 2 on a missing run dir and on a missing --b flag", async () 
   assert.match(missingFlag.stderr, /missing required flag --b/);
 });
 
+test("boundary --run exits 1 and prints FAIL when a mustFind symbol is out of bounds", async () => {
+  const { code, stdout } = await cli(["boundary", "--run", BOUNDARY_RUN_MINI, "--gold", BOUNDARY_GOLD_FAIL]);
+  assert.equal(code, 1);
+  assert.match(stdout, /verdict: FAIL/);
+  assert.match(stdout, /\[decoy-must\]/); // CG-NODES decoy was not credited -> stays a mustFind miss
+  assert.match(stdout, /covered by a source window/); // informational coverage tag rendered in run mode
+});
+
+test("boundary --run exits 0 and prints PASS when every mustFind is in bounds", async () => {
+  const { code, stdout } = await cli(["boundary", "--run", BOUNDARY_RUN_MINI, "--gold", BOUNDARY_GOLD_PASS]);
+  assert.equal(code, 0);
+  assert.match(stdout, /verdict: PASS/);
+});
+
+test("boundary --json emits the BoundaryReport top-level shape", async () => {
+  const { code, stdout } = await cli(["boundary", "--run", BOUNDARY_RUN_MINI, "--gold", BOUNDARY_GOLD_FAIL, "--json"]);
+  assert.equal(code, 1);
+  const report = JSON.parse(stdout);
+  assert.deepEqual(Object.keys(report).sort(), ["found", "missing", "summary", "target"]);
+  assert.equal(report.summary.pass, false);
+});
+
+test("boundary --nodes reads a projected node file and omits the run-only coverage field", async () => {
+  const nodesFile = join(BOUNDARY_RUN_MINI, "..", "..", "..", "fixtures", "wcp-leave", "demo-run-fg-nodes.json");
+  const gold = join(BOUNDARY_RUN_MINI, "..", "..", "..", "fixtures", "wcp-leave", "boundary-gold.json");
+  const { code, stdout } = await cli(["boundary", "--nodes", nodesFile, "--gold", gold, "--json"]);
+  assert.equal(code, 1);
+  const report = JSON.parse(stdout);
+  assert.equal(report.summary.mustFindMissing, 3);
+  assert.equal(report.missing.every((m: any) => !("coveredBySourceWindow" in m)), true); // no evidence.json in --nodes mode
+});
+
+test("boundary same run twice is byte-identical (deterministic)", async () => {
+  const a = await cli(["boundary", "--run", BOUNDARY_RUN_MINI, "--gold", BOUNDARY_GOLD_FAIL, "--json"]);
+  const b = await cli(["boundary", "--run", BOUNDARY_RUN_MINI, "--gold", BOUNDARY_GOLD_FAIL, "--json"]);
+  assert.equal(a.stdout, b.stdout);
+});
+
+test("boundary exits 2 on a missing --gold flag and on a missing run dir", async () => {
+  const missingGold = await cli(["boundary", "--run", BOUNDARY_RUN_MINI]);
+  assert.equal(missingGold.code, 2);
+  assert.match(missingGold.stderr, /missing required flag --gold/);
+
+  const missingDir = await cli(["boundary", "--run", join(BOUNDARY_RUN_MINI, "nope"), "--gold", BOUNDARY_GOLD_FAIL]);
+  assert.equal(missingDir.code, 2);
+  assert.match(missingDir.stderr, /run directory not found/);
+});
+
 test("help prints usage; an unknown command errors with a nonzero, non-diff exit", async () => {
   const help = await cli(["help"]);
   assert.equal(help.code, 0);
   assert.match(help.stdout, /extract --run/);
   assert.match(help.stdout, /view {4}--run/);
   assert.match(help.stdout, /compare --a/);
+  assert.match(help.stdout, /boundary \(--run/);
 
   const bogus = await cli(["nope"]);
   assert.equal(bogus.code, 2);

@@ -1,0 +1,2012 @@
+{
+  "_meta": {
+    "description": "Mechanical projection of the FG (feature-graph) scope evidence data.nodes from a real demo run. Pins the boundary-recall baseline inside CI without depending on an out-of-repo run directory. Each node keeps only id/kind/name/filePath/startLine/endLine.",
+    "runId": "run-2026_08_11_16_37-请假-f5da2557-6ff0cf2b-6e6091ab",
+    "fgEvidenceId": "FG-请假-8115446b1d-f5da25572bdc44b18631",
+    "snapshotId": "f5da25572bdc44b18631",
+    "extractedAt": "2026-08-11",
+    "nodeCount": 250
+  },
+  "nodes": [
+    {
+      "id": "wcp-service-v2\u0000function:c87546614ad9757b49dfc6f2ff5489ef",
+      "kind": "function",
+      "name": "GetApplicationCC",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/notifier.go",
+      "startLine": 236,
+      "endLine": 366
+    },
+    {
+      "id": "wcp-service-v2\u0000function:10fb547d0e1a17089070aaf07b9a9479",
+      "kind": "function",
+      "name": "NewHolidayService",
+      "filePath": "wcp-service-v2/internal/handlers/holiday/service.go",
+      "startLine": 31,
+      "endLine": 36
+    },
+    {
+      "id": "wcp-service-v2\u0000function:15ef77ebd4e7ec87e5c249660b6bc9c9",
+      "kind": "function",
+      "name": "GetUserPaidSickLeaveExhaustionDateMap",
+      "filePath": "wcp-service-v2/internal/handlers/leave/utils.go",
+      "startLine": 54,
+      "endLine": 94
+    },
+    {
+      "id": "wcp-service-v2\u0000function:9d801e0b4e6228946cc14206d23da5bb",
+      "kind": "function",
+      "name": "GetEmpRemainPtoMap",
+      "filePath": "wcp-service-v2/internal/handlers/leaveHistory/utils.go",
+      "startLine": 18,
+      "endLine": 36
+    },
+    {
+      "id": "wcp-service-v2\u0000function:bcc668e314eaaf5a5cc403fa06f8a50c",
+      "kind": "function",
+      "name": "IsHoliday",
+      "filePath": "wcp-service-v2/internal/handlers/application/application.go",
+      "startLine": 475,
+      "endLine": 486
+    },
+    {
+      "id": "wcp-service-v2\u0000function:6706d4c3d297b60462af85d1d3947192",
+      "kind": "function",
+      "name": "IsStatutoryHoliday",
+      "filePath": "wcp-service-v2/internal/handlers/application/application.go",
+      "startLine": 488,
+      "endLine": 499
+    },
+    {
+      "id": "wcp-service-v2\u0000function:1b95bb028ba1509bb14c87e4b3606059",
+      "kind": "function",
+      "name": "GetApplicationsForReimb",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/router.go",
+      "startLine": 316,
+      "endLine": 322
+    },
+    {
+      "id": "wcp-service-v2\u0000function:2e5c1d3ebaf0bc9346bed721ac26ccb6",
+      "kind": "function",
+      "name": "GetSelfHandApplicationIDs",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/service.go",
+      "startLine": 201,
+      "endLine": 217
+    },
+    {
+      "id": "wcp-service-v2\u0000function:88ae2b57f0672b56704c927c4d6c5e20",
+      "kind": "function",
+      "name": "UnknownHolidayType",
+      "filePath": "wcp-service-v2/internal/handlers/leave/brdg_abst.go",
+      "startLine": 183,
+      "endLine": 185
+    },
+    {
+      "id": "wcp-service-v2\u0000function:f724b8262b44a0683bb61d2ac1fcd16b",
+      "kind": "function",
+      "name": "DeletionApplication",
+      "filePath": "wcp-service-v2/internal/handlers/leave/router.go",
+      "startLine": 192,
+      "endLine": 204
+    },
+    {
+      "id": "wcp-service-v2\u0000function:68e277155354c7310e77c415a121fad1",
+      "kind": "function",
+      "name": "ApproveLeavePrompt",
+      "filePath": "wcp-service-v2/internal/handlers/leave/router.go",
+      "startLine": 247,
+      "endLine": 253
+    },
+    {
+      "id": "wcp-service-v2\u0000function:dc3a0363a6718420499670be6c608ae1",
+      "kind": "function",
+      "name": "ApplyLeavePrompt",
+      "filePath": "wcp-service-v2/internal/handlers/leave/router.go",
+      "startLine": 255,
+      "endLine": 261
+    },
+    {
+      "id": "wcp-service-v2\u0000function:17b6f766dbf210f28377b461014c1eb3",
+      "kind": "function",
+      "name": "GetUserRemainFullySickLeave",
+      "filePath": "wcp-service-v2/internal/handlers/leave/router.go",
+      "startLine": 263,
+      "endLine": 265
+    },
+    {
+      "id": "wcp-service-v2\u0000function:7b087c61b1a1f1e6482e97e5594d718f",
+      "kind": "function",
+      "name": "GetRemainsPTOMap",
+      "filePath": "wcp-service-v2/internal/handlers/leave/utils.go",
+      "startLine": 15,
+      "endLine": 39
+    },
+    {
+      "id": "wcp-service-v2\u0000function:584f2b61947fff6538c8a9f5ee5c7abe",
+      "kind": "function",
+      "name": "GetSelfHandLeaveIds",
+      "filePath": "wcp-service-v2/internal/handlers/leave/utils.go",
+      "startLine": 41,
+      "endLine": 52
+    },
+    {
+      "id": "wcp-service-v2\u0000function:947c5513ee7cf953090e575a947800e1",
+      "kind": "function",
+      "name": "GetSickLeaveHourInTheSelectedPeriod",
+      "filePath": "wcp-service-v2/internal/handlers/leave/utils.go",
+      "startLine": 96,
+      "endLine": 114
+    },
+    {
+      "id": "wcp-service-v2\u0000function:eadef1c14894faf92a0a870b8ee3b1cb",
+      "kind": "function",
+      "name": "GetUserSickLeaveDis",
+      "filePath": "wcp-service-v2/internal/handlers/leave/utils.go",
+      "startLine": 134,
+      "endLine": 160
+    },
+    {
+      "id": "wcp-service-v2\u0000function:0d6faa3caa090eb623655237776bfe80",
+      "kind": "function",
+      "name": "GetUserTotalSickLeaveHourMap",
+      "filePath": "wcp-service-v2/internal/handlers/leave/utils.go",
+      "startLine": 162,
+      "endLine": 212
+    },
+    {
+      "id": "wcp-service-v2\u0000function:7ff9265a28195aa0d0a163c8ed6f39a2",
+      "kind": "function",
+      "name": "GetHolidayHour",
+      "filePath": "wcp-service-v2/internal/handlers/leaveHistory/router.go",
+      "startLine": 14,
+      "endLine": 24
+    },
+    {
+      "id": "wcp-service-v2\u0000function:171c80365fa55bd6999c8792cc0a8489",
+      "kind": "function",
+      "name": "UpdateHolidayHour",
+      "filePath": "wcp-service-v2/internal/handlers/leaveHistory/router.go",
+      "startLine": 26,
+      "endLine": 37
+    },
+    {
+      "id": "wcp-service-v2\u0000function:9583df7a8f0fd66c511a887a747f7451",
+      "kind": "function",
+      "name": "GetHolidayHourChangeLog",
+      "filePath": "wcp-service-v2/internal/handlers/leaveHistory/router.go",
+      "startLine": 39,
+      "endLine": 49
+    },
+    {
+      "id": "wcp-service-v2\u0000function:0f964018cd7b0b0044f3554d3c1fef44",
+      "kind": "function",
+      "name": "ExportHolidayHour",
+      "filePath": "wcp-service-v2/internal/handlers/leaveHistory/router.go",
+      "startLine": 51,
+      "endLine": 57
+    },
+    {
+      "id": "wcp-service\u0000route:routes/holiday.js:138:GET:/holiday/types",
+      "kind": "route",
+      "name": "GET /holiday/types",
+      "filePath": "wcp-service/routes/holiday.js",
+      "startLine": 138,
+      "endLine": 138
+    },
+    {
+      "id": "wcp-service\u0000route:routes/holiday.js:346:GET:/me/holiday-summary",
+      "kind": "route",
+      "name": "GET /me/holiday-summary",
+      "filePath": "wcp-service/routes/holiday.js",
+      "startLine": 346,
+      "endLine": 346
+    },
+    {
+      "id": "wcp-service\u0000route:routes/holiday.js:382:GET:/holiday/changes",
+      "kind": "route",
+      "name": "GET /holiday/changes",
+      "filePath": "wcp-service/routes/holiday.js",
+      "startLine": 382,
+      "endLine": 382
+    },
+    {
+      "id": "wcp-service\u0000route:routes/holiday.js:434:GET:/statutory-holiday/:year",
+      "kind": "route",
+      "name": "GET /statutory-holiday/:year",
+      "filePath": "wcp-service/routes/holiday.js",
+      "startLine": 434,
+      "endLine": 434
+    },
+    {
+      "id": "wcp-service\u0000route:routes/leave.js:62:GET:/leave/types",
+      "kind": "route",
+      "name": "GET /leave/types",
+      "filePath": "wcp-service/routes/leave.js",
+      "startLine": 62,
+      "endLine": 62
+    },
+    {
+      "id": "wcp-service\u0000route:routes/leave.js:110:GET:/leave/statuses",
+      "kind": "route",
+      "name": "GET /leave/statuses",
+      "filePath": "wcp-service/routes/leave.js",
+      "startLine": 110,
+      "endLine": 110
+    },
+    {
+      "id": "wcp-service\u0000route:routes/leave.js:267:GET:/me/leaves",
+      "kind": "route",
+      "name": "GET /me/leaves",
+      "filePath": "wcp-service/routes/leave.js",
+      "startLine": 267,
+      "endLine": 267
+    },
+    {
+      "id": "wcp-service\u0000route:routes/leave.js:872:GET:/sick_leave/:date",
+      "kind": "route",
+      "name": "GET /sick_leave/:date",
+      "filePath": "wcp-service/routes/leave.js",
+      "startLine": 872,
+      "endLine": 872
+    },
+    {
+      "id": "wcp-service-v2\u0000route:internal/handlers/handlers.go:108:POST:/:leave_id/application",
+      "kind": "route",
+      "name": "POST /:leave_id/application",
+      "filePath": "wcp-service-v2/internal/handlers/handlers.go",
+      "startLine": 108,
+      "endLine": 108
+    },
+    {
+      "id": "wcp-service-v2\u0000function:fa2bc0e4dccc919797416957208139a9",
+      "kind": "function",
+      "name": "AppInfoByID",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/service.go",
+      "startLine": 69,
+      "endLine": 104
+    },
+    {
+      "id": "wcp-service-v2\u0000function:a14920424d9fa05158963875164a5326",
+      "kind": "function",
+      "name": "SealByAppID",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/service.go",
+      "startLine": 106,
+      "endLine": 120
+    },
+    {
+      "id": "wcp-service-v2\u0000function:524b1a35cf9a026a2d8a12c3cb597d5b",
+      "kind": "function",
+      "name": "NewLvService",
+      "filePath": "wcp-service-v2/internal/handlers/leave/service.go",
+      "startLine": 48,
+      "endLine": 53
+    },
+    {
+      "id": "wcp-service-v2\u0000function:69ba422341989d18c572fe3aa6046392",
+      "kind": "function",
+      "name": "GetEmpRemainSpecialMap",
+      "filePath": "wcp-service-v2/internal/handlers/leaveHistory/utils.go",
+      "startLine": 10,
+      "endLine": 16
+    },
+    {
+      "id": "wcp-service-v2\u0000function:cb5a185a5082ed048d550954e45f2b38",
+      "kind": "function",
+      "name": "GetEmpRemainBtoMap",
+      "filePath": "wcp-service-v2/internal/handlers/leaveHistory/utils.go",
+      "startLine": 38,
+      "endLine": 71
+    },
+    {
+      "id": "wcp-service-v2\u0000function:7bc7ea131dce9be36c4514069a631235",
+      "kind": "function",
+      "name": "TestHybridEncryptDecrypt",
+      "filePath": "wcp-service-v2/internal/cmon/hybrid_crypto_test.go",
+      "startLine": 12,
+      "endLine": 50
+    },
+    {
+      "id": "wcp-service-v2\u0000function:a5cbd57ee6344c1f46ab05e4a61ffb84",
+      "kind": "function",
+      "name": "TestParseRSAPublicKeyInvalid",
+      "filePath": "wcp-service-v2/internal/cmon/hybrid_crypto_test.go",
+      "startLine": 52,
+      "endLine": 59
+    },
+    {
+      "id": "wcp-service-v2\u0000function:561d965d2dc26cd99428e263a01fad2d",
+      "kind": "function",
+      "name": "HybridEncrypt",
+      "filePath": "wcp-service-v2/internal/cmon/hybrid_crypto.go",
+      "startLine": 20,
+      "endLine": 49
+    },
+    {
+      "id": "wcp-service-v2\u0000function:e1bd23fb6d576505135093d51429f6a7",
+      "kind": "function",
+      "name": "HybridDecrypt",
+      "filePath": "wcp-service-v2/internal/cmon/hybrid_crypto.go",
+      "startLine": 52,
+      "endLine": 90
+    },
+    {
+      "id": "wcp-service-v2\u0000function:c3b3667fcfb758f9a69b95a812213076",
+      "kind": "function",
+      "name": "ParseRSAPublicKey",
+      "filePath": "wcp-service-v2/internal/cmon/hybrid_crypto.go",
+      "startLine": 93,
+      "endLine": 125
+    },
+    {
+      "id": "wcp-service-v2\u0000function:ef74924caf14327b1276fb6901666e63",
+      "kind": "function",
+      "name": "ParseRSAPrivateKey",
+      "filePath": "wcp-service-v2/internal/cmon/hybrid_crypto.go",
+      "startLine": 128,
+      "endLine": 148
+    },
+    {
+      "id": "wcp-service-v2\u0000function:4f32f34b7f0c04877da294180657ac02",
+      "kind": "function",
+      "name": "RSAPublicKeyToBase64SPKI",
+      "filePath": "wcp-service-v2/internal/cmon/hybrid_crypto.go",
+      "startLine": 151,
+      "endLine": 157
+    },
+    {
+      "id": "wcp-service-v2\u0000function:ee24706ff92043846a9205ff2ef12f55",
+      "kind": "function",
+      "name": "OtDateMap",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/ot.go",
+      "startLine": 624,
+      "endLine": 649
+    },
+    {
+      "id": "wcp-service-v2\u0000function:38b5e173bcf4d03b6e32459f7d53c38b",
+      "kind": "function",
+      "name": "OtDateRange",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/ot.go",
+      "startLine": 651,
+      "endLine": 667
+    },
+    {
+      "id": "wcp-service-v2\u0000function:d3d748482966dc3966321811d75913fd",
+      "kind": "function",
+      "name": "PaginationSelf",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/router.go",
+      "startLine": 101,
+      "endLine": 108
+    },
+    {
+      "id": "wcp-service-v2\u0000function:723260736fbd3c6f6fc2ed4d5b3520bb",
+      "kind": "function",
+      "name": "Pagination",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/router.go",
+      "startLine": 111,
+      "endLine": 118
+    },
+    {
+      "id": "wcp-service-v2\u0000function:599ae45a1aa77cec8c08a35499c8423b",
+      "kind": "function",
+      "name": "Info",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/router.go",
+      "startLine": 121,
+      "endLine": 128
+    },
+    {
+      "id": "wcp-service-v2\u0000function:bdab4ff2f1f56573960dd82c49408f9e",
+      "kind": "function",
+      "name": "Cancellation",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/router.go",
+      "startLine": 131,
+      "endLine": 138
+    },
+    {
+      "id": "wcp-service-v2\u0000function:daea5b539a36dd04f2a864937e76f5c5",
+      "kind": "function",
+      "name": "AdminCancel",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/router.go",
+      "startLine": 140,
+      "endLine": 153
+    },
+    {
+      "id": "wcp-service-v2\u0000function:ad1155db98c17615a2976364905c2335",
+      "kind": "function",
+      "name": "Approve",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/router.go",
+      "startLine": 156,
+      "endLine": 168
+    },
+    {
+      "id": "wcp-service-v2\u0000function:09cd54141ad5d644ac274f27c29b6aee",
+      "kind": "function",
+      "name": "Reject",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/router.go",
+      "startLine": 171,
+      "endLine": 186
+    },
+    {
+      "id": "wcp-service-v2\u0000function:87129a356a33c3644cd3218038fda0bd",
+      "kind": "function",
+      "name": "Deliver",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/router.go",
+      "startLine": 189,
+      "endLine": 204
+    },
+    {
+      "id": "wcp-service-v2\u0000function:03cc8331290d27254d1e6e0949bed1bb",
+      "kind": "function",
+      "name": "NewSEAL",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/router.go",
+      "startLine": 207,
+      "endLine": 217
+    },
+    {
+      "id": "wcp-service-v2\u0000function:89632140a9859a08dbba24d28900c9a1",
+      "kind": "function",
+      "name": "ReturnSeal",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/router.go",
+      "startLine": 220,
+      "endLine": 232
+    },
+    {
+      "id": "wcp-service-v2\u0000function:c10084f9625adccd8f05df21231d7f0f",
+      "kind": "function",
+      "name": "NewWFH",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/router.go",
+      "startLine": 235,
+      "endLine": 245
+    },
+    {
+      "id": "wcp-service-v2\u0000function:b0a758e2f1a581dca813783f833ff23f",
+      "kind": "function",
+      "name": "NewBusinessTravel",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/router.go",
+      "startLine": 247,
+      "endLine": 257
+    },
+    {
+      "id": "wcp-service-v2\u0000function:e8146709df7524cb5acf0730d5a029e1",
+      "kind": "function",
+      "name": "NewOT",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/router.go",
+      "startLine": 259,
+      "endLine": 269
+    },
+    {
+      "id": "wcp-service-v2\u0000function:9fa58af0ce1cc13faf3bac0526158645",
+      "kind": "function",
+      "name": "NewPurchase",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/router.go",
+      "startLine": 271,
+      "endLine": 284
+    },
+    {
+      "id": "wcp-service-v2\u0000function:7f8935cab16ba063dcd5c3b6248f85fc",
+      "kind": "function",
+      "name": "Export",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/router.go",
+      "startLine": 286,
+      "endLine": 293
+    },
+    {
+      "id": "wcp-service-v2\u0000function:f22532d6e7da5f2336cf0b784149f04c",
+      "kind": "function",
+      "name": "FillInOtAmount",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/router.go",
+      "startLine": 295,
+      "endLine": 306
+    },
+    {
+      "id": "wcp-service-v2\u0000function:5193dcda8de0e6b9488e4c12e0f923ee",
+      "kind": "function",
+      "name": "GetOtCountByDate",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/router.go",
+      "startLine": 308,
+      "endLine": 314
+    },
+    {
+      "id": "wcp-service-v2\u0000function:49e68c553b7cb05a8a847bcadfae3d9e",
+      "kind": "function",
+      "name": "UpdatePurchaseClientCost",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/router.go",
+      "startLine": 324,
+      "endLine": 334
+    },
+    {
+      "id": "wcp-service-v2\u0000function:7bd2b75e13699fcbfce904450006bd36",
+      "kind": "function",
+      "name": "NewAplctService",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/service.go",
+      "startLine": 57,
+      "endLine": 62
+    },
+    {
+      "id": "wcp-service-v2\u0000function:bcc8a0f676b57f96700c7c63ffca6459",
+      "kind": "function",
+      "name": "NewExporter",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/service.go",
+      "startLine": 1075,
+      "endLine": 1092
+    },
+    {
+      "id": "wcp-service-v2\u0000function:7dd9ec797569c9e4e1bc8323c4f99c70",
+      "kind": "function",
+      "name": "SetupCocFactory",
+      "filePath": "wcp-service-v2/internal/handlers/holiday/holiday_component.go",
+      "startLine": 61,
+      "endLine": 66
+    },
+    {
+      "id": "wcp-service-v2\u0000function:4e3bf6d274f0c78bd53a42ef83216f2c",
+      "kind": "function",
+      "name": "ByNation",
+      "filePath": "wcp-service-v2/internal/handlers/holiday/router.go",
+      "startLine": 25,
+      "endLine": 42
+    },
+    {
+      "id": "wcp-service-v2\u0000function:21543534d690af06add781a35193e19a",
+      "kind": "function",
+      "name": "BySelf",
+      "filePath": "wcp-service-v2/internal/handlers/holiday/router.go",
+      "startLine": 58,
+      "endLine": 60
+    },
+    {
+      "id": "wcp-service-v2\u0000function:2ecd5c2950185627e2a598a680a21563",
+      "kind": "function",
+      "name": "BySelfV2",
+      "filePath": "wcp-service-v2/internal/handlers/holiday/router.go",
+      "startLine": 62,
+      "endLine": 64
+    },
+    {
+      "id": "wcp-service-v2\u0000function:33bd80e31bdedb7ee9ada8a1e9106741",
+      "kind": "function",
+      "name": "RemoveDuplicateElement",
+      "filePath": "wcp-service-v2/internal/handlers/leave/dcrt_recipient.go",
+      "startLine": 13,
+      "endLine": 23
+    },
+    {
+      "id": "wcp-service-v2\u0000function:cf5398bf91d2a19a9d5c009ee7825ee7",
+      "kind": "function",
+      "name": "Creation",
+      "filePath": "wcp-service-v2/internal/handlers/leave/router.go",
+      "startLine": 30,
+      "endLine": 37
+    },
+    {
+      "id": "wcp-service-v2\u0000function:6b289db82ad3743019487dcb5e8afb69",
+      "kind": "function",
+      "name": "Demand",
+      "filePath": "wcp-service-v2/internal/handlers/leave/router.go",
+      "startLine": 48,
+      "endLine": 55
+    },
+    {
+      "id": "wcp-service-v2\u0000function:c3a03059b2317d13f7ad7b477aab6f75",
+      "kind": "function",
+      "name": "Approve",
+      "filePath": "wcp-service-v2/internal/handlers/leave/router.go",
+      "startLine": 66,
+      "endLine": 78
+    },
+    {
+      "id": "wcp-service-v2\u0000function:fe5ccade297b93d07f1af6525cd11864",
+      "kind": "function",
+      "name": "Reject",
+      "filePath": "wcp-service-v2/internal/handlers/leave/router.go",
+      "startLine": 89,
+      "endLine": 101
+    },
+    {
+      "id": "wcp-service-v2\u0000function:9f0268d6ada988e1a175b224e7536611",
+      "kind": "function",
+      "name": "Between",
+      "filePath": "wcp-service-v2/internal/handlers/leave/router.go",
+      "startLine": 104,
+      "endLine": 129
+    },
+    {
+      "id": "wcp-service-v2\u0000function:b3ad8372335dd067f97d4008a9a16f64",
+      "kind": "function",
+      "name": "Pagination",
+      "filePath": "wcp-service-v2/internal/handlers/leave/router.go",
+      "startLine": 140,
+      "endLine": 147
+    },
+    {
+      "id": "wcp-service-v2\u0000function:5cec4541b42b3b83de3074cc116fde02",
+      "kind": "function",
+      "name": "OwnPagination",
+      "filePath": "wcp-service-v2/internal/handlers/leave/router.go",
+      "startLine": 165,
+      "endLine": 172
+    },
+    {
+      "id": "wcp-service-v2\u0000function:d2c39e02e6e8c75b5bf54b1df0d71e21",
+      "kind": "function",
+      "name": "Deletion",
+      "filePath": "wcp-service-v2/internal/handlers/leave/router.go",
+      "startLine": 217,
+      "endLine": 229
+    },
+    {
+      "id": "wcp-service-v2\u0000function:124df23445b630a5780f7ac3cf97af53",
+      "kind": "function",
+      "name": "SimpleForLogTime",
+      "filePath": "wcp-service-v2/internal/handlers/leave/router.go",
+      "startLine": 231,
+      "endLine": 237
+    },
+    {
+      "id": "wcp-service-v2\u0000function:231ad44dd19aef40ef9a13d2d60cc417",
+      "kind": "function",
+      "name": "Export",
+      "filePath": "wcp-service-v2/internal/handlers/leave/router.go",
+      "startLine": 239,
+      "endLine": 245
+    },
+    {
+      "id": "wcp-service-v2\u0000function:6c0bf788189d9599dac995077664c077",
+      "kind": "function",
+      "name": "GetInTheSelectedPeriodByYear",
+      "filePath": "wcp-service-v2/internal/handlers/leave/utils.go",
+      "startLine": 116,
+      "endLine": 132
+    },
+    {
+      "id": "wcp-service-v2\u0000function:4896abaf7a86ba8b8c55631d2b813f58",
+      "kind": "function",
+      "name": "NewLvHistoryService",
+      "filePath": "wcp-service-v2/internal/handlers/leaveHistory/service.go",
+      "startLine": 35,
+      "endLine": 40
+    },
+    {
+      "id": "wcp-service\u0000route:routes/holiday.js:178:POST:/",
+      "kind": "route",
+      "name": "POST /",
+      "filePath": "wcp-service/routes/holiday.js",
+      "startLine": 178,
+      "endLine": 178
+    },
+    {
+      "id": "wcp-service\u0000route:routes/holiday.js:252:PUT:/",
+      "kind": "route",
+      "name": "PUT /",
+      "filePath": "wcp-service/routes/holiday.js",
+      "startLine": 252,
+      "endLine": 252
+    },
+    {
+      "id": "wcp-service\u0000route:routes/holiday.js:315:GET:/:id",
+      "kind": "route",
+      "name": "GET /:id",
+      "filePath": "wcp-service/routes/holiday.js",
+      "startLine": 315,
+      "endLine": 315
+    },
+    {
+      "id": "wcp-service\u0000route:routes/holiday.js:461:POST:/next-year",
+      "kind": "route",
+      "name": "POST /next-year",
+      "filePath": "wcp-service/routes/holiday.js",
+      "startLine": 461,
+      "endLine": 461
+    },
+    {
+      "id": "wcp-service\u0000route:routes/leave.js:149:POST:/",
+      "kind": "route",
+      "name": "POST /",
+      "filePath": "wcp-service/routes/leave.js",
+      "startLine": 149,
+      "endLine": 149
+    },
+    {
+      "id": "wcp-service\u0000route:routes/leave.js:293:PUT:/cancel",
+      "kind": "route",
+      "name": "PUT /cancel",
+      "filePath": "wcp-service/routes/leave.js",
+      "startLine": 293,
+      "endLine": 293
+    },
+    {
+      "id": "wcp-service\u0000route:routes/leave.js:388:GET:/:id",
+      "kind": "route",
+      "name": "GET /:id",
+      "filePath": "wcp-service/routes/leave.js",
+      "startLine": 388,
+      "endLine": 388
+    },
+    {
+      "id": "wcp-service\u0000route:routes/leave.js:606:POST:/approve",
+      "kind": "route",
+      "name": "POST /approve",
+      "filePath": "wcp-service/routes/leave.js",
+      "startLine": 606,
+      "endLine": 606
+    },
+    {
+      "id": "wcp-service\u0000route:routes/leave.js:661:POST:/reject",
+      "kind": "route",
+      "name": "POST /reject",
+      "filePath": "wcp-service/routes/leave.js",
+      "startLine": 661,
+      "endLine": 661
+    },
+    {
+      "id": "wcp-service\u0000route:routes/leave.js:720:GET:/",
+      "kind": "route",
+      "name": "GET /",
+      "filePath": "wcp-service/routes/leave.js",
+      "startLine": 720,
+      "endLine": 720
+    },
+    {
+      "id": "wcp-service\u0000route:routes/leave.js:813:GET:/me/simple",
+      "kind": "route",
+      "name": "GET /me/simple",
+      "filePath": "wcp-service/routes/leave.js",
+      "startLine": 813,
+      "endLine": 813
+    },
+    {
+      "id": "wcp_review_service\u0000route:internal/handler/handler.go:96:GET:/application/leader",
+      "kind": "route",
+      "name": "GET /application/leader",
+      "filePath": "wcp_review_service/internal/handler/handler.go",
+      "startLine": 96,
+      "endLine": 96
+    },
+    {
+      "id": "wcp_review_service\u0000route:internal/handler/handler.go:97:GET:/application/self",
+      "kind": "route",
+      "name": "GET /application/self",
+      "filePath": "wcp_review_service/internal/handler/handler.go",
+      "startLine": 97,
+      "endLine": 97
+    },
+    {
+      "id": "wcp_review_service\u0000route:internal/handler/handler.go:98:GET:/application/peer",
+      "kind": "route",
+      "name": "GET /application/peer",
+      "filePath": "wcp_review_service/internal/handler/handler.go",
+      "startLine": 98,
+      "endLine": 98
+    },
+    {
+      "id": "wcp_review_service\u0000route:internal/handler/handler.go:111:POST:/application/:application_id",
+      "kind": "route",
+      "name": "POST /application/:application_id",
+      "filePath": "wcp_review_service/internal/handler/handler.go",
+      "startLine": 111,
+      "endLine": 111
+    },
+    {
+      "id": "wcp_review_service\u0000route:internal/handler/handler.go:118:POST:/:promotion_id/application/:application_id/leader",
+      "kind": "route",
+      "name": "POST /:promotion_id/application/:application_id/leader",
+      "filePath": "wcp_review_service/internal/handler/handler.go",
+      "startLine": 118,
+      "endLine": 118
+    },
+    {
+      "id": "wcp_review_service\u0000route:internal/handler/handler.go:119:POST:/:promotion_id/application/:application_id/peers",
+      "kind": "route",
+      "name": "POST /:promotion_id/application/:application_id/peers",
+      "filePath": "wcp_review_service/internal/handler/handler.go",
+      "startLine": 119,
+      "endLine": 119
+    },
+    {
+      "id": "wcp_review_service\u0000route:internal/handler/handler.go:121:POST:/:promotion_id/application",
+      "kind": "route",
+      "name": "POST /:promotion_id/application",
+      "filePath": "wcp_review_service/internal/handler/handler.go",
+      "startLine": 121,
+      "endLine": 121
+    },
+    {
+      "id": "wcp_review_service\u0000route:internal/handler/handler.go:122:PUT:/:promotion_id/application",
+      "kind": "route",
+      "name": "PUT /:promotion_id/application",
+      "filePath": "wcp_review_service/internal/handler/handler.go",
+      "startLine": 122,
+      "endLine": 122
+    },
+    {
+      "id": "wcp_review_service\u0000route:internal/handler/handler.go:123:GET:/:promotion_id/application",
+      "kind": "route",
+      "name": "GET /:promotion_id/application",
+      "filePath": "wcp_review_service/internal/handler/handler.go",
+      "startLine": 123,
+      "endLine": 123
+    },
+    {
+      "id": "wcp_review_service\u0000route:internal/handler/handler.go:124:GET:/:promotion_id/application/:application_id",
+      "kind": "route",
+      "name": "GET /:promotion_id/application/:application_id",
+      "filePath": "wcp_review_service/internal/handler/handler.go",
+      "startLine": 124,
+      "endLine": 124
+    },
+    {
+      "id": "wcp_review_service\u0000route:internal/handler/handler.go:127:DELETE:/:promotion_id/application/:application_id",
+      "kind": "route",
+      "name": "DELETE /:promotion_id/application/:application_id",
+      "filePath": "wcp_review_service/internal/handler/handler.go",
+      "startLine": 127,
+      "endLine": 127
+    },
+    {
+      "id": "wcp_review_service\u0000route:internal/handler/handler.go:128:POST:/:promotion_id/application/:application_id",
+      "kind": "route",
+      "name": "POST /:promotion_id/application/:application_id",
+      "filePath": "wcp_review_service/internal/handler/handler.go",
+      "startLine": 128,
+      "endLine": 128
+    },
+    {
+      "id": "wcp-service-v2\u0000function:9c37d44afaf2e2f9a96574cc2295f5a7",
+      "kind": "function",
+      "name": "HolidayInit",
+      "filePath": "wcp-service-v2/init/initialization.go",
+      "startLine": 106,
+      "endLine": 161
+    },
+    {
+      "id": "wcp-service-v2\u0000function:20822cbcfb357c5c67ebe9c9542d39a6",
+      "kind": "function",
+      "name": "LeaveComment",
+      "filePath": "wcp-service-v2/internal/handlers/ai_tool/router.go",
+      "startLine": 43,
+      "endLine": 56
+    },
+    {
+      "id": "wcp-service-v2\u0000function:065051d15e5546fb37be612acfd9d131",
+      "kind": "function",
+      "name": "PreviewLastWorkingDayPTO",
+      "filePath": "wcp-service-v2/internal/handlers/employee/router.go",
+      "startLine": 138,
+      "endLine": 153
+    },
+    {
+      "id": "wcp-service-v2\u0000route:internal/handlers/handlers.go:99:GET:/:leave_id",
+      "kind": "route",
+      "name": "GET /:leave_id",
+      "filePath": "wcp-service-v2/internal/handlers/handlers.go",
+      "startLine": 99,
+      "endLine": 99
+    },
+    {
+      "id": "wcp-service-v2\u0000route:internal/handlers/handlers.go:101:POST:/:leave_id",
+      "kind": "route",
+      "name": "POST /:leave_id",
+      "filePath": "wcp-service-v2/internal/handlers/handlers.go",
+      "startLine": 101,
+      "endLine": 101
+    },
+    {
+      "id": "wcp-service-v2\u0000route:internal/handlers/handlers.go:102:PUT:/:leave_id",
+      "kind": "route",
+      "name": "PUT /:leave_id",
+      "filePath": "wcp-service-v2/internal/handlers/handlers.go",
+      "startLine": 102,
+      "endLine": 102
+    },
+    {
+      "id": "wcp-service-v2\u0000route:internal/handlers/handlers.go:109:DELETE:/:leave_id",
+      "kind": "route",
+      "name": "DELETE /:leave_id",
+      "filePath": "wcp-service-v2/internal/handlers/handlers.go",
+      "startLine": 109,
+      "endLine": 109
+    },
+    {
+      "id": "wcp-service-v2\u0000route:internal/handlers/handlers.go:112:GET:/:leave_id/approve-prompt",
+      "kind": "route",
+      "name": "GET /:leave_id/approve-prompt",
+      "filePath": "wcp-service-v2/internal/handlers/handlers.go",
+      "startLine": 112,
+      "endLine": 112
+    },
+    {
+      "id": "wcp-service-v2\u0000route:internal/handlers/handlers.go:142:GET:/:employee_id/last-working-day/pto-preview",
+      "kind": "route",
+      "name": "GET /:employee_id/last-working-day/pto-preview",
+      "filePath": "wcp-service-v2/internal/handlers/handlers.go",
+      "startLine": 142,
+      "endLine": 142
+    },
+    {
+      "id": "wcp-service-v2\u0000function:a6af64e8a91feb7b9a9c4ce5648b2a9e",
+      "kind": "function",
+      "name": "GetMonthHolidays",
+      "filePath": "wcp-service-v2/internal/handlers/management/utils.go",
+      "startLine": 320,
+      "endLine": 337
+    },
+    {
+      "id": "wcp-service\u0000route:app.js:100:USE:/leaves",
+      "kind": "route",
+      "name": "USE /leaves",
+      "filePath": "wcp-service/app.js",
+      "startLine": 100,
+      "endLine": 100
+    },
+    {
+      "id": "wcp-service\u0000route:app.js:101:USE:/holidays",
+      "kind": "route",
+      "name": "USE /holidays",
+      "filePath": "wcp-service/app.js",
+      "startLine": 101,
+      "endLine": 101
+    },
+    {
+      "id": "wcp-service\u0000route:routes/report.js:33:GET:/holidays",
+      "kind": "route",
+      "name": "GET /holidays",
+      "filePath": "wcp-service/routes/report.js",
+      "startLine": 33,
+      "endLine": 33
+    },
+    {
+      "id": "wcp-service\u0000route:routes/report.js:240:GET:/leaves",
+      "kind": "route",
+      "name": "GET /leaves",
+      "filePath": "wcp-service/routes/report.js",
+      "startLine": 240,
+      "endLine": 240
+    },
+    {
+      "id": "wcp-service\u0000route:routes/report.js:300:GET:/retired/leaves",
+      "kind": "route",
+      "name": "GET /retired/leaves",
+      "filePath": "wcp-service/routes/report.js",
+      "startLine": 300,
+      "endLine": 300
+    },
+    {
+      "id": "wcp-service-v2\u0000route:internal/handlers/handlers.go:203:GET:/approval-count",
+      "kind": "route",
+      "name": "GET /approval-count",
+      "filePath": "wcp-service-v2/internal/handlers/handlers.go",
+      "startLine": 203,
+      "endLine": 203
+    },
+    {
+      "id": "wcp-service\u0000function:e1e93e3ed9e45ee3c165a84165467dc3",
+      "kind": "function",
+      "name": "leaveRequestPreCheck",
+      "filePath": "wcp-service/services/leaveService.js",
+      "startLine": 768,
+      "endLine": 901
+    },
+    {
+      "id": "wcp-service\u0000function:d60b8ee9c5459afa28c07e5df0a84415",
+      "kind": "function",
+      "name": "exportLeaveRequest",
+      "filePath": "wcp-service/services/export/leaveReportService.js",
+      "startLine": 17,
+      "endLine": 137
+    },
+    {
+      "id": "wcp-service-v2\u0000method:f5138c9f3c229085919ee5db7b686c7a",
+      "kind": "method",
+      "name": "ApproveLeavePrompt",
+      "filePath": "wcp-service-v2/internal/handlers/leave/service.go",
+      "startLine": 41,
+      "endLine": 41
+    },
+    {
+      "id": "wcp-service-v2\u0000method:7e34bc2fd081a2f73b0a9080ae93df77",
+      "kind": "method",
+      "name": "UpdateHolidayHour",
+      "filePath": "wcp-service-v2/internal/handlers/leaveHistory/service.go",
+      "startLine": 28,
+      "endLine": 28
+    },
+    {
+      "id": "wcp-service\u0000constant:0a6960bd20c8b0473b68bcdb636fae0d",
+      "kind": "constant",
+      "name": "HolidayFields",
+      "filePath": "wcp-service/services/holidayService.js",
+      "startLine": 12,
+      "endLine": 22
+    },
+    {
+      "id": "wcp-service\u0000constant:279005481a802791c6e14b9684ea6eae",
+      "kind": "constant",
+      "name": "HOLIDAY_TYPE",
+      "filePath": "wcp-service/services/leaveService.js",
+      "startLine": 17,
+      "endLine": 27
+    },
+    {
+      "id": "wcp-service\u0000constant:d1e848fd173aff68cb8c23c2d3ca20df",
+      "kind": "constant",
+      "name": "HolidayFields",
+      "filePath": "wcp-service/services/leaveService.js",
+      "startLine": 29,
+      "endLine": 40
+    },
+    {
+      "id": "wcp-service\u0000constant:e11f4bd06e7f41256ea5b0f90b87c9c8",
+      "kind": "constant",
+      "name": "HolidayTypeName",
+      "filePath": "wcp-service/services/leaveService.js",
+      "startLine": 42,
+      "endLine": 53
+    },
+    {
+      "id": "wcp-service\u0000function:08a3d8e18d1f20195664528489ccce78",
+      "kind": "function",
+      "name": "exportLeaveRequestByAdmin",
+      "filePath": "wcp-service/services/leaveService.js",
+      "startLine": 1427,
+      "endLine": 1451
+    },
+    {
+      "id": "wcp-service\u0000function:54fd2dc8518e79e809e8b2041e7b6d51",
+      "kind": "function",
+      "name": "exportLeaveRequestByManager",
+      "filePath": "wcp-service/services/leaveService.js",
+      "startLine": 1453,
+      "endLine": 1509
+    },
+    {
+      "id": "wcp-service-v2\u0000struct:ee7d2e4a7ee86e5864b6e8e1fe9d10c7",
+      "kind": "struct",
+      "name": "ApplicationInfo",
+      "filePath": "wcp-service-v2/internal/handlers/application/application.go",
+      "startLine": 226,
+      "endLine": 258
+    },
+    {
+      "id": "wcp-service-v2\u0000struct:fbd54d8762cc1a3c9a2342f1ab764f40",
+      "kind": "struct",
+      "name": "ApplicationRepr",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/router.go",
+      "startLine": 20,
+      "endLine": 25
+    },
+    {
+      "id": "wcp-service-v2\u0000method:cae3ae5117ad0ae735dd86b241083c28",
+      "kind": "method",
+      "name": "GetApplicationsForReimb",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/service.go",
+      "startLine": 1552,
+      "endLine": 1623
+    },
+    {
+      "id": "wcp-service-v2\u0000interface:813b9e3549760d512815a2400ca257a9",
+      "kind": "interface",
+      "name": "HolidayService",
+      "filePath": "wcp-service-v2/internal/handlers/holiday/service.go",
+      "startLine": 23,
+      "endLine": 27
+    },
+    {
+      "id": "wcp-service-v2\u0000struct:f837f23ce5bd5c6e4cee3f40415dbdc0",
+      "kind": "struct",
+      "name": "holidayService",
+      "filePath": "wcp-service-v2/internal/handlers/holiday/service.go",
+      "startLine": 29,
+      "endLine": 29
+    },
+    {
+      "id": "wcp-service-v2\u0000function:9a7e5af6bb732c87ed9ffbf1c28b9b1b",
+      "kind": "function",
+      "name": "maxAvailableHoliday",
+      "filePath": "wcp-service-v2/internal/handlers/leave/brdg_abst.go",
+      "startLine": 88,
+      "endLine": 181
+    },
+    {
+      "id": "wcp-service-v2\u0000interface:d978a4f83e9037d7cbe62fd813349633",
+      "kind": "interface",
+      "name": "LeaveService",
+      "filePath": "wcp-service-v2/internal/handlers/leave/service.go",
+      "startLine": 27,
+      "endLine": 44
+    },
+    {
+      "id": "wcp-service-v2\u0000method:c32fc25a263768755fa4b56fd864d3b8",
+      "kind": "method",
+      "name": "DeletionApplication",
+      "filePath": "wcp-service-v2/internal/handlers/leave/service.go",
+      "startLine": 37,
+      "endLine": 37
+    },
+    {
+      "id": "wcp-service-v2\u0000method:2c10e3c557e4fe9ee4af11598fbd1f83",
+      "kind": "method",
+      "name": "ApplyLeavePrompt",
+      "filePath": "wcp-service-v2/internal/handlers/leave/service.go",
+      "startLine": 42,
+      "endLine": 42
+    },
+    {
+      "id": "wcp-service-v2\u0000method:0292472ea7766ccc036a0adbd78319db",
+      "kind": "method",
+      "name": "GetUserRemainFullySickLeave",
+      "filePath": "wcp-service-v2/internal/handlers/leave/service.go",
+      "startLine": 43,
+      "endLine": 43
+    },
+    {
+      "id": "wcp-service-v2\u0000struct:003c50563455688fc3312070d6230c80",
+      "kind": "struct",
+      "name": "leaveService",
+      "filePath": "wcp-service-v2/internal/handlers/leave/service.go",
+      "startLine": 46,
+      "endLine": 46
+    },
+    {
+      "id": "wcp-service-v2\u0000method:25376037315d35b51051bbc1686c9207",
+      "kind": "method",
+      "name": "GetUserRemainFullySickLeave",
+      "filePath": "wcp-service-v2/internal/handlers/leave/service.go",
+      "startLine": 1903,
+      "endLine": 1928
+    },
+    {
+      "id": "wcp-service-v2\u0000struct:e01c03542d122b7105e5bf83e10c0951",
+      "kind": "struct",
+      "name": "HolidayHourSerializer",
+      "filePath": "wcp-service-v2/internal/handlers/leaveHistory/serializer.go",
+      "startLine": 37,
+      "endLine": 65
+    },
+    {
+      "id": "wcp-service-v2\u0000method:196ae3ffd442f7cd2a95b9aff60aa5d2",
+      "kind": "method",
+      "name": "GetHolidayHour",
+      "filePath": "wcp-service-v2/internal/handlers/leaveHistory/service.go",
+      "startLine": 27,
+      "endLine": 27
+    },
+    {
+      "id": "wcp-service-v2\u0000method:6902034f5ccecc6e330395001754656c",
+      "kind": "method",
+      "name": "GetHolidayHourChangeLog",
+      "filePath": "wcp-service-v2/internal/handlers/leaveHistory/service.go",
+      "startLine": 29,
+      "endLine": 29
+    },
+    {
+      "id": "wcp-service-v2\u0000method:13da42fa57975566ffd287f0ddb2cd7a",
+      "kind": "method",
+      "name": "ExportHolidayHour",
+      "filePath": "wcp-service-v2/internal/handlers/leaveHistory/service.go",
+      "startLine": 30,
+      "endLine": 30
+    },
+    {
+      "id": "wcp-service-v2\u0000struct:8f762f9d39e80d7ea6e93af3b59ed501",
+      "kind": "struct",
+      "name": "leaveHistoryService",
+      "filePath": "wcp-service-v2/internal/handlers/leaveHistory/service.go",
+      "startLine": 33,
+      "endLine": 33
+    },
+    {
+      "id": "wcp-service-v2\u0000method:cf4586767732f5ec83331714ebf051e7",
+      "kind": "method",
+      "name": "GetHolidayHour",
+      "filePath": "wcp-service-v2/internal/handlers/leaveHistory/service.go",
+      "startLine": 42,
+      "endLine": 137
+    },
+    {
+      "id": "wcp-service-v2\u0000method:bc88a19833f39b1295b460ebf8707a32",
+      "kind": "method",
+      "name": "ExportHolidayHour",
+      "filePath": "wcp-service-v2/internal/handlers/leaveHistory/service.go",
+      "startLine": 294,
+      "endLine": 438
+    },
+    {
+      "id": "wcp-service\u0000function:a204763485e6fade6bbd6bc162897446",
+      "kind": "function",
+      "name": "exportHolidayReport",
+      "filePath": "wcp-service/services/export/holidayReportService.js",
+      "startLine": 9,
+      "endLine": 48
+    },
+    {
+      "id": "wcp-service\u0000function:ad69481073b168ce0ce243492b4a0699",
+      "kind": "function",
+      "name": "getHolidayTypes",
+      "filePath": "wcp-service/services/holidayService.js",
+      "startLine": 24,
+      "endLine": 36
+    },
+    {
+      "id": "wcp-service\u0000function:5be6f45ffa81374bba82c46b1fd9edb6",
+      "kind": "function",
+      "name": "getHolidayByID",
+      "filePath": "wcp-service/services/holidayService.js",
+      "startLine": 99,
+      "endLine": 108
+    },
+    {
+      "id": "wcp-service\u0000function:ab3fa69b65d013b7f2660bdd9db1c3d6",
+      "kind": "function",
+      "name": "getHolidaySummary",
+      "filePath": "wcp-service/services/holidayService.js",
+      "startLine": 214,
+      "endLine": 357
+    },
+    {
+      "id": "wcp-service\u0000function:fbed894e35eb03f47468e2bd00cfa615",
+      "kind": "function",
+      "name": "getHolidayChangeHistory",
+      "filePath": "wcp-service/services/holidayService.js",
+      "startLine": 359,
+      "endLine": 380
+    },
+    {
+      "id": "wcp-service\u0000function:3d98e52afbc2ecc7b443bb19b57c1ad7",
+      "kind": "function",
+      "name": "getStatutoryHolidayByYear",
+      "filePath": "wcp-service/services/holidayService.js",
+      "startLine": 402,
+      "endLine": 409
+    },
+    {
+      "id": "wcp-service\u0000function:90a6dbe9d808c0b2affb8e74f9b8972f",
+      "kind": "function",
+      "name": "initNextYearHoliday",
+      "filePath": "wcp-service/services/holidayService.js",
+      "startLine": 497,
+      "endLine": 523
+    },
+    {
+      "id": "wcp-service\u0000function:90439791d80c248fd29046d1b5bc2227",
+      "kind": "function",
+      "name": "getTakeLeaveStatus",
+      "filePath": "wcp-service/services/leaveService.js",
+      "startLine": 740,
+      "endLine": 750
+    },
+    {
+      "id": "wcp-service\u0000function:8bb78810e4a4fe377acae9c5f173c9d3",
+      "kind": "function",
+      "name": "getTakeLeaveTypes",
+      "filePath": "wcp-service/services/leaveService.js",
+      "startLine": 752,
+      "endLine": 765
+    },
+    {
+      "id": "wcp-service\u0000function:b8708d9bfd89795a3bf6e91a163adf97",
+      "kind": "function",
+      "name": "getLeaveByUserIdAndId",
+      "filePath": "wcp-service/services/leaveService.js",
+      "startLine": 1025,
+      "endLine": 1032
+    },
+    {
+      "id": "wcp-service\u0000function:38d692ad440065e7c4c76a8ad50c0d01",
+      "kind": "function",
+      "name": "cancelTakeLeave",
+      "filePath": "wcp-service/services/leaveService.js",
+      "startLine": 1034,
+      "endLine": 1054
+    },
+    {
+      "id": "wcp-service\u0000function:4a40274b17c0394c38454be9f59e1e40",
+      "kind": "function",
+      "name": "findMyLeaves",
+      "filePath": "wcp-service/services/leaveService.js",
+      "startLine": 1056,
+      "endLine": 1094
+    },
+    {
+      "id": "wcp-service\u0000function:f7b1db17aa9d4a6f05f80b22f51d3f85",
+      "kind": "function",
+      "name": "getLeaveDetail",
+      "filePath": "wcp-service/services/leaveService.js",
+      "startLine": 1096,
+      "endLine": 1117
+    },
+    {
+      "id": "wcp-service\u0000function:fa1d796d5d17e9a17362b819daee9f5d",
+      "kind": "function",
+      "name": "approveLeave",
+      "filePath": "wcp-service/services/leaveService.js",
+      "startLine": 1119,
+      "endLine": 1285
+    },
+    {
+      "id": "wcp-service\u0000function:3993945bc0b2d9bb2a07d2d56b4e7349",
+      "kind": "function",
+      "name": "rejectLeave",
+      "filePath": "wcp-service/services/leaveService.js",
+      "startLine": 1287,
+      "endLine": 1334
+    },
+    {
+      "id": "wcp-service\u0000function:9d862c122e0dc76bf1aabb60dfa18b16",
+      "kind": "function",
+      "name": "getLeaveUploadFileLinks",
+      "filePath": "wcp-service/services/leaveService.js",
+      "startLine": 1511,
+      "endLine": 1524
+    },
+    {
+      "id": "wcp-service\u0000function:ab72085c98b551f66842e5144792b2a2",
+      "kind": "function",
+      "name": "getLeaveRecordByYearAndType",
+      "filePath": "wcp-service/services/leaveService.js",
+      "startLine": 1526,
+      "endLine": 1544
+    },
+    {
+      "id": "wcp-service\u0000constant:b1a15de89a62c214d411906387f42437",
+      "kind": "constant",
+      "name": "holidayService",
+      "filePath": "wcp-service/services/export/holidayReportService.js",
+      "startLine": 6,
+      "endLine": 6
+    },
+    {
+      "id": "wcp-service\u0000constant:05545e183f64ea51787e79d577099bea",
+      "kind": "constant",
+      "name": "leaveService",
+      "filePath": "wcp-service/services/export/leaveReportService.js",
+      "startLine": 9,
+      "endLine": 9
+    },
+    {
+      "id": "wcp-service\u0000constant:e5546e340b6b182424c55b53adf76194",
+      "kind": "constant",
+      "name": "holidayService",
+      "filePath": "wcp-service/services/leaveService.js",
+      "startLine": 8,
+      "endLine": 8
+    },
+    {
+      "id": "wcp-service\u0000function:2715c305fe041064dd03190140d8ce3b",
+      "kind": "function",
+      "name": "recordTakeLeaveHours",
+      "filePath": "wcp-service/services/leaveService.js",
+      "startLine": 139,
+      "endLine": 316
+    },
+    {
+      "id": "wcp-service-v2\u0000method:0ee0da925d04ec61353ad5d575a85288",
+      "kind": "method",
+      "name": "Apply",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/service.go",
+      "startLine": 146,
+      "endLine": 199
+    },
+    {
+      "id": "wcp-service-v2\u0000method:ad37a189b5af05bb6c78473f4b245154",
+      "kind": "method",
+      "name": "Handle",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/service.go",
+      "startLine": 932,
+      "endLine": 1038
+    },
+    {
+      "id": "wcp-service-v2\u0000method:c47945c40be1da38548646e98707ed36",
+      "kind": "method",
+      "name": "FillInOtAmount",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/service.go",
+      "startLine": 1214,
+      "endLine": 1277
+    },
+    {
+      "id": "wcp-service-v2\u0000method:86d436d322c90da7ceff4136e64fd39f",
+      "kind": "method",
+      "name": "AdminCancel",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/service.go",
+      "startLine": 1311,
+      "endLine": 1550
+    },
+    {
+      "id": "wcp-service-v2\u0000method:d4edb3025cc3da3e0d176d62261fc8c6",
+      "kind": "method",
+      "name": "UpdatePurchaseClientCost",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/service.go",
+      "startLine": 1625,
+      "endLine": 1708
+    },
+    {
+      "id": "wcp-service-v2\u0000variable:ffa2f969d648c58d7b708eb0de767054",
+      "kind": "variable",
+      "name": "HldService",
+      "filePath": "wcp-service-v2/internal/handlers/holiday/router.go",
+      "startLine": 12,
+      "endLine": 12
+    },
+    {
+      "id": "wcp-service-v2\u0000variable:3aca8d9f1115da9d4b3f2107a7fd5643",
+      "kind": "variable",
+      "name": "LevService",
+      "filePath": "wcp-service-v2/internal/handlers/leave/router.go",
+      "startLine": 18,
+      "endLine": 18
+    },
+    {
+      "id": "wcp-service-v2\u0000method:8fd2412c110c7427abe3ae3f280f4eda",
+      "kind": "method",
+      "name": "Creation",
+      "filePath": "wcp-service-v2/internal/handlers/leave/service.go",
+      "startLine": 28,
+      "endLine": 28
+    },
+    {
+      "id": "wcp-service-v2\u0000method:fbcb3be0edda51a7e9dfb1b7ae443657",
+      "kind": "method",
+      "name": "Export",
+      "filePath": "wcp-service-v2/internal/handlers/leave/service.go",
+      "startLine": 1452,
+      "endLine": 1790
+    },
+    {
+      "id": "wcp-service\u0000file:routes/holiday.js",
+      "kind": "file",
+      "name": "holiday.js",
+      "filePath": "wcp-service/routes/holiday.js",
+      "startLine": 1,
+      "endLine": 473
+    },
+    {
+      "id": "wcp-service\u0000file:routes/leave.js",
+      "kind": "file",
+      "name": "leave.js",
+      "filePath": "wcp-service/routes/leave.js",
+      "startLine": 1,
+      "endLine": 898
+    },
+    {
+      "id": "wcp-service\u0000function:86767a48aa8e79dc3e892d72b0e897d3",
+      "kind": "function",
+      "name": "genHolidayDetailMap",
+      "filePath": "wcp-service/services/export/leaveReportService.js",
+      "startLine": 203,
+      "endLine": 232
+    },
+    {
+      "id": "wcp-service\u0000function:cb7d5f353786a8e1c4330fd5fb937a8e",
+      "kind": "function",
+      "name": "getStatutoryHoliday",
+      "filePath": "wcp-service/services/holidayService.js",
+      "startLine": 411,
+      "endLine": 437
+    },
+    {
+      "id": "wcp-service\u0000function:7e180cad785d7aae2da112d77acf5c35",
+      "kind": "function",
+      "name": "getHolidayByUserIdIn",
+      "filePath": "wcp-service/services/holidayService.js",
+      "startLine": 439,
+      "endLine": 446
+    },
+    {
+      "id": "wcp-service\u0000function:3933b7bece86c3d3a8e4452b5700ccd5",
+      "kind": "function",
+      "name": "getSickLeaveByUserIdIn",
+      "filePath": "wcp-service/services/leaveService.js",
+      "startLine": 1360,
+      "endLine": 1369
+    },
+    {
+      "id": "wcp-service-v2\u0000function:1b83219acaeedff342565cbab0aca723",
+      "kind": "function",
+      "name": "IsHoliday",
+      "filePath": "wcp-service-v2/internal/handlers/support/utils.go",
+      "startLine": 559,
+      "endLine": 568
+    },
+    {
+      "id": "wcp-service-v2\u0000method:d88f58599619ff6b165719433c865ebe",
+      "kind": "method",
+      "name": "getHolidays",
+      "filePath": "wcp-service-v2/internal/tasks/unfilled_log/task.go",
+      "startLine": 131,
+      "endLine": 144
+    },
+    {
+      "id": "wcp-service\u0000constant:7fd87b9f93f82259fc80455a25021249",
+      "kind": "constant",
+      "name": "leaveRouter",
+      "filePath": "wcp-service/app.js",
+      "startLine": 79,
+      "endLine": 79
+    },
+    {
+      "id": "wcp-service\u0000constant:ae39f40eafe4ef60269ea1036565484e",
+      "kind": "constant",
+      "name": "holidayRouter",
+      "filePath": "wcp-service/app.js",
+      "startLine": 84,
+      "endLine": 84
+    },
+    {
+      "id": "wcp-service-v2\u0000type_alias:5e671e8a1a30231245291c6bba8af624",
+      "kind": "type_alias",
+      "name": "TypeC",
+      "filePath": "wcp-service-v2/internal/constant/application/application.go",
+      "startLine": 4,
+      "endLine": 4
+    },
+    {
+      "id": "wcp-service-v2\u0000method:4575ec31311d82459fd36ff44a79eeb8",
+      "kind": "method",
+      "name": "String",
+      "filePath": "wcp-service-v2/internal/constant/holiday.go",
+      "startLine": 10,
+      "endLine": 12
+    },
+    {
+      "id": "wcp-service-v2\u0000type_alias:789268253b1ec5eb76901da1c4193c97",
+      "kind": "type_alias",
+      "name": "LvHldyTypeC",
+      "filePath": "wcp-service-v2/internal/constant/leave.go",
+      "startLine": 40,
+      "endLine": 40
+    },
+    {
+      "id": "wcp-service-v2\u0000struct:c7dd827e57e346dd53944a79a71d1922",
+      "kind": "struct",
+      "name": "Seal",
+      "filePath": "wcp-service-v2/internal/handlers/application/application.go",
+      "startLine": 84,
+      "endLine": 96
+    },
+    {
+      "id": "wcp-service-v2\u0000method:40a3c7238abb8b6383353473f903760c",
+      "kind": "method",
+      "name": "GetDayType",
+      "filePath": "wcp-service-v2/internal/handlers/application/application.go",
+      "startLine": 445,
+      "endLine": 455
+    },
+    {
+      "id": "wcp-service-v2\u0000struct:09f3898a4a85b2b19f07f6687e062cc0",
+      "kind": "struct",
+      "name": "BusinessTravelAppRepr",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/business_travel.go",
+      "startLine": 22,
+      "endLine": 27
+    },
+    {
+      "id": "wcp-service-v2\u0000struct:af230066e46fef166c0f01b1777449f8",
+      "kind": "struct",
+      "name": "BusinessTravelRepr",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/business_travel.go",
+      "startLine": 37,
+      "endLine": 43
+    },
+    {
+      "id": "wcp-service-v2\u0000struct:74867f51a972ea7dd3202d7370b7c10b",
+      "kind": "struct",
+      "name": "BTExporter",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/business_travel.go",
+      "startLine": 252,
+      "endLine": 255
+    },
+    {
+      "id": "wcp-service-v2\u0000struct:ce969f9740078e6e6520bb34fb188d50",
+      "kind": "struct",
+      "name": "Approval",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/handler.go",
+      "startLine": 24,
+      "endLine": 27
+    },
+    {
+      "id": "wcp-service-v2\u0000struct:c9ee8a156d4f397e9b6c4064c31aa8fd",
+      "kind": "struct",
+      "name": "Rejection",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/handler.go",
+      "startLine": 223,
+      "endLine": 226
+    },
+    {
+      "id": "wcp-service-v2\u0000struct:9bb4ef25f4daad91ae1f9b5853df9f8b",
+      "kind": "struct",
+      "name": "Delivery",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/handler.go",
+      "startLine": 288,
+      "endLine": 291
+    },
+    {
+      "id": "wcp-service-v2\u0000method:843316e9b9707d7005f8420eb99493cf",
+      "kind": "method",
+      "name": "BuildCpst",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/notifier.go",
+      "startLine": 74,
+      "endLine": 94
+    },
+    {
+      "id": "wcp-service-v2\u0000method:dd3f911e51e1748b92e5ecf51d378bf3",
+      "kind": "method",
+      "name": "BuildCpst",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/notifier.go",
+      "startLine": 174,
+      "endLine": 205
+    },
+    {
+      "id": "wcp-service-v2\u0000method:a909048cb41003eee7dc697fa6f25dfc",
+      "kind": "method",
+      "name": "buildApproved",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/notifier.go",
+      "startLine": 368,
+      "endLine": 549
+    },
+    {
+      "id": "wcp-service-v2\u0000method:807033a25357a782dbbc9c58a9982459",
+      "kind": "method",
+      "name": "BuildCpst",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/notifier.go",
+      "startLine": 615,
+      "endLine": 639
+    },
+    {
+      "id": "wcp-service-v2\u0000method:7b8b5fd625855e8745753b1da07efb34",
+      "kind": "method",
+      "name": "BuildCpst",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/notifier.go",
+      "startLine": 694,
+      "endLine": 718
+    },
+    {
+      "id": "wcp-service-v2\u0000method:cb65184c76e07f3fd1fc666f46a71b9f",
+      "kind": "method",
+      "name": "HandleComponents",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/notifier.go",
+      "startLine": 720,
+      "endLine": 756
+    },
+    {
+      "id": "wcp-service-v2\u0000struct:d89fffb3ca93352543c886432e027eb1",
+      "kind": "struct",
+      "name": "OtApplier",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/ot.go",
+      "startLine": 24,
+      "endLine": 30
+    },
+    {
+      "id": "wcp-service-v2\u0000struct:172618b3a77560d00cc5f4ecd6a0f067",
+      "kind": "struct",
+      "name": "OtRepr",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/ot.go",
+      "startLine": 32,
+      "endLine": 36
+    },
+    {
+      "id": "wcp-service-v2\u0000struct:aa89ff19a8090cfa8599cf8b47372854",
+      "kind": "struct",
+      "name": "OTExporter",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/ot.go",
+      "startLine": 195,
+      "endLine": 202
+    },
+    {
+      "id": "wcp-service-v2\u0000struct:3bc076474e7f98ae0c10040f4bdeb3d0",
+      "kind": "struct",
+      "name": "OtDto",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/ot.go",
+      "startLine": 611,
+      "endLine": 618
+    },
+    {
+      "id": "wcp-service-v2\u0000struct:2e3ec15a4c428eaa068ecc15fdfaf5da",
+      "kind": "struct",
+      "name": "PurchaseApplier",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/purchase.go",
+      "startLine": 20,
+      "endLine": 26
+    },
+    {
+      "id": "wcp-service-v2\u0000struct:116eefe18e0b2f975fdc4ee56be54167",
+      "kind": "struct",
+      "name": "PurchaseRepr",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/purchase.go",
+      "startLine": 28,
+      "endLine": 36
+    },
+    {
+      "id": "wcp-service-v2\u0000struct:e2695198a554ddb551a04b50866c6510",
+      "kind": "struct",
+      "name": "PurchaseExporter",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/purchase.go",
+      "startLine": 190,
+      "endLine": 193
+    },
+    {
+      "id": "wcp-service-v2\u0000struct:1154070304f629348883ea49cfcacb6f",
+      "kind": "struct",
+      "name": "ApproveRepr",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/repr.go",
+      "startLine": 8,
+      "endLine": 15
+    },
+    {
+      "id": "wcp-service-v2\u0000function:2b012d12c140b372879a8cfd2eea516f",
+      "kind": "function",
+      "name": "init",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/router.go",
+      "startLine": 13,
+      "endLine": 15
+    },
+    {
+      "id": "wcp-service-v2\u0000variable:c602683c213f726e10998680d4a288b4",
+      "kind": "variable",
+      "name": "AGService",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/router.go",
+      "startLine": 17,
+      "endLine": 17
+    },
+    {
+      "id": "wcp-service-v2\u0000function:71b1c09fe576f14d8fcc9dc815bc6387",
+      "kind": "function",
+      "name": "paginationCheck",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/router.go",
+      "startLine": 63,
+      "endLine": 98
+    },
+    {
+      "id": "wcp-service-v2\u0000struct:217b9bddf484eaa4e697b5c4b7ba7d56",
+      "kind": "struct",
+      "name": "SEALApplier",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/seal.go",
+      "startLine": 27,
+      "endLine": 33
+    },
+    {
+      "id": "wcp-service-v2\u0000struct:f4e48a686dc6c4ba1e3e8a80f091a7c3",
+      "kind": "struct",
+      "name": "SEALRepr",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/seal.go",
+      "startLine": 35,
+      "endLine": 43
+    },
+    {
+      "id": "wcp-service-v2\u0000struct:7b271e269b80bbf44562cd00631d3ce8",
+      "kind": "struct",
+      "name": "SealExporter",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/seal.go",
+      "startLine": 271,
+      "endLine": 274
+    },
+    {
+      "id": "wcp-service-v2\u0000interface:274f6352ca58b648e9278f616579c93d",
+      "kind": "interface",
+      "name": "ApplyGeneralService",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/service.go",
+      "startLine": 35,
+      "endLine": 53
+    },
+    {
+      "id": "wcp-service-v2\u0000method:5c0833568b91db2b111cf144dd536190",
+      "kind": "method",
+      "name": "Pagination",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/service.go",
+      "startLine": 38,
+      "endLine": 38
+    },
+    {
+      "id": "wcp-service-v2\u0000method:33854435d670f45eb0193cf4a9c41c25",
+      "kind": "method",
+      "name": "Export",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/service.go",
+      "startLine": 46,
+      "endLine": 46
+    },
+    {
+      "id": "wcp-service-v2\u0000struct:2220c0b426ba38745e4f2f1f1bccf9d5",
+      "kind": "struct",
+      "name": "agService",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/service.go",
+      "startLine": 55,
+      "endLine": 55
+    },
+    {
+      "id": "wcp-service-v2\u0000function:7963ae3cb75ac86ccb17da295ba7d30a",
+      "kind": "function",
+      "name": "paginationReslut",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/service.go",
+      "startLine": 219,
+      "endLine": 546
+    },
+    {
+      "id": "wcp-service-v2\u0000method:b061bd49cb3692057293ac599e12f44d",
+      "kind": "method",
+      "name": "PaginationSelf",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/service.go",
+      "startLine": 549,
+      "endLine": 561
+    },
+    {
+      "id": "wcp-service-v2\u0000method:13d783667c78416b4588fa17f3bf8557",
+      "kind": "method",
+      "name": "Pagination",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/service.go",
+      "startLine": 564,
+      "endLine": 629
+    },
+    {
+      "id": "wcp-service-v2\u0000method:c5092203d2d14d969a3b459d105cfae6",
+      "kind": "method",
+      "name": "Info",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/service.go",
+      "startLine": 632,
+      "endLine": 904
+    },
+    {
+      "id": "wcp-service-v2\u0000method:5faabcb56f68728a28bc8be867d05621",
+      "kind": "method",
+      "name": "Cancel",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/service.go",
+      "startLine": 907,
+      "endLine": 929
+    },
+    {
+      "id": "wcp-service-v2\u0000method:626e4d4908ffd63b4bcbeafcbc282fd1",
+      "kind": "method",
+      "name": "ReturnSeal",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/service.go",
+      "startLine": 1041,
+      "endLine": 1066
+    },
+    {
+      "id": "wcp-service-v2\u0000interface:8bc6b4e67df94a7e91793e9197cf55a6",
+      "kind": "interface",
+      "name": "ExportInterface",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/service.go",
+      "startLine": 1068,
+      "endLine": 1073
+    },
+    {
+      "id": "wcp-service-v2\u0000method:95257af32117d50952e022a021ec39c7",
+      "kind": "method",
+      "name": "Export",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/service.go",
+      "startLine": 1094,
+      "endLine": 1212
+    },
+    {
+      "id": "wcp-service-v2\u0000method:6a143616233ba5839ceb8ad537c2a23e",
+      "kind": "method",
+      "name": "GetOtCountByDate",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/service.go",
+      "startLine": 1279,
+      "endLine": 1309
+    },
+    {
+      "id": "wcp-service-v2\u0000struct:23179a874810c4c4c67217f2755ee751",
+      "kind": "struct",
+      "name": "WFHApplier",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/wfh.go",
+      "startLine": 28,
+      "endLine": 34
+    },
+    {
+      "id": "wcp-service-v2\u0000struct:6fb7a797a96b63039c31820423e30baa",
+      "kind": "struct",
+      "name": "WFHRepr",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/wfh.go",
+      "startLine": 37,
+      "endLine": 47
+    },
+    {
+      "id": "wcp-service-v2\u0000struct:e00c77e1198a9a24945eb295f7949d76",
+      "kind": "struct",
+      "name": "WFHExporter",
+      "filePath": "wcp-service-v2/internal/handlers/application/general/wfh.go",
+      "startLine": 371,
+      "endLine": 374
+    },
+    {
+      "id": "wcp-service-v2\u0000function:5fb2f61ae6c3a9808fbb4a2a95101e9e",
+      "kind": "function",
+      "name": "encryptionPrivateKeyFromConfig",
+      "filePath": "wcp-service-v2/internal/handlers/employee/crypto.go",
+      "startLine": 19,
+      "endLine": 24
+    },
+    {
+      "id": "wcp-service-v2\u0000function:544e5c5f500b9ead58fb8ee6beefacb7",
+      "kind": "function",
+      "name": "decryptEncryptedPayload",
+      "filePath": "wcp-service-v2/internal/handlers/employee/crypto.go",
+      "startLine": 26,
+      "endLine": 38
+    },
+    {
+      "id": "wcp-service-v2\u0000interface:8f6c06031552ca74357ff4a8cc0599c3",
+      "kind": "interface",
+      "name": "CocFactory",
+      "filePath": "wcp-service-v2/internal/handlers/holiday/holiday_component.go",
+      "startLine": 55,
+      "endLine": 57
+    },
+    {
+      "id": "wcp-service-v2\u0000struct:8d6f28bf5f0614e8ccf8feb23f578dc6",
+      "kind": "struct",
+      "name": "cocFactory",
+      "filePath": "wcp-service-v2/internal/handlers/holiday/holiday_component.go",
+      "startLine": 59,
+      "endLine": 59
+    },
+    {
+      "id": "wcp-service-v2\u0000function:f31a3e118d44e9d5d1674015f7fe1767",
+      "kind": "function",
+      "name": "init",
+      "filePath": "wcp-service-v2/internal/handlers/holiday/router.go",
+      "startLine": 8,
+      "endLine": 10
+    },
+    {
+      "id": "wcp-service-v2\u0000struct:2bebd9b12d615ab6b99ea00bd9f79430",
+      "kind": "struct",
+      "name": "response",
+      "filePath": "wcp-service-v2/internal/handlers/holiday/router.go",
+      "startLine": 44,
+      "endLine": 47
+    },
+    {
+      "id": "wcp-service-v2\u0000function:0a4bb58837e793c061950d9b071a9776",
+      "kind": "function",
+      "name": "init",
+      "filePath": "wcp-service-v2/internal/handlers/holiday/service.go",
+      "startLine": 19,
+      "endLine": 21
+    },
+    {
+      "id": "wcp-service-v2\u0000method:11aca1fc5e6ea74e65d1be0961eebc47",
+      "kind": "method",
+      "name": "ByNation",
+      "filePath": "wcp-service-v2/internal/handlers/holiday/service.go",
+      "startLine": 24,
+      "endLine": 24
+    },
+    {
+      "id": "wcp-service-v2\u0000method:828da64ac58433faccfed3840ec2d3d9",
+      "kind": "method",
+      "name": "BySelf",
+      "filePath": "wcp-service-v2/internal/handlers/holiday/service.go",
+      "startLine": 25,
+      "endLine": 25
+    },
+    {
+      "id": "wcp-service-v2\u0000method:d206f63b0aac681869beea331bf27274",
+      "kind": "method",
+      "name": "BySelfV2",
+      "filePath": "wcp-service-v2/internal/handlers/holiday/service.go",
+      "startLine": 26,
+      "endLine": 26
+    },
+    {
+      "id": "wcp-service-v2\u0000method:9d700742c9e4d3f7de39b3bc6b9f2431",
+      "kind": "method",
+      "name": "Recipients",
+      "filePath": "wcp-service-v2/internal/handlers/leave/dcrt_recipient.go",
+      "startLine": 42,
+      "endLine": 60
+    },
+    {
+      "id": "wcp-service-v2\u0000method:4ac5bf1d231fef93098cc55c54e17c7c",
+      "kind": "method",
+      "name": "Recipients",
+      "filePath": "wcp-service-v2/internal/handlers/leave/dcrt_recipient.go",
+      "startLine": 68,
+      "endLine": 91
+    },
+    {
+      "id": "wcp-service-v2\u0000method:8de27014f0a4ee77bad6c63920b205f7",
+      "kind": "method",
+      "name": "Recipients",
+      "filePath": "wcp-service-v2/internal/handlers/leave/dcrt_recipient.go",
+      "startLine": 99,
+      "endLine": 114
+    }
+  ]
+}
