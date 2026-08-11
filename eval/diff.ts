@@ -2,7 +2,7 @@
 // deterministic function of its two inputs, so re-diffing an existing run after
 // changing the harness or the expected file is sub-second and reproducible.
 
-import type { EvidenceWindow, Knowledge } from "./knowledge.ts";
+import type { EvidenceWindow, Knowledge, KnowledgeFact } from "./knowledge.ts";
 import type { Anchor, CoverageExpectation, Expected, ExpectedItem, ForbiddenItem, Pattern } from "./expected.ts";
 
 export type Attribution = "authoring-miss" | "prepare-miss" | "no-anchor";
@@ -28,6 +28,15 @@ export interface ForbiddenHit {
   statement: string;
 }
 
+/** A claim that matched a forbidden rule's base pattern but was dropped before becoming a hit. */
+export interface ForbiddenExemption {
+  ruleId: string;
+  ref: string;
+  marker: string;
+  statement: string;
+  reason: "unless" | "searched-not-found";
+}
+
 export interface CoverageFailure {
   dimension: string;
   expect: string[];
@@ -50,6 +59,8 @@ export interface Diff {
   found: FoundEntry[];
   missing: MissingEntry[];
   forbiddenHits: ForbiddenHit[];
+  /** Claims that matched a forbidden base pattern but were exempted (do not count toward pass). */
+  forbiddenExempted: ForbiddenExemption[];
   coverageFailures: CoverageFailure[];
   summary: DiffSummary;
 }
@@ -146,18 +157,44 @@ function attribute(item: ExpectedItem, horizon: Knowledge["prepareHorizon"]): At
   return item.anchors.some((anchor) => anchorInHorizon(anchor, horizon)) ? "authoring-miss" : "prepare-miss";
 }
 
-function detectForbidden(forbidden: ForbiddenItem[], knowledge: Knowledge): ForbiddenHit[] {
+/**
+ * A claim whose every cited evidence id is a zero-match, non-truncated search receipt cannot, by
+ * construction, be a positive "the system has capability X" assertion — it is an honest "searched, not
+ * found". Structurally separates such honest negations from real hallucinations without weakening the
+ * base pattern (57B-358: widen the exemption, never the base). Conservative: any cited id that is not a
+ * search receipt (source window, unresolved, missing/non-array matches), any nonzero match, or any
+ * truncation makes the equality fail, so the claim is NOT exempt.
+ */
+function isSearchedNotFound(fact: KnowledgeFact): boolean {
+  return (
+    fact.citedEvidenceCount > 0 &&
+    fact.searchEvidence.length === fact.citedEvidenceCount &&
+    fact.searchEvidence.every((receipt) => receipt.matchCount === 0 && !receipt.truncated)
+  );
+}
+
+function detectForbidden(forbidden: ForbiddenItem[], knowledge: Knowledge): { hits: ForbiddenHit[]; exempted: ForbiddenExemption[] } {
   const hits: ForbiddenHit[] = [];
+  const exempted: ForbiddenExemption[] = [];
   for (const rule of forbidden) {
     for (const fact of knowledge.facts) {
       if (!rule.markers.includes(fact.marker)) continue;
       if (!allPatternsMatch(rule.patterns, fact.statement)) continue;
+      const base = { ruleId: rule.id, ref: fact.ref, marker: fact.marker, statement: fact.statement };
       // Exempt honest negations ("... does NOT send ...") so the pin never punishes the report it rewards.
-      if (rule.unless && rule.unless.some((pattern) => pattern.re.test(fact.statement))) continue;
+      if (rule.unless && rule.unless.some((pattern) => pattern.re.test(fact.statement))) {
+        exempted.push({ ...base, reason: "unless" });
+        continue;
+      }
+      // Exempt claims whose only evidence is a zero-match search receipt (searched, not found).
+      if (isSearchedNotFound(fact)) {
+        exempted.push({ ...base, reason: "searched-not-found" });
+        continue;
+      }
       hits.push({ id: rule.id, ref: fact.ref, marker: fact.marker, statement: fact.statement });
     }
   }
-  return hits;
+  return { hits, exempted };
 }
 
 function checkCoverage(coverage: CoverageExpectation[], knowledge: Knowledge): CoverageFailure[] {
@@ -184,7 +221,7 @@ export function diffKnowledge(knowledge: Knowledge, expected: Expected): Diff {
       missing.push({ id: item.id, kind: item.kind, mustFind: item.mustFind, attribution: attribute(item, knowledge.prepareHorizon) });
     }
   }
-  const forbiddenHits = detectForbidden(expected.forbidden, knowledge);
+  const { hits: forbiddenHits, exempted: forbiddenExempted } = detectForbidden(expected.forbidden, knowledge);
   const coverageFailures = checkCoverage(expected.coverage, knowledge);
 
   const mustFindMissing = missing.filter((entry) => entry.mustFind).length;
@@ -199,7 +236,7 @@ export function diffKnowledge(knowledge: Knowledge, expected: Expected): Diff {
     coverageFailures: coverageFailures.length,
     pass: mustFindMissing === 0 && forbiddenHits.length === 0 && coverageFailures.length === 0
   };
-  return { found, missing, forbiddenHits, coverageFailures, summary };
+  return { found, missing, forbiddenHits, forbiddenExempted, coverageFailures, summary };
 }
 
 /** Exit code: any mustFind missing, forbidden violation, or coverage failure -> 1. */

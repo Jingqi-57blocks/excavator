@@ -18,6 +18,13 @@ export interface EvidenceWindow {
   endLine: number;
 }
 
+/** A `kind === "search"` receipt cited by a claim, reduced to what the forbidden-pin exemption needs. */
+export interface SearchEvidence {
+  id: string;
+  matchCount: number;
+  truncated: boolean;
+}
+
 export interface KnowledgeFact {
   /** `${documentId}#${claimId}` — unique across the run. */
   ref: string;
@@ -27,6 +34,10 @@ export interface KnowledgeFact {
   marker: Marker;
   /** S-* source windows this claim cites, resolved against evidence.json. */
   windows: EvidenceWindow[];
+  /** How many evidence ids this claim cites, after de-duplication. */
+  citedEvidenceCount: number;
+  /** Cited ids that resolve to a `kind === "search"` receipt carrying an array `data.matches`. */
+  searchEvidence: SearchEvidence[];
 }
 
 export interface KnowledgeRelationStep {
@@ -75,24 +86,43 @@ function readJson(file: string): any {
   return JSON.parse(readFileSync(file, "utf8"));
 }
 
-/** Resolve every S-* evidence id to its source window; non-source ids are dropped. */
-function buildWindowIndex(runDir: string): Map<string, EvidenceWindow> {
-  const index = new Map<string, EvidenceWindow>();
+interface EvidenceIndex {
+  windows: Map<string, EvidenceWindow>;
+  searches: Map<string, SearchEvidence>;
+}
+
+/**
+ * Resolve evidence.json in a single read into two lookup tables:
+ *   - windows: every S-* source window (path + line range);
+ *   - searches: every `kind === "search"` receipt whose `data.matches` is an array, reduced to
+ *     { matchCount, truncated }. A receipt with a missing/non-array `matches` is deliberately dropped
+ *     so it cannot satisfy the searched-not-found exemption (conservative — keeps the equality from holding).
+ * The judgment is the catalog's `kind`, not the id prefix.
+ */
+function buildEvidenceIndex(runDir: string): EvidenceIndex {
+  const windows = new Map<string, EvidenceWindow>();
+  const searches = new Map<string, SearchEvidence>();
   const file = join(runDir, "evidence.json");
-  if (!existsSync(file)) return index;
+  if (!existsSync(file)) return { windows, searches };
   const catalog = readJson(file);
   const list: any[] = Array.isArray(catalog) ? catalog : catalog.evidence ?? [];
   for (const item of list) {
     const id = String(item?.id ?? "");
+    if (!id) continue;
+    if (item?.kind === "search") {
+      const matches = item?.data?.matches;
+      if (Array.isArray(matches)) searches.set(id, { id, matchCount: matches.length, truncated: Boolean(item?.data?.truncated) });
+      continue;
+    }
     if (!id.startsWith("S-") || typeof item.path !== "string") continue;
-    index.set(id, {
+    windows.set(id, {
       id,
       path: item.path,
       startLine: Number.isFinite(item.startLine) ? item.startLine : 0,
       endLine: Number.isFinite(item.endLine) ? item.endLine : Number.MAX_SAFE_INTEGER
     });
   }
-  return index;
+  return { windows, searches };
 }
 
 function resolveWindows(evidenceIds: unknown, index: Map<string, EvidenceWindow>): EvidenceWindow[] {
@@ -105,7 +135,19 @@ function resolveWindows(evidenceIds: unknown, index: Map<string, EvidenceWindow>
   return out;
 }
 
-function extractFacts(runDir: string, index: Map<string, EvidenceWindow>): { facts: KnowledgeFact[]; unavailableClaims: KnowledgeUnknown[] } {
+/** Reduce a claim's evidenceIds to its de-duplicated cited count and the subset resolving to search receipts. */
+function resolveCited(evidenceIds: unknown, searches: Map<string, SearchEvidence>): { citedEvidenceCount: number; searchEvidence: SearchEvidence[] } {
+  if (!Array.isArray(evidenceIds)) return { citedEvidenceCount: 0, searchEvidence: [] };
+  const unique = [...new Set(evidenceIds.map((raw) => String(raw)))];
+  const searchEvidence: SearchEvidence[] = [];
+  for (const id of unique) {
+    const receipt = searches.get(id);
+    if (receipt) searchEvidence.push(receipt);
+  }
+  return { citedEvidenceCount: unique.length, searchEvidence };
+}
+
+function extractFacts(runDir: string, index: EvidenceIndex): { facts: KnowledgeFact[]; unavailableClaims: KnowledgeUnknown[] } {
   const facts: KnowledgeFact[] = [];
   const unavailableClaims: KnowledgeUnknown[] = [];
   const claimsRoot = join(runDir, "claims");
@@ -123,7 +165,11 @@ function extractFacts(runDir: string, index: Map<string, EvidenceWindow>): { fac
         const marker = String(claim?.marker ?? "fact") as Marker;
         const statement = String(claim?.statement ?? "");
         const ref = `${documentId}#${claimId}`;
-        facts.push({ ref, documentId, claimId, statement, marker, windows: resolveWindows(claim?.evidenceIds, index) });
+        facts.push({
+          ref, documentId, claimId, statement, marker,
+          windows: resolveWindows(claim?.evidenceIds, index.windows),
+          ...resolveCited(claim?.evidenceIds, index.searches)
+        });
         if (marker === "unavailable") unavailableClaims.push({ source: "claim", ref, text: statement });
       }
     }
@@ -131,7 +177,7 @@ function extractFacts(runDir: string, index: Map<string, EvidenceWindow>): { fac
   return { facts, unavailableClaims };
 }
 
-function extractRelations(runDir: string, index: Map<string, EvidenceWindow>): KnowledgeRelation[] {
+function extractRelations(runDir: string, index: EvidenceIndex): KnowledgeRelation[] {
   const file = join(runDir, "traces.json");
   if (!existsSync(file)) return [];
   const catalog = readJson(file);
@@ -142,7 +188,7 @@ function extractRelations(runDir: string, index: Map<string, EvidenceWindow>): K
     status: String(trace?.status ?? ""),
     steps: (Array.isArray(trace?.steps) ? trace.steps : []).map((step: any) => ({
       action: String(step?.action ?? ""),
-      windows: resolveWindows(step?.evidenceIds, index)
+      windows: resolveWindows(step?.evidenceIds, index.windows)
     }))
   }));
 }
@@ -189,7 +235,7 @@ function extractPrepareHorizon(runDir: string): PrepareHorizon {
 
 /** Read a run directory and return its normalized Knowledge. Pure read; never writes. */
 export function extractKnowledge(runDir: string): Knowledge {
-  const index = buildWindowIndex(runDir);
+  const index = buildEvidenceIndex(runDir);
   const { facts, unavailableClaims } = extractFacts(runDir, index);
   const relations = extractRelations(runDir, index);
   const { coverage, cannotDetermine } = extractCoverage(runDir);

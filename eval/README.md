@@ -12,7 +12,7 @@ producing a run (authoring); everything the harness does is a pure function of f
 
 - `knowledge.ts` — run dir → `Knowledge` (facts, relations, coverage, unknowns, prepare horizon). Read-only on the run.
 - `expected.ts` — load + hand-written structural validation of `expected-knowledge-v1` (zero-dep; no Ajv).
-- `diff.ts` — pure `Knowledge × Expected → Diff` (found / missing+attribution / forbidden hits / coverage failures).
+- `diff.ts` — pure `Knowledge × Expected → Diff` (found / missing+attribution / forbidden hits + exemptions / coverage failures).
 - `cli.ts` — `extract` and `diff` commands.
 
 ## Commands
@@ -125,7 +125,16 @@ It reuses the same extractors as `view` and `extract`: the CLI loads both runs i
 - **relation hit** — a trace step whose evidence covers an anchor (optional `stepPatterns` match the step action).
 - **unknown hit** — an `unavailable` claim or `cannot-determine` workitem whose text matches all `patterns` (AND).
 - **forbidden violation** — a claim with a marker in the rule's set (default `fact`/`verified`) whose
-  statement matches all patterns (AND) → a red hallucination.
+  statement matches all patterns (AND) → a red hallucination. Two exemptions drop a base-pattern match
+  before it counts (both are recorded in `forbiddenExempted`, never in `forbiddenHits`, so `pass` is
+  unchanged): (1) `unless` — the statement also matches an honest-negation pattern ("does NOT send …");
+  (2) **searched-not-found** — the claim cites ≥1 evidence id and *every* cited id resolves to a
+  zero-match, non-truncated `kind === "search"` receipt. By construction such a claim cannot be a
+  positive "the system has capability X" assertion — it is an honest "searched, did not find" — so no
+  noun-enumeration in a cell (`邮件、短信与推送通知`) can be false-flagged. The predicate is deliberately
+  conservative: an unresolved id, a source-window citation, a receipt with a missing/non-array `matches`,
+  any nonzero match, any truncation, or a mixed citation set all make the claim *not* exempt, keeping real
+  hallucinations flagged without ever weakening the base pattern (57B-358: widen the exemption, not the base).
 - **coverage check** — for a `dimension`, at least one workitem of that dimension must have a status in
   `expect` (this is how `searched-not-found` honesty is asserted).
 - **miss attribution** — a missing mustFind whose anchor file is in the prepared horizon (fact-pack files

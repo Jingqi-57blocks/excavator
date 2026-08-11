@@ -27,7 +27,7 @@ function knowledgeWith(overrides: Partial<Knowledge>): Knowledge {
 }
 
 function fact(over: Partial<KnowledgeFact>): KnowledgeFact {
-  return { ref: "d#c", documentId: "d", claimId: "c", statement: "", marker: "fact", windows: [], ...over };
+  return { ref: "d#c", documentId: "d", claimId: "c", statement: "", marker: "fact", windows: [], citedEvidenceCount: 0, searchEvidence: [], ...over };
 }
 
 function foundIds(knowledge: Knowledge, expectedRaw: unknown): string[] {
@@ -176,6 +176,59 @@ test("leave-mini forbidden pin exempts implement/exist negations (real authored 
   });
   const hits = diffKnowledge(knowledge, expected).forbiddenHits;
   assert.deepEqual(hits.map((hit) => hit.ref), ["d#halluc"], `only the positive send should flag, got ${JSON.stringify(hits)}`);
+});
+
+// --- searched-not-found exemption (57B-363): structurally separate honest negations ---
+
+// A forbidden rule whose noun-enumeration base pattern is punched through by mere mention of
+// notification vocabulary (the 57B-358 failure mode: no verb-assertion, just words in a cell).
+const NOTIFY_FORBIDDEN = {
+  version: "expected-knowledge-v1",
+  target: "t",
+  items: [{ id: "noop", kind: "unknown", mustFind: false, anchors: [], patterns: ["never"] }],
+  forbidden: [{ id: "no-notif", patterns: ["发送|推送|sends?|notif(y|ies|ied)", "邮件|短信|通知|email|notification"], markers: ["fact", "verified"] }]
+};
+
+const ZERO_SEARCH = { id: "SEARCH-x", matchCount: 0, truncated: false };
+
+test("searched-not-found exemption: cells citing only a zero-match search receipt are exempt, not hits", () => {
+  const expected = validateExpected(NOTIFY_FORBIDDEN);
+  const knowledge = knowledgeWith({
+    facts: [
+      // Two real cell claims that the base pattern falsely flags: a noun list and a symbol list.
+      fact({ ref: "d#cell-nouns", marker: "fact", statement: "邮件、短信与推送通知", citedEvidenceCount: 1, searchEvidence: [ZERO_SEARCH] }),
+      fact({ ref: "d#cell-symbols", marker: "fact", statement: "nodemailer、sendEmail、smtp、webhook", citedEvidenceCount: 1, searchEvidence: [ZERO_SEARCH] })
+    ]
+  });
+  const diff = diffKnowledge(knowledge, expected);
+  assert.equal(diff.forbiddenHits.length, 0, `expected zero hits, got ${JSON.stringify(diff.forbiddenHits)}`);
+  assert.deepEqual(diff.forbiddenExempted.map((entry) => entry.reason), ["searched-not-found", "searched-not-found"]);
+  assert.deepEqual(diff.forbiddenExempted.map((entry) => entry.ref).sort(), ["d#cell-nouns", "d#cell-symbols"]);
+});
+
+test("positive control: a real send-hallucination stays a hit across five evidence shapes (none exempt)", () => {
+  const HALLUC = "审批通过后系统发送邮件通知用户";
+  const expected = validateExpected(NOTIFY_FORBIDDEN);
+  const knowledge = knowledgeWith({
+    facts: [
+      // (i) cites a source window (not a search receipt at all).
+      fact({ ref: "d#window", marker: "fact", statement: HALLUC, windows: [{ id: "S-1", path: "a.ts", startLine: 1, endLine: 9 }], citedEvidenceCount: 1, searchEvidence: [] }),
+      // (ii) cites no evidence at all (citedEvidenceCount 0 -> predicate needs > 0).
+      fact({ ref: "d#no-evidence", marker: "fact", statement: HALLUC, citedEvidenceCount: 0, searchEvidence: [] }),
+      // (iii) cites a search that DID find matches.
+      fact({ ref: "d#has-matches", marker: "fact", statement: HALLUC, citedEvidenceCount: 1, searchEvidence: [{ id: "SEARCH-h", matchCount: 3, truncated: false }] }),
+      // (iv) cites a truncated (inconclusive) zero-match search.
+      fact({ ref: "d#truncated", marker: "fact", statement: HALLUC, citedEvidenceCount: 1, searchEvidence: [{ id: "SEARCH-t", matchCount: 0, truncated: true }] }),
+      // (v) mixed: a zero-match search AND a source window -> not every cited id is a search receipt.
+      fact({ ref: "d#mixed", marker: "fact", statement: HALLUC, windows: [{ id: "S-2", path: "b.ts", startLine: 1, endLine: 9 }], citedEvidenceCount: 2, searchEvidence: [ZERO_SEARCH] })
+    ]
+  });
+  const diff = diffKnowledge(knowledge, expected);
+  assert.deepEqual(
+    diff.forbiddenHits.map((hit) => hit.ref).sort(),
+    ["d#has-matches", "d#mixed", "d#no-evidence", "d#truncated", "d#window"]
+  );
+  assert.equal(diff.forbiddenExempted.length, 0);
 });
 
 test("anchorInHorizon is path-boundary-safe: src/auth.ts is not satisfied by src/auth.tsx in scope text", () => {

@@ -83,6 +83,10 @@ function renderDiff(diff: Diff): string {
     lines.push("--- forbidden violations (hallucination) ---");
     for (const hit of diff.forbiddenHits) lines.push(`  ! [${hit.id}] ${hit.marker} claim ${hit.ref}: ${hit.statement}`);
   }
+  if (diff.forbiddenExempted.length) {
+    lines.push("--- forbidden exemptions (matched base, not counted) ---");
+    for (const ex of diff.forbiddenExempted) lines.push(`  ~ [${ex.ruleId}] ${ex.reason}: ${ex.marker} claim ${ex.ref}: ${ex.statement}`);
+  }
   if (diff.coverageFailures.length) {
     lines.push("--- coverage failures ---");
     for (const failure of diff.coverageFailures) lines.push(`  x ${failure.dimension}: expected ${failure.expect.join("|")}, got ${failure.actual.join("|")}`);
