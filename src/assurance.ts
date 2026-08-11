@@ -16,6 +16,7 @@ import type {
   TraceCatalog
 } from "./types.ts";
 import { validateComparisonSides } from "./claim-comparison.ts";
+import { corpusQualification } from "./search-corpus-coverage.ts";
 import { exists, nowIso, redactSecrets, REDACTION_VERSION, safeRelative, sha256, stableJson } from "./util.ts";
 
 export interface AuditFinding {
@@ -396,6 +397,10 @@ export function auditChecklist(checklist: InvestigationChecklist, expected: Inve
         if (data?.truncated === true) findings.push(error("checklist", `search receipt ${receipt.id} was truncated and cannot support searched-not-found for ${item.id}`));
         if (!matches) findings.push(error("checklist", `search receipt ${receipt.id} has no matches array for ${item.id}`));
         else if (matches.length) findings.push(error("checklist", `search receipt ${receipt.id} contains matches and cannot support searched-not-found for ${item.id}`));
+        // Advisory (not a gate): the not-found verdict is honest only for the declared corpus; flag any
+        // in-scope text the search never reached. Receipts without a corpus block are grandfathered.
+        const qualification = corpusQualification(data);
+        if (qualification?.qualified) findings.push(warning("checklist", `searched-not-found is corpus-qualified for ${item.id}: ${qualification.message}`));
       }
     } else if (item.verdict === "cannot-determine") {
       if (!item.reason?.trim() || !item.settledBy?.trim()) findings.push(error("checklist", `cannot-determine item requires reason and settledBy: ${item.id}`));
@@ -650,6 +655,9 @@ export function auditWorkItems(plan: InvestigationPlan, expected: InvestigationP
         if (!data || Number(data.candidateFiles ?? 0) <= 0 || data.truncated === true || !matches || matches.length) {
           findings.push(error("workitems", `search receipt ${receipt.id} cannot prove searched-not-found for ${item.id}`));
         }
+        // Advisory (not a gate): flag in-scope text the search never reached. Legacy receipts (no corpus) skip.
+        const qualification = corpusQualification(data);
+        if (qualification?.qualified) findings.push(warning("workitems", `searched-not-found is corpus-qualified for ${item.id}: ${qualification.message}`));
       }
     }
     if (item.material && item.status === "found" && ["normal-flow", "decision-flow", "reversal-flow", "states-and-lifecycle", "notifications-and-exports"].includes(item.dimension) && !item.traceIds.length) {

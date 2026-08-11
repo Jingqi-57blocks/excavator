@@ -4,7 +4,9 @@ import { basename, extname, isAbsolute, join, relative, resolve, sep } from "nod
 import { tmpdir } from "node:os";
 import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
-import type { Snapshot, SnapshotRoot } from "./types.ts";
+import type { BoundaryCensus, Snapshot, SnapshotRoot } from "./types.ts";
+import { CURRENT_SCANNER_VERSION, resolveScannerVersion } from "./scanner-versions.ts";
+import { BoundaryCensusBuilder, sniffFileKind, type CensusEntry } from "./scan-census.ts";
 import { exists, nowIso, sha256, stableJson } from "./util.ts";
 
 const execFileAsync = promisify(execFile);
@@ -33,7 +35,9 @@ async function spawnWithInput(command: string, args: string[], input: Buffer, op
   });
 }
 
-export const SCANNER_VERSION = "git-aware-source-boundary-v1";
+// The scanner boundary is versioned in scanner-versions.ts so historical snapshots stay re-derivable.
+export const SCANNER_VERSION = CURRENT_SCANNER_VERSION;
+export { SOURCE_EXTENSIONS } from "./scanner-versions.ts";
 
 const EXCLUDED_DIRS = new Set([
   ".git", ".hg", ".svn", ".codegraph", ".excavator", ".excavator-work", "node_modules",
@@ -47,11 +51,6 @@ const EXCLUDED_FILES = [
   /^Icon\r$/i, /^\._/, /^\.LSOverride$/i, /\.sw[op]$/i, /~$/
 ];
 const SAFE_ENV_SAMPLE = /^\.env\.(sample|example|template|defaults?)$/i;
-export const SOURCE_EXTENSIONS = new Set([
-  ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs", ".go", ".py", ".java", ".kt", ".kts", ".rb", ".php",
-  ".cs", ".fs", ".rs", ".c", ".h", ".cc", ".cpp", ".hpp", ".swift", ".scala", ".vue", ".svelte", ".sql",
-  ".yaml", ".yml", ".json", ".toml", ".xml", ".html", ".css", ".scss", ".md", ".sh", ".proto", ".graphql", ".gql", ".tf", ".hcl", ".astro"
-]);
 const PROJECT_FILE_NAMES = new Set([
   "package.json", "go.mod", "Cargo.toml", "pyproject.toml", "requirements.txt", "pom.xml",
   "build.gradle", "build.gradle.kts", "Gemfile", "composer.json", "docker-compose.yml", "docker-compose.yaml"
@@ -69,6 +68,8 @@ export interface ScannedFile {
 interface ScanResult {
   files: ScannedFile[];
   ignoreRulesDigest: string;
+  boundaryCensus: BoundaryCensus;
+  unscanned: CensusEntry[];
 }
 
 async function gitValue(root: string, args: string[], maxBuffer = 1024 * 1024): Promise<string | null> {
@@ -117,9 +118,9 @@ function isExcludedFile(name: string): boolean {
   return EXCLUDED_FILES.some((pattern) => pattern.test(name));
 }
 
-function isSupportedFileName(name: string): boolean {
+function isSupportedFileName(name: string, extensions: ReadonlySet<string>): boolean {
   const extension = extname(name).toLowerCase();
-  return SOURCE_EXTENSIONS.has(extension)
+  return extensions.has(extension)
     || PROJECT_FILE_NAMES.has(name)
     || SAFE_ENV_SAMPLE.test(name)
     || /^(README(?:\.|$)|LICENSE(?:\.|$)|Dockerfile(?:\.|$)|Makefile(?:\.|$)|Procfile(?:\.|$))/i.test(name);
@@ -202,50 +203,59 @@ async function nonGitCandidates(root: string): Promise<string[]> {
   }
 }
 
-async function scanRoot(root: string, target: string, maxFiles: number): Promise<ScannedFile[]> {
+async function scanRoot(root: string, target: string, maxFiles: number, extensions: ReadonlySet<string>, census: BoundaryCensusBuilder): Promise<ScannedFile[]> {
   const rootName = normalizeRelativePath(relative(target, root)) || basename(root);
   const candidates = await gitCandidates(root) ?? await nonGitCandidates(root);
   const files: ScannedFile[] = [];
   for (const candidate of candidates.sort()) {
-    if (files.length >= maxFiles || isFixedExcludedPath(candidate)) continue;
+    // Policy-excluded paths (secrets, editor junk) are never scanned and never sniffed for the census.
+    if (isFixedExcludedPath(candidate)) continue;
+    if (files.length >= maxFiles) { census.markTruncated(); continue; }
     const name = basename(candidate);
-    if (!isSupportedFileName(name)) continue;
     const absolutePath = resolve(root, candidate);
     if (absolutePath !== root && !absolutePath.startsWith(`${root}${sep}`)) continue;
-    try {
-      const info = await lstat(absolutePath);
-      if (!info.isFile() || info.isSymbolicLink() || info.size > 2_000_000) continue;
-      files.push({
-        absolutePath,
-        relativePath: normalizeRelativePath(relative(target, absolutePath)),
-        size: info.size,
-        extension: extname(name).toLowerCase(),
-        rootName
-      });
-    } catch { /* file changed during scan */ }
+    let info;
+    try { info = await lstat(absolutePath); } catch { continue; /* file changed during scan */ }
+    if (!info.isFile() || info.isSymbolicLink()) continue;
+    const relativePath = normalizeRelativePath(relative(target, absolutePath));
+    const extension = extname(name).toLowerCase();
+    if (!isSupportedFileName(name, extensions)) {
+      // Inside the boundary but outside the whitelist: census it (text vs binary) so a not-found
+      // search verdict can be honest about files it never reached.
+      census.add({ relativePath, extension, kind: await sniffFileKind(absolutePath) });
+      continue;
+    }
+    if (info.size > 2_000_000) {
+      // Whitelisted text, but over the scan size cap: an in-boundary text file the manifest omits.
+      census.add({ relativePath, extension, kind: "text" });
+      continue;
+    }
+    files.push({ absolutePath, relativePath, size: info.size, extension, rootName });
   }
   return files;
 }
 
-async function scanWorkspace(targetInput: string, maxFiles = 100_000): Promise<ScanResult> {
+async function scanWorkspace(targetInput: string, maxFiles = 100_000, scannerVersion: string = SCANNER_VERSION): Promise<ScanResult> {
+  const extensions = resolveScannerVersion(scannerVersion);
   const target = resolve(targetInput);
   const roots = await discoverRoots(target);
   const files: ScannedFile[] = [];
+  const census = new BoundaryCensusBuilder();
   const ignoreRules: Array<{ root: string; entries: Array<{ path: string; digest: string }> }> = [];
   for (const root of roots) {
     const remaining = Math.max(0, maxFiles - files.length);
-    if (!remaining) break;
-    files.push(...await scanRoot(root, target, remaining));
+    if (!remaining) { census.markTruncated(); break; }
+    files.push(...await scanRoot(root, target, remaining, extensions, census));
     ignoreRules.push({ root: normalizeRelativePath(relative(target, root)) || ".", entries: await ignoreRulesForRoot(root) });
   }
   const deduped = [...new Map(files.map((file) => [file.relativePath, file])).values()].sort((a, b) => a.relativePath.localeCompare(b.relativePath));
   const ignoreRulesDigest = sha256(stableJson({
-    scannerVersion: SCANNER_VERSION,
+    scannerVersion,
     fixedExcludedDirs: [...EXCLUDED_DIRS].sort(),
     fixedExcludedFiles: EXCLUDED_FILES.map(String),
     roots: ignoreRules
   }));
-  return { files: deduped, ignoreRulesDigest };
+  return { files: deduped, ignoreRulesDigest, boundaryCensus: census.summary(), unscanned: census.entries };
 }
 
 export async function discoverRoots(targetInput: string): Promise<string[]> {
@@ -261,13 +271,13 @@ export async function discoverRoots(targetInput: string): Promise<string[]> {
   return gitRoots.length ? gitRoots.sort() : [target];
 }
 
-export async function scanFiles(targetInput: string, maxFiles = 100_000): Promise<ScannedFile[]> {
-  return (await scanWorkspace(targetInput, maxFiles)).files;
+export async function scanFiles(targetInput: string, maxFiles = 100_000, scannerVersion: string = SCANNER_VERSION): Promise<ScannedFile[]> {
+  return (await scanWorkspace(targetInput, maxFiles, scannerVersion)).files;
 }
 
-export async function createSnapshot(targetInput: string, codegraphPath?: string | string[], maxFiles = 100_000): Promise<{ snapshot: Snapshot; files: ScannedFile[] }> {
+export async function createSnapshot(targetInput: string, codegraphPath?: string | string[], maxFiles = 100_000, scannerVersion: string = SCANNER_VERSION): Promise<{ snapshot: Snapshot; files: ScannedFile[]; unscanned: CensusEntry[] }> {
   const target = resolve(targetInput);
-  const { files, ignoreRulesDigest } = await scanWorkspace(target, maxFiles);
+  const { files, ignoreRulesDigest, boundaryCensus, unscanned } = await scanWorkspace(target, maxFiles, scannerVersion);
   const roots = await discoverRoots(target);
   const rootCounts = new Map<string, number>();
   for (const root of roots) rootCounts.set(root, 0);
@@ -300,29 +310,46 @@ export async function createSnapshot(targetInput: string, codegraphPath?: string
     }
     if (parts.length) codegraphDigest = sha256(parts.join("\n"));
   }
+  // Identity uses the recorded scanner version so audit can re-derive a historical snapshot exactly.
+  // boundaryCensus is intentionally absent here — it must never enter the identity hash.
   const identity = {
     target,
     roots: rootDetails.map(({ name, gitHead, dirty }) => ({ name, gitHead, dirty })),
-    scannerVersion: SCANNER_VERSION,
+    scannerVersion,
     ignoreRulesDigest,
     sourceManifestDigest,
     codegraphDigest
   };
   return {
     files,
+    unscanned,
     snapshot: {
       id: sha256(JSON.stringify(identity)).slice(0, 20),
       target,
       createdAt: nowIso(),
       roots: rootDetails,
-      scannerVersion: SCANNER_VERSION,
+      scannerVersion,
       ignoreRulesDigest,
       sourceManifestDigest,
-      codegraphDigest
+      codegraphDigest,
+      boundaryCensus
     }
   };
 }
 
+// Extensions that count as documentation/markup/config/resource rather than code CodeGraph would
+// index. They are scanned and searchable, but excluded from the codegraph-coverage denominator so a
+// project full of UI markup or resource files does not read as poorly indexed. Scripts (.ps1/.psm1/
+// .bat/.cmd) and .gradle stay counted as likely source — they are executable code.
+const NON_CODE_EXTENSIONS = new Set([
+  ".md", ".json", ".yaml", ".yml", ".toml", ".xml", ".html", ".css", ".scss",
+  ".xaml", ".axaml", ".storyboard", ".xib", ".feature",
+  ".csproj", ".fsproj", ".vbproj", ".sln", ".props", ".targets",
+  ".resx", ".strings", ".plist",
+  ".ini", ".properties", ".cfg", ".conf",
+  ".txt", ".rst", ".adoc"
+]);
+
 export function isLikelySource(file: ScannedFile): boolean {
-  return ![".md", ".json", ".yaml", ".yml", ".toml", ".xml", ".html", ".css", ".scss"].includes(file.extension);
+  return !NON_CODE_EXTENSIONS.has(file.extension);
 }

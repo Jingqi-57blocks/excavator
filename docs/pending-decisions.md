@@ -40,6 +40,7 @@
 ## 批次 57B-353（workdir 统一 .work）产生
 
 - **`.work` 未进快照默认忽略表（需裁决，audit-semantic）**：Slice 1 把默认 workdir 从 `.excavator-work` 改为 `.work`，但 `src/snapshot.ts:39` 的默认忽略表含 `.excavator`/`.excavator-work` 却**不含 `.work`**。当**目标仓自身**含顶层 `.work/`（如分析 excavator 仓本身、或目标采用了 `.work`）时，`.work/` 会进入快照语料并影响哈希——旧默认 `.excavator-work` 是被忽略的，故属本次改名引入的 parity 退化。**未在 Slice 1 修**：改默认忽略表会改 `ignoreRulesDigest` → 快照身份，属 audit-semantic，且需先核清 audit 是"用 manifest 捕获的忽略规则"还是"按当前代码重新派生"（决定历史 run 重审是否会 `identity changed` 掉绿），再定是否需版本门控。候选并入 Slice 2（保证链切片）处理，或单列。低危（多数目标 workdir 与目标仓分离，不触发）。
+  - **Fable 建议（57B-362 S0b 后补，仍待用户裁决）**：S0b 已建成版本化快照重推导（`scanner-versions.ts` + audit 按记录版本重派生），此前"audit 用 manifest 还是重派生"的核清点已有答案（**重派生**），版本门控机制也就位。故把 `.work` 并入 `EXCLUDED_DIRS` 现在可安全操作——借这一窗口 bump 到 scanner v3（v3⊇v2）即可让历史 run 走 grandfather、不掉绿。S0b **未实施**（范围外、守"不顺手改"护栏），连同上面的原条目一并留触点一由用户裁决。
 
 ## 批次 57B-354（Slice 2 保证链/事实包正确性）评审产生
 

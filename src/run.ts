@@ -7,6 +7,7 @@ import { buildContexts, featureCacheKey } from "./context.ts";
 import { FACT_PACK_CATEGORIES, factPackEvidenceId } from "./factpack.ts";
 import { SourceReader, evidenceFromWindow, sourceSearch, type SourceSearchStats } from "./source.ts";
 import { createSnapshot } from "./snapshot.ts";
+import { buildCorpusBlock } from "./search-corpus-coverage.ts";
 import { ASSURANCE_VERSION, auditChecklist, auditDetailedFeatureSection, auditEvidenceCatalog, auditReadabilityTables, auditSectionClaims, auditSectionEvidenceMarkers, auditTargetProblemAttribution, auditTraces, auditWorkItemClaimCoverage, auditWorkItems, checklistUpdatesToWorkItems, createInvestigationChecklist, createInvestigationPlan, hasEvidenceMarkers, mergeChecklist, mergeWorkItems, runUsesCurrentAssurance, type AuditFinding, validateClaimsInput, workItemsToChecklist } from "./assurance.ts";
 import { auditComparativeClaims } from "./claim-comparison.ts";
 import { auditClaimReceiptSupport } from "./claim-receipt-support.ts";
@@ -15,7 +16,7 @@ import { collectClaims, createAnalysisScope, emptyTraceCatalog, mergeTraces, wri
 import { scaffoldSectionClaims } from "./claims-scaffold.ts";
 import { appendTimeline, auditTimeline, readTimeline } from "./timeline.ts";
 
-export const SOURCE_SEARCH_VERSION = `source-search-v4-ranking-v1-${REDACTION_VERSION}`;
+export const SOURCE_SEARCH_VERSION = `source-search-v5-corpus-v1-${REDACTION_VERSION}`;
 
 const PROJECT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const REFERENCES = join(PROJECT_ROOT, "skills", "excavator", "references");
@@ -258,13 +259,13 @@ export async function searchSourceEvidence(runDirInput: string, termsInput: stri
   const pathPrefixes = [...new Set((options.pathPrefixes ?? []).map((prefix) => prefix.replaceAll("\\", "/").replace(/^\.\//, "").replace(/\/+$/, "")).filter(Boolean))];
   if (pathPrefixes.some((prefix) => prefix === ".." || prefix.startsWith("../") || prefix.includes("/../"))) throw new Error("Source search path prefix escapes the target");
 
-  const current = await createSnapshot(manifest.request.target, manifest.request.codegraphModules ?? manifest.request.codegraph, manifest.request.budgets.maxFiles);
+  const current = await createSnapshot(manifest.request.target, manifest.request.codegraphModules ?? manifest.request.codegraph, manifest.request.budgets.maxFiles, manifest.snapshot.scannerVersion);
   if (current.snapshot.id !== manifest.snapshot.id) {
     throw new Error("Source snapshot changed after context preparation");
   }
-  const scopedFiles = pathPrefixes.length
-    ? current.files.filter((file) => pathPrefixes.some((prefix) => file.relativePath === prefix || file.relativePath.startsWith(`${prefix}/`)))
-    : current.files;
+  const inScope = (relativePath: string) => !pathPrefixes.length || pathPrefixes.some((prefix) => relativePath === prefix || relativePath.startsWith(`${prefix}/`));
+  const scopedFiles = current.files.filter((file) => inScope(file.relativePath));
+  const scopedUnscanned = current.unscanned.filter((entry) => inScope(entry.relativePath));
   const key = sha256(stableJson({ searchVersion: SOURCE_SEARCH_VERSION, snapshotId: manifest.snapshot.id, terms: [...terms].sort(), pathPrefixes: [...pathPrefixes].sort(), maxResults, regex: Boolean(options.regex), caseSensitive: Boolean(options.caseSensitive) }));
   const cachePath = join(projectCacheDir(runDir), "searches", manifest.snapshot.id, `${key}.json`);
   const cached = await exists(cachePath) ? await readJson<SearchReceipt>(cachePath) : null;
@@ -274,7 +275,7 @@ export async function searchSourceEvidence(runDirInput: string, termsInput: stri
     data = cached;
     cacheHit = true;
   } else {
-    const stats: SourceSearchStats = { total: 0, returned: 0, truncated: false };
+    const stats: SourceSearchStats = { total: 0, returned: 0, truncated: false, searchedFiles: 0, skippedTooLarge: 0, unreadable: 0 };
     const matches = await sourceSearch(scopedFiles, terms, { maxResults, regex: options.regex, caseSensitive: options.caseSensitive }, stats);
     data = {
       searchVersion: SOURCE_SEARCH_VERSION,
@@ -286,6 +287,7 @@ export async function searchSourceEvidence(runDirInput: string, termsInput: stri
       caseSensitive: Boolean(options.caseSensitive),
       truncated: stats.truncated,
       ...(stats.truncated ? { atLeast: stats.total } : {}),
+      corpus: buildCorpusBlock(manifest.snapshot.scannerVersion, { searchedFiles: stats.searchedFiles ?? 0, skippedTooLarge: stats.skippedTooLarge ?? 0, unreadable: stats.unreadable ?? 0 }, scopedUnscanned),
       matches: matches.map((match) => ({ path: match.file.relativePath, line: match.line, excerpt: match.excerpt, matchedTerms: match.matchedTerms, score: match.score }))
     };
     await writeJson(cachePath, data);
@@ -449,9 +451,18 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
 
   findings.push(...await auditEvidenceCatalog(manifest, evidenceCatalog.evidence));
   if (manifest.snapshot) {
-    const current = await createSnapshot(manifest.request.target, manifest.request.codegraphModules ?? manifest.request.codegraph, manifest.request.budgets.maxFiles);
-    if (current.snapshot.id !== manifest.snapshot.id) findings.push({ level: "error", document: "snapshot", message: "source snapshot changed after context preparation" });
-    if (current.snapshot.codegraphDigest !== manifest.snapshot.codegraphDigest) findings.push({ level: "error", document: "snapshot", message: "CodeGraph identity changed after context preparation" });
+    // Re-derive under the snapshot's own recorded scanner version so a widened boundary never
+    // retroactively fails a historical run. An unrecognized version becomes an error finding, not a crash.
+    let current: Awaited<ReturnType<typeof createSnapshot>> | null = null;
+    try {
+      current = await createSnapshot(manifest.request.target, manifest.request.codegraphModules ?? manifest.request.codegraph, manifest.request.budgets.maxFiles, manifest.snapshot.scannerVersion);
+    } catch (error) {
+      findings.push({ level: "error", document: "snapshot", message: `source snapshot could not be re-derived: ${(error as Error).message}` });
+    }
+    if (current) {
+      if (current.snapshot.id !== manifest.snapshot.id) findings.push({ level: "error", document: "snapshot", message: "source snapshot changed after context preparation" });
+      if (current.snapshot.codegraphDigest !== manifest.snapshot.codegraphDigest) findings.push({ level: "error", document: "snapshot", message: "CodeGraph identity changed after context preparation" });
+    }
   }
 
   const incompleteDocuments: DocumentPlan[] = [];

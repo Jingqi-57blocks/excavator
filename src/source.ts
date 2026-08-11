@@ -9,7 +9,7 @@ import { atomicWrite, ensureDir, exists, readJson, redactSecrets, REDACTION_VERS
 // in snapshot.ts); otherwise a `searched-not-found` verdict silently omits files that were scanned but
 // never searchable. The scanned-implies-searchable invariant is enforced by tests/search-corpus.test.ts.
 // Order mirrors SOURCE_EXTENSIONS so the two sets are easy to diff. See 57B-347.
-export const TEXTUAL_EXTENSIONS = new Set([".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs", ".go", ".py", ".java", ".kt", ".kts", ".rb", ".php", ".cs", ".fs", ".rs", ".c", ".h", ".cc", ".cpp", ".hpp", ".swift", ".scala", ".vue", ".svelte", ".sql", ".yaml", ".yml", ".json", ".toml", ".xml", ".html", ".css", ".scss", ".md", ".sh", ".proto", ".graphql", ".gql", ".tf", ".hcl", ".astro"]);
+export const TEXTUAL_EXTENSIONS = new Set([".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs", ".go", ".py", ".java", ".kt", ".kts", ".rb", ".php", ".cs", ".fs", ".rs", ".c", ".h", ".cc", ".cpp", ".hpp", ".swift", ".scala", ".vue", ".svelte", ".sql", ".yaml", ".yml", ".json", ".toml", ".xml", ".html", ".css", ".scss", ".md", ".sh", ".proto", ".graphql", ".gql", ".tf", ".hcl", ".astro", ".xaml", ".axaml", ".storyboard", ".xib", ".feature", ".csproj", ".fsproj", ".vbproj", ".sln", ".props", ".targets", ".gradle", ".resx", ".strings", ".plist", ".ini", ".properties", ".cfg", ".conf", ".ps1", ".psm1", ".bat", ".cmd", ".txt", ".rst", ".adoc"]);
 export const SOURCE_WINDOW_CACHE_VERSION = `source-window-v3-${REDACTION_VERSION}`;
 
 interface SourceReaderOptions {
@@ -176,6 +176,12 @@ export interface SourceSearchStats {
   total: number;
   returned: number;
   truncated: boolean;
+  /** In-scope textual files actually read and searched. */
+  searchedFiles?: number;
+  /** In-scope textual files skipped because they exceed the per-file search size cap. */
+  skippedTooLarge?: number;
+  /** In-scope textual candidates that could not be read. */
+  unreadable?: number;
 }
 
 export function sourceSearch(files: ScannedFile[], terms: string[], options: SourceSearchOptions = {}, stats?: SourceSearchStats): Promise<SourceSearchMatch[]> {
@@ -187,12 +193,10 @@ export function sourceSearch(files: ScannedFile[], terms: string[], options: Sou
     catch (error) { throw new Error(`Invalid source search expression ${JSON.stringify(term)}: ${(error as Error).message}`); }
   });
   const union = new RegExp(expressions.map((expression) => `(?:${expression.source})`).join("|"), flags);
-  const candidates = files.filter((file) => {
-    if (!TEXTUAL_EXTENSIONS.has(file.extension) && !/^README/i.test(basename(file.relativePath))) return false;
-    if (file.size > 500_000) return false;
-    if (options.onlyUnindexed && options.graphPaths?.has(file.relativePath)) return false;
-    return true;
-  });
+  const isTextual = (file: ScannedFile) => TEXTUAL_EXTENSIONS.has(file.extension) || /^README/i.test(basename(file.relativePath));
+  const textual = files.filter(isTextual);
+  const skippedTooLarge = textual.filter((file) => file.size > 500_000).length;
+  const candidates = textual.filter((file) => file.size <= 500_000 && !(options.onlyUnindexed && options.graphPaths?.has(file.relativePath)));
   const max = Math.max(1, options.maxResults ?? 80);
   const retained = Math.max(250, max * 5);
   return (async () => {
@@ -201,9 +205,12 @@ export function sourceSearch(files: ScannedFile[], terms: string[], options: Sou
     // survives as an honest lower bound on the real count; `capped` records that a file stopped early.
     let total = 0;
     let capped = false;
+    let searchedFiles = 0;
+    let unreadable = 0;
     for (const file of candidates) {
       let text: string;
-      try { text = await readFile(file.absolutePath, "utf8"); } catch { continue; }
+      try { text = await readFile(file.absolutePath, "utf8"); } catch { unreadable += 1; continue; }
+      searchedFiles += 1;
       const lines = text.split(/\r?\n/);
       let fileMatches = 0;
       for (let index = 0; index < lines.length; index += 1) {
@@ -223,6 +230,9 @@ export function sourceSearch(files: ScannedFile[], terms: string[], options: Sou
       stats.total = total;
       stats.returned = ranked.length;
       stats.truncated = total > ranked.length || capped;
+      stats.searchedFiles = searchedFiles;
+      stats.skippedTooLarge = skippedTooLarge;
+      stats.unreadable = unreadable;
     }
     return ranked;
   })();

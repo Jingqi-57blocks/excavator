@@ -53,6 +53,18 @@ export interface SnapshotRoot {
   fileCount: number;
 }
 
+/**
+ * A non-identity census of what sits inside the scan boundary but outside the searchable manifest:
+ * text files the whitelist did not admit (per extension), binary files, and whether the manifest was
+ * truncated at the file budget. It records reach honestly without entering the snapshot's identity
+ * hash — adding it never changes a snapshot id, so historical snapshots keep their identity.
+ */
+export interface BoundaryCensus {
+  unscannedText: Record<string, number>;
+  unscannedBinary: number;
+  manifestTruncated: boolean;
+}
+
 export interface Snapshot {
   id: string;
   target: string;
@@ -62,6 +74,9 @@ export interface Snapshot {
   ignoreRulesDigest: string;
   sourceManifestDigest: string;
   codegraphDigest: string | null;
+  /** Additive, non-identity: reach of the scan boundary beyond the searchable manifest. Absent on
+   * snapshots created before the census existed. Never part of the snapshot id. */
+  boundaryCensus?: BoundaryCensus;
 }
 
 export interface ProviderCapability {
@@ -142,6 +157,23 @@ export interface SourceWindow {
  * a lower bound on the real match count. This keeps a `searched`/`searched-not-found` receipt from
  * silently implying an exhaustive scan. `atLeast` is present only when `truncated` is true.
  */
+/**
+ * The corpus-coverage block on a SEARCH receipt: how far the search actually reached across the files
+ * in scope. `searchedFiles` were read and matched; the rest are in-scope gaps a text search cannot
+ * see — manifest files skipped as too large, unreadable files, and boundary files the whitelist never
+ * admitted (text vs binary, with a capped histogram of the text extensions; "" key = dotfile, "…" key
+ * = folded overflow). Additive: receipts recorded before this block existed simply omit it.
+ */
+export interface SearchReceiptCorpus {
+  scannerVersion: string;
+  searchedFiles: number;
+  skippedTooLarge: number;
+  unreadable: number;
+  unscannedTextInScope: number;
+  unscannedBinaryInScope: number;
+  unscannedTextExtensions: Record<string, number>;
+}
+
 export interface SearchReceipt {
   searchVersion: string;
   terms: string[];
@@ -152,6 +184,8 @@ export interface SearchReceipt {
   caseSensitive: boolean;
   truncated: boolean;
   atLeast?: number;
+  /** Additive corpus-coverage block; absent on receipts recorded before it existed. */
+  corpus?: SearchReceiptCorpus;
   matches: Array<{ path: string; line: number; excerpt: string; matchedTerms: string[]; score: number }>;
 }
 
