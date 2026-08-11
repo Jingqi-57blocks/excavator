@@ -18,6 +18,12 @@ Every material statement uses one of four semantic levels:
 
 Render these semantic markers naturally and consistently in the requested output language. Do not copy the English marker words into a report when they would be unnatural in that language.
 
+Place each marker by these rules:
+
+- Attach the marker inline at the end of the statement it qualifies, on the same line, or place it inside the qualified table cell or a dedicated level column.
+- Do not write a marker as its own standalone paragraph, and do not introduce one with an "Evidence level:" lead-in.
+- Every substantive chapter keeps at least one marker in visible prose outside its `<details>` evidence block, because the audit reads markers only from the visible reading flow.
+
 CodeGraph is a navigation index, not the complete source of truth. When graph data is missing, unresolved, ambiguous, unsupported, or lacks the semantic detail needed for a statement, read a bounded source window and record it as evidence.
 
 ### Comparison claims cite every side

@@ -75,7 +75,7 @@ test("every designated inventory index warns on prose and clears on a table, and
   const contracts: Array<[DocumentPlan, number[]]> = [
     [doc("overview", "product"), [2, 3, 4, 5, 7, 8]],
     [doc("overview", "engineering"), [2, 3, 5, 7, 8, 9, 10, 11]],
-    [doc("feature", "product"), [3, 5, 6, 7, 8, 9, 11]]
+    [doc("feature", "product"), [3, 5, 6, 7, 8, 9, 13]]
   ];
   for (const [document, indices] of contracts) {
     for (const sectionIndex of indices) {

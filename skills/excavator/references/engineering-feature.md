@@ -9,7 +9,7 @@ order: 40
 
 # Feature report for engineering readers
 
-Audience: developers and technical leads. Explain one capability's business behavior and current implementation, including entries, call paths, data, authorization, configuration, jobs, external dependencies, failure paths, and tests. Do not provide redesign or remediation.
+Audience: developers and technical leads. Explain one capability's business behavior and current implementation, including entries, call paths, data, authorization, configuration, jobs, external dependencies, failure paths, and tests. Do not provide redesign or remediation. Attach each evidence-level marker inline at the end of the statement it qualifies, or place it in the qualified table cell or a dedicated level column; do not leave a marker on its own line or behind an "Evidence level:" lead-in.
 
 ### Detailed report floor
 

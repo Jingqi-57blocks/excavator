@@ -7,7 +7,7 @@ import { buildContexts, featureCacheKey } from "./context.ts";
 import { FACT_PACK_CATEGORIES, factPackEvidenceId } from "./factpack.ts";
 import { SourceReader, evidenceFromWindow, sourceSearch, type SourceSearchStats } from "./source.ts";
 import { createSnapshot } from "./snapshot.ts";
-import { ASSURANCE_VERSION, auditChecklist, auditDetailedFeatureSection, auditEvidenceCatalog, auditReadabilityTables, auditSectionClaims, auditSectionEvidenceMarkers, auditTargetProblemAttribution, auditTraces, auditWorkItemClaimCoverage, auditWorkItems, checklistUpdatesToWorkItems, createInvestigationChecklist, createInvestigationPlan, hasEvidenceMarkers, mergeChecklist, mergeWorkItems, runUsesCurrentAssurance, type AuditFinding, validateClaimsInput, workItemsToChecklist } from "./assurance.ts";
+import { ASSURANCE_VERSION, auditChecklist, auditDetailedFeatureSection, auditEvidenceCatalog, auditEvidenceMarkerPlacement, auditReadabilityTables, auditSectionClaims, auditSectionEvidenceMarkers, auditTargetProblemAttribution, auditTraces, auditWorkItemClaimCoverage, auditWorkItems, checklistUpdatesToWorkItems, createInvestigationChecklist, createInvestigationPlan, hasEvidenceMarkers, mergeChecklist, mergeWorkItems, runUsesCurrentAssurance, type AuditFinding, validateClaimsInput, workItemsToChecklist } from "./assurance.ts";
 import { auditComparativeClaims } from "./claim-comparison.ts";
 import { atomicWrite, ensureDir, exists, nowIso, readJson, REDACTION_VERSION, runIdTimestamp, sha256, slugify, stableJson, writeJson } from "./util.ts";
 import { collectClaims, createAnalysisScope, emptyTraceCatalog, mergeTraces, writeReportCompanions } from "./assurance-artifacts.ts";
@@ -496,6 +496,7 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
       findings.push(...auditDetailedFeatureSection({ document, detailLevel: manifest.request.detailLevel, sectionIndex: section.index, sectionText, claimsFile, factEvidence: featureFactEvidence }));
       findings.push(...auditTargetProblemAttribution({ document, sectionIndex: section.index, sectionText }));
       findings.push(...auditReadabilityTables({ document, sectionIndex: section.index, sectionText }));
+      findings.push(...auditEvidenceMarkerPlacement({ document, sectionIndex: section.index, sectionText }));
       if (/事实|推断|验证|fact|inferred|verified/i.test(sectionText) && !/<details>/i.test(sectionText)) {
         findings.push({ level: "error", document: document.id, message: `section ${section.index} contains supported claims but has no evidence block` });
       }
