@@ -1,0 +1,30 @@
+{
+  "version": "boundary-gold-v1",
+  "target": "mini",
+  "items": [
+    {
+      "id": "alpha",
+      "mustFind": true,
+      "anchors": [{ "path": "internal/svc/a.go", "name": "Alpha" }],
+      "note": "found"
+    },
+    {
+      "id": "decoy-must",
+      "mustFind": true,
+      "anchors": [{ "path": "internal/svc/decoy.go", "name": "Decoy" }],
+      "note": "MISS by design: Decoy lives only in the CG-NODES-* decoy entry (not FG shape). If shape discrimination broke and it were credited, this mustFind would flip to found."
+    },
+    {
+      "id": "gap-src-covered",
+      "mustFind": false,
+      "anchors": [{ "path": "internal/svc/c.go", "lines": "100-110" }],
+      "note": "optional miss; a source window (S-cov) covers c.go 100-120 -> coveredBySourceWindow true in run mode"
+    },
+    {
+      "id": "gap-fully-out",
+      "mustFind": false,
+      "anchors": [{ "path": "internal/svc/d.go", "lines": "1-5" }],
+      "note": "optional miss; no node and no source window -> coveredBySourceWindow false"
+    }
+  ]
+}

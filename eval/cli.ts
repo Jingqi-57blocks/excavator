@@ -4,7 +4,9 @@
 //   diff --run <dir> --expected <file> [--json] [--prepare-only]
 //   view --run <dir> [--json]                              render one run's metrics + timeline
 //   compare --a <dir> --b <dir> [--json]                   cross-run A->B metrics + knowledge delta
+//   boundary (--run <dir> | --nodes <file>) --gold <file> [--json]   feature-graph boundary recall
 // diff exits 1 on any mustFind missing / forbidden violation / coverage failure; 0 otherwise.
+// boundary exits 1 on any mustFind miss; 0 otherwise (same honest-red contract as diff).
 // --prepare-only runs ONLY the anchor-in-scope containment check (zero model, sub-second).
 // view/compare have no semantic-fail concept: exit 0 on success, 2 on error (like every other harness error).
 
@@ -16,12 +18,16 @@ import { computeRunStats } from "./run-stats.ts";
 import { renderRunStats } from "./render-run-stats.ts";
 import { compareRuns } from "./compare-runs.ts";
 import { renderRunComparison } from "./render-run-comparison.ts";
+import { loadBoundaryGold } from "./boundary-gold.ts";
+import { boundaryRecall, boundaryReportFromRun, loadNodesFile, exitCodeFor as boundaryExitCode, type BoundaryReport } from "./boundary.ts";
 
 interface Flags {
   run?: string;
   a?: string;
   b?: string;
   expected?: string;
+  gold?: string;
+  nodes?: string;
   out?: string;
   json: boolean;
   prepareOnly: boolean;
@@ -35,6 +41,8 @@ function parseFlags(argv: string[]): Flags {
     else if (arg === "--a") flags.a = argv[++i];
     else if (arg === "--b") flags.b = argv[++i];
     else if (arg === "--expected") flags.expected = argv[++i];
+    else if (arg === "--gold") flags.gold = argv[++i];
+    else if (arg === "--nodes") flags.nodes = argv[++i];
     else if (arg === "--out") flags.out = argv[++i];
     else if (arg === "--json") flags.json = true;
     else if (arg === "--prepare-only") flags.prepareOnly = true;
@@ -53,7 +61,8 @@ const USAGE = `eval harness
   extract --run <dir> [--out <file>]
   diff    --run <dir> --expected <file> [--json] [--prepare-only]
   view    --run <dir> [--json]
-  compare --a <dir> --b <dir> [--json]`;
+  compare --a <dir> --b <dir> [--json]
+  boundary (--run <dir> | --nodes <file>) --gold <file> [--json]`;
 
 function renderContainment(containment: Containment): string {
   const lines = [`=== prepare containment (${containment.contained.length}/${containment.contained.length + containment.missing.length} anchors in scope) ===`];
@@ -92,6 +101,43 @@ function renderDiff(diff: Diff): string {
     for (const failure of diff.coverageFailures) lines.push(`  x ${failure.dimension}: expected ${failure.expect.join("|")}, got ${failure.actual.join("|")}`);
   }
   return lines.join("\n");
+}
+
+function renderBoundary(report: BoundaryReport): string {
+  const s = report.summary;
+  const lines = [
+    `=== boundary recall (${report.target}: ${s.mustFindFound}/${s.mustFind} mustFind found, ${s.nodeCount} nodes / ${s.fileCount} files) ===`,
+    `  verdict: ${s.pass ? "PASS" : "FAIL"}`,
+    `  mustFind: ${s.mustFindFound}/${s.mustFind} found, ${s.mustFindMissing} missing`,
+    `  optional: ${s.optionalFound}/${s.optional} found (informational)`
+  ];
+  const mustMiss = report.missing.filter((entry) => entry.mustFind);
+  if (mustMiss.length) {
+    lines.push("--- mustFind missing (out of boundary) ---");
+    for (const entry of mustMiss) lines.push(`  ! [${entry.id}]${coverageTag(entry.coveredBySourceWindow)}`);
+  }
+  const optMiss = report.missing.filter((entry) => !entry.mustFind);
+  if (optMiss.length) {
+    lines.push("--- optional missing (informational, does not affect verdict) ---");
+    for (const entry of optMiss) lines.push(`  ~ [${entry.id}]${coverageTag(entry.coveredBySourceWindow)}`);
+  }
+  return lines.join("\n");
+}
+
+/** Render the informational source-window coverage of a miss (run mode only; undefined in --nodes mode). */
+function coverageTag(covered: boolean | undefined): string {
+  if (covered === undefined) return "";
+  return covered ? " (covered by a source window: fallback may reach it)" : " (no source window: fully out of bounds)";
+}
+
+function runBoundary(flags: Flags): number {
+  const gold = loadBoundaryGold(requireFlag(flags.gold, "--gold"));
+  if (flags.run && flags.nodes) throw new Error("pass exactly one of --run or --nodes, not both");
+  const report = flags.nodes
+    ? boundaryRecall(loadNodesFile(flags.nodes), gold)
+    : boundaryReportFromRun(requireFlag(flags.run, "--run"), gold);
+  process.stdout.write(`${flags.json ? JSON.stringify(report, null, 2) : renderBoundary(report)}\n`);
+  return boundaryExitCode(report);
 }
 
 function runExtract(flags: Flags): number {
@@ -147,6 +193,7 @@ function main(argv: string[]): number {
   if (command === "diff") return runDiff(flags);
   if (command === "view") return runView(flags);
   if (command === "compare") return runCompare(flags);
+  if (command === "boundary") return runBoundary(flags);
   throw new Error(`unknown command: ${command}`);
 }
 

@@ -1,0 +1,24 @@
+{
+  "version": "boundary-gold-v1",
+  "target": "mini",
+  "items": [
+    {
+      "id": "alpha",
+      "mustFind": true,
+      "anchors": [{ "path": "internal/svc/a.go", "name": "Alpha" }],
+      "note": "module-relative suffix anchor -> matches FG node mymod/internal/svc/a.go::Alpha"
+    },
+    {
+      "id": "route",
+      "mustFind": true,
+      "anchors": [{ "path": "othermod/routes/x.js", "name": "GET /things" }],
+      "note": "full-prefix exact anchor + route node name from the second FG entry (union)"
+    },
+    {
+      "id": "beta-lines",
+      "mustFind": true,
+      "anchors": [{ "path": "internal/svc/b.go", "lines": "6-8" }],
+      "note": "line-overlap anchor (no name) -> overlaps Beta node 5-15"
+    }
+  ]
+}

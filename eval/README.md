@@ -22,13 +22,56 @@ npm run eval -- extract --run <dir> [--out <file>]
 npm run eval -- diff --run <dir> --expected <file> [--json] [--prepare-only]
 npm run eval -- view --run <dir> [--json]
 npm run eval -- compare --a <dir> --b <dir> [--json]
+npm run eval -- boundary (--run <dir> | --nodes <file>) --gold <file> [--json]
 ```
 
 `diff` exits **1** on any mustFind missing, forbidden violation, or coverage failure; **0** otherwise.
+`boundary` exits **1** on any mustFind miss; **0** otherwise (the same honest-red contract as `diff`).
 
 `view` and `compare` have no semantic-fail concept: they exit **0** on success and **2** on error
 (missing run dir, missing `metrics.json`/`timeline.jsonl`, malformed timeline). Both are read-only on
 the run dirs.
+
+## `boundary` — feature-graph boundary recall
+
+Measures whether the **feature-graph node set** — the output of `pruneFeatureGraph`, before any
+downstream fallback search — captured the material symbols of a feature. It exists as the deterministic,
+zero-model front for graph-prune changes (57B-371): loosening the prune must recover today's confirmed
+misses without dropping the feature core it already captures.
+
+The measured object is the **graph node set at node granularity**, deliberately *not* the wider evidence
+file set. The prune is the intervention point, so the metric isolates "did the graph select this symbol"
+from "did a downstream source-window search reach it". The S-window signal is preserved only as the
+informational `coveredBySourceWindow` field on each miss (run mode) and never affects the verdict.
+
+- `boundary-gold.ts` — loader + hand-written structural validation for `boundary-gold-v1` (mirrors
+  `expected.ts`; an eval-internal, per-fixture data format, not a public contract). An item is
+  `{ id, mustFind, anchors: [{ path, name?, lines? }], note? }`; anchors are **OR** (any one match puts
+  the item in-bounds). `name` is an exact node-name match; `lines` falls back to range overlap only where
+  no single node name applies. Anchors never use node `id` (ids carry a NUL + hash and are unstable).
+- `boundary.ts` — pure `boundaryRecall(nodes, gold) → BoundaryReport` plus the I/O adapters:
+  - `nodesFromRun(runDir)` selects FG scope catalogs by **shape** (`kind:"graph"` with both a `data.nodes`
+    and a `data.seeds` array), unions and de-dupes their nodes. `CG-*` / `CG-NODES-*` are also
+    `kind:"graph"` but lack that shape (whole-project sampling) and are excluded — mixing them in would
+    falsely credit the boundary. This is the reuse interface for 57B-371 (replay improved-prune output
+    through `boundaryRecall(nodesFromRun(dir), gold)`).
+  - `boundaryReportFromRun(runDir, gold)` reads `evidence.json` once and annotates each miss with
+    `coveredBySourceWindow`.
+  - `loadNodesFile(file)` reads a projected node set (`{ nodes: [...] }` or a bare array) for `--nodes`.
+
+Path matching reuses `diff.ts`'s exported `pathMatches` / `parseLines`, so boundary and knowledge-diff
+resolve an anchor's path/lines identically. The three-form path match (`root/path` exact | `endsWith
+"/"+path` | bare `path` exact) makes a module-relative gold anchor (`internal/handlers/...`, the per-module
+CodeGraph db form) match a module-prefixed evidence node (`wcp-service-v2/internal/...`).
+
+The `wcp-leave` gold (`fixtures/wcp-leave/boundary-gold.json`) is layered: **T1** three confirmed misses
+(mustFind, red today — present in source + index but pruned out of the graph), **T2** ten regression
+sentinels (mustFind, green today — the captured leave core), **T3** ~fifteen optional/informational
+windows (never gated). Its `_meta` records the full construction method. The baseline is pinned inside CI
+by `fixtures/wcp-leave/demo-run-fg-nodes.json` (a mechanical projection of a real run's FG evidence), so
+the numbers reproduce without an out-of-repo run dir. Note: the historical "Wave0 leave gold (84 items)"
+referenced in Linear 57B-370 does not exist as a data file; this gold is a fresh minimal rebuild and its
+numbers are not comparable to the Wave0 44% figure (different gold, different measurement layer).
 
 ## `view` — run observability
 
@@ -166,3 +209,11 @@ The point of the harness is that most iterations never call a model:
   `compare`. `-b` is a deliberate variant of the first: faster overall but one slower stage, fewer
   searches, one gained fact-anchor (`svc/audit/log.go`), one lost (`svc/notify/email.go`), a coverage
   dimension that regressed `found → searched-not-found`, and a shifted marker distribution.
+- `fixtures/wcp-leave/` — the real `boundary` baseline: `boundary-gold.json` (T1/T2/T3 layered gold with
+  a full construction-method `_meta`) and `demo-run-fg-nodes.json` (a mechanical projection of a real
+  demo run's FG scope evidence — id/kind/name/filePath/startLine/endLine per node). Pins the boundary
+  numbers (10/13 mustFind found, the 3 T1 misses, exit 1) inside CI.
+- `tests/fixtures/boundary-run-mini/` — a synthetic run for the `boundary` run-mode tests: two FG
+  entries (union + dedupe), a `CG-NODES-*` decoy (must not be credited), a `CG-*` summary decoy, and two
+  source windows, plus `gold-pass.json` / `gold-fail.json` exercising exit 0/1 and the
+  `coveredBySourceWindow` true/false split.
