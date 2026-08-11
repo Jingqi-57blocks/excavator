@@ -7,7 +7,7 @@ const RUN_MINI = join(import.meta.dirname, "fixtures", "run-mini");
 
 test("extractKnowledge resolves each cited S-* id to its source window", () => {
   const knowledge = extractKnowledge(RUN_MINI);
-  assert.equal(knowledge.facts.length, 5);
+  assert.equal(knowledge.facts.length, 7);
 
   const claim1 = knowledge.facts.find((fact) => fact.claimId === "claim-1")!;
   assert.deepEqual(
@@ -19,6 +19,14 @@ test("extractKnowledge resolves each cited S-* id to its source window", () => {
   );
   assert.equal(claim1.ref, "feature-leave-x-engineering#claim-1");
   assert.equal(claim1.documentId, "feature-leave-x-engineering");
+});
+
+test("a claim citing only a zero-match search receipt carries searchEvidence and an empty window set", () => {
+  const knowledge = extractKnowledge(RUN_MINI);
+  const claim = knowledge.facts.find((fact) => fact.claimId === "claim-6")!;
+  assert.equal(claim.citedEvidenceCount, 1);
+  assert.deepEqual(claim.searchEvidence, [{ id: "SEARCH-b23d913a3175", matchCount: 0, truncated: false }]);
+  assert.deepEqual(claim.windows, []);
 });
 
 test("non-source evidence ids (GIT-*) never resolve to a window", () => {

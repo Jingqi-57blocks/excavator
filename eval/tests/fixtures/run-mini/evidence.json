@@ -46,6 +46,24 @@
       "endLine": 25,
       "title": "leave-svc/src/auth.ts",
       "content": "requireRole(actor, required) { ... }"
+    },
+    {
+      "id": "SEARCH-b23d913a3175",
+      "kind": "search",
+      "snapshotId": "snap-mini",
+      "title": "Source search: nodemailer, sendEmail, smtp, webhook, 短信, 推送",
+      "reason": "confirm whether any notification channel is implemented before asserting its absence",
+      "data": {
+        "searchVersion": "1",
+        "terms": ["nodemailer", "sendEmail", "smtp", "webhook", "短信", "推送"],
+        "pathPrefixes": ["leave-svc/src"],
+        "candidateFiles": 6,
+        "maxResults": 20,
+        "regex": false,
+        "caseSensitive": false,
+        "truncated": false,
+        "matches": []
+      }
     }
   ]
 }
