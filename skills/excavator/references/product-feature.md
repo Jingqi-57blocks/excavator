@@ -11,7 +11,7 @@ order: 20
 
 Audience: product managers, business owners, and operations leads. Explain how one business capability currently works, what happens in exceptional paths, and how it relates to other capabilities. Keep implementation details out of the reading flow and do not provide recommendations.
 
-Present inventory, enumeration, and comparison content — rules, states, roles and their actions, data fields, triggered effects, failure scenarios, configuration, and connected capabilities — as Markdown tables, and present parallel or enumerated items as Markdown lists, rather than as prose paragraphs. Tables are preferred for inventories and comparisons; use tables and Mermaid diagrams wherever they improve comprehension.
+Present inventory, enumeration, and comparison content — rules, states, roles and their actions, data fields, triggered effects, failure scenarios, configuration, and connected capabilities — as Markdown tables, and present parallel or enumerated items as Markdown lists, rather than as prose paragraphs. Tables are preferred for inventories and comparisons; use tables and Mermaid diagrams wherever they improve comprehension. Attach each evidence-level marker inline at the end of the statement it qualifies, or place it in the qualified table cell or a dedicated level column; do not leave a marker on its own line or behind an "Evidence level:" lead-in.
 
 ## 1. What the capability is and where its boundary lies
 
@@ -49,18 +49,22 @@ Investigate empty input, invalid input, duplicate submission, concurrent changes
 
 Explain relevant configuration keys, whether defaults are visible, environment or customer differences, behavior when a switch is off, and related scheduled work. Present the configuration keys as a Markdown table (key, default when visible, behavior when off, environment or customer differences).
 
-## 10. Current problems and connected scope
+## 10. Connected capabilities and scope
 
-List only target-attributable feature problems: locatable rule gaps, implementation differences, permission or data-scope defects, contradictory target tests or documentation, explicitly unfinished target code, discarded target errors, and target entries with no caller found after a complete recorded search. Explain connected entries, records, scheduled work, and other capabilities without recommendations. Present the problems as a Markdown table or a Markdown list (problem, target evidence, what current code permits, confidence), and enumerate the connected entries, records, scheduled work, and capabilities as a Markdown list.
+Explain connected entries, records, scheduled work, and other capabilities this capability reaches, without recommendations. State reachability and connection rather than predicting that a change must affect another capability. Enumerate the connected entries, records, scheduled work, and capabilities as a Markdown list.
 
 When `context/cross-feature.json` is present, name the adjacent capabilities this feature shares files, business objects or configuration keys with, grounded in that deterministic prepared context; state what is shared rather than predicting that a change must affect the other capability.
 
+## 11. Current problems found
+
+List only problems attributable to the reviewed target snapshot: locatable rule gaps, implementation differences, permission or data-scope defects, contradictory target tests or documentation, explicitly unfinished target code, discarded target errors, and target entries with no caller found after a complete recorded search. Each problem states its target evidence, what the current code permits, and confidence, without recommendations. Present the problems as a Markdown table or a Markdown list (problem, target evidence, what current code permits, confidence).
+
 Do not list CodeGraph limitations, unresolved graph references, source fallback, provider coverage, candidate counts, static-review limitations, Excavator behavior, prompt quality, audit limitations or analysis performance here. Put those only in section 12 or in an Excavator validation report.
-
-## 11. Glossary
-
-List business terms used by the report, source-language names, and requested-language renderings. Present the glossary as a Markdown table (business term, source-language name, requested-language rendering).
 
 ## 12. Coverage and questions static review cannot answer
 
 Explain graph nodes, files, source excerpts, test evidence, unresolved relationships, excluded files, and runtime questions that remain unavailable. Present the coverage counts as a Markdown table and include denominators where they represent coverage.
+
+## 13. Glossary
+
+List business terms used by the report, source-language names, and requested-language renderings. Present the glossary as a Markdown table (business term, source-language name, requested-language rendering).

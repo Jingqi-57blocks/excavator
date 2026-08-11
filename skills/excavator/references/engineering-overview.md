@@ -11,7 +11,7 @@ order: 30
 
 Audience: developers and technical leads. Describe the current business and implementation landscape, including repositories, stacks, runtime boundaries, communication, data, files, configuration, jobs, tests, and current technical problems. Do not propose a target architecture or remediation.
 
-Present inventories and comparisons — repositories and runtime units, stacks, interfaces and entry points, data models, identity and authorization, external integrations, configuration and jobs, and tests — as Markdown tables, and present enumerated items as Markdown lists rather than prose paragraphs. Tables are preferred for inventories and comparisons; use tables and Mermaid diagrams wherever they improve comprehension.
+Present inventories and comparisons — repositories and runtime units, stacks, interfaces and entry points, data models, identity and authorization, external integrations, configuration and jobs, and tests — as Markdown tables, and present enumerated items as Markdown lists rather than prose paragraphs. Tables are preferred for inventories and comparisons; use tables and Mermaid diagrams wherever they improve comprehension. Attach each evidence-level marker inline at the end of the statement it qualifies, or place it in the qualified table cell or a dedicated level column; do not leave a marker on its own line or behind an "Evidence level:" lead-in.
 
 ## 1. System purpose, scope, and source snapshot
 
