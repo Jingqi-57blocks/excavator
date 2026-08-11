@@ -2,8 +2,26 @@ import { DatabaseSync } from "node:sqlite";
 import { cp, mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { readFile } from "node:fs/promises";
+import type { InvestigationPlan } from "../src/types.ts";
+import { updateWorkItems } from "../src/run.ts";
 
 export async function tempDir(prefix = "excavator-test-"): Promise<string> { return mkdtemp(join(tmpdir(), prefix)); }
+
+/**
+ * Dispose every work item as `not-applicable` with a reason so a synthetic run satisfies the freeze
+ * gate (all required items disposed, no `found` material flow needing a trace). Routes through
+ * `updateWorkItems`, which keeps `checklist.json` in sync, so the disposed run also audits clean.
+ */
+export async function disposeAllWorkItems(runDir: string): Promise<void> {
+  const plan = JSON.parse(await readFile(join(runDir, "workitems.json"), "utf8")) as InvestigationPlan;
+  await updateWorkItems(runDir, plan.items.map((item) => ({
+    id: item.id,
+    status: "not-applicable" as const,
+    material: false,
+    reason: "Out of scope for the synthetic fixture snapshot."
+  })));
+}
 
 export async function copyFixture(name = "sample-target"): Promise<string> {
   const target = await tempDir();

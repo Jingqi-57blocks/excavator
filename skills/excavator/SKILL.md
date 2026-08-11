@@ -130,7 +130,7 @@ A combined request is one investigation, not several independent runs.
 - Do not repeat a graph query or source window already present in the run.
 - When multiple features share a source window, cite the same evidence ID.
 
-## Authoring workflow
+## Investigation workflow
 
 The prepare command creates a run under the target's own directory inside the workdir, `<workdir>/<project>[-<hash>]/runs/<run-id>/`, alongside that target's caches. The `<project>` segment is the target's basename; the `-<hash>` suffix is added only when a different target would collide on that basename. Use the `runDir` value the command prints rather than composing the path. When runs from the old un-suffixed `<workdir>/<project>/runs/` layout are stranded by such a collision, prepare emits a warning that names the old path; those historical runs are not picked up automatically.
 
@@ -142,6 +142,7 @@ The prepare command creates a run under the target's own directory inside the wo
 ├── provider-status.json
 ├── workitems.json
 ├── traces.json
+├── knowledge.json              # frozen investigation record (written by freeze)
 ├── timeline.jsonl
 ├── checklist.json              # compatibility view of workitems
 ├── prompts/
@@ -155,14 +156,60 @@ The prepare command creates a run under the target's own directory inside the wo
 └── metrics.json
 ```
 
+Investigate before you write. After prepare and before any `begin`, work the plan in `workitems.json` feature by feature and dimension by dimension so that all knowledge is in place before authoring starts.
+
+- Treat `workitems.json` as the primary investigation plan and coverage ledger. Every required item ends as `found`, `searched-not-found`, `cannot-determine`, or `not-applicable`. Do not delete a required item. An item that static analysis cannot answer records why, what would settle it, and evidence establishing the limitation.
+
+  ```bash
+  excavator workitem --run <run-dir> --file <workitem-updates.json>
+  ```
+
+- Search under the immutable run snapshot when the prepared context does not identify a path, and retain the reusable receipt. Repeating the same snapshot-bound search is a cache hit; a `searched-not-found` disposition cites the returned `SEARCH-*` evidence ID.
+
+  ```bash
+  excavator search \
+    --run <run-dir> --terms "permission,authorize,role" \
+    --path-prefixes "src,services" --max-results 50 \
+    --reason "investigate inline authorization"
+  ```
+
+- Record a bounded source excerpt before using it, when more source is required than the context carries.
+
+  ```bash
+  excavator source \
+    --run <run-dir> --path <relative-path> --start <line> --end <line> \
+    --reason "why this excerpt is needed"
+  ```
+
+- Record a trace for each evidenced call, business, data, state, cross-repository or analysis path. A verified trace has sequential steps and evidence for every step.
+
+  ```bash
+  excavator trace --run <run-dir> --file <trace-updates.json>
+  ```
+
+Establish the following while investigating, not at audit:
+
+- **Equivalence needs every side.** A `fact` claim that asserts equivalence, consistency, sameness, or shared values or behavior across implementations, modules, repositories, or runtime parts must cite evidence for every compared side and group it in the claim's `sides` field; when only one side is observed, record the other's evidence or downgrade to `inferred`.
+- **Material flows need a verified trace, planted up front.** A material work item for a normal, decision, or reversal flow, a state lifecycle, or a side effect (notifications or exports) that ends `found` requires a verified trace. A `found` flow item with no trace is a hard audit error, so record the trace while investigating rather than discovering the requirement at audit.
+- **The feature fact pack is a floor, not a ceiling.** Each feature scope carries a deterministic fact pack (`context/features/<feature>.factpack.json`, also rendered as a section of the scope) that enumerates six categories — entrypoints, entities, states, config-keys, jobs, external-calls — each item at `file:line`, with a per-category coverage row (method, item count, truncated flag, note). It is an enumeration of what was found inside the feature boundary, not a sample. When a category is marked truncated or carries an incompleteness note, treat it as a floor: investigate beyond it with `search` and `source`, and do not treat the listed items as the complete set.
+
+`checklist.json` is retained as a compatibility projection and may still be updated through the legacy `checklist` command.
+
+## Freeze
+
+When every required work item is disposed and every material flow is traced, freeze the investigation:
+
+```bash
+excavator freeze --run <run-dir>
+```
+
+Freeze is a deterministic gate: it admits the run only when the investigation would already pass audit — every required item disposed, every `found` material flow carrying a verified trace, the evidence catalog and its digest intact, and the snapshot unchanged. On a non-zero exit it reports the exact gaps — items still pending, flows still missing a trace — so continue investigating and freeze again. On success it writes `knowledge.json`, the frozen record authoring consumes. Freeze once; a change after freeze goes through the supplement channel described below.
+
+## Authoring workflow
+
 Budgets derive from the request size (the number of requested documents and features), not a fixed ceiling. Check status after each major section and stop when the authoring budget is exceeded. A budget timeout stops the *next* section, never the one in hand: the current section is checkpointed to disk before the run stops, and `excavator resume --run <run-dir>` continues from the first incomplete section.
 
-Plan the following before drafting, not at audit:
-
-- **Evidence-level markers are mandatory.** Every substantive section must carry a real backtick evidence-level marker in its visible prose — `fact`, `verified`, `inferred`, or `unavailable`, or their localized equivalents in the requested output language. Under the current assurance version, a substantive section with no real marker is a hard audit error, not a warning. See `references/writing-rules.md` for the marker semantics and the claim binding contract.
-- **Equivalence needs every side.** A `fact` claim that asserts equivalence, consistency, sameness, or shared values or behavior across implementations, modules, repositories, or runtime parts must cite evidence for every compared side and group it in the claim's `sides` field; when only one side is observed, record the other's evidence or downgrade to `inferred`.
-- **Material flows need a verified trace, planned up front.** A material work item for a normal, decision, or reversal flow, a state lifecycle, or a side effect (notifications or exports) that ends `found` requires a verified trace. A `found` flow item with no trace is a hard audit error, so plan the traces while investigating rather than discovering the requirement at audit.
-- **The feature fact pack is a floor, not a ceiling.** Each feature scope carries a deterministic fact pack (`context/features/<feature>.factpack.json`, also rendered as a section of the scope) that enumerates six categories — entrypoints, entities, states, config-keys, jobs, external-calls — each item at `file:line`, with a per-category coverage row (method, item count, truncated flag, note). It is an enumeration of what was found inside the feature boundary, not a sample. When a category is marked truncated or carries an incompleteness note, treat it as a floor: investigate beyond it with `search` and `source`, and do not treat the listed items as the complete set.
+Authoring consumes the frozen knowledge and does not re-investigate. Every substantive section must carry a real backtick evidence-level marker in its visible prose — `fact`, `verified`, `inferred`, or `unavailable`, or their localized equivalents in the requested output language. Under the current assurance version, a substantive section with no real marker is a hard audit error, not a warning. See `references/writing-rules.md` for the marker semantics and the claim binding contract.
 
 For each document:
 
@@ -173,27 +220,8 @@ For each document:
    excavator begin --run <run-dir> --document <document-id>
    ```
 
-3. Write one template section at a time.
-4. If the prepared context does not identify the relevant path, search under the immutable run snapshot and retain the reusable receipt:
-
-   ```bash
-   excavator search \
-     --run <run-dir> --terms "permission,authorize,role" \
-     --path-prefixes "src,services" --max-results 50 \
-     --reason "investigate inline authorization"
-   ```
-
-   Repeating the same snapshot-bound search is a cache hit. A searched-not-found checklist result cites the returned `SEARCH-*` evidence ID.
-
-5. If more source is required, record the bounded excerpt before using it:
-
-   ```bash
-   excavator source \
-     --run <run-dir> --path <relative-path> --start <line> --end <line> \
-     --reason "why this excerpt is needed"
-   ```
-
-6. Generate the claims skeleton from the written section, then fill it in:
+3. Write one template section at a time, drawing on the frozen evidence, work items and traces already in the run.
+4. Generate the claims skeleton from the written section, then fill it in:
 
    ```bash
    excavator claims scaffold \
@@ -203,7 +231,7 @@ For each document:
 
    It emits one claim stub per substantive segment using the exact segmentation the audit enforces, so a hand-derived skeleton can never drift from what audit expects. Each stub defaults to the `fact` marker with empty `evidenceIds` and `workItemIds`; fill in the evidence and work-item links and adjust each marker to the right evidence level before checkpointing.
 
-7. Save each section and its claims immediately:
+5. Save each section and its claims immediately:
 
    ```bash
    excavator checkpoint \
@@ -211,38 +239,34 @@ For each document:
      --file <section.md> --claims <section-claims.json>
    ```
 
-   Each claim names an exact statement that appears in the section. `fact`, `verified`, and `inferred` claims cite evidence IDs that also appear in the section's collapsed evidence block. `unavailable` claims carry a reason and no evidence IDs.
+   Each claim names an exact statement that appears in the section. `fact`, `verified`, and `inferred` claims cite evidence IDs that also appear in the section's collapsed evidence block. `unavailable` claims carry a reason and no evidence IDs. Claims also list the work-item IDs they satisfy, and every material work item required for the document must be represented by at least one claim that reuses that work item's evidence or trace.
 
-8. Treat `workitems.json` as the primary investigation plan and coverage ledger. Every required item ends as `found`, `searched-not-found`, `cannot-determine`, or `not-applicable`:
-
-   ```bash
-   excavator workitem --run <run-dir> --file <workitem-updates.json>
-   ```
-
-   Do not delete a required item. A search that finds nothing records its searched scope and supporting `SEARCH-*` receipt. An item that static analysis cannot answer records why, what would settle it, and evidence establishing the limitation. `checklist.json` is retained as a compatibility projection and may still be updated through the legacy `checklist` command.
-
-9. Record traces for evidenced call flows, business flows, data flows, state transitions, cross-repository paths, and analysis paths:
+6. Check status after every major section. Stop when the authoring budget is exceeded; do not silently extend it. Once a document's sections are all checkpointed, audit that document in isolation before moving on:
 
    ```bash
-   excavator trace --run <run-dir> --file <trace-updates.json>
+   excavator audit --run <run-dir> --document <document-id>
    ```
 
-   A verified trace has sequential steps and evidence for every step. Claims and work items may cite trace IDs. As stated above, a material feature work item for a normal, decision, or reversal flow, a lifecycle, or a side effect requires a verified trace when its status is `found`.
+   A single-document audit checks that document's sections, claims, and the shared evidence catalog as hard errors, but run-wide completeness checks (plan and checklist completion, material work-item coverage) degrade to advisory findings and no run state is mutated. Use it mid-authoring; it does not replace the final full-run audit.
 
-10. Check status after every major section. Stop when the authoring budget is exceeded; do not silently extend it. Once a document's sections are all checkpointed, audit that document in isolation before moving on:
+7. Assemble and audit the whole run:
 
-    ```bash
-    excavator audit --run <run-dir> --document <document-id>
-    ```
+   ```bash
+   excavator assemble --run <run-dir>
+   excavator audit --run <run-dir>
+   ```
 
-    A single-document audit checks that document's sections, claims, and the shared evidence catalog as hard errors, but run-wide completeness checks (plan and checklist completion, material work-item coverage) degrade to advisory findings and no run state is mutated. Use it mid-authoring; it does not replace the final full-run audit.
+When the frozen knowledge is genuinely insufficient — a claim you cannot ground in any existing evidence, or a work item whose frozen disposition is wrong — do not re-open routine investigation and do not edit the artifacts silently. First decide whether it is an expression problem; the evidence you need is usually already in the catalog under a different framing. Only when it is a real knowledge gap, re-run the relevant command with a supplement, which performs the operation and records the exception in the coverage ledger:
 
-11. Assemble and audit the whole run:
+```bash
+excavator search \
+  --run <run-dir> --terms "escalation,approver" \
+  --reason "confirm an escalation path the frozen evidence does not cover" \
+  --supplement-reason "the frozen catalog carries no evidence for multi-level escalation" \
+  --supplement-workitem feature:<key>:decision-flow
+```
 
-    ```bash
-    excavator assemble --run <run-dir>
-    excavator audit --run <run-dir>
-    ```
+The same `--supplement-reason` and `--supplement-workitem` pair applies to `source`, `workitem`, `checklist` and `trace`. Both flags are required together, and the work item must already exist in `workitems.json`. Every supplement is counted in `metrics.supplements` and audited: a post-freeze mutation with no recorded supplement fails audit.
 
 ## Recovery
 
@@ -308,6 +332,8 @@ The audit must fail when any of these is true:
 - a material flow work item has no verified trace;
 - a trace contains missing evidence, claims, documents, or non-sequential steps;
 - a claim declares comparison `sides` with fewer than two groups, overlapping groups, or evidence the claim does not cite;
+- an investigation artifact is mutated after freeze without a recorded supplement;
+- the frozen knowledge digest no longer matches the run manifest;
 - the target source or CodeGraph identity changes after preparation.
 
 Audit also warns — without failing — when a `fact` claim uses comparative wording but cites a single source unit and declares no `sides`, so a single-sided equivalence is surfaced for the author to cite the other side or downgrade.
@@ -327,4 +353,4 @@ Analysis Scope
   → Report paragraph or table row
 ```
 
-`timeline.jsonl` is append-only and hash-chained. It records preparation, investigation searches and source windows, checkpoints and revisions, work-item and trace updates, assembly, audit, timeout, and recovery. The assembled report directory contains machine-readable claims, traces, and coverage companions for each document.
+`timeline.jsonl` is append-only and hash-chained. It records preparation, investigation searches and source windows, the investigation freeze, checkpoints and revisions, work-item and trace updates, assembly, audit, timeout, and recovery. The assembled report directory contains machine-readable claims, traces, and coverage companions for each document.

@@ -4,9 +4,9 @@ import { spawn } from "node:child_process";
 import { readFile, readdir } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import type { ReportRequest } from "../src/types.ts";
-import { assembleRun, checkpointSection, prepareRun } from "../src/run.ts";
+import { assembleRun, checkpointSection, freezeRun, prepareRun } from "../src/run.ts";
 import { slugify } from "../src/util.ts";
-import { copyFixture, createCodeGraphFixture, tempDir } from "./helpers.ts";
+import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, tempDir } from "./helpers.ts";
 
 // SKILL.md tells the model which `excavator` commands and flags to run. When it drifts from the real
 // CLI the skill breaks silently, so this test pins the two together: every command/subcommand/flag the
@@ -110,7 +110,7 @@ test("SKILL.md references only excavator commands, subcommands and flags the CLI
   // Anti-vacuity floor: the SKILL commits to the whole authoring workflow. If the extractor silently
   // degrades, or the workflow examples are gutted, this catches it before the per-invocation checks.
   const commandsSeen = new Set(invocations.map((invocation) => invocation.command));
-  for (const core of ["prepare", "begin", "source", "search", "claims", "checkpoint", "workitem", "trace", "audit", "assemble", "resume", "codegraph"]) {
+  for (const core of ["prepare", "begin", "freeze", "source", "search", "claims", "checkpoint", "workitem", "trace", "audit", "assemble", "resume", "codegraph"]) {
     assert.ok(commandsSeen.has(core), `SKILL.md no longer shows a \`${core}\` example`);
   }
 
@@ -187,6 +187,9 @@ test("SKILL.md run-directory layout matches what the CLI produces", async () => 
 
   const document = manifest.documents[0];
   const body = (title: string): string => `## ${title}\n\nThe system records each incoming request. \`fact\`\n`;
+  // Dispose the plan and freeze so the run produces knowledge.json, the frozen record the tree documents.
+  await disposeAllWorkItems(runDir);
+  await freezeRun(runDir);
   for (const section of document.sections) await checkpointSection(runDir, document.id, section.index, body(section.title));
   // Re-checkpoint the first section so archiveCheckpoint writes the documented history/ directory.
   await checkpointSection(runDir, document.id, document.sections[0].index, body(document.sections[0].title));

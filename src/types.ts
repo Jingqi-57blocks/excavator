@@ -252,6 +252,52 @@ export interface InvestigationPlan {
   items: InvestigationWorkItem[];
 }
 
+/** One recorded post-freeze exception: a mutation the author made after the knowledge was frozen. */
+export interface KnowledgeSupplement {
+  at: string;
+  /** The mutating command: `search`, `source`, `workitem`, `checklist` or `trace`. */
+  command: string;
+  /** The evidence / work-item / trace ids the command touched, so audit can reconcile the diff. */
+  ids: string[];
+  reason: string;
+  /** The existing work item this supplement is charged to (resolved against `workitems.json`). */
+  workItemId: string;
+}
+
+/** Deterministic freeze-gate report: the machine-readable output of the investigation-side checks. */
+export interface KnowledgeCompleteness {
+  requiredItems: number;
+  disposed: number;
+  byStatus: Record<string, number>;
+  materialFlowsWithTraces: number;
+  warnings: string[];
+}
+
+/**
+ * `knowledge.json` (knowledge-v1): the frozen fingerprint of a run's investigation plus a completeness
+ * report and an append-only supplements ledger. It copies no evidence content and builds no ontology —
+ * authoring keeps reading `evidence.json`, `workitems.json`, `traces.json` and `context/*`, which are
+ * complete and frozen by this point. Every field except `supplements` is part of the frozen core the
+ * `knowledgeDigest` covers; supplements are the one field the escape hatch may append to.
+ */
+export interface KnowledgeArtifact {
+  version: "knowledge-v1";
+  runId: string;
+  snapshotId: string;
+  assuranceVersion?: string;
+  frozenAt: string;
+  evidenceIds: string[];
+  evidenceDigest: string;
+  workitems: Array<{ id: string; status: WorkItemStatus }>;
+  workitemsDigest: string;
+  traceIds: string[];
+  tracesDigest: string;
+  factPackDigests: Record<string, string>;
+  crossFeatureDigest?: string;
+  completeness: KnowledgeCompleteness;
+  supplements: KnowledgeSupplement[];
+}
+
 export interface TimelineEventInput {
   stage: string;
   action: string;
@@ -300,6 +346,10 @@ export interface RunManifest {
   analysisScopeDigest?: string;
   /** Strict-assurance/redaction version this run was prepared under; audit gates re-derivation on it. Absent on runs prepared before the field existed. */
   assuranceVersion?: string;
+  /** ISO timestamp stamped by `excavator freeze` when the investigation knowledge is frozen; absent on unfrozen or legacy runs. */
+  frozenAt?: string;
+  /** Digest of the frozen knowledge core (knowledge.json minus its append-only supplements ledger); set together with `frozenAt`. */
+  knowledgeDigest?: string;
   metrics: RunMetrics;
   error?: { stage: string; message: string; stack?: string };
 }
@@ -321,6 +371,8 @@ export interface RunMetrics {
   claims?: number;
   traces?: number;
   workItems?: { total: number; complete: number };
+  /** Count of post-freeze supplement mutations recorded through the escape hatch. Present only on frozen runs. */
+  supplements?: number;
   codegraphCoverage?: { indexed: number; eligible: number; ratio: number };
   cache: Record<string, "hit" | "miss" | "unused">;
   warnings: string[];

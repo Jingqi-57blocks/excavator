@@ -21,7 +21,14 @@ shared project context + reusable feature scopes
 investigation work items
             |
             v
-Evidence → Claim → Trace
+INVESTIGATION: search / source / trace dispose every required work item
+            |
+            v
+freeze — deterministic completeness gate → knowledge.json
+            |
+            v
+AUTHORING: Evidence → Claim → Trace consumed as frozen input
+  (supplement = explicit, recorded exception)
             |
             v
 section checkpoints + append-only timeline
@@ -30,8 +37,13 @@ section checkpoints + append-only timeline
 Markdown reports + machine-readable companions
             |
             v
-audit
+audit (also reconciles post-freeze mutations against the frozen record)
 ```
+
+The core loop has two phases split by `freeze`. Investigation prepares and disposes the plan; freeze
+records the frozen knowledge; authoring consumes it and produces the report. This confines run-to-run
+variance to the expression layer — reproducibility (see `direction.md`) never required byte-identical
+prose, only a stable evidence set, work-item disposition and trace set before writing begins.
 
 ## Source and provider boundary
 
@@ -67,6 +79,34 @@ pending → in_progress → found | searched-not-found | cannot-determine | not-
 ```
 
 A completed item records evidence, traces, search scope, limitations and timestamps. The legacy `checklist.json` is a compatibility projection.
+
+## Investigation freeze
+
+`excavator freeze --run <run-dir>` is a deterministic, model-free gate between investigation and
+authoring. It admits a run only when the investigation would already pass audit: every required work
+item disposed, every `found` material flow carrying a verified trace, the evidence catalog and its
+digest intact, and the snapshot unchanged. The gate reuses the exact assurance functions
+(`auditWorkItems`, `auditTraces`, `auditEvidenceCatalog`) the full audit uses, so the two can never
+enforce two different rule sets.
+
+On success it writes `knowledge.json` (knowledge-v1): the frozen fingerprints of the run's artifacts —
+sorted evidence ids and digest, work-item dispositions and digest, trace ids and digest, per-feature
+fact-pack digests, an optional cross-feature digest — plus a machine-readable completeness report and
+an append-only `supplements` ledger. It copies no evidence content and builds no ontology; authoring
+keeps reading the existing `evidence.json`, `workitems.json`, `traces.json` and `context/*`, which are
+now complete and frozen. `manifest.frozenAt`/`manifest.knowledgeDigest` are stamped and an
+`investigation.frozen` timeline event is appended. The digest covers the frozen core (everything except
+`supplements`), so appending a supplement never changes it.
+
+After freeze the five runtime mutators (`search`, `source`, `workitem`, `checklist`, `trace`) refuse a
+change unless it carries a supplement — a `--supplement-reason` and the `--supplement-workitem` it is
+charged to (both required, and the work item must resolve in `workitems.json`). A recorded supplement
+appends to `knowledge.json.supplements[]`, increments `metrics.supplements` and marks its timeline
+event. The audit reconciles the frozen record against the current run: every added evidence id, changed
+work-item disposition or added trace must be charged to a supplement, and every gated investigation
+timeline event after the freeze must carry the supplement marker — a silent bypass is an audit error.
+These checks are self-gated on `knowledge.json` existing, so runs that were never frozen (including
+legacy runs) are unaffected.
 
 ## Evidence, claims and traces
 
