@@ -112,6 +112,12 @@ test("freeze writes a knowledge-v1 record, stamps the manifest, appends a timeli
   assert.equal(frozen.stage, "investigation");
   assert.equal((frozen.data as Record<string, unknown>).knowledgeDigest, persisted.knowledgeDigest);
 
+  // Freeze renders one authoring packet per document; the frozen event records how many.
+  assert.equal((frozen.data as Record<string, unknown>).authoringPackets, manifest.documents.length);
+  for (const document of manifest.documents) {
+    assert.equal(await exists(join(runDir, "context", "authoring", `${document.id}.md`)), true, `packet missing for ${document.id}`);
+  }
+
   await assert.rejects(() => freezeRun(runDir), /already frozen/);
 });
 

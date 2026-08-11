@@ -255,7 +255,7 @@ Commands:
   prepare    Alias of report; accepts --request request.json
   codegraph  Inspect or build an optional CodeGraph index
   begin      Start or restart one document authoring timer
-  freeze     Freeze the completed investigation into knowledge.json before authoring
+  freeze     Freeze the completed investigation into knowledge.json before authoring; also renders per-document authoring packets
   source     Record a bounded source excerpt as evidence
   search     Search source under the run snapshot and record a reusable receipt
   checkpoint Save one completed section and its claims atomically
@@ -292,7 +292,7 @@ Run any command with --help (or -h) to see its flags and one example, e.g. \`exc
 `;
 }
 
-interface CommandHelp { synopsis: string; flags: string[]; example: string; }
+interface CommandHelp { synopsis: string; flags: string[]; example: string; notes?: string; }
 
 // One entry per command (and per subcommand for the ones that take a subcommand). Keys with a space
 // are `<command> <subcommand>`; they take priority over the bare command when the subcommand matches.
@@ -378,7 +378,8 @@ const COMMAND_HELP: Record<string, CommandHelp> = {
   freeze: {
     synopsis: "freeze --run <dir>",
     flags: ["--run <dir>          Run directory (required)"],
-    example: "excavator freeze --run <run>"
+    example: "excavator freeze --run <run>",
+    notes: "On success, also renders per-document authoring packets under context/authoring/."
   },
   source: {
     synopsis: "source --run <dir> --path <file> --start <n> --end <n> --reason <text> [--supplement-reason <text> --supplement-workitem <id>]",
@@ -523,7 +524,8 @@ function resolveHelpKey(command: string, argv: string[]): string | null {
 
 function commandHelp(key: string): string {
   const help = COMMAND_HELP[key];
-  return `Excavator ${key}\n\nUsage:\n  excavator ${help.synopsis}\n\nFlags:\n${help.flags.map((flag) => `  ${flag}`).join("\n")}\n\nExample:\n  ${help.example}\n`;
+  const notes = help.notes ? `\n\nNotes:\n  ${help.notes}` : "";
+  return `Excavator ${key}\n\nUsage:\n  excavator ${help.synopsis}\n\nFlags:\n${help.flags.map((flag) => `  ${flag}`).join("\n")}\n\nExample:\n  ${help.example}${notes}\n`;
 }
 
 await main();
