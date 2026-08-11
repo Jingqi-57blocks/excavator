@@ -26,14 +26,16 @@ export interface AuditFinding {
 
 /**
  * Version of the strict-assurance contract a run is audited against. It combines a strict-check
- * generation (`v2`) with the redaction marker, so it changes whenever redaction changes or a future
- * batch tightens the strict checks — bump the `v<n>` prefix when adding new strict checks. `v2` adds
- * the substantive-section evidence-marker check (C3) on top of `v1`'s source re-derivation gate.
+ * generation (`v3`) with the redaction marker, so it changes whenever redaction changes or a future
+ * batch tightens the strict checks — bump the `v<n>` prefix when adding new strict checks. `v2` added
+ * the substantive-section evidence-marker check (C3) on top of `v1`'s source re-derivation gate; `v3`
+ * makes freeze a hard precondition of authoring (`begin` refuses an unfrozen run, and audit fails a run
+ * that was authored without — or before — an `investigation.frozen` event).
  * A run stamps this at prepare (`manifest.assuranceVersion`); audit uses it to gate those strict
  * checks: only runs prepared under the current version are held to them, while older or field-less
  * runs are grandfathered so a later redaction/check bump never retroactively fails them.
  */
-export const ASSURANCE_VERSION = `assurance-v2-${REDACTION_VERSION}`;
+export const ASSURANCE_VERSION = `assurance-v3-${REDACTION_VERSION}`;
 
 /** Strict re-derivation checks apply only to runs prepared under exactly the current version. */
 export function runUsesCurrentAssurance(manifest: RunManifest): boolean {

@@ -218,17 +218,32 @@ test("changing a work item's disposition after freeze without a supplement fails
   assert.ok(audit.findings.some((finding) => finding.level === "error" && finding.document === "knowledge" && /disposition changed after freeze without a recorded supplement/.test(finding.message)), JSON.stringify(audit.findings, null, 2));
 });
 
-test("a run without knowledge.json triggers none of the frozen-knowledge checks (grandfather)", async () => {
+test("an unfrozen current-version run fails the freeze-order gate but triggers no frozen-knowledge check; a downgraded version grandfathers it", async () => {
   const { runDir, manifest } = await prepareRun(await overviewRequest());
   const evidenceId = await firstEvidence(runDir);
   await authorAll(runDir, manifest, evidenceId);
   await disposeAllWorkItems(runDir);
   await assembleRun(runDir);
 
-  const audit = await auditRun(runDir);
+  // Current version: no knowledge.json exists, so the frozen-knowledge reconciliation stays silent — but
+  // the run was authored without ever freezing, so the freeze-order gate fires as a hard error.
+  const current = await auditRun(runDir);
   assert.equal(await exists(join(runDir, "knowledge.json")), false);
-  assert.ok(!audit.findings.some((finding) => finding.document === "knowledge"), JSON.stringify(audit.findings, null, 2));
-  assert.deepEqual(audit.findings.filter((finding) => finding.level === "error"), [], JSON.stringify(audit.findings, null, 2));
+  assert.ok(!current.findings.some((finding) => finding.document === "knowledge"), JSON.stringify(current.findings, null, 2));
+  assert.ok(
+    current.findings.some((finding) => finding.level === "error" && finding.document === "freeze" && /never frozen/.test(finding.message)),
+    JSON.stringify(current.findings, null, 2)
+  );
+
+  // Downgrade the stamped version to a pre-v3 literal: a run prepared before freeze became a hard
+  // authoring precondition is grandfathered — neither the freeze-order gate nor the strict marker check
+  // fires — so it audits clean.
+  const runPath = join(runDir, "run.json");
+  const persisted = JSON.parse(await readFile(runPath, "utf8")) as RunManifest;
+  persisted.assuranceVersion = "assurance-v2-redaction-v4";
+  await writeFile(runPath, JSON.stringify(persisted, null, 2));
+  const legacy = await auditRun(runDir);
+  assert.deepEqual(legacy.findings.filter((finding) => finding.level === "error"), [], JSON.stringify(legacy.findings, null, 2));
 });
 
 // --- Group 5: scoped audit downgrade ---

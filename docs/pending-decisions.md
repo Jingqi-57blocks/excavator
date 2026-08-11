@@ -88,3 +88,14 @@ e2e 结论：freeze 机制在真实产物上正确（freeze 门抓出真缺口�
 
 - **正向断言只引零命中检索回执会被全局豁免（should-fix，归 audit 层）**：`isSearchedNotFound` 谓词让"引用 ≥1 证据且全部是零命中未截断 search 回执"的 claim 对**所有** forbidden 规则免疫。连贯写作下这类 claim 按构造是诚实否定；但**不连贯**的作者若写正向断言（"系统发送邮件"）却只引一条零命中回执，会被漏过。这属"引证不支撑声明"，正解在 audit 层的被引 SEARCH 回执支撑性校验（57B-362 S0a 合规线在做，尚未进 main 主线）。在主线补上前是真实但极小的盲区（自相矛盾的产物才触发）。`eval/README.md` 措辞 "by construction cannot be a positive assertion" 描述的是连贯写作构造，已在此标注其边界。
 - **`truncated` 缺失按未截断处理（nit）**：`eval/knowledge.ts` 的 `truncated: Boolean(item?.data?.truncated)` 把缺失字段当作未截断（可豁免）；严格保守应视缺失为"可能截断"而不豁免。产出方 `src/source.ts` 类型上保证必写该字段，仅畸形/手写 evidence.json 受影响；eval 属 advisory 诊断层，风险可忽略。后续如需可改为要求显式 `truncated === false`。
+
+## 批次 57B-359 增量3 规划暴露 · 调查深度杠杆（2026-08-11，需用户裁决投入方向）
+
+2026-08-11 WCP demo（请假 product）漏了 16h/40h 分层审批阈值、流程图退化。规划增量3（authoring packet）时 Fable 核实**根因是调查深度不足、非结构/运输问题**：真实阈值在 `wcp-service-v2/internal/handlers/leave/service.go:510/557/711` 的函数体字面量（`lv.Hours > 16` / `> 40`），**不在** `constant/leave.go` 常量（那里只有假期类型枚举）；新 run 的冻结知识**零窗口**覆盖 service.go 460-610——作者根本没挖到。authoring packet 渲染的是冻结知识，**知识里没有的变不出来 → 增量3 不治此类深度漏项**（packet 治的是"挖到了但没送到章节"的运输退化 + 墙钟/context）。
+
+深度杠杆候选（独立于解耦增量序列，需用户裁决投入方向）：
+- **(a) SKILL 调查指令强化**：如"枚举层级/阈值时，必须定位选择每一层的条件再处置 decision-flow/calculations 项"。增量3 方案里已含这一句 rider（可摘除），但作为独立杠杆值得系统化。效果模型依赖、非确定性保证。
+- **(b) eval golden 把 WCP 16/40 钉成 mustFind**：让深度回归可测（否则深度失败无法机检）。低成本、高价值，建议优先。
+- **(c) fact-pack thresholds 类目（扫 `> \d+`）——倾向否决**：同文件 `service.go:1558 style.Font.Size = 16`、`:1626 SetRowHeight(...,40)` 是呈现常量，纯确定性扫描无法区分业务阈值与噪声，信号被淹。
+
+另记：**`reconcileFactPack` 扩展到 product 报告**（advisory）——本次 WCP 案例因 fact-pack 六类目全 truncated 而无效，优先级低，留证待议。

@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { join } from "node:path";
 import { readFile, readdir, rm, writeFile } from "node:fs/promises";
 import type { Audience, DocumentPlan, EvidenceItem, InvestigationPlan, ReportRequest, SectionClaim, TraceRecord } from "../src/types.ts";
-import { assembleRun, auditRun, checkpointSection, prepareRun, searchSourceEvidence, updateTraces, updateWorkItems } from "../src/run.ts";
+import { assembleRun, auditRun, checkpointSection, freezeRun, prepareRun, searchSourceEvidence, updateTraces, updateWorkItems } from "../src/run.ts";
 import { slugify } from "../src/util.ts";
 import { copyFixture, createCodeGraphFixture, tempDir } from "./helpers.ts";
 
@@ -391,8 +391,11 @@ test("single-document audit runs claim-attribution checks on an incomplete docum
 
 test("full audit fails closed when a checkpointed section file is deleted", async () => {
   const { runDir, manifest } = await prepareRun(await request());
-  await authorAll(runDir, manifest);
+  // Freeze-before-authoring order (assurance v3): dispose the plan and freeze, then author and assemble.
   await completeWorkItems(runDir);
+  const frozen = await freezeRun(runDir);
+  assert.equal(frozen.frozen, true, JSON.stringify(frozen.findings, null, 2));
+  await authorAll(runDir, manifest);
   await assembleRun(runDir);
   const baseline = await auditRun(runDir);
   assert.deepEqual(baseline.findings.filter((finding) => finding.level === "error"), []);

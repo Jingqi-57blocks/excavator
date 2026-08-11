@@ -370,7 +370,8 @@ const COMMAND_HELP: Record<string, CommandHelp> = {
     synopsis: "begin --run <dir> --document <id>",
     flags: [
       "--run <dir>          Run directory (required)",
-      "--document <id>      Document to start or restart (required)"
+      "--document <id>      Document to start or restart (required)",
+      "Precondition: the run must be frozen first (excavator freeze --run <dir>); begin refuses an unfrozen run."
     ],
     example: "excavator begin --run <run> --document overview-product"
   },

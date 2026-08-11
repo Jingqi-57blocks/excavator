@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import type { AuditFinding } from "./assurance.ts";
-import { auditEvidenceCatalog, auditTraces, auditWorkItems } from "./assurance.ts";
+import { auditEvidenceCatalog, auditTraces, auditWorkItems, runUsesCurrentAssurance } from "./assurance.ts";
 import type { EvidenceItem, InvestigationPlan, KnowledgeArtifact, KnowledgeCompleteness, RunManifest, TraceCatalog } from "./types.ts";
 import { readTimeline } from "./timeline.ts";
 import { exists, nowIso, readJson, sha256, stableJson, writeJson } from "./util.ts";
@@ -144,6 +144,16 @@ export async function auditFrozenKnowledge(runDir: string, manifest: RunManifest
   const knowledge = await readJson<KnowledgeArtifact>(path);
   const findings: AuditFinding[] = [];
   if (knowledgeDigest(knowledge) !== manifest.knowledgeDigest) findings.push(error("knowledge", "frozen knowledge digest does not match the run manifest"));
+  // Symmetric to the "added after freeze" checks below: the frozen set must remain a subset of the
+  // current artifacts. A legitimate supplement only ever adds; a frozen evidence id, work item or trace
+  // that has vanished from the run is a silent deletion of recorded knowledge, so it is always an error.
+  // (A supplement can revise a disposition but cannot un-record an item, so no supplement exemption applies.)
+  const currentEvidence = new Set(evidence.map((item) => item.id));
+  for (const id of knowledge.evidenceIds) if (!currentEvidence.has(id)) findings.push(error("knowledge", `frozen evidence ${id} is no longer present in the run`));
+  const currentWorkItems = new Set(plan.items.map((item) => item.id));
+  for (const entry of knowledge.workitems) if (!currentWorkItems.has(entry.id)) findings.push(error("knowledge", `frozen work item ${entry.id} is no longer present in the run`));
+  const currentTraces = new Set(traces.traces.map((trace) => trace.id));
+  for (const id of knowledge.traceIds) if (!currentTraces.has(id)) findings.push(error("knowledge", `frozen trace ${id} is no longer present in the run`));
   // Any id named by any supplement is accounted for; ids are namespaced by prefix so a single set is safe.
   const supplemented = new Set(knowledge.supplements.flatMap((entry) => entry.ids));
   const frozenEvidence = new Set(knowledge.evidenceIds);
@@ -167,4 +177,26 @@ export async function auditFrozenKnowledge(runDir: string, manifest: RunManifest
     }
   }
   return findings;
+}
+
+/**
+ * The freeze-before-authoring order gate — the audit-time counterpart of the `begin` hard gate. It fires
+ * only for runs prepared under the current assurance version (older runs authored before freeze existed
+ * are grandfathered), and only once a run actually has authoring activity: an investigation still in
+ * progress, never frozen and never authored, is legitimately un-gated. When an authoring-stage event
+ * exists it demands an `investigation.frozen` event that precedes it. Findings use the `"freeze"`
+ * document key (distinct from the frozen-knowledge reconciliation, which uses `"knowledge"`).
+ *
+ *  1. authoring activity but no `investigation.frozen` event at all → error;
+ *  2. the first authoring event precedes the freeze event → error (authored, then froze).
+ */
+export async function auditFreezeOrder(runDir: string, manifest: RunManifest): Promise<AuditFinding[]> {
+  if (!runUsesCurrentAssurance(manifest)) return [];
+  const timeline = await readTimeline(runDir);
+  const firstAuthoring = timeline.find((event) => event.stage === "authoring");
+  if (!firstAuthoring) return [];
+  const frozen = timeline.find((event) => event.action === "investigation.frozen");
+  if (!frozen) return [error("freeze", "run has authoring activity but was never frozen; the current assurance version requires freeze before authoring")];
+  if (firstAuthoring.sequence < frozen.sequence) return [error("freeze", "run was authored before the investigation was frozen (first authoring event precedes investigation.frozen)")];
+  return [];
 }
