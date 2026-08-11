@@ -13,6 +13,7 @@ import { atomicWrite, ensureDir, exists, nowIso, readJson, REDACTION_VERSION, ru
 import { collectClaims, createAnalysisScope, emptyTraceCatalog, mergeTraces, writeReportCompanions } from "./assurance-artifacts.ts";
 import { scaffoldSectionClaims } from "./claims-scaffold.ts";
 import { appendTimeline, auditTimeline, readTimeline } from "./timeline.ts";
+import { runScopeSlug } from "./run-label.ts";
 
 export const SOURCE_SEARCH_VERSION = `source-search-v4-ranking-v1-${REDACTION_VERSION}`;
 
@@ -46,7 +47,7 @@ export async function prepareRun(request: ReportRequest): Promise<{ runDir: stri
   const effectiveRequest: ReportRequest = { ...request, detailLevel: request.detailLevel ?? "detailed", codegraph: result.stats.codegraphPath, codegraphModules: result.stats.codegraphModulePaths };
   const timestamp = runIdTimestamp();
   const requestDigest = sha256(stableJson({ overview: request.overviewAudiences, features: request.features, language: request.language, detailLevel: effectiveRequest.detailLevel })).slice(0, 8);
-  const runId = `run-${timestamp}-${result.prepared.snapshot.id.slice(0, 8)}-${requestDigest}-${randomUUID().slice(0, 8)}`;
+  const runId = `run-${timestamp}-${runScopeSlug(request)}-${result.prepared.snapshot.id.slice(0, 8)}-${requestDigest}-${randomUUID().slice(0, 8)}`;
   const runDir = join(result.projectDir, "runs", runId);
   await ensureDir(runDir);
   await ensureDir(join(runDir, "context"));
