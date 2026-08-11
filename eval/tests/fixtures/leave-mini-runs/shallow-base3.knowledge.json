@@ -1,0 +1,2783 @@
+{
+  "runDir": "(fixture:shallow-base3)",
+  "facts": [
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s1-c1",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s1-c1",
+      "statement": "本服务是一个用于 Excavator 评测的合成请假管理后端，围绕授权与两级审批两条主线组织",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-3c978d20a1",
+          "path": "README.md",
+          "startLine": 1,
+          "endLine": 11
+        },
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        }
+      ],
+      "citedEvidenceCount": 2,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s1-c2",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s1-c2",
+      "statement": "参与代码仓库只有一个，运行时是单个 Node 与 TypeScript 进程",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-4dee7e6c18",
+          "path": "package.json",
+          "startLine": 1,
+          "endLine": 9
+        }
+      ],
+      "citedEvidenceCount": 2,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s1-c3",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s1-c3",
+      "statement": "特性边界纳入 src 下的七个 TypeScript 源文件，以及 README 与 package.json 两个清单文件",
+      "marker": "fact",
+      "windows": [],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s1-c4",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s1-c4",
+      "statement": "下表按维度列出本特性的技术边界",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s1-c5",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s1-c5",
+      "statement": "单仓 repo，快照内没有其他参与仓库",
+      "marker": "fact",
+      "windows": [],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s1-c6",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s1-c6",
+      "statement": "单个 Node 进程，TypeScript 直跑不经打包",
+      "marker": "inferred",
+      "windows": [
+        {
+          "id": "S-4dee7e6c18",
+          "path": "package.json",
+          "startLine": 1,
+          "endLine": 9
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s1-c7",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s1-c7",
+      "statement": "hono 是 package.json 中唯一的运行时依赖",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-4dee7e6c18",
+          "path": "package.json",
+          "startLine": 1,
+          "endLine": 9
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s1-c8",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s1-c8",
+      "statement": "纳入九个文件，即 src 下七个源文件加 README 与 package.json",
+      "marker": "fact",
+      "windows": [],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s1-c9",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s1-c9",
+      "statement": "边界排除独立前端、数据库与第三方外部服务",
+      "marker": "inferred",
+      "windows": [
+        {
+          "id": "S-4dee7e6c18",
+          "path": "package.json",
+          "startLine": 1,
+          "endLine": 9
+        },
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        }
+      ],
+      "citedEvidenceCount": 2,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s1-c10",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s1-c10",
+      "statement": "源码快照的 git 头固定，报告只描述该快照的当前状态",
+      "marker": "fact",
+      "windows": [],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s1-c11",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s1-c11",
+      "statement": "README 自述覆盖授权与数据范围、两级审批与余额扣减两条主线",
+      "marker": "inferred",
+      "windows": [
+        {
+          "id": "S-3c978d20a1",
+          "path": "README.md",
+          "startLine": 1,
+          "endLine": 11
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s2-c0",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s2-c0",
+      "statement": "本特性通过 hono 应用暴露五个 HTTP 路由，全部挂在 /api 基路径下",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        }
+      ],
+      "citedEvidenceCount": 2,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s2-c1",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s2-c1",
+      "statement": "除 HTTP 路由外，快照内没有面向用户的页面入口，也没有定时或启动类入口",
+      "marker": "verified",
+      "windows": [],
+      "citedEvidenceCount": 2,
+      "searchEvidence": [
+        {
+          "id": "SEARCH-00db86d96154",
+          "matchCount": 0,
+          "truncated": false
+        },
+        {
+          "id": "SEARCH-f64b08fc7fcc",
+          "matchCount": 0,
+          "truncated": false
+        }
+      ]
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s2-c2",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s2-c2",
+      "statement": "下表逐条列出五个 HTTP 入口及其处理动作",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s2-c3",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s2-c3",
+      "statement": "POST /api/leave（src/server.ts:22）",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        }
+      ],
+      "citedEvidenceCount": 2,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s2-c4",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s2-c4",
+      "statement": "员工提交请假，requireRole 校验后建单并落库",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s2-c5",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s2-c5",
+      "statement": "POST /api/leave/:id/approve l1（src/server.ts:32）",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        }
+      ],
+      "citedEvidenceCount": 2,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s2-c6",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s2-c6",
+      "statement": "直属经理一级审批，把申请推进到 level1Approved",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s2-c7",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s2-c7",
+      "statement": "POST /api/leave/:id/approve l2（src/server.ts:41）",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        }
+      ],
+      "citedEvidenceCount": 2,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s2-c8",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s2-c8",
+      "statement": "HR 二级审批，扣减余额并把申请推进到 approved",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s2-c9",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s2-c9",
+      "statement": "POST /api/leave/:id/reject（src/server.ts:50）",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        }
+      ],
+      "citedEvidenceCount": 2,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s2-c10",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s2-c10",
+      "statement": "驳回申请，进入终态 rejected",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s2-c11",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s2-c11",
+      "statement": "GET /api/leave（src/server.ts:58）",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        }
+      ],
+      "citedEvidenceCount": 2,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s2-c12",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s2-c12",
+      "statement": "返回申请列表，按查看者数据范围过滤",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s2-c13",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s2-c13",
+      "statement": "上述五个入口即 entrypoints 事实包枚举的全部条目，方法为 scan 且未截断",
+      "marker": "fact",
+      "windows": [],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s2-c14",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s2-c14",
+      "statement": "按 React 与 DOM 事件等前端标识全仓检索，未发现任何页面或视图入口",
+      "marker": "verified",
+      "windows": [],
+      "citedEvidenceCount": 1,
+      "searchEvidence": [
+        {
+          "id": "SEARCH-00db86d96154",
+          "matchCount": 0,
+          "truncated": false
+        }
+      ]
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s2-c15",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s2-c15",
+      "statement": "按 cron 与定时启动标识全仓检索，未发现任何计划任务或启动入口",
+      "marker": "verified",
+      "windows": [],
+      "citedEvidenceCount": 1,
+      "searchEvidence": [
+        {
+          "id": "SEARCH-f64b08fc7fcc",
+          "matchCount": 0,
+          "truncated": false
+        }
+      ]
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s2-c16",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s2-c16",
+      "statement": "五个路由的处理器都是就地定义的箭头函数，直接调用 approval、scope 与 auth 中的领域函数",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s2-c17",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s2-c17",
+      "statement": "hono 应用以默认导出对外暴露，但快照内没有任何挂载或启动它的引导代码",
+      "marker": "verified",
+      "windows": [],
+      "citedEvidenceCount": 1,
+      "searchEvidence": [
+        {
+          "id": "SEARCH-eda6ffec80fc",
+          "matchCount": 0,
+          "truncated": false
+        }
+      ]
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s2-c18",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s2-c18",
+      "statement": "因此工作区内可见的调用者只有这些路由处理器本身，外部 HTTP 调用者无法从静态源码枚举",
+      "marker": "inferred",
+      "windows": [
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s3-c0",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s3-c0",
+      "statement": "请假的正常执行路径由提交、一级审批、二级审批三步顺序推进，终审通过时扣减余额",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        },
+        {
+          "id": "S-353ac9860e",
+          "path": "src/approval.ts",
+          "startLine": 1,
+          "endLine": 42
+        }
+      ],
+      "citedEvidenceCount": 2,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s3-c1",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s3-c1",
+      "statement": "下图给出从提交到终审通过的正常路径",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s3-c2",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s3-c2",
+      "statement": "提交入口在 requireRole 校验通过后建单，初始状态为 pending",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        },
+        {
+          "id": "S-f9ada773d7",
+          "path": "src/leave-request.ts",
+          "startLine": 1,
+          "endLine": 37
+        }
+      ],
+      "citedEvidenceCount": 2,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s3-c3",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s3-c3",
+      "statement": "一级审批经 assertCanApproveLevel1 校验后，把 pending 推进到 level1Approved",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-353ac9860e",
+          "path": "src/approval.ts",
+          "startLine": 1,
+          "endLine": 42
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s3-c4",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s3-c4",
+      "statement": "二级审批经 assertCanApproveLevel2 校验后，把 level1Approved 推进到 approved",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-353ac9860e",
+          "path": "src/approval.ts",
+          "startLine": 1,
+          "endLine": 42
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s3-c5",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s3-c5",
+      "statement": "终审这一步对非 unpaid 类型调用 balances.deduct 扣减申请天数",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-353ac9860e",
+          "path": "src/approval.ts",
+          "startLine": 1,
+          "endLine": 42
+        },
+        {
+          "id": "S-c3fa71c3c0",
+          "path": "src/balance.ts",
+          "startLine": 1,
+          "endLine": 31
+        }
+      ],
+      "citedEvidenceCount": 2,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s3-c6",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s3-c6",
+      "statement": "审批处理器成功后只 store.set 落库并 c.json 返回，不触发任何后续动作",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s3-c7",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s3-c7",
+      "statement": "驳回与类型扣减是审批中的两条决策分支，下图给出其走向",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-353ac9860e",
+          "path": "src/approval.ts",
+          "startLine": 1,
+          "endLine": 42
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s3-c8",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s3-c8",
+      "statement": "驳回入口在 pending 或 level1Approved 两态都可把申请推进到终态 rejected",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-353ac9860e",
+          "path": "src/approval.ts",
+          "startLine": 1,
+          "endLine": 42
+        },
+        {
+          "id": "S-f9ada773d7",
+          "path": "src/leave-request.ts",
+          "startLine": 1,
+          "endLine": 37
+        }
+      ],
+      "citedEvidenceCount": 2,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s3-c9",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s3-c9",
+      "statement": "驳回分支不调用扣减，余额保持不变",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-353ac9860e",
+          "path": "src/approval.ts",
+          "startLine": 1,
+          "endLine": 42
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s3-c10",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s3-c10",
+      "statement": "二级审批内按类型分流，unpaid 跳过扣减，annual 与 sick 按天数扣减",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-353ac9860e",
+          "path": "src/approval.ts",
+          "startLine": 1,
+          "endLine": 42
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s3-c11",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s3-c11",
+      "statement": "按 cancel 与 rollback 等撤销标识全仓检索，未发现任何撤销、撤回或回滚的入口或调用路径",
+      "marker": "verified",
+      "windows": [],
+      "citedEvidenceCount": 1,
+      "searchEvidence": [
+        {
+          "id": "SEARCH-d291e48125a2",
+          "matchCount": 0,
+          "truncated": false
+        }
+      ]
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s4-c0",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s4-c0",
+      "statement": "请假类型由 LeaveType 联合类型定义为 annual、sick、unpaid 三种",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-f9ada773d7",
+          "path": "src/leave-request.ts",
+          "startLine": 1,
+          "endLine": 37
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s4-c1",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s4-c1",
+      "statement": "是否扣减余额只由类型决定，与审批人或状态路径无关",
+      "marker": "inferred",
+      "windows": [
+        {
+          "id": "S-353ac9860e",
+          "path": "src/approval.ts",
+          "startLine": 1,
+          "endLine": 42
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s4-c2",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s4-c2",
+      "statement": "下表列出三种类型在终审时的扣减行为",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-353ac9860e",
+          "path": "src/approval.ts",
+          "startLine": 1,
+          "endLine": 42
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s4-c3",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s4-c3",
+      "statement": "annual 年假",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-f9ada773d7",
+          "path": "src/leave-request.ts",
+          "startLine": 1,
+          "endLine": 37
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s4-c4",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s4-c4",
+      "statement": "终审通过时按申请天数扣减余额",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-353ac9860e",
+          "path": "src/approval.ts",
+          "startLine": 1,
+          "endLine": 42
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s4-c5",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s4-c5",
+      "statement": "终审通过时同样按申请天数扣减余额",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-353ac9860e",
+          "path": "src/approval.ts",
+          "startLine": 1,
+          "endLine": 42
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s4-c6",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s4-c6",
+      "statement": "unpaid 无薪假",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-f9ada773d7",
+          "path": "src/leave-request.ts",
+          "startLine": 1,
+          "endLine": 37
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s4-c7",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s4-c7",
+      "statement": "无薪假不占用余额，终审时跳过扣减",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-353ac9860e",
+          "path": "src/approval.ts",
+          "startLine": 1,
+          "endLine": 42
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s4-c8",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s4-c8",
+      "statement": "状态机由 LeaveStatus 联合类型与 TRANSITIONS 转移表共同定义，任何不在表中的转移都是非法的",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-f9ada773d7",
+          "path": "src/leave-request.ts",
+          "startLine": 1,
+          "endLine": 37
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s4-c9",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s4-c9",
+      "statement": "states 事实包枚举出 type LeaveStatus 一项，位于 src/leave request.ts:12，方法为 scan 且未截断",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-f9ada773d7",
+          "path": "src/leave-request.ts",
+          "startLine": 1,
+          "endLine": 37
+        }
+      ],
+      "citedEvidenceCount": 2,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s4-c10",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s4-c10",
+      "statement": "下表列出四个状态及其允许的迁移",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-f9ada773d7",
+          "path": "src/leave-request.ts",
+          "startLine": 1,
+          "endLine": 37
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s4-c11",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s4-c11",
+      "statement": "刚提交，等待一级审批",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-f9ada773d7",
+          "path": "src/leave-request.ts",
+          "startLine": 1,
+          "endLine": 37
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s4-c12",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s4-c12",
+      "statement": "level1Approved 或 rejected",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-f9ada773d7",
+          "path": "src/leave-request.ts",
+          "startLine": 1,
+          "endLine": 37
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s4-c13",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s4-c13",
+      "statement": "level1Approved",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-f9ada773d7",
+          "path": "src/leave-request.ts",
+          "startLine": 1,
+          "endLine": 37
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s4-c14",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s4-c14",
+      "statement": "经理已一级审批，等待 HR 二级审批",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-f9ada773d7",
+          "path": "src/leave-request.ts",
+          "startLine": 1,
+          "endLine": 37
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s4-c15",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s4-c15",
+      "statement": "approved 或 rejected",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-f9ada773d7",
+          "path": "src/leave-request.ts",
+          "startLine": 1,
+          "endLine": 37
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s4-c16",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s4-c16",
+      "statement": "approved",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-f9ada773d7",
+          "path": "src/leave-request.ts",
+          "startLine": 1,
+          "endLine": 37
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s4-c17",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s4-c17",
+      "statement": "HR 二级审批通过的终态",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-f9ada773d7",
+          "path": "src/leave-request.ts",
+          "startLine": 1,
+          "endLine": 37
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s4-c18",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s4-c18",
+      "statement": "rejected",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-f9ada773d7",
+          "path": "src/leave-request.ts",
+          "startLine": 1,
+          "endLine": 37
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s4-c19",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s4-c19",
+      "statement": "任一级驳回的终态",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-f9ada773d7",
+          "path": "src/leave-request.ts",
+          "startLine": 1,
+          "endLine": 37
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s4-c20",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s4-c20",
+      "statement": "状态生命周期由 createRequest 起于 pending，止于 approved 或 rejected 两个终态",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-f9ada773d7",
+          "path": "src/leave-request.ts",
+          "startLine": 1,
+          "endLine": 37
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s4-c21",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s4-c21",
+      "statement": "余额扣减这一副作用绑定在进入 approved 的那一步",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-353ac9860e",
+          "path": "src/approval.ts",
+          "startLine": 1,
+          "endLine": 42
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s4-c22",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s4-c22",
+      "statement": "下表列出余额相关的计算与阈值",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-c3fa71c3c0",
+          "path": "src/balance.ts",
+          "startLine": 1,
+          "endLine": 31
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s4-c23",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s4-c23",
+      "statement": "src/balance.ts:18",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-c3fa71c3c0",
+          "path": "src/balance.ts",
+          "startLine": 1,
+          "endLine": 31
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s4-c24",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s4-c24",
+      "statement": "取剩余天数减去申请天数并写回",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-c3fa71c3c0",
+          "path": "src/balance.ts",
+          "startLine": 1,
+          "endLine": 31
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s4-c25",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s4-c25",
+      "statement": "src/balance.ts:20",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-c3fa71c3c0",
+          "path": "src/balance.ts",
+          "startLine": 1,
+          "endLine": 31
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s4-c26",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s4-c26",
+      "statement": "申请天数大于剩余则抛 BalanceError，且不做部分扣减",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-c3fa71c3c0",
+          "path": "src/balance.ts",
+          "startLine": 1,
+          "endLine": 31
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s4-c27",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s4-c27",
+      "statement": "余额扣减是终审通过时唯一的数值计算，其余步骤都是状态判定",
+      "marker": "inferred",
+      "windows": [
+        {
+          "id": "S-353ac9860e",
+          "path": "src/approval.ts",
+          "startLine": 1,
+          "endLine": 42
+        },
+        {
+          "id": "S-c3fa71c3c0",
+          "path": "src/balance.ts",
+          "startLine": 1,
+          "endLine": 31
+        }
+      ],
+      "citedEvidenceCount": 2,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s4-c28",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s4-c28",
+      "statement": "下表列出输入校验与重复提交相关的现状",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s4-c29",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s4-c29",
+      "statement": "createRequest 不校验 days 的正负或上限",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-f9ada773d7",
+          "path": "src/leave-request.ts",
+          "startLine": 1,
+          "endLine": 37
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s4-c30",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s4-c30",
+      "statement": "createRequest 不校验 type 取值是否合法",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-f9ada773d7",
+          "path": "src/leave-request.ts",
+          "startLine": 1,
+          "endLine": 37
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s4-c31",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s4-c31",
+      "statement": "每步审批都用 canTransition 拒绝非法的状态转移",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-353ac9860e",
+          "path": "src/approval.ts",
+          "startLine": 1,
+          "endLine": 42
+        },
+        {
+          "id": "S-f9ada773d7",
+          "path": "src/leave-request.ts",
+          "startLine": 1,
+          "endLine": 37
+        }
+      ],
+      "citedEvidenceCount": 2,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s4-c32",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s4-c32",
+      "statement": "store 以 id 为键，重复 id 会覆盖旧申请，没有幂等或去重保护",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s5-c0",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s5-c0",
+      "statement": "系统只认识 employee、manager、hr 三种角色，权限完全由角色驱动",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-85c74e8739",
+          "path": "src/roles.ts",
+          "startLine": 1,
+          "endLine": 28
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s5-c1",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s5-c1",
+      "statement": "授权与数据范围是两个维度，auth 决定能不能执行动作，scope 决定能看到哪些行",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-5f6921c6f7",
+          "path": "src/auth.ts",
+          "startLine": 1,
+          "endLine": 31
+        },
+        {
+          "id": "S-32d91c3964",
+          "path": "src/scope.ts",
+          "startLine": 1,
+          "endLine": 21
+        }
+      ],
+      "citedEvidenceCount": 2,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s5-c2",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s5-c2",
+      "statement": "快照内没有认证中间件，处理器直接用 c.get user 取当前用户，令牌与登录校验不在本边界内",
+      "marker": "inferred",
+      "windows": [
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s5-c3",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s5-c3",
+      "statement": "下表按动作列出授权要求",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s5-c4",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s5-c4",
+      "statement": "requireRole employee，任意登录员工可提交自己的请假",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s5-c5",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s5-c5",
+      "statement": "src/server.ts:24",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s5-c6",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s5-c6",
+      "statement": "assertCanApproveLevel1，仅申请人的直属经理可执行",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-5f6921c6f7",
+          "path": "src/auth.ts",
+          "startLine": 1,
+          "endLine": 31
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s5-c7",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s5-c7",
+      "statement": "src/auth.ts:21",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-5f6921c6f7",
+          "path": "src/auth.ts",
+          "startLine": 1,
+          "endLine": 31
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s5-c8",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s5-c8",
+      "statement": "assertCanApproveLevel2，仅 HR 可执行终审",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-5f6921c6f7",
+          "path": "src/auth.ts",
+          "startLine": 1,
+          "endLine": 31
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s5-c9",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s5-c9",
+      "statement": "src/auth.ts:28",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-5f6921c6f7",
+          "path": "src/auth.ts",
+          "startLine": 1,
+          "endLine": 31
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s5-c10",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s5-c10",
+      "statement": "处理器未做任何角色或管辖校验",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s5-c11",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s5-c11",
+      "statement": "src/server.ts:50",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s5-c12",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s5-c12",
+      "statement": "requireRole 通过 hasRoleAtLeast 比较角色等级，employee 为 1、manager 为 2、hr 为 3",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-85c74e8739",
+          "path": "src/roles.ts",
+          "startLine": 1,
+          "endLine": 28
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s5-c13",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s5-c13",
+      "statement": "assertCanApproveLevel1 要求 actor 是申请人的直属经理，即 isDirectManagerOf 成立",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-5f6921c6f7",
+          "path": "src/auth.ts",
+          "startLine": 1,
+          "endLine": 31
+        },
+        {
+          "id": "S-85c74e8739",
+          "path": "src/roles.ts",
+          "startLine": 1,
+          "endLine": 28
+        }
+      ],
+      "citedEvidenceCount": 2,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s5-c14",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s5-c14",
+      "statement": "assertCanApproveLevel2 复用 requireRole，要求 actor 具备 hr 角色",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-5f6921c6f7",
+          "path": "src/auth.ts",
+          "startLine": 1,
+          "endLine": 31
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s5-c15",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s5-c15",
+      "statement": "驳回入口未做任何角色或管辖校验，任何能到达该处理器的调用者都可驳回申请",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s5-c16",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s5-c16",
+      "statement": "下表按角色列出列表接口的可见范围",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-32d91c3964",
+          "path": "src/scope.ts",
+          "startLine": 1,
+          "endLine": 21
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s5-c17",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s5-c17",
+      "statement": "employee 员工",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-32d91c3964",
+          "path": "src/scope.ts",
+          "startLine": 1,
+          "endLine": 21
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s5-c18",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s5-c18",
+      "statement": "只能看 employeeId 等于自己的申请",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-32d91c3964",
+          "path": "src/scope.ts",
+          "startLine": 1,
+          "endLine": 21
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s5-c19",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s5-c19",
+      "statement": "src/scope.ts:10",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-32d91c3964",
+          "path": "src/scope.ts",
+          "startLine": 1,
+          "endLine": 21
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s5-c20",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s5-c20",
+      "statement": "manager 经理",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-32d91c3964",
+          "path": "src/scope.ts",
+          "startLine": 1,
+          "endLine": 21
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s5-c21",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s5-c21",
+      "statement": "只能看自己直接下属的申请，看不到平级或其他团队",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-32d91c3964",
+          "path": "src/scope.ts",
+          "startLine": 1,
+          "endLine": 21
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s5-c22",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s5-c22",
+      "statement": "src/scope.ts:12",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-32d91c3964",
+          "path": "src/scope.ts",
+          "startLine": 1,
+          "endLine": 21
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s5-c23",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s5-c23",
+      "statement": "可看全部申请，不受团队边界限制",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-32d91c3964",
+          "path": "src/scope.ts",
+          "startLine": 1,
+          "endLine": 21
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s5-c24",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s5-c24",
+      "statement": "src/scope.ts:14",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-32d91c3964",
+          "path": "src/scope.ts",
+          "startLine": 1,
+          "endLine": 21
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s5-c25",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s5-c25",
+      "statement": "列表接口 GET /api/leave 用 visibleRequests 按查看者角色过滤可见集合",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        },
+        {
+          "id": "S-32d91c3964",
+          "path": "src/scope.ts",
+          "startLine": 1,
+          "endLine": 21
+        }
+      ],
+      "citedEvidenceCount": 2,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s5-c26",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s5-c26",
+      "statement": "visibleRequests 逐条调用 canViewLeave 完成对象级判定与列表级过滤",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-32d91c3964",
+          "path": "src/scope.ts",
+          "startLine": 1,
+          "endLine": 21
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s6-c0",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s6-c0",
+      "statement": "本特性有两个核心记录类型，即请假申请 LeaveRequest 与用户 User",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-f9ada773d7",
+          "path": "src/leave-request.ts",
+          "startLine": 1,
+          "endLine": 37
+        },
+        {
+          "id": "S-85c74e8739",
+          "path": "src/roles.ts",
+          "startLine": 1,
+          "endLine": 28
+        }
+      ],
+      "citedEvidenceCount": 2,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s6-c1",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s6-c1",
+      "statement": "entities 事实包在本次运行方法为 none，未做枚举，实体由源码直接确立",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-f9ada773d7",
+          "path": "src/leave-request.ts",
+          "startLine": 1,
+          "endLine": 37
+        }
+      ],
+      "citedEvidenceCount": 2,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s6-c2",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s6-c2",
+      "statement": "下表列出两个记录及其材料字段",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-f9ada773d7",
+          "path": "src/leave-request.ts",
+          "startLine": 1,
+          "endLine": 37
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s6-c3",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s6-c3",
+      "statement": "LeaveRequest",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-f9ada773d7",
+          "path": "src/leave-request.ts",
+          "startLine": 1,
+          "endLine": 37
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s6-c4",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s6-c4",
+      "statement": "id、employeeId、type、days、status 五个字段",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-f9ada773d7",
+          "path": "src/leave-request.ts",
+          "startLine": 1,
+          "endLine": 37
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s6-c5",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s6-c5",
+      "statement": "src/leave request.ts:14",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-f9ada773d7",
+          "path": "src/leave-request.ts",
+          "startLine": 1,
+          "endLine": 37
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s6-c6",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s6-c6",
+      "statement": "id、role、managerId 三个字段",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-85c74e8739",
+          "path": "src/roles.ts",
+          "startLine": 1,
+          "endLine": 28
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s6-c7",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s6-c7",
+      "statement": "src/roles.ts:5",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-85c74e8739",
+          "path": "src/roles.ts",
+          "startLine": 1,
+          "endLine": 28
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s6-c8",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s6-c8",
+      "statement": "下表列出三个内存存储结构及其读写者",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s6-c9",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s6-c9",
+      "statement": "Map 从 id 到 LeaveRequest",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s6-c10",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s6-c10",
+      "statement": "五个路由处理器读写",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s6-c11",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s6-c11",
+      "statement": "Map 从 id 到 User",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s6-c12",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s6-c12",
+      "statement": "ownerOf 读取以查申请归属",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s6-c13",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s6-c13",
+      "statement": "balances",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        },
+        {
+          "id": "S-c3fa71c3c0",
+          "path": "src/balance.ts",
+          "startLine": 1,
+          "endLine": 31
+        }
+      ],
+      "citedEvidenceCount": 2,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s6-c14",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s6-c14",
+      "statement": "BalanceStore 内存余额表",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-c3fa71c3c0",
+          "path": "src/balance.ts",
+          "startLine": 1,
+          "endLine": 31
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s6-c15",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s6-c15",
+      "statement": "approveLevel2 扣减写入",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        },
+        {
+          "id": "S-c3fa71c3c0",
+          "path": "src/balance.ts",
+          "startLine": 1,
+          "endLine": 31
+        }
+      ],
+      "citedEvidenceCount": 2,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s6-c16",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s6-c16",
+      "statement": "三个内存结构都在进程内，进程重启即丢失，没有数据库或持久层",
+      "marker": "inferred",
+      "windows": [
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        },
+        {
+          "id": "S-c3fa71c3c0",
+          "path": "src/balance.ts",
+          "startLine": 1,
+          "endLine": 31
+        }
+      ],
+      "citedEvidenceCount": 2,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s6-c17",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s6-c17",
+      "statement": "BalanceStore 内部用 Map 保存员工到剩余天数，提供 set、remaining、deduct、restore 四个方法",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-c3fa71c3c0",
+          "path": "src/balance.ts",
+          "startLine": 1,
+          "endLine": 31
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s6-c18",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s6-c18",
+      "statement": "LeaveRequest 只在 leave request.ts 声明一次，User 只在 roles.ts 声明一次",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-f9ada773d7",
+          "path": "src/leave-request.ts",
+          "startLine": 1,
+          "endLine": 37
+        },
+        {
+          "id": "S-85c74e8739",
+          "path": "src/roles.ts",
+          "startLine": 1,
+          "endLine": 28
+        }
+      ],
+      "citedEvidenceCount": 2,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s6-c19",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s6-c19",
+      "statement": "本服务只有单一运行时单元，没有声明同一存储对象的第二个部件可供比对形状差异",
+      "marker": "verified",
+      "windows": [
+        {
+          "id": "S-f9ada773d7",
+          "path": "src/leave-request.ts",
+          "startLine": 1,
+          "endLine": 37
+        },
+        {
+          "id": "S-85c74e8739",
+          "path": "src/roles.ts",
+          "startLine": 1,
+          "endLine": 28
+        }
+      ],
+      "citedEvidenceCount": 2,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s7-c0",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s7-c0",
+      "statement": "本特性不涉及文件读写、对象存储或第三方外部集成",
+      "marker": "verified",
+      "windows": [],
+      "citedEvidenceCount": 1,
+      "searchEvidence": [
+        {
+          "id": "SEARCH-f62f14f5c4e8",
+          "matchCount": 0,
+          "truncated": false
+        }
+      ]
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s7-c1",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s7-c1",
+      "statement": "external calls 事实包方法为 scan 且为零项，未截断",
+      "marker": "fact",
+      "windows": [],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s7-c2",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s7-c2",
+      "statement": "下表按类别列出可观察副作用的现状",
+      "marker": "fact",
+      "windows": [
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s7-c3",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s7-c3",
+      "statement": "全仓检索无 readFile、writeFile 或流式读写",
+      "marker": "verified",
+      "windows": [],
+      "citedEvidenceCount": 1,
+      "searchEvidence": [
+        {
+          "id": "SEARCH-f62f14f5c4e8",
+          "matchCount": 0,
+          "truncated": false
+        }
+      ]
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s7-c4",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s7-c4",
+      "statement": "SEARCH 检索回执",
+      "marker": "verified",
+      "windows": [],
+      "citedEvidenceCount": 1,
+      "searchEvidence": [
+        {
+          "id": "SEARCH-f62f14f5c4e8",
+          "matchCount": 0,
+          "truncated": false
+        }
+      ]
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s7-c5",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s7-c5",
+      "statement": "全仓检索无 S3、上传或 multipart 处理",
+      "marker": "verified",
+      "windows": [],
+      "citedEvidenceCount": 1,
+      "searchEvidence": [
+        {
+          "id": "SEARCH-f62f14f5c4e8",
+          "matchCount": 0,
+          "truncated": false
+        }
+      ]
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s7-c6",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s7-c6",
+      "statement": "通知（邮件短信推送）",
+      "marker": "verified",
+      "windows": [
+        {
+          "id": "S-3c978d20a1",
+          "path": "README.md",
+          "startLine": 1,
+          "endLine": 11
+        },
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        }
+      ],
+      "citedEvidenceCount": 2,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s7-c7",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s7-c7",
+      "statement": "刻意不实现，审批成功仅落库并返回",
+      "marker": "verified",
+      "windows": [
+        {
+          "id": "S-3c978d20a1",
+          "path": "README.md",
+          "startLine": 1,
+          "endLine": 11
+        },
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        }
+      ],
+      "citedEvidenceCount": 2,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s7-c8",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s7-c8",
+      "statement": "README 与 server 注释",
+      "marker": "verified",
+      "windows": [
+        {
+          "id": "S-3c978d20a1",
+          "path": "README.md",
+          "startLine": 1,
+          "endLine": 11
+        },
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        }
+      ],
+      "citedEvidenceCount": 2,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s7-c9",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s7-c9",
+      "statement": "未见任何导出、报表或消息发送",
+      "marker": "verified",
+      "windows": [
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        },
+        {
+          "id": "S-3c978d20a1",
+          "path": "README.md",
+          "startLine": 1,
+          "endLine": 11
+        }
+      ],
+      "citedEvidenceCount": 2,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s7-c10",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s7-c10",
+      "statement": "按文件 IO 与集成标识全仓检索，未发现任何文件读写或第三方集成",
+      "marker": "verified",
+      "windows": [],
+      "citedEvidenceCount": 1,
+      "searchEvidence": [
+        {
+          "id": "SEARCH-f62f14f5c4e8",
+          "matchCount": 0,
+          "truncated": false
+        }
+      ]
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s7-c11",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s7-c11",
+      "statement": "README 明确说明本服务刻意不发送任何邮件、短信或推送通知",
+      "marker": "verified",
+      "windows": [
+        {
+          "id": "S-3c978d20a1",
+          "path": "README.md",
+          "startLine": 1,
+          "endLine": 11
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s7-c12",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s7-c12",
+      "statement": "server.ts 顶部注释也说明审批成功后只落库并返回，没有通知",
+      "marker": "verified",
+      "windows": [
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    },
+    {
+      "ref": "feature-请假管理-4744413561-engineering#s7-c13",
+      "documentId": "feature-请假管理-4744413561-engineering",
+      "claimId": "s7-c13",
+      "statement": "审批处理器的返回路径只有 store.set 与 c.json，没有任何通知或导出调用点",
+      "marker": "verified",
+      "windows": [
+        {
+          "id": "S-b205aa9cba",
+          "path": "src/server.ts",
+          "startLine": 1,
+          "endLine": 65
+        }
+      ],
+      "citedEvidenceCount": 1,
+      "searchEvidence": []
+    }
+  ],
+  "relations": [
+    {
+      "id": "TR-normal-flow",
+      "type": "business-flow",
+      "status": "verified",
+      "steps": [
+        {
+          "action": "POST /api/leave：requireRole(actor, \"employee\") 通过后，createRequest 以 status \"pending\" 建单并 store.set 落库。",
+          "windows": [
+            {
+              "id": "S-b205aa9cba",
+              "path": "src/server.ts",
+              "startLine": 1,
+              "endLine": 65
+            },
+            {
+              "id": "S-5f6921c6f7",
+              "path": "src/auth.ts",
+              "startLine": 1,
+              "endLine": 31
+            },
+            {
+              "id": "S-f9ada773d7",
+              "path": "src/leave-request.ts",
+              "startLine": 1,
+              "endLine": 37
+            }
+          ]
+        },
+        {
+          "action": "POST /api/leave/:id/approve-l1：approveLevel1 先 assertCanApproveLevel1（直属经理），再 canTransition(pending→level1Approved)，置状态 level1Approved 并落库。",
+          "windows": [
+            {
+              "id": "S-b205aa9cba",
+              "path": "src/server.ts",
+              "startLine": 1,
+              "endLine": 65
+            },
+            {
+              "id": "S-353ac9860e",
+              "path": "src/approval.ts",
+              "startLine": 1,
+              "endLine": 42
+            },
+            {
+              "id": "S-5f6921c6f7",
+              "path": "src/auth.ts",
+              "startLine": 1,
+              "endLine": 31
+            },
+            {
+              "id": "S-f9ada773d7",
+              "path": "src/leave-request.ts",
+              "startLine": 1,
+              "endLine": 37
+            }
+          ]
+        },
+        {
+          "action": "POST /api/leave/:id/approve-l2：approveLevel2 先 assertCanApproveLevel2（HR），再 canTransition(level1Approved→approved)，对非 unpaid 类型调用 balances.deduct 扣减 request.days，置状态 approved 并落库。",
+          "windows": [
+            {
+              "id": "S-b205aa9cba",
+              "path": "src/server.ts",
+              "startLine": 1,
+              "endLine": 65
+            },
+            {
+              "id": "S-353ac9860e",
+              "path": "src/approval.ts",
+              "startLine": 1,
+              "endLine": 42
+            },
+            {
+              "id": "S-5f6921c6f7",
+              "path": "src/auth.ts",
+              "startLine": 1,
+              "endLine": 31
+            },
+            {
+              "id": "S-c3fa71c3c0",
+              "path": "src/balance.ts",
+              "startLine": 1,
+              "endLine": 31
+            },
+            {
+              "id": "S-f9ada773d7",
+              "path": "src/leave-request.ts",
+              "startLine": 1,
+              "endLine": 37
+            }
+          ]
+        },
+        {
+          "action": "处理器以 c.json(updated) 返回更新后的申请；审批成功仅落库并返回，不触发任何通知。",
+          "windows": [
+            {
+              "id": "S-b205aa9cba",
+              "path": "src/server.ts",
+              "startLine": 1,
+              "endLine": 65
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "TR-decision-flow",
+      "type": "business-flow",
+      "status": "verified",
+      "steps": [
+        {
+          "action": "POST /api/leave/:id/reject：处理器取出申请并调用 reject(request)。",
+          "windows": [
+            {
+              "id": "S-b205aa9cba",
+              "path": "src/server.ts",
+              "startLine": 1,
+              "endLine": 65
+            },
+            {
+              "id": "S-353ac9860e",
+              "path": "src/approval.ts",
+              "startLine": 1,
+              "endLine": 42
+            }
+          ]
+        },
+        {
+          "action": "reject 校验 canTransition(status→rejected)：pending 与 level1Approved 两态均可驳回，进入终态 rejected。",
+          "windows": [
+            {
+              "id": "S-353ac9860e",
+              "path": "src/approval.ts",
+              "startLine": 1,
+              "endLine": 42
+            },
+            {
+              "id": "S-f9ada773d7",
+              "path": "src/leave-request.ts",
+              "startLine": 1,
+              "endLine": 37
+            }
+          ]
+        },
+        {
+          "action": "驳回分支不调用 balances.deduct，因此不扣减任何余额。",
+          "windows": [
+            {
+              "id": "S-353ac9860e",
+              "path": "src/approval.ts",
+              "startLine": 1,
+              "endLine": 42
+            }
+          ]
+        },
+        {
+          "action": "二级审批中的类型分支：request.type === \"unpaid\" 跳过扣减，其余类型按 request.days 扣减。",
+          "windows": [
+            {
+              "id": "S-353ac9860e",
+              "path": "src/approval.ts",
+              "startLine": 1,
+              "endLine": 42
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "TR-state-lifecycle",
+      "type": "state-transition",
+      "status": "verified",
+      "steps": [
+        {
+          "action": "createRequest 以初始态 pending 建单。",
+          "windows": [
+            {
+              "id": "S-f9ada773d7",
+              "path": "src/leave-request.ts",
+              "startLine": 1,
+              "endLine": 37
+            }
+          ]
+        },
+        {
+          "action": "TRANSITIONS[pending] 允许迁移到 level1Approved 或 rejected。",
+          "windows": [
+            {
+              "id": "S-f9ada773d7",
+              "path": "src/leave-request.ts",
+              "startLine": 1,
+              "endLine": 37
+            }
+          ]
+        },
+        {
+          "action": "TRANSITIONS[level1Approved] 允许迁移到 approved 或 rejected。",
+          "windows": [
+            {
+              "id": "S-f9ada773d7",
+              "path": "src/leave-request.ts",
+              "startLine": 1,
+              "endLine": 37
+            }
+          ]
+        },
+        {
+          "action": "approved 与 rejected 的转移表为空，均为终态。",
+          "windows": [
+            {
+              "id": "S-f9ada773d7",
+              "path": "src/leave-request.ts",
+              "startLine": 1,
+              "endLine": 37
+            }
+          ]
+        },
+        {
+          "action": "余额扣减副作用绑定在进入 approved 这一步的 approveLevel2 内。",
+          "windows": [
+            {
+              "id": "S-353ac9860e",
+              "path": "src/approval.ts",
+              "startLine": 1,
+              "endLine": 42
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "coverage": [
+    {
+      "id": "feature:4744413561:boundary",
+      "dimension": "boundary",
+      "status": "found"
+    },
+    {
+      "id": "feature:4744413561:ui-entrypoints",
+      "dimension": "ui-entrypoints",
+      "status": "searched-not-found"
+    },
+    {
+      "id": "feature:4744413561:api-entrypoints",
+      "dimension": "api-entrypoints",
+      "status": "found"
+    },
+    {
+      "id": "feature:4744413561:scheduled-entrypoints",
+      "dimension": "scheduled-entrypoints",
+      "status": "searched-not-found"
+    },
+    {
+      "id": "feature:4744413561:callers",
+      "dimension": "callers",
+      "status": "found"
+    },
+    {
+      "id": "feature:4744413561:normal-flow",
+      "dimension": "normal-flow",
+      "status": "found"
+    },
+    {
+      "id": "feature:4744413561:decision-flow",
+      "dimension": "decision-flow",
+      "status": "found"
+    },
+    {
+      "id": "feature:4744413561:reversal-flow",
+      "dimension": "reversal-flow",
+      "status": "searched-not-found"
+    },
+    {
+      "id": "feature:4744413561:type-variants",
+      "dimension": "type-variants",
+      "status": "found"
+    },
+    {
+      "id": "feature:4744413561:states-and-lifecycle",
+      "dimension": "states-and-lifecycle",
+      "status": "found"
+    },
+    {
+      "id": "feature:4744413561:calculations-and-thresholds",
+      "dimension": "calculations-and-thresholds",
+      "status": "found"
+    },
+    {
+      "id": "feature:4744413561:validation-and-duplicates",
+      "dimension": "validation-and-duplicates",
+      "status": "found"
+    },
+    {
+      "id": "feature:4744413561:authorization",
+      "dimension": "authorization",
+      "status": "found"
+    },
+    {
+      "id": "feature:4744413561:data-scope",
+      "dimension": "data-scope",
+      "status": "found"
+    },
+    {
+      "id": "feature:4744413561:entities-and-fields",
+      "dimension": "entities-and-fields",
+      "status": "found"
+    },
+    {
+      "id": "feature:4744413561:data-and-shared-storage",
+      "dimension": "data-and-shared-storage",
+      "status": "found"
+    },
+    {
+      "id": "feature:4744413561:model-parity",
+      "dimension": "model-parity",
+      "status": "not-applicable"
+    },
+    {
+      "id": "feature:4744413561:files-and-integrations",
+      "dimension": "files-and-integrations",
+      "status": "searched-not-found"
+    },
+    {
+      "id": "feature:4744413561:notifications-and-exports",
+      "dimension": "notifications-and-exports",
+      "status": "not-applicable"
+    },
+    {
+      "id": "feature:4744413561:failure-modes",
+      "dimension": "failure-modes",
+      "status": "found"
+    },
+    {
+      "id": "feature:4744413561:transactions-and-partial-success",
+      "dimension": "transactions-and-partial-success",
+      "status": "found"
+    },
+    {
+      "id": "feature:4744413561:configuration",
+      "dimension": "configuration",
+      "status": "searched-not-found"
+    },
+    {
+      "id": "feature:4744413561:background-work",
+      "dimension": "background-work",
+      "status": "searched-not-found"
+    },
+    {
+      "id": "feature:4744413561:connected-change-scope",
+      "dimension": "connected-change-scope",
+      "status": "found"
+    },
+    {
+      "id": "feature:4744413561:tests",
+      "dimension": "tests",
+      "status": "searched-not-found"
+    },
+    {
+      "id": "feature:4744413561:documentation-drift",
+      "dimension": "documentation-drift",
+      "status": "found"
+    },
+    {
+      "id": "feature:4744413561:unfinished-and-current-problems",
+      "dimension": "unfinished-and-current-problems",
+      "status": "found"
+    },
+    {
+      "id": "feature:4744413561:coverage-accounting",
+      "dimension": "coverage-accounting",
+      "status": "found"
+    },
+    {
+      "id": "feature:4744413561:open-investigation",
+      "dimension": "open-investigation",
+      "status": "not-applicable"
+    }
+  ],
+  "unknowns": [],
+  "prepareHorizon": {
+    "files": [
+      "src/leave-request.ts",
+      "src/server.ts"
+    ],
+    "scopeText": "# Feature scope: 请假管理\n\n## Search vocabulary\n\n- 请假管理\n- leave\n- leave request\n- request\n- approval\n- balance\n- 授权\n- 审批\n- 余额\n- 数据范围\n\n## Boundary\n\n- Candidate graph nodes: 0.\n- Related graph edges: 0.\n- Files in the working boundary: 9.\n- Unresolved graph references: 0.\n- Broad source fallback used: yes.\n- Evidence truncation: none\n\n## Authoring inventory\n\nThis inventory is a coverage map, not a source of truth by itself. Complete every material category with source-backed claims; do not replace the category with one summary sentence.\n\n| Report section | Category | Candidate nodes | Candidate files | Representative paths |\n|---:|---|---:|---:|---|\n| 1 | Boundary and repositories | 0 | 2 | `README.md`<br>`package.json` |\n| 2 | UI, API and automated entry points | 0 | 0 | — |\n| 3 | Normal, decision and reversal flows | 0 | 0 | — |\n| 4 | Types, states, calculations and validation | 0 | 1 | `src/balance.ts` |\n| 5 | Authentication, authorization and data scope | 0 | 3 | `src/auth.ts`<br>`src/roles.ts`<br>`src/scope.ts` |\n| 6 | Entities, fields and persistence | 0 | 0 | — |\n| 7 | Files, messages, notifications and integrations | 0 | 0 | — |\n| 8 | Errors, transactions and partial success | 0 | 0 | — |\n| 9 | Configuration, switches and background work | 0 | 0 | — |\n| 10 | Dependencies and connected change scope | 0 | 0 | — |\n| 11 | Tests, documentation and unfinished behavior | 0 | 1 | `README.md` |\n| 12 | Coverage and unresolved questions | 0 | 0 | — |\n\n## Fact pack\n\nEnumerated boundary facts. Every category is an enumeration of what was found inside this feature's boundary, not a sample; facts outside the boundary are out of this pack's scope. The complete machine-readable pack is `context/features/请假管理-4744413561.factpack.json`.\n\n| Category | Method | Items | Truncated | Evidence | Note |\n|---|---|---:|---|---|---|\n| entrypoints | scan | 5 | no | FACT-请假管理-47444-entrypoints-f3fe1db1 | — |\n| entities | none | 0 | no | FACT-请假管理-47444-entities-f3fe1db1 | — |\n| states | scan | 1 | no | FACT-请假管理-47444-states-f3fe1db1 | — |\n| config-keys | scan | 0 | no | FACT-请假管理-47444-config-keys-f3fe1db1 | — |\n| jobs | scan | 0 | no | FACT-请假管理-47444-jobs-f3fe1db1 | — |\n| external-calls | scan | 0 | no | FACT-请假管理-47444-external-calls-f3fe1db1 | — |\n\nFact pack warnings: none\n\n### entrypoints — 5 items, method scan, evidence FACT-请假管理-47444-entrypoints-f3fe1db1\n\n| Name | Location | Source | Detail |\n|---|---|---|---|\n| app.post /leave | `src/server.ts:22` | scan | app.post(\"/leave\", (c: any) => { |\n| app.post /leave/:id/approve-l1 | `src/server.ts:32` | scan | app.post(\"/leave/:id/approve-l1\", (c: any) => { |\n| app.post /leave/:id/approve-l2 | `src/server.ts:41` | scan | app.post(\"/leave/:id/approve-l2\", (c: any) => { |\n| app.post /leave/:id/reject | `src/server.ts:50` | scan | app.post(\"/leave/:id/reject\", (c: any) => { |\n| app.get /leave | `src/server.ts:58` | scan | app.get(\"/leave\", (c: any) => { |\n\n### entities — 0 items, method none, evidence FACT-请假管理-47444-entities-f3fe1db1\n\nNo method was available for this category in this run, so it was not enumerated; absence here is not evidence of absence in the code.\n\n### states — 1 item, method scan, evidence FACT-请假管理-47444-states-f3fe1db1\n\n| Name | Location | Source | Detail |\n|---|---|---|---|\n| type LeaveStatus | `src/leave-request.ts:12` | scan | export type LeaveStatus = \"pending\" \\| \"level1Approved\" \\| \"approved\" \\| \"rejected\"; |\n\n### config-keys — 0 items, method scan, evidence FACT-请假管理-47444-config-keys-f3fe1db1\n\nNo item of this category was found inside the feature boundary.\n\n### jobs — 0 items, method scan, evidence FACT-请假管理-47444-jobs-f3fe1db1\n\nNo item of this category was found inside the feature boundary.\n\n### external-calls — 0 items, method scan, evidence FACT-请假管理-47444-external-calls-f3fe1db1\n\nNo item of this category was found inside the feature boundary.\n\n## Files\n\n- README.md\n- package.json\n- src/approval.ts\n- src/auth.ts\n- src/balance.ts\n- src/leave-request.ts\n- src/roles.ts\n- src/scope.ts\n- src/server.ts\n\n## Node summary\n\n```json\n[]\n```\n\n## Relationship summary\n\nEdge kinds: .\n\n```json\n[]\n```\n\n## Unresolved references\n\n```json\n[]\n```\n\n## Selected source evidence\n\n### S-4dee7e6c18 — package.json:1-9\n\nReason: feature source fallback because graph coverage was insufficient\n\n```text\n{\n  \"name\": \"leave-mini\",\n  \"version\": \"0.0.0\",\n  \"type\": \"module\",\n  \"private\": true,\n  \"description\": \"Synthetic leave-management target for the Excavator eval harness (authorization + two-level approval).\",\n  \"dependencies\": { \"hono\": \"^4.0.0\" }\n}\n\n```\n\n### S-3c978d20a1 — README.md:1-11\n\nReason: feature source fallback because graph coverage was insufficient\n\n```text\n# leave-mini\n\n一个用于 Excavator 评测的合成请假管理服务。刻意保持小而完整，覆盖两条业务主线：\n\n- **授权与数据范围**：员工、经理、HR 三种角色；员工只能看自己的申请，经理只能看其直接下属的申请，HR 可以看全部。\n- **两级审批与余额扣减**：申请先由直属经理一级审批，再由 HR 二级审批；只有在二级审批通过、状态进入 `approved` 时才扣减假期余额，驳回则不扣减。\n\n刻意不实现的能力：本服务**不发送任何邮件通知**。审批结果只落库并出现在列表里，没有邮件、短信或推送。\n\n源码见 `src/`。\n\n```\n\n### S-353ac9860e — src/approval.ts:1-42\n\nReason: feature source fallback because graph coverage was insufficient\n\n```text\n// 两级审批编排：一级（直属经理）-> 二级（HR）-> 终审通过时扣减余额。\n// 余额扣减刻意放在二级通过这一步，且只在 annual/sick 类型上发生。\n\nimport { assertCanApproveLevel1, assertCanApproveLevel2 } from \"./auth.ts\";\nimport type { User } from \"./roles.ts\";\nimport { canTransition, type LeaveRequest } from \"./leave-request.ts\";\nimport type { BalanceStore } from \"./balance.ts\";\n\nexport class ApprovalError extends Error {}\n\n/** 一级审批：直属经理把 pending 推进到 level1Approved。 */\nexport function approveLevel1(actor: User, applicant: User, request: LeaveRequest): LeaveRequest {\n  assertCanApproveLevel1(actor, applicant);\n  if (!canTransition(request.status, \"level1Approved\")) {\n    throw new ApprovalError(`无法从 ${request.status} 进行一级审批`);\n  }\n  return { ...request, status: \"level1Approved\" };\n}\n\n/**\n * 二级审批（终审）：HR 把 level1Approved 推进到 approved，并在此扣减余额。\n * 无薪假（unpaid）不占用余额，因此不扣减；其余类型扣减对应天数。\n */\nexport function approveLevel2(actor: User, request: LeaveRequest, balances: BalanceStore): LeaveRequest {\n  assertCanApproveLevel2(actor);\n  if (!canTransition(request.status, \"approved\")) {\n    throw new ApprovalError(`无法从 ${request.status} 进行二级审批`);\n  }\n  if (request.type !== \"unpaid\") {\n    balances.deduct(request.employeeId, request.days);\n  }\n  return { ...request, status: \"approved\" };\n}\n\n/** 驳回：任一级都可驳回，进入终态 rejected，且不扣减余额。 */\nexport function reject(request: LeaveRequest): LeaveRequest {\n  if (!canTransition(request.status, \"rejected\")) {\n    throw new ApprovalError(`无法从 ${request.status} 驳回`);\n  }\n  return { ...request, status: \"rejected\" };\n}\n\n```\n\n### S-5f6921c6f7 — src/auth.ts:1-31\n\nReason: feature source fallback because graph coverage was insufficient\n\n```text\n// 授权守卫：接口层面的角色校验与\"经理管辖关系\"校验。\n// 与 scope.ts 的区别：这里决定\"能不能做这个动作\"，scope 决定\"能看到哪些数据\"。\n\nimport { hasRoleAtLeast, isDirectManagerOf, type Role, type User } from \"./roles.ts\";\n\nexport class AuthorizationError extends Error {\n  constructor(message: string) {\n    super(message);\n    this.name = \"AuthorizationError\";\n  }\n}\n\n/** 要求 actor 至少具备 required 角色，否则抛授权错误。 */\nexport function requireRole(actor: User, required: Role): void {\n  if (!hasRoleAtLeast(actor, required)) {\n    throw new AuthorizationError(`需要 ${required} 及以上角色，当前为 ${actor.role}`);\n  }\n}\n\n/** 一级审批的守卫：只有申请人的直属经理才能一级审批。 */\nexport function assertCanApproveLevel1(actor: User, applicant: User): void {\n  if (!isDirectManagerOf(actor, applicant)) {\n    throw new AuthorizationError(\"只有申请人的直属经理才能进行一级审批\");\n  }\n}\n\n/** 二级审批的守卫：只有 HR 才能二级审批（终审）。 */\nexport function assertCanApproveLevel2(actor: User): void {\n  requireRole(actor, \"hr\");\n}\n\n```\n\n### S-c3fa71c3c0 — src/balance.ts:1-31\n\nReason: feature source fallback because graph coverage was insufficient\n\n```text\n// 假期余额的存储与扣减。扣减只在终审通过时发生，且带库存不足的校验。\n\nexport class BalanceError extends Error {}\n\n/** 极简内存余额表：员工 id -> 剩余天数。 */\nexport class BalanceStore {\n  private readonly days = new Map<string, number>();\n\n  set(employeeId: string, remaining: number): void {\n    this.days.set(employeeId, remaining);\n  }\n\n  remaining(employeeId: string): number {\n    return this.days.get(employeeId) ?? 0;\n  }\n\n  /** 扣减指定天数；余额不足则抛错，不做部分扣减。 */\n  deduct(employeeId: string, days: number): void {\n    const current = this.remaining(employeeId);\n    if (days > current) {\n      throw new BalanceError(`余额不足：剩余 ${current} 天，申请 ${days} 天`);\n    }\n    this.days.set(employeeId, current - days);\n  }\n\n  /** 归还天数（例如已扣减后又被撤销时使用）。 */\n  restore(employeeId: string, days: number): void {\n    this.days.set(employeeId, this.remaining(employeeId) + days);\n  }\n}\n\n```\n\n### S-f9ada773d7 — src/leave-request.ts:1-37\n\nReason: feature source fallback because graph coverage was insufficient\n\n```text\n// 请假申请的模型与状态机。状态流转是审批流程的骨架。\n\nexport type LeaveType = \"annual\" | \"sick\" | \"unpaid\";\n\n/**\n * 状态生命周期：\n *   pending          刚提交，等待一级审批\n *   level1Approved   直属经理已一级审批，等待 HR 二级审批\n *   approved         HR 二级审批通过（终态），此时才扣减余额\n *   rejected         任一级驳回（终态），不扣减余额\n */\nexport type LeaveStatus = \"pending\" | \"level1Approved\" | \"approved\" | \"rejected\";\n\nexport interface LeaveRequest {\n  id: string;\n  employeeId: string;\n  type: LeaveType;\n  days: number;\n  status: LeaveStatus;\n}\n\n/** 允许的状态转移；任何不在表中的转移都是非法的。 */\nconst TRANSITIONS: Record<LeaveStatus, LeaveStatus[]> = {\n  pending: [\"level1Approved\", \"rejected\"],\n  level1Approved: [\"approved\", \"rejected\"],\n  approved: [],\n  rejected: []\n};\n\nexport function canTransition(from: LeaveStatus, to: LeaveStatus): boolean {\n  return TRANSITIONS[from].includes(to);\n}\n\nexport function createRequest(id: string, employeeId: string, type: LeaveType, days: number): LeaveRequest {\n  return { id, employeeId, type, days, status: \"pending\" };\n}\n\n```\n\n### S-152daf381b — src/roles.ts:14-28\n\nReason: feature source fallback because graph coverage was insufficient\n\n```text\n  employee: 1,\n  manager: 2,\n  hr: 3\n};\n\n/** actor 是否至少具备 required 角色的权限等级。 */\nexport function hasRoleAtLeast(actor: User, required: Role): boolean {\n  return RANK[actor.role] >= RANK[required];\n}\n\n/** actor 是否是 subject 的直属经理（一级审批人由此确定）。 */\nexport function isDirectManagerOf(actor: User, subject: User): boolean {\n  return actor.role === \"manager\" && subject.managerId === actor.id;\n}\n\n```\n\n### S-32d91c3964 — src/scope.ts:1-21\n\nReason: feature source fallback because graph coverage was insufficient\n\n```text\n// 数据范围规则：决定一个用户在列表里能看到哪些请假申请。\n// 这是授权维度里最容易被漏读的一条——它不是\"能不能调用接口\"，而是\"能看到哪些行\"。\n\nimport { isDirectManagerOf, type User } from \"./roles.ts\";\nimport type { LeaveRequest } from \"./leave-request.ts\";\n\n/** viewer 能否查看某一条 request。 */\nexport function canViewLeave(viewer: User, request: LeaveRequest, owner: User): boolean {\n  // 员工只能看自己的申请。\n  if (viewer.role === \"employee\") return request.employeeId === viewer.id;\n  // 经理只能看自己直接下属的申请，看不到平级或其他团队。\n  if (viewer.role === \"manager\") return isDirectManagerOf(viewer, owner);\n  // HR 可以看全部申请，不受团队边界限制。\n  return viewer.role === \"hr\";\n}\n\n/** 按数据范围过滤出 viewer 可见的申请集合。 */\nexport function visibleRequests(viewer: User, requests: LeaveRequest[], ownerOf: (r: LeaveRequest) => User): LeaveRequest[] {\n  return requests.filter((request) => canViewLeave(viewer, request, ownerOf(request)));\n}\n\n```\n\n### S-b205aa9cba — src/server.ts:1-65\n\nReason: feature source fallback because graph coverage was insufficient\n\n```text\n// HTTP 入口：提交、审批、列表。列表接口按数据范围过滤。\n// 注意：审批成功后只落库并返回，没有任何邮件/短信/推送通知。\n\nimport { Hono } from \"hono\";\nimport { requireRole } from \"./auth.ts\";\nimport { approveLevel1, approveLevel2, reject } from \"./approval.ts\";\nimport { createRequest, type LeaveRequest } from \"./leave-request.ts\";\nimport { visibleRequests } from \"./scope.ts\";\nimport type { User } from \"./roles.ts\";\nimport { BalanceStore } from \"./balance.ts\";\n\nconst app = new Hono().basePath(\"/api\");\nconst store = new Map<string, LeaveRequest>();\nconst users = new Map<string, User>();\nconst balances = new BalanceStore();\n\nfunction ownerOf(request: LeaveRequest): User {\n  return users.get(request.employeeId)!;\n}\n\n// 提交申请：任何登录员工都可提交自己的请假。\napp.post(\"/leave\", (c: any) => {\n  const actor = c.get(\"user\") as User;\n  requireRole(actor, \"employee\");\n  const body = c.get(\"body\");\n  const request = createRequest(body.id, actor.id, body.type, body.days);\n  store.set(request.id, request);\n  return c.json(request);\n});\n\n// 一级审批：直属经理。\napp.post(\"/leave/:id/approve-l1\", (c: any) => {\n  const actor = c.get(\"user\") as User;\n  const request = store.get(c.req.param(\"id\"))!;\n  const updated = approveLevel1(actor, ownerOf(request), request);\n  store.set(updated.id, updated);\n  return c.json(updated); // 仅落库返回，不发通知\n});\n\n// 二级审批（终审，扣减余额）：HR。\napp.post(\"/leave/:id/approve-l2\", (c: any) => {\n  const actor = c.get(\"user\") as User;\n  const request = store.get(c.req.param(\"id\"))!;\n  const updated = approveLevel2(actor, request, balances);\n  store.set(updated.id, updated);\n  return c.json(updated); // 仅落库返回，不发通知\n});\n\n// 驳回。\napp.post(\"/leave/:id/reject\", (c: any) => {\n  const request = store.get(c.req.param(\"id\"))!;\n  const updated = reject(request);\n  store.set(updated.id, updated);\n  return c.json(updated);\n});\n\n// 列表：按查看者的数据范围过滤。\napp.get(\"/leave\", (c: \n…[truncated 164 characters]\n```\n\n### S-f18d242763 — src/approval.ts:1-42\n\nReason: build the authorization fact inventory for 请假管理; build the side-effects fact inventory for 请假管理; build the failures fact inventory for 请假管理\n\n```text\n// 两级审批编排：一级（直属经理）-> 二级（HR）-> 终审通过时扣减余额。\n// 余额扣减刻意放在二级通过这一步，且只在 annual/sick 类型上发生。\n\nimport { assertCanApproveLevel1, assertCanApproveLevel2 } from \"./auth.ts\";\nimport type { User } from \"./roles.ts\";\nimport { canTransition, type LeaveRequest } from \"./leave-request.ts\";\nimport type { BalanceStore } from \"./balance.ts\";\n\nexport class ApprovalError extends Error {}\n\n/** 一级审批：直属经理把 pending 推进到 level1Approved。 */\nexport function approveLevel1(actor: User, applicant: User, request: LeaveRequest): LeaveRequest {\n  assertCanApproveLevel1(actor, applicant);\n  if (!canTransition(request.status, \"level1Approved\")) {\n    throw new ApprovalError(`无法从 ${request.status} 进行一级审批`);\n  }\n  return { ...request, status: \"level1Approved\" };\n}\n\n/**\n * 二级审批（终审）：HR 把 level1Approved 推进到 approved，并在此扣减余额。\n * 无薪假（unpaid）不占用余额，因此不扣减；其余类型扣减对应天数。\n */\nexport function approveLevel2(actor: User, request: LeaveRequest, balances: BalanceStore): LeaveRequest {\n  assertCanApproveLevel2(actor);\n  if (!canTransition(request.status, \"approved\")) {\n    throw new ApprovalError(`无法从 ${request.status} 进行二级审批`);\n  }\n  if (request.type !== \"unpaid\") {\n    balances.deduct(request.employeeId, request.days);\n  }\n  return { ...request, status: \"approved\" };\n}\n\n/** 驳回：任一级都可驳回，进入终态 rejected，且不扣减余额。 */\nexport function reject(request: LeaveRequest): LeaveRequest {\n  if (!canTransition(request.status, \"rejected\")) {\n    throw new ApprovalError(`无法从 ${request.status} 驳回`);\n  }\n  return { ...request, status: \"rejected\" };\n}\n\n```\n\n### S-95917eb6dd — src/balance.ts:1-31\n\nReason: build the rules fact inventory for 请假管理\n\n```text\n// 假期余额的存储与扣减。扣减只在终审通过时发生，且带库存不足的校验。\n\nexport class BalanceError extends Error {}\n\n/** 极简内存余额表：员工 id -> 剩余天数。 */\nexport class BalanceStore {\n  private readonly days = new Map<string, number>();\n\n  set(employeeId: string, remaining: number): void {\n    this.days.set(employeeId, remaining);\n  }\n\n  remaining(employeeId: string): number {\n    return this.days.get(employeeId) ?? 0;\n  }\n\n  /** 扣减指定天数；余额不足则抛错，不做部分扣减。 */\n  deduct(employeeId: string, days: number): void {\n    const current = this.remaining(employeeId);\n    if (days > current) {\n      throw new BalanceError(`余额不足：剩余 ${current} 天，申请 ${days} 天`);\n    }\n    this.days.set(employeeId, current - days);\n  }\n\n  /** 归还天数（例如已扣减后又被撤销时使用）。 */\n  restore(employeeId: string, days: number): void {\n    this.days.set(employeeId, this.remaining(employeeId) + days);\n  }\n}\n\n```\n\n### S-e560cea95d — src/leave-request.ts:1-37\n\nReason: build the flows fact inventory for 请假管理\n\n```text\n// 请假申请的模型与状态机。状态流转是审批流程的骨架。\n\nexport type LeaveType = \"annual\" | \"sick\" | \"unpaid\";\n\n/**\n * 状态生命周期：\n *   pending          刚提交，等待一级审批\n *   level1Approved   直属经理已一级审批，等待 HR 二级审批\n *   approved         HR 二级审批通过（终态），此时才扣减余额\n *   rejected         任一级驳回（终态），不扣减余额\n */\nexport type LeaveStatus = \"pending\" | \"level1Approved\" | \"approved\" | \"rejected\";\n\nexport interface LeaveRequest {\n  id: string;\n  employeeId: string;\n  type: LeaveType;\n  days: number;\n  status: LeaveStatus;\n}\n\n/** 允许的状态转移；任何不在表中的转移都是非法的。 */\nconst TRANSITIONS: Record<LeaveStatus, LeaveStatus[]> = {\n  pending: [\"level1Approved\", \"rejected\"],\n  level1Approved: [\"approved\", \"rejected\"],\n  approved: [],\n  rejected: []\n};\n\nexport function canTransition(from: LeaveStatus, to: LeaveStatus): boolean {\n  return TRANSITIONS[from].includes(to);\n}\n\nexport function createRequest(id: string, employeeId: string, type: LeaveType, days: number): LeaveRequest {\n  return { id, employeeId, type, days, status: \"pending\" };\n}\n\n```\n\n## Evidence IDs\n\n- S-4dee7e6c18: package.json:1-9\n- S-3c978d20a1: README.md:1-11\n- S-353ac9860e: src/approval.ts:1-42\n- S-5f6921c6f7: src/auth.ts:1-31\n- S-c3fa71c3c0: src/balance.ts:1-31\n- S-f9ada773d7: src/leave-request.ts:1-37\n- S-152daf381b: src/roles.ts:14-28\n- S-32d91c3964: src/scope.ts:1-21\n- S-b205aa9cba: src/server.ts:1-65\n- S-f18d242763: src/approval.ts:1-42\n- S-95917eb6dd: src/balance.ts:1-31\n- S-e560cea95d: src/leave-request.ts:1-37\n- FACT-请假管理-47444-entrypoints-f3fe1db1: Fact pack: entrypoints\n- FACT-请假管理-47444-entities-f3fe1db1: Fact pack: entities\n- FACT-请假管理-47444-states-f3fe1db1: Fact pack: states\n- FACT-请假管理-47444-config-keys-f3fe1db1: Fact pack: config-keys\n- FACT-请假管理-47444-jobs-f3fe1db1: Fact pack: jobs\n- FACT-请假管理-47444-external-calls-f3fe1db1: Fact pack: external-calls\n"
+  }
+}

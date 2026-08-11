@@ -7,29 +7,43 @@
       "kind": "fact",
       "mustFind": true,
       "anchors": [{ "path": "src/roles.ts" }],
-      "statementPatterns": ["员工|employee", "经理|manager", "HR|hr"],
+      "statementPatterns": ["employee.{0,40}manager|manager.{0,40}hr|员工.{0,40}经理|经理.{0,40}hr|三种?角色|三个角色|RANK|角色等级"],
       "markers": ["fact", "verified"]
     },
     {
-      "id": "authz-data-scope",
+      "id": "authz-scope-employee-self",
       "kind": "fact",
       "mustFind": true,
       "anchors": [{ "path": "src/scope.ts" }],
-      "statementPatterns": ["自己|本人", "下属|直属", "全部|所有"]
+      "statementPatterns": ["只能看.{0,16}(自己|本人)|自己(提交)?的申请|本人提交|(equals?|等于).{0,10}(viewer|本人|自己)"]
+    },
+    {
+      "id": "authz-scope-manager-reports",
+      "kind": "fact",
+      "mustFind": true,
+      "anchors": [{ "path": "src/scope.ts" }],
+      "statementPatterns": ["直接下属|直属下属|直接汇报|下属的申请|direct report"]
+    },
+    {
+      "id": "authz-scope-hr-all",
+      "kind": "fact",
+      "mustFind": true,
+      "anchors": [{ "path": "src/scope.ts" }],
+      "statementPatterns": ["全部(的)?申请|所有(的)?申请|不受.{0,8}(团队|边界)|all requests"]
     },
     {
       "id": "authz-l1-guard",
       "kind": "fact",
       "mustFind": true,
       "anchors": [{ "path": "src/auth.ts" }],
-      "statementPatterns": ["直属经理|直接经理", "一级|level.?1"]
+      "statementPatterns": ["assertCanApproveLevel1|一级审批.{0,16}直属经理|直属经理.{0,24}(一级|才能|方可|审批)|(必须|只有|仅限?)(是)?.{0,10}直属经理"]
     },
     {
       "id": "authz-l2-guard",
       "kind": "fact",
       "mustFind": true,
       "anchors": [{ "path": "src/auth.ts" }],
-      "statementPatterns": ["HR", "二级|终审|level.?2"]
+      "statementPatterns": ["assertCanApproveLevel2|(二级|终审).{0,16}hr|hr.{0,24}(二级|终审)|(必须|只有|仅限?).{0,10}hr"]
     },
     {
       "id": "authz-submit-role",
@@ -64,7 +78,7 @@
       "kind": "fact",
       "mustFind": true,
       "anchors": [{ "path": "src/approval.ts" }],
-      "statementPatterns": ["无薪|unpaid", "不扣减|不占用"]
+      "statementPatterns": ["无薪|unpaid", "不扣减|不占用|跳过扣减|不.{0,6}(调用|触发|执行).{0,10}(扣减|deduct)|skip.{0,16}deduct"]
     },
     {
       "id": "flow-reject-no-deduct",
@@ -78,7 +92,35 @@
       "kind": "fact",
       "mustFind": true,
       "anchors": [{ "path": "src/balance.ts" }],
-      "statementPatterns": ["余额不足|不足", "错误|抛|error|不做部分"]
+      "statementPatterns": ["余额不足|不足|大于.{0,14}(剩余|余额)|超过.{0,14}(剩余|余额)|insufficient|exceed", "错误|抛|error|不做部分"]
+    },
+    {
+      "id": "depth-terminal-immutable",
+      "kind": "fact",
+      "mustFind": true,
+      "anchors": [{ "path": "src/leave-request.ts" }],
+      "statementPatterns": ["终态|不可逆|不可再.{0,12}转移|不能再.{0,10}(流转|转移)|无法再.{0,10}(流转|转移)|没有.{0,14}(后继|后续|合法转移)|后继转移.{0,12}(为空|空)|terminal|no further transition"]
+    },
+    {
+      "id": "depth-transition-whitelist",
+      "kind": "fact",
+      "mustFind": true,
+      "anchors": [{ "path": "src/leave-request.ts" }, { "path": "src/approval.ts" }],
+      "statementPatterns": ["TRANSITIONS|转移表|白名单|canTransition|状态机|state machine", "非法|不在表|不允许|拒绝|拦截|抛出?|invalid|illegal|reject"]
+    },
+    {
+      "id": "depth-restore-uncalled",
+      "kind": "fact",
+      "mustFind": true,
+      "anchors": [{ "path": "src/balance.ts" }],
+      "statementPatterns": ["restore|归还|返还", "无.{0,20}调用|没有.{0,20}调用|未被调用|无任何调用|不存在.{0,12}调用|零命中|no caller|never called|unused|dead code"]
+    },
+    {
+      "id": "depth-l1-status-only",
+      "kind": "fact",
+      "mustFind": false,
+      "anchors": [{ "path": "src/approval.ts" }],
+      "statementPatterns": ["一级|level.?1|直属经理", "只.{0,16}(状态|推进)|仅.{0,16}(状态|推进)|不.{0,10}(扣减|扣除|触及|涉及)|不扣"]
     },
     {
       "id": "rel-approval-flow",
@@ -127,6 +169,8 @@
   ],
   "coverage": [
     { "dimension": "authorization", "expect": ["found"] },
-    { "dimension": "data-scope", "expect": ["found"] }
+    { "dimension": "data-scope", "expect": ["found"] },
+    { "dimension": "states-and-lifecycle", "expect": ["found"] },
+    { "dimension": "calculations-and-thresholds", "expect": ["found"] }
   ]
 }

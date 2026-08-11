@@ -106,3 +106,11 @@ e2e 结论：freeze 机制在真实产物上正确（freeze 门抓出真缺口�
 - **open 起源 feature workitem 无 reportSection 时静默落不进任何 packet block（残差）**：`src/authoring-packet.ts` 按 `reportSection` 分块，而 `mergeWorkItems`（assurance.ts）允许 open feature 项 reportSection=undefined → 其证据不被 packet 运输、不进 advisory 应覆盖集（渲染与 advisory 共派生故内部一致无误报），但 Completeness 头部计数含它、块里看不见。候选：open feature 项强制 reportSection，或渲染 "unassigned" 块。
 - **advisory 消费集只认 claim.evidenceIds 不认 traceIds（残差，合方案 §1.3/R5）**：作者以 verified trace 引用满足 workitem 时，底层 S- id 仍可能被 advisory 警告。方案明文按证据 id 对账、已接受 warning 噪声；留后续降噪候选。
 - **featureKeyOf 反推逻辑三处拷贝（残差，归 57B-361）**：`src/authoring-packet.ts` 的 `featureKeyOf` 与 `src/run.ts` 的 `feature-<key>-<audience>` 反推是第二/三份拷贝（正推在 run.ts）。57B-361 src/ 重组时收敛为单一导出。
+
+## 批次 57B-365（leave-mini golden 深度化）评审产生（fable 复核，2026-08-11）
+
+判定"可合"（pattern 只宽不窄逐条核实、深度项 AND 语义、固化 fixture 字节级一致无泄漏、判别器真实工作 base-2/3 红=没查调用方、334 pass）。残差：
+- **leave-mini 深度天花板（核心边界）**：真判别器仅 `depth-restore-uncalled` 负空间一轴；结构深度项（终态/白名单/阈值/unpaid）当前 6/6 稳定命中、只作回归护栏无判别力；**WCP 式"大文件跳窗"失败在 leave-mini（最大文件 41 行、无窗可跳）结构上测不出**——需后续 leave-midi（多窗口大文件、阈值埋中段）切片。
+- **单语义改写的同义词残差（nit）**：`authz-l1-guard` 新 pattern 丢了旧"直接经理"同义词；`authz-scope-employee-self` 对"仅可见本人"类不命中——数学上非严格超集，但方案原文如此、6-run 实测零假阴；遇红按只宽不窄纪律再加宽。
+- **`depth-restore-uncalled` 裁量风险（有意为之）**：报告若把 restore 结论写进 reversal-flow workitem 而不出 claim → 红。深度门就该要求它成为报告命题。
+- **6-run bench 在仓库外**（excavator-measure-359/）、验证为本机人工步骤不进 CI，如实记。
