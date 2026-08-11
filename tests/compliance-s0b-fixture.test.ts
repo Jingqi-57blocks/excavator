@@ -69,7 +69,7 @@ test("a search receipt carries the corpus block, and path prefixes scope the cen
   // Whole-snapshot search: the census surfaces the non-whitelisted .svg (text) and .png (binary).
   const wide = await searchSourceEvidence(runDir, ["Scenario"], "compliance: gherkin scenarios", {});
   const wideCorpus = wide.corpus as SearchReceiptCorpus;
-  assert.equal(wideCorpus.scannerVersion, "git-aware-source-boundary-v2");
+  assert.equal(wideCorpus.scannerVersion, "git-aware-source-boundary-v3");
   assert.equal(wideCorpus.unscannedTextInScope, 1);
   assert.equal(wideCorpus.unscannedBinaryInScope, 1);
   assert.deepEqual(wideCorpus.unscannedTextExtensions, { ".svg": 1 });

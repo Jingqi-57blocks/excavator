@@ -44,6 +44,10 @@ The source provider is mandatory and is the final evidence source. CodeGraph is 
 
 `provider-status.json` persists every provider's availability, selection state, capabilities, path, version or database identity, and selection reason. The provider registry digest is bound into the run manifest and analysis scope.
 
+## SOUP inventory
+
+`soup.ts` builds a deterministic, model-free inventory of third-party components (software of unknown provenance) inside the snapshot boundary: it reuses `createSnapshot` to bind a `snapshotId`, then merges parser output into version-stable `components`/`gaps`/`coverage` with a `createdAt`-free digest, exposing `soupEvidence()` for downstream reports. `soup-parsers.ts` holds the table of 15 pure, vertical-neutral manifest/lockfile/container parsers (npm, NuGet, Python, Go, containers); each reports a component's version only when it is an exact pin, so a component group with no exact version anywhere becomes a structural gap.
+
 ## Analysis scope
 
 `analysis-scope.json` records:

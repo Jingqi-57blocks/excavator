@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { CURRENT_SCANNER_VERSION, SCANNER_VERSION_V1, SCANNER_VERSION_V2, resolveScannerVersion } from "../src/scanner-versions.ts";
+import { CURRENT_SCANNER_VERSION, SCANNER_VERSION_V1, SCANNER_VERSION_V2, SCANNER_VERSION_V3, resolveProjectFileNames, resolveScannerVersion } from "../src/scanner-versions.ts";
 import { createSnapshot, scanFiles } from "../src/snapshot.ts";
 import { tempDir } from "./helpers.ts";
 
@@ -25,9 +25,24 @@ test("v2 is a strict monotone superset of v1", () => {
   for (const extension of v1) assert.ok(v2.has(extension), `v2 dropped a v1 extension: ${extension}`);
   assert.ok(v2.size > v1.size, "v2 must add extensions");
   assert.equal(v2.size, 70, "v2 = 44 (v1) + 26 new");
-  // The current version is v2 and both markup and build classes are covered by class, not by vendor.
-  assert.equal(CURRENT_SCANNER_VERSION, SCANNER_VERSION_V2);
+  // Both markup and build classes are covered by class, not by vendor.
   for (const extension of [".xaml", ".feature", ".csproj", ".plist", ".props", ".txt"]) assert.ok(v2.has(extension), `v2 must scan ${extension}`);
+});
+
+test("v3 keeps v2 extensions and adds SOUP lockfiles to the project-file-name set", () => {
+  const v2Extensions = resolveScannerVersion(SCANNER_VERSION_V2);
+  const v3Extensions = resolveScannerVersion(SCANNER_VERSION_V3);
+  // v3 adds no extensions — the SOUP boundary widening is by file name, not by extension.
+  assert.deepEqual([...v3Extensions].sort(), [...v2Extensions].sort());
+
+  const v2Names = resolveProjectFileNames(SCANNER_VERSION_V2);
+  const v3Names = resolveProjectFileNames(SCANNER_VERSION_V3);
+  for (const name of v2Names) assert.ok(v3Names.has(name), `v3 dropped a v2 project-file name: ${name}`);
+  for (const name of ["yarn.lock", "poetry.lock", "go.sum", "packages.config"]) assert.ok(v3Names.has(name), `v3 must admit ${name}`);
+  assert.equal(v3Names.size, v2Names.size + 4, "v3 = v2 project-file names + 4 lockfiles");
+
+  // The current version is v3.
+  assert.equal(CURRENT_SCANNER_VERSION, SCANNER_VERSION_V3);
 });
 
 test("an unknown scanner version throws deterministically", () => {

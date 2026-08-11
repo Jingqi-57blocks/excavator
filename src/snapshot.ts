@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
 import type { BoundaryCensus, Snapshot, SnapshotRoot } from "./types.ts";
-import { CURRENT_SCANNER_VERSION, resolveScannerVersion } from "./scanner-versions.ts";
+import { CURRENT_SCANNER_VERSION, resolveScannerBoundary } from "./scanner-versions.ts";
 import { BoundaryCensusBuilder, sniffFileKind, type CensusEntry } from "./scan-census.ts";
 import { exists, nowIso, sha256, stableJson } from "./util.ts";
 
@@ -51,10 +51,6 @@ const EXCLUDED_FILES = [
   /^Icon\r$/i, /^\._/, /^\.LSOverride$/i, /\.sw[op]$/i, /~$/
 ];
 const SAFE_ENV_SAMPLE = /^\.env\.(sample|example|template|defaults?)$/i;
-const PROJECT_FILE_NAMES = new Set([
-  "package.json", "go.mod", "Cargo.toml", "pyproject.toml", "requirements.txt", "pom.xml",
-  "build.gradle", "build.gradle.kts", "Gemfile", "composer.json", "docker-compose.yml", "docker-compose.yaml"
-]);
 
 
 export interface ScannedFile {
@@ -118,10 +114,10 @@ function isExcludedFile(name: string): boolean {
   return EXCLUDED_FILES.some((pattern) => pattern.test(name));
 }
 
-function isSupportedFileName(name: string, extensions: ReadonlySet<string>): boolean {
+function isSupportedFileName(name: string, extensions: ReadonlySet<string>, projectFileNames: ReadonlySet<string>): boolean {
   const extension = extname(name).toLowerCase();
   return extensions.has(extension)
-    || PROJECT_FILE_NAMES.has(name)
+    || projectFileNames.has(name)
     || SAFE_ENV_SAMPLE.test(name)
     || /^(README(?:\.|$)|LICENSE(?:\.|$)|Dockerfile(?:\.|$)|Makefile(?:\.|$)|Procfile(?:\.|$))/i.test(name);
 }
@@ -203,7 +199,7 @@ async function nonGitCandidates(root: string): Promise<string[]> {
   }
 }
 
-async function scanRoot(root: string, target: string, maxFiles: number, extensions: ReadonlySet<string>, census: BoundaryCensusBuilder): Promise<ScannedFile[]> {
+async function scanRoot(root: string, target: string, maxFiles: number, extensions: ReadonlySet<string>, projectFileNames: ReadonlySet<string>, census: BoundaryCensusBuilder): Promise<ScannedFile[]> {
   const rootName = normalizeRelativePath(relative(target, root)) || basename(root);
   const candidates = await gitCandidates(root) ?? await nonGitCandidates(root);
   const files: ScannedFile[] = [];
@@ -219,7 +215,7 @@ async function scanRoot(root: string, target: string, maxFiles: number, extensio
     if (!info.isFile() || info.isSymbolicLink()) continue;
     const relativePath = normalizeRelativePath(relative(target, absolutePath));
     const extension = extname(name).toLowerCase();
-    if (!isSupportedFileName(name, extensions)) {
+    if (!isSupportedFileName(name, extensions, projectFileNames)) {
       // Inside the boundary but outside the whitelist: census it (text vs binary) so a not-found
       // search verdict can be honest about files it never reached.
       census.add({ relativePath, extension, kind: await sniffFileKind(absolutePath) });
@@ -236,7 +232,7 @@ async function scanRoot(root: string, target: string, maxFiles: number, extensio
 }
 
 async function scanWorkspace(targetInput: string, maxFiles = 100_000, scannerVersion: string = SCANNER_VERSION): Promise<ScanResult> {
-  const extensions = resolveScannerVersion(scannerVersion);
+  const { extensions, projectFileNames } = resolveScannerBoundary(scannerVersion);
   const target = resolve(targetInput);
   const roots = await discoverRoots(target);
   const files: ScannedFile[] = [];
@@ -245,7 +241,7 @@ async function scanWorkspace(targetInput: string, maxFiles = 100_000, scannerVer
   for (const root of roots) {
     const remaining = Math.max(0, maxFiles - files.length);
     if (!remaining) { census.markTruncated(); break; }
-    files.push(...await scanRoot(root, target, remaining, extensions, census));
+    files.push(...await scanRoot(root, target, remaining, extensions, projectFileNames, census));
     ignoreRules.push({ root: normalizeRelativePath(relative(target, root)) || ".", entries: await ignoreRulesForRoot(root) });
   }
   const deduped = [...new Map(files.map((file) => [file.relativePath, file])).values()].sort((a, b) => a.relativePath.localeCompare(b.relativePath));

@@ -58,3 +58,12 @@
 - **图查询无 timeline 事件，per-query 过程叙事需 Core 改动（决策押后 · R3）**：`eval view` 的过程叙事逐条渲染 timeline 事件，但图查询在 timeline 中**没有事件**（metrics 仅报 `graphQueries`/`graphQueryCacheHits` 计数）。要给图查询做 per-query 过程叙事，需 Core 往 timeline 加图查询事件（动哈希链事件流），属 Core 改动，决策押后。view 现状：图查询只显示计数，并在渲染中注明"no per-query timeline events exist"。
 
 - **view 渲染健壮性备忘（非阻断，下增量收）**（fable 评审）：① `render-run-stats.ts` searches 段 `identity:` 行把 `sourceSearches + sourceSearchCacheHits` 之和标为 "timeline events"、未与实际 timeline 搜索事件数比对——退化/截断数据下措辞会显矛盾；改 "expected to equal" 或不等时记 anomaly。② `run-stats.ts computeGaps` 遇不可解析时间戳静默得 0 gap 且 prevAt 变 NaN 级联，不抛异常（前向兼容 OK）但应补 "unparseable timestamp" anomaly。③ header runId 回退读 raw[0] 而非排序后 events[0]（纯装饰）。
+
+## 批次 57B-362（SOUP Inventory · FR-4）产生
+
+- **lockfile 扩展名进 scanned-not-searchable 缺口（归 S0b 线，不顺手修）**：v3 让 `yarn.lock`/`poetry.lock`/`go.sum`/`packages.config` 按**文件名**进快照 manifest，但其扩展名 `.lock`/`.sum`/`.config` 不在 `TEXTUAL_EXTENSIONS`（与既有 `go.mod`→`.mod`、`Makefile` 同类先例一致）。SOUP 直接读文件不受影响；对**内容搜索**它们是 scanned-not-searchable。search-corpus 的 scanned-implies-searchable 不变量按扩展名迭代 `SOURCE_EXTENSIONS`，故不误报。是否把这几个扩展名纳入语料属 S0b 边界线的判断，本切片不动。
+- **Dockerfile 连字符命名未纳入边界（偏离方案，押后）**：SOUP 方案原列 `snapshot.ts` 特殊名正则 `Dockerfile(?:\.|$)` → `Dockerfile(?:[.\-]|$)` 以扫 `Dockerfile-prod` 类。该正则与 `PROJECT_FILE_NAMES` 同为**未版本化**的按名准入，直接放宽会破坏历史快照可重导出（audit 会误报 source snapshot changed），需与 v3 同样做版本化处理；且本切片边界增量清单只列 lockfile 名、golden 断言用普通 `Dockerfile` 即足。故**未改该正则**：`container-dockerfile` 解析器本身能匹配 `Dockerfile-<suffix>`，但快照当前不准入这些文件（普通 `Dockerfile`/`Dockerfile.*` 正常）。候选：在后续切片把整个按名准入（PROJECT_FILE_NAMES + 特殊名正则）统一纳入版本化边界后再放宽。
+- **`isExactVersion` 通配尾缀（复核 #1，已修）**：方案指定正则会把 `1.x`/`1.2.x` 判为 exact → 该组 no-exact-version gap 假阴性（对合规 SOUP 是核心不变量）。已加守卫 `if (/^v?\d+(\.\d+)*\.[xX*]$/.test(value)) return false;` 并补断言（`1.x`/`1.2.x`/`1.X` → 非 exact）；不影响 prerelease/.NET 四段/Go 伪版本。
+- **`--max-items` 非数字静默失效（复核 #2，押后）**：`Number("abc")=NaN` → cap 比较恒 false → 上限静默失效。与既有 CLI 数字 flag 处理同级、非本片引入；候选统一给 CLI 数字 flag 加 `Number.isFinite` 校验时一并修。
+- **自指 golden 依赖 cwd（复核 #3，押后）**：`tests/soup-golden.test.ts` 用 `resolve(".")` 定位仓库根，`npm test`（cwd=根）下成立；若日后改测试运行方式会静默扫错目录。候选改为基于 `import.meta` 定位。
+- **yarn.lock `resolved` URL 暴露面（复核附注，随收口 /code-review 确认）**：v3 让 lock 文件进快照 manifest；SOUP 证据只存 path+line 不存内容、lock 扩展名不进搜索语料，暴露已被结构缓解；但 `yarn.lock` 的 `resolved` URL 理论上可能含私有 registry 令牌，收口 /code-review 时顺带确认这条暴露面。

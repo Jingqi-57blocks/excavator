@@ -3,7 +3,8 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { Audience, BudgetConfig, ChecklistItem, FeatureRequest, InvestigationWorkItem, ReportRequest, SectionClaim, TraceRecord } from "./types.ts";
 import { addSourceEvidence, assembleRun, auditRun, beginDocument, checkpointSection, prepareRun, resumeRun, runStatus, scaffoldClaims, searchSourceEvidence, updateChecklist, updateTraces, updateWorkItems } from "./run.ts";
-import { stableJson } from "./util.ts";
+import { buildSoupInventory } from "./soup.ts";
+import { stableJson, writeJson } from "./util.ts";
 import { buildCodeGraph, codeGraphStatus } from "./codegraph-command.ts";
 import { deriveDefaultBudgets, plannedDocumentCount } from "./budgets.ts";
 import { DEFAULT_WORKDIR } from "./defaults.ts";
@@ -118,6 +119,13 @@ async function main(): Promise<void> {
         const result = await auditRun(required(args.run, "--run"), args.document ? { documentId: args.document } : {});
         print(result);
         if (result.findings.some((finding) => finding.level === "error")) process.exitCode = 1;
+        break;
+      }
+      case "soup": {
+        const args = parseArgs(argv);
+        const inventory = await buildSoupInventory(resolve(required(args.target, "--target")), args.maxItems ? { maxItemsPerEcosystem: Number(args.maxItems) } : {});
+        if (args.out) await writeJson(resolve(args.out), inventory);
+        print(inventory);
         break;
       }
       case "resume": print(await resumeRun(required(parseArgs(argv).run, "--run"))); break;
@@ -249,6 +257,7 @@ Commands:
   resume     List incomplete sections and resume a stopped run
   assemble   Join completed sections into Markdown reports
   audit      Validate snapshot, evidence, claims, checklist and report structure; --document <id> scopes to one document
+  soup       Inventory third-party components (manifests, lockfiles, containers) in the snapshot boundary
   status     Show progress and timing
 
 Examples:
@@ -449,6 +458,15 @@ const COMMAND_HELP: Record<string, CommandHelp> = {
       "--document <id>      Scope the audit to one document (advisory run-wide checks)"
     ],
     example: "excavator audit --run <run> --document <id>"
+  },
+  soup: {
+    synopsis: "soup --target <dir> [--out <file>] [--max-items <n>]",
+    flags: [
+      "--target <dir>       Source workspace to inventory (required)",
+      "--out <file>         Also write the inventory JSON to this file",
+      "--max-items <n>      Per-ecosystem component cap (default 5000)"
+    ],
+    example: "excavator soup --target ./workspace --out soup.json"
   },
   resume: {
     synopsis: "resume --run <dir>",
