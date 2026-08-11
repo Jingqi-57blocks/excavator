@@ -74,6 +74,13 @@ e2e 结论：freeze 机制在真实产物上正确（freeze 门抓出真缺口�
 
 - **`begin` 不为"已开始未完成"文档重置计时器（预存行为，非 57B-359 引入）**：`beginDocument`（`src/run.ts:205`）仅在 `!startedAt || completedAt` 时重置 `startedAt`；对已 `begin` 过、`startedAt` 已置且未 complete 的文档再次 `begin` 不重新计时，唯一重置窗口的是 `resume`（`src/run.ts:701`）。而 `begin` 的 help 文案写"Start or restart one document authoring timer"，语义误导。候选：要么让 `begin` 对未完成文档重新计时，要么订正 help 文案指向 `resume`。低优先，独立于本 issue。
 - **`eval` forbidden pin 对结构性分离的诚实否定 FP（已在修，Fable 规划中）**：见正在进行的 eval-harness 修复（57B-358 血脉，独立分支）。真实表格否定（"未发现任何通知发送代码"行的关键字单元格被抽成裸 claim）触发 `no-notification-send` 假阳。**此项不押后——是 3+3 测量前置**，故单独走方案而非仅记账。（备注：e2e 测试请求的 `authorMs=120000` 太小导致每次 checkpoint 抛 timeout，但 section 在抛前已落盘、零丢失——属我测试请求的预算设置，非产品问题，无需处理。）
+## 批次 57B-364（报告呈现打磨）评审产生（fable 复核 #2/#3，2026-08-11）
+
+判定"返工"（advisory 缺测试，已补齐同批），核心逻辑经 Fable 逐号核实无误。三条 advisory 残差（warning-only，不阻合）：
+
+- **`auditEvidenceMarkerPlacement` 假阴性：带 bullet 前缀的引导语逃检（nit）**：`EVIDENCE_LEVEL_LEAD_IN`（`src/assurance.ts:509`）锚定行首，未剥列表前缀，故 `- 证据级别: \`fact\`` 形态（引导语前带 `- `）不触发 warning。warning-only、影响小；后续如需可在检测前剥 `^\s*[-*+]\s+`。
+- **advisory 的 `EVIDENCE_MARKER_WORD` 口径比 `markersIn` 宽（nit）**：`src/assurance.ts:510` 无反引号的裸"事实"独行也触发 warning，而硬路径 `markersIn` 要求 CJK 必须带反引号。退化场景、warning-only、不影响硬路径判定。
+- **attribution 常量不做版本门控（planner 已自标注，fail-open）**：重审旧 product-feature run 时，问题章序号从旧 §10 变新 §11，旧 §10 的问题内容逃过 `auditTargetProblemAttribution` 检查——方向是**漏检非误报**（fail-open，不产生假 error），且旧完结 run 极少重审。做 per-version 序号映射属过度工程，不做。
 
 ## 批次 57B-363（eval forbidden searched-not-found 豁免）评审产生（fable，2026-08-10）
 

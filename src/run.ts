@@ -7,13 +7,14 @@ import { buildContexts, featureCacheKey } from "./context.ts";
 import { FACT_PACK_CATEGORIES, factPackEvidenceId } from "./factpack.ts";
 import { SourceReader, evidenceFromWindow, sourceSearch, type SourceSearchStats } from "./source.ts";
 import { createSnapshot } from "./snapshot.ts";
-import { ASSURANCE_VERSION, auditChecklist, auditDetailedFeatureSection, auditEvidenceCatalog, auditReadabilityTables, auditSectionClaims, auditSectionEvidenceMarkers, auditTargetProblemAttribution, auditTraces, auditWorkItemClaimCoverage, auditWorkItems, checklistUpdatesToWorkItems, createInvestigationChecklist, createInvestigationPlan, hasEvidenceMarkers, mergeChecklist, mergeWorkItems, runUsesCurrentAssurance, type AuditFinding, validateClaimsInput, workItemsToChecklist } from "./assurance.ts";
+import { ASSURANCE_VERSION, auditChecklist, auditDetailedFeatureSection, auditEvidenceCatalog, auditEvidenceMarkerPlacement, auditReadabilityTables, auditSectionClaims, auditSectionEvidenceMarkers, auditTargetProblemAttribution, auditTraces, auditWorkItemClaimCoverage, auditWorkItems, checklistUpdatesToWorkItems, createInvestigationChecklist, createInvestigationPlan, hasEvidenceMarkers, mergeChecklist, mergeWorkItems, runUsesCurrentAssurance, type AuditFinding, validateClaimsInput, workItemsToChecklist } from "./assurance.ts";
 import { auditComparativeClaims } from "./claim-comparison.ts";
 import { auditFrozenKnowledge, buildKnowledge, freezePreconditions, knowledgeDigest, normalizeSupplement, recordSupplement } from "./freeze.ts";
 import { atomicWrite, ensureDir, exists, nowIso, readJson, REDACTION_VERSION, runIdTimestamp, sha256, slugify, stableJson, writeJson } from "./util.ts";
 import { collectClaims, createAnalysisScope, emptyTraceCatalog, mergeTraces, writeReportCompanions } from "./assurance-artifacts.ts";
 import { scaffoldSectionClaims } from "./claims-scaffold.ts";
 import { appendTimeline, auditTimeline, readTimeline } from "./timeline.ts";
+import { runScopeSlug } from "./run-label.ts";
 
 export const SOURCE_SEARCH_VERSION = `source-search-v4-ranking-v1-${REDACTION_VERSION}`;
 
@@ -47,7 +48,7 @@ export async function prepareRun(request: ReportRequest): Promise<{ runDir: stri
   const effectiveRequest: ReportRequest = { ...request, detailLevel: request.detailLevel ?? "detailed", codegraph: result.stats.codegraphPath, codegraphModules: result.stats.codegraphModulePaths };
   const timestamp = runIdTimestamp();
   const requestDigest = sha256(stableJson({ overview: request.overviewAudiences, features: request.features, language: request.language, detailLevel: effectiveRequest.detailLevel })).slice(0, 8);
-  const runId = `run-${timestamp}-${result.prepared.snapshot.id.slice(0, 8)}-${requestDigest}-${randomUUID().slice(0, 8)}`;
+  const runId = `run-${timestamp}-${runScopeSlug(request)}-${result.prepared.snapshot.id.slice(0, 8)}-${requestDigest}-${randomUUID().slice(0, 8)}`;
   const runDir = join(result.projectDir, "runs", runId);
   await ensureDir(runDir);
   await ensureDir(join(runDir, "context"));
@@ -579,6 +580,7 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
       findings.push(...auditDetailedFeatureSection({ document, detailLevel: manifest.request.detailLevel, sectionIndex: section.index, sectionText, claimsFile, factEvidence: featureFactEvidence }));
       findings.push(...auditTargetProblemAttribution({ document, sectionIndex: section.index, sectionText }));
       findings.push(...auditReadabilityTables({ document, sectionIndex: section.index, sectionText }));
+      findings.push(...auditEvidenceMarkerPlacement({ document, sectionIndex: section.index, sectionText }));
       if (/事实|推断|验证|fact|inferred|verified/i.test(sectionText) && !/<details>/i.test(sectionText)) {
         findings.push({ level: "error", document: document.id, message: `section ${section.index} contains supported claims but has no evidence block` });
       }

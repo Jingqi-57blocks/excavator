@@ -437,9 +437,12 @@ export function auditTargetProblemAttribution(options: {
   sectionText: string;
 }): AuditFinding[] {
   const { document, sectionIndex, sectionText } = options;
+  // Feature reports now carry a standalone "Current problems found" chapter at §11 for both audiences
+  // (product problems split out of the old §10 connected-scope chapter; engineering was already §11).
+  // Overviews keep their problem chapter in place: product §9, engineering §11.
   const problemSection = document.kind === "overview"
     ? (document.audience === "product" ? 9 : 11)
-    : (document.audience === "product" ? 10 : 11);
+    : 11;
   if (sectionIndex !== problemSection) return [];
   const visible = visibleText(sectionText);
   const findings: AuditFinding[] = [];
@@ -478,9 +481,11 @@ const READABILITY_TABLE_SECTIONS: Record<string, Set<number>> = {
   // §6 call structure (graph), §12 coverage.
   "overview:engineering": new Set([2, 3, 5, 7, 8, 9, 10, 11]),
   // product-feature.md §3 rules, §5 role-by-action, §6 data/fields, §7 side effects,
-  // §8 failure modes, §9 config/switches, §11 glossary. Omitted: §1 boundary, §2 journey (flow),
-  // §4 states (Mermaid state diagram is mandated there), §10 problems+connected, §12 coverage.
-  "feature:product": new Set([3, 5, 6, 7, 8, 9, 11])
+  // §8 failure modes, §9 config/switches, §13 glossary (glossary moved from §11 after the problem
+  // chapter split). Omitted: §1 boundary, §2 journey (flow), §4 states (Mermaid state diagram is
+  // mandated there), §10 connected scope, §11 current problems (table-or-list, like product-overview
+  // §9), §12 coverage.
+  "feature:product": new Set([3, 5, 6, 7, 8, 9, 13])
   // "feature:engineering" is intentionally absent: it stays on the hard `auditDetailedFeatureSection` path.
 };
 
@@ -499,6 +504,48 @@ export function auditReadabilityTables(options: {
   // table living only inside a collapsed evidence block does not count as a tabular reading flow.
   if (/^\s*\|.+\|\s*$/m.test(visibleText(sectionText))) return [];
   return [warning(document.id, `section ${sectionIndex} is an inventory/comparison chapter with no Markdown table; consider presenting the items as a table (advisory)`)];
+}
+
+const EVIDENCE_LEVEL_LEAD_IN = /^\**\s*(?:Evidence level|证据级别)\s*\**\s*[:：]/i;
+const EVIDENCE_MARKER_WORD = /`?(?:事实|验证|推断|不可得)`?|`?\b(?:fact|verified|inferred|unavailable)\b`?/gi;
+
+/**
+ * Advisory marker-placement nudge (warning-only; NOT version-gated; NOT on the hard path). It does NOT
+ * touch the `markersIn`/`visibleText` evidence-level accounting — it only reads the visible reading
+ * flow to catch a marker that has drifted off the statement it should qualify.
+ *
+ * The writing rules require a marker to ride at the end of the statement it qualifies, or to sit in the
+ * qualified table cell / a dedicated level column — never as its own line and never behind an
+ * "Evidence level:" lead-in. A marker stranded on its own line reads as a floating label. When a
+ * visible line's only semantic content is a marker (or such a lead-in), this emits one `warning` for
+ * the section. It never emits an `error` and never gates on ASSURANCE_VERSION, so it can never fail a
+ * run or retroactively fail an older one.
+ */
+export function auditEvidenceMarkerPlacement(options: {
+  document: DocumentPlan;
+  sectionIndex: number;
+  sectionText: string;
+}): AuditFinding[] {
+  const { document, sectionIndex, sectionText } = options;
+  for (const line of visibleText(sectionText).split(/\r?\n/)) {
+    if (isStandaloneMarkerLine(line)) {
+      return [warning(document.id, `section ${sectionIndex} places an evidence marker on its own line or behind an "Evidence level:" lead-in; attach the marker at the end of the statement it qualifies or in the qualified table cell (advisory)`)];
+    }
+  }
+  return [];
+}
+
+/** A visible line whose only semantic content is an evidence marker or an "Evidence level:" lead-in. */
+function isStandaloneMarkerLine(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed) return false;
+  const withoutLeadIn = trimmed.replace(EVIDENCE_LEVEL_LEAD_IN, " ");
+  const hadLeadIn = withoutLeadIn !== trimmed;
+  const withoutMarkers = withoutLeadIn.replace(EVIDENCE_MARKER_WORD, " ");
+  const hadMarker = withoutMarkers !== withoutLeadIn;
+  if (!hadLeadIn && !hadMarker) return false;
+  const semantic = (normalizeText(withoutMarkers).match(/[\p{Letter}\p{Number}]/gu) ?? []).length;
+  return semantic === 0;
 }
 
 export function auditDetailedFeatureSection(options: {

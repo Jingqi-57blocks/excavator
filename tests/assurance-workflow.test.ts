@@ -231,11 +231,31 @@ test("target problem sections reject analyser limitations", () => {
   };
   const findings = auditTargetProblemAttribution({
     document,
-    sectionIndex: 10,
-    sectionText: "## Current problems\n\nCodeGraph routes cannot prove the complete handler path."
+    sectionIndex: 11,
+    sectionText: "## Current problems found\n\nCodeGraph routes cannot prove the complete handler path."
   });
   assert.equal(findings.length, 1);
   assert.match(findings[0].message, /analysis-method information/i);
+});
+
+test("a product feature's connected-scope chapter (section 10) is not the problem chapter", () => {
+  // 57B-364 #3: product-feature problems moved from §10 (now connected scope) to their own §11.
+  const document = {
+    id: "leave-product",
+    kind: "feature" as const,
+    audience: "product" as const,
+    subject: "Leave",
+    templatePath: "template.md",
+    contextPath: "context.md",
+    sections: []
+  };
+  // The old problem section index (10) now describes connected scope, so analysis-method wording there
+  // is out of the attribution check's scope; the check only guards the section-11 problem chapter.
+  assert.deepEqual(auditTargetProblemAttribution({
+    document,
+    sectionIndex: 10,
+    sectionText: "## Connected capabilities and scope\n\nCodeGraph routes reach the billing capability."
+  }), []);
 });
 
 test("target problem sections allow target-attributable contradictions", () => {

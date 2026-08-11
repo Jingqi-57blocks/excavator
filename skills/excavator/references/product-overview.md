@@ -11,7 +11,7 @@ order: 10
 
 Audience: product managers, business owners, operations leads, and project managers. Explain what the current project is, who uses it, which business capabilities it contains, how those capabilities relate, and which current facts or problems are visible in the reviewed snapshot. Keep implementation details out of the reading flow and do not provide recommendations.
 
-Present inventory, enumeration, and comparison content — capability lists, system parts, roles, business objects and their states, dependencies, and back-office capabilities — as Markdown tables, and present parallel or enumerated items as Markdown lists, rather than as prose paragraphs. Tables are preferred for inventories and comparisons; use tables and Mermaid diagrams wherever they improve comprehension.
+Present inventory, enumeration, and comparison content — capability lists, system parts, roles, business objects and their states, dependencies, and back-office capabilities — as Markdown tables, and present parallel or enumerated items as Markdown lists, rather than as prose paragraphs. Tables are preferred for inventories and comparisons; use tables and Mermaid diagrams wherever they improve comprehension. Attach each evidence-level marker inline at the end of the statement it qualifies, or place it in the qualified table cell or a dedicated level column; do not leave a marker on its own line or behind an "Evidence level:" lead-in.
 
 ## 1. Project purpose and boundary
 
@@ -47,9 +47,9 @@ Name external products, their purpose, the capabilities that depend on them, the
 
 Explain administration, approvals, finance, bulk operations, import and export, manual compensation, reporting, scheduled work, and audit records. Include hard limits that have direct business meaning. Present the back-office capabilities as a Markdown table or a Markdown list rather than a prose paragraph, and note each item's hard limits alongside it.
 
-## 9. Risks and current state
+## 9. Current problems found
 
-Include only target-attributable contradictions, reachable permission problems, shared writes, rule differences, explicitly unfinished target code, target documentation conflicts, and target entry points with no caller found after a complete recorded search. Each item states its target evidence, what the current target code permits, priority, and confidence. Do not include remediation. Present the items as a Markdown table or a Markdown list (item, target evidence, what current code permits, priority, confidence).
+List only problems found in the reviewed snapshot; general state narrative belongs to sections 1–8. Include only target-attributable contradictions, reachable permission problems, shared writes, rule differences, explicitly unfinished target code, target documentation conflicts, and target entry points with no caller found after a complete recorded search. Each item states its target evidence, what the current target code permits, priority, and confidence. Do not include remediation. Present the items as a Markdown table or a Markdown list (item, target evidence, what current code permits, priority, confidence).
 
 Do not include CodeGraph or Excavator limitations, unresolved graph references, source fallback, provider coverage, analysis budgets, static-review limitations or analysis performance. Those belong only in section 10 or in an Excavator validation report.
 
