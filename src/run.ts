@@ -12,6 +12,7 @@ import { ASSURANCE_VERSION, auditChecklist, auditDetailedFeatureSection, auditEv
 import { auditComparativeClaims } from "./claim-comparison.ts";
 import { auditFreezeOrder, auditFrozenKnowledge, buildKnowledge, freezePreconditions, knowledgeDigest, normalizeSupplement, recordSupplement } from "./freeze.ts";
 import { atomicWrite, ensureDir, exists, nowIso, readJson, REDACTION_VERSION, runIdTimestamp, sha256, slugify, stableJson, writeJson } from "./util.ts";
+import { logicWorkItems } from "./logic-workitems.ts";
 import { collectClaims, createAnalysisScope, emptyTraceCatalog, mergeTraces, writeReportCompanions } from "./assurance-artifacts.ts";
 import { scaffoldSectionClaims } from "./claims-scaffold.ts";
 import { sectionFileStem } from "./section-slug.ts";
@@ -43,6 +44,21 @@ function factPackEvidenceForDocument(document: DocumentPlan, manifest: RunManife
   return FACT_PACK_CATEGORIES
     .map((category) => evidenceById.get(factPackEvidenceId(key, category, manifest.snapshot!.id)))
     .filter((item): item is EvidenceItem => Boolean(item));
+}
+
+/**
+ * Read a frozen run's feature fact packs from disk, keyed by feature cache key. This is the single on-disk
+ * source the freeze and audit expected sets derive their logic work items from, so both see identical facts.
+ * A feature whose pack file is absent (older run, prepare failure) contributes nothing.
+ */
+async function readFrozenFactPacks(runDir: string, manifest: RunManifest): Promise<Record<string, FeatureFactPack>> {
+  const factPacks: Record<string, FeatureFactPack> = {};
+  for (const feature of manifest.request.features) {
+    const key = featureCacheKey(feature);
+    const packPath = join(runDir, "context", "features", `${key}.factpack.json`);
+    if (await exists(packPath)) factPacks[key] = await readJson<FeatureFactPack>(packPath);
+  }
+  return factPacks;
 }
 
 export async function prepareRun(request: ReportRequest): Promise<{ runDir: string; manifest: RunManifest }> {
@@ -87,6 +103,12 @@ export async function prepareRun(request: ReportRequest): Promise<{ runDir: stri
   const providerRegistry = result.stats.providerRegistry;
   const analysisScope = createAnalysisScope({ runId, request: effectiveRequest, snapshot: result.prepared.snapshot, documents, providerRegistry });
   const plan = createInvestigationPlan(runId, effectiveRequest, documents);
+  // Promote every rescued logic function into a DISPOSABLE work item (the forcing function): a freshly
+  // prepared run is always at the current assurance version, so these are added unconditionally here — the
+  // freeze/audit expected sets re-derive them from the on-disk fact pack (version-gated) so the three agree.
+  const logic = logicWorkItems([...result.prepared.featureFactPacks.values()], documents);
+  plan.items.push(...logic.items);
+  result.stats.warnings.push(...logic.warnings);
   const traces = emptyTraceCatalog(runId);
   const evidence: EvidenceItem[] = [
     ...result.prepared.evidence,
@@ -274,7 +296,10 @@ export async function freezeRun(runDirInput: string): Promise<{ manifest: RunMan
   const evidenceById = new Map(evidenceCatalog.evidence.map((item) => [item.id, item]));
   const plan = await readJson<InvestigationPlan>(join(runDir, "workitems.json"));
   const traces = await readJson<TraceCatalog>(join(runDir, "traces.json"));
+  // Read the frozen fact packs once — the expected-plan logic items and knowledge digest both derive from them.
+  const factPacks = await readFrozenFactPacks(runDir, manifest);
   const expectedPlan = createInvestigationPlan(manifest.id, manifest.request, manifest.documents);
+  if (runUsesCurrentAssurance(manifest)) expectedPlan.items.push(...logicWorkItems(Object.values(factPacks), manifest.documents).items);
   const documentIds = new Set(manifest.documents.map((document) => document.id));
   let snapshotDrift: { snapshotChanged: boolean; codegraphChanged: boolean } | null = null;
   if (manifest.snapshot) {
@@ -284,12 +309,6 @@ export async function freezeRun(runDirInput: string): Promise<{ manifest: RunMan
   const findings = await freezePreconditions({ manifest, plan, expectedPlan, evidence: evidenceCatalog.evidence, evidenceById, traces, documentIds, snapshotDrift });
   if (findings.some((finding) => finding.level === "error")) return { manifest, findings, frozen: false };
 
-  const factPacks: Record<string, unknown> = {};
-  for (const feature of manifest.request.features) {
-    const key = featureCacheKey(feature);
-    const packPath = join(runDir, "context", "features", `${key}.factpack.json`);
-    if (await exists(packPath)) factPacks[key] = await readJson<unknown>(packPath);
-  }
   const crossFeaturePath = join(runDir, "context", "cross-feature.json");
   const crossFeature = await exists(crossFeaturePath) ? await readJson<unknown>(crossFeaturePath) : null;
   const frozenAt = nowIso();
@@ -300,7 +319,7 @@ export async function freezeRun(runDirInput: string): Promise<{ manifest: RunMan
   // not a ledger, so it is written after knowledge.json but before the manifest is stamped frozen.
   let authoringPackets = 0;
   for (const document of manifest.documents) {
-    const markdown = buildAuthoringPacket(document, plan, evidenceById, traces, factPacks as Record<string, FeatureFactPack>);
+    const markdown = buildAuthoringPacket(document, plan, evidenceById, traces, factPacks);
     await atomicWrite(join(runDir, "context", "authoring", `${document.id}.md`), markdown);
     authoringPackets += 1;
   }
@@ -616,7 +635,13 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
   }
 
   findings.push(...auditTraces(traces, new Set(manifest.documents.map((document) => document.id)), evidenceIds, new Set(allClaims.keys())));
+  // The forced logic-disposition work items derive from the on-disk fact packs, version-gated exactly like
+  // prepare/freeze. The plan, its checklist mirror and this audit all expand from this one list, so the three
+  // expected sets never disagree (a diverging set would false-flag `unexpected non-open` or `required missing`).
+  const factPacks = await readFrozenFactPacks(runDir, manifest);
+  const expectedLogicItems = runUsesCurrentAssurance(manifest) ? logicWorkItems(Object.values(factPacks), manifest.documents).items : [];
   const expectedPlan = createInvestigationPlan(manifest.id, manifest.request, manifest.documents);
+  expectedPlan.items.push(...expectedLogicItems);
   findings.push(...runWide(auditWorkItems(plan, expectedPlan, evidenceById, traceIds)));
   // Claim-attribution defects run over every scoped document (they are always errors and detectable
   // per document); completeness is certified only for documents whose sections are all checkpointed,
@@ -637,6 +662,9 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
   for (const message of await auditTimeline(runDir, manifest.id)) findings.push({ level: "error", document: "timeline", message });
 
   const expectedChecklist = createInvestigationChecklist(manifest.id, manifest.request);
+  // The checklist mirror carries the same forced logic items (checklist.json is projected from the plan), so
+  // its expected set must expand identically or auditChecklist would report them as unexpected/missing.
+  expectedChecklist.items.push(...workItemsToChecklist({ version: 1, runId: manifest.id, createdAt: nowIso(), items: expectedLogicItems }).items);
   if (!await exists(join(runDir, "checklist.json"))) findings.push({ level: "error", document: "checklist", message: "checklist.json is missing" });
   else {
     const checklist = await readJson<InvestigationChecklist>(join(runDir, "checklist.json"));
@@ -836,7 +864,7 @@ function factPackInstructions(document: DocumentPlan, detailLevel: "standard" | 
   if (document.kind !== "feature" || detailLevel !== "detailed") return "";
   const key = document.id.replace(/^feature-/, "").replace(new RegExp(`-${document.audience}$`), "");
   return `
-The feature scope file carries a \`## Fact pack\` section, and the same enumeration is machine-readable in \`context/features/${key}.factpack.json\`: the categories \`entrypoints\`, \`entities\`, \`states\`, \`config-keys\`, \`jobs\`, \`external-calls\` and \`logic\` (the business and decision functions inside the boundary that the structural categories do not already name). The enumerating chapters — entry points, rules and states, data, configuration and integrations — must cover every fact pack item of the matching category: each item either appears in that chapter, or is folded into an explicitly counted group such as "N further items of kind X". Cite the category's \`FACT-*\` evidence id in the chapter that covers it. The \`logic\` items belong to the flow, decision and authorization chapters; a logic item carrying a \`signal\` (rescued into the boundary by structural analysis) must be dispositioned individually — named and placed where its behavior belongs — never folded into an aggregate count. When source reading contradicts a fact pack item, say so explicitly and state which reading the source supports; a fact pack category marked truncated must be reported as incomplete rather than presented as a full inventory. Silently omitting an item is a defect.
+The feature scope file carries a \`## Fact pack\` section, and the same enumeration is machine-readable in \`context/features/${key}.factpack.json\`: the categories \`entrypoints\`, \`entities\`, \`states\`, \`config-keys\`, \`jobs\`, \`external-calls\` and \`logic\` (the business and decision functions inside the boundary that the structural categories do not already name). The enumerating chapters — entry points, rules and states, data, configuration and integrations — must cover every fact pack item of the matching category: each item either appears in that chapter, or is folded into an explicitly counted group such as "N further items of kind X". Cite the category's \`FACT-*\` evidence id in the chapter that covers it. The \`logic\` items belong to the flow, decision and authorization chapters; a logic item carrying a \`signal\` (rescued into the boundary by structural analysis) must be dispositioned individually — named and placed where its behavior belongs — never folded into an aggregate count. Each rescued \`logic\` function is also a \`logic-disposition\` work item in \`workitems.json\` (id \`feature:<key>:logic:<name>@<path>:<line>\`, no pinned section): dispose it before freeze, then satisfy it with at least one visible claim that DESCRIBES THE BUSINESS BEHAVIOR and cites the deciding source window, listing the work-item id in the claim's \`workItemIds\`. The prose need not repeat the symbol name — identifiers stay in the collapsed evidence block or coverage chapter, and covering the behavior counts because the ledger binds through the cited evidence, not the name. A genuinely boundary-noise item is disposed \`not-applicable\` with a reason; one claim may batch-dispose several such n/a items by listing them all in \`workItemIds\`. When source reading contradicts a fact pack item, say so explicitly and state which reading the source supports; a fact pack category marked truncated must be reported as incomplete rather than presented as a full inventory. Silently omitting an item is a defect.
 `;
 }
 

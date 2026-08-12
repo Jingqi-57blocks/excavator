@@ -95,6 +95,19 @@ test("feature packets block by reportSection with template titles; empty section
   assert.ok(!markdown.includes("Rules"), "the empty Rules section is omitted, title and all");
 });
 
+test("reportSection-less logic-disposition items surface in a trailing block instead of vanishing", () => {
+  const document = featureDoc([[2, "Entry points"], [3, "Rules"]]);
+  const workItems = plan([
+    wi({ id: "feature:abc:ui-entrypoints", dimension: "ui-entrypoints", reportSection: 2, evidenceIds: ["S-2"] }),
+    wi({ id: "feature:abc:logic:CalculationAuto@svc/service.go:415", dimension: "logic-disposition", reportSection: undefined, status: "pending", evidenceIds: [] })
+  ]);
+  const blocks = packetEvidenceForDocument(document, workItems);
+  assert.deepEqual(blocks.map((block) => block.key), ["section 2", "logic-disposition"], "the unpinned logic item forms a trailing block, section 3 (empty) is omitted");
+  const markdown = buildAuthoringPacket(document, workItems, evidenceMap([sourceEvidence("S-2", "a")]), NO_TRACES, {});
+  assert.ok(markdown.includes("## Logic disposition — rescued decision functions (place each where its behavior belongs)"));
+  assert.ok(markdown.includes("`feature:abc:logic:CalculationAuto@svc/service.go:415`"), "the forced logic item is listed for the author");
+});
+
 test("overview packets list project work items in one single-level block, no per-section split", () => {
   const document = overviewDoc();
   const workItems = plan([
