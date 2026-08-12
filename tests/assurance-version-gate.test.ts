@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
 import { mkdir, writeFile } from "node:fs/promises";
-import { ASSURANCE_VERSION, auditEvidenceCatalog } from "../src/assurance.ts";
+import { ASSURANCE_VERSION, assuranceGeneration, assuranceGenerationAtLeast, auditEvidenceCatalog } from "../src/assurance.ts";
+import { LOGIC_DISPOSITION_ASSURANCE_GENERATION } from "../src/logic-workitems.ts";
 import { sha256 } from "../src/util.ts";
 import type { EvidenceItem, RunManifest } from "../src/types.ts";
 import { tempDir } from "./helpers.ts";
@@ -67,4 +68,29 @@ test("a run with no assuranceVersion field audits without crashing", async () =>
   const stored = "export const answer = 7;"; // internally consistent
   const findings = await auditEvidenceCatalog(manifest(target, undefined), [sourceEvidence(stored, sha256(stored))]);
   assert.deepEqual(findings, [], "a field-less run is grandfathered and, when internally consistent, produces no findings");
+});
+
+// --- generative-expansion gate (57B-375 rework): the assurance GENERATION, decoupled from the redaction
+// suffix, so a later assurance/redaction bump never stops re-deriving items already baked into a run. ---
+
+function versioned(assuranceVersion: string | undefined): RunManifest {
+  return { assuranceVersion } as unknown as RunManifest;
+}
+
+test("assuranceGeneration parses the integer generation and treats missing/malformed as 0", () => {
+  assert.equal(assuranceGeneration(versioned("assurance-v4-redaction-v4")), 4);
+  assert.equal(assuranceGeneration(versioned("assurance-v3-redaction-v4")), 3);
+  assert.equal(assuranceGeneration(versioned("assurance-v12-redaction-v9")), 12);
+  assert.equal(assuranceGeneration(versioned(undefined)), 0);
+  assert.equal(assuranceGeneration(versioned("garbage")), 0);
+});
+
+test("assuranceGenerationAtLeast(4) gates logic-disposition expansion without hinging on the redaction suffix", () => {
+  const n = LOGIC_DISPOSITION_ASSURANCE_GENERATION; // 4
+  assert.equal(assuranceGenerationAtLeast(versioned("assurance-v3-redaction-v4"), n), false, "a pre-v4 run does not expand");
+  assert.equal(assuranceGenerationAtLeast(versioned("assurance-v4-redaction-v4"), n), true, "the introducing generation expands");
+  assert.equal(assuranceGenerationAtLeast(versioned("assurance-v5-redaction-v4"), n), true, "a later assurance bump still expands");
+  assert.equal(assuranceGenerationAtLeast(versioned("assurance-v4-redaction-v99"), n), true, "a later redaction bump on v4 still expands (no forward false-fail)");
+  assert.equal(assuranceGenerationAtLeast(versioned(undefined), n), false, "a field-less run is grandfathered (no expansion)");
+  assert.equal(assuranceGenerationAtLeast(versioned("assurance-v4-redaction-v4"), n), assuranceGenerationAtLeast({ assuranceVersion: ASSURANCE_VERSION } as unknown as RunManifest, n), "the current version is generation 4");
 });

@@ -309,6 +309,25 @@ export async function buildFactPack(input: FactPackInput): Promise<FeatureFactPa
     });
   }
 
+  // A rescued feature-graph node whose exact location a structural category already claimed is excluded
+  // from the `logic` complement, so its rescue reason would be lost. Propagate the reason onto the claiming
+  // structural item's `signal` so the rescue still reaches the author (57B-372 follow-up #3). Logic items
+  // already carry their own signal; only unsignaled structural items are annotated.
+  if (input.featureGraph?.nodes.length) {
+    const rescuedByLocation = new Map<string, string>();
+    for (const node of input.featureGraph.nodes) {
+      const rescued = typeof node.rescued === "string" && (node.rescued as string).length ? clip(collapse(String(node.rescued)), DETAIL_LIMIT) : undefined;
+      if (rescued) rescuedByLocation.set(logicClaimKey(node.filePath, node.startLine), rescued);
+    }
+    if (rescuedByLocation.size) {
+      for (const item of items) {
+        if (item.category === "logic" || item.signal) continue;
+        const reason = rescuedByLocation.get(logicClaimKey(item.filePath, item.line));
+        if (reason) item.signal = reason;
+      }
+    }
+  }
+
   return {
     version: "factpack-v1",
     snapshotId: input.snapshotId,

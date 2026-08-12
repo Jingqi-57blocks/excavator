@@ -26,20 +26,42 @@ export interface AuditFinding {
 
 /**
  * Version of the strict-assurance contract a run is audited against. It combines a strict-check
- * generation (`v3`) with the redaction marker, so it changes whenever redaction changes or a future
+ * generation (`v4`) with the redaction marker, so it changes whenever redaction changes or a future
  * batch tightens the strict checks — bump the `v<n>` prefix when adding new strict checks. `v2` added
  * the substantive-section evidence-marker check (C3) on top of `v1`'s source re-derivation gate; `v3`
  * makes freeze a hard precondition of authoring (`begin` refuses an unfrozen run, and audit fails a run
- * that was authored without — or before — an `investigation.frozen` event).
+ * that was authored without — or before — an `investigation.frozen` event); `v4` promotes each rescued
+ * `logic` fact-pack function into a disposable work item (the plan, freeze expected-plan and audit
+ * expected-plan/checklist all expand from that one derivation), so an undisposed material decision
+ * function blocks freeze and audit.
  * A run stamps this at prepare (`manifest.assuranceVersion`); audit uses it to gate those strict
  * checks: only runs prepared under the current version are held to them, while older or field-less
  * runs are grandfathered so a later redaction/check bump never retroactively fails them.
  */
-export const ASSURANCE_VERSION = `assurance-v3-${REDACTION_VERSION}`;
+export const ASSURANCE_VERSION = `assurance-v4-${REDACTION_VERSION}`;
 
 /** Strict re-derivation checks apply only to runs prepared under exactly the current version. */
 export function runUsesCurrentAssurance(manifest: RunManifest): boolean {
   return manifest.assuranceVersion === ASSURANCE_VERSION;
+}
+
+/**
+ * The assurance GENERATION a run was prepared under — the integer `n` in `assurance-v<n>-...`, decoupled
+ * from the redaction suffix. A missing or malformed `assuranceVersion` is generation 0. This is the gate
+ * for GENERATIVE expansion of the expected set (adding the run's own baked default items back): it must not
+ * hinge on exact-version equality, or a later assurance OR redaction bump would stop re-deriving items that
+ * are already baked into a run's `workitems.json`, false-failing every run prepared under this generation.
+ * (The strict IDENTITY re-derivation checks keep using `runUsesCurrentAssurance` — those legitimately need
+ * exact equality.)
+ */
+export function assuranceGeneration(manifest: RunManifest): number {
+  const match = /^assurance-v(\d+)/.exec(manifest.assuranceVersion ?? "");
+  return match ? Number(match[1]) : 0;
+}
+
+/** Whether a run was prepared under assurance generation `n` or later (redaction-suffix independent). */
+export function assuranceGenerationAtLeast(manifest: RunManifest, n: number): boolean {
+  return assuranceGeneration(manifest) >= n;
 }
 
 const PROJECT_HYPOTHESES: Array<[string, string]> = [

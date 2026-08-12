@@ -105,6 +105,11 @@ export function packetEvidenceForDocument(document: DocumentPlan, plan: Investig
       if (!items.length) continue;
       blocks.push({ key: `section ${section.index}`, section: section.index, heading: `Section ${section.index} — ${section.title}`, workItems: items, evidenceIds: unionEvidenceIds(items) });
     }
+    // Work items with no pinned report section (the forced logic-disposition items, and any open item that
+    // never received one) would vanish from a section-keyed packet. Surface them in one trailing block so the
+    // author cannot miss a rescued decision function; the author places each where its behavior belongs.
+    const unassigned = orderWorkItems(relevant.filter((item) => item.reportSection === undefined));
+    if (unassigned.length) blocks.push({ key: "logic-disposition", heading: "Logic disposition — rescued decision functions (place each where its behavior belongs)", workItems: unassigned, evidenceIds: unionEvidenceIds(unassigned) });
     return blocks;
   }
   const items = orderWorkItems(relevant);

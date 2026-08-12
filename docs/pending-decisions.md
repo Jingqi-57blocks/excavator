@@ -140,3 +140,16 @@ e2e 结论：freeze 机制在真实产物上正确（freeze 门抓出真缺口�
 - **expand edge LIMIT 截断时 kind 字母序隐性优先级**：截断恰落在同(kind,source,target)多行时行序依赖 sqlite 内部序（同 db 双跑字节一致已覆盖）；异构 sqlite 构建下留意。
 - **巨仓残差**：hop-1 圈 > 6×maxNodes 时仍会 expand 饥饿（优雅降级、不劣于现状）。
 - 理论角落：cap<quota（≤8 极端配置）stage1 空席、seeds 可能被救援顶掉——默认 220/demo 250 不可达，纯理论。
+
+## 批次 57B-375（救援 logic → logic-disposition work item）评审产生（fable 复核，2026-08-12）
+
+判定"返工"（两处小 must-fix 已修，余通过）。本切片修复项与后续待办：
+
+- **57B-372 漏 bump BUILDER_VERSION（既存缺陷，本切片 Fix 2 修复）**：57B-372 加 `logic` 类目时未 bump `BUILDER_VERSION`（`src/context.ts:15`），feature 缓存键 `${BUILDER_VERSION}-${key}.json` 命中即直接返回旧 fact pack。同 target 复跑（wcp-leave 常规流）命中缓存 → 服无 logic 项的旧 pack → v4 run 派生 0 个 logic work item → 三方期望一致、audit 零 finding → 强制函数被静默旁路（fail-open）。本切片 v16→v17 修复；记为 57B-372 的遗留。**教训：凡改 `buildFactPack`/context 产物形态必同步 bump BUILDER_VERSION。**
+- **前向祖父泄漏（本切片 Fix 1 修复）**：生成式期望集扩张原按 `runUsesCurrentAssurance`（精确串等）门控，下一次 assurance 或 REDACTION_VERSION bump 会使所有 v4 期 run 的 `=== ASSURANCE_VERSION` 变假，而其 `workitems.json` 已烘焙 origin-default 的 logic 项 → 每个此类 run 假失败 `unexpected non-open work item`×N。已改为按运行自身 assurance **世代**（`assuranceGenerationAtLeast(manifest, 4)`，解耦 redaction 后缀）门控；严格身份校验仍用精确串等。
+
+Fable 非阻塞后续（记录待议，本切片未动）：
+- **`mergeWorkItems` 不保护 `material` 字段**：作者可在冻结前把某 logic 项降为 `material:false` 逃避 claim-coverage 要求（处置本身仍被强制且 timeline 记账，故非静默跳过，但覆盖门可绕）。后续可让 mergeWorkItems 对 origin-default 项固定 `material`。
+- **`auditFrozenKnowledge` 不复核 `knowledge.factPackDigests` vs 磁盘 pack**：冻结后篡改 fact pack 文件会以"workitem 分歧"这种误导性形态浮现，而非直接的 pack 摘要不符。后续可加 factPackDigests 复核。
+- **authoring-packet 尾块标题硬编码 "rescued decision functions"，但实际收集所有无 `reportSection` 的项**（含 open-origin 项）——轻微标签漂移；后续可按块内实际成分动态措辞。
+- **`buildFactPack` 对 `name@path:line` 去重（已确认安全）**：logic 类目 `dedupeBy: "location"`（`category|filePath|line`），同 (path,line) 折叠为一条；work-item id `feature:<key>:logic:<name>@<path>:<line>` 的唯一性由 (path,line) 唯一性蕴含（去重键是其超集），故不会产生重复 id / freeze 重复项错误。记为已确认，无需改动。

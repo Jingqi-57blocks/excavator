@@ -198,6 +198,32 @@ test("a boundary route the feature scope ranking never returns is still enumerat
   assert.equal(coverage(factPack, "entrypoints").truncated, false, "reaching further than the scope is not a truncation");
 });
 
+test("a rescued node already claimed by a structural category keeps its signal on the claiming item (57B-372 #3)", async () => {
+  const scope = await boundary(true);
+  // The `states` enum lives at src/models/leave-status.ts:1; a rescued feature-graph node at that EXACT
+  // location is excluded from the logic complement (enum is a claimed kind), so without propagation its
+  // rescue reason would be lost. The feature graph carries the rescue flag; the codegraph carries the enum.
+  const featureGraph = {
+    nodes: [{ id: "enum-leave", name: "LeaveStatus", kind: "enum", filePath: "src/models/leave-status.ts", startLine: 1, endLine: 5, rescued: "abbrev-token lv" }],
+    edges: [],
+    seeds: []
+  };
+  const factPack = await buildFactPack({
+    snapshotId: "snapshot-fact-pack",
+    featureKey: "leave-management-abc123",
+    files: scope.files,
+    graph: scope.graph,
+    sourceReader: scope.reader,
+    featureGraph
+  });
+  scope.graph?.close();
+  const statesItem = factPack.items.find((item) => item.category === "states" && item.filePath === "src/models/leave-status.ts" && item.line === 1);
+  assert.ok(statesItem, "the enum is enumerated as a states item");
+  assert.equal(statesItem.signal, "abbrev-token lv", "the rescue reason is propagated onto the claiming structural item");
+  // The rescued node is NOT double-counted as a logic item (its kind and location are already claimed).
+  assert.ok(!factPack.items.some((item) => item.category === "logic" && item.filePath === "src/models/leave-status.ts" && item.line === 1));
+});
+
 test("the scope-node cap flags only graph-derived categories, never a full-coverage scan-only one", async () => {
   const scope = await boundary(true);
   const factPack = await buildFactPack({

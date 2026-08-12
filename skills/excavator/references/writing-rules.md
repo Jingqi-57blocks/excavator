@@ -130,6 +130,14 @@ For a feature report, every investigation dimension carries an auto-derived `rep
 
 This number is only the work-item-to-section link the audit checks when a claim cites a work item; it does not set the report's chapter titles. The report's chapter headings always follow the per-type template you are writing, so a product chapter may carry a different title or order than the dimension number — that divergence is expected, not an error. Overview documents carry no `reportSection`, so the link is enforced only for feature reports.
 
+## Logic-disposition work items
+
+Every rescued `logic` fact-pack function — a business or decision function structural analysis pulled into the feature boundary, marked with a `signal` — is promoted to a `logic-disposition` work item in `workitems.json` (`feature:<key>:logic:<name>@<path>:<line>`). These items are **material and required**, so an undisposed one blocks freeze and fails the audit — the mechanism that stops an author from silently skipping a deciding function.
+
+- **No pinned section.** A behavioral rule may legitimately belong to the flow, decision or authorization chapter, so a logic-disposition item carries no `reportSection`; place it where its behavior belongs. The authoring packet lists these under a trailing "Logic disposition" block rather than under one section.
+- **Cover the behavior, not the name.** A legitimate disposition is a visible claim that describes the business behavior and cites the deciding source window, with the item's id in the claim's `workItemIds`. The prose need **not** contain the identifier — identifiers stay in the collapsed evidence block or coverage chapter (product reports keep them out of prose). The coverage ledger binds through the cited evidence, so "covered the behavior" counts.
+- **Boundary noise is `not-applicable`.** A rescued item that turns out to be boundary noise is disposed `not-applicable` with a reason, satisfied by a linked `unavailable` (or `verified`) claim. One claim may batch-dispose several n/a items by listing them all in its `workItemIds` array.
+
 ## Easy-to-miss audit rules
 
 Three rules trip authors most often. Each is a hard audit **error**, not a warning:
