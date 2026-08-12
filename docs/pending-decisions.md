@@ -153,3 +153,7 @@ Fable 非阻塞后续（记录待议，本切片未动）：
 - **`auditFrozenKnowledge` 不复核 `knowledge.factPackDigests` vs 磁盘 pack**：冻结后篡改 fact pack 文件会以"workitem 分歧"这种误导性形态浮现，而非直接的 pack 摘要不符。后续可加 factPackDigests 复核。
 - **authoring-packet 尾块标题硬编码 "rescued decision functions"，但实际收集所有无 `reportSection` 的项**（含 open-origin 项）——轻微标签漂移；后续可按块内实际成分动态措辞。
 - **`buildFactPack` 对 `name@path:line` 去重（已确认安全）**：logic 类目 `dedupeBy: "location"`（`category|filePath|line`），同 (path,line) 折叠为一条；work-item id `feature:<key>:logic:<name>@<path>:<line>` 的唯一性由 (path,line) 唯一性蕴含（去重键是其超集），故不会产生重复 id / freeze 重复项错误。记为已确认，无需改动。
+
+## 批次 57B-376（请假规则覆盖金标准 POST-forcing 校准）产生（2026-08-13）
+
+- **`extractKnowledge` 跨章节 claim-ref 冲突（记录，非缺陷；后续可修）**：`eval/knowledge.ts` 用 `${documentId}#${claimId}` 作 fact 的 `ref`，而多个 section 文件共享同一 `documentId`、各自从 `claim-1` 起编号，故不同 section 的相异 fact 会共享同一 `ref`（如多条 `…#claim-16`）。**不影响 found/miss 正确性**（diff 按 window+pattern+marker 逐 fact 匹配，不靠 ref 唯一性），仅使 `Diff.found[].via` 这个 provenance 串有歧义（按 ref 反查会取到首个同 ref fact，可能非真正命中的那条）。后续可让 ref 纳入 section/文件名消歧。
