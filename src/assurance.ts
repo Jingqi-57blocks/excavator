@@ -45,6 +45,25 @@ export function runUsesCurrentAssurance(manifest: RunManifest): boolean {
   return manifest.assuranceVersion === ASSURANCE_VERSION;
 }
 
+/**
+ * The assurance GENERATION a run was prepared under — the integer `n` in `assurance-v<n>-...`, decoupled
+ * from the redaction suffix. A missing or malformed `assuranceVersion` is generation 0. This is the gate
+ * for GENERATIVE expansion of the expected set (adding the run's own baked default items back): it must not
+ * hinge on exact-version equality, or a later assurance OR redaction bump would stop re-deriving items that
+ * are already baked into a run's `workitems.json`, false-failing every run prepared under this generation.
+ * (The strict IDENTITY re-derivation checks keep using `runUsesCurrentAssurance` — those legitimately need
+ * exact equality.)
+ */
+export function assuranceGeneration(manifest: RunManifest): number {
+  const match = /^assurance-v(\d+)/.exec(manifest.assuranceVersion ?? "");
+  return match ? Number(match[1]) : 0;
+}
+
+/** Whether a run was prepared under assurance generation `n` or later (redaction-suffix independent). */
+export function assuranceGenerationAtLeast(manifest: RunManifest, n: number): boolean {
+  return assuranceGeneration(manifest) >= n;
+}
+
 const PROJECT_HYPOTHESES: Array<[string, string]> = [
   ["literal-secrets", "Credentials, private keys, tokens or cryptographic secrets are written as source literals."],
   ["literal-identifiers", "Business behavior compares against literal record, tenant, customer, office, project or role identifiers."],

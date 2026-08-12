@@ -8,11 +8,11 @@ import { buildContexts, featureCacheKey } from "./context.ts";
 import { FACT_PACK_CATEGORIES, factPackEvidenceId } from "./factpack.ts";
 import { SourceReader, evidenceFromWindow, sourceSearch, type SourceSearchStats } from "./source.ts";
 import { createSnapshot } from "./snapshot.ts";
-import { ASSURANCE_VERSION, auditChecklist, auditDetailedFeatureSection, auditEvidenceCatalog, auditEvidenceMarkerPlacement, auditReadabilityTables, auditRescuedLogicCoverage, auditSectionClaims, auditSectionEvidenceMarkers, auditTargetProblemAttribution, auditTraces, auditWorkItemClaimCoverage, auditWorkItems, checklistUpdatesToWorkItems, createInvestigationChecklist, createInvestigationPlan, hasEvidenceMarkers, mergeChecklist, mergeWorkItems, runUsesCurrentAssurance, type AuditFinding, validateClaimsInput, workItemsToChecklist } from "./assurance.ts";
+import { ASSURANCE_VERSION, assuranceGenerationAtLeast, auditChecklist, auditDetailedFeatureSection, auditEvidenceCatalog, auditEvidenceMarkerPlacement, auditReadabilityTables, auditRescuedLogicCoverage, auditSectionClaims, auditSectionEvidenceMarkers, auditTargetProblemAttribution, auditTraces, auditWorkItemClaimCoverage, auditWorkItems, checklistUpdatesToWorkItems, createInvestigationChecklist, createInvestigationPlan, hasEvidenceMarkers, mergeChecklist, mergeWorkItems, runUsesCurrentAssurance, type AuditFinding, validateClaimsInput, workItemsToChecklist } from "./assurance.ts";
 import { auditComparativeClaims } from "./claim-comparison.ts";
 import { auditFreezeOrder, auditFrozenKnowledge, buildKnowledge, freezePreconditions, knowledgeDigest, normalizeSupplement, recordSupplement } from "./freeze.ts";
 import { atomicWrite, ensureDir, exists, nowIso, readJson, REDACTION_VERSION, runIdTimestamp, sha256, slugify, stableJson, writeJson } from "./util.ts";
-import { logicWorkItems } from "./logic-workitems.ts";
+import { logicWorkItems, LOGIC_DISPOSITION_ASSURANCE_GENERATION } from "./logic-workitems.ts";
 import { collectClaims, createAnalysisScope, emptyTraceCatalog, mergeTraces, writeReportCompanions } from "./assurance-artifacts.ts";
 import { scaffoldSectionClaims } from "./claims-scaffold.ts";
 import { sectionFileStem } from "./section-slug.ts";
@@ -299,7 +299,10 @@ export async function freezeRun(runDirInput: string): Promise<{ manifest: RunMan
   // Read the frozen fact packs once — the expected-plan logic items and knowledge digest both derive from them.
   const factPacks = await readFrozenFactPacks(runDir, manifest);
   const expectedPlan = createInvestigationPlan(manifest.id, manifest.request, manifest.documents);
-  if (runUsesCurrentAssurance(manifest)) expectedPlan.items.push(...logicWorkItems(Object.values(factPacks), manifest.documents).items);
+  // Gate the generative expansion on the run's assurance GENERATION, not exact-version equality: a run
+  // prepared under generation 4+ already baked these items, so re-derive them regardless of any later
+  // redaction/assurance bump. Older (pre-4) runs never baked them and are grandfathered.
+  if (assuranceGenerationAtLeast(manifest, LOGIC_DISPOSITION_ASSURANCE_GENERATION)) expectedPlan.items.push(...logicWorkItems(Object.values(factPacks), manifest.documents).items);
   const documentIds = new Set(manifest.documents.map((document) => document.id));
   let snapshotDrift: { snapshotChanged: boolean; codegraphChanged: boolean } | null = null;
   if (manifest.snapshot) {
@@ -639,7 +642,9 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
   // prepare/freeze. The plan, its checklist mirror and this audit all expand from this one list, so the three
   // expected sets never disagree (a diverging set would false-flag `unexpected non-open` or `required missing`).
   const factPacks = await readFrozenFactPacks(runDir, manifest);
-  const expectedLogicItems = runUsesCurrentAssurance(manifest) ? logicWorkItems(Object.values(factPacks), manifest.documents).items : [];
+  // Generation-gated (not exact-version): a run that baked these items under generation 4+ must have them
+  // re-derived here even after a later assurance/redaction bump, or it would false-fail as `unexpected`.
+  const expectedLogicItems = assuranceGenerationAtLeast(manifest, LOGIC_DISPOSITION_ASSURANCE_GENERATION) ? logicWorkItems(Object.values(factPacks), manifest.documents).items : [];
   const expectedPlan = createInvestigationPlan(manifest.id, manifest.request, manifest.documents);
   expectedPlan.items.push(...expectedLogicItems);
   findings.push(...runWide(auditWorkItems(plan, expectedPlan, evidenceById, traceIds)));

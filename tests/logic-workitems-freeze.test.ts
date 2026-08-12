@@ -93,6 +93,25 @@ test("plan, freeze expected-plan and audit expected-plan/checklist agree on the 
   assert.equal(checklist.items.find((item) => item.id === logicId)?.verdict, "not-applicable");
 });
 
+test("a v4 run is NOT false-failed by a later assurance/redaction bump (generation gate, not exact version)", async () => {
+  const { runDir } = await prepareRun(await featureRequest());
+  const logicId = await injectRescuedLogic(runDir);
+  await disposeAllWorkItems(runDir);
+  assert.equal((await freezeRun(runDir)).frozen, true);
+
+  // Simulate the code moving ahead of the run: bump its stored version to a DIFFERENT generation-4 string,
+  // no longer === ASSURANCE_VERSION but still generation 4. The baked origin-"default" logic item is already
+  // in workitems.json; the old exact-equality gate would stop re-deriving it and false-fail it as unexpected.
+  const manifest = await readJson<RunManifest>(join(runDir, "run.json"));
+  manifest.assuranceVersion = "assurance-v4-redaction-vNEXT";
+  await writeJson(join(runDir, "run.json"), manifest);
+
+  const audit = await auditRun(runDir);
+  const divergence = audit.findings.filter((finding) => DIVERGENCE.test(finding.message));
+  assert.deepEqual(divergence, [], "a forward bump must still re-derive the baked logic item, never false-fail it as unexpected/missing");
+  assert.ok(!audit.findings.some((finding) => finding.message.includes(logicId) && finding.level === "error"), "no error cites the baked logic item after the bump");
+});
+
 test("a pre-v4 run is grandfathered: a rescued fact pack forces nothing", async () => {
   const { runDir } = await prepareRun(await featureRequest());
   await disposeAllWorkItems(runDir);

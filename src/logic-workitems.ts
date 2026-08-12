@@ -17,6 +17,12 @@ import type { DocumentPlan, FactPackItem, FeatureFactPack, InvestigationWorkItem
 /** Per-feature ceiling on promoted rescued logic functions; a pathological feature cannot flood the plan. */
 export const LOGIC_WORKITEM_CAP = 24;
 
+/** The assurance generation that introduced logic-disposition work items. A run prepared under this
+ *  generation or later baked them into its plan, so freeze/audit re-derive them; earlier runs never did.
+ *  Gating on the generation (not exact-version equality) keeps a later assurance/redaction bump from
+ *  false-failing a run that already carries these baked default items. */
+export const LOGIC_DISPOSITION_ASSURANCE_GENERATION = 4;
+
 /** The fixed dimension every promoted logic item carries. Deliberately outside auditWorkItems's material-flow
  *  dimension set, so a `found` logic item needs evidence but not a trace. */
 export const LOGIC_WORKITEM_DIMENSION = "logic-disposition";

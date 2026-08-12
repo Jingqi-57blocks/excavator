@@ -12,7 +12,7 @@ import { buildFactPack, factPackEvidence, renderFactPackSection } from "./factpa
 import { computeCrossFeatureRelationships, renderCrossFeatureSection } from "./cross-feature.ts";
 import { legacyWorkspaceWarning } from "./workspace-residue.ts";
 
-const BUILDER_VERSION = "excavator-context-v16-fact-pack";
+const BUILDER_VERSION = "excavator-context-v17-fact-pack";
 
 interface CachedShared {
   snapshotId: string;
