@@ -170,7 +170,7 @@ test("a fact pack without CodeGraph scans what it can and reports the graph-only
 
   assert.deepEqual(
     factPack.coverage.map((entry) => [entry.category, entry.method]),
-    [["entrypoints", "scan"], ["entities", "none"], ["states", "scan"], ["config-keys", "scan"], ["jobs", "scan"], ["external-calls", "scan"]]
+    [["entrypoints", "scan"], ["entities", "none"], ["states", "scan"], ["config-keys", "scan"], ["jobs", "scan"], ["external-calls", "scan"], ["logic", "none"]]
   );
   assert.equal(coverage(factPack, "entities").itemCount, 0);
   assert.deepEqual(items(factPack, "entrypoints").map((item) => item.name), ["app.get /balance", "app.get /leave", "app.post /leave/:id/approve", "router.delete /leave/:id"]);
@@ -303,8 +303,10 @@ test("the sample target's fact pack enumerates its Hono route and reports the em
 
   assert.deepEqual(items(factPack, "entrypoints"), [{ name: "GET /leave", location: "src/server.ts:5", source: "graph" }]);
   assert.deepEqual(
+    // The logic complement enumerates the feature graph's business/decision nodes the six structural
+    // categories did not claim; the sample fixture's small graph yields two such nodes.
     factPack.coverage.map((entry) => [entry.category, entry.itemCount, entry.truncated]),
-    [["entrypoints", 1, false], ["entities", 0, false], ["states", 0, false], ["config-keys", 0, false], ["jobs", 0, false], ["external-calls", 0, false]]
+    [["entrypoints", 1, false], ["entities", 0, false], ["states", 0, false], ["config-keys", 0, false], ["jobs", 0, false], ["external-calls", 0, false], ["logic", 2, false]]
   );
   assert.ok(result.prepared.featureScopes.get(key)!.files.includes("src/LeavePanel.vue"), "the Vue entry file is inside the boundary the pack was built from");
 
@@ -346,7 +348,7 @@ test("prepare writes the fact pack as JSON, as a markdown section and as per-cat
 
   const catalog = JSON.parse(await readFile(join(runDir, "evidence.json"), "utf8")) as { evidence: EvidenceItem[] };
   const factEvidence = catalog.evidence.filter((item) => item.id.startsWith("FACT-"));
-  assert.equal(factEvidence.length, 6);
+  assert.equal(factEvidence.length, 7);
   assert.ok(factEvidence.every((item) => item.kind === "derived" && item.snapshotId === manifest.snapshot?.id));
 });
 

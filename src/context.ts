@@ -287,6 +287,7 @@ async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], fea
   };
   let nodes: any[] = [];
   let edges: any[] = [];
+  let seeds: any[] = [];
   let unresolved: any[] = [];
 
   if (graph && terms.length) {
@@ -295,7 +296,7 @@ async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], fea
     const primarySeeds = graph.searchNodes(anchorTerms, Math.min(120, maxNodes));
     const anchoredFiles = [...new Set(primarySeeds.map((node) => node.filePath))];
     const actionSeeds = actionTerms.length ? graph.searchNodesInFiles(actionTerms, anchoredFiles, Math.min(60, maxNodes)) : [];
-    const seeds = dedupeNodes([...primarySeeds, ...actionSeeds]);
+    seeds = dedupeNodes([...primarySeeds, ...actionSeeds]);
     // Candidate pool: expand cap ×6 so depth-2 neighbourhoods are not starved (a per-module cap of
     // maxNodes let level-0 exhaust before the depth-2 ring was ever visited). Then close the pool
     // over its own internal edges so hop2↔hop2 relationships (which layered BFS never captures) are
@@ -366,7 +367,10 @@ async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], fea
     graph,
     sourceReader,
     deadline,
-    scopeNodesCapped: nodes.length >= maxNodes
+    scopeNodesCapped: nodes.length >= maxNodes,
+    // The pruned feature graph is right here: the logic category enumerates the business/decision nodes
+    // its retained set holds that the six structural categories did not already claim.
+    featureGraph: { nodes, edges, seeds }
   });
   evidence.push(...factPackEvidence(factPack));
   const inventory = buildFeatureInventory(nodes, scopeFiles);

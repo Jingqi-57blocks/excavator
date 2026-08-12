@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { join } from "node:path";
 import { boundaryRecall, derivationDrops, factPackItemsToNodes, type BoundaryReport } from "../boundary.ts";
 import { loadBoundaryGold } from "../boundary-gold.ts";
-import { loadFactpackFixture, fixtureFgNodes, fixtureFactPackNodes } from "../factpack-fixture.ts";
+import { loadFactpackFixture, fixtureFgNodes, fixtureFactPackNodes, fixturePostFixFactPackNodes } from "../factpack-fixture.ts";
 
 const FIXTURES = join(import.meta.dirname, "..", "fixtures");
 const LEAVE_FX = join(FIXTURES, "wcp-leave", "factpack-fg.json.gz");
@@ -11,10 +11,16 @@ const LEAVE_GOLD = join(FIXTURES, "wcp-leave", "boundary-gold.json");
 const PROMO_FX = join(FIXTURES, "wcp-promotion", "factpack-fg.json.gz");
 const PROMO_GOLD = join(FIXTURES, "wcp-promotion", "boundary-gold.json");
 
-function layers(fxFile: string, goldFile: string): { fg: BoundaryReport; factpack: BoundaryReport } {
+/** Three recall reports per run: the FG node set (57B-370), the PRE-PR-2 fact pack (the six structural
+ *  categories only), and the POST-PR-2 fact pack the author now reads (claimed ∪ the logic complement). */
+function layers(fxFile: string, goldFile: string): { fg: BoundaryReport; factpackPre: BoundaryReport; factpack: BoundaryReport } {
   const fx = loadFactpackFixture(fxFile);
   const gold = loadBoundaryGold(goldFile);
-  return { fg: boundaryRecall(fixtureFgNodes(fx), gold), factpack: boundaryRecall(fixtureFactPackNodes(fx), gold) };
+  return {
+    fg: boundaryRecall(fixtureFgNodes(fx), gold),
+    factpackPre: boundaryRecall(fixtureFactPackNodes(fx), gold),
+    factpack: boundaryRecall(fixturePostFixFactPackNodes(fx), gold)
+  };
 }
 
 const mustFindMissing = (r: BoundaryReport) => r.missing.filter((m) => m.mustFind).map((m) => m.id).sort();
@@ -23,17 +29,16 @@ const mustFindDrops = (fg: BoundaryReport, factpack: BoundaryReport) =>
   derivationDrops(fg, factpack).filter((d) => d.mustFind).map((d) => d.id).sort();
 
 // ============================================================================
-// PINNED RED (57B-372 PR-1). These tests encode CURRENT reality as a regression
-// fact: the fact pack the author reads DROPS material business/decision functions
-// that the FG node set (the layer 57B-370 measured) already holds. The `expected`
-// arrays below are the SINGLE PLACE PR-2 flips: once the `logic` fact-pack category
-// lands and rescues these symbols, move the ids from the "missing" arrays to the
-// "found" arrays (leave) / assert them found (promotion).
+// POST-FIX (57B-372 PR-2). PR-1 pinned the pre-fix reality as a regression fact: the fact pack the
+// author read dropped material business/decision functions the FG node set already held. PR-2 adds the
+// `logic` complement — every retained FG node the six structural categories did not claim — so the pack
+// the author reads is now `claimed ∪ logic`. These tests encode the post-fix reality; the pre-fix drop
+// is kept alongside as the documented delta so the flip stays legible.
 // ============================================================================
 
-// The 11 leave mustFinds the fact pack drops today: 3 T1 (rescued into the FG by 57B-371)
-// + 8 T2 named handler methods/functions. Only the 2 route entrypoints survive.
-const LEAVE_FACTPACK_DROPPED = [
+// The 11 leave mustFinds the six structural categories dropped: 3 T1 (rescued into the FG by 57B-371)
+// + 8 T2 named handler methods/functions. The logic complement recovers ALL of them.
+const LEAVE_STRUCTURAL_DROPPED = [
   "T1-calculationAuto",
   "T1-isIgnoreHolidayLvType",
   "T1-syncLvCompleted",
@@ -46,49 +51,53 @@ const LEAVE_FACTPACK_DROPPED = [
   "T2-leaveHistory-getHolidayHour",
   "T2-leaveHistory-updateHolidayHour"
 ];
-const LEAVE_FACTPACK_SURVIVING = ["T2-handlers-leaveRoute", "T2-js-getMyLeaves"];
 
-test("PINNED RED: leave FG layer is GREEN (13/13) — the false-positive gate 57B-370 measured", () => {
+test("leave FG layer is GREEN (13/13) — the upstream metric 57B-370 measured", () => {
   const { fg } = layers(LEAVE_FX, LEAVE_GOLD);
-  // 57B-371 rescued the 3 T1 misses into the FG node set, so the upstream metric now passes:
-  // a gate that would greenlight the run even though the author never sees the dropped symbols.
   assert.equal(fg.summary.mustFind, 13);
   assert.equal(fg.summary.mustFindMissing, 0);
   assert.equal(fg.summary.pass, true);
 });
 
-test("PINNED RED: leave fact-pack layer is RED — 11 of 13 mustFind business functions dropped", () => {
-  const { factpack } = layers(LEAVE_FX, LEAVE_GOLD);
-  assert.equal(factpack.summary.pass, false);
-  assert.equal(factpack.layer === undefined, true); // bare boundaryRecall does not stamp a layer
-  assert.deepEqual(mustFindMissing(factpack), LEAVE_FACTPACK_DROPPED);
-  assert.deepEqual(mustFindFound(factpack), LEAVE_FACTPACK_SURVIVING);
+test("leave fact-pack layer flips RED → GREEN: the logic complement recovers all 11 dropped functions", () => {
+  const { factpackPre, factpack } = layers(LEAVE_FX, LEAVE_GOLD);
+  // Documented delta: the six structural categories, on their own, still drop the 11 (pre-fix reality).
+  assert.deepEqual(mustFindMissing(factpackPre), LEAVE_STRUCTURAL_DROPPED);
+  // Post-fix: claimed ∪ logic reaches every mustFind — the consumption gap 57B-372 exists to close is gone.
+  assert.equal(factpack.summary.pass, true);
+  assert.deepEqual(mustFindMissing(factpack), []);
+  assert.equal(mustFindFound(factpack).length, 13);
 });
 
-test("PINNED RED: leave derivation-drop view surfaces exactly the 11 found@fg ∧ missing@factpack mustFinds", () => {
+test("leave has no fact-pack derivation drops after the fix (found@fg ∧ missing@factpack is empty)", () => {
   const { fg, factpack } = layers(LEAVE_FX, LEAVE_GOLD);
-  assert.deepEqual(mustFindDrops(fg, factpack), LEAVE_FACTPACK_DROPPED);
+  assert.deepEqual(mustFindDrops(fg, factpack), []);
 });
 
-// Promotion: all 4 mustFinds dropped at the fact pack. Of those, Info + PromotionForward
-// are derivation drops (found@fg), while IsManager + IsLeader are additionally an upstream
-// FG gap for this run (missing at BOTH layers) — the metric keeps the two classes distinct.
-const PROMO_FACTPACK_DROPPED = ["auth-isLeader", "auth-isManager", "record-info", "record-promotionForward"];
+// Promotion: the fact pack dropped all 4 mustFinds pre-fix. Of those, Info + PromotionForward are
+// derivation drops (found@fg) that the logic complement recovers; IsManager + IsLeader are additionally
+// an UPSTREAM FG gap for this run (missing at BOTH layers), which a fact-pack change cannot recover — it
+// is tracked separately for 57B-320 and is OUT OF SCOPE for 57B-372.
 const PROMO_DERIVATION_DROPS = ["record-info", "record-promotionForward"];
+const PROMO_FG_GAP = ["auth-isLeader", "auth-isManager"];
 
-test("PINNED RED: promotion fact-pack layer drops all 4 mustFind auth/record symbols", () => {
-  const { factpack } = layers(PROMO_FX, PROMO_GOLD);
+test("promotion fact-pack layer recovers only its 2 derivation drops; the upstream FG gap remains", () => {
+  const { factpackPre, factpack } = layers(PROMO_FX, PROMO_GOLD);
+  // Pre-fix: the fact pack dropped all 4 (the 2 derivation drops + the 2 FG-gap symbols).
+  assert.deepEqual(mustFindMissing(factpackPre), [...PROMO_FG_GAP, ...PROMO_DERIVATION_DROPS].sort());
+  // Post-fix: the logic complement recovers exactly the 2 derivation drops. The 2 FG-gap symbols never
+  // reached the FG for this run, so no fact-pack change can bring them in — they stay missing (57B-320).
+  assert.deepEqual(mustFindFound(factpack), PROMO_DERIVATION_DROPS);
+  assert.deepEqual(mustFindMissing(factpack), PROMO_FG_GAP);
   assert.equal(factpack.summary.pass, false);
-  assert.equal(factpack.summary.mustFindFound, 0);
-  assert.deepEqual(mustFindMissing(factpack), PROMO_FACTPACK_DROPPED);
 });
 
-test("PINNED RED: promotion derivation drops are Info + PromotionForward; IsManager/IsLeader are an upstream FG gap", () => {
+test("promotion derivation drops are gone after the fix; the FG gap is unchanged and stays out of scope", () => {
   const { fg, factpack } = layers(PROMO_FX, PROMO_GOLD);
-  // Only the two record methods were in the FG and then dropped by fact-pack derivation.
-  assert.deepEqual(mustFindDrops(fg, factpack), PROMO_DERIVATION_DROPS);
-  // IsManager/IsLeader never reached the FG for this run: missing at both layers, so NOT derivation drops.
-  assert.deepEqual(mustFindMissing(fg), ["auth-isLeader", "auth-isManager"]);
+  // The 2 record methods were found@fg and are now found@factpack, so they are no longer derivation drops.
+  assert.deepEqual(mustFindDrops(fg, factpack), []);
+  // IsManager/IsLeader are missing at BOTH layers: an upstream FG gap, never a fact-pack derivation drop.
+  assert.deepEqual(mustFindMissing(fg), PROMO_FG_GAP);
 });
 
 // ---- fixture integrity: the committed fixtures are the real runs' snapshots ----
