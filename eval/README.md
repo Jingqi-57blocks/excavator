@@ -22,7 +22,8 @@ npm run eval -- extract --run <dir> [--out <file>]
 npm run eval -- diff --run <dir> --expected <file> [--json] [--prepare-only]
 npm run eval -- view --run <dir> [--json]
 npm run eval -- compare --a <dir> --b <dir> [--json]
-npm run eval -- boundary (--run <dir> | --nodes <file>) --gold <file> [--json]
+npm run eval -- boundary (--run <dir> | --nodes <file>) --gold <file> [--layer fg|factpack|both] [--json]
+npm run eval -- prune-replay (--pool <file> | --run <dir> --module <db>...) --gold <file> [--emit-pool <file>] [--json]
 ```
 
 `diff` exits **1** on any mustFind missing, forbidden violation, or coverage failure; **0** otherwise.
@@ -32,17 +33,25 @@ npm run eval -- boundary (--run <dir> | --nodes <file>) --gold <file> [--json]
 (missing run dir, missing `metrics.json`/`timeline.jsonl`, malformed timeline). Both are read-only on
 the run dirs.
 
-## `boundary` — feature-graph boundary recall
+## `boundary` — feature-graph & fact-pack boundary recall
 
-Measures whether the **feature-graph node set** — the output of `pruneFeatureGraph`, before any
-downstream fallback search — captured the material symbols of a feature. It exists as the deterministic,
-zero-model front for graph-prune changes (57B-371): loosening the prune must recover today's confirmed
-misses without dropping the feature core it already captures.
+Measures whether a feature's **material symbols survived to a given layer** of the pipeline. Two layers
+descend the same gold, selected by `--layer`:
 
-The measured object is the **graph node set at node granularity**, deliberately *not* the wider evidence
-file set. The prune is the intervention point, so the metric isolates "did the graph select this symbol"
-from "did a downstream source-window search reach it". The S-window signal is preserved only as the
-informational `coveredBySourceWindow` field on each miss (run mode) and never affects the verdict.
+- **`fg`** (57B-370) — the **feature-graph node set**, the output of `pruneFeatureGraph` before any
+  downstream fallback search. Its intervention point is the prune (57B-371): loosening it must recover
+  today's confirmed misses without dropping the feature core it already captures.
+- **`factpack`** (57B-372) — the **fact-pack the author actually reads**: the six structural categories'
+  claimed items **∪** the `logic` complement (every retained FG node the categories did not claim). Its
+  intervention point is the consumption step: an FG node that never reaches the pack is a *derivation drop*.
+- **`both`** (the run-mode default) — runs each layer and prints the **derivation drops**: items
+  `found@fg ∧ missing@factpack`, i.e. what the graph held but the pack shed. `--nodes` supplies a bare node
+  set (no run dir, no pack) and therefore measures the `fg` layer only.
+
+The measured object at the `fg` layer is the **graph node set at node granularity**, deliberately *not* the
+wider evidence file set. The prune is the intervention point, so the metric isolates "did the graph select
+this symbol" from "did a downstream source-window search reach it". The S-window signal is preserved only as
+the informational `coveredBySourceWindow` field on each miss (run mode) and never affects the verdict.
 
 - `boundary-gold.ts` — loader + hand-written structural validation for `boundary-gold-v1` (mirrors
   `expected.ts`; an eval-internal, per-fixture data format, not a public contract). An item is
@@ -72,6 +81,21 @@ by `fixtures/wcp-leave/demo-run-fg-nodes.json` (a mechanical projection of a rea
 the numbers reproduce without an out-of-repo run dir. Note: the historical "Wave0 leave gold (84 items)"
 referenced in Linear 57B-370 does not exist as a data file; this gold is a fresh minimal rebuild and its
 numbers are not comparable to the Wave0 44% figure (different gold, different measurement layer).
+
+### Claims-layer rule coverage — the depth foundation (57B-374)
+
+One layer *below* the fact pack sits the **claims / report layer**: even when a rule's source is in scope
+**and** in the fact pack, the author may still never write it into `claims/*.json`. That gap is a plain
+`diff` against a claims-layer `expected-knowledge` gold — no new metric. `fixtures/wcp-leave/expected-knowledge.json`
+pins it for the leave feature, tiered like the boundary gold: **T1** three confirmed authoring misses
+(mustFind, red today — preview-hours calc, natural-day-vs-working-day, auto-complete cron), **T2** nine
+regression sentinels (mustFind, green today), **T3** three optional frontend sensors (`prepare-miss`, never
+gated). A `forbidden` pin catches the specific C1v2 hallucination that auto-complete is a disabled/unregistered
+Node job, with an `unless` that exempts the correct "handled by the Go cron / `syncLvCompleted`" wording so a
+correct report is never punished. The red/green baseline reproduces in CI without run dirs from two frozen
+extractions — `knowledge-C1v2-red.json.gz` (red) and `knowledge-C1-green.json.gz` (green) — loaded via
+`knowledge-fixture.ts` (`loadKnowledgeFixture`; regenerate with `node --experimental-strip-types
+eval/knowledge-fixture.ts <runDir> <out.json.gz>`).
 
 ## `view` — run observability
 
@@ -209,10 +233,14 @@ The point of the harness is that most iterations never call a model:
   `compare`. `-b` is a deliberate variant of the first: faster overall but one slower stage, fewer
   searches, one gained fact-anchor (`svc/audit/log.go`), one lost (`svc/notify/email.go`), a coverage
   dimension that regressed `found → searched-not-found`, and a shifted marker distribution.
-- `fixtures/wcp-leave/` — the real `boundary` baseline: `boundary-gold.json` (T1/T2/T3 layered gold with
-  a full construction-method `_meta`) and `demo-run-fg-nodes.json` (a mechanical projection of a real
-  demo run's FG scope evidence — id/kind/name/filePath/startLine/endLine per node). Pins the boundary
-  numbers (10/13 mustFind found, the 3 T1 misses, exit 1) inside CI.
+- `fixtures/wcp-leave/` — the real baselines for all three layers.
+  - `boundary` (fg + factpack): `boundary-gold.json` (T1/T2/T3 layered gold with a full construction-method
+    `_meta`), `demo-run-fg-nodes.json` (a mechanical projection of a real demo run's FG scope evidence —
+    id/kind/name/filePath/startLine/endLine per node), and `factpack-fg.json.gz` (both layers of the C1
+    00:50 run, frozen). Pins the boundary numbers inside CI.
+  - claims layer (57B-374): `expected-knowledge.json` (the claims-layer rule gold) plus two frozen
+    extractions `knowledge-C1v2-red.json.gz` / `knowledge-C1-green.json.gz` that reproduce the red/green
+    baseline without run dirs.
 - `tests/fixtures/boundary-run-mini/` — a synthetic run for the `boundary` run-mode tests: two FG
   entries (union + dedupe), a `CG-NODES-*` decoy (must not be credited), a `CG-*` summary decoy, and two
   source windows, plus `gold-pass.json` / `gold-fail.json` exercising exit 0/1 and the
