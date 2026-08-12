@@ -1,0 +1,212 @@
+{
+  "version": "expected-knowledge-v1",
+  "target": "wcp-leave",
+  "_meta": {
+    "purpose": "Claims-layer rule-coverage gold for the WCP leave feature (57B-374). The measured object is the REPORT / CLAIMS layer (extractKnowledge over a run's claims/*.json, diffed by diffKnowledge), one layer BELOW the FG boundary gold (boundary-gold.json, 57B-370) and the fact-pack gold (57B-372). It pins the depth-foundation red: material leave rules whose source is in-scope and in the fact pack, yet which the author never wrote into claims. The metric is diffKnowledge as-is; this file is DATA.",
+    "constructionMethod": "Three tiers. Every anchor is a full module-prefixed path exactly as it appears in a run's resolved evidence windows (e.g. wcp-service-v2/internal/handlers/support/service.go), with a line window pinned to the DECIDING source region and verified line-by-line against the read-only target excavator-test-repos/wcp. statementPatterns are single-semantic and harvested verbatim from three real runs' claim statements (C1 00:50 green, C1v2 13:47 red, demo 16:37) — only-widen-never-narrow per 57B-365. markers are limited to [fact,verified] (authored assertions, not inferred/unavailable). Attribution (authoring-miss vs prepare-miss) is a function of each run's own prepareHorizon: T1/T2 anchor files are in the fact pack / scope of the pinned runs -> authoring-miss when they still miss; T3 frontend files (except EditLeaveHoursModal.tsx) are NOT in the prepared horizon -> prepare-miss.",
+    "tiers": {
+      "T1": "3 confirmed claims-layer misses, mustFind, RED today (miss in BOTH the C1v2 red and C1 green runs at the claims layer, except the auto-complete cron which the green run does cover). Their source is present and their anchor file reached the fact pack / scope, so the miss is an AUTHORING miss, not a prepare gap. The depth-improvement slices must turn these green.",
+      "T2": "9 regression sentinels, mustFind, GREEN today. Each is solidly covered in the C1 00:50 green run and re-verified against source; guards against a future depth change pushing today's correctly-authored leave core back out.",
+      "T3": "3 optional frontend sensors (never mustFind, never gate). Anchored to leave UI files that are NOT in the prepared horizon of the pinned runs, so they MISS with attribution prepare-miss today — the intended reading that pre-instruments the frontend-horizon slice. NOT individually adjudicated for substantiveness."
+    },
+    "sourceRuns": {
+      "red": "run-2026_08_12_13_47-请假-f5da2557-a19a985b-28d5edde (C1v2) — frozen in knowledge-C1v2-red.json.gz",
+      "green": "run-2026_08_12_00_50-请假-f5da2557-a19a985b-1e2a64e4 (C1 00:50) — frozen in knowledge-C1-green.json.gz",
+      "demoWordingSource": "run-2026_08_11_16_37-请假-f5da2557-6ff0cf2b-6e6091ab (demo) — third wording source, not frozen"
+    },
+    "note": "The forbidden pin targets the C1v2 hallucination that auto-complete is a disabled/unregistered Node job. Its unless exempts the correct C1 wording (auto-complete handled by the Go cron / syncLvCompleted), so a correct report is never punished. The green run legitimately also notes the old Node task is commented out, but always alongside the Go-cron attribution — its discriminating tokens (注释停用 / 不将 / 改由 Go) sit outside the pin's base, and the Go-cron unless covers the rest."
+  },
+  "items": [
+    {
+      "id": "T1-preview-hours",
+      "kind": "fact",
+      "mustFind": true,
+      "anchors": [
+        { "path": "wcp-service-v2/internal/handlers/support/service.go", "lines": "415-529" },
+        { "path": "wcp-service-v2/internal/handlers/support/router.go", "lines": "99-135" }
+      ],
+      "statementPatterns": [
+        "(逐日|按日|逐小时|按小时|每日|按天).{0,20}(请假|休假|off|工时|时长|小时|排班|明细)|请假时长.{0,10}(预览|试算|实时|提交前|计算)|(预览|试算|实时|提交前).{0,10}(请假)?时长|CalculationAuto|calculation/auto|off.?hours|按工作时间.{0,6}计算.{0,6}(时长|小时)"
+      ],
+      "markers": ["fact", "verified"],
+      "note": "T1 authoring-miss. Preview / real-time leave-hours arrangement before submission: support/service.go CalculationAuto (:415-529, walks the date range day-by-day, 9:00-18:00=8h, first/last-day partial hours, skips holidays for non-ignoring types) exposed at support/router.go GET /calculation/auto (:100). Neither the red nor green run authored any claim on these support windows."
+    },
+    {
+      "id": "T1-natural-vs-working-day",
+      "kind": "fact",
+      "mustFind": true,
+      "anchors": [
+        { "path": "wcp-service-v2/internal/handlers/support/service.go", "lines": "633-643" }
+      ],
+      "statementPatterns": [
+        "(自然日|工作日|节假日|假期日|周末|holiday).{0,36}(假期类型|请假类型|leave.?type|按类型|部分类型|某些类型|不同类型)|(某些|部分|特定|个别).{0,10}(假期|请假)?类型.{0,24}(跳过|排除|忽略|不计|计入|包含|不含).{0,10}(节假日|假期日|周末|holiday)|isIgnoreHolidayLvType|(忽略|跳过|排除).{0,4}(节假日|假期日|周末)"
+      ],
+      "markers": ["fact", "verified"],
+      "note": "T1 authoring-miss. Natural-day vs working-day per leave type: support/service.go isIgnoreHolidayLvType (:633-643) returns false for PTO/BTO/UTO/Special (these SKIP holidays -> working-day counting) and true otherwise (holidays COUNT -> natural-day counting); it gates the IsHoliday skip in CalculationAuto (:469/:490/:508). No run authored this distinction against the support source."
+    },
+    {
+      "id": "T1-autocomplete-cron",
+      "kind": "fact",
+      "mustFind": true,
+      "anchors": [
+        { "path": "wcp-service-v2/internal/third_party/cron/cron.go", "lines": "15-56" }
+      ],
+      "statementPatterns": [
+        "(到期|结束日|已过期|过期|已过).{0,24}(置为|批量|标记|变为|置位).{0,8}(已)?完成|到期完成|SyncLvCompleted|syncLvCompleted"
+      ],
+      "markers": ["fact", "verified"],
+      "note": "T1. Auto-complete cron: third_party/cron/cron.go syncLvCompleted (def :41, registered by Setup at :19 under Config.CRON.SyncLvCompleted, sets status to LvCompletedC at :50) flips approved + past-end-date leaves to Completed. FOUND in the C1 green run (multiple cron.go claims) but MISSED in the C1v2 red run, which authored ZERO claims on cron.go and mis-attributed auto-complete to a disabled Node job (authoring-miss: cron.go is in the red run's fact pack + scope)."
+    },
+    {
+      "id": "T2-approval-thresholds",
+      "kind": "fact",
+      "mustFind": true,
+      "anchors": [
+        { "path": "wcp-service-v2/internal/handlers/leave/service.go", "lines": "505-612" }
+      ],
+      "statementPatterns": ["16\\s*小时|16h", "40\\s*小时|40h"],
+      "markers": ["fact", "verified"],
+      "note": "T2 green. Hour thresholds drive approval level: leave/service.go Approve (:510 Hours>16 -> L2, :557 Hours>40 -> L3)."
+    },
+    {
+      "id": "T2-approval-chain",
+      "kind": "fact",
+      "mustFind": true,
+      "anchors": [
+        { "path": "wcp-service-v2/internal/handlers/leave/router.go", "lines": "10-87" }
+      ],
+      "statementPatterns": ["审批链|逐级审批|逐级批准|多级审批|逐级推进|生成.{0,6}审批"],
+      "markers": ["fact", "verified"],
+      "note": "T2 green. Submission builds a multi-level approval chain and waits the first level: leave/router.go Creation entrypoint."
+    },
+    {
+      "id": "T2-balance-deduct-by-type",
+      "kind": "fact",
+      "mustFind": true,
+      "anchors": [
+        { "path": "wcp-service-v2/internal/handlers/leave/brdg_abst.go", "lines": "107-153" }
+      ],
+      "statementPatterns": ["额度.{0,8}(扣减|扣除)|(扣减|扣除).{0,8}额度"],
+      "markers": ["fact", "verified"],
+      "note": "T2 green. Balance deduction by leave type within the year's available quota: leave/brdg_abst.go bridge (:107-153). PTO/BTO/Special deducted from the current-year allowance."
+    },
+    {
+      "id": "T2-permission-approve",
+      "kind": "fact",
+      "mustFind": true,
+      "anchors": [
+        { "path": "wcp-service-v2/internal/handlers/leave/service.go", "lines": "385-399" }
+      ],
+      "statementPatterns": ["(仅|只有|只能).{0,20}(管理员|admin|HR).{0,30}(批准|审批|驳回|操作)|(管理员|admin).{0,10}(HR).{0,30}(经理|PM|项目经理).{0,20}(批准|驳回|操作)"],
+      "markers": ["fact", "verified"],
+      "note": "T2 green. Approve/reject authorization is enforced in-service, not at the route: leave/service.go (:397 !isAdmin && !isHr && !(isProjMng && lastAprv.ApproverID==stuffID) -> Forbidden)."
+    },
+    {
+      "id": "T2-permission-quota-edit",
+      "kind": "fact",
+      "mustFind": true,
+      "anchors": [
+        { "path": "wcp-service-v2/internal/handlers/leaveHistory/service.go", "lines": "139-215" }
+      ],
+      "statementPatterns": ["额度台账.{0,10}(编辑|修改|调整).{0,16}(HR|管理员|admin)|(编辑|修改|调整).{0,20}额度.{0,20}(HR|管理员|admin)|(HR|管理员|admin).{0,20}(编辑|修改|调整).{0,10}(额度|台账)"],
+      "markers": ["fact", "verified"],
+      "note": "T2 green. Only HR/admin may edit the quota ledger: leaveHistory/service.go UpdateHolidayHour (:144 HasPermissionWithRoles[HR,Admin], :148 !isAdminOrHr -> Forbidden)."
+    },
+    {
+      "id": "T2-withdraw-eligibility",
+      "kind": "fact",
+      "mustFind": true,
+      "anchors": [
+        { "path": "wcp-service-v2/internal/handlers/leave/service.go", "lines": "1358-1392" }
+      ],
+      "statementPatterns": ["仅本人.{0,40}(撤回|撤销)|(撤回|撤销).{0,24}(仅|只).{0,6}本人"],
+      "markers": ["fact", "verified"],
+      "note": "T2 green. Withdraw is limited to the applicant while still pending: leave/service.go (:1366 Status>3 && Status!=8 -> not in progress)."
+    },
+    {
+      "id": "T2-cancelleave-eligibility",
+      "kind": "fact",
+      "mustFind": true,
+      "anchors": [
+        { "path": "wcp-service-v2/internal/handlers/leave/service.go", "lines": "1262-1336" }
+      ],
+      "statementPatterns": ["(已批准|已完成).{0,20}(发起|申请).{0,4}销假|销假.{0,4}(申请|入口).{0,20}(已批准|已完成)|(仅|只)?在?.{0,4}(已批准|已完成).{0,20}销假"],
+      "markers": ["fact", "verified"],
+      "note": "T2 green. Cancel-leave (销假) is only startable from approved/completed and needs a second leader/site-manager approval: leave/service.go (:1264 status != Approved && != Completed -> reject; :1289/:1301 lead/site-manager flow)."
+    },
+    {
+      "id": "T2-latam-pto-caps",
+      "kind": "fact",
+      "mustFind": true,
+      "anchors": [
+        { "path": "wcp-service-v2/internal/constant/latam_pto.go", "lines": "22-40" }
+      ],
+      "statementPatterns": ["240", "96"],
+      "markers": ["fact", "verified"],
+      "note": "T2 green. LatAm PTO accrual caps: constant/latam_pto.go FullTime 10h/mo cap 240 (:25-26), Deel 4h/mo cap 96 (:22-23)."
+    },
+    {
+      "id": "T2-notification-next-approver",
+      "kind": "fact",
+      "mustFind": true,
+      "anchors": [
+        { "path": "wcp-service-v2/internal/handlers/leave/notification.go", "lines": "3-50" }
+      ],
+      "statementPatterns": ["(下一|下级|第一位|首位|后续).{0,6}审批人.{0,10}(通知|发送|待批)|(通知|发送).{0,10}(下一|下级|第一位|首位).{0,6}审批人|向.{0,6}审批人.{0,6}发送.{0,6}(待批|通知)"],
+      "markers": ["fact", "verified"],
+      "note": "T2 green. On submit/transfer, a waiting notice goes to the next approver: leave/notification.go (:3-50)."
+    },
+    {
+      "id": "T3-ui-apply-form",
+      "kind": "fact",
+      "mustFind": false,
+      "anchors": [
+        { "path": "wcp-ui/src/pages/leave/ApplyLeave.tsx" }
+      ],
+      "statementPatterns": ["(请假)?申请.{0,10}表单|申请页|填写.{0,10}(请假|申请)|ApplyLeave|(实时|前端).{0,8}(计算|试算).{0,6}(时长|小时)|getCalculatedLeaveHours"],
+      "markers": ["fact", "verified"],
+      "note": "T3 optional, prepare-miss today. Leave application form (ApplyLeave.tsx) — form interactions + front-end hours preview (calls getCalculatedLeaveHours / calcHoursByCustomWorkTime, the UI side of CalculationAuto). Not in the pinned runs' prepared horizon."
+    },
+    {
+      "id": "T3-ui-approval-actions",
+      "kind": "fact",
+      "mustFind": false,
+      "anchors": [
+        { "path": "wcp-ui/src/pages/leave/components/LeaveApprovalActions.tsx" }
+      ],
+      "statementPatterns": ["(审批|批准|驳回|销假|撤回).{0,12}(操作|按钮|弹窗|动作|action|modal)|LeaveApprovalActions|approve.{0,6}modal|(通过|拒绝).{0,6}(弹窗|按钮)"],
+      "markers": ["fact", "verified"],
+      "note": "T3 optional, prepare-miss today. Approval-actions UI (LeaveApprovalActions.tsx) — approve/reject/cancel modals. Not in the prepared horizon."
+    },
+    {
+      "id": "T3-ui-export-request",
+      "kind": "fact",
+      "mustFind": false,
+      "anchors": [
+        { "path": "wcp-ui/src/pages/leave/components/ExportLeaveRequestModal.tsx" }
+      ],
+      "statementPatterns": ["(导出|export).{0,12}(请假|leave).{0,10}(弹窗|modal|表单|请求)|ExportLeaveRequestModal|(选择|筛选).{0,10}(员工|日期).{0,10}导出"],
+      "markers": ["fact", "verified"],
+      "note": "T3 optional, prepare-miss today. Export-leave-request UI (ExportLeaveRequestModal.tsx) — export request modal form. Not in the prepared horizon."
+    }
+  ],
+  "forbidden": [
+    {
+      "id": "autocomplete-wrongly-disabled",
+      "patterns": [
+        "(到期|结束日|已过期|过期|已过).{0,24}(置为|标记|变为).{0,8}(已)?完成|标记完成|自动标记完成|自动完成",
+        "未注册|不会自动"
+      ],
+      "unless": [
+        "syncLvCompleted",
+        "Go\\s*主?\\s*cron",
+        "改由\\s*Go",
+        "Go\\s*(定时|任务)",
+        "后台\\s*cron"
+      ],
+      "markers": ["fact", "verified"],
+      "note": "Pins the C1v2 hallucination that auto-complete is a disabled/unregistered Node job. Base = the auto-complete-of-expired-leave topic AND a 'won't happen / not registered' framing (未注册 / 不会自动) — the C1v2-specific wording. The correct C1 phrasings use 注释停用 / 不将 (outside the base) or explicitly cite the Go cron (covered by unless), so the green run is never punished. Fires on C1v2 claim-14/claim-21/claim-29; does not fire on C1 00:50."
+    }
+  ],
+  "coverage": []
+}
