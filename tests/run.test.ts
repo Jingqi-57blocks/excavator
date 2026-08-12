@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { spawn } from "node:child_process";
 import { readFile, writeFile, readdir } from "node:fs/promises";
@@ -265,8 +265,9 @@ test("an abruptly killed author process resumes from the first incomplete sectio
   assert.equal(resumed.manifest.documents[0].sections[1].complete, false);
   const sectionDir = join(runDir, "sections", document.id);
   const entries = await readdir(sectionDir);
-  assert.ok(entries.includes("01.md"));
-  assert.ok(!entries.includes("02.md"));
+  // Files are named `NN-<slug>.md`; assert against the manifest's own paths rather than a literal name.
+  assert.ok(entries.includes(basename(document.sections[0].file)));
+  assert.ok(!entries.includes(basename(document.sections[1].file)));
 });
 
 
