@@ -7,11 +7,18 @@ import {
   nodesFromRun,
   loadNodesFile,
   exitCodeFor,
+  factPackNodesFromRun,
+  fgReportFromRun,
+  factPackReportFromRun,
+  derivationDrops,
+  buildLayeredReport,
+  layeredExitCode,
   type BoundaryNode
 } from "../boundary.ts";
 import { validateBoundaryGold, loadBoundaryGold, type BoundaryGold } from "../boundary-gold.ts";
 
 const FIXTURES = join(import.meta.dirname, "fixtures", "boundary-run-mini");
+const LAYERS_MINI = join(import.meta.dirname, "fixtures", "boundary-layers-mini");
 const WCP_LEAVE = join(import.meta.dirname, "..", "fixtures", "wcp-leave");
 const DEMO_NODES = join(WCP_LEAVE, "demo-run-fg-nodes.json");
 const LEAVE_GOLD = join(WCP_LEAVE, "boundary-gold.json");
@@ -135,6 +142,68 @@ test("run in pass mode exits 0 with every mustFind in bounds", () => {
 });
 
 // ---- real artifact pins the baseline ----
+
+// ---- fact-pack (consumption) layer + layered report ----
+
+test("factPackNodesFromRun unions every feature's fact-pack items and maps line->startLine", () => {
+  const nodes = factPackNodesFromRun(LAYERS_MINI);
+  assert.deepEqual(nodes.map((n) => n.name).sort(), ["Alpha"]); // the one fact-pack item the mini run claims
+  assert.deepEqual(nodes[0], { filePath: "mod/svc/a.go", name: "Alpha", startLine: 10, endLine: 20 });
+});
+
+test("factPackNodesFromRun returns an empty set when a run has no fact pack", () => {
+  assert.deepEqual(factPackNodesFromRun(FIXTURES), []); // boundary-run-mini has evidence.json but no context/features
+});
+
+test("fg and factpack run reports stamp their layer; factpack drops what fg captured", () => {
+  const gold = loadBoundaryGold(join(LAYERS_MINI, "gold-both.json"));
+  const fg = fgReportFromRun(LAYERS_MINI, gold);
+  const factpack = factPackReportFromRun(LAYERS_MINI, gold);
+  assert.equal(fg.layer, "fg");
+  assert.equal(factpack.layer, "factpack");
+  assert.equal(fg.summary.pass, true); // Alpha + Beta both in the FG node set
+  assert.equal(factpack.summary.pass, false); // Beta dropped from the fact pack
+  assert.deepEqual(factpack.missing.filter((m) => m.mustFind).map((m) => m.id), ["beta"]);
+});
+
+test("derivationDrops is exactly found@fg ∧ missing@factpack", () => {
+  const fg = boundaryRecall(
+    [
+      { filePath: "mod/a.go", name: "Kept", startLine: 1, endLine: 9 },
+      { filePath: "mod/b.go", name: "Dropped", startLine: 1, endLine: 9 }
+    ],
+    gold([
+      { id: "kept", mustFind: true, anchors: [{ path: "mod/a.go", name: "Kept" }] },
+      { id: "dropped", mustFind: true, anchors: [{ path: "mod/b.go", name: "Dropped" }] },
+      { id: "never-anywhere", mustFind: false, anchors: [{ path: "mod/z.go", name: "Ghost" }] }
+    ])
+  );
+  const factpack = boundaryRecall(
+    [{ filePath: "mod/a.go", name: "Kept", startLine: 1, endLine: 9 }], // Dropped is not in the fact pack
+    gold([
+      { id: "kept", mustFind: true, anchors: [{ path: "mod/a.go", name: "Kept" }] },
+      { id: "dropped", mustFind: true, anchors: [{ path: "mod/b.go", name: "Dropped" }] },
+      { id: "never-anywhere", mustFind: false, anchors: [{ path: "mod/z.go", name: "Ghost" }] }
+    ])
+  );
+  const drops = derivationDrops(fg, factpack);
+  assert.deepEqual(drops.map((d) => d.id), ["dropped"]); // Kept survives; never-anywhere is missing at BOTH layers
+  assert.equal(drops[0].mustFind, true);
+});
+
+test("buildLayeredReport unions the requested layers' gates and layeredExitCode follows", () => {
+  const gold = loadBoundaryGold(join(LAYERS_MINI, "gold-both.json"));
+  const fg = fgReportFromRun(LAYERS_MINI, gold);
+  const factpack = factPackReportFromRun(LAYERS_MINI, gold);
+  const both = buildLayeredReport("t", fg, factpack, ["fg", "factpack"]);
+  assert.equal(both.pass, false); // factpack fails -> union fails
+  assert.equal(layeredExitCode(both), 1);
+  assert.deepEqual(both.derivationDrops.map((d) => d.id), ["beta"]);
+  const fgOnly = buildLayeredReport("t", fg, undefined, ["fg"]);
+  assert.equal(fgOnly.pass, true); // only fg requested, and fg passes
+  assert.equal(layeredExitCode(fgOnly), 0);
+  assert.deepEqual(fgOnly.derivationDrops, []); // no factpack report -> no drops computed
+});
 
 test("real demo FG nodes x wcp-leave gold: mustFind miss is exactly the 3 T1 out-of-bounds symbols", () => {
   const report = boundaryRecall(loadNodesFile(DEMO_NODES), loadBoundaryGold(LEAVE_GOLD));

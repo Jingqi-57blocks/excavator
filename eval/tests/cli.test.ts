@@ -13,6 +13,9 @@ const RUN_OBSERVE_MINI_B = join(import.meta.dirname, "fixtures", "run-observe-mi
 const BOUNDARY_RUN_MINI = join(import.meta.dirname, "fixtures", "boundary-run-mini");
 const BOUNDARY_GOLD_FAIL = join(BOUNDARY_RUN_MINI, "gold-fail.json");
 const BOUNDARY_GOLD_PASS = join(BOUNDARY_RUN_MINI, "gold-pass.json");
+const LAYERS_MINI = join(import.meta.dirname, "fixtures", "boundary-layers-mini");
+const LAYERS_GOLD_BOTH = join(LAYERS_MINI, "gold-both.json");
+const LAYERS_GOLD_FACTPACK_CLEAN = join(LAYERS_MINI, "gold-factpack-clean.json");
 const EXPECTED_FAIL = join(RUN_MINI, "expected-fail.json");
 const EXPECTED_PASS = join(RUN_MINI, "expected-pass.json");
 
@@ -155,26 +158,75 @@ test("compare exits 2 on a missing run dir and on a missing --b flag", async () 
   assert.match(missingFlag.stderr, /missing required flag --b/);
 });
 
-test("boundary --run exits 1 and prints FAIL when a mustFind symbol is out of bounds", async () => {
-  const { code, stdout } = await cli(["boundary", "--run", BOUNDARY_RUN_MINI, "--gold", BOUNDARY_GOLD_FAIL]);
+test("boundary --layer fg exits 1 and prints FAIL when a mustFind symbol is out of bounds", async () => {
+  const { code, stdout } = await cli(["boundary", "--run", BOUNDARY_RUN_MINI, "--gold", BOUNDARY_GOLD_FAIL, "--layer", "fg"]);
   assert.equal(code, 1);
   assert.match(stdout, /verdict: FAIL/);
+  assert.match(stdout, /@ fg/); // header carries the measured layer
   assert.match(stdout, /\[decoy-must\]/); // CG-NODES decoy was not credited -> stays a mustFind miss
   assert.match(stdout, /covered by a source window/); // informational coverage tag rendered in run mode
 });
 
-test("boundary --run exits 0 and prints PASS when every mustFind is in bounds", async () => {
-  const { code, stdout } = await cli(["boundary", "--run", BOUNDARY_RUN_MINI, "--gold", BOUNDARY_GOLD_PASS]);
+test("boundary --layer fg exits 0 and prints PASS when every mustFind is in bounds", async () => {
+  const { code, stdout } = await cli(["boundary", "--run", BOUNDARY_RUN_MINI, "--gold", BOUNDARY_GOLD_PASS, "--layer", "fg"]);
   assert.equal(code, 0);
   assert.match(stdout, /verdict: PASS/);
 });
 
-test("boundary --json emits the BoundaryReport top-level shape", async () => {
-  const { code, stdout } = await cli(["boundary", "--run", BOUNDARY_RUN_MINI, "--gold", BOUNDARY_GOLD_FAIL, "--json"]);
+test("boundary --layer fg --json emits the BoundaryReport top-level shape (now layer-stamped)", async () => {
+  const { code, stdout } = await cli(["boundary", "--run", BOUNDARY_RUN_MINI, "--gold", BOUNDARY_GOLD_FAIL, "--layer", "fg", "--json"]);
   assert.equal(code, 1);
   const report = JSON.parse(stdout);
-  assert.deepEqual(Object.keys(report).sort(), ["found", "missing", "summary", "target"]);
+  assert.deepEqual(Object.keys(report).sort(), ["found", "layer", "missing", "summary", "target"]);
+  assert.equal(report.layer, "fg");
   assert.equal(report.summary.pass, false);
+});
+
+test("boundary defaults to --layer both and splits fg (pass) from factpack (fail) on the same run", async () => {
+  // fg has Alpha+Beta; the fact pack surfaces only Alpha -> Beta is a derivation drop.
+  const { code, stdout } = await cli(["boundary", "--run", LAYERS_MINI, "--gold", LAYERS_GOLD_BOTH]);
+  assert.equal(code, 1); // union of layers: factpack's mustFind miss fails the whole
+  assert.match(stdout, /layered fg vs factpack/);
+  assert.match(stdout, /@ fg/);
+  assert.match(stdout, /@ factpack/);
+  assert.match(stdout, /derivation drops/);
+  assert.match(stdout, /\[beta\] \(mustFind\)/); // Beta: found@fg, dropped from the fact pack
+});
+
+test("boundary --layer fg passes while --layer factpack fails on the same run (the consumption gap)", async () => {
+  const fg = await cli(["boundary", "--run", LAYERS_MINI, "--gold", LAYERS_GOLD_BOTH, "--layer", "fg"]);
+  assert.equal(fg.code, 0);
+  assert.match(fg.stdout, /verdict: PASS/);
+
+  const factpack = await cli(["boundary", "--run", LAYERS_MINI, "--gold", LAYERS_GOLD_BOTH, "--layer", "factpack"]);
+  assert.equal(factpack.code, 1);
+  assert.match(factpack.stdout, /verdict: FAIL/);
+  assert.match(factpack.stdout, /@ factpack/);
+  assert.match(factpack.stdout, /\[beta\]/);
+});
+
+test("boundary --layer factpack exits 0 when every mustFind survives into the fact pack", async () => {
+  const { code, stdout } = await cli(["boundary", "--run", LAYERS_MINI, "--gold", LAYERS_GOLD_FACTPACK_CLEAN, "--layer", "factpack"]);
+  assert.equal(code, 0);
+  assert.match(stdout, /verdict: PASS/);
+});
+
+test("boundary --layer both --json emits the layered shape with fg/factpack/derivationDrops", async () => {
+  const { code, stdout } = await cli(["boundary", "--run", LAYERS_MINI, "--gold", LAYERS_GOLD_BOTH, "--layer", "both", "--json"]);
+  assert.equal(code, 1);
+  const report = JSON.parse(stdout);
+  assert.deepEqual(Object.keys(report).sort(), ["derivationDrops", "factpack", "fg", "pass", "requested", "target"]);
+  assert.equal(report.fg.summary.pass, true);
+  assert.equal(report.factpack.summary.pass, false);
+  assert.equal(report.pass, false);
+  assert.deepEqual(report.derivationDrops.map((d: any) => d.id), ["beta"]);
+});
+
+test("boundary --nodes rejects a non-fg layer (a bare node set has no fact pack to read)", async () => {
+  const nodesFile = join(BOUNDARY_RUN_MINI, "..", "..", "..", "fixtures", "wcp-leave", "demo-run-fg-nodes.json");
+  const { code, stderr } = await cli(["boundary", "--nodes", nodesFile, "--gold", LAYERS_GOLD_BOTH, "--layer", "factpack"]);
+  assert.equal(code, 2);
+  assert.match(stderr, /fg layer only/);
 });
 
 test("boundary --nodes reads a projected node file and omits the run-only coverage field", async () => {
@@ -187,9 +239,9 @@ test("boundary --nodes reads a projected node file and omits the run-only covera
   assert.equal(report.missing.every((m: any) => !("coveredBySourceWindow" in m)), true); // no evidence.json in --nodes mode
 });
 
-test("boundary same run twice is byte-identical (deterministic)", async () => {
-  const a = await cli(["boundary", "--run", BOUNDARY_RUN_MINI, "--gold", BOUNDARY_GOLD_FAIL, "--json"]);
-  const b = await cli(["boundary", "--run", BOUNDARY_RUN_MINI, "--gold", BOUNDARY_GOLD_FAIL, "--json"]);
+test("boundary same run twice is byte-identical (deterministic, layered)", async () => {
+  const a = await cli(["boundary", "--run", LAYERS_MINI, "--gold", LAYERS_GOLD_BOTH, "--json"]);
+  const b = await cli(["boundary", "--run", LAYERS_MINI, "--gold", LAYERS_GOLD_BOTH, "--json"]);
   assert.equal(a.stdout, b.stdout);
 });
 

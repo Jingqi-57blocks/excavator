@@ -1,0 +1,52 @@
+[
+  {
+    "id": "FG-mini",
+    "kind": "graph",
+    "title": "CodeGraph scope for the mini feature",
+    "data": {
+      "seeds": [
+        {
+          "id": "mod:route:svc/a.go:10:GET:/things"
+        }
+      ],
+      "anchorTerms": [
+        "thing"
+      ],
+      "nodes": [
+        {
+          "id": "mod:function:alpha",
+          "name": "Alpha",
+          "kind": "function",
+          "filePath": "mod/svc/a.go",
+          "startLine": 10,
+          "endLine": 20
+        },
+        {
+          "id": "mod:function:beta",
+          "name": "Beta",
+          "kind": "function",
+          "filePath": "mod/svc/b.go",
+          "startLine": 5,
+          "endLine": 15,
+          "rescued": "anchor-token thing"
+        },
+        {
+          "id": "mod:function:gamma",
+          "name": "Gamma",
+          "kind": "function",
+          "filePath": "mod/svc/c.go",
+          "startLine": 1,
+          "endLine": 8
+        }
+      ],
+      "edges": [
+        {
+          "source": "mod:function:alpha",
+          "target": "mod:function:beta",
+          "kind": "calls",
+          "line": 12
+        }
+      ]
+    }
+  }
+]

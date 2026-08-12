@@ -1,0 +1,18 @@
+{
+  "version": "boundary-gold-v1",
+  "target": "layers-mini",
+  "items": [
+    {
+      "id": "alpha",
+      "mustFind": true,
+      "anchors": [{ "path": "mod/svc/a.go", "name": "Alpha" }],
+      "note": "Present at BOTH layers: in the FG node set and surfaced by the fact pack (a route entrypoint)."
+    },
+    {
+      "id": "beta",
+      "mustFind": true,
+      "anchors": [{ "path": "mod/svc/b.go", "name": "Beta" }],
+      "note": "Present in the FG node set but DROPPED from the fact pack -> the derivation drop this gold exercises. fg passes, factpack fails."
+    }
+  ]
+}
