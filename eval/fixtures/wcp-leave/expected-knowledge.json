@@ -12,7 +12,26 @@
     "sourceRuns": {
       "red": "run-2026_08_12_13_47-请假-f5da2557-a19a985b-28d5edde (C1v2) — frozen in knowledge-C1v2-red.json.gz",
       "green": "run-2026_08_12_00_50-请假-f5da2557-a19a985b-1e2a64e4 (C1 00:50) — frozen in knowledge-C1-green.json.gz",
+      "effect": "run-2026_08_12_17_31-请假-f5da2557-a19a985b-b1a925ab (post-forcing, 57B-375 effect) — frozen in knowledge-effect-postforcing.json.gz; the recalibration source for 57B-376",
       "demoWordingSource": "run-2026_08_11_16_37-请假-f5da2557-6ff0cf2b-6e6091ab (demo) — third wording source, not frozen"
+    },
+    "recalibration_57B_376": {
+      "why": "The 57B-374 gold was calibrated on the PRE-forcing runs (C1v2 red, C1 00:50 green). The 57B-375 forcing function changed HOW the author organizes/phrases rule coverage, so a fresh POST-forcing run (effect, 17:31) covers rules the old narrow single-semantic patterns / anchors no longer matched. Re-diffing the effect run against the pre-forcing gold false-read 3/15 found (9 mustFind reported missing, most of them actually covered under new wording). This block records the ONLY-WIDEN-NEVER-NARROW recalibration: every widening is a strict superset of the prior form (appended alternation / added anchor) justified by an actual covering claim read in the effect run; the RED/GREEN readings are preserved.",
+      "beforeAfterEffect": "found 3/15 -> 10/15. Corrected 7 false-misses (see widenings). 2 remain GENUINE post-forcing authoring-misses (T2-permission-quota-edit, T2-latam-pto-caps) — NOT widened because the effect run never authored them at the fact/verified claims layer; 3 T3 frontend items stay prepare-miss (frontend not in scope).",
+      "widenings": {
+        "T1-preview-hours": "pattern += '应扣小时预览' / '(提交前|提交时)…(预估|预览|试算)…小时' <- effect claim-16 (fact @ support/service.go:415-529). RED/GREEN protected: both have 0 facts citing that support window.",
+        "T2-approval-thresholds": "two-pattern AND -> single superset pattern (keeps 16小时|16h|40小时|40h) + '16时/40时…升级/二级/三级' + '小时阈值…接力' <- effect claim-9/claim-10/claim-20 (fact @ leave/service.go:459-614), which the forcing function split across separate claims and de-'小时'-ed.",
+        "T2-approval-chain": "pattern += '(首条|第一条|首个)审批记录' <- effect claim-19 (fact @ leave/router.go:10-87).",
+        "T2-balance-deduct-by-type": "anchor += model/leave.go:1-61 (HolidayHour quota table) <- effect claim-22 & s1-1 (fact), which source deduction there rather than at the bridge.",
+        "T2-withdraw-eligibility": "pattern += '(由|仅|只)本人…(删除|撤销|撤回)' <- effect claim-16/claim-22 (fact @ leave/service.go:1341-1393). Also corrects a C1v2 false-miss (red claim-47) — genuine, not spurious.",
+        "T2-cancelleave-eligibility": "pattern += '(已批准|已完成)…撤销申请' (post-forcing says '撤销申请' not literal '销假') <- effect claim-17/claim-23 (fact @ leave/service.go:1225-1339).",
+        "T2-notification-next-approver": "anchor += leave/service.go:459-614 (escalation/notify window) <- effect claim-20 (fact)."
+      },
+      "genuineMissesNotWidened": {
+        "T2-permission-quota-edit": "The effect run mentions the quota-history-management interface ('可查看与调整员工的年度假期额度', claim-3 @ leaveHistory/router.go:4-58) but authored NO claim carrying the HR/Admin-only EDIT restriction (the rule's discriminating semantic). No fact/verified claim pairs 额度/台账 with an actor. True authoring-miss.",
+        "T2-latam-pto-caps": "The specific accrual caps (240 FullTime / 96 Deel) appear in NO claim or report text of the effect run; the LatAm rule is covered only by an INFERRED summary ('每月基数与上限按员工类型确定', claim-19, marker=inferred) without the numbers. The gold pins the numeric caps as fact/verified; relaxing markers or dropping the numbers would change the quality bar, not widen wording. True authoring-miss."
+      },
+      "redGreenPreserved": "RED (C1v2): T1-preview/T1-natural/T1-cron still authoring-miss; forbidden pin still fires on claim-14/claim-21/claim-29. GREEN (C1 00:50): found set unchanged (T1-cron + all 9 T2), T1-preview/T1-natural still authoring-miss, 3 T3 prepare-miss."
     },
     "note": "The forbidden pin targets the C1v2 hallucination that auto-complete is a disabled/unregistered Node job. Its unless exempts the correct C1 wording (auto-complete handled by the Go cron / syncLvCompleted), so a correct report is never punished. The green run legitimately also notes the old Node task is commented out, but always alongside the Go-cron attribution — its discriminating tokens (注释停用 / 不将 / 改由 Go) sit outside the pin's base, and the Go-cron unless covers the rest."
   },
@@ -26,10 +45,10 @@
         { "path": "wcp-service-v2/internal/handlers/support/router.go", "lines": "99-135" }
       ],
       "statementPatterns": [
-        "(逐日|按日|逐小时|按小时|每日|按天).{0,20}(请假|休假|off|工时|时长|小时|排班|明细)|请假时长.{0,10}(预览|试算|实时|提交前|计算)|(预览|试算|实时|提交前).{0,10}(请假)?时长|CalculationAuto|calculation/auto|off.?hours|按工作时间.{0,6}计算.{0,6}(时长|小时)"
+        "(逐日|按日|逐小时|按小时|每日|按天).{0,20}(请假|休假|off|工时|时长|小时|排班|明细)|请假时长.{0,10}(预览|试算|实时|提交前|计算)|(预览|试算|实时|提交前).{0,10}(请假)?时长|CalculationAuto|calculation/auto|off.?hours|按工作时间.{0,6}计算.{0,6}(时长|小时)|应扣小时预览|(提交前|提交时).{0,16}(预估|预览|试算).{0,6}(应扣|扣减)?小时"
       ],
       "markers": ["fact", "verified"],
-      "note": "T1 authoring-miss. Preview / real-time leave-hours arrangement before submission: support/service.go CalculationAuto (:415-529, walks the date range day-by-day, 9:00-18:00=8h, first/last-day partial hours, skips holidays for non-ignoring types) exposed at support/router.go GET /calculation/auto (:100). Neither the red nor green run authored any claim on these support windows."
+      "note": "T1 authoring-miss. Preview / real-time leave-hours arrangement before submission: support/service.go CalculationAuto (:415-529, walks the date range day-by-day, 9:00-18:00=8h, first/last-day partial hours, skips holidays for non-ignoring types) exposed at support/router.go GET /calculation/auto (:100). Neither the red nor green run authored any claim on these support windows. 57B-376 widened the pattern for the post-forcing '应扣小时预览' wording (effect claim-16, fact @ support/service.go:415-529: '应扣小时预览：提交前系统按起止时间预估应扣小时——把区间按天展开…'); the anchor still carries the RED/GREEN protection (both have zero facts citing this support window)."
     },
     {
       "id": "T1-natural-vs-working-day",
@@ -64,9 +83,9 @@
       "anchors": [
         { "path": "wcp-service-v2/internal/handlers/leave/service.go", "lines": "505-612" }
       ],
-      "statementPatterns": ["16\\s*小时|16h", "40\\s*小时|40h"],
+      "statementPatterns": ["16\\s*小时|16h|40\\s*小时|40h|(16|40)\\s*时.{0,16}(升级|升入|进入|上一级|二级|三级)|(小时|工时)阈值.{0,20}(一级|二级|三级|接力|升级|审批级别)"],
       "markers": ["fact", "verified"],
-      "note": "T2 green. Hour thresholds drive approval level: leave/service.go Approve (:510 Hours>16 -> L2, :557 Hours>40 -> L3)."
+      "note": "T2 green. Hour thresholds drive approval level: leave/service.go Approve (:510 Hours>16 -> L2, :557 Hours>40 -> L3). 57B-376: the two-pattern AND (a single claim had to carry BOTH 16 and 40) was collapsed to one single-semantic pattern that is a strict SUPERSET of the old (keeps '16小时|16h|40小时|40h' as alternatives, so nothing that matched before stops matching) plus the post-forcing wording where the forcing function splits the thresholds across separate claims and drops '小时' ('16 时'/'40 时'): effect claim-9 (fact @ leave/service.go:459-614: '一级通过且小时数超过 16 时升级到二级审批'), claim-10 ('…超过 40 时升级到三级审批'), claim-20 ('按小时阈值在一级、二级、三级之间接力'). GREEN still matches via '16小时'/'40小时' (e.g. C1 c2-4 '超过 16 小时进入第二级，超过 40 小时再进入第三级')."
     },
     {
       "id": "T2-approval-chain",
@@ -75,20 +94,21 @@
       "anchors": [
         { "path": "wcp-service-v2/internal/handlers/leave/router.go", "lines": "10-87" }
       ],
-      "statementPatterns": ["审批链|逐级审批|逐级批准|多级审批|逐级推进|生成.{0,6}审批"],
+      "statementPatterns": ["审批链|逐级审批|逐级批准|多级审批|逐级推进|生成.{0,6}审批|(首条|第一条|首个)审批记录"],
       "markers": ["fact", "verified"],
-      "note": "T2 green. Submission builds a multi-level approval chain and waits the first level: leave/router.go Creation entrypoint."
+      "note": "T2 green. Submission builds a multi-level approval chain and waits the first level: leave/router.go Creation entrypoint. 57B-376 appended the post-forcing submission-flow wording (effect claim-19, fact @ leave/router.go:10-87: '提交流程：一次提交依次经过…按假期类型确定初始等待状态，并把请假记录、首条审批记录与附件一并落库' — '首条审批记录' is the head of the chain). Append-only alternation, so GREEN/RED stay found via the existing '生成…审批' forms."
     },
     {
       "id": "T2-balance-deduct-by-type",
       "kind": "fact",
       "mustFind": true,
       "anchors": [
-        { "path": "wcp-service-v2/internal/handlers/leave/brdg_abst.go", "lines": "107-153" }
+        { "path": "wcp-service-v2/internal/handlers/leave/brdg_abst.go", "lines": "107-153" },
+        { "path": "wcp-service-v2/internal/model/leave.go", "lines": "1-61" }
       ],
       "statementPatterns": ["额度.{0,8}(扣减|扣除)|(扣减|扣除).{0,8}额度"],
       "markers": ["fact", "verified"],
-      "note": "T2 green. Balance deduction by leave type within the year's available quota: leave/brdg_abst.go bridge (:107-153). PTO/BTO/Special deducted from the current-year allowance."
+      "note": "T2 green. Balance deduction by leave type within the year's available quota: leave/brdg_abst.go bridge (:107-153). PTO/BTO/Special deducted from the current-year allowance. 57B-376 added an alternative anchor at model/leave.go:1-61 (the HolidayHour annual-quota table, per-type columns) because the post-forcing run sources the deduction there rather than at the bridge: effect claim-22 (fact @ model/leave.go:1-61: '年度额度表则由请假提交时扣减、撤销时回退…') and s1-1 (fact: '…从员工的年度假期额度中扣减对应小时') both match the unchanged pattern. Adding an anchor is non-narrowing; GREEN stays found via the original bridge anchor."
     },
     {
       "id": "T2-permission-approve",
@@ -119,9 +139,9 @@
       "anchors": [
         { "path": "wcp-service-v2/internal/handlers/leave/service.go", "lines": "1358-1392" }
       ],
-      "statementPatterns": ["仅本人.{0,40}(撤回|撤销)|(撤回|撤销).{0,24}(仅|只).{0,6}本人"],
+      "statementPatterns": ["仅本人.{0,40}(撤回|撤销)|(撤回|撤销).{0,24}(仅|只).{0,6}本人|(由|仅|只)本人.{0,14}(直接)?(删除|撤销|撤回)"],
       "markers": ["fact", "verified"],
-      "note": "T2 green. Withdraw is limited to the applicant while still pending: leave/service.go (:1366 Status>3 && Status!=8 -> not in progress)."
+      "note": "T2 green. Withdraw is limited to the applicant while still pending: leave/service.go (:1366 Status>3 && Status!=8 -> not in progress). 57B-376 appended the post-forcing 'by-the-applicant' wording (effect claim-16, fact @ leave/service.go:1341-1393: '仍在审批或等待 HR 的申请可由本人直接删除并回退小时'; claim-22: '在途申请由本人经撤销导演器直接删除…'). The same widening also legitimately turns C1v2 (red) green here (its claim-47 '进行中的请假由本人直接撤销' is genuine coverage the old narrow '仅本人' pattern false-missed) — this is a false-miss correction, not a spurious flip; T2-withdraw is not a RED depth target."
     },
     {
       "id": "T2-cancelleave-eligibility",
@@ -130,9 +150,9 @@
       "anchors": [
         { "path": "wcp-service-v2/internal/handlers/leave/service.go", "lines": "1262-1336" }
       ],
-      "statementPatterns": ["(已批准|已完成).{0,20}(发起|申请).{0,4}销假|销假.{0,4}(申请|入口).{0,20}(已批准|已完成)|(仅|只)?在?.{0,4}(已批准|已完成).{0,20}销假"],
+      "statementPatterns": ["(已批准|已完成).{0,20}(发起|申请).{0,4}销假|销假.{0,4}(申请|入口).{0,20}(已批准|已完成)|(仅|只)?在?.{0,4}(已批准|已完成).{0,20}销假|(已批准|已完成).{0,20}(提交|发起|须)?.{0,6}撤销申请"],
       "markers": ["fact", "verified"],
-      "note": "T2 green. Cancel-leave (销假) is only startable from approved/completed and needs a second leader/site-manager approval: leave/service.go (:1264 status != Approved && != Completed -> reject; :1289/:1301 lead/site-manager flow)."
+      "note": "T2 green. Cancel-leave (销假) is only startable from approved/completed and needs a second leader/site-manager approval: leave/service.go (:1264 status != Approved && != Completed -> reject; :1289/:1301 lead/site-manager flow). 57B-376 appended the post-forcing wording, which expresses the same rule as '撤销申请' rather than the literal '销假' (effect claim-17, fact @ leave/service.go:1225-1339: '已批准或已完成的申请须提交撤销申请，生成一条撤销审批记录并转为「等待撤销」，经理批准后转为已取消'; claim-23 mirrors it). Append-only; GREEN stays found via the '销假' forms."
     },
     {
       "id": "T2-latam-pto-caps",
@@ -150,11 +170,12 @@
       "kind": "fact",
       "mustFind": true,
       "anchors": [
-        { "path": "wcp-service-v2/internal/handlers/leave/notification.go", "lines": "3-50" }
+        { "path": "wcp-service-v2/internal/handlers/leave/notification.go", "lines": "3-50" },
+        { "path": "wcp-service-v2/internal/handlers/leave/service.go", "lines": "459-614" }
       ],
       "statementPatterns": ["(下一|下级|第一位|首位|后续).{0,6}审批人.{0,10}(通知|发送|待批)|(通知|发送).{0,10}(下一|下级|第一位|首位).{0,6}审批人|向.{0,6}审批人.{0,6}发送.{0,6}(待批|通知)"],
       "markers": ["fact", "verified"],
-      "note": "T2 green. On submit/transfer, a waiting notice goes to the next approver: leave/notification.go (:3-50)."
+      "note": "T2 green. On submit/transfer, a waiting notice goes to the next approver: leave/notification.go (:3-50). 57B-376 added an alternative anchor at leave/service.go:459-614 (the escalation/notify window) because the post-forcing run sources notify-next-approver from the Approve escalation rather than the notification helper: effect claim-20 (fact @ leave/service.go:459-614: '…超阈值时把状态推进到对应的「等待上一级审批」并通知下一位审批人…') matches the unchanged pattern. Adding an anchor is non-narrowing; GREEN stays found via the original notification.go anchor."
     },
     {
       "id": "T3-ui-apply-form",

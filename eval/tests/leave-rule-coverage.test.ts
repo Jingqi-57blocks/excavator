@@ -8,10 +8,12 @@
 // directories at test time.
 //
 // Two layers, both pure:
-//   1. Frozen real-run readings: the C1v2 (red) and C1 00:50 (green) runs, extracted once and committed
-//      gzipped. Asserts the exact reality — which T1 rules miss and with what attribution, that the T3
-//      frontend rules are prepare-misses, that the forbidden pin fires on the wrong cron claims (red) and
-//      stays silent on the correct wording (green), and that the T2 sentinels are all still green.
+//   1. Frozen real-run readings: the C1v2 (red), C1 00:50 (green), and post-forcing (effect) runs, extracted
+//      once and committed gzipped. Asserts the exact reality — which T1 rules miss and with what attribution,
+//      that the T3 frontend rules are prepare-misses, that the forbidden pin fires on the wrong cron claims
+//      (red) and stays silent on the correct wording (green/effect), and that the T2 sentinels are green. The
+//      effect run is the 57B-376 recalibration source: after only-widening the gold to the post-forcing
+//      wording/anchors it reads its TRUE coverage (10/15) instead of the pre-recalibration 3/15 false-read.
 //   2. Forbidden-pin discriminator units: minimal synthetic Knowledge from wordings harvested verbatim from
 //      the real runs, guarding that the pin fires on the C1v2 "disabled/unregistered Node job" framing,
 //      exempts a claim that also cites the Go cron (unless), and never even matches the green 注释停用 wording.
@@ -28,6 +30,7 @@ const FX = join(import.meta.dirname, "..", "fixtures", "wcp-leave");
 const expected = loadExpected(join(FX, "expected-knowledge.json"));
 const red = loadKnowledgeFixture(join(FX, "knowledge-C1v2-red.json.gz"));
 const green = loadKnowledgeFixture(join(FX, "knowledge-C1-green.json.gz"));
+const effect = loadKnowledgeFixture(join(FX, "knowledge-effect-postforcing.json.gz"));
 
 const T1 = ["T1-preview-hours", "T1-natural-vs-working-day", "T1-autocomplete-cron"];
 const T3 = ["T3-ui-apply-form", "T3-ui-approval-actions", "T3-ui-export-request"];
@@ -108,6 +111,65 @@ test("GREEN: the other two T1 rules remain claims-layer authoring-misses even in
   const attr = attributionOf(greenDiff);
   assert.equal(attr.get("T1-preview-hours"), "authoring-miss");
   assert.equal(attr.get("T1-natural-vs-working-day"), "authoring-miss");
+});
+
+// --- Layer 1c: EFFECT reading (post-forcing, the 57B-376 recalibration source) -----------------
+
+const effectDiff = diffKnowledge(effect, expected);
+
+// The TRUE post-forcing coverage the recalibrated gold measures. Pre-recalibration the same run false-read
+// 3/15 (nine mustFind reported missing under new wording); after only-widening it reads 10/15.
+const EFFECT_FOUND = [
+  "T1-preview-hours",
+  "T1-natural-vs-working-day",
+  "T1-autocomplete-cron",
+  "T2-approval-thresholds",
+  "T2-approval-chain",
+  "T2-balance-deduct-by-type",
+  "T2-permission-approve",
+  "T2-withdraw-eligibility",
+  "T2-cancelleave-eligibility",
+  "T2-notification-next-approver"
+];
+// Two T2 rules the post-forcing run genuinely never authored at the fact/verified claims layer (NOT widened,
+// so the reading stays honest): the HR/Admin-only quota-edit restriction, and the numeric LatAm accrual caps.
+const EFFECT_AUTHORING_MISS = ["T2-permission-quota-edit", "T2-latam-pto-caps"];
+
+test("EFFECT fixture is the frozen post-forcing run", () => {
+  assert.match(effect.runDir, /run-2026_08_12_17_31-.*-b1a925ab$/, "effect fixture must be the post-forcing run directory");
+});
+
+test("EFFECT: the recalibrated gold reads the TRUE post-forcing coverage (10/15, up from a 3/15 false-read)", () => {
+  const found = foundIds(effectDiff);
+  for (const id of EFFECT_FOUND) {
+    assert.ok(found.has(id), `${id} must be found (true post-forcing coverage) in the effect run`);
+  }
+  assert.equal(effectDiff.summary.found, EFFECT_FOUND.length, "exactly the true-coverage set is found (10/15)");
+});
+
+test("EFFECT: all 3 T1 depth targets are now FOUND (the 57B-375 forcing function turned them green)", () => {
+  const found = foundIds(effectDiff);
+  for (const id of T1) {
+    assert.ok(found.has(id), `${id} must be found in the post-forcing run`);
+  }
+});
+
+test("EFFECT: the two rules the run never authored stay authoring-miss (honest true-miss, not widened away)", () => {
+  const attr = attributionOf(effectDiff);
+  for (const id of EFFECT_AUTHORING_MISS) {
+    assert.equal(attr.get(id), "authoring-miss", `${id} must remain a mustFind authoring-miss in the post-forcing run`);
+  }
+});
+
+test("EFFECT: the 3 T3 frontend rules remain prepare-miss (frontend still not in the prepared horizon)", () => {
+  const attr = attributionOf(effectDiff);
+  for (const id of T3) {
+    assert.equal(attr.get(id), "prepare-miss", `${id} must be a prepare-miss in the post-forcing run`);
+  }
+});
+
+test("EFFECT: the forbidden pin does NOT fire (the run attributes auto-complete to the Go cron)", () => {
+  assert.equal(effectDiff.forbiddenHits.length, 0, "the pin must not punish the correctly-authored post-forcing run");
 });
 
 // --- Layer 2: forbidden-pin discriminator units (verbatim wordings) ----------------------------
