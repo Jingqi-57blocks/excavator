@@ -15,6 +15,9 @@ import { readFileSync, writeFileSync, readdirSync, existsSync } from "node:fs";
 import { gzipSync, gunzipSync } from "node:zlib";
 import { join, resolve } from "node:path";
 import { stableJson } from "../src/util.ts";
+import { featureLogicItems } from "../src/factpack.ts";
+import type { LogicFeatureGraph } from "../src/factpack-logic.ts";
+import type { FactPackItem } from "../src/types.ts";
 import { rawFeatureGraphFromRun, factPackItemsToNodes, type BoundaryNode } from "./boundary.ts";
 
 export interface FactpackFixtureNode {
@@ -139,9 +142,27 @@ export function fixtureFgNodes(fixture: FactpackFixture): BoundaryNode[] {
   }));
 }
 
-/** The fixture's claimed fact-pack items, projected to boundary nodes (the factpack layer). */
+/** The fixture's claimed fact-pack items, projected to boundary nodes (the PRE-PR-2 factpack layer:
+ *  the six structural categories only, exactly what the frozen run's factpack.json held). */
 export function fixtureFactPackNodes(fixture: FactpackFixture): BoundaryNode[] {
   return factPackItemsToNodes(fixture.claimedItems);
+}
+
+/** The fixture's frozen feature graph, shaped as the complement enumeration consumes it. Seeds are stored
+ *  as ids in the fixture; logic only needs their ids (attention tier 1). */
+export function fixtureFeatureGraph(fixture: FactpackFixture): LogicFeatureGraph {
+  return { nodes: fixture.nodes, edges: fixture.edges, seeds: fixture.seedIds.map((id) => ({ id })) };
+}
+
+/** The `logic` complement items the post-PR-2 fact pack adds for this fixture: the exact production
+ *  derivation (`featureLogicItems`) over the frozen graph and the run's own claimed item locations. */
+export function fixtureLogicItems(fixture: FactpackFixture): FactPackItem[] {
+  return featureLogicItems(fixtureFeatureGraph(fixture), fixture.claimedItems);
+}
+
+/** The POST-PR-2 factpack layer the author reads: claimed items ∪ the logic complement. */
+export function fixturePostFixFactPackNodes(fixture: FactpackFixture): BoundaryNode[] {
+  return factPackItemsToNodes([...fixture.claimedItems, ...fixtureLogicItems(fixture)]);
 }
 
 function main(argv: string[]): void {

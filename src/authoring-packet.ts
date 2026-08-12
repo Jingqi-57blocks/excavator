@@ -33,6 +33,8 @@ const MAX_EXCERPT_LINES = 40;
 const MAX_EXCERPT_CHARS = 2000;
 /** Ceiling for one fact-pack category listing inside a section block; a remainder line carries the rest. */
 const MAX_FACT_ROWS_PER_CATEGORY = 40;
+/** The logic complement is deeper than the structural categories (tier 0 + tier 1 alone exceed 40). */
+const MAX_LOGIC_ROWS_PER_CATEGORY = 120;
 
 /**
  * Category-level map from investigation dimension to the fact-pack category it enumerates. It is derived
@@ -50,11 +52,20 @@ export const DIMENSION_FACT_CATEGORY: Record<string, FactPackCategory> = {
   "configuration": "config-keys",
   "background-work": "jobs",
   "files-and-integrations": "external-calls",
-  "notifications-and-exports": "external-calls"
+  "notifications-and-exports": "external-calls",
+  // The behaviour dimensions carry the business/decision logic the six structural categories do not name;
+  // the `logic` complement is their deterministic fact floor.
+  "normal-flow": "logic",
+  "decision-flow": "logic",
+  "reversal-flow": "logic",
+  "calculations-and-thresholds": "logic",
+  "validation-and-duplicates": "logic",
+  "authorization": "logic",
+  "data-scope": "logic"
 };
 
 /** Stable display order for fact-pack categories inside a section block. */
-const FACT_CATEGORY_ORDER: FactPackCategory[] = ["entrypoints", "entities", "states", "config-keys", "jobs", "external-calls"];
+const FACT_CATEGORY_ORDER: FactPackCategory[] = ["entrypoints", "entities", "states", "config-keys", "jobs", "external-calls", "logic"];
 
 /** Disposition order for the completeness header; statuses absent from the document are omitted. */
 const STATUS_ORDER = ["found", "searched-not-found", "cannot-determine", "not-applicable", "in_progress", "pending"] as const;
@@ -230,8 +241,9 @@ function renderFactCategory(category: FactPackCategory, coverage: FactPackCovera
       ? "No method was available for this category in this run; absence here is not evidence of absence in the code."
       : "No item of this category was found inside the feature boundary.");
   } else {
-    const shown = items.slice(0, MAX_FACT_ROWS_PER_CATEGORY);
-    for (const item of shown) lines.push(`- \`${item.name}\` — \`${item.filePath}:${item.line}${item.endLine && item.endLine !== item.line ? `-${item.endLine}` : ""}\``);
+    const rowCap = category === "logic" ? MAX_LOGIC_ROWS_PER_CATEGORY : MAX_FACT_ROWS_PER_CATEGORY;
+    const shown = items.slice(0, rowCap);
+    for (const item of shown) lines.push(`- \`${item.name}\` — \`${item.filePath}:${item.line}${item.endLine && item.endLine !== item.line ? `-${item.endLine}` : ""}\`${item.signal ? ` · rescued: ${item.signal}` : ""}`);
     const remainder = items.length - shown.length;
     if (remainder > 0) lines.push(`- … ${remainder} further ${category} item${remainder === 1 ? "" : "s"} in context/features/${featureKey}.factpack.json`);
   }

@@ -426,7 +426,7 @@ export interface GraphEdge {
   metadata: Record<string, unknown>;
 }
 
-export type FactPackCategory = "entrypoints" | "entities" | "states" | "config-keys" | "jobs" | "external-calls";
+export type FactPackCategory = "entrypoints" | "entities" | "states" | "config-keys" | "jobs" | "external-calls" | "logic";
 export type FactPackMethod = "graph" | "scan" | "graph+scan" | "none";
 
 export interface FactPackItem {
@@ -437,6 +437,10 @@ export interface FactPackItem {
   endLine?: number;
   detail?: string;
   source: "graph" | "scan";
+  /** Deterministic within-category attention order (logic items only): lower = read sooner. */
+  rank?: number;
+  /** Why this item earned individual attention (logic items only): the structural rescue reason. */
+  signal?: string;
 }
 
 export interface FactPackCoverage {

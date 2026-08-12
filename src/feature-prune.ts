@@ -25,7 +25,9 @@ const NAME_SUBSTRING = 160; // an anchor term is a substring of the name but not
 const ABBREV_TOKEN_EXACT = 220; // an anchor term's consonant skeleton is an exact token of the name
 const NAME_SIGNAL_CAP = 440; // ceiling on the name-intrinsic part before bridge/scheduler add on
 const BRIDGE_PER_NEIGHBOR = 60; // weight per distinct name-matched neighbor reached by an out-edge
-const BRIDGE_MAX_MULTIPLICITY = 3; // multiplicity per neighbor is capped so one hub cannot dominate
+/** Multiplicity per neighbor is capped so one hub cannot dominate. Shared with the fact-pack logic
+ *  category's in-degree cap so both agree on how much one caller may weigh. */
+export const BRIDGE_MAX_MULTIPLICITY = 3;
 const SCHEDULER_BONUS = 80;
 
 const RESCUE_QUOTA_MIN = 8;

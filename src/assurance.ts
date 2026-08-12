@@ -615,6 +615,27 @@ function factItemCovered(sectionText: string, item: { name?: string; filePath?: 
 }
 
 /**
+ * Document-level advisory (warning-only): every rescued-signal `logic` fact — a business/decision function
+ * the boundary fix pulled in that carries a `signal` — should be represented somewhere in the assembled
+ * report. Unlike the per-section fact-pack reconciliation, this is document-scoped: logic items may
+ * legitimately land in §3/§4/§5, so a per-section check would false-warn across sections. It reuses the
+ * loose `factItemCovered` matching (name or path:line mention) and is self-gated: a run with no logic
+ * evidence, no rescued items, or no report reconciles nothing. Consistent with the "enumeration
+ * reconciliation is advisory, never a hard gate" ruling.
+ */
+export function auditRescuedLogicCoverage(documentId: string, reportText: string, factEvidence: EvidenceItem[]): AuditFinding[] {
+  const logic = factEvidence.find((item) => (item.data as { category?: string } | undefined)?.category === "logic")?.data as
+    | { items?: Array<{ name?: string; filePath?: string; line?: number; signal?: string }> }
+    | undefined;
+  if (!logic) return [];
+  const rescued = (logic.items ?? []).filter((item) => typeof item.signal === "string" && item.signal.length);
+  const uncovered = rescued.filter((item) => !factItemCovered(reportText, item));
+  if (!uncovered.length) return [];
+  const sample = uncovered.slice(0, 5).map((item) => item.name || `${item.filePath ?? "?"}:${item.line ?? "?"}`).join(", ");
+  return [warning(documentId, `report does not represent ${uncovered.length} rescued logic fact(s) that need individual disposition (e.g. ${sample})`)];
+}
+
+/**
  * Coverage findings split into two kinds. Claim-attribution defects (a claim pointing at an
  * unknown work item, a document it is not required for, or the wrong section) are always errors:
  * they are detectable from the single document under audit, so they run for every document passed,

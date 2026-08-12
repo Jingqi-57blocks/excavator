@@ -1,4 +1,6 @@
 import type { GraphReader } from "./codegraph.ts";
+import { BRIDGE_MAX_MULTIPLICITY } from "./feature-prune.ts";
+import { logicClaimKey, logicItems, type LogicFeatureGraph } from "./factpack-logic.ts";
 import type { ScannedFile } from "./snapshot.ts";
 import type { SourceReader } from "./source.ts";
 import { sourceSearch } from "./source.ts";
@@ -146,11 +148,51 @@ const CATEGORY_STRATEGIES: CategoryStrategy[] = [
         "\\b\\w*notif(?:y|ication)\\w*\\s*\\("
       ]
     }
+  },
+  // The `logic` complement, appended LAST so the claimed set already covers the six kind/scan categories
+  // before it runs. It is neither graph-kind-queried nor scanned: the enumeration loop special-cases it to
+  // `logicItems`, which enumerates the pruned feature-graph nodes the six categories did not claim.
+  {
+    category: "logic",
+    graphKinds: null,
+    dedupeBy: "location",
+    scan: null
   }
 ];
 
 /** Fixed category order, derived from the strategies so coverage rows and item sorting cannot drift apart. */
 export const FACT_PACK_CATEGORIES: FactPackCategory[] = CATEGORY_STRATEGIES.map((strategy) => strategy.category);
+
+/** Per-caller in-degree cap for logic ordering, mirroring the prune's bridge multiplicity so both agree. */
+const LOGIC_INDEGREE_CAP = BRIDGE_MAX_MULTIPLICITY;
+/** Inline-window row cap for the deeper logic complement; the full pack stays in factpack.json. */
+const LOGIC_RENDER_ROWS = 120;
+/** Kinds no kind-based category owns yet are still structural noise, not feature symbols. */
+const LOGIC_STRUCTURAL_KINDS = ["import", "file"];
+
+/** Kinds a kind-based category already claims (derived from CATEGORY_STRATEGIES graphKinds), plus import/file.
+ *  Derived at runtime so a future kind-category automatically shrinks the logic complement. */
+function logicExcludedKinds(): Set<string> {
+  const kinds = new Set<string>(LOGIC_STRUCTURAL_KINDS);
+  for (const strategy of CATEGORY_STRATEGIES) if (strategy.graphKinds) for (const kind of strategy.graphKinds) kinds.add(kind);
+  return kinds;
+}
+
+/** The entrypoint kinds whose out-edges promote a target into the logic attention tier for called functions. */
+function logicRouteKinds(): Set<string> {
+  return new Set(CATEGORY_STRATEGIES.find((strategy) => strategy.category === "entrypoints")?.graphKinds ?? []);
+}
+
+/**
+ * The `logic` complement items a feature's fact pack adds: the pruned feature-graph nodes the six
+ * structural categories did not already claim. `claimedItems` is those categories' emitted items, so the
+ * exact (filePath, line) each one occupies is excluded here. Exposed so the eval replay measures exactly
+ * what production emits, over the same runtime-derived kind sets.
+ */
+export function featureLogicItems(featureGraph: LogicFeatureGraph, claimedItems: Array<{ filePath: string; line: number }>): FactPackItem[] {
+  const claimedLocations = new Set(claimedItems.map((item) => logicClaimKey(item.filePath, item.line)));
+  return logicItems(featureGraph, { claimedLocations, excludedKinds: logicExcludedKinds(), routeKinds: logicRouteKinds(), cap: LOGIC_INDEGREE_CAP });
+}
 
 /** Ordered key extractors for config-key names; every capture on a matched line becomes one item. */
 const CONFIG_KEY_PATTERNS: RegExp[] = [
@@ -170,6 +212,9 @@ export interface FactPackInput {
   deadline?: Deadline;
   /** The upstream feature node cap was reached, so the boundary file set itself may be short. */
   scopeNodesCapped?: boolean;
+  /** The pruned feature graph, when one was built. The `logic` category enumerates the complement of
+   *  these retained nodes; absent it, `logic` is honestly empty (method `none`). */
+  featureGraph?: LogicFeatureGraph;
   limits?: { maxItemsPerCategory?: number; maxEntityWindows?: number };
 }
 
@@ -240,6 +285,13 @@ export async function buildFactPack(input: FactPackInput): Promise<FeatureFactPa
       collected.push(...scanned);
     }
 
+    // `logic` is the complement enumeration: every pruned feature-graph node the six kind/scan categories
+    // above did not already claim. `items` already holds those six categories' retained items (logic runs
+    // LAST), so their exact locations are the claim set this excludes.
+    if (strategy.category === "logic" && input.featureGraph && input.featureGraph.nodes.length) {
+      collected.push(...featureLogicItems(input.featureGraph, items));
+    }
+
     const deduped = dedupe(collected, strategy.dedupeBy);
     const dropped = deduped.length - maxItems;
     if (dropped > 0) notes.push(`item cap ${maxItems} reached; ${dropped} further ${strategy.category} item${dropped === 1 ? " was" : "s were"} dropped`);
@@ -250,7 +302,7 @@ export async function buildFactPack(input: FactPackInput): Promise<FeatureFactPa
     items.push(...retained);
     coverage.push({
       category: strategy.category,
-      method: methodFor(strategy, Boolean(input.graph)),
+      method: methodFor(strategy, Boolean(input.graph), Boolean(input.featureGraph?.nodes.length)),
       itemCount: retained.length,
       truncated,
       note: notes.length ? notes.join("; ") : undefined
@@ -298,7 +350,10 @@ export function renderFactPackSection(pack: FeatureFactPack, maxRowsPerCategory 
   ].join(" | "));
   const blocks = pack.coverage.map((coverage) => {
     const categoryItems = pack.items.filter((item) => item.category === coverage.category);
-    const shown = categoryItems.slice(0, maxRowsPerCategory);
+    // The logic complement is deeper than the six structural categories (tier 0 + tier 1 alone can exceed
+    // 40), so its inline window is wider; the machine-readable pack still carries every item.
+    const rowCap = coverage.category === "logic" ? LOGIC_RENDER_ROWS : maxRowsPerCategory;
+    const shown = categoryItems.slice(0, rowCap);
     const header = `### ${coverage.category} — ${coverage.itemCount} item${coverage.itemCount === 1 ? "" : "s"}, method ${coverage.method}, evidence ${factPackEvidenceId(pack.featureKey, coverage.category, pack.snapshotId)}`;
     const empty = coverage.method === "none"
       ? "No method was available for this category in this run, so it was not enumerated; absence here is not evidence of absence in the code."
@@ -307,7 +362,7 @@ export function renderFactPackSection(pack: FeatureFactPack, maxRowsPerCategory 
       ? [
         "| Name | Location | Source | Detail |",
         "|---|---|---|---|",
-        ...shown.map((item) => `| ${cell(item.name)} | \`${cell(item.filePath)}:${item.line}${item.endLine && item.endLine !== item.line ? `-${item.endLine}` : ""}\` | ${item.source} | ${cell(item.detail ?? "—")} |`)
+        ...shown.map((item) => `| ${cell(item.name)} | \`${cell(item.filePath)}:${item.line}${item.endLine && item.endLine !== item.line ? `-${item.endLine}` : ""}\` | ${item.source} | ${cell(detailWithSignal(item))} |`)
       ].join("\n")
       : empty;
     const remainder = categoryItems.length > shown.length ? `\n\n其余 ${categoryItems.length - shown.length} 条见 factpack.json` : "";
@@ -375,7 +430,10 @@ async function entityFields(input: FactPackInput, path: string, startLine: numbe
   }
 }
 
-function methodFor(strategy: CategoryStrategy, hasGraph: boolean): FactPackMethod {
+function methodFor(strategy: CategoryStrategy, hasGraph: boolean, hasFeatureGraph: boolean): FactPackMethod {
+  // `logic` is graph-derived through the pruned feature graph, not a kind query or a scan; it is honestly
+  // empty (method none) when no feature graph was built, so absence there reads as "not enumerated".
+  if (strategy.category === "logic") return hasFeatureGraph ? "graph" : "none";
   const graph = hasGraph && strategy.graphKinds !== null;
   if (graph && strategy.scan) return "graph+scan";
   if (graph) return "graph";
@@ -443,8 +501,12 @@ function matchedLine(excerpt: string, line: number): string {
 }
 
 function compareItems(a: FactPackItem, b: FactPackItem): number {
-  return FACT_PACK_CATEGORIES.indexOf(a.category) - FACT_PACK_CATEGORIES.indexOf(b.category)
-    || compareStrings(a.filePath, b.filePath)
+  const byCategory = FACT_PACK_CATEGORIES.indexOf(a.category) - FACT_PACK_CATEGORIES.indexOf(b.category);
+  if (byCategory) return byCategory;
+  // Within a category an explicit rank orders first — logic items carry the deterministic attention order
+  // the enumeration assigned; the six structural categories carry no rank and fall straight to location.
+  if (a.rank !== undefined && b.rank !== undefined && a.rank !== b.rank) return a.rank - b.rank;
+  return compareStrings(a.filePath, b.filePath)
     || a.line - b.line
     || compareStrings(a.name, b.name)
     || compareStrings(a.source, b.source);
@@ -458,6 +520,12 @@ function compareNodes(a: GraphNode, b: GraphNode): number {
 
 /** Code-unit ordering, not locale ordering: the same snapshot must produce the same bytes anywhere. */
 function compareStrings(a: string, b: string): number { return a < b ? -1 : a > b ? 1 : 0; }
+
+/** A logic item's Detail cell surfaces its rescue signal so the author knows to disposition it individually. */
+function detailWithSignal(item: FactPackItem): string {
+  if (item.signal) return item.detail ? `${item.detail} · rescued: ${item.signal}` : `rescued: ${item.signal}`;
+  return item.detail ?? "—";
+}
 
 function normalizePath(value: string): string { return value.replaceAll("\\", "/").replace(/^\.\/+/, ""); }
 function collapse(value: string): string { return value.replace(/\s+/g, " ").trim(); }
