@@ -52,7 +52,7 @@ export async function draftSection(runDirInput: string, documentId: string, sect
   if (!section) throw new Error(`Unknown section ${sectionIndex} for ${documentId}`);
   const normalized = normalizeSection(content, section.title);
   const validated = claims ? validateClaimsInput(documentId, sectionIndex, claims) : undefined;
-  const revision = await archiveCheckpoint(runDir, documentId, sectionIndex, section.file, section.claimsFile);
+  const revision = await archiveCheckpoint(runDir, documentId, section.file, section.claimsFile);
   await atomicWrite(section.file, normalized);
   if (validated) await writeJson(section.claimsFile, validated);
   const receipt: DraftReceipt = {

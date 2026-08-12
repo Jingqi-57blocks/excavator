@@ -14,6 +14,7 @@ import { auditFreezeOrder, auditFrozenKnowledge, buildKnowledge, freezePrecondit
 import { atomicWrite, ensureDir, exists, nowIso, readJson, REDACTION_VERSION, runIdTimestamp, sha256, slugify, stableJson, writeJson } from "./util.ts";
 import { collectClaims, createAnalysisScope, emptyTraceCatalog, mergeTraces, writeReportCompanions } from "./assurance-artifacts.ts";
 import { scaffoldSectionClaims } from "./claims-scaffold.ts";
+import { sectionFileStem } from "./section-slug.ts";
 import { appendTimeline, auditTimeline, readTimeline } from "./timeline.ts";
 import { runScopeSlug } from "./run-label.ts";
 import { auditPendingDrafts } from "./parallel-authoring.ts";
@@ -189,13 +190,18 @@ async function makeDocumentPlan(runDir: string, id: string, kind: "overview" | "
     subject,
     templatePath,
     contextPath,
-    sections: headings.map((title, index) => ({
-      index: index + 1,
-      title,
-      file: join(runDir, "sections", id, `${String(index + 1).padStart(2, "0")}.md`),
-      claimsFile: join(runDir, "claims", id, `${String(index + 1).padStart(2, "0")}.json`),
-      complete: false
-    }))
+    sections: headings.map((title, index) => {
+      // Section markdown and its claims sidecar share one `NN-<slug>` stem, so a section and its claims
+      // carry the same human-readable name while the zero-padded prefix keeps them numerically ordered.
+      const stem = sectionFileStem(index + 1, title);
+      return {
+        index: index + 1,
+        title,
+        file: join(runDir, "sections", id, `${stem}.md`),
+        claimsFile: join(runDir, "claims", id, `${stem}.json`),
+        complete: false
+      };
+    })
   };
 }
 
@@ -426,7 +432,7 @@ export async function checkpointSection(runDirInput: string, documentId: string,
   if (!document.startedAt) document.startedAt = nowIso();
   const elapsed = Date.now() - Date.parse(document.startedAt);
   const normalized = normalizeSection(content, section.title);
-  const revision = await archiveCheckpoint(runDir, documentId, sectionIndex, section.file, section.claimsFile);
+  const revision = await archiveCheckpoint(runDir, documentId, section.file, section.claimsFile);
   await atomicWrite(section.file, normalized);
   if (claims) await writeJson(section.claimsFile, validateClaimsInput(documentId, sectionIndex, claims));
   section.complete = true;
@@ -834,17 +840,19 @@ The feature scope file carries a \`## Fact pack\` section, and the same enumerat
 `;
 }
 
-export async function archiveCheckpoint(runDir: string, documentId: string, sectionIndex: number, sectionFile: string, claimsFile: string): Promise<boolean> {
+export async function archiveCheckpoint(runDir: string, documentId: string, sectionFile: string, claimsFile: string): Promise<boolean> {
   let archived = false;
   const stamp = nowIso().replace(/[:.]/g, "-");
+  // Name each archive after the file it captures, so history mirrors the `NN-<slug>` section stem (and,
+  // for grandfathered `NN.md` runs, still the bare `NN`) with a per-revision stamp and content digest.
   if (await exists(sectionFile)) {
     const content = await readFile(sectionFile, "utf8");
-    await atomicWrite(join(runDir, "history", documentId, `${String(sectionIndex).padStart(2, "0")}-${stamp}-${sha256(content).slice(0, 8)}.md`), content);
+    await atomicWrite(join(runDir, "history", documentId, `${basename(sectionFile, ".md")}-${stamp}-${sha256(content).slice(0, 8)}.md`), content);
     archived = true;
   }
   if (await exists(claimsFile)) {
     const content = await readFile(claimsFile, "utf8");
-    await atomicWrite(join(runDir, "history", documentId, `${String(sectionIndex).padStart(2, "0")}-${stamp}-${sha256(content).slice(0, 8)}.claims.json`), content);
+    await atomicWrite(join(runDir, "history", documentId, `${basename(claimsFile, ".json")}-${stamp}-${sha256(content).slice(0, 8)}.claims.json`), content);
     archived = true;
   }
   return archived;
