@@ -19,7 +19,18 @@ import { renderRunStats } from "./render-run-stats.ts";
 import { compareRuns } from "./compare-runs.ts";
 import { renderRunComparison } from "./render-run-comparison.ts";
 import { loadBoundaryGold } from "./boundary-gold.ts";
-import { boundaryRecall, boundaryReportFromRun, loadNodesFile, exitCodeFor as boundaryExitCode, type BoundaryReport } from "./boundary.ts";
+import {
+  boundaryRecall,
+  loadNodesFile,
+  fgReportFromRun,
+  factPackReportFromRun,
+  buildLayeredReport,
+  layeredExitCode,
+  exitCodeFor as boundaryExitCode,
+  type BoundaryReport,
+  type BoundaryLayer,
+  type LayeredBoundaryReport
+} from "./boundary.ts";
 import { buildPoolFromRun, loadPrunePool, prunePoolToNodes, writePrunePool } from "./prune-replay.ts";
 
 interface Flags {
@@ -29,6 +40,7 @@ interface Flags {
   expected?: string;
   gold?: string;
   nodes?: string;
+  layer?: string;
   out?: string;
   pool?: string;
   emitPool?: string;
@@ -47,6 +59,7 @@ function parseFlags(argv: string[]): Flags {
     else if (arg === "--expected") flags.expected = argv[++i];
     else if (arg === "--gold") flags.gold = argv[++i];
     else if (arg === "--nodes") flags.nodes = argv[++i];
+    else if (arg === "--layer") flags.layer = argv[++i];
     else if (arg === "--out") flags.out = argv[++i];
     else if (arg === "--pool") flags.pool = argv[++i];
     else if (arg === "--emit-pool") flags.emitPool = argv[++i];
@@ -69,7 +82,7 @@ const USAGE = `eval harness
   diff    --run <dir> --expected <file> [--json] [--prepare-only]
   view    --run <dir> [--json]
   compare --a <dir> --b <dir> [--json]
-  boundary (--run <dir> | --nodes <file>) --gold <file> [--json]
+  boundary (--run <dir> | --nodes <file>) --gold <file> [--layer fg|factpack|both] [--json]
   prune-replay (--pool <file> | --run <dir> --module <db> [--module <db>...]) --gold <file> [--emit-pool <file>] [--json]`;
 
 function renderContainment(containment: Containment): string {
@@ -113,8 +126,9 @@ function renderDiff(diff: Diff): string {
 
 function renderBoundary(report: BoundaryReport): string {
   const s = report.summary;
+  const layerTag = report.layer ? ` @ ${report.layer}` : "";
   const lines = [
-    `=== boundary recall (${report.target}: ${s.mustFindFound}/${s.mustFind} mustFind found, ${s.nodeCount} nodes / ${s.fileCount} files) ===`,
+    `=== boundary recall (${report.target}${layerTag}: ${s.mustFindFound}/${s.mustFind} mustFind found, ${s.nodeCount} nodes / ${s.fileCount} files) ===`,
     `  verdict: ${s.pass ? "PASS" : "FAIL"}`,
     `  mustFind: ${s.mustFindFound}/${s.mustFind} found, ${s.mustFindMissing} missing`,
     `  optional: ${s.optionalFound}/${s.optional} found (informational)`
@@ -138,14 +152,57 @@ function coverageTag(covered: boolean | undefined): string {
   return covered ? " (covered by a source window: fallback may reach it)" : " (no source window: fully out of bounds)";
 }
 
+/** Render a layered (both-layer) report: each layer's recall plus the derivation-drop view between them. */
+function renderLayered(report: LayeredBoundaryReport): string {
+  const lines = [
+    `=== boundary recall (${report.target}: layered fg vs factpack) ===`,
+    `  verdict: ${report.pass ? "PASS" : "FAIL"} (union of ${report.requested.join(" + ")})`
+  ];
+  if (report.fg) lines.push("", renderBoundary(report.fg));
+  if (report.factpack) lines.push("", renderBoundary(report.factpack));
+  lines.push("", "=== derivation drops (found@fg, dropped from the fact pack: the consumption gap) ===");
+  if (report.derivationDrops.length === 0) {
+    lines.push("  none");
+  } else {
+    for (const drop of report.derivationDrops) lines.push(`  x [${drop.id}]${drop.mustFind ? " (mustFind)" : ""} <- ${drop.via}`);
+  }
+  return lines.join("\n");
+}
+
+function parseLayer(value: string | undefined): BoundaryLayer | "both" | undefined {
+  if (value === undefined) return undefined;
+  if (value === "fg" || value === "factpack" || value === "both") return value;
+  throw new Error(`--layer must be fg|factpack|both, got ${value}`);
+}
+
 function runBoundary(flags: Flags): number {
   const gold = loadBoundaryGold(requireFlag(flags.gold, "--gold"));
   if (flags.run && flags.nodes) throw new Error("pass exactly one of --run or --nodes, not both");
-  const report = flags.nodes
-    ? boundaryRecall(loadNodesFile(flags.nodes), gold)
-    : boundaryReportFromRun(requireFlag(flags.run, "--run"), gold);
-  process.stdout.write(`${flags.json ? JSON.stringify(report, null, 2) : renderBoundary(report)}\n`);
-  return boundaryExitCode(report);
+  const layer = parseLayer(flags.layer);
+
+  // --nodes supplies a bare node set (no run dir, no fact pack): it measures the fg layer only.
+  if (flags.nodes) {
+    if (layer !== undefined && layer !== "fg") throw new Error("--nodes measures the fg layer only; drop --layer or pass --layer fg");
+    const report: BoundaryReport = { ...boundaryRecall(loadNodesFile(flags.nodes), gold), layer: "fg" };
+    process.stdout.write(`${flags.json ? JSON.stringify(report, null, 2) : renderBoundary(report)}\n`);
+    return boundaryExitCode(report);
+  }
+
+  const runDir = requireFlag(flags.run, "--run");
+  const effective = layer ?? "both"; // a run defaults to measuring both layers.
+  if (effective === "fg") {
+    const report = fgReportFromRun(runDir, gold);
+    process.stdout.write(`${flags.json ? JSON.stringify(report, null, 2) : renderBoundary(report)}\n`);
+    return boundaryExitCode(report);
+  }
+  if (effective === "factpack") {
+    const report = factPackReportFromRun(runDir, gold);
+    process.stdout.write(`${flags.json ? JSON.stringify(report, null, 2) : renderBoundary(report)}\n`);
+    return boundaryExitCode(report);
+  }
+  const layered = buildLayeredReport(gold.target, fgReportFromRun(runDir, gold), factPackReportFromRun(runDir, gold), ["fg", "factpack"]);
+  process.stdout.write(`${flags.json ? JSON.stringify(layered, null, 2) : renderLayered(layered)}\n`);
+  return layeredExitCode(layered);
 }
 
 /**

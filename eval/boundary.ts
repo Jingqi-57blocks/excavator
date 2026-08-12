@@ -9,7 +9,7 @@
 // Path/line anchor semantics are shared with knowledge-diff via diff.ts's exported
 // `pathMatches` / `parseLines`, so both tools resolve an anchor identically.
 
-import { readFileSync, existsSync, statSync } from "node:fs";
+import { readFileSync, existsSync, statSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { pathMatches, parseLines } from "./diff.ts";
 import type { BoundaryAnchor, BoundaryGold, BoundaryGoldItem } from "./boundary-gold.ts";
@@ -62,11 +62,19 @@ export interface BoundarySummary {
   pass: boolean;
 }
 
+/** Which layer a recall report measured. "fg": the pruneFeatureGraph node set (upstream, 57B-370);
+ *  "factpack": the fact pack the author actually reads (context/features/*.factpack.json — the
+ *  consumption layer, downstream of the FG node set). Optional so `boundaryRecall` stays a pure,
+ *  layer-agnostic function; the run/fixture adapters stamp it. */
+export type BoundaryLayer = "fg" | "factpack";
+
 export interface BoundaryReport {
   target: string;
   found: BoundaryFound[];
   missing: BoundaryMiss[];
   summary: BoundarySummary;
+  /** Set by the layer-aware adapters (fgReportFromRun / factPackReportFromRun); undefined for bare boundaryRecall. */
+  layer?: BoundaryLayer;
 }
 
 function describeNode(node: BoundaryNode): string {
@@ -236,4 +244,107 @@ export function loadNodesFile(file: string): BoundaryNode[] {
   const list = Array.isArray(raw) ? raw : raw?.nodes;
   if (!Array.isArray(list)) throw new Error(`nodes file has no node array: ${file}`);
   return dedupeNodes(list);
+}
+
+/** The raw feature-graph evidence of a run (nodes/edges/seeds with their ids intact). The boundary
+ *  projection (`nodesFromRun`) discards ids and edges; the fact-pack fixture generator needs the whole
+ *  graph, so this exposes it while reusing the same `readEvidenceCatalog` + FG shape discriminant. */
+export function rawFeatureGraphFromRun(runDir: string): { seeds: any[]; nodes: any[]; edges: any[] } {
+  const fg = readEvidenceCatalog(runDir).find((entry) => isFeatureGraphEntry(entry));
+  if (!fg) throw new Error(`no feature-graph evidence entry found in ${runDir}`);
+  return { seeds: fg.data.seeds ?? [], nodes: fg.data.nodes ?? [], edges: fg.data.edges ?? [] };
+}
+
+// ---- fact-pack (consumption) layer ----
+//
+// The FG node set (above) is what pruneFeatureGraph selected; the FACT PACK is the projection of it the
+// authoring model actually reads (context/features/*.factpack.json). Measuring recall against the fact
+// pack — not the FG node set — is the point of 57B-372: a node the boundary fix rescued into the FG can
+// still be dropped by fact-pack derivation, and only the fact-pack layer sees that.
+
+/** Map fact-pack items to boundary nodes: each item's `name` is the node name gold anchors match,
+ *  `line`/`endLine` its window. Deduped like every other node source. `endLine` falls back to `line`. */
+export function factPackItemsToNodes(items: any[]): BoundaryNode[] {
+  return dedupeNodes(items.map((item) => ({
+    filePath: item?.filePath,
+    name: item?.name,
+    startLine: item?.line,
+    endLine: item?.endLine ?? item?.line
+  })));
+}
+
+/** Fact-pack node set of a run: the union of every feature's fact-pack items. Missing features dir -> empty
+ *  (a run with no fact pack legitimately claims nothing), which the recall then reports as all-missing. */
+export function factPackNodesFromRun(runDir: string): BoundaryNode[] {
+  if (!existsSync(runDir) || !statSync(runDir).isDirectory()) throw new Error(`run directory not found: ${runDir}`);
+  const featuresDir = join(runDir, "context", "features");
+  if (!existsSync(featuresDir)) return [];
+  const items: any[] = [];
+  for (const file of readdirSync(featuresDir).sort()) {
+    if (!file.endsWith(".factpack.json")) continue;
+    const pack = JSON.parse(readFileSync(join(featuresDir, file), "utf8"));
+    if (Array.isArray(pack?.items)) items.push(...pack.items);
+  }
+  return factPackItemsToNodes(items);
+}
+
+/** FG-layer report for a run (stamps layer:"fg"): the existing source-window-annotated FG recall. */
+export function fgReportFromRun(runDir: string, gold: BoundaryGold): BoundaryReport {
+  return { ...boundaryReportFromRun(runDir, gold), layer: "fg" };
+}
+
+/** Fact-pack-layer report for a run (stamps layer:"factpack"). No source-window annotation: that signal
+ *  answers "could downstream fallback still reach the FG miss", which is FG-specific and not meaningful
+ *  once we are measuring the fact pack the author already holds. */
+export function factPackReportFromRun(runDir: string, gold: BoundaryGold): BoundaryReport {
+  return { ...boundaryRecall(factPackNodesFromRun(runDir), gold), layer: "factpack" };
+}
+
+/** A gold item the FG captured but the fact pack dropped (found@fg ∧ missing@factpack): the derivation
+ *  defect class this metric exists to surface. Distinct from an upstream FG gap (missing at both layers). */
+export interface DerivationDrop {
+  id: string;
+  mustFind: boolean;
+  /** Where the FG held it (the node that satisfied it at the fg layer). */
+  via: string;
+}
+
+/** The derivation drops between an fg report and a factpack report. Pure over the two reports. */
+export function derivationDrops(fg: BoundaryReport, factpack: BoundaryReport): DerivationDrop[] {
+  const droppedFromFactpack = new Set(factpack.missing.map((miss) => miss.id));
+  return fg.found
+    .filter((entry) => droppedFromFactpack.has(entry.id))
+    .map((entry) => ({ id: entry.id, mustFind: entry.mustFind, via: entry.via }));
+}
+
+/** A cross-layer report: each requested layer's recall plus the derivation-drop view between them. */
+export interface LayeredBoundaryReport {
+  target: string;
+  /** The layers this report was asked to measure (drives the exit-code union). */
+  requested: BoundaryLayer[];
+  fg?: BoundaryReport;
+  factpack?: BoundaryReport;
+  /** found@fg ∧ missing@factpack — only populated when both layers were measured. */
+  derivationDrops: DerivationDrop[];
+  /** Union gate: every requested layer has all its mustFinds. */
+  pass: boolean;
+}
+
+/** Assemble a layered report. `pass` is the union: a requested layer with a mustFind miss fails the whole. */
+export function buildLayeredReport(
+  target: string,
+  fg: BoundaryReport | undefined,
+  factpack: BoundaryReport | undefined,
+  requested: BoundaryLayer[]
+): LayeredBoundaryReport {
+  const drops = fg && factpack ? derivationDrops(fg, factpack) : [];
+  const pass =
+    (!requested.includes("fg") || (fg?.summary.pass ?? true)) &&
+    (!requested.includes("factpack") || (factpack?.summary.pass ?? true));
+  return { target, requested, fg, factpack, derivationDrops: drops, pass };
+}
+
+/** Exit code for a layered report: any requested layer missing a mustFind -> 1; else 0. */
+export function layeredExitCode(report: LayeredBoundaryReport): number {
+  return report.pass ? 0 : 1;
 }

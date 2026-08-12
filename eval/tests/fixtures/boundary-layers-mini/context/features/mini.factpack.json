@@ -1,0 +1,12 @@
+{
+  "version": "factpack-v1",
+  "snapshotId": "snap-mini",
+  "featureKey": "mini",
+  "warnings": [],
+  "coverage": [
+    { "category": "entrypoints", "method": "graph+scan", "itemCount": 1, "truncated": false }
+  ],
+  "items": [
+    { "category": "entrypoints", "name": "Alpha", "filePath": "mod/svc/a.go", "line": 10, "endLine": 20, "source": "graph" }
+  ]
+}

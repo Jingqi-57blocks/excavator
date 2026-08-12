@@ -1,0 +1,70 @@
+{
+  "version": "boundary-gold-v1",
+  "target": "wcp-promotion",
+  "_meta": {
+    "purpose": "Deterministic boundary-recall gold for the WCP promotion (转正) feature. Unlike the wcp-leave gold — whose measured object is the FEATURE-GRAPH NODE SET — this gold is written to be measured at BOTH layers 57B-372 distinguishes: the FG node set (upstream) AND the FACT PACK the author actually reads (context/features/*.factpack.json). Its mustFind set is the promotion authorization + record surface that the report must be able to describe.",
+    "constructionMethod": "Symbols verified against source at excavator-test-repos/wcp/wcp_review_service and against the FG node set + factpack.json of run-2026_08_12_00_55-转正-f5da2557-81e498a9-95ade1f2. Anchors are written module-relative (internal/handler/promotion/...) so the suffix path match against the module-prefixed evidence (wcp_review_service/internal/...) is exercised, matching the wcp-leave gold's Go convention. Anchors use path+name (name === node.name exactly), never node id.",
+    "layers": {
+      "mustFind": "4 gating symbols. Two authorization predicates (IsManager, IsLeader in handler/promotion/pre_handler_func.go — the plain decision functions that gate every promotion action) and two id-addressed record methods (Info, PromotionForward in handler/promotion/service.go). All four are DROPPED at the factpack layer today (the pinned red). At the FG layer, Info + PromotionForward are present (57B-372 derivation drops: found@fg but dropped from the factpack), while IsManager + IsLeader are additionally missing upstream in the FG for this run (a distinct FG gap, not a derivation drop).",
+      "optional": "5 informational (never mustFind, never affects exit code): the remaining pre_handler_func.go predicates IsApplier / IsPeer / IsAdmin, the pre_handler_func.go file itself, and the promotion Pagination handler. All are missing upstream in the FG node set for this run; kept as observational diagnostics only."
+    },
+    "sourceRun": "run-2026_08_12_00_55-转正-f5da2557-81e498a9-95ade1f2",
+    "note": "57B-372 PR-1 pins these as currently dropped at the factpack layer; PR-2 (the `logic` fact-pack category) is expected to rescue the plain business/decision functions and flip the pinned test green."
+  },
+  "items": [
+    {
+      "id": "auth-isManager",
+      "mustFind": true,
+      "anchors": [{ "path": "internal/handler/promotion/pre_handler_func.go", "name": "IsManager" }],
+      "note": "Promotion manager-authorization predicate (pre_handler_func.go:69), gates manager-only promotion actions. Dropped at the factpack layer; also absent from the FG node set for this run (upstream gap)."
+    },
+    {
+      "id": "auth-isLeader",
+      "mustFind": true,
+      "anchors": [{ "path": "internal/handler/promotion/pre_handler_func.go", "name": "IsLeader" }],
+      "note": "Promotion leader-authorization predicate (pre_handler_func.go:89). Dropped at the factpack layer; also absent from the FG node set for this run (upstream gap)."
+    },
+    {
+      "id": "record-info",
+      "mustFind": true,
+      "anchors": [{ "path": "internal/handler/promotion/service.go", "name": "Info" }],
+      "note": "Promotion record detail method (service.go:40, id-addressed record read). Present in the FG node set but dropped from the factpack -> a 57B-372 derivation drop."
+    },
+    {
+      "id": "record-promotionForward",
+      "mustFind": true,
+      "anchors": [{ "path": "internal/handler/promotion/service.go", "name": "PromotionForward" }],
+      "note": "Promotion forward/transfer record method (service.go:43). Present in the FG node set but dropped from the factpack -> a 57B-372 derivation drop."
+    },
+    {
+      "id": "auth-isApplier",
+      "mustFind": false,
+      "anchors": [{ "path": "internal/handler/promotion/pre_handler_func.go", "name": "IsApplier" }],
+      "note": "Optional. Applier-authorization predicate (pre_handler_func.go:108). Missing upstream in the FG node set for this run."
+    },
+    {
+      "id": "auth-isPeer",
+      "mustFind": false,
+      "anchors": [{ "path": "internal/handler/promotion/pre_handler_func.go", "name": "IsPeer" }],
+      "note": "Optional. Peer-authorization predicate (pre_handler_func.go:127). Missing upstream in the FG node set for this run."
+    },
+    {
+      "id": "auth-isAdmin",
+      "mustFind": false,
+      "anchors": [{ "path": "internal/handler/promotion/pre_handler_func.go", "name": "IsAdmin" }],
+      "note": "Optional. Admin-authorization predicate (pre_handler_func.go:59). Missing upstream in the FG node set for this run."
+    },
+    {
+      "id": "auth-preHandlerFunc",
+      "mustFind": false,
+      "anchors": [{ "path": "internal/handler/promotion/pre_handler_func.go" }],
+      "note": "Optional. The promotion authorization-predicate file as a whole (path-only anchor). No FG node lands in this file for this run."
+    },
+    {
+      "id": "record-pagination",
+      "mustFind": false,
+      "anchors": [{ "path": "internal/handler/promotion/router.go", "name": "Pagination" }],
+      "note": "Optional. Promotion list-pagination handler (router.go:49). Missing upstream in the FG node set for this run."
+    }
+  ]
+}
