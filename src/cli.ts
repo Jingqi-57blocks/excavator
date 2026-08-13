@@ -6,6 +6,7 @@ import { addSourceEvidence, assembleRun, auditRun, beginDocument, checkpointSect
 import { collectDrafts, draftSection } from "./assurance/parallel-authoring.ts";
 import { stableJson } from "./core/util.ts";
 import { buildCodeGraph, codeGraphStatus } from "./codegraph/codegraph-command.ts";
+import { runDbSchema } from "./schema/db-schema-command.ts";
 import { deriveDefaultBudgets, plannedDocumentCount } from "./core/budgets.ts";
 import { DEFAULT_WORKDIR } from "./core/defaults.ts";
 
@@ -49,6 +50,20 @@ async function main(): Promise<void> {
         if (subcommand === "status") print(await codeGraphStatus(target, args.binary ?? "codegraph"));
         else if (subcommand === "build") print(await buildCodeGraph({ target, binary: args.binary, force: args.force === "true", quiet: args.quiet === "true" }));
         else throw new Error(`Unknown codegraph subcommand: ${subcommand}`);
+        break;
+      }
+      case "db-schema": {
+        const args = parseArgs(argv);
+        const result = await runDbSchema({
+          target: required(args.target, "--target"),
+          out: args.out,
+          manifest: args.manifest,
+          descriptions: args.descriptions,
+          language: args.language
+        });
+        print(args.json === "true"
+          ? result.extraction
+          : { target: result.target, outDir: result.outDir, markdownPath: result.markdownPath, jsonPath: result.jsonPath, tables: result.tables, relationships: result.relationships, perFormat: result.perFormat, warnings: result.warnings, unsupported: result.unsupported });
         break;
       }
       case "claims": {
@@ -274,6 +289,7 @@ Commands:
   report     Prepare any combination of overview and feature reports
   prepare    Alias of report; accepts --request request.json
   codegraph  Inspect or build an optional CodeGraph index
+  db-schema  Recover a database design (tables, columns, relationships) from source, deterministically
   begin      Start or restart one document authoring timer
   freeze     Freeze the completed investigation into knowledge.json before authoring; also renders per-document authoring packets
   source     Record a bounded source excerpt as evidence
@@ -295,6 +311,7 @@ Examples:
   excavator overview --target ./workspace --no-codegraph --audience both
   excavator codegraph status --target ./workspace
   excavator codegraph build --target ./workspace --quiet
+  excavator db-schema --target ./workspace --out ./db --language en-US
   excavator freeze --run <run>
   excavator feature --target ./workspace --subject "Account access" --aliases access,permission,role --audience both --detail detailed
   excavator search --run <run> --query "\\bTODO\\b|@deprecated" --regex --case-sensitive --reason "investigate unfinished behavior"
@@ -389,6 +406,19 @@ const COMMAND_HELP: Record<string, CommandHelp> = {
       "--quiet              Suppress CodeGraph progress output"
     ],
     example: "excavator codegraph build --target ./workspace --quiet"
+  },
+  "db-schema": {
+    synopsis: "db-schema --target <dir> [--out <dir>] [--manifest <json>] [--descriptions <json>] [--language en-US|zh-CN] [--json]",
+    flags: [
+      "--target <dir>          Source workspace to analyze, read-only (required)",
+      "--out <dir>             Output directory (default .work/db-schema)",
+      "--manifest <json>       Locate manifest {sources:[{format,include}]}; REPLACES auto-discovery",
+      "--descriptions <json>   {\"<table>\": \"one sentence\"} injected verbatim as table descriptions",
+      "--language <tag>        en-US (default) or zh-CN",
+      "--json                  Print the full extraction JSON instead of a summary"
+    ],
+    example: "excavator db-schema --target ./workspace --out ./db --language en-US",
+    notes: "Deterministic and zero-model: writes a byte-stable database-design.md and db-schema.json. Discovers gorm / Sequelize / SQL-dump formats by fingerprint and reports Prisma / Django / TypeORM / ActiveRecord as located-but-unsupported."
   },
   begin: {
     synopsis: "begin --run <dir> --document <id>",
