@@ -15,8 +15,13 @@
  * type in the "go" vocabulary (never converted to SQL — see types.ts). A field whose gorm tag carries
  * `foreignKey`/`references`/`many2many`/`joinForeignKey`/`joinReferences` is a relationship, not a
  * column. Embedded structs are expanded in place (their own tagged fields become columns, with
- * provenance pointing at the embedded struct's own source). `gorm:"-"` is ignored; untagged exported
- * fields and malformed tags are skipped with a warning rather than crashing or guessing.
+ * provenance pointing at the embedded struct's own source). `gorm:"-"` is ignored.
+ *
+ * Naming strategy: a field with no `column:` tag is NOT dropped — gorm derives its column name as
+ * snake_case of the field name (its documented default), so we do the same for exported fields (tagged
+ * or fully untagged) and mark the column `nameDerived` so the derivation is transparent. An untagged
+ * field whose type is another model (a slice/pointer to a known struct) is treated as an association and
+ * skipped; a tag with unrecognized segments stays ambiguous and yields a malformed-tag warning, no column.
  *
  * Multi-struct / same table: this parser emits one table PER struct that declares a `TableName()`,
  * each carrying its own declarations and columns. Two structs resolving to the same physical name
@@ -27,6 +32,7 @@
 import type { ColumnSchema, RelationshipSchema, SchemaWarning, TableSchema, UniqueKey } from "../types.ts";
 import type { ParserResult, ReadFile, SchemaParser } from "./parser.ts";
 import { buildConstMap, resolveConstExpr } from "./go-const-resolver.ts";
+import { gormColumnName } from "./gorm-naming.ts";
 
 // In PR1 there is a single gorm source; the assembly step assigns real SchemaSource ids later.
 const SOURCE_ID = "gorm";
@@ -122,7 +128,7 @@ export const gormParser: SchemaParser = {
         continue;
       }
       const flat = flatten(struct, structByName, new Set([struct.name]), warnings);
-      const built = buildTable(physical, struct, flat, warnings);
+      const built = buildTable(physical, struct, flat, structByName, warnings);
       tables.push(built.table);
       relationships.push(...built.relationships);
     }
@@ -256,6 +262,7 @@ function buildTable(
   physical: string,
   struct: GoStruct,
   flat: FlatField[],
+  structByName: Map<string, GoStruct>,
   warnings: SchemaWarning[],
 ): { table: TableSchema; relationships: RelationshipSchema[] } {
   const columns: ColumnSchema[] = [];
@@ -268,13 +275,21 @@ function buildTable(
     const parsed = parseFieldLine(f.content);
     if (parsed.kind === "comment" || parsed.kind === "blank") continue;
     if (parsed.kind === "untagged") {
-      if (/^[A-Z]/.test(parsed.fieldName)) {
-        warnings.push({
-          kind: "untagged-field-skipped",
-          message: `untagged field ${parsed.fieldName} skipped`,
-          evidence: [{ file: f.file, line: f.line }],
-        });
+      // gorm keeps untagged EXPORTED fields as columns named by snake_case; unexported fields are ignored.
+      if (!/^[A-Z]/.test(parsed.fieldName)) continue;
+      if (isProbableAssociation(parsed.fieldType, structByName)) {
+        warnings.push({ kind: "untagged-association-skipped", message: `untagged field ${parsed.fieldName} ${parsed.fieldType} looks like an association; skipped`, evidence: [{ file: f.file, line: f.line }] });
+        continue;
       }
+      const derivedName = gormColumnName(parsed.fieldName);
+      columns.push({
+        name: derivedName,
+        type: parsed.fieldType,
+        typeVocabulary: "go",
+        nameDerived: true,
+        provenance: [{ sourceId: SOURCE_ID, file: f.file, line: f.line, symbol: parsed.fieldName }],
+      });
+      fieldToColumn.set(parsed.fieldName, derivedName);
       continue;
     }
     // tagged
@@ -284,14 +299,18 @@ function buildTable(
       relCandidates.push({ fieldName: parsed.fieldName, fieldType: parsed.fieldType, tag, file: f.file, line: f.line });
       continue;
     }
-    const colName = tag.keys.column;
+    // No `column:` tag → derive the name by gorm's snake_case NamingStrategy (deterministic, not a guess).
+    // A tag with unrecognized segments stays ambiguous: no column, a malformed-tag warning.
+    let colName = tag.keys.column;
+    let nameDerived = false;
     if (colName === undefined) {
-      warnings.push(
-        tag.unrecognized.length
-          ? { kind: "malformed-tag", message: `malformed gorm tag on ${parsed.fieldName || "field"}: ${tag.unrecognized.join("; ")}`, evidence: [{ file: f.file, line: f.line }] }
-          : { kind: "column-unresolved", message: `gorm tag on ${parsed.fieldName || "field"} declares no column`, evidence: [{ file: f.file, line: f.line }] },
-      );
-      continue;
+      if (tag.unrecognized.length) {
+        warnings.push({ kind: "malformed-tag", message: `malformed gorm tag on ${parsed.fieldName || "field"}: ${tag.unrecognized.join("; ")}`, evidence: [{ file: f.file, line: f.line }] });
+        continue;
+      }
+      if (!/^[A-Z]/.test(parsed.fieldName)) continue; // unexported, no explicit column → not a column
+      colName = gormColumnName(parsed.fieldName);
+      nameDerived = true;
     }
     const column: ColumnSchema = {
       name: colName,
@@ -299,6 +318,7 @@ function buildTable(
       typeVocabulary: "go",
       provenance: [{ sourceId: SOURCE_ID, file: f.file, line: f.line, symbol: parsed.fieldName }],
     };
+    if (nameDerived) column.nameDerived = true;
     if (tag.flags.has("not null")) column.nullable = false; // never inferred true — undeclared stays undefined
     if (tag.keys.default !== undefined) column.default = tag.keys.default;
     if (tag.flags.has("autoincrement") || tag.flags.has("auto_increment") || tag.keys.autoincrement !== undefined) column.autoIncrement = true;
@@ -382,6 +402,19 @@ function parseGormTag(gormVal: string): GormTag {
 
 function isAssociation(tag: GormTag): boolean {
   return ASSOCIATION_KEYS.some((k) => tag.keys[k] !== undefined);
+}
+
+/**
+ * Heuristic for an UNTAGGED field: is its Go type a reference to another model (an association), rather
+ * than a scalar column? A slice of a capitalized/known type (`[]Detail`, `[]*Office`) or a value/pointer
+ * to a known struct (`*Author`) is an association; `[]byte`, `*time.Time`, `string`, etc. are columns.
+ */
+function isProbableAssociation(fieldType: string, structByName: Map<string, GoStruct>): boolean {
+  const isSlice = /\[\s*\]/.test(fieldType);
+  const base = fieldType.replace(/[[\]*\s]/g, "").split(".").pop() ?? "";
+  const known = structByName.has(base);
+  if (isSlice) return known || /^[A-Z]/.test(base);
+  return known;
 }
 
 function buildRelationship(rc: RelationshipCandidate, fromTable: string, fieldToColumn: Map<string, string>): RelationshipSchema {

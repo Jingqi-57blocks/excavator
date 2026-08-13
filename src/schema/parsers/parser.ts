@@ -28,11 +28,17 @@ export interface SchemaParser {
 }
 
 import { gormParser } from "./gorm.ts";
+import { sequelizeMigrationParser } from "./sequelize-migration.ts";
+import { sequelizeModelParser } from "./sequelize-model.ts";
+import { sqlDumpParser } from "./sql-dump.ts";
 
 /**
  * Format → parser registry. Adding a format is one import plus one entry here.
- * Partial: only formats with a shipped parser appear (PR1 = gorm only; sequelize/sql-dump land later).
+ * Every recognized SchemaFormat now has a shipped parser; assembly into a full SchemaExtraction is `merge.ts`.
  */
-export const PARSERS: Partial<Record<SchemaFormat, SchemaParser>> = {
+export const PARSERS: Record<SchemaFormat, SchemaParser> = {
   gorm: gormParser,
+  "sequelize-migration": sequelizeMigrationParser,
+  "sequelize-model": sequelizeModelParser,
+  "sql-dump": sqlDumpParser,
 };
