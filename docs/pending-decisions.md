@@ -157,3 +157,6 @@ Fable 非阻塞后续（记录待议，本切片未动）：
 ## 批次 57B-376（请假规则覆盖金标准 POST-forcing 校准）产生（2026-08-13）
 
 - **`extractKnowledge` 跨章节 claim-ref 冲突（记录，非缺陷；后续可修）**：`eval/knowledge.ts` 用 `${documentId}#${claimId}` 作 fact 的 `ref`，而多个 section 文件共享同一 `documentId`、各自从 `claim-1` 起编号，故不同 section 的相异 fact 会共享同一 `ref`（如多条 `…#claim-16`）。**不影响 found/miss 正确性**（diff 按 window+pattern+marker 逐 fact 匹配，不靠 ref 唯一性），仅使 `Diff.found[].via` 这个 provenance 串有歧义（按 ref 反查会取到首个同 ref fact，可能非真正命中的那条）。后续可让 ref 纳入 section/文件名消歧。
+
+## excavator source 命令缺越界校验（D2 真跑发现，2026-08-13）
+`excavator source` 对 start > 文件长度的越界窗口不报错，写入了非法区间证据（如 `197-92`，start>end），后续 `freeze` 才被该非法区间挡下。作者手工剪除并重算 evidenceDigest 才过。建议 `source` 命令加输入校验：start≤文件行数、start≤end，越界即拒并给清晰错误，而非留到 freeze 才失败。范围外，记此备后续修。
