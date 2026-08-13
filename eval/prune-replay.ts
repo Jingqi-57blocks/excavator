@@ -94,7 +94,7 @@ function allowedPathsFor(modules: Array<{ module: { dir: string }; path: string 
 /**
  * Reproduce the production candidate pool from real databases: the same seeds and anchor terms the
  * run recorded, expanded with the new ×6 cap and closed over its internal edges. Mirrors
- * `buildFeatureContext` in src/context.ts exactly (depth clamp, cap, `edgesAmong`).
+ * `buildFeatureContext` in src/context/context.ts exactly (depth clamp, cap, `edgesAmong`).
  */
 export function buildPoolFromRun(runDir: string, dbPaths: string[], maxNodes = DEFAULT_MAX_NODES): PrunePool {
   const { seeds, anchorTerms, target } = readFeatureGraph(runDir);
