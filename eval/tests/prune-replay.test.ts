@@ -11,6 +11,7 @@ import { join } from "node:path";
 import { loadPrunePool, prunePool, prunePoolToNodes } from "../prune-replay.ts";
 import { boundaryRecall } from "../boundary.ts";
 import { loadBoundaryGold } from "../boundary-gold.ts";
+import { pruneFeatureGraph, rescueQuotaFor } from "../../src/feature-prune.ts";
 
 const WCP_LEAVE = join(import.meta.dirname, "..", "fixtures", "wcp-leave");
 const POOL = join(WCP_LEAVE, "prune-pool.json.gz");
@@ -53,9 +54,16 @@ test("57B-371 gate: prune is deterministic (two runs are byte-identical)", () =>
 
 test("57B-371 gate: node set fills to the cap exactly and never exceeds it", () => {
   const pool = loadPrunePool(POOL); // 1726 pool nodes, far above every cap below
+  const anchors = pool.anchorTerms ?? [];
   for (const cap of [100, 175, 250]) {
-    const nodes = prunePool(pool, cap).nodes;
-    assert.equal(nodes.length, cap, `cap ${cap}`);
+    // The global prune (byte-unchanged by 57B-377) still fills to the cap EXACTLY.
+    assert.equal(pruneFeatureGraph(pool.nodes, pool.edges, pool.seeds, anchors, cap).nodes.length, cap, `global cap ${cap}`);
+    // prunePool now applies the 57B-377 module-local rescue floor, which is ADDITIVE: at tighter
+    // budgets it adds module-local strong rescues the shared global quota displaced (e.g. the
+    // maxAvailableHoliday T2 sentinel at cap 100), so it is bounded by cap + moduleCount*R (<=3
+    // backend modules here), not pinned to the cap. At the production cap (250) it adds nothing.
+    const floored = prunePool(pool, cap).nodes.length;
+    assert.ok(floored >= cap && floored <= cap + 3 * rescueQuotaFor(cap), `floored cap ${cap}: ${floored}`);
   }
 });
 

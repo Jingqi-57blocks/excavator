@@ -18,8 +18,10 @@ import { moduleForFile, type DetectedModule } from "./module-detection.ts";
  * different databases never collide.
  */
 
-/** NUL separates a module id from a database-local node id; it never appears in a CodeGraph id. */
-const ID_SEPARATOR = "\u0000";
+/** NUL separates a module id from a database-local node id; it never appears in a CodeGraph id.
+ *  Exported as the single source of module identity: the prune module-floor (57B-377) groups nodes
+ *  by the prefix before this separator, and must not hand-write the byte itself. */
+export const ID_SEPARATOR = "\u0000";
 
 const KIND_RANK: Record<string, number> = { route: 0, component: 1, function: 2, method: 3 };
 

@@ -20,7 +20,7 @@ const RESCUE_EXCLUDED_KINDS = new Set(["import", "file"]);
 /** Generic scheduler/background-work path vocabulary (framework-agnostic, mirrors the configuration category). */
 const SCHEDULER_PATH = /crons?|tasks?|jobs?|schedules?|workers?/i;
 
-const NAME_TOKEN_EXACT = 220; // an anchor term is an exact camel/snake token of the name
+export const NAME_TOKEN_EXACT = 220; // an anchor term is an exact camel/snake token of the name
 const NAME_SUBSTRING = 160; // an anchor term is a substring of the name but not a whole token
 const ABBREV_TOKEN_EXACT = 220; // an anchor term's consonant skeleton is an exact token of the name
 const NAME_SIGNAL_CAP = 440; // ceiling on the name-intrinsic part before bridge/scheduler add on
@@ -85,7 +85,7 @@ function compareStr(a: string, b: string): number {
 }
 
 /** Stable de-dupe of an edge list by (source,target,kind,line), sorted deterministically. */
-function dedupeEdges(edges: any[]): any[] {
+export function dedupeEdges(edges: any[]): any[] {
   const seen = new Set<string>();
   const out: any[] = [];
   for (const edge of edges) {
@@ -148,13 +148,18 @@ function schedulingSignal(node: any): Signal {
   return SCHEDULER_PATH.test(String(node.filePath ?? "")) ? { value: SCHEDULER_BONUS, reasons: ["scheduler-path"] } : { value: 0, reasons: [] };
 }
 
+/** The per-id rescue-signal breakdown: the name-intrinsic value, the summed total across name +
+ *  bridge + scheduler, and the joined human-readable reason. The `total` is exactly the Stage-2
+ *  candidate score; `name` and `total` are what the module-floor gate (57B-377) tests. */
+export interface RescueSignal { name: number; total: number; reason: string; }
+
 /**
- * Pick up to `quota` rescue nodes from the pool (excluding seeds and Stage-1 survivors, and
- * import/file kinds). Returned nodes are shallow copies carrying a deterministic `rescued`
- * explanation string; the pool's own node objects are never mutated.
+ * Compute the Stage-2 rescue signal (name / directional-bridge / scheduler) for EVERY node in the
+ * pool, keyed by id. This is the exact scoring `rescueNodes` uses to rank rescue candidates, lifted
+ * into a pure, reusable function so the module-floor logic (57B-377) can re-derive a node's own
+ * (name, total) without duplicating the weights. Pure: a deterministic function of its inputs.
  */
-function rescueNodes(nodes: any[], edges: any[], seedIds: Set<string>, stage1Ids: Set<string>, anchorTerms: string[], quota: number): any[] {
-  if (quota <= 0) return [];
+export function rescueSignalsFor(nodes: any[], edges: any[], anchorTerms: string[]): Map<string, RescueSignal> {
   const lowerAnchors = [...new Set(anchorTerms.map((term) => String(term).toLowerCase()).filter(Boolean))];
   const abbrevs = deriveAbbreviations(anchorTerms);
 
@@ -181,17 +186,35 @@ function rescueNodes(nodes: any[], edges: any[], seedIds: Set<string>, stage1Ids
     else inner.set(target, { count: 1, kind: String(edge.kind) });
   }
 
+  const signals = new Map<string, RescueSignal>();
+  for (const node of nodes) {
+    const id = String(node.id);
+    const name = nameSig.get(id) ?? { value: 0, reasons: [] };
+    const bridge = bridgeSignal(node, adjacency, matched, nodeName);
+    const scheduler = schedulingSignal(node);
+    const total = name.value + bridge.value + scheduler.value;
+    signals.set(id, { name: name.value, total, reason: [...name.reasons, ...bridge.reasons, ...scheduler.reasons].join(", ") });
+  }
+  return signals;
+}
+
+/**
+ * Pick up to `quota` rescue nodes from the pool (excluding seeds and Stage-1 survivors, and
+ * import/file kinds). Returned nodes are shallow copies carrying a deterministic `rescued`
+ * explanation string; the pool's own node objects are never mutated.
+ */
+function rescueNodes(nodes: any[], edges: any[], seedIds: Set<string>, stage1Ids: Set<string>, anchorTerms: string[], quota: number): any[] {
+  if (quota <= 0) return [];
+  const signals = rescueSignalsFor(nodes, edges, anchorTerms);
+
   const candidates: Array<{ node: any; score: number; reason: string }> = [];
   for (const node of nodes) {
     const id = String(node.id);
     if (seedIds.has(id) || stage1Ids.has(id)) continue;
     if (RESCUE_EXCLUDED_KINDS.has(String(node.kind))) continue;
-    const name = nameSig.get(id) ?? { value: 0, reasons: [] };
-    const bridge = bridgeSignal(node, adjacency, matched, nodeName);
-    const scheduler = schedulingSignal(node);
-    const total = name.value + bridge.value + scheduler.value;
-    if (total <= 0) continue;
-    candidates.push({ node, score: total, reason: [...name.reasons, ...bridge.reasons, ...scheduler.reasons].join(", ") });
+    const sig = signals.get(id);
+    if (!sig || sig.total <= 0) continue;
+    candidates.push({ node, score: sig.total, reason: sig.reason });
   }
   candidates.sort((a, b) => b.score - a.score
     || compareStr(String(a.node.filePath ?? ""), String(b.node.filePath ?? ""))

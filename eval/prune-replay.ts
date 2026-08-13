@@ -20,7 +20,7 @@ import { gzipSync, gunzipSync } from "node:zlib";
 import { join, dirname, basename } from "node:path";
 import { CodeGraphIndex } from "../src/codegraph.ts";
 import { CodeGraphSet } from "../src/codegraph-set.ts";
-import { pruneFeatureGraph } from "../src/feature-prune.ts";
+import { pruneFeatureGraphWithModuleFloor } from "../src/prune-module-floor.ts";
 import { Deadline } from "../src/util.ts";
 import type { BoundaryNode } from "./boundary.ts";
 
@@ -131,9 +131,10 @@ export function loadPrunePool(file: string): PrunePool {
   return JSON.parse(gunzipSync(readFileSync(file)).toString("utf8"));
 }
 
-/** Run the new prune over a pool, optionally overriding the node budget (for boundedness checks). */
+/** Run the new prune (with the 57B-377 module-local rescue floor) over a pool, optionally overriding
+ *  the node budget (for boundedness checks). Every fixture test thus exercises the floor path. */
 export function prunePool(pool: PrunePool, maxNodes = pool.maxFeatureNodes): { nodes: any[]; edges: any[] } {
-  return pruneFeatureGraph(pool.nodes, pool.edges, pool.seeds, anchorTermsOf(pool), maxNodes);
+  return pruneFeatureGraphWithModuleFloor(pool.nodes, pool.edges, pool.seeds, anchorTermsOf(pool), maxNodes);
 }
 
 /** Project the pruned node set into boundary-recall nodes. */
