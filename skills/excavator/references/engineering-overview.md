@@ -64,3 +64,15 @@ List only problems attributable to the reviewed target snapshot. Do not include 
 ## 12. Coverage and unresolved information
 
 Explain the Git-aware file boundary, CodeGraph support, source fallback, query and source budgets, unresolved nodes, excluded files, and questions that require runtime or infrastructure information.
+
+## 13. Database design
+
+Describe the physical database schema the reviewed source declares: the tables, their columns, and the relationships between them. Resolve every column and type from declarations in the reviewed source. Never output stored data values or secrets.
+
+For each table, give its name followed by a Markdown table with one row per column: column name, type, nullable, default, and key (primary, foreign, unique, or index). Resolve columns by source priority: migration scripts and raw DDL are the authoritative physical schema; model declarations and their field-to-column mapping (field tags, annotations, or schema-builder calls) come next; the columns a query layer actually reads or writes are supporting evidence. When a declaration window directly supports a column row, mark that row a fact.
+
+Derive relationships only from declared foreign keys, explicit association declarations, or join conditions present in the reviewed source. Mark a relationship inferred when it rests on name similarity rather than a declaration, and name what the inference is based on. Present the relationships as a Mermaid `erDiagram`.
+
+When a table is read or written by more than one runtime unit, cross-reference the shared-storage findings in section 7 rather than restating them.
+
+State coverage honestly: report how many tables were enumerated against how many were found, and carry the denominator wherever a count represents coverage. If the reviewed source declares no database at all, record one searched statement, marked verified and backed by a search receipt for the schema, migration, and data-access locations examined, rather than leaving this chapter empty. Do not pad the chapter with placeholders for information the source cannot provide.

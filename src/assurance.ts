@@ -501,9 +501,9 @@ const READABILITY_TABLE_SECTIONS: Record<string, Set<number>> = {
   "overview:product": new Set([2, 3, 4, 5, 7, 8]),
   // engineering-overview.md §2 repositories/units, §3 stack, §5 interfaces/entry points,
   // §7 data models/storage, §8 identity/auth, §9 external integrations, §10 config/jobs,
-  // §11 tests+problems (tests inventory). Omitted: §1 purpose/snapshot, §4 topology (Mermaid),
-  // §6 call structure (graph), §12 coverage.
-  "overview:engineering": new Set([2, 3, 5, 7, 8, 9, 10, 11]),
+  // §11 tests+problems (tests inventory), §13 database design (per-table column tables).
+  // Omitted: §1 purpose/snapshot, §4 topology (Mermaid), §6 call structure (graph), §12 coverage.
+  "overview:engineering": new Set([2, 3, 5, 7, 8, 9, 10, 11, 13]),
   // product-feature.md §3 rules, §5 role-by-action, §6 data/fields, §7 side effects,
   // §8 failure modes, §9 config/switches, §13 glossary (glossary moved from §11 after the problem
   // chapter split). Omitted: §1 boundary, §2 journey (flow), §4 states (Mermaid state diagram is

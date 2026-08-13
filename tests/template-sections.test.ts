@@ -78,7 +78,16 @@ test("both feature templates put the coverage chapter at §12", () => {
   }
 });
 
-test("both engineering templates keep exactly 12 chapters (unchanged by 57B-364)", () => {
+test("engineering-feature keeps exactly 12 chapters (unchanged by 57B-364)", () => {
   assert.equal(sectionsOf("engineering-feature.md").length, 12);
-  assert.equal(sectionsOf("engineering-overview.md").length, 12);
+});
+
+test("engineering-overview appends the database-design chapter at §13 (57B-379)", () => {
+  const sections = sectionsOf("engineering-overview.md");
+  assert.equal(sections.length, 13);
+  const byIndex = new Map(sections.map((section) => [section.index, section.title]));
+  // §11 and §12 keep their pre-append titles so the appended chapter is proven purely additive.
+  assert.equal(byIndex.get(11), "Tests, documentation, and current technical problems");
+  assert.match(byIndex.get(12)!, /^Coverage/);
+  assert.equal(byIndex.get(13), "Database design");
 });
