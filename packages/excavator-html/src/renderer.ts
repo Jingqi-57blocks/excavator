@@ -2,7 +2,7 @@ import { readFile, readdir, copyFile } from "node:fs/promises";
 import { basename, dirname, extname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { mkdir, writeFile } from "node:fs/promises";
-import { escapeHtml, parseFrontMatter, renderMarkdown } from "./markdown.ts";
+import { escapeHtml, isZhLanguage, parseFrontMatter, renderMarkdown } from "./markdown.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -79,17 +79,17 @@ async function expandInputs(inputs: string[]): Promise<string[]> {
 }
 
 function renderPage(page: Page, pages: Page[], siteTitle: string): string {
+  const language = page.metadata.language || "zh-CN";
+  const labels = uiLabels(language);
   const nav = pages.map((item) => `<a class="${item === page ? "active" : ""}" href="${escapeHtml(item.outputName)}">${escapeHtml(item.navTitle)}</a>`).join("");
   const featurePages = pages.filter((item) => item.metadata.kind === "feature");
   const moduleHub = page.outputName === "index.html" && featurePages.length
-    ? `<section class="module-hub"><h2>功能模块</h2><div class="module-grid">${featurePages.map((item) => `<a class="module-card" href="${escapeHtml(item.outputName)}"><strong>${escapeHtml(item.navTitle)}</strong><span>${escapeHtml(item.title)}</span></a>`).join("")}</div></section>`
+    ? `<section class="module-hub"><h2>${escapeHtml(labels.featureModules)}</h2><div class="module-grid">${featurePages.map((item) => `<a class="module-card" href="${escapeHtml(item.outputName)}"><strong>${escapeHtml(item.navTitle)}</strong><span>${escapeHtml(item.title)}</span></a>`).join("")}</div></section>`
     : "";
-  const content = renderMarkdown(page.body.replace(/^#\s+.*$/m, "").trim());
-  const language = page.metadata.language || "zh-CN";
-  const labels = ariaLabels(language);
+  const content = renderMarkdown(page.body.replace(/^#\s+.*$/m, "").trim(), language);
   const snapshot = page.metadata.snapshot ? `Source snapshot: ${escapeHtml(page.metadata.snapshot)}` : "Static source review";
   const runLine = page.metadata.run ? ` · Run: ${escapeHtml(page.metadata.run)}` : "";
-  return `<!DOCTYPE html>\n<html lang="${escapeHtml(language)}"><head><meta charset="utf-8"/><meta content="width=device-width,initial-scale=1" name="viewport"/><title>${escapeHtml(page.title)}</title><link href="assets/report.css" rel="stylesheet"/></head><body>\n<header class="site-header"><div class="header-inner"><a class="brand" href="index.html">${escapeHtml(siteTitle)}</a><nav aria-label="${escapeHtml(labels.reportModules)}" class="global-nav">${nav}</nav></div></header>\n<div class="layout"><aside class="sidebar"><p class="sidebar-label">本页目录</p><nav aria-label="${escapeHtml(labels.tableOfContents)}" class="toc" id="toc"></nav></aside><main class="main"><section class="hero"><h1>${escapeHtml(page.title)}</h1></section>${moduleHub}<article class="content">${content}</article><div class="diagram-status">图表无法渲染。请连接网络后重新加载。</div></main></div>\n<footer class="footer">${snapshot}${runLine}</footer><button aria-label="${escapeHtml(labels.backToTop)}" class="back-to-top">↑</button><dialog class="diagram-dialog" id="diagramDialog"><div class="dialog-head"><strong>图表详情</strong><button class="dialog-close">关闭</button></div><div class="dialog-body"></div></dialog><script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script><script src="assets/report.js"></script></body></html>`;
+  return `<!DOCTYPE html>\n<html lang="${escapeHtml(language)}"><head><meta charset="utf-8"/><meta content="width=device-width,initial-scale=1" name="viewport"/><title>${escapeHtml(page.title)}</title><link href="assets/report.css" rel="stylesheet"/></head><body>\n<header class="site-header"><div class="header-inner"><a class="brand" href="index.html">${escapeHtml(siteTitle)}</a><nav aria-label="${escapeHtml(labels.reportModules)}" class="global-nav">${nav}</nav></div></header>\n<div class="layout"><aside class="sidebar"><p class="sidebar-label">${escapeHtml(labels.onThisPage)}</p><nav aria-label="${escapeHtml(labels.tableOfContents)}" class="toc" id="toc"></nav></aside><main class="main"><section class="hero"><h1>${escapeHtml(page.title)}</h1></section>${moduleHub}<article class="content">${content}</article><div class="diagram-status">${escapeHtml(labels.diagramStatus)}</div></main></div>\n<footer class="footer">${snapshot}${runLine}</footer><button aria-label="${escapeHtml(labels.backToTop)}" class="back-to-top">↑</button><dialog class="diagram-dialog" id="diagramDialog"><div class="dialog-head"><strong>${escapeHtml(labels.diagramDetail)}</strong><button class="dialog-close">${escapeHtml(labels.close)}</button></div><div class="dialog-body"></div></dialog><script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script><script src="assets/report.js"></script></body></html>`;
 }
 
 /**
@@ -102,11 +102,22 @@ function kindPriority(kind: string | undefined): number {
   return kind !== undefined && kind in KIND_PRIORITY ? KIND_PRIORITY[kind] : KIND_PRIORITY.feature + 1;
 }
 
-/** Accessibility labels localized off the report `language` front matter (zh vs. everything else). */
-function ariaLabels(language: string): { reportModules: string; tableOfContents: string; backToTop: string } {
-  return language.toLowerCase().startsWith("zh")
-    ? { reportModules: "报告模块", tableOfContents: "本页目录", backToTop: "返回顶部" }
-    : { reportModules: "Report modules", tableOfContents: "Table of contents", backToTop: "Back to top" };
+/** All rendered UI chrome — aria labels and visible strings — localized off the report `language`
+ * front matter (zh vs. everything else). Single resolution point so no `startsWith` is scattered. */
+interface UiLabels {
+  reportModules: string;
+  tableOfContents: string;
+  backToTop: string;
+  onThisPage: string;
+  featureModules: string;
+  diagramStatus: string;
+  diagramDetail: string;
+  close: string;
+}
+function uiLabels(language: string): UiLabels {
+  return isZhLanguage(language)
+    ? { reportModules: "报告模块", tableOfContents: "本页目录", backToTop: "返回顶部", onThisPage: "本页目录", featureModules: "功能模块", diagramStatus: "图表无法渲染。请连接网络后重新加载。", diagramDetail: "图表详情", close: "关闭" }
+    : { reportModules: "Report modules", tableOfContents: "Table of contents", backToTop: "Back to top", onThisPage: "On this page", featureModules: "Feature modules", diagramStatus: "Diagrams could not be rendered. Reconnect and reload.", diagramDetail: "Diagram detail", close: "Close" };
 }
 
 function firstHeading(body: string): string | null { return body.match(/^#\s+(.+)$/m)?.[1]?.trim() ?? null; }

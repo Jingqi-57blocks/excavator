@@ -16,7 +16,21 @@ export function parseFrontMatter(input: string): MarkdownDocument {
   return { metadata, body: normalized.slice(end + 5) };
 }
 
-export function renderMarkdown(markdown: string): string {
+/** The report `language` front matter selects Chinese vs. the English default for all rendered UI text. */
+export function isZhLanguage(language: string | undefined): boolean {
+  return (language ?? "").toLowerCase().startsWith("zh");
+}
+
+/** Visible text of the four evidence-marker chips, in the report language (English is the default). */
+export interface MarkerLabels { fact: string; infer: string; verify: string; unavailable: string; }
+function markerLabels(language: string | undefined): MarkerLabels {
+  return isZhLanguage(language)
+    ? { fact: "事实", infer: "推断", verify: "验证", unavailable: "不可得" }
+    : { fact: "fact", infer: "inferred", verify: "verified", unavailable: "unavailable" };
+}
+
+export function renderMarkdown(markdown: string, language?: string): string {
+  const markers = markerLabels(language);
   const lines = markdown.replace(/\r\n/g, "\n").split("\n");
   const out: string[] = [];
   let index = 0;
@@ -61,7 +75,7 @@ export function renderMarkdown(markdown: string): string {
       }
       // Everything after the summary is real markdown (lists, tables, paragraphs, tag chips) and is
       // rendered recursively — renderMarkdown is a pure function and safely reentrant.
-      const inner = renderMarkdown(content.slice(bodyStart).join("\n"));
+      const inner = renderMarkdown(content.slice(bodyStart).join("\n"), language);
       if (inner) parts.push(inner);
       parts.push(closeLine);
       out.push(parts.join("\n"));
@@ -86,7 +100,7 @@ export function renderMarkdown(markdown: string): string {
     const heading = line.match(/^(#{1,6})\s+(.+)$/);
     if (heading) {
       const level = heading[1].length;
-      out.push(`<h${level}>${inline(heading[2])}</h${level}>`);
+      out.push(`<h${level}>${inline(heading[2], markers)}</h${level}>`);
       index += 1;
       continue;
     }
@@ -98,14 +112,14 @@ export function renderMarkdown(markdown: string): string {
       index += 2;
       const rows: string[][] = [];
       while (index < lines.length && /^\s*\|.*\|\s*$/.test(lines[index])) { rows.push(splitTableRow(lines[index])); index += 1; }
-      out.push(`<div class="table-wrap"><table><thead><tr>${headers.map((cell) => `<th>${inline(cell)}</th>`).join("")}</tr></thead><tbody>${rows.map((row) => `<tr>${headers.map((_, column) => `<td>${inline(row[column] ?? "")}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`);
+      out.push(`<div class="table-wrap"><table><thead><tr>${headers.map((cell) => `<th>${inline(cell, markers)}</th>`).join("")}</tr></thead><tbody>${rows.map((row) => `<tr>${headers.map((_, column) => `<td>${inline(row[column] ?? "", markers)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`);
       continue;
     }
 
     if (/^>\s?/.test(line)) {
       const quote: string[] = [];
       while (index < lines.length && /^>\s?/.test(lines[index])) { quote.push(lines[index].replace(/^>\s?/, "")); index += 1; }
-      out.push(`<div class="note-box">${paragraphs(quote.join("\n"))}</div>`);
+      out.push(`<div class="note-box">${paragraphs(quote.join("\n"), markers)}</div>`);
       continue;
     }
 
@@ -118,7 +132,7 @@ export function renderMarkdown(markdown: string): string {
       while (index < lines.length) {
         const match = lines[index].match(regex);
         if (!match) break;
-        items.push(`<li>${inline(match[1])}</li>`);
+        items.push(`<li>${inline(match[1], markers)}</li>`);
         index += 1;
       }
       out.push(`<${tag}>${items.join("")}</${tag}>`);
@@ -131,15 +145,15 @@ export function renderMarkdown(markdown: string): string {
     const text = paragraph.join(" ").trim();
     if (/^\*\*(所以呢|这意味着什么|What this means|Conclusion|核心结论)\*\*/i.test(text)) {
       const match = text.match(/^\*\*(.+?)\*\*\s*(.*)$/s)!;
-      out.push(`<div class="conclusion-callout"><div class="conclusion-title">${inline(match[1])}</div><p>${inline(match[2])}</p></div>`);
+      out.push(`<div class="conclusion-callout"><div class="conclusion-title">${inline(match[1], markers)}</div><p>${inline(match[2], markers)}</p></div>`);
     } else if (/^\*\*(警告|注意|限制|Warning|Note)\*\*/i.test(text)) {
-      out.push(`<div class="warning-box">${inline(text)}</div>`);
-    } else out.push(`<p>${inline(text)}</p>`);
+      out.push(`<div class="warning-box">${inline(text, markers)}</div>`);
+    } else out.push(`<p>${inline(text, markers)}</p>`);
   }
   return out.join("\n");
 }
 
-function paragraphs(value: string): string { return value.split(/\n{2,}/).map((part) => `<p>${inline(part.replace(/\n/g, " "))}</p>`).join(""); }
+function paragraphs(value: string, markers: MarkerLabels): string { return value.split(/\n{2,}/).map((part) => `<p>${inline(part.replace(/\n/g, " "), markers)}</p>`).join(""); }
 
 function isBlockStart(lines: string[], index: number): boolean {
   const line = lines[index];
@@ -159,14 +173,15 @@ function isTableHeader(lines: string[], index: number): boolean {
 
 function splitTableRow(line: string): string[] { return line.trim().replace(/^\||\|$/g, "").split("|").map((cell) => cell.trim()); }
 
-function inline(input: string): string {
+function inline(input: string, markers: MarkerLabels): string {
   const placeholders: string[] = [];
+  // Both English and Chinese tokens are accepted as input; only the emitted chip text follows `language`.
   let value = input.replace(/`([^`]+)`/g, (_, code: string) => {
     const token = code.trim().toLowerCase();
-    if (["事实", "fact"].includes(token)) return stash('<span class="tag fact">事实</span>');
-    if (["推断", "inferred", "inference"].includes(token)) return stash('<span class="tag infer">推断</span>');
-    if (["验证", "verified"].includes(token)) return stash('<span class="tag verify">验证</span>');
-    if (["不可得", "unavailable"].includes(token)) return stash('<span class="tag unavailable">不可得</span>');
+    if (["事实", "fact"].includes(token)) return stash(`<span class="tag fact">${markers.fact}</span>`);
+    if (["推断", "inferred", "inference"].includes(token)) return stash(`<span class="tag infer">${markers.infer}</span>`);
+    if (["验证", "verified"].includes(token)) return stash(`<span class="tag verify">${markers.verify}</span>`);
+    if (["不可得", "unavailable"].includes(token)) return stash(`<span class="tag unavailable">${markers.unavailable}</span>`);
     return stash(`<code>${escapeHtml(code)}</code>`);
   });
   value = escapeHtml(value)
