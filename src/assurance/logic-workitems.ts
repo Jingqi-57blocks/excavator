@@ -12,7 +12,7 @@
 // and documents produce byte-identical work items, so the plan, the freeze expected-plan and the audit
 // expected-plan/checklist can all derive from this one function and never disagree.
 
-import type { DocumentPlan, FactPackItem, FeatureFactPack, InvestigationWorkItem } from "./types.ts";
+import type { DocumentPlan, FactPackItem, FeatureFactPack, InvestigationWorkItem } from "../core/types.ts";
 
 /** Per-feature ceiling on promoted rescued logic functions; a pathological feature cannot flood the plan. */
 export const LOGIC_WORKITEM_CAP = 24;

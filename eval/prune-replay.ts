@@ -18,10 +18,10 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { gzipSync, gunzipSync } from "node:zlib";
 import { join, dirname, basename } from "node:path";
-import { CodeGraphIndex } from "../src/codegraph.ts";
-import { CodeGraphSet } from "../src/codegraph-set.ts";
-import { pruneFeatureGraphWithModuleFloor } from "../src/prune-module-floor.ts";
-import { Deadline } from "../src/util.ts";
+import { CodeGraphIndex } from "../src/codegraph/codegraph.ts";
+import { CodeGraphSet } from "../src/codegraph/codegraph-set.ts";
+import { pruneFeatureGraphWithModuleFloor } from "../src/context/prune-module-floor.ts";
+import { Deadline } from "../src/core/util.ts";
 import type { BoundaryNode } from "./boundary.ts";
 
 /** A frozen candidate pool: everything `pruneFeatureGraph` needs, and nothing model-derived. */

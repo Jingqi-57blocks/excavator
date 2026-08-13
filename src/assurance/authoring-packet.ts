@@ -13,8 +13,8 @@ import type {
   SectionClaim,
   TraceCatalog,
   TraceRecord
-} from "./types.ts";
-import { exists } from "./util.ts";
+} from "../core/types.ts";
+import { exists } from "../core/util.ts";
 
 /**
  * The authoring packet: a deterministic, model-free per-document rendering of the frozen investigation

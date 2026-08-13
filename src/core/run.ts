@@ -3,26 +3,26 @@ import { readFile } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Audience, ChecklistItem, DocumentPlan, EvidenceItem, FeatureFactPack, InvestigationChecklist, InvestigationPlan, InvestigationWorkItem, KnowledgeArtifact, ReportRequest, RunManifest, SearchReceipt, SectionClaim, SectionClaimsFile, TraceCatalog, TraceRecord } from "./types.ts";
-import { auditAuthoringPacketConsumption, buildAuthoringPacket } from "./authoring-packet.ts";
-import { buildContexts, featureCacheKey } from "./context.ts";
-import { FACT_PACK_CATEGORIES, factPackEvidenceId } from "./factpack.ts";
-import { SourceReader, evidenceFromWindow, sourceSearch, type SourceSearchStats } from "./source.ts";
-import { createSnapshot } from "./snapshot.ts";
-import { ASSURANCE_VERSION, assuranceGenerationAtLeast, auditChecklist, auditDetailedFeatureSection, auditEvidenceCatalog, auditEvidenceMarkerPlacement, auditReadabilityTables, auditRescuedLogicCoverage, auditSectionClaims, auditSectionEvidenceMarkers, auditTargetProblemAttribution, auditTraces, auditWorkItemClaimCoverage, auditWorkItems, checklistUpdatesToWorkItems, createInvestigationChecklist, createInvestigationPlan, hasEvidenceMarkers, mergeChecklist, mergeWorkItems, runUsesCurrentAssurance, type AuditFinding, validateClaimsInput, workItemsToChecklist } from "./assurance.ts";
-import { auditComparativeClaims } from "./claim-comparison.ts";
-import { auditFreezeOrder, auditFrozenKnowledge, buildKnowledge, freezePreconditions, knowledgeDigest, normalizeSupplement, recordSupplement } from "./freeze.ts";
+import { auditAuthoringPacketConsumption, buildAuthoringPacket } from "../assurance/authoring-packet.ts";
+import { buildContexts, featureCacheKey } from "../context/context.ts";
+import { FACT_PACK_CATEGORIES, factPackEvidenceId } from "../context/factpack.ts";
+import { SourceReader, evidenceFromWindow, sourceSearch, type SourceSearchStats } from "../snapshot/source.ts";
+import { createSnapshot } from "../snapshot/snapshot.ts";
+import { ASSURANCE_VERSION, assuranceGenerationAtLeast, auditChecklist, auditDetailedFeatureSection, auditEvidenceCatalog, auditEvidenceMarkerPlacement, auditReadabilityTables, auditRescuedLogicCoverage, auditSectionClaims, auditSectionEvidenceMarkers, auditTargetProblemAttribution, auditTraces, auditWorkItemClaimCoverage, auditWorkItems, checklistUpdatesToWorkItems, createInvestigationChecklist, createInvestigationPlan, hasEvidenceMarkers, mergeChecklist, mergeWorkItems, runUsesCurrentAssurance, type AuditFinding, validateClaimsInput, workItemsToChecklist } from "../assurance/assurance.ts";
+import { auditComparativeClaims } from "../assurance/claim-comparison.ts";
+import { auditFreezeOrder, auditFrozenKnowledge, buildKnowledge, freezePreconditions, knowledgeDigest, normalizeSupplement, recordSupplement } from "../assurance/freeze.ts";
 import { atomicWrite, ensureDir, exists, nowIso, readJson, REDACTION_VERSION, runIdTimestamp, sha256, slugify, stableJson, writeJson } from "./util.ts";
-import { logicWorkItems, LOGIC_DISPOSITION_ASSURANCE_GENERATION } from "./logic-workitems.ts";
-import { collectClaims, createAnalysisScope, emptyTraceCatalog, mergeTraces, writeReportCompanions } from "./assurance-artifacts.ts";
-import { scaffoldSectionClaims } from "./claims-scaffold.ts";
-import { sectionFileStem } from "./section-slug.ts";
-import { appendTimeline, auditTimeline, readTimeline } from "./timeline.ts";
+import { logicWorkItems, LOGIC_DISPOSITION_ASSURANCE_GENERATION } from "../assurance/logic-workitems.ts";
+import { collectClaims, createAnalysisScope, emptyTraceCatalog, mergeTraces, writeReportCompanions } from "../assurance/assurance-artifacts.ts";
+import { scaffoldSectionClaims } from "../assurance/claims-scaffold.ts";
+import { sectionFileStem } from "../assurance/section-slug.ts";
+import { appendTimeline, auditTimeline, readTimeline } from "../assurance/timeline.ts";
 import { runScopeSlug } from "./run-label.ts";
-import { auditPendingDrafts } from "./parallel-authoring.ts";
+import { auditPendingDrafts } from "../assurance/parallel-authoring.ts";
 
 export const SOURCE_SEARCH_VERSION = `source-search-v4-ranking-v1-${REDACTION_VERSION}`;
 
-const PROJECT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const PROJECT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const REFERENCES = join(PROJECT_ROOT, "skills", "excavator", "references");
 
 /** Caches live beside `runs/` inside the per-target project directory: `<workdir>/<project>/cache`. */

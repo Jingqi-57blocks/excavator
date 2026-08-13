@@ -3,8 +3,8 @@ import { cp, mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { readFile } from "node:fs/promises";
-import type { InvestigationPlan } from "../src/types.ts";
-import { updateWorkItems } from "../src/run.ts";
+import type { InvestigationPlan } from "../src/core/types.ts";
+import { updateWorkItems } from "../src/core/run.ts";
 
 export async function tempDir(prefix = "excavator-test-"): Promise<string> { return mkdtemp(join(tmpdir(), prefix)); }
 

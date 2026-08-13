@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { detectModules, discoverModules, findModuleMarkers, moduleForFile } from "../src/module-detection.ts";
+import { detectModules, discoverModules, findModuleMarkers, moduleForFile } from "../src/codegraph/module-detection.ts";
 import { tempDir } from "./helpers.ts";
 
 test("two go.mod subdirectories are detected as two separate modules", () => {

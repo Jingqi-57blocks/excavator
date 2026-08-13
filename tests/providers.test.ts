@@ -2,9 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { buildContexts } from "../src/context.ts";
-import { buildCodeGraph, codeGraphStatus } from "../src/codegraph-command.ts";
-import type { ReportRequest } from "../src/types.ts";
+import { buildContexts } from "../src/context/context.ts";
+import { buildCodeGraph, codeGraphStatus } from "../src/codegraph/codegraph-command.ts";
+import type { ReportRequest } from "../src/core/types.ts";
 import { copyFixture, createCodeGraphFixture, tempDir } from "./helpers.ts";
 
 function request(target: string, workdir: string, overrides: Partial<ReportRequest> = {}): ReportRequest {

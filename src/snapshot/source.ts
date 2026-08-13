@@ -1,9 +1,9 @@
 import { readFile } from "node:fs/promises";
 import { basename, dirname, extname, join, resolve } from "node:path";
-import type { EvidenceItem, SourceWindow } from "./types.ts";
+import type { EvidenceItem, SourceWindow } from "../core/types.ts";
 import type { ScannedFile } from "./snapshot.ts";
 import { CONTRACT_CATEGORIES, primaryCategory, projectDocumentGroup, scoreProjectDocument } from "./document-scoring.ts";
-import { atomicWrite, ensureDir, exists, readJson, redactSecrets, REDACTION_VERSION, sha256, truncate, writeJson } from "./util.ts";
+import { atomicWrite, ensureDir, exists, readJson, redactSecrets, REDACTION_VERSION, sha256, truncate, writeJson } from "../core/util.ts";
 
 // The content-search corpus. It MUST cover every text extension the snapshot scans (`SOURCE_EXTENSIONS`
 // in snapshot.ts); otherwise a `searched-not-found` verdict silently omits files that were scanned but

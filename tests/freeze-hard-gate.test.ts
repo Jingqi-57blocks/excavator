@@ -2,8 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
 import { readFile, writeFile } from "node:fs/promises";
-import type { EvidenceItem, InvestigationPlan, ReportRequest, RunManifest, SectionClaim, TraceCatalog, TraceRecord } from "../src/types.ts";
-import { assembleRun, auditRun, beginDocument, checkpointSection, freezeRun, prepareRun, updateTraces } from "../src/run.ts";
+import type { EvidenceItem, InvestigationPlan, ReportRequest, RunManifest, SectionClaim, TraceCatalog, TraceRecord } from "../src/core/types.ts";
+import { assembleRun, auditRun, beginDocument, checkpointSection, freezeRun, prepareRun, updateTraces } from "../src/core/run.ts";
 import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, tempDir } from "./helpers.ts";
 
 // The freeze-before-authoring HARD gate (assurance v3). Two enforcement points move in lock-step: `begin`

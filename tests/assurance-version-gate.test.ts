@@ -2,10 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
 import { mkdir, writeFile } from "node:fs/promises";
-import { ASSURANCE_VERSION, assuranceGeneration, assuranceGenerationAtLeast, auditEvidenceCatalog } from "../src/assurance.ts";
-import { LOGIC_DISPOSITION_ASSURANCE_GENERATION } from "../src/logic-workitems.ts";
-import { sha256 } from "../src/util.ts";
-import type { EvidenceItem, RunManifest } from "../src/types.ts";
+import { ASSURANCE_VERSION, assuranceGeneration, assuranceGenerationAtLeast, auditEvidenceCatalog } from "../src/assurance/assurance.ts";
+import { LOGIC_DISPOSITION_ASSURANCE_GENERATION } from "../src/assurance/logic-workitems.ts";
+import { sha256 } from "../src/core/util.ts";
+import type { EvidenceItem, RunManifest } from "../src/core/types.ts";
 import { tempDir } from "./helpers.ts";
 
 const SNAPSHOT_ID = "snap-version-gate";

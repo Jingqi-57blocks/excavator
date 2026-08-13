@@ -2,8 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { chmod, mkdir, readFile, realpath, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { buildCodeGraph } from "../src/codegraph-command.ts";
-import { resolveCodeGraphDatabase } from "../src/providers.ts";
+import { buildCodeGraph } from "../src/codegraph/codegraph-command.ts";
+import { resolveCodeGraphDatabase } from "../src/snapshot/providers.ts";
 import { tempDir } from "./helpers.ts";
 
 /** A fake CodeGraph CLI that logs each invocation's cwd + args and writes a database for its target. */

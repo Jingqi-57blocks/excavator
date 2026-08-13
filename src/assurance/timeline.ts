@@ -1,7 +1,7 @@
 import { appendFile, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { TimelineEvent, TimelineEventInput } from "./types.ts";
-import { ensureDir, exists, nowIso, sha256, stableJson } from "./util.ts";
+import type { TimelineEvent, TimelineEventInput } from "../core/types.ts";
+import { ensureDir, exists, nowIso, sha256, stableJson } from "../core/util.ts";
 
 export async function readTimeline(runDir: string): Promise<TimelineEvent[]> {
   const path = join(runDir, "timeline.jsonl");

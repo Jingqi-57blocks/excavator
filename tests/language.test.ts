@@ -2,8 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
-import { prepareRun } from "../src/run.ts";
-import type { ReportRequest } from "../src/types.ts";
+import { prepareRun } from "../src/core/run.ts";
+import type { ReportRequest } from "../src/core/types.ts";
 import { copyFixture, createCodeGraphFixture, tempDir } from "./helpers.ts";
 
 const CJK = /[\u3400-\u9fff]/u;

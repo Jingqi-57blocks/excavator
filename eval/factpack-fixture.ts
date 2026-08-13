@@ -14,10 +14,10 @@
 import { readFileSync, writeFileSync, readdirSync, existsSync } from "node:fs";
 import { gzipSync, gunzipSync } from "node:zlib";
 import { join, resolve } from "node:path";
-import { stableJson } from "../src/util.ts";
-import { featureLogicItems } from "../src/factpack.ts";
-import type { LogicFeatureGraph } from "../src/factpack-logic.ts";
-import type { FactPackItem } from "../src/types.ts";
+import { stableJson } from "../src/core/util.ts";
+import { featureLogicItems } from "../src/context/factpack.ts";
+import type { LogicFeatureGraph } from "../src/context/factpack-logic.ts";
+import type { FactPackItem } from "../src/core/types.ts";
 import { rawFeatureGraphFromRun, factPackItemsToNodes, type BoundaryNode } from "./boundary.ts";
 
 export interface FactpackFixtureNode {

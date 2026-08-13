@@ -2,9 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdir, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { SOURCE_EXTENSIONS } from "../src/snapshot.ts";
-import type { ScannedFile } from "../src/snapshot.ts";
-import { TEXTUAL_EXTENSIONS, sourceSearch } from "../src/source.ts";
+import { SOURCE_EXTENSIONS } from "../src/snapshot/snapshot.ts";
+import type { ScannedFile } from "../src/snapshot/snapshot.ts";
+import { TEXTUAL_EXTENSIONS, sourceSearch } from "../src/snapshot/source.ts";
 import { tempDir } from "./helpers.ts";
 
 // Extensions the snapshot scans that are genuinely NOT UTF-8 text and therefore legitimately fall

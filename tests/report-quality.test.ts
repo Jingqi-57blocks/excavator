@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import type { DocumentPlan, EvidenceItem, InvestigationPlan, SectionClaim, SectionClaimsFile } from "../src/types.ts";
-import { auditDetailedFeatureSection, auditWorkItemClaimCoverage } from "../src/assurance.ts";
+import type { DocumentPlan, EvidenceItem, InvestigationPlan, SectionClaim, SectionClaimsFile } from "../src/core/types.ts";
+import { auditDetailedFeatureSection, auditWorkItemClaimCoverage } from "../src/assurance/assurance.ts";
 
 function featureDocument(): DocumentPlan {
   return {
@@ -180,7 +180,7 @@ test("coverage completeness degrades to advisory under a scoped audit while clai
 
 import { join } from "node:path";
 import { readFile } from "node:fs/promises";
-import { prepareRun } from "../src/run.ts";
+import { prepareRun } from "../src/core/run.ts";
 import { copyFixture, tempDir } from "./helpers.ts";
 
 test("detailed feature preparation emits a chapter-oriented authoring inventory", async () => {

@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
-import { CodeGraphSet } from "../src/codegraph-set.ts";
-import { Deadline } from "../src/util.ts";
+import { CodeGraphSet } from "../src/codegraph/codegraph-set.ts";
+import { Deadline } from "../src/core/util.ts";
 import { createCodeGraphSchema, insertGraphFile, insertGraphNode, tempDir } from "./helpers.ts";
 
 /**

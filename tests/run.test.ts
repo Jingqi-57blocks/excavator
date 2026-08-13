@@ -4,9 +4,9 @@ import { basename, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { spawn } from "node:child_process";
 import { readFile, writeFile, readdir } from "node:fs/promises";
-import type { Audience, EvidenceItem, FeatureRequest, ReportRequest, RunManifest, SectionClaim } from "../src/types.ts";
-import { assembleRun, auditRun, checkpointSection, freezeRun, prepareRun, resumeRun, searchSourceEvidence, updateChecklist } from "../src/run.ts";
-import { featureCacheKey } from "../src/context.ts";
+import type { Audience, EvidenceItem, FeatureRequest, ReportRequest, RunManifest, SectionClaim } from "../src/core/types.ts";
+import { assembleRun, auditRun, checkpointSection, freezeRun, prepareRun, resumeRun, searchSourceEvidence, updateChecklist } from "../src/core/run.ts";
+import { featureCacheKey } from "../src/context/context.ts";
 import { copyFixture, createCodeGraphFixture, tempDir } from "./helpers.ts";
 
 async function makeRequest(authorMs = 30_000): Promise<ReportRequest> {
@@ -251,7 +251,7 @@ test("an abruptly killed author process resumes from the first incomplete sectio
   const { runDir, manifest } = await prepareRun(request);
   const document = manifest.documents[0];
   const id = await evidenceId(runDir);
-  const moduleUrl = pathToFileURL(resolve("src/run.ts")).href;
+  const moduleUrl = pathToFileURL(resolve("src/core/run.ts")).href;
   const childScript = `
     import { checkpointSection } from ${JSON.stringify(moduleUrl)};
     await checkpointSection(${JSON.stringify(runDir)}, ${JSON.stringify(document.id)}, 1, ${JSON.stringify(sectionText(document.sections[0].title, 1, id))}, ${JSON.stringify(sectionClaims(1, id))});

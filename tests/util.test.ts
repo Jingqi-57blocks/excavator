@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { basename, join, resolve } from "node:path";
-import { redactSecrets, runIdTimestamp } from "../src/util.ts";
+import { redactSecrets, runIdTimestamp } from "../src/core/util.ts";
 
 test("secret redaction covers typed declarations, JSON, YAML and environment assignments", () => {
   const input = [
@@ -42,8 +42,8 @@ test("source window cache ignores legacy unversioned excerpts", async () => {
   const { mkdtemp, mkdir, writeFile } = await import("node:fs/promises");
   const { tmpdir } = await import("node:os");
   const { join } = await import("node:path");
-  const { SourceReader } = await import("../src/source.ts");
-  const { sha256 } = await import("../src/util.ts");
+  const { SourceReader } = await import("../src/snapshot/source.ts");
+  const { sha256 } = await import("../src/core/util.ts");
   const root = await mkdtemp(join(tmpdir(), "excavator-cache-version-"));
   await mkdir(join(root, "src"), { recursive: true });
   await writeFile(join(root, "src", "config.go"), 'AESKey string = "real-value"\n');
@@ -76,7 +76,7 @@ test("redaction preserves parseable package manifests with token-related package
 
 test("project workspace isolates targets by name and resolves basename collisions", async () => {
   const { readFile } = await import("node:fs/promises");
-  const { projectWorkspace } = await import("../src/util.ts");
+  const { projectWorkspace } = await import("../src/core/util.ts");
   const { tempDir } = await import("./helpers.ts");
 
   const workdir = await tempDir("excavator-workspace-");

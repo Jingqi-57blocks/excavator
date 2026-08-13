@@ -1,5 +1,5 @@
 import { basename, join, resolve } from "node:path";
-import { exists, slugify } from "./util.ts";
+import { exists, slugify } from "../core/util.ts";
 
 /**
  * Warn when a target's runs were stranded by the per-target workdir layout.
