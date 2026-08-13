@@ -8,12 +8,21 @@
 > ③ §四 Benchmark 数据同时用于 Provider Sufficiency 模型标定；补 Tree-sitter 适用说明；
 > ④ Core 零运行时 npm 依赖改为绝对约束（"尽量"只适用于周边包）；
 > ⑤ §八 重构：指令层中立化提前进 M1（Phase 1C），MCP 保持 M1 后，独立 Agent 形态列为未来阶梯项。
+> ⑥（2026-08-13，用户裁定 · 57B-385）**Core 零运行时 npm 依赖（绝对约束）→ 审计过的白名单依赖**：CodeGraph 覆盖不到的语言（Perl/Zope 等）需要成熟解析库补全，自维护每语言解析器不可持续。`tree-sitter` / `tree-sitter-*` 语法与 `universal-ctags` 升为 Core 可用（见 §一、§二工具表、§四）。零模型调用不变；放开不改变可辩护/无黑箱与供应链安全两条真正收益，白名单正为守住它们而设。
 
 ## 一、选型原则
 
 Excavator Core 保持：本地优先；无常驻服务；公共工件可移植；Provider 可替换；不绑定特定语言、宿主或代码索引。
 
-**Core 保持零运行时 npm 依赖（绝对约束，CI 校验 core 的 package.json）。** 周边包（`packages/*`）尽量轻量，可拥有自己的依赖。
+**Core 运行时依赖限审计过的白名单（2026-08-13 起，替代原"零依赖绝对约束"）。** 每个 Core 运行时依赖须逐个过审计准入，全部满足方可进入 `src/`：
+
+1. **不联网**——运行期不发起任何网络请求；
+2. **不越界读写**——只在调用方声明的路径范围内读，除 `--out` 外不写目标；
+3. **传递依赖可控**——传递依赖数量少、来源可信、可审阅；
+4. **不破坏审计产物的字节确定性**——同输入同输出，不引入墙钟/随机/locale 敏感行为；
+5. **有降级/移除路径**——依赖不可用时能优雅降级（如源码 fallback），不使产品瘫痪。
+
+Core 仍**零模型调用**。放开的动机：CodeGraph 覆盖不到的语言（Perl/Zope 等）需要成熟解析库（`tree-sitter`）补全，自维护每语言解析器不可持续。放开**不改变**零依赖真正买到的两条——**可辩护、无黑箱**（依赖行为须可审计）与**供应链安全**（Excavator 跑在他人机密代码上）——白名单正是为守住这两条而设，不是放任任意依赖。周边包（`packages/*`）尽量轻量，可拥有自己的依赖。
 
 工具分为三个状态：
 
@@ -37,6 +46,8 @@ Excavator Core 保持：本地优先；无常驻服务；公共工件可移植�
 | 规范文本搜索 | 现有 Node Source Search | 定义统一搜索语义 | 已有 |
 | 文本搜索加速 | ripgrep | 可选执行后端，只搜索 Manifest 明确列出的文件 | Benchmark 证明需要后 |
 | 默认结构化 Provider | CodeGraph | Provider Adapter，不暴露 SQLite Schema | 已有 |
+| 非支持语言符号+调用（补 CodeGraph 盲区） | `tree-sitter` + `tree-sitter-*` 语法（首个 Perl） | Core 内自建 AST 抽取器，产出可导航符号+调用图；只当导航层，claims 仍 grounding 到源码；动态分派诚实标 unresolved | 审计白名单，2026-08-13（57B-385） |
+| 跨语言符号定义清单（补 CodeGraph 盲区） | `universal-ctags` | 可选外部二进制（同 CodeGraph 的外部工具定位），出定义 kind+file:line；缺失则降级 | 审计白名单，2026-08-13（57B-385） |
 | 候选结构化 Provider | 选定技术栈的 SCIP Indexer | 先进入 Benchmark，证明收益后再接入 | Phase 2 |
 | 结构模式搜索 | ast-grep CLI | 先进入 Benchmark，针对明确规则使用 | Phase 2 |
 | 公共持久工件 | JSON / JSONL | Evidence、Finding、Coverage、Claim、Trace、Timeline | 已有并继续 |
@@ -86,7 +97,9 @@ CI 必须检查：Schema 本身合法；validator 可以重新生成；生成结
 
 **Benchmark 测量数据有双重用途**：既是准入裁决依据，也是 Provider Sufficiency 模型的标定数据（覆盖率、未解析密度与实际召回的对应关系需要多个 Provider 的数据点才能标定）。
 
-同样规则适用于：ripgrep；ast-grep；Tree-sitter（仅当 Core 明确需要自产并持久化 AST 工件、且 ast-grep 无法表达所需查询时评估）；Semgrep；Joern；其他 LSP 或索引器。
+同样规则适用于：ripgrep；ast-grep；Semgrep；Joern；其他 LSP 或索引器。
+
+**Tree-sitter 已于 2026-08-13（57B-385）从 Benchmark-only 升为 Core 采用**：作为 CodeGraph 语言盲区（Perl/Zope 等）的补充符号+调用抽取器进入 `src/`（审计白名单）。其产物是导航层（等同 CodeGraph 的定位角色），报告事实仍 grounding 到源码窗口；静态不可解析的动态分派诚实标 `cannot-determine`，不臆造调用边。`universal-ctags` 以可选外部二进制同期进入，出跨语言定义清单。
 
 ## 五、文本搜索边界
 
@@ -221,7 +234,7 @@ JSON / JSONL
 
 ## 十二、最终选择
 
-立即确定：唯一公共合同 JSON Schema 2020-12；构建期校验器 Ajv；运行时校验器为生成并 bundle 的自包含 ESM；规范源码搜索为现有 Node Source Search；默认结构化 Provider 为 CodeGraph；公共事实工件为 JSON / JSONL；评测核心为 `node:test` + 宿主无关 Harness；**Core 保持零运行时 npm 依赖（绝对）**。
+立即确定：唯一公共合同 JSON Schema 2020-12；构建期校验器 Ajv；运行时校验器为生成并 bundle 的自包含 ESM；规范源码搜索为现有 Node Source Search；默认结构化 Provider 为 CodeGraph；公共事实工件为 JSON / JSONL；评测核心为 `node:test` + 宿主无关 Harness；**Core 运行时依赖限审计过的白名单（见 §一，2026-08-13 起替代原"零依赖绝对"），仍零模型调用**。
 
 候选工具进入产品的条件：Benchmark 中产生明确收益；有实际消费者；能力和许可证符合要求；不破坏公共合同；有降级和卸载路径。
 

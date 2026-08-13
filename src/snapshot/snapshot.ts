@@ -50,7 +50,8 @@ const SAFE_ENV_SAMPLE = /^\.env\.(sample|example|template|defaults?)$/i;
 export const SOURCE_EXTENSIONS = new Set([
   ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs", ".go", ".py", ".java", ".kt", ".kts", ".rb", ".php",
   ".cs", ".fs", ".rs", ".c", ".h", ".cc", ".cpp", ".hpp", ".swift", ".scala", ".vue", ".svelte", ".sql",
-  ".yaml", ".yml", ".json", ".toml", ".xml", ".html", ".css", ".scss", ".md", ".sh", ".proto", ".graphql", ".gql", ".tf", ".hcl", ".astro"
+  ".yaml", ".yml", ".json", ".toml", ".xml", ".html", ".css", ".scss", ".md", ".sh", ".proto", ".graphql", ".gql", ".tf", ".hcl", ".astro",
+  ".pm", ".pl", ".t", ".cgi", ".psgi", ".zpt", ".dtml"
 ]);
 const PROJECT_FILE_NAMES = new Set([
   "package.json", "go.mod", "Cargo.toml", "pyproject.toml", "requirements.txt", "pom.xml",
