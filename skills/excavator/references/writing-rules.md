@@ -1,6 +1,6 @@
 ---
 id: excavator-writing-rules
-version: 1.2.0
+version: 1.3.0
 ---
 
 # Excavator writing rules
@@ -33,6 +33,8 @@ A claim that asserts equivalence, consistency, sameness, or shared values or beh
 ## Current state only
 
 Describe what the reviewed snapshot contains and what its paths permit. Do not provide recommendations, remediation plans, target architectures, migration steps, acceptance criteria, or action items.
+
+**Exception — PRD reports' acceptance chapter.** A PRD report's acceptance chapter is exempt from the acceptance-criteria prohibition: each acceptance item restates a current behavior that is already shown in the report's evidence. Introducing behavior not shown in evidence remains forbidden, so the chapter is a checklist view of established facts, never a list of new requirements.
 
 A problem may include:
 
@@ -77,6 +79,18 @@ Use careful language:
 - Use Markdown tables and Mermaid diagrams where they improve comprehension.
 - Every section with factual findings includes a `<details>` evidence block.
 - Counts must say what was counted and include denominators where they represent coverage.
+
+## PRD reports
+
+The `prd` feature audience produces a requirement-shaped statement of a capability's current behavior (`references/prd-feature.md`). It is feature-only — there is no prd overview. Its rules refine, not replace, the general rules above:
+
+- No background chapter. Open with current behavior; do not write goals, history or roadmap narrative.
+- Every rule line carries the actual formula or threshold **values** from the evidence, not a vague description of the rule.
+- UI strings and notification templates are quoted **verbatim** from the source string literals or template constants, with a cited source window. A string assembled at runtime, or a template that lives outside the reviewed source, is not covered — do not write it.
+- The permission matrix distinguishes authorization that is **declared** (middleware, route guards) from authorization enforced by an **inline check** inside the handler.
+- Acceptance items are claim-bound like any substantive statement (see the acceptance-chapter exception under "Current state only").
+- Prefer tables, lists and short paragraphs; no long prose. Implementation identifiers stay in the collapsed evidence blocks, the same as product reports.
+- A PRD covers only what the code can analyze. Things code inherently cannot give — runtime configuration values, rendered pixels or animation, real delivery success, design intent — are simply **not written**; padding the report with "unavailable" placeholders for them violates readability. Reserve `unavailable` / `cannot-determine` for something that *should* exist in the code but was not found this pass.
 
 ## Investigation economy
 

@@ -461,6 +461,9 @@ export function auditTargetProblemAttribution(options: {
   sectionText: string;
 }): AuditFinding[] {
   const { document, sectionIndex, sectionText } = options;
+  // A prd feature report has no "current problems" chapter (rule contradictions are shown inline in ch.2),
+  // so this attribution check does not apply to it.
+  if (document.audience === "prd") return [];
   // Feature reports now carry a standalone "Current problems found" chapter at §11 for both audiences
   // (product problems split out of the old §10 connected-scope chapter; engineering was already §11).
   // Overviews keep their problem chapter in place: product §9, engineering §11.
@@ -679,7 +682,11 @@ export function auditWorkItemClaimCoverage(plan: InvestigationPlan, documents: D
         const item = items.get(id);
         if (!item) { findings.push(error(document.id, `claim ${claim.id} references unknown work item ${id}`)); continue; }
         if (!item.requiredFor.includes(document.id)) findings.push(error(document.id, `claim ${claim.id} references work item ${id} that is not required for this document`));
-        if (item.reportSection && item.reportSection !== section) findings.push(error(document.id, `claim ${claim.id} links work item ${id} to section ${section}, expected section ${item.reportSection}`));
+        // The exact section-link check assumes the canonical 1..12 feature chapter numbering. A prd feature
+        // report has its own (fewer) chapters, so a work item pinned to §N need not land in the prd chapter N;
+        // skip only this check for prd (product/engineering paths are byte-unchanged). Every other coverage
+        // rule below still applies to prd.
+        if (document.audience !== "prd" && item.reportSection && item.reportSection !== section) findings.push(error(document.id, `claim ${claim.id} links work item ${id} to section ${section}, expected section ${item.reportSection}`));
       }
     }
     // Completeness certifies the full requested set; skip it for a document the caller marks incomplete.

@@ -438,6 +438,8 @@ ${warnings.length ? warnings.map((warning) => `- ${warning}`).join("\n") : "- No
 }
 
 function renderOverviewContext(audience: Audience, language: string): string {
+  // Unreachable for the "prd" audience: prepareRun guards overviewAudiences against prd before buildContexts
+  // ever calls this, so prd never falls into the non-product (engineering) branch below.
   const role = audience === "product"
     ? "Write for product managers, business owners and operations leads. Explain business meaning and current behavior. Keep implementation identifiers inside evidence blocks."
     : "Write for developers and technical leads. Explain repository responsibilities, technology stacks, runtime entry points, communication, persistence, files, integrations, configuration and current technical risks.";
@@ -460,6 +462,8 @@ ${role}
 function renderFeatureContext(audience: Audience, language: string, subject: string, key: string): string {
   const role = audience === "product"
     ? "Explain what people can do, roles, flow, rules, lifecycle, data, side effects and current problems without exposing implementation detail in the reading flow."
+    : audience === "prd"
+    ? "Specify the current behavior as a PRD: rules with formulas & boundary values, permission matrix, precise frontend interaction (colors / verbatim tooltip text / empty-slot symbols / AM-PM time slots), verbatim notification templates, acceptance checklist; NO background chapter; prefer tables/lists."
     : "Explain feature boundaries, entry points, call paths, repositories, technical stack, data models, storage, authorization, configuration, failure paths, tests and change reachability.";
   return `# Document instructions
 

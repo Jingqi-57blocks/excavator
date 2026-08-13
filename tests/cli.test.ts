@@ -88,6 +88,16 @@ test("audit CLI exits non-zero on errors and zero after complete assurance", asy
 });
 
 
+test("the audience parser accepts prd but the overview command rejects it (feature-only)", async () => {
+  // prd is a valid audience the parser accepts; the Core guard rejects it only for overviews. Reaching the
+  // "feature-only" guard (not an "Invalid audience" parse error) proves both: prd parsed, overview refused.
+  const target = resolve("tests/fixtures/sample-target");
+  const result = await cli(["overview", "--target", target, "--audience", "prd", "--no-codegraph"]);
+  assert.equal(result.code, 1, result.stdout);
+  assert.match(result.stderr, /feature-only/);
+  assert.doesNotMatch(result.stderr, /Invalid audience/);
+});
+
 test("search CLI records a reusable source-search receipt", async () => {
   const { runDir } = await prepareRun(await request());
   const first = await cli(["search", "--run", runDir, "--terms", "Leave requests", "--reason", "locate UI text", "--max-results", "10"]);

@@ -4,8 +4,9 @@ import { basename, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { spawn } from "node:child_process";
 import { readFile, writeFile, readdir } from "node:fs/promises";
-import type { EvidenceItem, ReportRequest, RunManifest, SectionClaim } from "../src/types.ts";
+import type { Audience, EvidenceItem, FeatureRequest, ReportRequest, RunManifest, SectionClaim } from "../src/types.ts";
 import { assembleRun, auditRun, checkpointSection, freezeRun, prepareRun, resumeRun, searchSourceEvidence, updateChecklist } from "../src/run.ts";
+import { featureCacheKey } from "../src/context.ts";
 import { copyFixture, createCodeGraphFixture, tempDir } from "./helpers.ts";
 
 async function makeRequest(authorMs = 30_000): Promise<ReportRequest> {
@@ -89,6 +90,36 @@ test("a combined run supports multiple overviews and multiple features with comp
   assert.match(report, /## 1\. Project purpose and boundary/);
 });
 
+
+test("a prd feature plans its own document and reuses the audience-independent feature cache (57B-380)", async () => {
+  const target = await copyFixture();
+  const workdir = await tempDir();
+  const db = join(workdir, "codegraph.db");
+  createCodeGraphFixture(db);
+  const feature: Omit<FeatureRequest, "audiences"> = { subject: "请假管理", aliases: ["leave", "holiday"] };
+  const key = featureCacheKey({ ...feature, audiences: ["product"] });
+  const base = {
+    target, codegraph: db, workdir, language: "zh-CN", detailLevel: "standard" as const,
+    overviewAudiences: [] as Audience[],
+    budgets: { prepareMs: 30_000, authorMs: 30_000, maxGraphQueries: 60, maxSourceWindows: 50, maxSourceCharacters: 120_000, maxFiles: 10_000, maxFeatureNodes: 60, maxExpansionDepth: 2 }
+  };
+
+  // First prepare — product audience — populates the per-snapshot feature-scope cache (a miss).
+  const first = await prepareRun({ ...base, features: [{ ...feature, audiences: ["product"] }] });
+  assert.equal(first.manifest.metrics.cache[`feature:${key}`], "miss");
+
+  // Second prepare — prd audience, same target/workdir/subject — plans a prd document from prd-feature.md
+  // and reuses the same feature scope: the cache key depends only on subject+aliases, not the audience.
+  const second = await prepareRun({ ...base, features: [{ ...feature, audiences: ["prd"] }] });
+  const prd = second.manifest.documents.find((doc) => doc.audience === "prd");
+  assert.ok(prd, "a prd feature document was planned");
+  assert.equal(prd!.id, `feature-${key}-prd`);
+  assert.equal(prd!.kind, "feature");
+  assert.ok(prd!.templatePath.endsWith("prd-feature.md"), prd!.templatePath);
+  assert.equal(prd!.sections.length, 10, "the prd-feature template's 10 chapters are derived as sections");
+  assert.match(prd!.sections[8].title, /Acceptance checklist/);
+  assert.equal(second.manifest.metrics.cache[`feature:${key}`], "hit", "the feature scope cache is reused across audiences");
+});
 
 test("repeated preparation creates isolated run directories while reusing caches", async () => {
   const request = await makeRequest();

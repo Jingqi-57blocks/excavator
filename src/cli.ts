@@ -245,8 +245,9 @@ function audiences(value: string): Audience[] {
   const values = csv(value).map((item) => item.toLowerCase());
   const result: Audience[] = [];
   for (const item of values) {
+    // `both`/`all` stay product+engineering; prd is a feature-only audience requested explicitly by name.
     if (item === "both" || item === "all") { result.push("product", "engineering"); continue; }
-    if (item !== "product" && item !== "engineering") throw new Error(`Invalid audience: ${item}`);
+    if (item !== "product" && item !== "engineering" && item !== "prd") throw new Error(`Invalid audience: ${item} (expected product, engineering, prd, both or all)`);
     result.push(item);
   }
   return [...new Set(result.length ? result : ["product"] as Audience[])];
