@@ -1,0 +1,355 @@
+{
+  "version": "boundary-gold-v1",
+  "target": "wcp-leave",
+  "_meta": {
+    "purpose": "Deterministic boundary-recall gold for the WCP leave feature. The measured object is the FEATURE-GRAPH NODE SET (the output of pruneFeatureGraph, before any downstream fallback search), NOT claims. It is the must-pass front for 57B-371 (loosening the prune must recover the T1 misses without dropping the T2 leave core).",
+    "constructionMethod": "Three layers, each item carries a provenance note. Sources: (a) commit 443498e honesty-audit + source/graph re-verification of the demo run's FG evidence (250 nodes / 45 files); (b) the deep good report .work/wcp-bf72b0/runs/run-2026_08_10_13_38-f5da2557-4c61c36c-4ab7187e/reports/leave-management-product.md, whose 56 distinct S-* evidence windows were mechanically layered against the demo FG node set into: 11 node-overlap / 32 source-window-only / 4 file-in-FG-but-node-cut / 12 neither (true out-of-bounds); (c) source truth at excavator-test-repos/wcp. Anchor paths are written module-relative (per-module CodeGraph db form, e.g. internal/handlers/...) for Go so the suffix path match against FG's module-prefixed evidence (wcp-service-v2/internal/...) is exercised, and full-prefix for the wcp-service JS module. Anchors use path+name (name === node.name exactly) and NEVER node id (ids carry NUL + a hash and are unstable across db rebuilds); lines-overlap is used only where no single node name applies (T3 windows).",
+    "layers": {
+      "T1": "3 confirmed misses, mustFind, RED today. Present in source + CodeGraph index (with real inbound edges) but absent from the FG node set -> an expand-depth / prune problem, not an index gap. 57B-371 must turn these green.",
+      "T2": "10 regression sentinels, mustFind, GREEN today. Derived from the 11 good-report windows that overlap current FG nodes, each mapped to a named node and re-verified against source. Guards against 57B-371 re-ranking pushing today's correctly-captured leave core back out.",
+      "T3": "15 optional, informational only (never mustFind, never affects exit code). The 12 'neither' out-of-bounds windows (index-only migration + accrual_test.go + swagger/README dropped as non-substantive) plus the 4 'file-in-FG-but-node-cut' windows plus 2 named leave UI modals. Suspected extra boundary gaps for 57B-371 diagnostics; substantiveness NOT individually adjudicated."
+    },
+    "sourceRun": "run-2026_08_11_16_37-请假-f5da2557-6ff0cf2b-6e6091ab",
+    "note": "The historical 'Wave0 leave gold (84 items)' referenced in Linear 57B-370 does NOT exist as a data file (recall.mjs and the gold ledger never entered git). This gold is a fresh, reproducible minimal rebuild; its numbers are NOT comparable to the Wave0 44% figure (different gold, different measurement layer: node set vs claim reconciliation).",
+    "frontendExtension": "57B-377 frontend gate. This gold is boundary-gold.json's items VERBATIM (13 mustFind backend T1/T2 + 15 informational T3) plus three ADDED mustFind path-only anchors (F1-ui-*) for the wcp-ui leave sensors the frontend CodeGraph brings into scope. Total mustFind = 16 (13 backend + 3 frontend). Used with prune-pool-frontend.json.gz: the module floor must keep all 13 backend mustFinds (recovering syncLvCompleted, which the 4-module global prune displaces) AND land the 3 frontend sensors, i.e. 16/16.",
+    "frontendPathsVerifiedAgainst": "B1 reference run run-2026_08_13_01_58-请假-bae55d7e-a19a985b-d2611418 + target excavator-test-repos/wcp/wcp-ui; all three .tsx paths exist on disk and produce route/component nodes in the emitted 4-module pool."
+  },
+  "items": [
+    {
+      "id": "T1-calculationAuto",
+      "mustFind": true,
+      "anchors": [
+        {
+          "path": "internal/handlers/support/service.go",
+          "name": "CalculationAuto"
+        }
+      ],
+      "note": "T1 confirmed miss. support/service.go CalculationAuto (auto off-arrangement / preview-hours calc, method impl :415 + interface decl :41, handler GET /calculation/auto at support/router.go:100). Absent from FG despite being called x3 by isIgnoreHolidayLvType's caller and referenced by the route. Any node named CalculationAuto in this file counts as in-bounds."
+    },
+    {
+      "id": "T1-syncLvCompleted",
+      "mustFind": true,
+      "anchors": [
+        {
+          "path": "internal/third_party/cron/cron.go",
+          "name": "syncLvCompleted"
+        }
+      ],
+      "note": "T1 confirmed miss. third_party/cron/cron.go syncLvCompleted (cron that flips leave to Completed state; referenced by Setup). Absent from FG node set."
+    },
+    {
+      "id": "T1-isIgnoreHolidayLvType",
+      "mustFind": true,
+      "anchors": [
+        {
+          "path": "internal/handlers/support/service.go",
+          "name": "isIgnoreHolidayLvType"
+        }
+      ],
+      "note": "T1 confirmed miss. support/service.go isIgnoreHolidayLvType (natural-day vs working-day leave-type predicate; called x3 by CalculationAuto). Absent from FG node set."
+    },
+    {
+      "id": "T2-leave-creation",
+      "mustFind": true,
+      "anchors": [
+        {
+          "path": "internal/handlers/leave/router.go",
+          "name": "Creation"
+        }
+      ],
+      "note": "T2 sentinel (green). leave/router.go Creation (leave-request creation handler). Good-report window leave/router.go:20-101 overlaps this FG node."
+    },
+    {
+      "id": "T2-leave-approve",
+      "mustFind": true,
+      "anchors": [
+        {
+          "path": "internal/handlers/leave/router.go",
+          "name": "Approve"
+        }
+      ],
+      "note": "T2 sentinel (green). leave/router.go Approve (leave approval handler). Core of the leave approval flow; present in FG."
+    },
+    {
+      "id": "T2-leave-export",
+      "mustFind": true,
+      "anchors": [
+        {
+          "path": "internal/handlers/leave/service.go",
+          "name": "Export"
+        }
+      ],
+      "note": "T2 sentinel (green). leave/service.go Export method (:1452, leave-record export). Good-report window leave/service.go:1452-1468 overlaps this FG node."
+    },
+    {
+      "id": "T2-leave-maxAvailableHoliday",
+      "mustFind": true,
+      "anchors": [
+        {
+          "path": "internal/handlers/leave/brdg_abst.go",
+          "name": "maxAvailableHoliday"
+        }
+      ],
+      "note": "T2 sentinel (green). leave/brdg_abst.go maxAvailableHoliday (:88, available-balance computation). Good-report window brdg_abst.go:88-181 overlaps this FG node."
+    },
+    {
+      "id": "T2-leaveHistory-getHolidayHour",
+      "mustFind": true,
+      "anchors": [
+        {
+          "path": "internal/handlers/leaveHistory/router.go",
+          "name": "GetHolidayHour"
+        }
+      ],
+      "note": "T2 sentinel (green). leaveHistory/router.go GetHolidayHour (:14, holiday-hour balance read). Good-report window leaveHistory/router.go:4-58 overlaps this FG node."
+    },
+    {
+      "id": "T2-leaveHistory-updateHolidayHour",
+      "mustFind": true,
+      "anchors": [
+        {
+          "path": "internal/handlers/leaveHistory/router.go",
+          "name": "UpdateHolidayHour"
+        }
+      ],
+      "note": "T2 sentinel (green). leaveHistory/router.go UpdateHolidayHour (:26, admin holiday-hour adjustment). Present in FG."
+    },
+    {
+      "id": "T2-handlers-leaveRoute",
+      "mustFind": true,
+      "anchors": [
+        {
+          "path": "internal/handlers/handlers.go",
+          "name": "GET /:leave_id"
+        }
+      ],
+      "note": "T2 sentinel (green). handlers.go GET /:leave_id route node (:99, leave-detail route under the /leaves group, maps to leave.Demand). Good-report window handlers.go:96-122 (leave route registration) overlaps this FG route node."
+    },
+    {
+      "id": "T2-js-getMyLeaves",
+      "mustFind": true,
+      "anchors": [
+        {
+          "path": "wcp-service/routes/leave.js",
+          "name": "GET /me/leaves"
+        }
+      ],
+      "note": "T2 sentinel (green). Legacy JS service wcp-service/routes/leave.js GET /me/leaves route node (:268). Good-report window leave.js:257-291 overlaps this FG node. Full-prefix anchor (wcp-service JS module) -> exercises exact/rooted path match alongside the Go module-relative suffix anchors."
+    },
+    {
+      "id": "T2-js-recordTakeLeaveHours",
+      "mustFind": true,
+      "anchors": [
+        {
+          "path": "wcp-service/services/leaveService.js",
+          "name": "recordTakeLeaveHours"
+        }
+      ],
+      "note": "T2 sentinel (green). leaveService.js recordTakeLeaveHours (:139, writes taken-leave hours). Good-report window leaveService.js:129-340 overlaps this FG node."
+    },
+    {
+      "id": "T2-js-leaveRequestPreCheck",
+      "mustFind": true,
+      "anchors": [
+        {
+          "path": "wcp-service/services/leaveService.js",
+          "name": "leaveRequestPreCheck"
+        }
+      ],
+      "note": "T2 sentinel (green). leaveService.js leaveRequestPreCheck (:768, pre-submit validation). Good-report window leaveService.js:758-925 overlaps this FG node."
+    },
+    {
+      "id": "T3-notification-approvedByLevel",
+      "mustFind": false,
+      "anchors": [
+        {
+          "path": "internal/handlers/leave/notification.go",
+          "lines": "137-180"
+        }
+      ],
+      "note": "T3 optional (neither: true out-of-bounds). leave/notification.go waitingApprovedByLevelBuilder (approval-level notification composite). Cited by good report; no FG node covers it."
+    },
+    {
+      "id": "T3-notification-requestUpdate",
+      "mustFind": false,
+      "anchors": [
+        {
+          "path": "internal/handlers/leave/notification.go",
+          "lines": "359-433"
+        }
+      ],
+      "note": "T3 optional (neither: true out-of-bounds). leave/notification.go requestUpdateBuilder (leave request-update / status-change notification, incl. cancel path). No FG node covers it."
+    },
+    {
+      "id": "T3-brdg-generalCancellation",
+      "mustFind": false,
+      "anchors": [
+        {
+          "path": "internal/handlers/leave/brdg_impl.go",
+          "lines": "731-766"
+        }
+      ],
+      "note": "T3 optional (neither: true out-of-bounds). leave/brdg_impl.go generalCancellation (leave cancellation flow, bridge DI implementation). No FG node covers it."
+    },
+    {
+      "id": "T3-latam-eligibility",
+      "mustFind": false,
+      "anchors": [
+        {
+          "path": "internal/tasks/latam_pto/accrual.go",
+          "lines": "55-62"
+        }
+      ],
+      "note": "T3 optional (neither: true out-of-bounds). latam_pto/accrual.go IsEligibleForLatAmPTOAccrual (LatAm PTO accrual cron eligibility). No FG node covers it."
+    },
+    {
+      "id": "T3-latam-task",
+      "mustFind": false,
+      "anchors": [
+        {
+          "path": "internal/tasks/latam_pto/task.go",
+          "lines": "47-124"
+        }
+      ],
+      "note": "T3 optional (neither: true out-of-bounds). latam_pto/task.go LatAmPTOAccrual.executeAt / accrueForEmployee (accrual scheduling). No FG node covers it."
+    },
+    {
+      "id": "T3-cmd-root",
+      "mustFind": false,
+      "anchors": [
+        {
+          "path": "internal/cmd/root.go",
+          "lines": "78-96"
+        }
+      ],
+      "note": "T3 optional (neither: true out-of-bounds). cmd/root.go CLI command wiring for leave exports. No FG node covers it."
+    },
+    {
+      "id": "T3-cmd-export-under-hours",
+      "mustFind": false,
+      "anchors": [
+        {
+          "path": "internal/cmd/export_under_hours_employees.go",
+          "lines": "9-52"
+        }
+      ],
+      "note": "T3 optional (neither: true out-of-bounds). cmd/export_under_hours_employees.go exportUnderHoursEmployees (under-hours export command). No FG node covers it."
+    },
+    {
+      "id": "T3-legacy-holidayHour-model",
+      "mustFind": false,
+      "anchors": [
+        {
+          "path": "wcp-service/models/holidayHour.js",
+          "lines": "1-38"
+        }
+      ],
+      "note": "T3 optional (neither: true out-of-bounds). Legacy JS holidayHour sequelize model. Kept as the one legacy data-model window; the pure-index migration add-wcp_holiday_hour_un_0.js was dropped as non-substantive."
+    },
+    {
+      "id": "T3-legacy-holidayHour-migration",
+      "mustFind": false,
+      "anchors": [
+        {
+          "path": "wcp-service/migrations/20200310020307-create-wcp-holiday-hour.js",
+          "lines": "1-105"
+        }
+      ],
+      "note": "T3 optional (neither: true out-of-bounds). Legacy wcp_holiday_hour table-creation migration (data model). Retained per plan; the index-only migration was cut."
+    },
+    {
+      "id": "T3-js-retiredSummaryExport",
+      "mustFind": false,
+      "anchors": [
+        {
+          "path": "wcp-service/services/export/retiredSummaryReportService.js",
+          "lines": "101-187"
+        }
+      ],
+      "note": "T3 optional (neither: true out-of-bounds). Retired-employee leave summary export report service. No FG node covers it."
+    },
+    {
+      "id": "T3-leave-service-311",
+      "mustFind": false,
+      "anchors": [
+        {
+          "path": "internal/handlers/leave/service.go",
+          "lines": "311-356"
+        }
+      ],
+      "note": "T3 optional (file-in-FG-but-node-cut). leave/service.go window cited by good report; service.go has FG nodes but none overlaps this range."
+    },
+    {
+      "id": "T3-leave-service-606",
+      "mustFind": false,
+      "anchors": [
+        {
+          "path": "internal/handlers/leave/service.go",
+          "lines": "606-613"
+        }
+      ],
+      "note": "T3 optional (file-in-FG-but-node-cut). leave/service.go window cited by good report; not covered by any FG node."
+    },
+    {
+      "id": "T3-leave-service-ownPagination",
+      "mustFind": false,
+      "anchors": [
+        {
+          "path": "internal/handlers/leave/service.go",
+          "lines": "1154-1173"
+        }
+      ],
+      "note": "T3 optional (file-in-FG-but-node-cut). leave/service.go OwnPagination (own-leave pagination, :1154). Node cut from FG despite the file being in-bounds."
+    },
+    {
+      "id": "T3-ui-editLeaveHoursModal",
+      "mustFind": false,
+      "anchors": [
+        {
+          "path": "wcp-ui/src/pages/leave/components/EditLeaveHoursModal.tsx"
+        }
+      ],
+      "note": "T3 optional (neither: true out-of-bounds). Leave holiday-hours edit UI modal. Path-only anchor; the wcp-ui module is entirely outside the FG node set."
+    },
+    {
+      "id": "T3-ui-exportLeaveRequestModal",
+      "mustFind": false,
+      "anchors": [
+        {
+          "path": "wcp-ui/src/pages/leave/components/ExportLeaveRequestModal.tsx"
+        }
+      ],
+      "note": "T3 optional (neither: true out-of-bounds). Leave-request export UI modal. Path-only anchor; wcp-ui is outside the FG node set."
+    },
+    {
+      "id": "F1-ui-applyLeave",
+      "mustFind": true,
+      "anchors": [
+        {
+          "path": "wcp-ui/src/pages/leave/ApplyLeave.tsx"
+        }
+      ],
+      "note": "F1 frontend sensor (mustFind). wcp-ui ApplyLeave page — the leave-request creation UI. Path-only anchor (per eval/boundary.ts:92): file presence in the FG node set suffices. Verified present in the wcp-ui module of the B1 reference run's 4-module pool (route + component nodes). The wcp-ui module must be in scope for this to land."
+    },
+    {
+      "id": "F1-ui-leaveApprovalActions",
+      "mustFind": true,
+      "anchors": [
+        {
+          "path": "wcp-ui/src/pages/leave/components/LeaveApprovalActions.tsx"
+        }
+      ],
+      "note": "F1 frontend sensor (mustFind). wcp-ui LeaveApprovalActions component — the approve/reject leave action UI. Path-only anchor. Verified present in the B1 reference run's wcp-ui module (component node)."
+    },
+    {
+      "id": "F1-ui-exportLeaveRequestModal",
+      "mustFind": true,
+      "anchors": [
+        {
+          "path": "wcp-ui/src/pages/leave/components/ExportLeaveRequestModal.tsx"
+        }
+      ],
+      "note": "F1 frontend sensor (mustFind). wcp-ui ExportLeaveRequestModal component — the leave-request export UI (backend counterpart is the leave/service.go Export T2 sentinel). Path-only anchor. Verified present in the B1 reference run's wcp-ui module."
+    }
+  ]
+}

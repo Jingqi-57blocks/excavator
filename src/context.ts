@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import type { Audience, EvidenceItem, FeatureFactPack, FeatureRequest, PreparedContext, ProviderRegistry, ReportRequest, Snapshot } from "./types.ts";
 import { CodeGraphIndex, type GraphReader } from "./codegraph.ts";
 import { CodeGraphSet } from "./codegraph-set.ts";
-import { pruneFeatureGraph } from "./feature-prune.ts";
+import { pruneFeatureGraphWithModuleFloor } from "./prune-module-floor.ts";
 import { createSnapshot, isLikelySource, type ScannedFile } from "./snapshot.ts";
 import { SourceReader, evidenceFromWindow, manifestSummary, selectProjectDocuments, sourceSearch } from "./source.ts";
 import { Deadline, ensureDir, exists, projectWorkspace, readJson, sha256, slugify, stableJson, truncate, writeJson } from "./util.ts";
@@ -12,7 +12,10 @@ import { buildFactPack, factPackEvidence, renderFactPackSection } from "./factpa
 import { computeCrossFeatureRelationships, renderCrossFeatureSection } from "./cross-feature.ts";
 import { legacyWorkspaceWarning } from "./workspace-residue.ts";
 
-const BUILDER_VERSION = "excavator-context-v17-fact-pack";
+// v18: the feature prune now applies the module-local strong-rescue floor (57B-377), which changes
+// the CachedFeature scope shape for multi-module targets. Bumping the version invalidates any stale
+// pre-floor cache so a cache hit on the old key can never serve a pre-floor scope (57B-375 lesson).
+const BUILDER_VERSION = "excavator-context-v18-module-floor";
 
 interface CachedShared {
   snapshotId: string;
@@ -303,7 +306,7 @@ async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], fea
     // present for the prune's structural-rescue bridge signal and the retained edge set.
     const expanded = graph.expand(seeds.map((node) => node.id), Math.min(depth, 2), Math.max(maxNodes, seeds.length) * 6);
     const poolEdges = graph.edgesAmong(expanded.nodes.map((node) => node.id));
-    const pruned = pruneFeatureGraph(expanded.nodes, [...expanded.edges, ...poolEdges], seeds, anchorTerms, maxNodes);
+    const pruned = pruneFeatureGraphWithModuleFloor(expanded.nodes, [...expanded.edges, ...poolEdges], seeds, anchorTerms, maxNodes);
     nodes = pruned.nodes;
     edges = pruned.edges;
     unresolved = graph.unresolvedForNodeIds(nodes.map((node) => node.id), 150);
