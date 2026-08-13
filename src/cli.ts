@@ -8,6 +8,7 @@ import { stableJson } from "./core/util.ts";
 import { buildCodeGraph, codeGraphStatus } from "./codegraph/codegraph-command.ts";
 import { runDbSchema } from "./schema/db-schema-command.ts";
 import { runNativeGraph } from "./nativegraph/native-graph-command.ts";
+import { runFramework } from "./framework/framework-command.ts";
 import { deriveDefaultBudgets, plannedDocumentCount } from "./core/budgets.ts";
 import { DEFAULT_WORKDIR } from "./core/defaults.ts";
 
@@ -73,6 +74,15 @@ async function main(): Promise<void> {
           target: required(args.target, "--target"),
           out: args.out,
           ...(args.ctags === "false" ? { ctags: false } : {})
+        });
+        print(result);
+        break;
+      }
+      case "framework": {
+        const args = parseArgs(argv);
+        const result = await runFramework({
+          target: required(args.target, "--target"),
+          out: args.out
         });
         print(result);
         break;
@@ -302,6 +312,7 @@ Commands:
   codegraph  Inspect or build an optional CodeGraph index
   db-schema  Recover a database design (tables, columns, relationships) from source, deterministically
   native-graph  Build a symbol+call navigation graph for CodeGraph-unsupported languages (Perl, Zope templates)
+  framework  Recover routes/components from framework conventions (Catalyst, …) — for dynamically-dispatched apps
   begin      Start or restart one document authoring timer
   freeze     Freeze the completed investigation into knowledge.json before authoring; also renders per-document authoring packets
   source     Record a bounded source excerpt as evidence
@@ -325,6 +336,7 @@ Examples:
   excavator codegraph build --target ./workspace --quiet
   excavator db-schema --target ./workspace --out ./db --language en-US
   excavator native-graph --target ./workspace --out ./nav
+  excavator framework --target ./workspace --out ./fw
   excavator freeze --run <run>
   excavator feature --target ./workspace --subject "Account access" --aliases access,permission,role --audience both --detail detailed
   excavator search --run <run> --query "\\bTODO\\b|@deprecated" --regex --case-sensitive --reason "investigate unfinished behavior"
@@ -442,6 +454,15 @@ const COMMAND_HELP: Record<string, CommandHelp> = {
     ],
     example: "excavator native-graph --target ./workspace --out ./nav",
     notes: "Deterministic, zero-model navigation aid for languages CodeGraph does not index. tree-sitter recovers Perl packages/subs/calls; universal-ctags (optional) adds a cross-language definition census; Zope .zpt/.dtml templates get a textual reference inventory. Writes native-graph.json + native-graph-summary.md. Dynamic-dispatch calls are marked unresolved, not guessed."
+  },
+  framework: {
+    synopsis: "framework --target <dir> [--out <dir>]",
+    flags: [
+      "--target <dir>   Source workspace to analyze, read-only (required)",
+      "--out <dir>      Output directory (default .work/framework)"
+    ],
+    example: "excavator framework --target ./workspace --out ./fw",
+    notes: "Deterministic, zero-model. Detects a convention-heavy framework (Catalyst today; pluggable) and recovers its route/action inventory and component roles (controller/model/view/schema/…) from attributes, namespaces and config — the entry-point inventory a generic call graph cannot produce for dynamically-dispatched apps. Writes framework-model.json + framework-summary.md. Paths shown only when stated literally; recovered by convention, still grounded to source."
   },
   begin: {
     synopsis: "begin --run <dir> --document <id>",
