@@ -18,6 +18,7 @@ Supported requests:
 - several feature reports;
 - overview plus one or several feature reports;
 - product audience, engineering audience, or both;
+- a `prd` feature audience — a requirement-shaped statement of a feature's current behavior. Feature-only: there is no prd overview, and `both`/`all` never imply prd (request it by name);
 - any output language.
 
 Examples:
@@ -26,6 +27,7 @@ Examples:
 /excavator overview --audience product
 /excavator overview --audience engineering
 /excavator feature "Account access" --audience both
+/excavator feature "Attendance check-in" --audience prd
 /excavator report --overview both --feature "Account access" --feature "Billing"
 /excavator resume <run-id>
 ```
@@ -321,6 +323,7 @@ Read `references/writing-rules.md` and the appropriate template:
 - `references/product-feature.md`
 - `references/engineering-overview.md`
 - `references/engineering-feature.md`
+- `references/prd-feature.md` (the `prd` feature audience; feature-only, no prd overview)
 
 Product reports explain business meaning and current behavior without implementation detail in the reading flow.
 

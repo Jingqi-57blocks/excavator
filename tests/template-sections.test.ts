@@ -39,7 +39,8 @@ const TEMPLATES = [
   "product-feature.md",
   "product-overview.md",
   "engineering-feature.md",
-  "engineering-overview.md"
+  "engineering-overview.md",
+  "prd-feature.md"
 ];
 
 test("every template numbers its chapters 1..N in document order (written number == positional index)", () => {
@@ -80,6 +81,16 @@ test("both feature templates put the coverage chapter at §12", () => {
 
 test("engineering-feature keeps exactly 12 chapters (unchanged by 57B-364)", () => {
   assert.equal(sectionsOf("engineering-feature.md").length, 12);
+});
+
+test("prd-feature keeps 10 chapters: acceptance at §9, appendix last at §10 (57B-380)", () => {
+  const sections = sectionsOf("prd-feature.md");
+  assert.equal(sections.length, 10);
+  const byIndex = new Map(sections.map((section) => [section.index, section.title]));
+  // §1 opens on current behavior/boundary (no background chapter); §9 acceptance; §10 appendix is last.
+  assert.match(byIndex.get(1)!, /boundary/i);
+  assert.equal(byIndex.get(9), "Acceptance checklist");
+  assert.match(byIndex.get(10)!, /^Appendix/);
 });
 
 test("engineering-overview appends the database-design chapter at §13 (57B-379)", () => {

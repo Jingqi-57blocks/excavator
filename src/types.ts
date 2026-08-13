@@ -1,6 +1,6 @@
 import type { CrossFeatureRelationships } from "./cross-feature.ts";
 
-export type Audience = "product" | "engineering";
+export type Audience = "product" | "engineering" | "prd";
 export type DocumentKind = "overview" | "feature";
 export type RunState = "planned" | "preparing" | "prepared" | "authoring" | "assembled" | "audited" | "complete" | "failed" | "timed-out";
 export type EvidenceMarker = "fact" | "verified" | "inferred" | "unavailable";

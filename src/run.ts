@@ -62,6 +62,10 @@ async function readFrozenFactPacks(runDir: string, manifest: RunManifest): Promi
 }
 
 export async function prepareRun(request: ReportRequest): Promise<{ runDir: string; manifest: RunManifest }> {
+  // prd is a feature-only audience: no prd-overview template exists. This single Core guard covers the CLI
+  // overview command, the report --overview arg and request.json, so the overview branch (buildContexts →
+  // renderOverviewContext, and the referencePath("overview", "prd") document build below) never sees prd.
+  if (request.overviewAudiences.includes("prd")) throw new Error("prd audience is feature-only; no prd-overview template exists");
   const preparedStarted = Date.now();
   const result = await buildContexts(request);
   const effectiveRequest: ReportRequest = { ...request, detailLevel: request.detailLevel ?? "detailed", codegraph: result.stats.codegraphPath, codegraphModules: result.stats.codegraphModulePaths };

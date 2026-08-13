@@ -121,6 +121,33 @@ test("overview packets list project work items in one single-level block, no per
   assert.ok(!/## Section \d/.test(markdown), "an overview packet carries no per-section blocks");
 });
 
+test("a prd feature packet flattens §10-12-pinned work items into one block instead of vanishing (57B-380)", () => {
+  // prd-feature.md has 10 chapters, but work-item reportSections run 1..12. In a section-keyed packet a §10-12
+  // item would match no section block yet is not `undefined`, so it would silently vanish. The prd path uses
+  // one flat "feature" block for every pinned item, plus the trailing logic-disposition block.
+  const prdDoc: DocumentPlan = { id: "feature-abc-prd", kind: "feature", audience: "prd", subject: "Leave", templatePath: "/t", contextPath: "/c", sections: [section(1, "Boundary"), section(2, "Rules")] };
+  const workItems = plan([
+    wi({ id: "feature:abc:boundary", dimension: "boundary", reportSection: 1, requiredFor: ["feature-abc-prd"], evidenceIds: ["S-1"] }),
+    wi({ id: "feature:abc:connected-change-scope", dimension: "connected-change-scope", reportSection: 10, requiredFor: ["feature-abc-prd"], evidenceIds: ["S-10"] }),
+    wi({ id: "feature:abc:tests", dimension: "tests", reportSection: 11, requiredFor: ["feature-abc-prd"], evidenceIds: ["S-11"] }),
+    wi({ id: "feature:abc:coverage-accounting", dimension: "coverage-accounting", reportSection: 12, requiredFor: ["feature-abc-prd"], evidenceIds: ["S-12"] }),
+    wi({ id: "feature:abc:logic:Calc@svc/service.go:415", dimension: "logic-disposition", reportSection: undefined, requiredFor: ["feature-abc-prd"], status: "pending", evidenceIds: [] })
+  ]);
+  const blocks = packetEvidenceForDocument(prdDoc, workItems);
+  assert.deepEqual(blocks.map((block) => block.key), ["feature", "logic-disposition"]);
+  const featureBlock = blocks.find((block) => block.key === "feature")!;
+  const ids = featureBlock.workItems.map((item) => item.id);
+  for (const id of ["feature:abc:boundary", "feature:abc:connected-change-scope", "feature:abc:tests", "feature:abc:coverage-accounting"]) {
+    assert.ok(ids.includes(id), `${id} vanished from the prd packet`);
+  }
+  assert.deepEqual(featureBlock.evidenceIds, ["S-1", "S-10", "S-11", "S-12"]);
+
+  const markdown = buildAuthoringPacket(prdDoc, workItems, evidenceMap([sourceEvidence("S-1", "a"), sourceEvidence("S-10", "b"), sourceEvidence("S-11", "c"), sourceEvidence("S-12", "d")]), NO_TRACES, {});
+  assert.ok(markdown.includes("## Feature investigation"));
+  assert.ok(markdown.includes("## Logic disposition — rescued decision functions (place each where its behavior belongs)"));
+  assert.ok(!/## Section \d/.test(markdown), "a prd packet carries no per-section blocks");
+});
+
 // --- 3. excerpt discipline ---
 
 test("excerpts clip with a footnote; FACT/SEARCH/trace render as summary lines; evidence deduplicates across sections", () => {

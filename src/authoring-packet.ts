@@ -98,6 +98,19 @@ export interface PacketSection {
  */
 export function packetEvidenceForDocument(document: DocumentPlan, plan: InvestigationPlan): PacketSection[] {
   const relevant = plan.items.filter((item) => item.requiredFor.includes(document.id));
+  // prd feature docs carry fewer chapters than the canonical 1..12 work-item reportSection space, so a
+  // section-keyed packet would silently drop items pinned to a chapter the prd template does not have (they
+  // match no section block yet are not `undefined`, so the section loop and the trailing-`undefined` rescue
+  // both miss them). Render every pinned item in one flat block instead — like the overview single block —
+  // then keep the trailing logic-disposition block for the unpinned rescued-logic items. Nothing vanishes.
+  if (document.kind === "feature" && document.audience === "prd") {
+    const blocks: PacketSection[] = [];
+    const pinned = orderWorkItems(relevant.filter((item) => item.reportSection !== undefined));
+    if (pinned.length) blocks.push({ key: "feature", heading: "Feature investigation", workItems: pinned, evidenceIds: unionEvidenceIds(pinned) });
+    const unassigned = orderWorkItems(relevant.filter((item) => item.reportSection === undefined));
+    if (unassigned.length) blocks.push({ key: "logic-disposition", heading: "Logic disposition — rescued decision functions (place each where its behavior belongs)", workItems: unassigned, evidenceIds: unionEvidenceIds(unassigned) });
+    return blocks;
+  }
   if (document.kind === "feature") {
     const blocks: PacketSection[] = [];
     for (const section of document.sections) {
