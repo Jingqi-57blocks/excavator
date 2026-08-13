@@ -52,6 +52,12 @@ export interface ColumnSchema {
   default?: string;
   autoIncrement?: boolean;
   inPrimaryKey?: boolean;
+  /**
+   * `true` when the column NAME was not written in source but derived by the source format's documented
+   * default naming strategy (e.g. gorm snake_case of an untagged field). Left unset when the name is
+   * literal in source. Keeps a derived name transparent instead of silently asserting it.
+   */
+  nameDerived?: boolean;
   provenance: Declaration[];
 }
 

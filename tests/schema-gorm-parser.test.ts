@@ -109,7 +109,7 @@ func (u *Policy) TableName() string { return "app_policy" }
   assert.match(embedWarn!.message, /sql\.NullThing/);
 });
 
-test('gorm:"-" is ignored; untagged exported fields are skipped with a warning; unexported are silent', () => {
+test('gorm:"-" is ignored; untagged exported fields become snake_case columns; unexported are silent', () => {
   const model = `package model
 
 type Thing struct {
@@ -122,10 +122,68 @@ type Thing struct {
 func (u *Thing) TableName() string { return "app_thing" }
 `;
   const { tables, warnings } = parse({ "thing.go": model });
-  assert.deepEqual(tables[0].columns.map((c) => c.name), ["id"]); // Secret ignored, Name/mutex not columns
-  const untagged = warnings.filter((w) => w.kind === "untagged-field-skipped");
-  assert.equal(untagged.length, 1);
-  assert.match(untagged[0].message, /Name/);
+  // Secret ignored (gorm:"-"), mutex not a column (unexported); Name kept as gorm's default snake_case name.
+  assert.deepEqual(tables[0].columns.map((c) => c.name), ["id", "name"]);
+  // The literal-tagged id is not marked derived; the untagged Name is, so the derivation is transparent.
+  assert.equal(col(tables[0].columns, "id")?.nameDerived, undefined);
+  assert.equal(col(tables[0].columns, "name")?.nameDerived, true);
+  assert.equal(col(tables[0].columns, "name")?.type, "string");
+  assert.equal(warnings.filter((w) => w.kind === "untagged-field-skipped").length, 0);
+});
+
+test("gorm snake_case NamingStrategy fills the column name when no column: tag is present (PR1 flag #1)", () => {
+  const model = `package model
+
+type Account struct {
+	ID       uint64 \`gorm:"primaryKey"\`
+	UserID   uint64 \`gorm:"not null"\`
+	HTTPPort int    \`gorm:"column:http_port"\`
+	APIKey   string
+	Balance  float64
+	internal string
+}
+
+func (u *Account) TableName() string { return "app_account" }
+`;
+  const { tables, warnings } = parse({ "account.go": model });
+  const t = tables[0];
+  // UserID→user_id, ID→id, APIKey→api_key, Balance→balance are derived; http_port is a literal tag; internal is unexported.
+  assert.deepEqual(t.columns.map((c) => c.name), ["id", "user_id", "http_port", "api_key", "balance"]);
+  assert.equal(col(t.columns, "id")?.nameDerived, true);
+  assert.equal(col(t.columns, "id")?.inPrimaryKey, true);
+  assert.deepEqual(t.primaryKey, ["id"]);
+  assert.equal(col(t.columns, "user_id")?.nullable, false); // recognized flag still applied to the derived column
+  assert.equal(col(t.columns, "user_id")?.nameDerived, true);
+  assert.equal(col(t.columns, "http_port")?.nameDerived, undefined); // explicit column: tag → not derived
+  assert.equal(col(t.columns, "api_key")?.nameDerived, true);
+  assert.equal(warnings.length, 0);
+});
+
+test("an untagged field whose type is another model is treated as an association, not a derived column", () => {
+  const model = `package model
+
+type Item struct {
+	ID uint64 \`gorm:"column:id;primary_key"\`
+}
+
+func (u *Item) TableName() string { return "app_item" }
+
+type Cart struct {
+	ID    uint64 \`gorm:"column:id;primary_key"\`
+	Note  string
+	Items []Item
+	Owner *Item
+	Blob  []byte
+}
+
+func (u *Cart) TableName() string { return "app_cart" }
+`;
+  const { tables, warnings } = parse({ "m.go": model });
+  const cart = tables.find((t) => t.name === "app_cart")!;
+  // Note and Blob ([]byte) are scalar columns; Items/Owner reference a known model → skipped as associations.
+  assert.deepEqual(cart.columns.map((c) => c.name), ["id", "note", "blob"]);
+  const assoc = warnings.filter((w) => w.kind === "untagged-association-skipped");
+  assert.equal(assoc.length, 2);
 });
 
 test("foreignKey naming a Go field resolves to that field's column (belongs-to)", () => {
