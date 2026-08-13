@@ -7,6 +7,7 @@ import { collectDrafts, draftSection } from "./assurance/parallel-authoring.ts";
 import { stableJson } from "./core/util.ts";
 import { buildCodeGraph, codeGraphStatus } from "./codegraph/codegraph-command.ts";
 import { runDbSchema } from "./schema/db-schema-command.ts";
+import { runNativeGraph } from "./nativegraph/native-graph-command.ts";
 import { deriveDefaultBudgets, plannedDocumentCount } from "./core/budgets.ts";
 import { DEFAULT_WORKDIR } from "./core/defaults.ts";
 
@@ -64,6 +65,16 @@ async function main(): Promise<void> {
         print(args.json === "true"
           ? result.extraction
           : { target: result.target, outDir: result.outDir, markdownPath: result.markdownPath, jsonPath: result.jsonPath, tables: result.tables, relationships: result.relationships, perFormat: result.perFormat, warnings: result.warnings, unsupported: result.unsupported });
+        break;
+      }
+      case "native-graph": {
+        const args = parseArgs(argv);
+        const result = await runNativeGraph({
+          target: required(args.target, "--target"),
+          out: args.out,
+          ...(args.ctags === "false" ? { ctags: false } : {})
+        });
+        print(result);
         break;
       }
       case "claims": {
@@ -290,6 +301,7 @@ Commands:
   prepare    Alias of report; accepts --request request.json
   codegraph  Inspect or build an optional CodeGraph index
   db-schema  Recover a database design (tables, columns, relationships) from source, deterministically
+  native-graph  Build a symbol+call navigation graph for CodeGraph-unsupported languages (Perl, Zope templates)
   begin      Start or restart one document authoring timer
   freeze     Freeze the completed investigation into knowledge.json before authoring; also renders per-document authoring packets
   source     Record a bounded source excerpt as evidence
@@ -312,6 +324,7 @@ Examples:
   excavator codegraph status --target ./workspace
   excavator codegraph build --target ./workspace --quiet
   excavator db-schema --target ./workspace --out ./db --language en-US
+  excavator native-graph --target ./workspace --out ./nav
   excavator freeze --run <run>
   excavator feature --target ./workspace --subject "Account access" --aliases access,permission,role --audience both --detail detailed
   excavator search --run <run> --query "\\bTODO\\b|@deprecated" --regex --case-sensitive --reason "investigate unfinished behavior"
@@ -419,6 +432,16 @@ const COMMAND_HELP: Record<string, CommandHelp> = {
     ],
     example: "excavator db-schema --target ./workspace --out ./db --language en-US",
     notes: "Deterministic and zero-model: writes a byte-stable database-design.md and db-schema.json. Discovers gorm / Sequelize / SQL-dump formats by fingerprint and reports Prisma / Django / TypeORM / ActiveRecord as located-but-unsupported."
+  },
+  "native-graph": {
+    synopsis: "native-graph --target <dir> [--out <dir>] [--ctags false]",
+    flags: [
+      "--target <dir>   Source workspace to analyze, read-only (required)",
+      "--out <dir>      Output directory (default .work/native-graph)",
+      "--ctags false    Skip the optional universal-ctags census"
+    ],
+    example: "excavator native-graph --target ./workspace --out ./nav",
+    notes: "Deterministic, zero-model navigation aid for languages CodeGraph does not index. tree-sitter recovers Perl packages/subs/calls; universal-ctags (optional) adds a cross-language definition census; Zope .zpt/.dtml templates get a textual reference inventory. Writes native-graph.json + native-graph-summary.md. Dynamic-dispatch calls are marked unresolved, not guessed."
   },
   begin: {
     synopsis: "begin --run <dir> --document <id>",

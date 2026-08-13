@@ -160,3 +160,13 @@ Fable 非阻塞后续（记录待议，本切片未动）：
 
 ## excavator source 命令缺越界校验（D2 真跑发现，2026-08-13）
 `excavator source` 对 start > 文件长度的越界窗口不报错，写入了非法区间证据（如 `197-92`，start>end），后续 `freeze` 才被该非法区间挡下。作者手工剪除并重算 evidenceDigest 才过。建议 `source` 命令加输入校验：start≤文件行数、start≤end，越界即拒并给清晰错误，而非留到 freeze 才失败。范围外，记此备后续修。
+
+## 报告结构应随项目类型自适应（未来方向，用户 2026-08-13 提，暂不做）
+当前 section 是**每种报告类型固定**（product-overview 10 / engineering-overview 13 / product-feature 13 / engineering-feature 12 / prd-feature 10），从模板 `##` 标题派生、烤进 manifest，**与项目无关**——不管 SaaS、游戏、CMS 都同样几章。用户指出：**不同项目类型侧重点完全不同**（SaaS 关注租户/计费/权限；游戏关注实体/循环/状态机/资源经济；CMS 关注内容模型/模板/发布），固定章会"重要维度没深挖、不相关维度占篇幅"。
+**未来要做的**：报告结构按项目类型/领域自适应——候选方向：① 模板标注 optional 章 + prepare 时按内容纳入/省略（要改 makeDocumentPlan + audit 章数对账，触 assurance）；② 按探测到的项目类型选不同模板变体；③ 章骨架保留但"深度预算"按侧重点倾斜。**暂不做**（当前聚焦 DB 抽取 57B-382）。做时注意：改章数=改 manifest 烤定值=触 audit 章数硬检查，需版本闸 + 不破坏现有 run（参照 57B-379/380 的结构性 grandfather 手法）。
+
+## DB 抽取器落地后：从 engineering-overview 模板移除 §13 数据库设计章（用户 2026-08-13）
+方向改为 DB schema 由独立 `db-schema` 抽取器（57B-382）单独出 → engineering-overview 模板不该再留 §13「数据库设计」章（否则每份 overview 都重复/半吊子做 DB）。**这是 57B-379(C1) 的回退**：移除模板末章 §13 + assurance `READABILITY_TABLE_SECTIONS["overview:engineering"]` 去掉 index 13 + template-sections 测试 13→12 章 pin。engineering-overview 回到 12 章。**约束**：改章数=改 manifest 烤定值=触 audit 章数硬检查 → 版本闸 + 结构性 grandfather（已烤 13 章的旧 run 不破，参照 57B-379/380 手法）。**时机**：57B-382 DB 抽取器可用、验证过之后再做（否则中间态既无模板 DB 章、又无抽取器，DB 无处可去）。
+
+## 删章必扫交叉引用（教训，2026-08-13）
+从报告删除某章（如 provital 删 §13 DB）后，正文里对该章的**交叉引用会悬挂**（provital §7 残留 "see section 13 for the pointer"，指向已删章）。删章不是只切那一段——**必须 grep 全文 `section N`/`§N`/`chapter N`/章名 交叉引用并一并修**。将来做 57B-382 收尾（从 engineering-overview 模板移除 §13）时，模板/写作规则里若有对 DB 章的交叉引用也要同步清；自动化删章逻辑应内建"扫并修交叉引用"。
