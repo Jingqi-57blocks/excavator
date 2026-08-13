@@ -5,8 +5,8 @@ import {
   auditSectionClaims,
   auditSectionEvidenceMarkers,
   substantiveSegments
-} from "../src/assurance.ts";
-import type { Audience, DocumentKind, DocumentPlan, SectionClaimsFile } from "../src/types.ts";
+} from "../src/assurance/assurance.ts";
+import type { Audience, DocumentKind, DocumentPlan, SectionClaimsFile } from "../src/core/types.ts";
 
 function doc(kind: DocumentKind = "feature", audience: Audience = "product"): DocumentPlan {
   return { id: `${kind}-${audience}`, kind, audience, templatePath: "", contextPath: "", sections: [] };

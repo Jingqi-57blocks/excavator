@@ -3,10 +3,10 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { readFile, readdir } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
-import type { ReportRequest } from "../src/types.ts";
-import { assembleRun, checkpointSection, freezeRun, prepareRun } from "../src/run.ts";
-import { collectDrafts, draftSection } from "../src/parallel-authoring.ts";
-import { slugify } from "../src/util.ts";
+import type { ReportRequest } from "../src/core/types.ts";
+import { assembleRun, checkpointSection, freezeRun, prepareRun } from "../src/core/run.ts";
+import { collectDrafts, draftSection } from "../src/assurance/parallel-authoring.ts";
+import { slugify } from "../src/core/util.ts";
 import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, tempDir } from "./helpers.ts";
 
 // SKILL.md tells the model which `excavator` commands and flags to run. When it drifts from the real

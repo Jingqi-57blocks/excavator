@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { join, resolve } from "node:path";
 import { writeFile } from "node:fs/promises";
-import { deriveDefaultBudgets, plannedDocumentCount } from "../src/budgets.ts";
+import { deriveDefaultBudgets, plannedDocumentCount } from "../src/core/budgets.ts";
 import { createCodeGraphFixture, copyFixture, tempDir } from "./helpers.ts";
 
 async function cli(args: string[]): Promise<{ code: number | null; stdout: string; stderr: string }> {

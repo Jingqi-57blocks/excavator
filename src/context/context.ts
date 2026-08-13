@@ -1,16 +1,16 @@
 import { basename, join } from "node:path";
 import { readFile } from "node:fs/promises";
-import type { Audience, EvidenceItem, FeatureFactPack, FeatureRequest, PreparedContext, ProviderRegistry, ReportRequest, Snapshot } from "./types.ts";
-import { CodeGraphIndex, type GraphReader } from "./codegraph.ts";
-import { CodeGraphSet } from "./codegraph-set.ts";
+import type { Audience, EvidenceItem, FeatureFactPack, FeatureRequest, PreparedContext, ProviderRegistry, ReportRequest, Snapshot } from "../core/types.ts";
+import { CodeGraphIndex, type GraphReader } from "../codegraph/codegraph.ts";
+import { CodeGraphSet } from "../codegraph/codegraph-set.ts";
 import { pruneFeatureGraphWithModuleFloor } from "./prune-module-floor.ts";
-import { createSnapshot, isLikelySource, type ScannedFile } from "./snapshot.ts";
-import { SourceReader, evidenceFromWindow, manifestSummary, selectProjectDocuments, sourceSearch } from "./source.ts";
-import { Deadline, ensureDir, exists, projectWorkspace, readJson, sha256, slugify, stableJson, truncate, writeJson } from "./util.ts";
-import { createProviderRegistry, resolveCodeGraphDatabase } from "./providers.ts";
+import { createSnapshot, isLikelySource, type ScannedFile } from "../snapshot/snapshot.ts";
+import { SourceReader, evidenceFromWindow, manifestSummary, selectProjectDocuments, sourceSearch } from "../snapshot/source.ts";
+import { Deadline, ensureDir, exists, projectWorkspace, readJson, sha256, slugify, stableJson, truncate, writeJson } from "../core/util.ts";
+import { createProviderRegistry, resolveCodeGraphDatabase } from "../snapshot/providers.ts";
 import { buildFactPack, factPackEvidence, renderFactPackSection } from "./factpack.ts";
 import { computeCrossFeatureRelationships, renderCrossFeatureSection } from "./cross-feature.ts";
-import { legacyWorkspaceWarning } from "./workspace-residue.ts";
+import { legacyWorkspaceWarning } from "../snapshot/workspace-residue.ts";
 
 // v18: the feature prune now applies the module-local strong-rescue floor (57B-377), which changes
 // the CachedFeature scope shape for multi-module targets. Bumping the version invalidates any stale

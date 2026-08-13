@@ -1,4 +1,4 @@
-import type { FactPackItem, FeatureFactPack } from "./types.ts";
+import type { FactPackItem, FeatureFactPack } from "../core/types.ts";
 
 /**
  * Deterministic cross-feature relationships.

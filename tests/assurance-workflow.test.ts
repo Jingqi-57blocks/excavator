@@ -1,11 +1,11 @@
-import { auditSectionClaims, auditTargetProblemAttribution } from "../src/assurance.ts";
+import { auditSectionClaims, auditTargetProblemAttribution } from "../src/assurance/assurance.ts";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
 import { readFile, readdir, rm, writeFile } from "node:fs/promises";
-import type { Audience, DocumentPlan, EvidenceItem, InvestigationPlan, ReportRequest, SectionClaim, TraceRecord } from "../src/types.ts";
-import { assembleRun, auditRun, checkpointSection, freezeRun, prepareRun, searchSourceEvidence, updateTraces, updateWorkItems } from "../src/run.ts";
-import { slugify } from "../src/util.ts";
+import type { Audience, DocumentPlan, EvidenceItem, InvestigationPlan, ReportRequest, SectionClaim, TraceRecord } from "../src/core/types.ts";
+import { assembleRun, auditRun, checkpointSection, freezeRun, prepareRun, searchSourceEvidence, updateTraces, updateWorkItems } from "../src/core/run.ts";
+import { slugify } from "../src/core/util.ts";
 import { copyFixture, createCodeGraphFixture, tempDir } from "./helpers.ts";
 
 async function request(options: { feature?: boolean; graph?: boolean } = {}): Promise<ReportRequest> {

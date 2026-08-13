@@ -4,8 +4,8 @@ import { join } from "node:path";
 import { boundaryRecall, factPackItemsToNodes } from "../boundary.ts";
 import { loadBoundaryGold } from "../boundary-gold.ts";
 import { loadFactpackFixture, fixtureLogicItems, type FactpackFixture } from "../factpack-fixture.ts";
-import { logicClaimKey } from "../../src/factpack-logic.ts";
-import { stableJson } from "../../src/util.ts";
+import { logicClaimKey } from "../../src/context/factpack-logic.ts";
+import { stableJson } from "../../src/core/util.ts";
 
 // The 57B-372 PR-2 gate, replayed over BOTH real runs. The fixtures freeze the pruned FG and the six
 // structural categories' items; `fixtureLogicItems` runs the production complement enumeration over them,

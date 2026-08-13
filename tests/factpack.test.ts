@@ -3,14 +3,14 @@ import assert from "node:assert/strict";
 import { join } from "node:path";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import type { DatabaseSync } from "node:sqlite";
-import { FACT_PACK_CATEGORIES, buildFactPack, factPackEvidence, factPackEvidenceId } from "../src/factpack.ts";
-import { CodeGraphIndex } from "../src/codegraph.ts";
-import { SourceReader } from "../src/source.ts";
-import { scanFiles } from "../src/snapshot.ts";
-import { buildContexts } from "../src/context.ts";
-import { prepareRun } from "../src/run.ts";
-import { Deadline, stableJson } from "../src/util.ts";
-import type { EvidenceItem, FactPackCategory, FeatureFactPack, ReportRequest } from "../src/types.ts";
+import { FACT_PACK_CATEGORIES, buildFactPack, factPackEvidence, factPackEvidenceId } from "../src/context/factpack.ts";
+import { CodeGraphIndex } from "../src/codegraph/codegraph.ts";
+import { SourceReader } from "../src/snapshot/source.ts";
+import { scanFiles } from "../src/snapshot/snapshot.ts";
+import { buildContexts } from "../src/context/context.ts";
+import { prepareRun } from "../src/core/run.ts";
+import { Deadline, stableJson } from "../src/core/util.ts";
+import type { EvidenceItem, FactPackCategory, FeatureFactPack, ReportRequest } from "../src/core/types.ts";
 import { copyFixture, createCodeGraphFixture, createCodeGraphSchema, insertGraphFile, insertGraphNode, tempDir } from "./helpers.ts";
 
 const BOUNDARY_SOURCES: Record<string, string> = {

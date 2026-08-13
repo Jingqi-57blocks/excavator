@@ -2,9 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
 import { readFile } from "node:fs/promises";
-import { computeCrossFeatureRelationships, renderCrossFeatureSection, type CrossFeatureInput, type CrossFeatureRelationships } from "../src/cross-feature.ts";
-import { prepareRun } from "../src/run.ts";
-import type { FactPackCategory, FactPackItem, FeatureFactPack } from "../src/types.ts";
+import { computeCrossFeatureRelationships, renderCrossFeatureSection, type CrossFeatureInput, type CrossFeatureRelationships } from "../src/context/cross-feature.ts";
+import { prepareRun } from "../src/core/run.ts";
+import type { FactPackCategory, FactPackItem, FeatureFactPack } from "../src/core/types.ts";
 import { copyFixture, tempDir } from "./helpers.ts";
 
 type ItemSeed = Partial<FactPackItem> & { category: FactPackCategory; name: string };

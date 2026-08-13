@@ -1,13 +1,13 @@
 #!/usr/bin/env -S node --experimental-strip-types --no-warnings
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import type { Audience, BudgetConfig, ChecklistItem, FeatureRequest, InvestigationWorkItem, ReportRequest, SectionClaim, TraceRecord } from "./types.ts";
-import { addSourceEvidence, assembleRun, auditRun, beginDocument, checkpointSection, freezeRun, prepareRun, resumeRun, runStatus, scaffoldClaims, searchSourceEvidence, updateChecklist, updateTraces, updateWorkItems, type SupplementInput } from "./run.ts";
-import { collectDrafts, draftSection } from "./parallel-authoring.ts";
-import { stableJson } from "./util.ts";
-import { buildCodeGraph, codeGraphStatus } from "./codegraph-command.ts";
-import { deriveDefaultBudgets, plannedDocumentCount } from "./budgets.ts";
-import { DEFAULT_WORKDIR } from "./defaults.ts";
+import type { Audience, BudgetConfig, ChecklistItem, FeatureRequest, InvestigationWorkItem, ReportRequest, SectionClaim, TraceRecord } from "./core/types.ts";
+import { addSourceEvidence, assembleRun, auditRun, beginDocument, checkpointSection, freezeRun, prepareRun, resumeRun, runStatus, scaffoldClaims, searchSourceEvidence, updateChecklist, updateTraces, updateWorkItems, type SupplementInput } from "./core/run.ts";
+import { collectDrafts, draftSection } from "./assurance/parallel-authoring.ts";
+import { stableJson } from "./core/util.ts";
+import { buildCodeGraph, codeGraphStatus } from "./codegraph/codegraph-command.ts";
+import { deriveDefaultBudgets, plannedDocumentCount } from "./core/budgets.ts";
+import { DEFAULT_WORKDIR } from "./core/defaults.ts";
 
 async function main(): Promise<void> {
   const [command = "help", ...argv] = process.argv.slice(2);

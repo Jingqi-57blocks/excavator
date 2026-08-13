@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { resolve } from "node:path";
-import type { ReportRequest } from "../src/types.ts";
-import { prepareRun } from "../src/run.ts";
+import type { ReportRequest } from "../src/core/types.ts";
+import { prepareRun } from "../src/core/run.ts";
 
 const target = process.env.EXCAVATOR_TARGET;
 if (!target) {

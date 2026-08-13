@@ -1,4 +1,4 @@
-import type { CrossFeatureRelationships } from "./cross-feature.ts";
+import type { CrossFeatureRelationships } from "../context/cross-feature.ts";
 
 export type Audience = "product" | "engineering" | "prd";
 export type DocumentKind = "overview" | "feature";

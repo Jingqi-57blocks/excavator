@@ -5,12 +5,12 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { DatabaseSync } from "node:sqlite";
 import { mkdir, stat, writeFile } from "node:fs/promises";
-import { buildContexts } from "../src/context.ts";
-import { CodeGraphIndex } from "../src/codegraph.ts";
-import { Deadline } from "../src/util.ts";
-import { createSnapshot, scanFiles } from "../src/snapshot.ts";
-import { selectProjectDocuments, sourceSearch } from "../src/source.ts";
-import type { ReportRequest } from "../src/types.ts";
+import { buildContexts } from "../src/context/context.ts";
+import { CodeGraphIndex } from "../src/codegraph/codegraph.ts";
+import { Deadline } from "../src/core/util.ts";
+import { createSnapshot, scanFiles } from "../src/snapshot/snapshot.ts";
+import { selectProjectDocuments, sourceSearch } from "../src/snapshot/source.ts";
+import type { ReportRequest } from "../src/core/types.ts";
 import { copyFixture, createCodeGraphFixture, tempDir } from "./helpers.ts";
 
 const execFileAsync = promisify(execFile);

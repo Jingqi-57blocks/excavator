@@ -1,12 +1,12 @@
 import { rm, readdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import type { DocumentPlan, DraftReceipt, RunManifest, SectionClaim } from "./types.ts";
+import type { DocumentPlan, DraftReceipt, RunManifest, SectionClaim } from "../core/types.ts";
 import type { AuditFinding } from "./assurance.ts";
 import { runUsesCurrentAssurance, validateClaimsInput } from "./assurance.ts";
 import { collectClaims } from "./assurance-artifacts.ts";
-import { archiveCheckpoint, normalizeSection } from "./run.ts";
+import { archiveCheckpoint, normalizeSection } from "../core/run.ts";
 import { appendTimeline } from "./timeline.ts";
-import { atomicWrite, exists, listDirectories, nowIso, readJson, writeJson } from "./util.ts";
+import { atomicWrite, exists, listDirectories, nowIso, readJson, writeJson } from "../core/util.ts";
 
 /**
  * Parallel section authoring: "write in parallel, account serially."

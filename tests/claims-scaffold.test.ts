@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { scaffoldSectionClaims } from "../src/claims-scaffold.ts";
-import { auditSectionClaims, substantiveSegments } from "../src/assurance.ts";
+import { scaffoldSectionClaims } from "../src/assurance/claims-scaffold.ts";
+import { auditSectionClaims, substantiveSegments } from "../src/assurance/assurance.ts";
 
 // A section with prose and a markdown table, plus the evidence block a real section carries. Each
 // table cell that clears the substantive threshold is its own segment, exactly as the audit splits

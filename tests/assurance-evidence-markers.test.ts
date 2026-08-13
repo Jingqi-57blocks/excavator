@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { auditSectionEvidenceMarkers, hasEvidenceMarkers, markersIn } from "../src/assurance.ts";
+import { auditSectionEvidenceMarkers, hasEvidenceMarkers, markersIn } from "../src/assurance/assurance.ts";
 
 // A substantive section whose only evidence-level words are plain Chinese prose (no backticks). This
 // is exactly the shape the old document-level regex accepted while the paragraph-level rule rejected

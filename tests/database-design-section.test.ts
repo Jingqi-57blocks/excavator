@@ -2,9 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
 import { readFile, writeFile } from "node:fs/promises";
-import type { DocumentPlan, EvidenceItem, ReportRequest, RunManifest, SectionClaim } from "../src/types.ts";
-import { auditReadabilityTables } from "../src/assurance.ts";
-import { assembleRun, auditRun, checkpointSection, freezeRun, prepareRun, searchSourceEvidence, updateChecklist } from "../src/run.ts";
+import type { DocumentPlan, EvidenceItem, ReportRequest, RunManifest, SectionClaim } from "../src/core/types.ts";
+import { auditReadabilityTables } from "../src/assurance/assurance.ts";
+import { assembleRun, auditRun, checkpointSection, freezeRun, prepareRun, searchSourceEvidence, updateChecklist } from "../src/core/run.ts";
 import { copyFixture, createCodeGraphFixture, tempDir } from "./helpers.ts";
 
 // 57B-379 appends `## 13. Database design` to engineering-overview.md and adds index 13 to the advisory

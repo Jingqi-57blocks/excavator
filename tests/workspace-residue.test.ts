@@ -2,8 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { projectWorkspace } from "../src/util.ts";
-import { legacyWorkspaceWarning } from "../src/workspace-residue.ts";
+import { projectWorkspace } from "../src/core/util.ts";
+import { legacyWorkspaceWarning } from "../src/snapshot/workspace-residue.ts";
 import { tempDir } from "./helpers.ts";
 
 test("an old-layout residue that a digested target cannot adopt is surfaced as a warning", async () => {

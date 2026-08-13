@@ -17,7 +17,7 @@
 // dependency, zero model, deterministic.
 
 import { pruneFeatureGraph, rescueSignalsFor, dedupeEdges, NAME_TOKEN_EXACT } from "./feature-prune.ts";
-import { ID_SEPARATOR } from "./codegraph-set.ts";
+import { ID_SEPARATOR } from "../codegraph/codegraph-set.ts";
 
 /** The module a namespaced node id belongs to: the prefix before the NUL separator, or "" (a single
  *  implicit module) when the id carries no namespace. This is the ONLY source of module identity. */

@@ -2,8 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { auditRun, prepareRun, searchSourceEvidence } from "../src/run.ts";
-import type { ReportRequest } from "../src/types.ts";
+import { auditRun, prepareRun, searchSourceEvidence } from "../src/core/run.ts";
+import type { ReportRequest } from "../src/core/types.ts";
 import { createCodeGraphSchema, insertGraphFile, insertGraphNode, tempDir } from "./helpers.ts";
 
 /**

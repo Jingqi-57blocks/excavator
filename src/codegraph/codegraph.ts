@@ -1,6 +1,6 @@
 import { DatabaseSync } from "node:sqlite";
-import type { GraphEdge, GraphFile, GraphNode } from "./types.ts";
-import { Deadline, sha256, stableJson } from "./util.ts";
+import type { GraphEdge, GraphFile, GraphNode } from "../core/types.ts";
+import { Deadline, sha256, stableJson } from "../core/util.ts";
 
 export interface QueryStats {
   queries: number;

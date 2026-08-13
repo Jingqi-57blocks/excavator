@@ -1,12 +1,12 @@
-import type { GraphReader } from "./codegraph.ts";
+import type { GraphReader } from "../codegraph/codegraph.ts";
 import { BRIDGE_MAX_MULTIPLICITY } from "./feature-prune.ts";
 import { logicClaimKey, logicItems, type LogicFeatureGraph } from "./factpack-logic.ts";
-import type { ScannedFile } from "./snapshot.ts";
-import type { SourceReader } from "./source.ts";
-import { sourceSearch } from "./source.ts";
-import type { EvidenceItem, FactPackCategory, FactPackCoverage, FactPackItem, FactPackMethod, FeatureFactPack, GraphNode } from "./types.ts";
-import type { Deadline } from "./util.ts";
-import { sha256, stableJson } from "./util.ts";
+import type { ScannedFile } from "../snapshot/snapshot.ts";
+import type { SourceReader } from "../snapshot/source.ts";
+import { sourceSearch } from "../snapshot/source.ts";
+import type { EvidenceItem, FactPackCategory, FactPackCoverage, FactPackItem, FactPackMethod, FeatureFactPack, GraphNode } from "../core/types.ts";
+import type { Deadline } from "../core/util.ts";
+import { sha256, stableJson } from "../core/util.ts";
 
 const DETAIL_LIMIT = 200;
 const NAME_LIMIT = 120;

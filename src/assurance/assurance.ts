@@ -14,9 +14,9 @@ import type {
   SectionClaim,
   SectionClaimsFile,
   TraceCatalog
-} from "./types.ts";
+} from "../core/types.ts";
 import { validateComparisonSides } from "./claim-comparison.ts";
-import { exists, nowIso, redactSecrets, REDACTION_VERSION, safeRelative, sha256, stableJson } from "./util.ts";
+import { exists, nowIso, redactSecrets, REDACTION_VERSION, safeRelative, sha256, stableJson } from "../core/util.ts";
 
 export interface AuditFinding {
   level: "error" | "warning";

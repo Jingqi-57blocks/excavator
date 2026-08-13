@@ -11,8 +11,8 @@ import type {
   Snapshot,
   TraceCatalog,
   TraceRecord
-} from "./types.ts";
-import { exists, nowIso, sha256, stableJson, writeJson } from "./util.ts";
+} from "../core/types.ts";
+import { exists, nowIso, sha256, stableJson, writeJson } from "../core/util.ts";
 
 export function createAnalysisScope(options: {
   runId: string;

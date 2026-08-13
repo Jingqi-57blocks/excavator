@@ -4,8 +4,8 @@ import { basename, extname, isAbsolute, join, relative, resolve, sep } from "nod
 import { tmpdir } from "node:os";
 import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
-import type { Snapshot, SnapshotRoot } from "./types.ts";
-import { exists, nowIso, sha256, stableJson } from "./util.ts";
+import type { Snapshot, SnapshotRoot } from "../core/types.ts";
+import { exists, nowIso, sha256, stableJson } from "../core/util.ts";
 
 const execFileAsync = promisify(execFile);
 

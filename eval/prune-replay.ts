@@ -18,10 +18,10 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { gzipSync, gunzipSync } from "node:zlib";
 import { join, dirname, basename } from "node:path";
-import { CodeGraphIndex } from "../src/codegraph.ts";
-import { CodeGraphSet } from "../src/codegraph-set.ts";
-import { pruneFeatureGraphWithModuleFloor } from "../src/prune-module-floor.ts";
-import { Deadline } from "../src/util.ts";
+import { CodeGraphIndex } from "../src/codegraph/codegraph.ts";
+import { CodeGraphSet } from "../src/codegraph/codegraph-set.ts";
+import { pruneFeatureGraphWithModuleFloor } from "../src/context/prune-module-floor.ts";
+import { Deadline } from "../src/core/util.ts";
 import type { BoundaryNode } from "./boundary.ts";
 
 /** A frozen candidate pool: everything `pruneFeatureGraph` needs, and nothing model-derived. */
@@ -94,7 +94,7 @@ function allowedPathsFor(modules: Array<{ module: { dir: string }; path: string 
 /**
  * Reproduce the production candidate pool from real databases: the same seeds and anchor terms the
  * run recorded, expanded with the new ×6 cap and closed over its internal edges. Mirrors
- * `buildFeatureContext` in src/context.ts exactly (depth clamp, cap, `edgesAmong`).
+ * `buildFeatureContext` in src/context/context.ts exactly (depth clamp, cap, `edgesAmong`).
  */
 export function buildPoolFromRun(runDir: string, dbPaths: string[], maxNodes = DEFAULT_MAX_NODES): PrunePool {
   const { seeds, anchorTerms, target } = readFeatureGraph(runDir);
