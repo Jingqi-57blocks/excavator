@@ -175,6 +175,14 @@ V1 的读义务分母来自 fact pack `logic` 类目 = 保留 pruned-FG 节点�
 - **未被剪枝保留的函数根本没有读义务（具体实例）**：`wcp-service-v2/internal/handlers/leave/service.go` 的 `Creation`（请假提交，第 73 行 `if len(repr.Attachment) == 0` 是"哪些假期类型必须附件"的规则所在）**不在本次 run 的 factpack/分母里** → 其"读没读"对 V1 零可见。而 eval 的 gold FG fixture（较早的 demo run）里 `Creation 56-133` 是**有**的 → **保留集随 run/剪枝版本漂移**。裁决候选：(a) 投边界召回（57B-391 Phase 1 检索层 / 57B-371 剪枝改进）；(b) 给分母加第二来源（tests-as-oracle：测试断言是独立分母，能抓边界外的漏）；(c) 两者都做但排序。
 - **声明式规则不是分支，未来的"条件清单"不能只抓 `if`**：前端表单规则以 antd `Form.Item rules={[{ required: true }]}`（`wcp-ui/src/pages/leave/ApplyLeave.tsx:583/614/663…`）的**JSX 属性对象字面量**形式存在，落在 `ApplyLeave 68-873` 这一条义务内、但每条规则不单独记账；同理 `CategoryStyle` 枚举（同文件第 57 行，定义 continuous/category 两种填写模式）**落在义务 span(68-873) 之外**。若 V1.1 的"窗口内条件清单"只枚举比较/分支（`if $X > $N`），**将系统性漏掉整类表单/校验规则**。裁决候选：条件清单的 material 定义必须含声明式规则对象（props/schema/常量目录），不只分支。
 
+## 批次 57B-393（条件清单）评审产生（Fable 复核，2026-08-14；判定通过，无 must-fix）
+
+四条 should-fix 全部在本片修复（`mentionsLiteral` 小数/分数假绿、STRUCTURAL_LHS camelCase 锚定放行 `discount`/`priceIndex`、magnitude 阈值 1e5→1e8 保住金额上限、去重 consumedBy 取并集），nit 中的测试 fixture 空断言与模块头偏差说明亦已修。剩余记账：
+
+- **字面量保真的"跨窗口错配"收窄变体（未评估候选，Fable 提出）**：原字面量保真被校准否决（误报 5.6%~56%，含行号引用/自算计数/常量名vs值/redaction 冲突等结构性合法缺失）。但有一个子类未被测过：**字面量不在任何被引窗口、却逐字节出现在另一个已打开窗口**——即"结论对但 grounding 错"。它在结构上躲开大部分合法缺失类（那些值在任何窗口都不存在，故不触发）。已知坑：文件名可能出现在 `window.path`/`title` 元数据而非 content，需把 path/title 纳入搜索面。**待评估，未排期。**
+- **提取率指标的语义边界（汇报纪律，非代码）**：`condition-inventory` 的 unaccounted 同时含"从未提取"与"陈述了但回引了别的窗口"，故其比率是 **P(提取∧正确回引|打开) 的下界**，不是干净的提取率。用"任何 claim 是否提到该字面量"来拆分**已实测不可行**（3896 条 claim 里小序数必然巧合命中）。若要干净拆分，需限定到同 feature/同文件的 claim，或给单位数字面量单列 weak-mention——待议。
+- **分母欠计（已写入模块头，不另行修）**：`switch`/`case 3:` 形式的规则、配置文件里的阈值、以及**声明式规则对象**（前端 `Form.Item rules={[{required:true}]}`、schema 字面量、常量目录）都不是比较表达式，不进条件清单。声明式规则那条与上文"前端表单规则"条目是同一件事，是下一片的输入。
+
 ## 批次 57B-392 评审产生（Fable 复核，2026-08-14；判定通过，无 must-fix）
 
 四条 should-fix 中三条已在本片修复（scoped audit 不再改写 residual、freeze 阶段抑制必然为真的消费侧 advisory、audit 校验冻结分母 digest）、两条 nit 已修（contained 义务仍受硬门约束、partial 措辞）。剩余记账：

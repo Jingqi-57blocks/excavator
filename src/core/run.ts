@@ -15,6 +15,7 @@ import { atomicWrite, ensureDir, exists, nowIso, readJson, REDACTION_VERSION, ru
 import { logicWorkItems, LOGIC_DISPOSITION_ASSURANCE_GENERATION } from "../assurance/logic-workitems.ts";
 import { readObligations, READ_ACCOUNTABILITY_ASSURANCE_GENERATION } from "../assurance/read-obligations.ts";
 import { auditReadAccountability, reconcileReadCoverage, type ClaimCitation } from "../assurance/read-coverage.ts";
+import { auditConditionCoverage, inventoryConditions, type ClaimStatement } from "../assurance/condition-inventory.ts";
 import { collectClaims, createAnalysisScope, emptyTraceCatalog, mergeTraces, writeReportCompanions } from "../assurance/assurance-artifacts.ts";
 import { scaffoldSectionClaims } from "../assurance/claims-scaffold.ts";
 import { sectionFileStem } from "../assurance/section-slug.ts";
@@ -691,6 +692,17 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
     // reserved for a full-run audit, matching "a scoped audit does not mutate the run".
     if (!singleDocument) await writeJson(join(runDir, "coverage", "read-residual.json"), readResidual);
     findings.push(...runWide(auditReadAccountability({ obligations: frozenObligations.obligations, workItems: plan.items, evidenceById, report: readResidual })));
+  }
+  // Extraction accountability (advisory): which literal domain conditions inside the OPENED windows no claim
+  // states. Independent of the obligation denominator (it measures the next funnel segment, P(extracted|opened)),
+  // generation-gated so older runs are untouched, and only persisted by a full-run audit — a scoped audit sees
+  // a partial claim set and would understate consumption exactly like the read residual.
+  if (assuranceGenerationAtLeast(manifest, READ_ACCOUNTABILITY_ASSURANCE_GENERATION)) {
+    const claimStatements: ClaimStatement[] = [...claimsByDocument.entries()].flatMap(([documentId, entries]) =>
+      entries.map(({ claim }) => ({ ref: `${documentId}#${claim.id}`, statement: claim.statement ?? "", evidenceIds: claim.evidenceIds ?? [] })));
+    const conditions = inventoryConditions(evidenceCatalog.evidence, claimStatements);
+    if (!singleDocument) await writeJson(join(runDir, "coverage", "condition-inventory.json"), conditions);
+    findings.push(...runWide(auditConditionCoverage(conditions)));
   }
   const expectedPlan = createInvestigationPlan(manifest.id, manifest.request, manifest.documents);
   expectedPlan.items.push(...expectedLogicItems);
