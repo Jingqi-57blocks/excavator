@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import type { AuditFinding } from "./assurance.ts";
+import type { ConditionInventory } from "./condition-inventory.ts";
 import type {
   DocumentPlan,
   EvidenceItem,
@@ -136,7 +137,12 @@ export function buildAuthoringPacket(
   plan: InvestigationPlan,
   evidenceById: Map<string, EvidenceItem>,
   traces: TraceCatalog,
-  factPacks: Record<string, FeatureFactPack>
+  factPacks: Record<string, FeatureFactPack>,
+  /** Literal domain conditions found inside the opened windows (generation 5+). Optional and additive: when
+   *  absent the packet is byte-identical to before, so older runs and callers are unaffected. Measured
+   *  extraction of these conditions was ~0, which is why they are put in front of the author BEFORE writing
+   *  rather than only reported as an audit residual afterwards. */
+  conditions?: ConditionInventory
 ): string {
   const sections = packetEvidenceForDocument(document, plan);
   const relevant = plan.items.filter((item) => item.requiredFor.includes(document.id));
@@ -162,9 +168,17 @@ export function buildAuthoringPacket(
       if (facts) parts.push(facts);
     }
     parts.push(renderEvidence(block, evidenceById, factPack, seenEvidence));
+    const conditionBlock = renderConditions(block, conditions);
+    if (conditionBlock) parts.push(conditionBlock);
     const traceBlock = renderTraces(block, tracesById, seenTraces);
     if (traceBlock) parts.push(traceBlock);
   }
+
+  // A window opened during investigation but cited by no work item belongs to no section block, so its
+  // conditions would vanish from the packet — the one thing this block exists to prevent. Render them once at
+  // the end, unassigned, rather than dropping them (same "nothing vanishes" rule the prd block follows).
+  const unassignedConditions = renderUnassignedConditions(sections, conditions);
+  if (unassignedConditions) parts.push(unassignedConditions);
 
   if (!sections.length) parts.push("No work item is required for this document.");
   return `${parts.join("\n\n")}\n`;
@@ -266,6 +280,41 @@ function renderFactCategory(category: FactPackCategory, coverage: FactPackCovera
     if (remainder > 0) lines.push(`- … ${remainder} further ${category} item${remainder === 1 ? "" : "s"} in context/features/${featureKey}.factpack.json`);
   }
   if (coverage?.truncated) lines.push(`Truncated: ${coverage.note ?? "budget or cap reached"}`);
+  return lines.join("\n");
+}
+
+/**
+ * The literal domain conditions sitting inside the windows this block cites. Rendered BEFORE writing, because
+ * the measured extraction of these conditions was ~0 when they were only reported afterwards as an audit
+ * residual: an author cannot state a threshold they never noticed. Consumption is deliberately absent — no
+ * claim exists yet at freeze — so this is a checklist, not a verdict.
+ */
+function renderConditions(block: PacketSection, conditions: ConditionInventory | undefined): string {
+  if (!conditions?.items.length || !block.evidenceIds.length) return "";
+  const windows = new Set(block.evidenceIds);
+  const mine = conditions.items.filter((item) => windows.has(item.windowId));
+  if (!mine.length) return "";
+  const lines = ["### Literal conditions inside these windows"];
+  lines.push(
+    "Recovered mechanically from the opened source windows. State every one that carries reportable behavior " +
+    "and cite the window it came from; if a condition is not reportable behavior, leave it out deliberately rather than by omission."
+  );
+  for (const item of mine) lines.push(`- \`${item.expression}\` — ${item.path}:${item.line}`);
+  return lines.join("\n");
+}
+
+/** Conditions whose window no section block claims — rendered once, unassigned, so none is silently dropped. */
+function renderUnassignedConditions(sections: PacketSection[], conditions: ConditionInventory | undefined): string {
+  if (!conditions?.items.length) return "";
+  const assigned = new Set(sections.flatMap((block) => block.evidenceIds));
+  const orphans = conditions.items.filter((item) => !assigned.has(item.windowId));
+  if (!orphans.length) return "";
+  const lines = ["## Literal conditions in opened windows not linked to a section"];
+  lines.push(
+    "These windows were read during the investigation but no work item cites them, so they belong to no " +
+    "section block above. Place each condition that carries reportable behavior where its behavior belongs, and cite its window."
+  );
+  for (const item of orphans) lines.push(`- \`${item.expression}\` — ${item.path}:${item.line}`);
   return lines.join("\n");
 }
 

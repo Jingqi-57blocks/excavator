@@ -333,6 +333,11 @@ export async function freezeRun(runDirInput: string): Promise<{ manifest: RunMan
     await writeJson(join(runDir, "coverage", "read-obligations.json"), obligations);
     await writeJson(join(runDir, "coverage", "read-residual.json"), readResidual);
   }
+  // The literal conditions inside the opened windows, computed WITHOUT claims (none exist yet). Measured
+  // extraction of these was ~0 while they were only an audit-time residual, so they are put in front of the
+  // author here — the packet below renders them per section — and re-reconciled with consumption at audit.
+  const freezeConditions = readAccountable ? inventoryConditions(evidenceCatalog.evidence, []) : null;
+  if (freezeConditions) await writeJson(join(runDir, "coverage", "condition-inventory.json"), freezeConditions);
 
   const crossFeaturePath = join(runDir, "context", "cross-feature.json");
   const crossFeature = await exists(crossFeaturePath) ? await readJson<unknown>(crossFeaturePath) : null;
@@ -344,7 +349,7 @@ export async function freezeRun(runDirInput: string): Promise<{ manifest: RunMan
   // not a ledger, so it is written after knowledge.json but before the manifest is stamped frozen.
   let authoringPackets = 0;
   for (const document of manifest.documents) {
-    const markdown = buildAuthoringPacket(document, plan, evidenceById, traces, factPacks);
+    const markdown = buildAuthoringPacket(document, plan, evidenceById, traces, factPacks, freezeConditions ?? undefined);
     await atomicWrite(join(runDir, "context", "authoring", `${document.id}.md`), markdown);
     authoringPackets += 1;
   }

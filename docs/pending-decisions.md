@@ -175,6 +175,24 @@ V1 的读义务分母来自 fact pack `logic` 类目 = 保留 pruned-FG 节点�
 - **未被剪枝保留的函数根本没有读义务（具体实例）**：`wcp-service-v2/internal/handlers/leave/service.go` 的 `Creation`（请假提交，第 73 行 `if len(repr.Attachment) == 0` 是"哪些假期类型必须附件"的规则所在）**不在本次 run 的 factpack/分母里** → 其"读没读"对 V1 零可见。而 eval 的 gold FG fixture（较早的 demo run）里 `Creation 56-133` 是**有**的 → **保留集随 run/剪枝版本漂移**。裁决候选：(a) 投边界召回（57B-391 Phase 1 检索层 / 57B-371 剪枝改进）；(b) 给分母加第二来源（tests-as-oracle：测试断言是独立分母，能抓边界外的漏）；(c) 两者都做但排序。
 - **声明式规则不是分支，未来的"条件清单"不能只抓 `if`**：前端表单规则以 antd `Form.Item rules={[{ required: true }]}`（`wcp-ui/src/pages/leave/ApplyLeave.tsx:583/614/663…`）的**JSX 属性对象字面量**形式存在，落在 `ApplyLeave 68-873` 这一条义务内、但每条规则不单独记账；同理 `CategoryStyle` 枚举（同文件第 57 行，定义 continuous/category 两种填写模式）**落在义务 span(68-873) 之外**。若 V1.1 的"窗口内条件清单"只枚举比较/分支（`if $X > $N`），**将系统性漏掉整类表单/校验规则**。裁决候选：条件清单的 material 定义必须含声明式规则对象（props/schema/常量目录），不只分支。
 
+## 条件清单的语言覆盖实测（2026-08-14，用户提问触发；三个真实 run 对照）
+
+同一条件清单机制跑在三个真实 run 上，命中密度差异巨大：
+
+| 项目 | 语言 | 源码窗口 | 条件命中 |
+| -- | -- | -- | -- |
+| WCP | Go/TS/JS | .go 338 / .tsx 91 / .js 76 / .ts 30 | **24**（.go 14、.tsx 6、.js 3、.ts 1） |
+| provital | Perl/Zope | .pm 61 | **5**（.pm 4、.zpt 1） |
+| cebreo | C#/Kotlin | .cs 23 / .kt 14 | **0** |
+
+**机制不依赖 `if`**（匹配的是比较表达式，故 `if`/`while`/三元/guard/`when` 皆可），但依赖两件语言相关的事：
+
+1. **算符集是 C 家族**（`== === != !== >= <= > <`）：覆盖 Go/Java/C#/JS/TS/Python/PHP/Rust/Swift/Kotlin 与 Perl 的**数值**比较；**漏** SQL `=`/`<>`、shell `-ne`/`-gt`（provital 的 `.sh` 里实测存在 `if [ $TABLE_EXISTS_STATUS -ne 0 ]`）、Erlang `=:=`/`/=`、Lisp 前缀 `(> x 40)`、Pascal/VB `=`。
+2. **只匹配数字字面量** → **所有语言的字符串枚举比较全漏**：`status == "approved"`、`role != 'admin'`、Perl `$type eq 'sick'`。**这是最大的洞且与语言无关**，也是 Perl 仅 5 条的主因（Perl 业务规则大量用 `eq`/`ne` 与哈希查表）。
+3. **降噪过滤器亦有 C/英文惯用法偏差**：`len(`/`.length`/`Math.`/`count` 抓不到 Perl 的 `scalar(@a) != 3`、`length($x)`，故 Perl 侧噪声结构不同、过滤失效。
+
+**候选下一片（V1.3，需先校准）**：扩到 ① 字符串/引号字面量比较 ② 非 C 家族算符（SQL `=`/`<>`、shell 测试算符、Perl `eq/ne/gt/lt`）③ 按语言分组的降噪词表。**必须先校准**：字符串字面量会引入新噪声类（日志文案、SQL 片段、URL、CSS 类名），不校准直接上会重犯字面量保真的错误。
+
 ## 批次 57B-393（条件清单）评审产生（Fable 复核，2026-08-14；判定通过，无 must-fix）
 
 四条 should-fix 全部在本片修复（`mentionsLiteral` 小数/分数假绿、STRUCTURAL_LHS camelCase 锚定放行 `discount`/`priceIndex`、magnitude 阈值 1e5→1e8 保住金额上限、去重 consumedBy 取并集），nit 中的测试 fixture 空断言与模块头偏差说明亦已修。剩余记账：
