@@ -13,6 +13,8 @@ import { auditComparativeClaims } from "../assurance/claim-comparison.ts";
 import { auditFreezeOrder, auditFrozenKnowledge, buildKnowledge, freezePreconditions, knowledgeDigest, normalizeSupplement, recordSupplement } from "../assurance/freeze.ts";
 import { atomicWrite, ensureDir, exists, nowIso, readJson, REDACTION_VERSION, runIdTimestamp, sha256, slugify, stableJson, writeJson } from "./util.ts";
 import { logicWorkItems, LOGIC_DISPOSITION_ASSURANCE_GENERATION } from "../assurance/logic-workitems.ts";
+import { readObligations, READ_ACCOUNTABILITY_ASSURANCE_GENERATION } from "../assurance/read-obligations.ts";
+import { auditReadAccountability, reconcileReadCoverage, type ClaimCitation } from "../assurance/read-coverage.ts";
 import { collectClaims, createAnalysisScope, emptyTraceCatalog, mergeTraces, writeReportCompanions } from "../assurance/assurance-artifacts.ts";
 import { scaffoldSectionClaims } from "../assurance/claims-scaffold.ts";
 import { sectionFileStem } from "../assurance/section-slug.ts";
@@ -302,6 +304,12 @@ export async function freezeRun(runDirInput: string): Promise<{ manifest: RunMan
   const traces = await readJson<TraceCatalog>(join(runDir, "traces.json"));
   // Read the frozen fact packs once — the expected-plan logic items and knowledge digest both derive from them.
   const factPacks = await readFrozenFactPacks(runDir, manifest);
+  // Reading accountability (generation 5+): the read-obligation denominator derives from those same frozen
+  // fact packs and is FROZEN as a run artifact rather than recomputed at audit time — a later assurance
+  // change must never silently move the denominator under an already-frozen run.
+  const readAccountable = assuranceGenerationAtLeast(manifest, READ_ACCOUNTABILITY_ASSURANCE_GENERATION);
+  const obligations = readAccountable ? readObligations(Object.values(factPacks) as FeatureFactPack[], plan.items) : null;
+  const readResidual = obligations ? reconcileReadCoverage({ obligations: obligations.obligations, evidence: evidenceCatalog.evidence }) : null;
   const expectedPlan = createInvestigationPlan(manifest.id, manifest.request, manifest.documents);
   // Gate the generative expansion on the run's assurance GENERATION, not exact-version equality: a run
   // prepared under generation 4+ already baked these items, so re-derive them regardless of any later
@@ -314,12 +322,21 @@ export async function freezeRun(runDirInput: string): Promise<{ manifest: RunMan
     snapshotDrift = { snapshotChanged: current.snapshot.id !== manifest.snapshot.id, codegraphChanged: current.snapshot.codegraphDigest !== manifest.snapshot.codegraphDigest };
   }
   const findings = await freezePreconditions({ manifest, plan, expectedPlan, evidence: evidenceCatalog.evidence, evidenceById, traces, documentIds, snapshotDrift });
+  // The reading gate runs at freeze because that is where a false ledger entry is cheapest to fix: the
+  // author simply records the window. Claims do not exist yet, so only the read side is reconciled here.
+  if (obligations && readResidual) {
+    findings.push(...auditReadAccountability({ obligations: obligations.obligations, workItems: plan.items, evidenceById, report: readResidual }));
+  }
   if (findings.some((finding) => finding.level === "error")) return { manifest, findings, frozen: false };
+  if (obligations && readResidual) {
+    await writeJson(join(runDir, "coverage", "read-obligations.json"), obligations);
+    await writeJson(join(runDir, "coverage", "read-residual.json"), readResidual);
+  }
 
   const crossFeaturePath = join(runDir, "context", "cross-feature.json");
   const crossFeature = await exists(crossFeaturePath) ? await readJson<unknown>(crossFeaturePath) : null;
   const frozenAt = nowIso();
-  const knowledge = buildKnowledge({ manifest, plan, evidence: evidenceCatalog.evidence, traces, factPacks, crossFeature, frozenAt });
+  const knowledge = buildKnowledge({ manifest, plan, evidence: evidenceCatalog.evidence, traces, factPacks, crossFeature, frozenAt, readObligations: obligations });
   await writeJson(join(runDir, "knowledge.json"), knowledge);
   // Render the per-document authoring packets from the just-frozen knowledge: a deterministic, model-free
   // view organized by report section that the author reads before writing each section. Regenerable view,
@@ -649,6 +666,19 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
   // Generation-gated (not exact-version): a run that baked these items under generation 4+ must have them
   // re-derived here even after a later assurance/redaction bump, or it would false-fail as `unexpected`.
   const expectedLogicItems = assuranceGenerationAtLeast(manifest, LOGIC_DISPOSITION_ASSURANCE_GENERATION) ? logicWorkItems(Object.values(factPacks), manifest.documents).items : [];
+  // Reading accountability: reconcile against the FROZEN denominator, never a recomputed one — self-gated on
+  // the artifact existing, so a legacy, unfrozen or pre-generation-5 run is untouched. The consumption side
+  // (which claim cites the window) can only be evaluated here, after authoring, so the residual is rewritten
+  // with it; the read side was already recorded at freeze.
+  const obligationsPath = join(runDir, "coverage", "read-obligations.json");
+  if (await exists(obligationsPath)) {
+    const frozenObligations = await readJson<{ obligations: Parameters<typeof reconcileReadCoverage>[0]["obligations"] }>(obligationsPath);
+    const claimCitations: ClaimCitation[] = [...claimsByDocument.entries()].flatMap(([documentId, entries]) =>
+      entries.map(({ claim }) => ({ ref: `${documentId}#${claim.id}`, evidenceIds: claim.evidenceIds ?? [] })));
+    const readResidual = reconcileReadCoverage({ obligations: frozenObligations.obligations, evidence: evidenceCatalog.evidence, claims: claimCitations });
+    await writeJson(join(runDir, "coverage", "read-residual.json"), readResidual);
+    findings.push(...runWide(auditReadAccountability({ obligations: frozenObligations.obligations, workItems: plan.items, evidenceById, report: readResidual })));
+  }
   const expectedPlan = createInvestigationPlan(manifest.id, manifest.request, manifest.documents);
   expectedPlan.items.push(...expectedLogicItems);
   findings.push(...runWide(auditWorkItems(plan, expectedPlan, evidenceById, traceIds)));

@@ -33,12 +33,15 @@ export interface AuditFinding {
  * that was authored without — or before — an `investigation.frozen` event); `v4` promotes each rescued
  * `logic` fact-pack function into a disposable work item (the plan, freeze expected-plan and audit
  * expected-plan/checklist all expand from that one derivation), so an undisposed material decision
- * function blocks freeze and audit.
+ * function blocks freeze and audit; `v5` adds READING accountability — a frozen read-obligation
+ * denominator (every in-boundary decision function with its span), reconciliation against the windows
+ * actually opened, a hard gate rejecting a `found` disposition whose citations never touch the function
+ * it reports, and an advisory residual for what was left unread.
  * A run stamps this at prepare (`manifest.assuranceVersion`); audit uses it to gate those strict
  * checks: only runs prepared under the current version are held to them, while older or field-less
  * runs are grandfathered so a later redaction/check bump never retroactively fails them.
  */
-export const ASSURANCE_VERSION = `assurance-v4-${REDACTION_VERSION}`;
+export const ASSURANCE_VERSION = `assurance-v5-${REDACTION_VERSION}`;
 
 /** Strict re-derivation checks apply only to runs prepared under exactly the current version. */
 export function runUsesCurrentAssurance(manifest: RunManifest): boolean {
