@@ -29,9 +29,10 @@ test("an inner paragraph separated by a blank line renders as <p>", () => {
 });
 
 test("an inner evidence-marker code span becomes a tag chip", () => {
-  const block = "<details>\n<summary>依据</summary>\n\nThe comparison is a `事实`.\n\n</details>";
+  const block = "<details>\n<summary>依据</summary>\n\nThe comparison is a `fact`.\n\n</details>";
   const html = renderMarkdown(block);
-  assert.match(html, /class="tag fact"/, "the marker renders as a tag chip inside the block");
+  // The chip shows the report's own marker word; `fact` is the neutral English built-in vocabulary.
+  assert.match(html, /<span class="tag fact">fact<\/span>/, "the marker renders as a tag chip inside the block");
 });
 
 test("a whole <details>…</details> on a single line passes through as raw HTML (no re-render)", () => {

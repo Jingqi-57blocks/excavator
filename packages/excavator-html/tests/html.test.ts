@@ -18,7 +18,7 @@ test("HTML navigation is generated only from supplied Markdown modules", async (
   const reports = join(root, "reports");
   const output = join(root, "site");
   await import("node:fs/promises").then(({ mkdir }) => mkdir(reports));
-  await writeFile(join(reports, "product-overview.md"), `---\ntitle: 项目概览（非技术）\nnavTitle: 产品概览\nkind: overview\naudience: product\norder: 10\nlanguage: zh-CN\n---\n# 项目概览（非技术）\n\n## 1. 项目定位\n\n这是事实。\`事实\`\n\n\`\`\`mermaid\nflowchart LR\nA --> B\n\`\`\`\n`);
+  await writeFile(join(reports, "product-overview.md"), `---\ntitle: 项目概览（非技术）\nnavTitle: 产品概览\nkind: overview\naudience: product\norder: 10\nlanguage: zh-CN\nmarkerFact: 事实\n---\n# 项目概览（非技术）\n\n## 1. 项目定位\n\n这是事实。\`事实\`\n\n\`\`\`mermaid\nflowchart LR\nA --> B\n\`\`\`\n`);
   await writeFile(join(reports, "access-product.md"), `---\ntitle: Account access (product)\nnavTitle: Account access\nkind: feature\naudience: product\norder: 20\nlanguage: zh-CN\n---\n# Account access\n\n## 1. 功能边界\n\n<details><summary>依据</summary><p>source</p></details>\n`);
   const result = await buildSite({ inputs: [reports], output, title: "Project reports" });
   assert.deepEqual(result.pages.map((page) => page.output), ["index.html", "access-product.html"]);
@@ -82,7 +82,7 @@ test("omitting --output errors for a file input or multiple inputs", async () =>
   await assert.rejects(buildSite({ inputs: [reports, reports] }), /--output is required/, "multiple inputs have no unambiguous default output");
 });
 
-test("aria labels follow the report language", async () => {
+test("UI chrome (aria labels) is neutral English regardless of report language — no per-language template", async () => {
   const root = await temp();
   const zhOut = join(root, "zh");
   const enOut = join(root, "en");
@@ -93,11 +93,14 @@ test("aria labels follow the report language", async () => {
   await writeFile(join(zhReports, "overview.md"), page({ title: "概览", navTitle: "概览", kind: "overview", audience: "product", order: "1", language: "zh-CN" }, "概览"));
   await writeFile(join(enReports, "overview.md"), page({ title: "Overview", navTitle: "Overview", kind: "overview", audience: "product", order: "1", language: "en-US" }, "Overview"));
 
+  // A zh report gets the SAME neutral English chrome — the report content carries the language, the
+  // chrome is not a maintained zh/en translation table.
   await buildSite({ inputs: [zhReports], output: zhOut, title: "zh" });
   const zh = await readFile(join(zhOut, "index.html"), "utf8");
-  assert.match(zh, /aria-label="报告模块"/);
-  assert.match(zh, /aria-label="本页目录"/);
-  assert.match(zh, /aria-label="返回顶部"/);
+  assert.match(zh, /aria-label="Report modules"/);
+  assert.match(zh, /aria-label="Table of contents"/);
+  assert.match(zh, /aria-label="Back to top"/);
+  assert.doesNotMatch(zh, /aria-label="报告模块"|aria-label="本页目录"|aria-label="返回顶部"/);
 
   await buildSite({ inputs: [enReports], output: enOut, title: "en" });
   const en = await readFile(join(enOut, "index.html"), "utf8");
@@ -106,17 +109,16 @@ test("aria labels follow the report language", async () => {
   assert.match(en, /aria-label="Back to top"/);
 });
 
-// Build an overview page carrying every evidence marker plus a feature page (so the module-hub renders),
-// with the SOURCE tokens deliberately crossed against the report language: the en report authors its
-// markers in Chinese and the zh report in English. A pass therefore proves the emitted text follows the
-// `language` front matter, not the source token — it cannot regress to echoing input or hardcoding either
-// language. `body` is a paragraph the renderer keeps (the leading `#` heading is stripped by renderPage).
+// An evidence chip DISPLAYS the report's own marker word; the concept class comes from the report's
+// marker vocabulary — the neutral English built-in, or a front-matter `markerFact: …` declaration for
+// any other language. Chrome is neutral English. This proves there is no hard-coded per-language label
+// table. `body` is a paragraph the renderer keeps (the leading `#` heading is stripped by renderPage).
 function reportPage(meta: Record<string, string>, heading: string, body: string): string {
   const front = Object.entries(meta).map(([key, value]) => `${key}: ${value}`).join("\n");
   return `---\n${front}\n---\n# ${heading}\n\n## ${heading}\n\n${body}\n`;
 }
 
-test("evidence markers and UI chrome follow the report language, not the source token", async () => {
+test("evidence chip shows the report's OWN marker word (built-in EN or declared vocabulary); chrome is neutral English", async () => {
   const root = await temp();
   const enReports = join(root, "en-src");
   const zhReports = join(root, "zh-src");
@@ -125,44 +127,29 @@ test("evidence markers and UI chrome follow the report language, not the source 
   await mkdir(enReports);
   await mkdir(zhReports);
 
-  // en report: markers authored in Chinese in the source — must still render as the English words.
-  await writeFile(join(enReports, "overview.md"), reportPage({ title: "Overview", navTitle: "Overview", kind: "overview", audience: "product", order: "1", language: "en-US" }, "Overview", "Markers: `事实` `推断` `验证` `不可得`."));
+  // en report: English markers are the neutral built-in vocabulary — no declaration needed.
+  await writeFile(join(enReports, "overview.md"), reportPage({ title: "Overview", navTitle: "Overview", kind: "overview", audience: "product", order: "1", language: "en-US" }, "Overview", "Markers: `fact` `inferred` `verified` `unavailable`."));
   await writeFile(join(enReports, "feature.md"), reportPage({ title: "Feature one", navTitle: "Feature one", kind: "feature", audience: "product", order: "2", language: "en-US" }, "Feature one", "Body."));
   await buildSite({ inputs: [enReports], output: enOut, title: "Reports" });
   const en = await readFile(join(enOut, "index.html"), "utf8");
-  // Markers render as the English words, classes unchanged.
   assert.match(en, /<span class="tag fact">fact<\/span>/);
   assert.match(en, /<span class="tag infer">inferred<\/span>/);
   assert.match(en, /<span class="tag verify">verified<\/span>/);
   assert.match(en, /<span class="tag unavailable">unavailable<\/span>/);
-  // Chrome renders in English.
   assert.match(en, /<h2>Feature modules<\/h2>/);
   assert.match(en, /class="sidebar-label">On this page</);
-  assert.match(en, /Diagrams could not be rendered\. Reconnect and reload\./);
-  assert.match(en, /<strong>Diagram detail<\/strong>/);
-  assert.match(en, /class="dialog-close">Close</);
-  // Nothing Chinese survives anywhere in an en-US report — catches a leaked source token or hardcoded chrome.
-  assert.doesNotMatch(en, /[一-鿿]/, "no Chinese survives in an en-US report");
 
-  // zh report: markers authored in English in the source — must still render as the Chinese words.
-  await writeFile(join(zhReports, "overview.md"), reportPage({ title: "概览", navTitle: "概览", kind: "overview", audience: "product", order: "1", language: "zh-CN" }, "概览", "标记：`fact` `inferred` `verified` `unavailable`。"));
+  // zh report: declares its marker vocabulary in front matter; chips show the report's OWN words, the
+  // concept classes are unchanged, and the chrome stays neutral English (no hard-coded Chinese chrome).
+  await writeFile(join(zhReports, "overview.md"), reportPage({ title: "概览", navTitle: "概览", kind: "overview", audience: "product", order: "1", language: "zh-CN", markerFact: "事实", markerInferred: "推断", markerVerified: "验证", markerUnavailable: "不可得" }, "概览", "标记：`事实` `推断` `验证` `不可得`。"));
   await writeFile(join(zhReports, "feature.md"), reportPage({ title: "功能一", navTitle: "功能一", kind: "feature", audience: "product", order: "2", language: "zh-CN" }, "功能一", "正文。"));
   await buildSite({ inputs: [zhReports], output: zhOut, title: "报告" });
   const zh = await readFile(join(zhOut, "index.html"), "utf8");
-  // Markers render as the Chinese words, classes unchanged.
   assert.match(zh, /<span class="tag fact">事实<\/span>/);
   assert.match(zh, /<span class="tag infer">推断<\/span>/);
   assert.match(zh, /<span class="tag verify">验证<\/span>/);
   assert.match(zh, /<span class="tag unavailable">不可得<\/span>/);
-  // Chrome renders in Chinese.
-  assert.match(zh, /<h2>功能模块<\/h2>/);
-  assert.match(zh, /class="sidebar-label">本页目录</);
-  assert.match(zh, /图表无法渲染。请连接网络后重新加载。/);
-  assert.match(zh, /<strong>图表详情<\/strong>/);
-  assert.match(zh, /class="dialog-close">关闭</);
-  // The English source tokens must not survive as chip text, nor English chrome leak in.
-  assert.doesNotMatch(zh, />fact<\/span>/);
-  assert.doesNotMatch(zh, />inferred<\/span>/);
-  assert.doesNotMatch(zh, /On this page|Feature modules|Diagram detail|Reconnect and reload/);
-  assert.doesNotMatch(zh, /class="dialog-close">Close</);
+  // Chrome stays neutral English even for a zh report; no hard-coded Chinese chrome leaks in.
+  assert.match(zh, /class="sidebar-label">On this page</);
+  assert.doesNotMatch(zh, /本页目录|功能模块|图表详情|图表无法渲染|返回顶部/);
 });
