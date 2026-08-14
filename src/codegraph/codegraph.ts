@@ -1,4 +1,7 @@
 import { DatabaseSync } from "node:sqlite";
+
+/** node:sqlite bind-parameter value type (not exported by the module, mirrored here for the cast). */
+type SqlBindValue = null | number | bigint | string | Uint8Array;
 import type { GraphEdge, GraphFile, GraphNode } from "../core/types.ts";
 import { Deadline, sha256, stableJson } from "../core/util.ts";
 
@@ -93,7 +96,7 @@ export class CodeGraphIndex implements GraphReader {
       return cached as T[];
     }
     this.budget.spend();
-    const rows = this.db.prepare(sql).all(...params) as T[];
+    const rows = this.db.prepare(sql).all(...(params as SqlBindValue[])) as T[];
     this.cache.set(key, rows);
     return rows;
   }

@@ -59,7 +59,7 @@ test("prepare persists analysis scope, provider registry, work items, traces and
   const providers = JSON.parse(await readFile(join(runDir, "provider-status.json"), "utf8"));
   const workitems = JSON.parse(await readFile(join(runDir, "workitems.json"), "utf8"));
   const traces = JSON.parse(await readFile(join(runDir, "traces.json"), "utf8"));
-  const timeline = (await readFile(join(runDir, "timeline.jsonl"), "utf8")).trim().split("\n").map(JSON.parse);
+  const timeline = (await readFile(join(runDir, "timeline.jsonl"), "utf8")).trim().split("\n").map((line) => JSON.parse(line));
   assert.equal(scope.snapshotId, manifest.snapshot?.id);
   assert.equal(scope.providerRegistryDigest, providers.digest);
   assert.ok(providers.providers.some((provider: any) => provider.id === "source" && provider.selected));

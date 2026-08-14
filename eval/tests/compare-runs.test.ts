@@ -110,14 +110,14 @@ test("anchor alignment rule: same path overlapping = same fact; same path disjoi
 test("diffAnchors treats an overlapping same-path window as retained but a disjoint one as gained/lost", () => {
   const a: Knowledge = {
     runDir: "A", relations: [], coverage: [], unknowns: [], prepareHorizon: { files: [], scopeText: "" },
-    facts: [{ ref: "d#c1", documentId: "d", claimId: "c1", statement: "", marker: "fact", windows: [
+    facts: [{ ref: "d#c1", documentId: "d", claimId: "c1", statement: "", marker: "fact", citedEvidenceCount: 0, searchEvidence: [], windows: [
       { id: "S-1", path: "svc/x.ts", startLine: 10, endLine: 20 },
       { id: "S-2", path: "svc/x.ts", startLine: 100, endLine: 120 }
     ] }]
   };
   const b: Knowledge = {
     runDir: "B", relations: [], coverage: [], unknowns: [], prepareHorizon: { files: [], scopeText: "" },
-    facts: [{ ref: "d#c9", documentId: "d", claimId: "c9", statement: "", marker: "fact", windows: [
+    facts: [{ ref: "d#c9", documentId: "d", claimId: "c9", statement: "", marker: "fact", citedEvidenceCount: 0, searchEvidence: [], windows: [
       { id: "S-9", path: "svc/x.ts", startLine: 15, endLine: 25 },  // overlaps A's 10-20 -> retained
       { id: "S-8", path: "svc/x.ts", startLine: 300, endLine: 330 } // disjoint on same path -> gained
     ] }]
