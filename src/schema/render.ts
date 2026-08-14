@@ -147,7 +147,9 @@ export function renderSchema(extraction: SchemaExtraction, options: RenderOption
   for (const table of extraction.tables) {
     out.push(`### ${table.name}`, "");
     out.push(table.description && table.description.trim() ? table.description : l.noDescription, "");
-    out.push(`_${l.declaredIn}: ${declarationList(table)}_`, "");
+    out.push("<details>", `<summary>${l.declaredIn}</summary>`, "");
+    for (const ref of declarationRefs(table)) out.push(`- ${ref}`);
+    out.push("", "</details>", "");
     const uniqueCols = uniqueColumnSet(table);
     out.push(`| ${l.colColumn} | ${l.colType} | ${l.colNullable} | ${l.colDefault} | ${l.colKey} | ${l.colSource} |`);
     out.push("| --- | --- | --- | --- | --- | --- |");
@@ -226,7 +228,8 @@ function uniqueColumnSet(table: TableSchema): Set<string> {
   return set;
 }
 
-function declarationList(table: TableSchema): string {
+/** Deduplicated, sorted `file:line` declaration sites for one table (DASH when none). */
+function declarationRefs(table: TableSchema): string[] {
   const seen = new Set<string>();
   const refs: string[] = [];
   for (const decl of table.declarations) {
@@ -237,7 +240,7 @@ function declarationList(table: TableSchema): string {
     }
   }
   refs.sort(cmp);
-  return refs.length ? refs.join(", ") : DASH;
+  return refs.length ? refs : [DASH];
 }
 
 function relationshipLine(rel: RelationshipSchema): string {
