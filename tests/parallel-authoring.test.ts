@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
 import { readFile, rm, writeFile } from "node:fs/promises";
-import type { EvidenceItem, RunManifest, SectionClaim, TimelineEvent } from "../src/core/types.ts";
+import type { EvidenceItem, ReportRequest, RunManifest, SectionClaim, TimelineEvent } from "../src/core/types.ts";
 import { assembleRun, auditRun, beginDocument, checkpointSection, freezeRun, prepareRun, resumeRun, runStatus } from "../src/core/run.ts";
 import { collectDrafts, draftSection } from "../src/assurance/parallel-authoring.ts";
 import { auditTimeline, readTimeline } from "../src/assurance/timeline.ts";
@@ -19,20 +19,20 @@ import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, tempDir } fro
 
 const BUDGETS = { prepareMs: 30_000, authorMs: 30_000, maxGraphQueries: 40, maxSourceWindows: 50, maxSourceCharacters: 120_000, maxFiles: 10_000, maxFeatureNodes: 80, maxExpansionDepth: 2 };
 
-async function overviewRequest(overrides: Partial<typeof BUDGETS> = {}) {
+async function overviewRequest(overrides: Partial<typeof BUDGETS> = {}): Promise<ReportRequest> {
   const target = await copyFixture();
   const workdir = await tempDir();
   const codegraph = join(workdir, "codegraph.db");
   createCodeGraphFixture(codegraph);
-  return { target, codegraph, workdir, language: "zh-CN", detailLevel: "standard" as const, overviewAudiences: ["product"] as const, features: [], budgets: { ...BUDGETS, ...overrides } };
+  return { target, codegraph, workdir, language: "zh-CN", detailLevel: "standard", overviewAudiences: ["product"], features: [], budgets: { ...BUDGETS, ...overrides } };
 }
 
-async function twoDocRequest() {
+async function twoDocRequest(): Promise<ReportRequest> {
   const target = await copyFixture();
   const workdir = await tempDir();
   const codegraph = join(workdir, "codegraph.db");
   createCodeGraphFixture(codegraph);
-  return { target, codegraph, workdir, language: "zh-CN", detailLevel: "standard" as const, overviewAudiences: ["product", "engineering"] as const, features: [], budgets: BUDGETS };
+  return { target, codegraph, workdir, language: "zh-CN", detailLevel: "standard", overviewAudiences: ["product", "engineering"], features: [], budgets: BUDGETS };
 }
 
 function sectionText(title: string, index: number, evidenceId: string): string {

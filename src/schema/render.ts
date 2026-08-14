@@ -6,8 +6,12 @@
  * isolated tables, unsupported formats, warnings) is sorted before printing, and NOTHING wall-clock
  * (no timestamp) enters the output. Rendering the same extraction twice yields byte-identical text.
  *
- * Zero model calls, zero npm deps. Two fixed label sets (`en-US` default, `zh-CN`) localize the
- * headings and column headers only — never the recovered facts, which are printed verbatim.
+ * Zero model calls, zero npm deps. This renders the LANGUAGE-NEUTRAL structure (headings, column
+ * headers, engine/scale/index, legend) in one fixed English set — the recovered facts are language
+ * neutral anyway (identifiers, type strings, PK/UQ/FK marks). Localizing the NARRATIVE — the per-table
+ * business descriptions and any target-language prose — is the authoring layer's job (an AI writing
+ * from `db-schema.json`), never a hard-coded per-language template here. Adding a language costs no
+ * code: descriptions arrive already written in the target language via injection.
  *
  * Honesty rules mirrored from the data model: an undeclared nullability renders `—` (never a
  * fabricated boolean); a column whose NAME was derived by a naming strategy gets a trailing `*` and a
@@ -24,11 +28,6 @@ import type {
   TableSchema,
   UnsupportedFormat,
 } from "./types.ts";
-
-export interface RenderOptions {
-  /** "en-US" (default) or "zh-CN". The caller validates the tag; anything else is treated as English. */
-  language?: string;
-}
 
 const DASH = "—";
 
@@ -61,75 +60,46 @@ interface Labels {
   noWarnings: string;
 }
 
-function labelsFor(language: string | undefined): Labels {
-  if ((language ?? "").toLowerCase().startsWith("zh")) {
-    return {
-      title: "数据库设计",
-      target: "目标",
-      gitHead: "Git HEAD",
-      sources: "来源",
-      fileWord: (n) => `${n} 个文件`,
-      coverage: (tables, formats) => `覆盖：从 ${formats} 恢复 ${tables} 张表`,
-      noSources: "未发现任何可解析的 schema 来源。",
-      tablesHeading: "表",
-      declaredIn: "声明于",
-      colColumn: "列",
-      colType: "类型",
-      colNullable: "可空",
-      colDefault: "默认值",
-      colKey: "键",
-      colSource: "来源",
-      yes: "是",
-      no: "否",
-      noDescription: "（暂无描述）",
-      nameDerivedFootnote: "`*` 列名由源格式的默认命名策略推导（源码中并未逐字书写）。",
-      relationshipsHeading: "关系",
-      noRelationships: "未声明任何关系。",
-      isolatedNote: "无已声明关系的表",
-      unsupportedHeading: "不支持的格式",
-      noUnsupported: "未发现不支持的 schema 格式。",
-      warningsHeading: "警告",
-      noWarnings: "无警告。",
-    };
-  }
-  return {
-    title: "Database Design",
-    target: "Target",
-    gitHead: "Git HEAD",
-    sources: "Sources",
-    fileWord: (n) => `${n} file${n === 1 ? "" : "s"}`,
-    coverage: (tables, formats) => `Coverage: ${tables} table${tables === 1 ? "" : "s"} recovered from ${formats}`,
-    noSources: "No parseable schema sources were discovered.",
-    tablesHeading: "Tables",
-    declaredIn: "Declared in",
-    colColumn: "column",
-    colType: "type",
-    colNullable: "nullable",
-    colDefault: "default",
-    colKey: "key",
-    colSource: "source",
-    yes: "yes",
-    no: "no",
-    noDescription: "(no description provided)",
-    nameDerivedFootnote: "`*` Column name derived by the source format's default naming strategy (not written verbatim in source).",
-    relationshipsHeading: "Relationships",
-    noRelationships: "No declared relationships.",
-    isolatedNote: "Tables with no declared relationship",
-    unsupportedHeading: "Unsupported formats",
-    noUnsupported: "No unsupported schema formats were located.",
-    warningsHeading: "Warnings",
-    noWarnings: "No warnings.",
-  };
-}
+// One neutral (English) label set. Language-dependent NARRATIVE (per-table descriptions, localized
+// prose) is supplied by the authoring layer, not branched here — so any language works with no code.
+const LABELS: Labels = {
+  title: "Database Design",
+  target: "Target",
+  gitHead: "Git HEAD",
+  sources: "Sources",
+  fileWord: (n) => `${n} file${n === 1 ? "" : "s"}`,
+  coverage: (tables, formats) => `Coverage: ${tables} table${tables === 1 ? "" : "s"} recovered from ${formats}`,
+  noSources: "No parseable schema sources were discovered.",
+  tablesHeading: "Tables",
+  declaredIn: "Declared in",
+  colColumn: "column",
+  colType: "type",
+  colNullable: "nullable",
+  colDefault: "default",
+  colKey: "key",
+  colSource: "source",
+  yes: "yes",
+  no: "no",
+  noDescription: "(no description provided)",
+  nameDerivedFootnote: "`*` Column name derived by the source format's default naming strategy (not written verbatim in source).",
+  relationshipsHeading: "Relationships",
+  noRelationships: "No declared relationships.",
+  isolatedNote: "Tables with no declared relationship",
+  unsupportedHeading: "Unsupported formats",
+  noUnsupported: "No unsupported schema formats were located.",
+  warningsHeading: "Warnings",
+  noWarnings: "No warnings.",
+};
 
 /** Render a full `database-design.md` document. Byte-identical on rerun for the same extraction. */
-export function renderSchema(extraction: SchemaExtraction, options: RenderOptions = {}): string {
-  const l = labelsFor(options.language);
+export function renderSchema(extraction: SchemaExtraction): string {
+  const l = LABELS;
   const out: string[] = [];
 
   out.push(`# ${l.title}`, "");
   out.push(`- ${l.target}: ${extraction.target}`);
   if (extraction.gitHead) out.push(`- ${l.gitHead}: ${extraction.gitHead}`);
+  out.push(`- Database engine: ${engineLine(extraction.engine)}`);
 
   const sources = extraction.sources.slice().sort((a, b) => cmp(a.format, b.format));
   out.push(`- ${l.sources}:`);
@@ -141,13 +111,17 @@ export function renderSchema(extraction: SchemaExtraction, options: RenderOption
   const formatList = sources.map((s) => s.format).join(", ") || DASH;
   out.push(`- ${l.coverage(extraction.tables.length, formatList)}`, "");
 
+  out.push(...overviewSection(extraction));
+
   // Tables
   out.push(`## ${l.tablesHeading}`, "");
   let anyDerived = false;
   for (const table of extraction.tables) {
     out.push(`### ${table.name}`, "");
     out.push(table.description && table.description.trim() ? table.description : l.noDescription, "");
-    out.push(`_${l.declaredIn}: ${declarationList(table)}_`, "");
+    out.push("<details>", `<summary>${l.declaredIn}</summary>`, "");
+    for (const ref of declarationRefs(table)) out.push(`- ${ref}`);
+    out.push("", "</details>", "");
     const uniqueCols = uniqueColumnSet(table);
     out.push(`| ${l.colColumn} | ${l.colType} | ${l.colNullable} | ${l.colDefault} | ${l.colKey} | ${l.colSource} |`);
     out.push("| --- | --- | --- | --- | --- | --- |");
@@ -195,6 +169,47 @@ export function renderSchema(extraction: SchemaExtraction, options: RenderOption
   return `${out.join("\n").replace(/\n+$/, "")}\n`;
 }
 
+/** One-line engine summary for the header: name + confidence + first evidence + weaker alternatives. */
+function engineLine(engine: SchemaExtraction["engine"]): string {
+  if (!engine) return "could not be determined from source";
+  const first = engine.evidence[0];
+  const ref = first ? `${first.file}${first.line ? `:${first.line}` : ""}` : "";
+  const evText = ref ? ` (per ${ref})` : "";
+  const alt = engine.alternatives.length ? `; also seen: ${engine.alternatives.join(" / ")}` : "";
+  return `${engine.name} (${engine.confidence})${evText}${alt}`;
+}
+
+/** The at-a-glance Overview section: scale, type-vocabulary note, warning summary, legend, table index. */
+function overviewSection(extraction: SchemaExtraction): string[] {
+  const out: string[] = [];
+  const tables = extraction.tables.length;
+  const columns = extraction.tables.reduce((n, table) => n + table.columns.length, 0);
+  const rels = extraction.relationships.length;
+  const isolated = isolatedTables(extraction).length;
+
+  out.push("## Overview", "");
+  out.push(`- Scale: ${tables} tables · ${columns} columns · ${rels} relationships (FK) · ${isolated} tables with no declared relationship`);
+  out.push("- Type labels: a `go:` / `sequelize:` prefix marks the source type vocabulary (vocabularies are not comparable); `sql` is a physical type, printed bare");
+  out.push(`- Cross-source disagreements: ${warningSummary(extraction.warnings)}`);
+  out.push("- Legend: PK primary key · UQ unique · AI auto-increment · FK foreign key · `*` column name derived by a naming strategy · `—` not declared in source");
+  out.push("- Generation: deterministic extraction (zero-model, read-only source); all column facts come from source, per-table descriptions are injected by an authoring step");
+  out.push("");
+
+  out.push("### Table index", "");
+  out.push(tables ? extraction.tables.map((table) => `\`${table.name}\``).join(" · ") : "(no tables)");
+  out.push("");
+  return out;
+}
+
+/** Total warning count + top kinds, pointing at the Warnings appendix. */
+function warningSummary(warnings: SchemaWarning[]): string {
+  if (!warnings.length) return "none";
+  const byKind = new Map<string, number>();
+  for (const warning of warnings) byKind.set(warning.kind, (byKind.get(warning.kind) ?? 0) + 1);
+  const top = [...byKind.entries()].sort((a, b) => b[1] - a[1] || cmp(a[0], b[0])).slice(0, 6);
+  return `${warnings.length} (${top.map(([kind, n]) => `${kind} ${n}`).join(", ")}), see Warnings below`;
+}
+
 function renderColumnRow(column: ColumnSchema, uniqueCols: Set<string>, l: Labels): string {
   const name = column.nameDerived ? `${column.name}*` : column.name;
   const nullable = column.nullable === undefined ? DASH : column.nullable ? l.yes : l.no;
@@ -226,7 +241,8 @@ function uniqueColumnSet(table: TableSchema): Set<string> {
   return set;
 }
 
-function declarationList(table: TableSchema): string {
+/** Deduplicated, sorted `file:line` declaration sites for one table (DASH when none). */
+function declarationRefs(table: TableSchema): string[] {
   const seen = new Set<string>();
   const refs: string[] = [];
   for (const decl of table.declarations) {
@@ -237,7 +253,7 @@ function declarationList(table: TableSchema): string {
     }
   }
   refs.sort(cmp);
-  return refs.length ? refs.join(", ") : DASH;
+  return refs.length ? refs : [DASH];
 }
 
 function relationshipLine(rel: RelationshipSchema): string {

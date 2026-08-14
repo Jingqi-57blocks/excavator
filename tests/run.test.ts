@@ -16,7 +16,6 @@ async function makeRequest(authorMs = 30_000): Promise<ReportRequest> {
   createCodeGraphFixture(db);
   return {
     target, codegraph: db, workdir, language: "zh-CN", detailLevel: "standard",
-    detailLevel: "standard",
     overviewAudiences: ["product", "engineering"],
     features: [
       { subject: "请假管理", aliases: ["leave", "holiday"], audiences: ["product", "engineering"] },

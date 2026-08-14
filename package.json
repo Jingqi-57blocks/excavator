@@ -18,10 +18,27 @@
     "test": "node --experimental-strip-types --test tests/*.test.ts packages/excavator-html/tests/*.test.ts eval/tests/*.test.ts",
     "test:unit": "node --experimental-strip-types --test tests/*.test.ts packages/excavator-html/tests/*.test.ts eval/tests/*.test.ts",
     "test:workspace": "node --experimental-strip-types tests/workspace-smoke.ts",
-    "check": "node --experimental-strip-types src/cli.ts help >/dev/null && npm test"
+    "typecheck": "tsc --noEmit",
+    "check": "node --experimental-strip-types src/cli.ts help >/dev/null && pnpm test"
   },
   "dependencies": {
     "tree-sitter": "^0.25.1",
     "tree-sitter-perl": "^1.2.1"
+  },
+  "packageManager": "pnpm@10.12.2",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "tree-sitter",
+      "tree-sitter-perl"
+    ],
+    "peerDependencyRules": {
+      "allowedVersions": {
+        "tree-sitter": "0.25"
+      }
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.1",
+    "typescript": "^7.0.2"
   }
 }

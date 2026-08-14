@@ -16,21 +16,33 @@ export function parseFrontMatter(input: string): MarkdownDocument {
   return { metadata, body: normalized.slice(end + 5) };
 }
 
-/** The report `language` front matter selects Chinese vs. the English default for all rendered UI text. */
-export function isZhLanguage(language: string | undefined): boolean {
-  return (language ?? "").toLowerCase().startsWith("zh");
+/**
+ * Evidence-marker vocabulary → CSS concept class. There is NO hard-coded per-language label here: an
+ * evidence chip DISPLAYS the report's own marker word (whatever the author wrote — `事实`, `fact`,
+ * `faits`), and this map only says which concept (and colour) a word denotes. English is the neutral
+ * built-in; any other language is declared by the report's own front matter (`markerFact: 事实`, …),
+ * so a new language costs no code. Keys are lower-cased marker words; values are the CSS class.
+ */
+export function markerMap(metadata: Record<string, string> = {}): Map<string, string> {
+  const map = new Map<string, string>([
+    ["fact", "fact"],
+    ["inferred", "infer"],
+    ["inference", "infer"],
+    ["verified", "verify"],
+    ["unavailable", "unavailable"],
+  ]);
+  const declare = (key: string, cls: string): void => {
+    const word = metadata[key]?.trim().toLowerCase();
+    if (word) map.set(word, cls);
+  };
+  declare("markerFact", "fact");
+  declare("markerInferred", "infer");
+  declare("markerVerified", "verify");
+  declare("markerUnavailable", "unavailable");
+  return map;
 }
 
-/** Visible text of the four evidence-marker chips, in the report language (English is the default). */
-export interface MarkerLabels { fact: string; infer: string; verify: string; unavailable: string; }
-function markerLabels(language: string | undefined): MarkerLabels {
-  return isZhLanguage(language)
-    ? { fact: "事实", infer: "推断", verify: "验证", unavailable: "不可得" }
-    : { fact: "fact", infer: "inferred", verify: "verified", unavailable: "unavailable" };
-}
-
-export function renderMarkdown(markdown: string, language?: string): string {
-  const markers = markerLabels(language);
+export function renderMarkdown(markdown: string, markers: Map<string, string> = markerMap()): string {
   const lines = markdown.replace(/\r\n/g, "\n").split("\n");
   const out: string[] = [];
   let index = 0;
@@ -75,7 +87,7 @@ export function renderMarkdown(markdown: string, language?: string): string {
       }
       // Everything after the summary is real markdown (lists, tables, paragraphs, tag chips) and is
       // rendered recursively — renderMarkdown is a pure function and safely reentrant.
-      const inner = renderMarkdown(content.slice(bodyStart).join("\n"), language);
+      const inner = renderMarkdown(content.slice(bodyStart).join("\n"), markers);
       if (inner) parts.push(inner);
       parts.push(closeLine);
       out.push(parts.join("\n"));
@@ -143,17 +155,12 @@ export function renderMarkdown(markdown: string, language?: string): string {
     index += 1;
     while (index < lines.length && lines[index].trim() && !isBlockStart(lines, index)) { paragraph.push(lines[index]); index += 1; }
     const text = paragraph.join(" ").trim();
-    if (/^\*\*(所以呢|这意味着什么|What this means|Conclusion|核心结论)\*\*/i.test(text)) {
-      const match = text.match(/^\*\*(.+?)\*\*\s*(.*)$/s)!;
-      out.push(`<div class="conclusion-callout"><div class="conclusion-title">${inline(match[1], markers)}</div><p>${inline(match[2], markers)}</p></div>`);
-    } else if (/^\*\*(警告|注意|限制|Warning|Note)\*\*/i.test(text)) {
-      out.push(`<div class="warning-box">${inline(text, markers)}</div>`);
-    } else out.push(`<p>${inline(text, markers)}</p>`);
+    out.push(`<p>${inline(text, markers)}</p>`);
   }
   return out.join("\n");
 }
 
-function paragraphs(value: string, markers: MarkerLabels): string { return value.split(/\n{2,}/).map((part) => `<p>${inline(part.replace(/\n/g, " "), markers)}</p>`).join(""); }
+function paragraphs(value: string, markers: Map<string, string>): string { return value.split(/\n{2,}/).map((part) => `<p>${inline(part.replace(/\n/g, " "), markers)}</p>`).join(""); }
 
 function isBlockStart(lines: string[], index: number): boolean {
   const line = lines[index];
@@ -173,15 +180,13 @@ function isTableHeader(lines: string[], index: number): boolean {
 
 function splitTableRow(line: string): string[] { return line.trim().replace(/^\||\|$/g, "").split("|").map((cell) => cell.trim()); }
 
-function inline(input: string, markers: MarkerLabels): string {
+function inline(input: string, markers: Map<string, string>): string {
   const placeholders: string[] = [];
-  // Both English and Chinese tokens are accepted as input; only the emitted chip text follows `language`.
+  // An evidence chip displays the report's OWN marker word; the map only supplies its concept class.
+  // A backtick token that is not a declared marker stays ordinary inline code.
   let value = input.replace(/`([^`]+)`/g, (_, code: string) => {
-    const token = code.trim().toLowerCase();
-    if (["事实", "fact"].includes(token)) return stash(`<span class="tag fact">${markers.fact}</span>`);
-    if (["推断", "inferred", "inference"].includes(token)) return stash(`<span class="tag infer">${markers.infer}</span>`);
-    if (["验证", "verified"].includes(token)) return stash(`<span class="tag verify">${markers.verify}</span>`);
-    if (["不可得", "unavailable"].includes(token)) return stash(`<span class="tag unavailable">${markers.unavailable}</span>`);
+    const cls = markers.get(code.trim().toLowerCase());
+    if (cls) return stash(`<span class="tag ${cls}">${escapeHtml(code.trim())}</span>`);
     return stash(`<code>${escapeHtml(code)}</code>`);
   });
   value = escapeHtml(value)

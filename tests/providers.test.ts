@@ -53,6 +53,7 @@ test("codegraph build invokes an already-installed CLI and does not install it",
   await writeFile(binary, `#!/usr/bin/env node\nconst fs=require('fs'); const path=require('path'); const args=process.argv.slice(2); fs.writeFileSync(${JSON.stringify(log)}, JSON.stringify(args)); const target=args[1]; fs.mkdirSync(path.join(target,'.codegraph'),{recursive:true}); fs.writeFileSync(path.join(target,'.codegraph','codegraph.db'),'fixture');\n`);
   await chmod(binary, 0o755);
   const result = await buildCodeGraph({ target, binary, quiet: true });
+  assert.ok("database" in result);
   assert.equal(result.database, join(target, ".codegraph", "codegraph.db"));
   // `init` indexes by default and rejects --quiet, so neither flag may be passed to it.
   assert.deepEqual(JSON.parse(await readFile(log, "utf8")), ["init", target]);
