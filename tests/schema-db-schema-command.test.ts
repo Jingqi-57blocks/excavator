@@ -68,10 +68,13 @@ test("db-schema output is byte-identical on a second run (deterministic artifact
   assert.equal(await readFile(join(outA, "db-schema.json"), "utf8"), await readFile(join(outB, "db-schema.json"), "utf8"));
 });
 
-test("db-schema rejects an unsupported --language", async () => {
+test("db-schema accepts any language (localization is the authoring layer's, not a Core allowlist)", async () => {
   const target = await tinyTarget();
   const out = await tempDir("excavator-dbschema-out-");
-  await assert.rejects(() => runDbSchema({ target, out, language: "fr-FR" }), /Unsupported --language/);
+  // A once-"unsupported" tag no longer throws: Core renders neutral structure regardless of language,
+  // and localization is AI-written descriptions — so there is no fixed language allowlist to reject.
+  const result = await runDbSchema({ target, out, language: "fr-FR" });
+  assert.ok(result.tables >= 0);
 });
 
 test("db-schema is exposed in the CLI help and its own --help entry", async () => {

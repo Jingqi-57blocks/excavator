@@ -433,17 +433,16 @@ const COMMAND_HELP: Record<string, CommandHelp> = {
     example: "excavator codegraph build --target ./workspace --quiet"
   },
   "db-schema": {
-    synopsis: "db-schema --target <dir> [--out <dir>] [--manifest <json>] [--descriptions <json>] [--language en-US|zh-CN] [--json]",
+    synopsis: "db-schema --target <dir> [--out <dir>] [--manifest <json>] [--descriptions <json>] [--json]",
     flags: [
       "--target <dir>          Source workspace to analyze, read-only (required)",
       "--out <dir>             Output directory (default .work/db-schema)",
       "--manifest <json>       Locate manifest {sources:[{format,include}]}; REPLACES auto-discovery",
-      "--descriptions <json>   {\"<table>\": \"one sentence\"} injected verbatim as table descriptions",
-      "--language <tag>        en-US (default) or zh-CN",
+      "--descriptions <json>   {\"<table>\": \"one sentence\"} injected verbatim as table descriptions — write these in ANY target language (this is the localization path)",
       "--json                  Print the full extraction JSON instead of a summary"
     ],
-    example: "excavator db-schema --target ./workspace --out ./db --language en-US",
-    notes: "Deterministic and zero-model: writes a byte-stable database-design.md and db-schema.json. Discovers gorm / Sequelize / SQL-dump formats by fingerprint and reports Prisma / Django / TypeORM / ActiveRecord as located-but-unsupported."
+    example: "excavator db-schema --target ./workspace --out ./db --descriptions descriptions.json",
+    notes: "Deterministic and zero-model: writes a byte-stable database-design.md (neutral English structure — engine, overview, table index, legend, columns) and db-schema.json. The DB engine is detected by weighing dialect/driver signals. Localization is NOT a per-language template: the structure is language-neutral and the per-table descriptions are written by an AI in any target language, then injected. Discovers gorm / Sequelize / SQL-dump by fingerprint and reports Prisma / Django / TypeORM / ActiveRecord as located-but-unsupported."
   },
   "native-graph": {
     synopsis: "native-graph --target <dir> [--out <dir>] [--ctags false]",

@@ -103,9 +103,18 @@ export interface SchemaWarning {
 }
 
 /** The complete framework-neutral result of a schema extraction over one target. */
+/** The detected database engine/dialect, weighed from dialect/driver signals (see engine.ts). */
+export interface DetectedEngine {
+  name: string;
+  confidence: "high" | "medium" | "low";
+  evidence: FileRef[];
+  alternatives: string[];
+}
+
 export interface SchemaExtraction {
   target: string;
   gitHead?: string;
+  engine?: DetectedEngine;
   sources: SchemaSource[];
   tables: TableSchema[];
   relationships: RelationshipSchema[];

@@ -19,6 +19,7 @@ import { atomicWrite, ensureDir, safeRelative, writeJson } from "../core/util.ts
 import { DEFAULT_WORKDIR } from "../core/defaults.ts";
 import { discoverSchemaFormats } from "./discover.ts";
 import type { Discovery } from "./discover.ts";
+import { detectEngine } from "./engine.ts";
 import { loadManifest } from "./manifest.ts";
 import { injectDescriptions } from "./descriptions.ts";
 import { mergeSchemas } from "./merge.ts";
@@ -29,7 +30,6 @@ import { renderSchema } from "./render.ts";
 import type { SchemaExtraction } from "./types.ts";
 
 const execFileAsync = promisify(execFile);
-const SUPPORTED_LANGUAGES = new Set(["en-US", "zh-CN"]);
 
 export interface DbSchemaOptions {
   target: string;
@@ -54,10 +54,6 @@ export interface DbSchemaResult {
 
 export async function runDbSchema(options: DbSchemaOptions): Promise<DbSchemaResult> {
   const target = resolve(options.target);
-  const language = options.language ?? "en-US";
-  if (!SUPPORTED_LANGUAGES.has(language)) {
-    throw new Error(`Unsupported --language "${language}" (expected en-US or zh-CN).`);
-  }
   const outDir = resolve(options.out ?? join(DEFAULT_WORKDIR, "db-schema"));
 
   const discovery: Discovery = options.manifest
@@ -74,13 +70,14 @@ export async function runDbSchema(options: DbSchemaOptions): Promise<DbSchemaRes
   const extraction = mergeSchemas(inputs, { target, ...(gitHead ? { gitHead } : {}) });
   // Discovery/manifest owns the unsupported list; merge cannot see it (it only sees parsed sources).
   extraction.unsupported = discovery.unsupported;
+  extraction.engine = await detectEngine(target);
 
   if (options.descriptions) {
     const descriptions = JSON.parse(readFileSync(resolve(options.descriptions), "utf8")) as Record<string, string>;
     injectDescriptions(extraction, descriptions);
   }
 
-  const markdown = renderSchema(extraction, { language });
+  const markdown = renderSchema(extraction);
   await ensureDir(outDir);
   const markdownPath = join(outDir, "database-design.md");
   const jsonPath = join(outDir, "db-schema.json");

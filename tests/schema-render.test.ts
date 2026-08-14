@@ -116,15 +116,15 @@ test("empty appendices state the honest negative instead of omitting the section
   assert.match(md, /No warnings\./);
 });
 
-test("en-US (default) and zh-CN produce different fixed label sets", () => {
-  const x = fixture();
-  const en = renderSchema(x, { language: "en-US" });
-  const zh = renderSchema(x, { language: "zh-CN" });
-  assert.match(en, /# Database Design/);
-  assert.match(en, /\| column \| type \| nullable \| default \| key \| source \|/);
-  assert.match(zh, /# 数据库设计/);
-  assert.match(zh, /\| 列 \| 类型 \| 可空 \| 默认值 \| 键 \| 来源 \|/);
-  assert.equal(renderSchema(x), en); // en-US is the default
+test("renders one neutral (English) structural label set; localization is the authoring layer's job", () => {
+  const md = renderSchema(fixture());
+  assert.match(md, /# Database Design/);
+  assert.match(md, /## Overview/);
+  assert.match(md, /### Table index/);
+  assert.match(md, /\| column \| type \| nullable \| default \| key \| source \|/);
+  // No per-language template lives in the renderer; a Chinese report is the same structure with
+  // AI-written descriptions injected, never a hard-coded zh label set.
+  assert.doesNotMatch(md, /数据库设计|列 \| 类型/);
 });
 
 test("warnings are de-duplicated and sorted for byte-stability", () => {
