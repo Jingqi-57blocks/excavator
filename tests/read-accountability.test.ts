@@ -238,6 +238,41 @@ test("residual advisories name the unread ranges and stay warnings", () => {
   assert.ok(warnings.some((message) => /never means "nothing was missed"/.test(message)), "the honest boundary is stated");
 });
 
+test("the consumption advisory is suppressed until claims exist, then fires", () => {
+  const item = workItem("Reject", 810, { evidenceIds: ["S-in"] });
+  const artifact = readObligations([pack()], [item]);
+  const evidence = [window("S-in", 810, 922)];
+  const evidenceById = new Map(evidence.map((e) => [e.id, e]));
+  const consumptionMessages = (claims?: Array<{ ref: string; evidenceIds: string[] }>): string[] => {
+    const report = reconcileReadCoverage({ obligations: artifact.obligations, evidence, ...(claims ? { claims } : {}) });
+    return auditReadAccountability({ obligations: artifact.obligations, workItems: [item], evidenceById, report })
+      .filter((finding) => /no claim cites it/.test(finding.message))
+      .map((finding) => finding.message);
+  };
+  // At freeze no claim can exist, so "opened but uncited" is trivially true for everything — reporting it
+  // there would be an advisory that always fires, which is how authors learn to ignore advisories.
+  assert.deepEqual(consumptionMessages(undefined), []);
+  assert.equal(consumptionMessages([]).length, 1, "once claims are evaluated, an uncited opened window is reported");
+});
+
+test("a contained obligation that is promoted is still held to the hard gate", () => {
+  // `innerHelper` is nested inside Approve, so it is excluded from the counted denominator — but its span is
+  // judgeable, so a `found` disposition citing a window elsewhere must still fail.
+  const item = workItem("innerHelper", 400, { evidenceIds: ["S-out"] });
+  const artifact = readObligations([pack()], [item]);
+  assert.equal(artifact.obligations.find((o) => o.name === "innerHelper")?.excluded, "contained");
+  const evidence = [window("S-out", 1, 70)];
+  const report = reconcileReadCoverage({ obligations: artifact.obligations, evidence });
+  const errors = auditReadAccountability({
+    obligations: artifact.obligations,
+    workItems: [item],
+    evidenceById: new Map(evidence.map((e) => [e.id, e])),
+    report,
+  }).filter((finding) => finding.level === "error");
+  assert.equal(errors.length, 1);
+  assert.match(errors[0].message, /400-420/);
+});
+
 test("obligations and reconciliation are byte-stable across derivations", () => {
   const items = pack().items;
   const shuffled = [...items].reverse();

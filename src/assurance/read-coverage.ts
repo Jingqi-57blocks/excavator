@@ -56,6 +56,10 @@ export interface ReadCoverageItem {
 
 export interface ReadCoverageReport {
   version: string;
+  /** Whether the consumption side was evaluated at all. False at freeze time, where no claim exists yet —
+   *  so `openedNotConsumed` is then trivially the whole opened set and must NOT be reported as a finding
+   *  (an advisory that is necessarily true every time trains the author to ignore advisories). */
+  consumptionEvaluated: boolean;
   items: ReadCoverageItem[];
   summary: {
     counted: number;
@@ -105,7 +109,7 @@ export function reconcileReadCoverage(input: ReadCoverageInput): ReadCoverageRep
     items.push(coverageFor(obligation, windowsByPath.get(obligation.path) ?? [], citationsByEvidence));
   }
 
-  return { version: READ_COVERAGE_VERSION, items, summary: summarize(items) };
+  return { version: READ_COVERAGE_VERSION, consumptionEvaluated: input.claims !== undefined, items, summary: summarize(items) };
 }
 
 function coverageFor(
@@ -210,7 +214,9 @@ export function auditReadAccountability(input: ReadAccountabilityInput): AuditFi
   for (const item of workItems) {
     if (item.dimension !== LOGIC_WORKITEM_DIMENSION || item.status !== "found" || !item.material) continue;
     const obligation = byId.get(item.id);
-    if (!obligation || obligation.excluded) continue;
+    // A `contained` obligation still has a judgeable span, so a promoted nested function is held to the
+    // gate; only a single-line declaration is unjudgeable (one line would trivially satisfy it).
+    if (!obligation || obligation.excluded === "declaration-only") continue;
     if (citesOverlappingWindow(obligation, item.evidenceIds ?? [], evidenceById)) continue;
     findings.push({
       level: "error",
@@ -227,7 +233,7 @@ export function auditReadAccountability(input: ReadAccountabilityInput): AuditFi
     findings.push({
       level: "warning",
       document: "read-coverage",
-      message: `read residual (advisory): promoted decision function ${item.name} at ${item.path}:${item.startLine}-${item.endLine} is ${item.status} — ${item.uncoveredLines} line(s) unread (${ranges}); open the range or dispose the work item explicitly`,
+      message: `read residual (advisory): promoted decision function ${item.name} at ${item.path}:${item.startLine}-${item.endLine} is ${item.status} — ${item.uncoveredLines} line(s) unread (${ranges}); read the remaining range(s), or record why the unread part carries no reportable behavior`,
     });
   }
 
@@ -240,7 +246,8 @@ export function auditReadAccountability(input: ReadAccountabilityInput): AuditFi
       message: `read residual (advisory): ${ungatedNotOpened.length} of ${report.summary.counted} counted read obligations were never opened (${lines} line(s) unread) — see coverage/read-residual.json; "read coverage complete" never means "nothing was missed", since obligations only cover the retained boundary`,
     });
   }
-  if (report.summary.openedNotConsumed) {
+  // Only meaningful once claims exist: at freeze every opened obligation is trivially unconsumed.
+  if (report.consumptionEvaluated && report.summary.openedNotConsumed) {
     findings.push({
       level: "warning",
       document: "read-coverage",

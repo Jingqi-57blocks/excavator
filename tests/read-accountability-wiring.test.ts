@@ -69,6 +69,39 @@ test("a run prepared before generation 5 is grandfathered: no denominator, no re
   assert.deepEqual(audited.findings.filter((finding) => finding.document === "read-coverage"), [], "audit is self-gated on the frozen artifact existing");
 });
 
+test("audit rejects a denominator edited after freeze (the hard gate's own input cannot be weakened silently)", async () => {
+  const { runDir } = await prepareRun(await featureRequest());
+  await disposeAllWorkItems(runDir);
+  assert.equal((await freezeRun(runDir)).frozen, true);
+  const obligationsPath = join(runDir, "coverage", "read-obligations.json");
+
+  const clean = await auditRun(runDir);
+  assert.deepEqual(clean.findings.filter((finding) => /denominator was changed after freeze/.test(finding.message)), []);
+
+  const artifact = await readJsonFile<{ summary: Record<string, number> }>(obligationsPath);
+  artifact.summary.counted = artifact.summary.counted + 1; // any edit at all must be caught
+  await writeJson(obligationsPath, artifact);
+
+  const tampered = await auditRun(runDir);
+  const errors = tampered.findings.filter((finding) => finding.document === "read-coverage" && finding.level === "error");
+  assert.equal(errors.length, 1);
+  assert.match(errors[0].message, /does not match the read-obligation digest recorded at freeze/);
+});
+
+test("a scoped (single-document) audit reports findings but never rewrites the residual", async () => {
+  const { runDir, manifest } = await prepareRun(await featureRequest());
+  await disposeAllWorkItems(runDir);
+  assert.equal((await freezeRun(runDir)).frozen, true);
+  await auditRun(runDir);
+  const residualPath = join(runDir, "coverage", "read-residual.json");
+  const before = await readFile(residualPath, "utf8");
+
+  // A scoped audit sees only its own document's claims; persisting from it would shrink consumedBy and
+  // inflate openedNotConsumed — the migration signal must not be corrupted by a partial view.
+  await auditRun(runDir, { documentId: manifest.documents[0].id });
+  assert.equal(await readFile(residualPath, "utf8"), before, "a scoped audit leaves the residual untouched");
+});
+
 test("audit reconciles against the frozen denominator and rewrites the residual byte-identically", async () => {
   const { runDir } = await prepareRun(await featureRequest());
   await disposeAllWorkItems(runDir);

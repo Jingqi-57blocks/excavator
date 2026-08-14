@@ -673,10 +673,23 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
   const obligationsPath = join(runDir, "coverage", "read-obligations.json");
   if (await exists(obligationsPath)) {
     const frozenObligations = await readJson<{ obligations: Parameters<typeof reconcileReadCoverage>[0]["obligations"] }>(obligationsPath);
+    // The denominator is the direct input to the hard gate, so it must be the one that was frozen: an
+    // edited file (dropping an obligation whose gate would fire) is a silent weakening of the gate.
+    const knowledgePath = join(runDir, "knowledge.json");
+    if (await exists(knowledgePath)) {
+      const frozenKnowledge = await readJson<KnowledgeArtifact>(knowledgePath);
+      if (frozenKnowledge.readObligationsDigest && frozenKnowledge.readObligationsDigest !== sha256(stableJson(frozenObligations))) {
+        findings.push({ level: "error", document: "read-coverage", message: "coverage/read-obligations.json does not match the read-obligation digest recorded at freeze; the denominator was changed after freeze" });
+      }
+    }
     const claimCitations: ClaimCitation[] = [...claimsByDocument.entries()].flatMap(([documentId, entries]) =>
       entries.map(({ claim }) => ({ ref: `${documentId}#${claim.id}`, evidenceIds: claim.evidenceIds ?? [] })));
     const readResidual = reconcileReadCoverage({ obligations: frozenObligations.obligations, evidence: evidenceCatalog.evidence, claims: claimCitations });
-    await writeJson(join(runDir, "coverage", "read-residual.json"), readResidual);
+    // A scoped audit sees only its own document's claims, so persisting the residual from it would shrink
+    // `consumedBy` and inflate `openedNotConsumed` — corrupting the very migration signal this report
+    // exists to carry. Findings are still reported (already downgraded by runWide); only the write is
+    // reserved for a full-run audit, matching "a scoped audit does not mutate the run".
+    if (!singleDocument) await writeJson(join(runDir, "coverage", "read-residual.json"), readResidual);
     findings.push(...runWide(auditReadAccountability({ obligations: frozenObligations.obligations, workItems: plan.items, evidenceById, report: readResidual })));
   }
   const expectedPlan = createInvestigationPlan(manifest.id, manifest.request, manifest.documents);
