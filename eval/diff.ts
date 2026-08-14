@@ -5,7 +5,23 @@
 import type { EvidenceWindow, Knowledge, KnowledgeFact } from "./knowledge.ts";
 import type { Anchor, CoverageExpectation, Expected, ExpectedItem, ForbiddenItem, Pattern } from "./expected.ts";
 
-export type Attribution = "authoring-miss" | "prepare-miss" | "no-anchor";
+/**
+ * Which segment of the pipeline lost a gold item. A single recall number cannot be acted on — it does not
+ * say whether to fix the boundary, the reading, the extraction or the writing — so a miss is attributed to
+ * exactly one segment of the funnel:
+ *
+ *   prepare-miss  the anchor never entered the prepared boundary (fix Target Resolution / the prune);
+ *   read-miss     in the boundary, but no source window was ever opened over it (fix reading discipline);
+ *   consume-miss  a window was opened over it, but no claim cites that window (a drive-by read);
+ *   write-miss    a claim does cite the window, but the expected statement never appeared (fix authoring).
+ *
+ * `authoring-miss` remains a real value for the one case the split is UNKNOWABLE: a knowledge record with
+ * no opened-window inventory (captured before this funnel existed). It is never inferred — an unrefinable
+ * record reports the coarse bucket instead of a guessed segment. In the summary `authoringMiss` stays the
+ * whole post-boundary segment (the three refined counters plus the unrefinable ones), so existing
+ * consumers keep their meaning while the funnel adds resolution.
+ */
+export type Attribution = "read-miss" | "consume-miss" | "write-miss" | "authoring-miss" | "prepare-miss" | "no-anchor";
 
 export interface FoundEntry {
   id: string;
@@ -48,7 +64,11 @@ export interface DiffSummary {
   found: number;
   missing: number;
   mustFindMissing: number;
+  /** The whole post-boundary segment: readMiss + consumeMiss + writeMiss. */
   authoringMiss: number;
+  readMiss: number;
+  consumeMiss: number;
+  writeMiss: number;
   prepareMiss: number;
   forbiddenHits: number;
   coverageFailures: number;
@@ -152,9 +172,16 @@ function findItem(item: ExpectedItem, knowledge: Knowledge): string | null {
   return findUnknown(item, knowledge);
 }
 
-function attribute(item: ExpectedItem, horizon: Knowledge["prepareHorizon"]): Attribution {
+function attribute(item: ExpectedItem, knowledge: Knowledge): Attribution {
   if (item.anchors.length === 0) return "no-anchor";
-  return item.anchors.some((anchor) => anchorInHorizon(anchor, horizon)) ? "authoring-miss" : "prepare-miss";
+  if (!item.anchors.some((anchor) => anchorInHorizon(anchor, knowledge.prepareHorizon))) return "prepare-miss";
+  // In the boundary: split the authoring segment by what actually happened to the anchor region. A record
+  // with no opened-window inventory cannot be split, so it keeps the coarse bucket.
+  if (knowledge.openedWindows === undefined) return "authoring-miss";
+  if (!windowsMatchAnyAnchor(knowledge.openedWindows, item.anchors)) return "read-miss";
+  const cited = knowledge.facts.some((fact) => windowsMatchAnyAnchor(fact.windows, item.anchors))
+    || knowledge.relations.some((relation) => relation.steps.some((step) => windowsMatchAnyAnchor(step.windows, item.anchors)));
+  return cited ? "write-miss" : "consume-miss";
 }
 
 /**
@@ -218,7 +245,7 @@ export function diffKnowledge(knowledge: Knowledge, expected: Expected): Diff {
     if (via !== null) {
       found.push({ id: item.id, kind: item.kind, via });
     } else {
-      missing.push({ id: item.id, kind: item.kind, mustFind: item.mustFind, attribution: attribute(item, knowledge.prepareHorizon) });
+      missing.push({ id: item.id, kind: item.kind, mustFind: item.mustFind, attribution: attribute(item, knowledge) });
     }
   }
   const { hits: forbiddenHits, exempted: forbiddenExempted } = detectForbidden(expected.forbidden, knowledge);
@@ -230,7 +257,12 @@ export function diffKnowledge(knowledge: Knowledge, expected: Expected): Diff {
     found: found.length,
     missing: missing.length,
     mustFindMissing,
-    authoringMiss: missing.filter((entry) => entry.attribution === "authoring-miss").length,
+    // authoringMiss keeps its original meaning as the whole post-boundary segment; the three funnel
+    // counters below say WHERE inside it the item was lost.
+    authoringMiss: missing.filter((entry) => ["read-miss", "consume-miss", "write-miss", "authoring-miss"].includes(entry.attribution)).length,
+    readMiss: missing.filter((entry) => entry.attribution === "read-miss").length,
+    consumeMiss: missing.filter((entry) => entry.attribution === "consume-miss").length,
+    writeMiss: missing.filter((entry) => entry.attribution === "write-miss").length,
     prepareMiss: missing.filter((entry) => entry.attribution === "prepare-miss").length,
     forbiddenHits: forbiddenHits.length,
     coverageFailures: coverageFailures.length,

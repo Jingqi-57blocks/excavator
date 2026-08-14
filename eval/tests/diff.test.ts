@@ -22,6 +22,9 @@ function knowledgeWith(overrides: Partial<Knowledge>): Knowledge {
     coverage: [],
     unknowns: [],
     prepareHorizon: { files: [], scopeText: "" },
+    // A cited window was necessarily opened, so the synthetic inventory derives from the facts unless a
+    // test overrides it — otherwise every synthetic miss would look like a read-miss.
+    openedWindows: (overrides.facts ?? []).flatMap((fact) => fact.windows),
     ...overrides
   };
 }
@@ -118,14 +121,29 @@ test("diff against run-mini expected-fail reports the full failure surface", () 
   assert.equal(diff.summary.pass, false);
 });
 
-test("miss attribution splits authoring-miss (in scope, uncited) from prepare-miss (out of scope)", () => {
+test("the funnel attributes a miss to one segment: read-miss inside the boundary vs prepare-miss outside it", () => {
   const knowledge = extractKnowledge(RUN_MINI);
   const diff = diffKnowledge(knowledge, validateExpected(readExpected("expected-fail.json")));
   const byId = new Map(diff.missing.map((entry) => [entry.id, entry.attribution]));
-  assert.equal(byId.get("authoring-miss"), "authoring-miss");
+  // The fixture's in-scope miss has an anchor in the horizon but no window opened over it: the funnel now
+  // says WHICH segment lost it (reading), where the previous single bucket only said "after prepare".
+  assert.equal(byId.get("authoring-miss"), "read-miss");
   assert.equal(byId.get("prepare-miss"), "prepare-miss");
-  assert.equal(diff.summary.authoringMiss, 1);
+  assert.equal(diff.summary.readMiss, 1);
+  assert.equal(diff.summary.consumeMiss, 0);
+  assert.equal(diff.summary.writeMiss, 0);
+  assert.equal(diff.summary.authoringMiss, 1, "the coarse post-boundary total keeps its original meaning");
   assert.equal(diff.summary.prepareMiss, 1);
+});
+
+test("a knowledge record with no opened-window inventory reports the coarse bucket, never a guessed segment", () => {
+  const knowledge = extractKnowledge(RUN_MINI);
+  const legacy = { ...knowledge, openedWindows: undefined };
+  const diff = diffKnowledge(legacy, validateExpected(readExpected("expected-fail.json")));
+  const byId = new Map(diff.missing.map((entry) => [entry.id, entry.attribution]));
+  assert.equal(byId.get("authoring-miss"), "authoring-miss");
+  assert.equal(diff.summary.authoringMiss, 1);
+  assert.equal(diff.summary.readMiss, 0);
 });
 
 test("forbidden flags a fact-marked hallucination but not the inferred-marked twin", () => {

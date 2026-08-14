@@ -80,6 +80,12 @@ export interface Knowledge {
   coverage: KnowledgeCoverage[];
   unknowns: KnowledgeUnknown[];
   prepareHorizon: PrepareHorizon;
+  /** EVERY source window the run opened, cited or not. A fact only carries the windows its claim cites,
+   *  so without this the harness cannot tell "never read" from "read but never used" — the two segments
+   *  of a miss that need entirely different fixes. Sorted for byte-stable diffs.
+   *  OPTIONAL because a knowledge record captured before the funnel existed has no such field; the diff
+   *  then reports the coarse `authoring-miss` rather than inventing a segment it cannot know. */
+  openedWindows?: EvidenceWindow[];
 }
 
 function readJson(file: string): any {
@@ -245,6 +251,8 @@ export function extractKnowledge(runDir: string): Knowledge {
     relations,
     coverage,
     unknowns: [...unavailableClaims, ...cannotDetermine],
-    prepareHorizon: extractPrepareHorizon(runDir)
+    prepareHorizon: extractPrepareHorizon(runDir),
+    openedWindows: [...index.windows.values()].sort((a, b) =>
+      (a.path < b.path ? -1 : a.path > b.path ? 1 : 0) || a.startLine - b.startLine || a.endLine - b.endLine)
   };
 }

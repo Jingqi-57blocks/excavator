@@ -168,5 +168,19 @@ Fable 非阻塞后续（记录待议，本切片未动）：
 ## DB 抽取器落地后：从 engineering-overview 模板移除 §13 数据库设计章（用户 2026-08-13）
 方向改为 DB schema 由独立 `db-schema` 抽取器（57B-382）单独出 → engineering-overview 模板不该再留 §13「数据库设计」章（否则每份 overview 都重复/半吊子做 DB）。**这是 57B-379(C1) 的回退**：移除模板末章 §13 + assurance `READABILITY_TABLE_SECTIONS["overview:engineering"]` 去掉 index 13 + template-sections 测试 13→12 章 pin。engineering-overview 回到 12 章。**约束**：改章数=改 manifest 烤定值=触 audit 章数硬检查 → 版本闸 + 结构性 grandfather（已烤 13 章的旧 run 不破，参照 57B-379/380 手法）。**时机**：57B-382 DB 抽取器可用、验证过之后再做（否则中间态既无模板 DB 章、又无抽取器，DB 无处可去）。
 
+## 批次 57B-392（阅读层问责 V1）实测暴露 · 读义务分母的召回上限（需裁决投入方向）
+
+V1 的读义务分母来自 fact pack `logic` 类目 = 保留 pruned-FG 节点的 complement 全量枚举。实测 WCP 请假 feature run 暴露两个具体后果，均为**方案已声明的天花板的实例化**，非本片缺陷，但需裁决下一步投哪边：
+
+- **未被剪枝保留的函数根本没有读义务（具体实例）**：`wcp-service-v2/internal/handlers/leave/service.go` 的 `Creation`（请假提交，第 73 行 `if len(repr.Attachment) == 0` 是"哪些假期类型必须附件"的规则所在）**不在本次 run 的 factpack/分母里** → 其"读没读"对 V1 零可见。而 eval 的 gold FG fixture（较早的 demo run）里 `Creation 56-133` 是**有**的 → **保留集随 run/剪枝版本漂移**。裁决候选：(a) 投边界召回（57B-391 Phase 1 检索层 / 57B-371 剪枝改进）；(b) 给分母加第二来源（tests-as-oracle：测试断言是独立分母，能抓边界外的漏）；(c) 两者都做但排序。
+- **声明式规则不是分支，未来的"条件清单"不能只抓 `if`**：前端表单规则以 antd `Form.Item rules={[{ required: true }]}`（`wcp-ui/src/pages/leave/ApplyLeave.tsx:583/614/663…`）的**JSX 属性对象字面量**形式存在，落在 `ApplyLeave 68-873` 这一条义务内、但每条规则不单独记账；同理 `CategoryStyle` 枚举（同文件第 57 行，定义 continuous/category 两种填写模式）**落在义务 span(68-873) 之外**。若 V1.1 的"窗口内条件清单"只枚举比较/分支（`if $X > $N`），**将系统性漏掉整类表单/校验规则**。裁决候选：条件清单的 material 定义必须含声明式规则对象（props/schema/常量目录），不只分支。
+
+## 批次 57B-392 评审产生（Fable 复核，2026-08-14；判定通过，无 must-fix）
+
+四条 should-fix 中三条已在本片修复（scoped audit 不再改写 residual、freeze 阶段抑制必然为真的消费侧 advisory、audit 校验冻结分母 digest）、两条 nit 已修（contained 义务仍受硬门约束、partial 措辞）。剩余记账：
+
+- **`mergeWorkItems` 不保护 `material` 字段（既有面，非本片引入）**：`src/assurance/assurance.ts` 的 `...update` 未钉 `material`，作者把 origin-default 的 logic 项改 `material:false` 即可绕过读问责硬门（处置本身仍被强制、timeline 记账，故非静默跳过）。候选：硬门对 `origin: "default"` 的 logic 项无视 material 标志，或 `auditWorkItems` 比对 default 项的 material 漂移。与 57B-375 已记的同类残差合并处理。
+- **`factPackDigests` 同样不复核磁盘 fact pack**（57B-375 已记）：本片给 `readObligationsDigest` 补了 audit 侧比对，fact pack 侧仍缺；两者口径统一时一并做。
+
 ## 删章必扫交叉引用（教训，2026-08-13）
 从报告删除某章（如 provital 删 §13 DB）后，正文里对该章的**交叉引用会悬挂**（provital §7 残留 "see section 13 for the pointer"，指向已删章）。删章不是只切那一段——**必须 grep 全文 `section N`/`§N`/`chapter N`/章名 交叉引用并一并修**。将来做 57B-382 收尾（从 engineering-overview 模板移除 §13）时，模板/写作规则里若有对 DB 章的交叉引用也要同步清；自动化删章逻辑应内建"扫并修交叉引用"。

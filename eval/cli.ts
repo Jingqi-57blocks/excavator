@@ -101,7 +101,7 @@ function renderDiff(diff: Diff): string {
   const lines = [
     `=== knowledge diff (${s.found}/${s.items} found, ${s.mustFindMissing} mustFind missing) ===`,
     `  verdict: ${s.pass ? "PASS" : "FAIL"}`,
-    `  missing: ${s.missing} (authoring-miss ${s.authoringMiss}, prepare-miss ${s.prepareMiss})`,
+    `  missing: ${s.missing} (prepare-miss ${s.prepareMiss}, read-miss ${s.readMiss}, consume-miss ${s.consumeMiss}, write-miss ${s.writeMiss}${s.authoringMiss > s.readMiss + s.consumeMiss + s.writeMiss ? `, unrefined ${s.authoringMiss - s.readMiss - s.consumeMiss - s.writeMiss}` : ""})`,
     `  forbidden violations: ${s.forbiddenHits}`,
     `  coverage failures: ${s.coverageFailures}`
   ];

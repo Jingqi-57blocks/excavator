@@ -313,6 +313,8 @@ export interface KnowledgeArtifact {
   tracesDigest: string;
   factPackDigests: Record<string, string>;
   crossFeatureDigest?: string;
+  /** Digest of the frozen read-obligation denominator (assurance generation 5+; absent on older runs). */
+  readObligationsDigest?: string;
   completeness: KnowledgeCompleteness;
   supplements: KnowledgeSupplement[];
 }
