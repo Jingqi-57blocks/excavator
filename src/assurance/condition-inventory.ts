@@ -21,6 +21,19 @@
 //     (`record.status < 7`, `tr.Status == 3`, `project_id != 13`, `now.Hour() != 10`, `result.Hours != 10`).
 //   `lv.Hours > 16` / `> 40` — the thresholds this whole line of work exists for — pass all three filters.
 //
+// WHAT THE NUMBER MEANS, precisely. Consumption requires a claim that BOTH cites the window and states the
+// literal, so `unaccounted` counts two different failures together: a rule never extracted, and a rule stated
+// while citing some other window. The ratio is therefore a LOWER BOUND on extraction — "P(extracted and
+// correctly back-referenced | opened)" — never a clean extraction rate. Splitting the two by asking whether
+// any claim anywhere states the literal was tried and does NOT work: across thousands of claims a small
+// ordinal (2, 3, 6, 12) appears by coincidence, so the split is confounded by exactly the accident this
+// module guards against inside a single claim.
+//
+// TWO MORE KNOWN DENOMINATOR GAPS, recorded rather than implied: a rule expressed as `switch`/`case 3:` is not
+// a comparison expression and never enters the inventory, and neither does a threshold that lives in
+// configuration instead of code. Declarative rule objects (a form's `rules={[{ required: true }]}`, a schema
+// literal, a constant catalogue) are absent for the same reason — they are data, not comparisons.
+//
 // Pure: zero I/O, zero model call, byte-stable ordering.
 
 import type { EvidenceItem } from "../core/types.ts";
@@ -37,12 +50,26 @@ const COMPARISON = /([A-Za-z_][\w.[\]()]{0,40})\s*(===?|!==?|>=|<=|>|<)\s*(\d+(?
  * runs: these produced the noise (`len(parts) != 3`, `Math.abs(value) < 1000`, `searchDepth < 15`,
  * `StatusCode != 200`), while domain fields produced the signal (`record.Status`, `ItemType`, `project_id`).
  */
-const STRUCTURAL_LHS = /(\blen\(|\.length\b|\bMath\.|count\b|rows\b|depth\b|index\b|statuscode\b|\bsize\b|width\b|height\b|font|\bpx\b|\bpage\b|limit\b|offset\b|\bcap\b|\blen\b)/i;
+// camelCase-aware anchoring, NOT a case-insensitive substring match: an unanchored `count` swallowed
+// `order.discount > 30` and an unanchored `index` swallowed `priceIndex > 900` — a discount threshold and a
+// price index are exactly the domain rules this inventory exists to surface. Each term therefore matches
+// only as a standalone word or a camelCase tail (`rowCount`, `searchDepth`), never inside a longer lowercase
+// word. `index` is deliberately absent: `priceIndex`/`qualityIndex` are domain values and array-index
+// comparisons are already caught by `len(`.
+const STRUCTURAL_LHS = /(\blen\(|\.length\b|\bMath\.|\bcount\b|Count\b|\brows?\b|Rows?\b|\bdepth\b|Depth\b|\bstatuscode\b|StatusCode\b|\bsize\b|Size\b|[Ww]idth|[Hh]eight|[Ff]ont|\bpx\b|\bpage\b|Page\b|\blimit\b|Limit\b|\boffset\b|Offset\b)/;
 
-/** Literals that are existence/emptiness guards (0, 1) or clock/id magnitudes rather than business values. */
+/**
+ * Literals that are existence/emptiness guards (0, 1) or clock/id magnitudes rather than business values.
+ * The magnitude cut is 1e8, not 1e5: epoch seconds (~1.6e9) and generated ids sit far above it, while a
+ * money or quota ceiling (`amount > 500000`) is a real rule and must survive.
+ *
+ * KNOWN BIAS (documented rather than silently accepted): filtering 0/1 makes an enum family inconsistent —
+ * `Status == 3` is inventoried while `Status == 1` in the same family is invisible, so a reader must not read
+ * "not listed" as "consumed". It is kept because it is what took the real-run surface from 204 to 34.
+ */
 function isStructuralLiteral(literal: string): boolean {
   const value = Number(literal);
-  return value === 0 || value === 1 || value > 100000;
+  return value === 0 || value === 1 || value > 100_000_000;
 }
 
 /** Well-known HTTP status codes: `resp.status !== 200` is protocol handling, not a domain rule. Narrow on
@@ -140,11 +167,19 @@ export function inventoryConditions(evidence: EvidenceItem[], claims: ClaimState
     }
   }
 
-  // De-duplicate identical sites reached through overlapping windows, keeping the consumed one.
+  // De-duplicate identical sites reached through overlapping windows. `consumedBy` is UNIONED, not
+  // first-wins: the same condition can be cited by different claims through different windows, and dropping
+  // the later ones would understate consumption (and vary with input order).
   const byId = new Map<string, ConditionCoverageItem>();
   for (const item of items) {
     const existing = byId.get(item.id);
-    if (!existing || (existing.status === "unaccounted" && item.status === "consumed")) byId.set(item.id, item);
+    if (!existing) {
+      byId.set(item.id, item);
+      continue;
+    }
+    const merged = [...new Set([...existing.consumedBy, ...item.consumedBy])].sort(cmp);
+    existing.consumedBy = merged;
+    existing.status = merged.length ? "consumed" : "unaccounted";
   }
   const unique = [...byId.values()].sort((a, b) => cmp(a.path, b.path) || a.line - b.line || cmp(a.expression, b.expression));
 
@@ -160,10 +195,16 @@ export function inventoryConditions(evidence: EvidenceItem[], claims: ClaimState
   };
 }
 
-/** The literal appears in the statement as its own token (never as part of a longer number or identifier). */
+/**
+ * The literal appears in the statement as its own token — never inside a longer number or identifier.
+ * Both sides are guarded, and asymmetry here is a FALSE-GREEN generator, which is worse than a false red:
+ * it makes extraction look better than it is. "平均耗时 16.5 小时" must not consume `Hours > 16`, and
+ * "结果为 10/4" must not consume `!= 10`, so a following `.digit` or `/digit` disqualifies the match just as
+ * a preceding one does.
+ */
 function mentionsLiteral(statement: string, literal: string): boolean {
   const escaped = literal.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`(?<![\\w.])${escaped}(?![\\w])`).test(statement);
+  return new RegExp(`(?<![\\w./])${escaped}(?![\\w]|[./]\\d)`).test(statement);
 }
 
 /**
