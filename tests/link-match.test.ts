@@ -44,17 +44,40 @@ test("a literal route wins over a parameterised one, and the win is labelled fra
   assert.equal(outcome.link.rule, "R1", "the exact match is taken directly, no precedence needed");
 });
 
-test("two parameterised candidates are decided by parameter count, and that decision is framework/probable", () => {
-  const outcome = matchCall(call("GET", "/v2/a/:p1/b"), [
-    route("m", "GET", "/v2/a/:x/b"),
-    route("m", "GET", "/v2/:y/:x/b"),
+// Two routes that could both absorb the same call cannot be separated from source: gin refuses to register
+// such a pair at all, and express decides by registration order, which this matcher does not model.
+// "Fewest parameters" is a rule of thumb that demonstrably picks wrong — `/a/:x/:y` vs `/:z/b/c` for
+// `/a/b/c` — so naming both is the only honest answer.
+test("two parameterised candidates are ambiguous, never decided by a rule of thumb", () => {
+  const outcome = matchCall(call("GET", "/a/b/c"), [
+    route("m", "GET", "/a/:x/:y"),
+    route("m", "GET", "/:z/b/c"),
+  ]);
+  assert.equal(outcome.kind, "ambiguous");
+  if (outcome.kind !== "ambiguous") return;
+  assert.deepEqual(outcome.candidates.map((entry) => entry.route).sort(), ["GET /:z/b/c", "GET /a/:x/:y"]);
+});
+
+// The one precedence both routers agree on and the source does show.
+test("a literal segment still beats a parameter, and that is decided as an exact match", () => {
+  const outcome = matchCall(call("GET", "/v2/leaves/me"), [
+    route("m", "GET", "/v2/leaves/:leave_id"),
+    route("m", "GET", "/v2/leaves/me"),
   ]);
   assert.equal(outcome.kind, "matched");
   if (outcome.kind !== "matched") return;
-  assert.equal(outcome.link.route.path, "/v2/a/:x/b");
-  assert.equal(outcome.link.rule, "R3");
-  assert.equal(outcome.link.resolution, "framework");
-  assert.equal(outcome.link.confidence, "probable");
+  assert.equal(outcome.link.route.path, "/v2/leaves/me");
+  assert.equal(outcome.link.rule, "R1");
+});
+
+// A weak alignment named as "the backend for this path" would be a false statement, not a lead.
+test("a weak alignment with a wrong method is not reported as a method mismatch", () => {
+  const outcome = matchCall(call("DELETE", "/v2/prospa/comment/:p1"), [
+    route("m", "GET", "/v2/prospa/:space_id/candidate"),
+  ]);
+  assert.equal(outcome.kind, "unresolved");
+  if (outcome.kind !== "unresolved") return;
+  assert.deepEqual(outcome.nearMisses, [], "an unrelated route must not be presented as this path's backend");
 });
 
 // The measured reason this rule exists: all four real instances were semantically wrong.

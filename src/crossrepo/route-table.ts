@@ -3,8 +3,12 @@
 // CodeGraph already has `route` nodes, but their name is the path as WRITTEN at the registration line —
 // `GET /:position_id`, not `GET /v2/support/positions/:position_id`. A router group nests: the prefix lives
 // in a chain of variables above the call, so a route node ALONE cannot be matched against a frontend URL.
-// Recovering that chain is precisely what `resolution: "framework"` means for this resolver: the path is a
-// fact of the framework's composition rules, not of any single line.
+//
+// Recovering that chain is deterministic: every prefix is a string literal read from source, composed by
+// the framework's own documented rule. It is therefore NOT what `resolution: "framework"` marks on a link —
+// that label is reserved for the cases where matching relies on router behaviour the source does not show
+// (precedence between two candidates, `ANY`, wildcards). Composition is recorded instead by keeping
+// `localPath` next to `path`, so a reader can always see that the full path was assembled.
 //
 // Two frameworks, measured on the real target:
 //   gin      `v2 := engine.Group("/v2")` → `g := v2.Group("/leaves")` → `g.POST("", h)`  ⇒  POST /v2/leaves
@@ -154,8 +158,13 @@ export function recoverExpressRoutes(file: string, source: string, mountPrefix: 
     return recovery;
   }
 
+  // `x.post(url, body)` is a route registration only when `x` IS a router. An HTTP client call reads
+  // identically — measured: five `axios.post(responseUrl, …)` in one router file were being counted as
+  // registrations. gin is protected by its prefix map; express needs the same discipline explicitly.
+  const routers = expressRouterNames(root);
   for (const method of EXPRESS_METHODS) {
     for (const match of findAll(root, `$RECV.${method}($PATH, $$$HANDLER)`)) {
+      if (!routers.has(text(match, "RECV"))) continue;
       const rawPath = text(match, "PATH");
       const literal = stringLiteral(rawPath);
       const line = lineOf(match);
@@ -176,6 +185,24 @@ export function recoverExpressRoutes(file: string, source: string, mountPrefix: 
   }
   sortRoutes(recovery.routes);
   return recovery;
+}
+
+
+/** Identifiers bound to an express router or app in this file — the only valid registration receivers. */
+function expressRouterNames(root: AstNode): Set<string> {
+  const names = new Set<string>();
+  for (const pattern of ["const $NAME = express.Router()", "const $NAME = express()", "const $NAME = Router()",
+                         "let $NAME = express.Router()", "var $NAME = express.Router()"]) {
+    for (const match of findAll(root, pattern)) {
+      const name = text(match, "NAME");
+      if (name) names.add(name);
+    }
+  }
+  // A router file may receive its router rather than create it; `router` and `app` are the conventional
+  // names and are accepted only when nothing else was found, so a file that names its router explicitly
+  // never has an unrelated `app` variable treated as one.
+  if (!names.size) { names.add("router"); names.add("app"); }
+  return names;
 }
 
 /** `app.use('/leaves', leaveRouter)` — the mount points a router file inherits its prefix from. */

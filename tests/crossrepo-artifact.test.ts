@@ -15,6 +15,7 @@ function scanWith(links: CrossRepoScan["links"]): CrossRepoScan {
     ambiguous: [],
     candidates: [],
     routeRecovery: [],
+    unrecoveredRoutes: [],
     summary: { calls: links.length, static: links.length, framework: 0, unresolved: 0, ambiguous: 0, weak: 0, routes: 1 },
     warnings: [],
   };
@@ -22,7 +23,7 @@ function scanWith(links: CrossRepoScan["links"]): CrossRepoScan {
 
 const LINK: CrossRepoScan["links"][number] = {
   from: { module: "wcp-ui", path: "src/api/leaveApi.ts", line: 214, method: "POST", baseKey: "appRunnerApi", expression: "`${appRunnerApi}/v2/leaves`", routePath: "/v2/leaves" },
-  to: { module: "wcp-service-v2", path: "internal/handlers/handlers.go", line: 98, route: "POST /v2/leaves", handlerExpression: "e.CatchError(leave.Creation)" },
+  to: { module: "wcp-service-v2", path: "internal/handlers/handlers.go", line: 98, route: "POST /v2/leaves", localPath: "", prefixComposed: true, handlerExpression: "e.CatchError(leave.Creation)" },
   resolution: "static",
   confidence: "confirmed",
   rule: "R1",

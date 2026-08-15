@@ -99,9 +99,14 @@ export function resolveBaseBindings(source: string): BaseBinding[] {
 }
 
 /** Extract every HTTP call made through one of `clientNames` in this file. */
-export function extractFrontendCalls(path: string, source: string, clientNames: string[]): FrontendCall[] {
+export function extractFrontendCalls(path: string, source: string, clientNames: string[], warnings?: string[]): FrontendCall[] {
   const api = loadAstGrep();
-  if (!api) return [];
+  if (!api) {
+    // Without a warning this returns "this file makes no HTTP calls", which is indistinguishable from
+    // "this scanner is blind" — the failure mode this whole line of work exists to remove.
+    warnings?.push(`frontend call extraction skipped for ${path}: no ast-grep binding`);
+    return [];
+  }
   let root: AstNode;
   try {
     root = api.parse(path.endsWith(".tsx") ? "Tsx" : "TypeScript", source).root();

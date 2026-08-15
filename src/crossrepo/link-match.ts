@@ -5,10 +5,16 @@
 //
 // The rule table is calibrated, not invented. Measured across 411 real frontend calls against the recovered
 // route tables of four backends:
-//   R1 every segment literal-equal                                  ~37%  static / confirmed
-//   R2 literals equal, frontend holes align with route params       ~40%  static / confirmed
-//   R3 several candidates, resolved by the router's own precedence   ~16%  framework / probable
-//   R4 a frontend hole aligned against a LITERAL backend segment     ~1%  NOT A LINK — see below
+//   R1 every segment literal-equal                                        static / confirmed  (149 real)
+//   R2 literals equal, frontend holes align with route params             static / confirmed  (216 real)
+//   R3 one candidate survives because the router itself would pick it     framework / probable (0 real)
+//   R4 a frontend hole aligned against a LITERAL backend segment          NOT A LINK — see below (6 real)
+//
+// R3 fired zero times on the real target, and that is expected rather than disappointing: gin's router
+// REFUSES to register two routes that could both absorb one path, and express resolves such a pair by
+// registration order, which this matcher does not model. So the only precedence it applies is the one both
+// routers agree on and the source does show — a literal segment beats a parameter. Anything past that is
+// reported ambiguous, with both candidates named, instead of being decided by a rule of thumb.
 //
 // R4 is where a resolver earns or loses its claim to be deterministic. All four real instances were
 // semantically wrong (`GET /v2/projects/:p/feeds` "matching" `GET /v2/projects/plan/:year`), so it emits no
@@ -68,15 +74,14 @@ export function matchCall(call: FrontendCall, candidates: RouteCandidate[]): Mat
     const routeSegments = segments(candidate.route.path);
     const methodOk = candidate.route.method === call.method || candidate.route.method === "ANY";
     const alignment = align(callSegments, routeSegments);
-    if (!alignment) {
-      // A route whose path aligns but whose method does not is the most useful near miss there is.
-      if (routeSegments.length === callSegments.length && align(callSegments, routeSegments, true)) {
+    if (!alignment) continue;
+    if (!methodOk) {
+      // "The frontend calls PATCH where the backend only registers GET" is a finding about the system —
+      // but only when the PATH genuinely matches. A weak alignment reported as a method mismatch would
+      // present an unrelated route as "the backend for this path", which is a false statement, not a lead.
+      if (alignment !== "weak") {
         nearMisses.push({ module: candidate.module, route: `${candidate.route.method} ${candidate.route.path}`, mismatch: "method" });
       }
-      continue;
-    }
-    if (!methodOk) {
-      nearMisses.push({ module: candidate.module, route: `${candidate.route.method} ${candidate.route.path}`, mismatch: "method" });
       continue;
     }
     if (alignment === "exact") exact.push(candidate);
@@ -89,11 +94,11 @@ export function matchCall(call: FrontendCall, candidates: RouteCandidate[]): Mat
   if (exact.length === 1) return { kind: "matched", link: link(call, exact[0], "R1") };
   if (exact.length > 1) return { kind: "ambiguous", candidates: describe(exact) };
   if (parameterised.length === 1) return { kind: "matched", link: link(call, parameterised[0], "R2") };
-  if (parameterised.length > 1) {
-    const decided = precedence(parameterised);
-    if (decided) return { kind: "matched", link: link(call, decided, "R3") };
-    return { kind: "ambiguous", candidates: describe(parameterised) };
-  }
+  // Two parameterised routes that both absorb this call cannot be separated from source: gin would have
+  // refused to register them, and express decides by registration order, which is not modelled here.
+  // Picking "the one with fewer parameters" is a rule of thumb that demonstrably chooses wrong
+  // (`/a/:x/:y` vs `/:z/b/c` for `/a/b/c`), so the honest answer is to name both.
+  if (parameterised.length > 1) return { kind: "ambiguous", candidates: describe(parameterised) };
   if (weak.length) return { kind: "weak", candidates: describe(weak) };
   return { kind: "unresolved", nearMisses: nearMisses.sort((a, b) => cmp(a.module, b.module) || cmp(a.route, b.route)) };
 }
@@ -116,9 +121,8 @@ function link(call: FrontendCall, candidate: RouteCandidate, rule: MatchedLink["
  *   `parameterised` — literals equal and every frontend hole sits opposite a route parameter;
  *   `weak`          — a frontend hole sits opposite a LITERAL route segment (measured: always wrong);
  *   `null`          — different length, or two literals that differ.
- * `ignoreHoles` compares only literal segments, for diagnosing a method-only mismatch.
  */
-function align(call: string[], route: string[], ignoreHoles = false): "exact" | "parameterised" | "weak" | null {
+function align(call: string[], route: string[]): "exact" | "parameterised" | "weak" | null {
   // A wildcard route (`/*any`) absorbs the remainder, so it matches on its literal prefix.
   const wildcard = route.findIndex((segment) => segment.startsWith("*"));
   if (wildcard >= 0) {
@@ -135,7 +139,6 @@ function align(call: string[], route: string[], ignoreHoles = false): "exact" | 
     const leftIsHole = left.startsWith(":p");
     const rightIsParam = right.startsWith(":");
     if (leftIsHole) {
-      if (ignoreHoles) continue;
       if (rightIsParam) sawHoleOnParam = true;
       else sawHoleOnLiteral = true;
       continue;
@@ -151,14 +154,6 @@ function align(call: string[], route: string[], ignoreHoles = false): "exact" | 
   }
   if (sawHoleOnLiteral) return "weak";
   return sawHoleOnParam ? "parameterised" : "exact";
-}
-
-/** Prefer the candidate with the fewest parameters — the route a router would try first. */
-function precedence(candidates: RouteCandidate[]): RouteCandidate | null {
-  const scored = candidates.map((candidate) => ({ candidate, params: segments(candidate.route.path).filter((segment) => segment.startsWith(":")).length }));
-  scored.sort((a, b) => a.params - b.params);
-  if (scored.length > 1 && scored[0].params === scored[1].params) return null;
-  return scored[0].candidate;
 }
 
 function describe(candidates: RouteCandidate[]): Array<{ module: string; route: string }> {

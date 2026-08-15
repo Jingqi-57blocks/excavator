@@ -96,6 +96,31 @@ test("an express router file inherits its mount prefix", () => {
   ]);
 });
 
+// Measured: five `axios.post(responseUrl, …)` calls in one router file were being counted as route
+// registrations. An outbound HTTP call and a route registration are the same shape; only the receiver
+// tells them apart, and gin was already protected this way by its prefix map.
+test("an outbound HTTP call in a router file is not a route registration", () => {
+  const source = [
+    "const router = express.Router();",
+    "router.post('/notify', handler);",
+    "async function tell(responseUrl) { await axios.post(responseUrl, { text: 'hi' }); }",
+  ].join("\n");
+  const recovery = recoverExpressRoutes("routes/slack.js", source, "/slack");
+  assert.deepEqual(recovery.routes.map((route) => `${route.method} ${route.path}`), ["POST /slack/notify"]);
+  assert.deepEqual(recovery.unrecovered, [], "the axios call must not be reported as a registration we failed to recover");
+});
+
+test("a file that names its own router does not treat an unrelated `app` variable as one", () => {
+  const source = [
+    "const api = express.Router();",
+    "api.get('/thing', handler);",
+    "const app = { get: (path, h) => h };",
+    "app.get('/not-a-route', other);",
+  ].join("\n");
+  const recovery = recoverExpressRoutes("routes/x.js", source, "/x");
+  assert.deepEqual(recovery.routes.map((route) => route.path), ["/x/thing"]);
+});
+
 test("path joining matches how a router composes, including the empty-suffix case", () => {
   assert.equal(joinPath("/v2/leaves", ""), "/v2/leaves");
   assert.equal(joinPath("/v2", "/leaves"), "/v2/leaves");
