@@ -22,6 +22,8 @@
     "check": "node --experimental-strip-types src/cli.ts help >/dev/null && pnpm test"
   },
   "dependencies": {
+    "@ast-grep/lang-go": "^0.0.6",
+    "@ast-grep/napi": "^0.45.1",
     "tree-sitter": "^0.25.1",
     "tree-sitter-perl": "^1.2.1"
   },

@@ -16,6 +16,7 @@ import { logicWorkItems, LOGIC_DISPOSITION_ASSURANCE_GENERATION } from "../assur
 import { readObligations, READ_ACCOUNTABILITY_ASSURANCE_GENERATION } from "../assurance/read-obligations.ts";
 import { auditReadAccountability, reconcileReadCoverage, type ClaimCitation } from "../assurance/read-coverage.ts";
 import { auditConditionCoverage, inventoryConditions, type ClaimStatement } from "../assurance/condition-inventory.ts";
+import { warmExtractors } from "../assurance/condition-extract.ts";
 import { collectClaims, createAnalysisScope, emptyTraceCatalog, mergeTraces, writeReportCompanions } from "../assurance/assurance-artifacts.ts";
 import { scaffoldSectionClaims } from "../assurance/claims-scaffold.ts";
 import { sectionFileStem } from "../assurance/section-slug.ts";
@@ -336,6 +337,7 @@ export async function freezeRun(runDirInput: string): Promise<{ manifest: RunMan
   // The literal conditions inside the opened windows, computed WITHOUT claims (none exist yet). Measured
   // extraction of these was ~0 while they were only an audit-time residual, so they are put in front of the
   // author here — the packet below renders them per section — and re-reconciled with consumption at audit.
+  if (readAccountable) await warmExtractors();
   const freezeConditions = readAccountable ? inventoryConditions(evidenceCatalog.evidence, []) : null;
   if (freezeConditions) await writeJson(join(runDir, "coverage", "condition-inventory.json"), freezeConditions);
 
@@ -705,6 +707,9 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
   if (assuranceGenerationAtLeast(manifest, READ_ACCOUNTABILITY_ASSURANCE_GENERATION)) {
     const claimStatements: ClaimStatement[] = [...claimsByDocument.entries()].flatMap(([documentId, entries]) =>
       entries.map(({ claim }) => ({ ref: `${documentId}#${claim.id}`, statement: claim.statement ?? "", evidenceIds: claim.evidenceIds ?? [] })));
+    // Same warm-up as freeze: an unwarmed audit would re-inventory Perl through the regex path and
+    // reconcile a different set of conditions than the one the author was given.
+    await warmExtractors();
     const conditions = inventoryConditions(evidenceCatalog.evidence, claimStatements);
     if (!singleDocument) await writeJson(join(runDir, "coverage", "condition-inventory.json"), conditions);
     findings.push(...runWide(auditConditionCoverage(conditions)));

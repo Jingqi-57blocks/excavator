@@ -179,6 +179,8 @@ export function buildAuthoringPacket(
   // the end, unassigned, rather than dropping them (same "nothing vanishes" rule the prd block follows).
   const unassignedConditions = renderUnassignedConditions(sections, conditions);
   if (unassignedConditions) parts.push(unassignedConditions);
+  const families = renderEnumFamilies(conditions);
+  if (families) parts.push(families);
 
   if (!sections.length) parts.push("No work item is required for this document.");
   return `${parts.join("\n\n")}\n`;
@@ -300,6 +302,26 @@ function renderConditions(block: PacketSection, conditions: ConditionInventory |
     "and cite the window it came from; if a condition is not reportable behavior, leave it out deliberately rather than by omission."
   );
   for (const item of mine) lines.push(`- \`${item.expression}\` — ${item.path}:${item.line}`);
+  return lines.join("\n");
+}
+
+/**
+ * String comparisons regrouped per field. This is the highest-information form of the inventory: six separate
+ * `repr.View == "..."` lines say far less than one line naming the five values that field accepts, and "which
+ * modes/types exist" is a question reports are routinely asked and routinely miss. Rendered once per document
+ * because a field's values usually span several windows.
+ */
+function renderEnumFamilies(conditions: ConditionInventory | undefined): string {
+  const families = (conditions?.families ?? []).filter((family) => family.values.length > 1);
+  if (!families.length) return "";
+  const lines = ["## Value sets compared in these windows (enum families)"];
+  lines.push(
+    "Each line is one field and the literal values the opened code compares it against — the modes, types or " +
+    "states that exist. State the sets that carry reportable behavior; a set stated as a list is usually clearer than prose."
+  );
+  for (const family of families) {
+    lines.push(`- \`${family.field}\` ∈ { ${family.values.map((value) => `\`${value}\``).join(", ")} } — ${family.path}:${family.lines.join(",")}`);
+  }
   return lines.join("\n");
 }
 

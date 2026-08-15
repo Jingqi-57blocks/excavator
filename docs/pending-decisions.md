@@ -193,6 +193,14 @@ V1 的读义务分母来自 fact pack `logic` 类目 = 保留 pruned-FG 节点�
 
 **候选下一片（V1.3，需先校准）**：扩到 ① 字符串/引号字面量比较 ② 非 C 家族算符（SQL `=`/`<>`、shell 测试算符、Perl `eq/ne/gt/lt`）③ 按语言分组的降噪词表。**必须先校准**：字符串字面量会引入新噪声类（日志文案、SQL 片段、URL、CSS 类名），不校准直接上会重犯字面量保真的错误。
 
+## 批次 57B-395（V1.3 条件提取换 AST）产生（2026-08-15）
+
+上一条"候选下一片（V1.3）"的三项已落地：① 字符串字面量比较（AST 路径产出，正则永不产字符串）② Perl 走 tree-sitter（`eq/ne/lt/gt/le/ge` 与哈希元素左值）③ 降噪过滤器补字符串侧（空串守卫、`typeof`）。实测：WCP 24→78 site（22 数值 + 56 字符串）、30 个枚举族、`regexOnlySites` 0；provital 5(全 regex)→11 site + 5 族，37/37 个 `.pm` 窗口走 AST。剩余记账：
+
+- **枚举成员比较未捕获（已知边界，未排期）**：`categoryStyle === CategoryStyle.Continuous` 这类右值是**标识符而非字面量**的比较，按"只认字面量"的定义被拒。它在 TS/Go/C# 的枚举密集代码里是主流写法，可能是当前字符串枚举族的主要遗漏源。修法需要符号解析（把枚举成员解析回其字面值），跨出了当前纯语法层的边界；也可退而求其次记为"值集未知的枚举族"。**先量再定**：应先在真实 run 上数一数这类 site 的数量级，再决定是否值得引入解析。
+- **非 C 家族算符仍漏（收窄但未消除）**：Perl 已补；SQL `=`/`<>`、shell `-ne`/`-gt`（provital `.sh` 实测存在）、Erlang `=:=`、Lisp 前缀式仍不覆盖。策略同上：按目标语言的真实占比决定是否加后端，不预先铺开。
+- **`AST_LANGUAGES` 是能力清单而非当次事实**：Perl 只有在 `warmExtractors()` 跑过之后才是结构化路径，未预热则诚实降级为 `via: "regex"`。调用方（`run.ts` 的 freeze 与 audit 两处）已各自预热；将来新增调用点若忘记预热，会静默退回正则——这正是 V1.3 早期 ESM `require` 事故的同型风险，靠每 site 的 `via` 字段可见。
+
 ## 批次 57B-393（条件清单）评审产生（Fable 复核，2026-08-14；判定通过，无 must-fix）
 
 四条 should-fix 全部在本片修复（`mentionsLiteral` 小数/分数假绿、STRUCTURAL_LHS camelCase 锚定放行 `discount`/`priceIndex`、magnitude 阈值 1e5→1e8 保住金额上限、去重 consumedBy 取并集），nit 中的测试 fixture 空断言与模块头偏差说明亦已修。剩余记账：
