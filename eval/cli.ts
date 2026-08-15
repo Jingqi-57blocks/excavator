@@ -7,6 +7,7 @@
 //   boundary (--run <dir> | --nodes <file>) --gold <file> [--json]   feature-graph boundary recall
 //   read-denominator --run <dir> [--must <path:line>]... [--json]   what the boundary second source added
 //   crossrepo --run <dir> --gold <file> [--sample N] [--json]       cross-repo link gate + review sample
+//   read-attribution --gold <file> --anchors a,b,c [--json]         does the partitioned reading still point right
 // diff exits 1 on any mustFind missing / forbidden violation / coverage failure; 0 otherwise.
 // boundary exits 1 on any mustFind miss; 0 otherwise (same honest-red contract as diff).
 // --prepare-only runs ONLY the anchor-in-scope containment check (zero model, sub-second).
@@ -36,6 +37,7 @@ import {
 import { buildPoolFromRun, loadPrunePool, prunePoolToNodes, writePrunePool } from "./prune-replay.ts";
 import { buildDenominatorReport, denominatorExitCode, parseMust, renderDenominator } from "./read-denominator.ts";
 import { artifactExists, buildCrossRepoReport, crossRepoExitCode, loadCrossRepoGold, renderCrossRepoReport } from "./crossrepo.ts";
+import { attributionExitCode, buildAttributionReport, renderAttributionReport } from "./read-attribution.ts";
 
 interface Flags {
   run?: string;
@@ -51,6 +53,7 @@ interface Flags {
   modules: string[];
   must: string[];
   sample?: string;
+  anchors?: string;
   json: boolean;
   prepareOnly: boolean;
 }
@@ -68,6 +71,7 @@ function parseFlags(argv: string[]): Flags {
     else if (arg === "--layer") flags.layer = argv[++i];
     else if (arg === "--must") flags.must.push(argv[++i]);
     else if (arg === "--sample") flags.sample = argv[++i];
+    else if (arg === "--anchors") flags.anchors = argv[++i];
     else if (arg === "--out") flags.out = argv[++i];
     else if (arg === "--pool") flags.pool = argv[++i];
     else if (arg === "--emit-pool") flags.emitPool = argv[++i];
@@ -194,6 +198,19 @@ function parseLayer(value: string | undefined): BoundaryLayer | "both" | undefin
  * links gold does NOT cover — the part a human still has to look at, because ten checked pairs say nothing
  * about the precision of the other several hundred.
  */
+/**
+ * Gate the relevance labelling against a human adjudication whose thresholds were fixed before the signal
+ * existed. Exit 1 when the strong partition stops being mostly real misses, when the unclassified partition
+ * stops being mostly noise, or when the reading stops pointing at the files a human said were worth reading.
+ */
+function runReadAttribution(flags: Flags): number {
+  const anchors = requireFlag(flags.anchors, "--anchors").split(",").map((term) => term.trim()).filter(Boolean);
+  if (!anchors.length) throw new Error("--anchors expects a comma-separated list of the run's anchor terms");
+  const report = buildAttributionReport(requireFlag(flags.gold, "--gold"), anchors);
+  process.stdout.write(`${flags.json ? JSON.stringify(report, null, 2) : renderAttributionReport(report)}\n`);
+  return attributionExitCode(report);
+}
+
 function runCrossRepoGate(flags: Flags): number {
   const runDir = requireFlag(flags.run, "--run");
   const artifactPath = `${runDir}/context/crossrepo-links.json`;
@@ -332,6 +349,7 @@ function main(argv: string[]): number {
   if (command === "prune-replay") return runPruneReplay(flags);
   if (command === "read-denominator") return runReadDenominator(flags);
   if (command === "crossrepo") return runCrossRepoGate(flags);
+  if (command === "read-attribution") return runReadAttribution(flags);
   throw new Error(`unknown command: ${command}`);
 }
 

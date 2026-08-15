@@ -42,8 +42,14 @@ export interface ReadCoverageItem {
   path: string;
   startLine: number;
   endLine?: number;
+  /** Which source found this obligation — `decision-function` is the prune's own retained set. Present
+   *  only on an annotated run: the partitions need it, and an unannotated run's residual must stay
+   *  byte-identical to what it was before this field existed. */
+  kind?: string;
   /** Mirrors `ReadObligation.tier`; 2 marks a boundary supplement, which is never gated. */
   tier: 0 | 1 | 2;
+  /** Mirrors `ReadObligation.anchorHit` — a label for grouping the reading, never a judgement. */
+  anchorHit?: "name" | "path";
   gated: boolean;
   status: ReadStatus;
   /** Evidence ids of the source windows overlapping this span, sorted. */
@@ -75,6 +81,18 @@ export interface ReadCoverageReport {
     openedNotConsumed: number;
     /** Within the hard gate's reach and never opened. */
     gatedNotOpened: number;
+    /**
+     * `notOpened`, split by how the obligation relates to the feature. Present only when the obligations
+     * carried anchor labels, so a run frozen before that stays byte-identical.
+     *
+     * The split exists because the undivided number misdirects: measured on a real run, ranking files by
+     * unread lines put THREE noise-dominated files in the top five, so the funnel would have spent the
+     * next slice on code unrelated to the feature. `retained` and the two `anchor*` partitions are the
+     * reading to steer by; `unclassified` is mostly denominator noise — but only mostly, so it is
+     * reported per file rather than discarded (measured: 33 of 140 were real misses).
+     */
+    notOpenedByAttribution?: { retained: number; anchorName: number; anchorPath: number; unclassified: number };
+    notOpenedLinesByAttribution?: { retained: number; anchorName: number; anchorPath: number; unclassified: number };
   };
 }
 
@@ -83,6 +101,9 @@ export interface ReadCoverageInput {
   evidence: EvidenceItem[];
   /** Omitted at freeze time (no claims exist yet): the read side is reported, the consumption side stays empty. */
   claims?: ClaimCitation[];
+  /** Whether the obligations were relevance-annotated. Passed explicitly because "annotated and nothing
+   *  matched" and "never annotated" are different facts, and only the first says the vocabulary is wrong. */
+  annotated?: boolean;
 }
 
 /** Reconcile the counted obligations against opened windows and claim citations. */
@@ -107,23 +128,26 @@ export function reconcileReadCoverage(input: ReadCoverageInput): ReadCoverageRep
   const items: ReadCoverageItem[] = [];
   for (const obligation of input.obligations) {
     if (obligation.excluded) continue;
-    items.push(coverageFor(obligation, windowsByPath.get(obligation.path) ?? [], citationsByEvidence));
+    items.push(coverageFor(obligation, windowsByPath.get(obligation.path) ?? [], citationsByEvidence, Boolean(input.annotated)));
   }
 
-  return { version: READ_COVERAGE_VERSION, consumptionEvaluated: input.claims !== undefined, items, summary: summarize(items) };
+  return { version: READ_COVERAGE_VERSION, consumptionEvaluated: input.claims !== undefined, items, summary: summarize(items, Boolean(input.annotated)) };
 }
 
 function coverageFor(
   obligation: ReadObligation,
   windows: EvidenceItem[],
   citationsByEvidence: Map<string, string[]>,
+  annotated: boolean,
 ): ReadCoverageItem {
   const base: ReadCoverageItem = {
     id: obligation.id,
     name: obligation.name,
     path: obligation.path,
     startLine: obligation.startLine,
+    ...(annotated ? { kind: obligation.kind } : {}),
     tier: obligation.tier,
+    ...(obligation.anchorHit ? { anchorHit: obligation.anchorHit } : {}),
     gated: obligation.gated,
     status: "not-opened",
     openedWindows: [],
@@ -241,11 +265,38 @@ export function auditReadAccountability(input: ReadAccountabilityInput): AuditFi
   const ungatedNotOpened = report.items.filter((item) => !item.gated && item.status === "not-opened");
   if (ungatedNotOpened.length) {
     const lines = ungatedNotOpened.reduce((total, item) => total + item.uncoveredLines, 0);
-    findings.push({
-      level: "warning",
-      document: "read-coverage",
-      message: `read residual (advisory): ${ungatedNotOpened.length} of ${report.summary.counted} counted read obligations were never opened (${lines} line(s) unread) — see coverage/read-residual.json; "read coverage complete" never means "nothing was missed", since obligations only cover the retained boundary`,
-    });
+    const tail = `see coverage/read-residual.json; "read coverage complete" never means "nothing was missed", since obligations only cover the retained boundary`;
+    // Split when the obligations carry anchor labels. One undivided number misdirects: measured, half of
+    // it was code that merely shares a file with the feature, and ranking by it pointed the next slice at
+    // the wrong service entirely. The two lines are deliberately worded so neither reads as a verdict —
+    // the first is where to look, the second is what the labelling could not place.
+    if (report.summary.notOpenedByAttribution) {
+      const counts = report.summary.notOpenedByAttribution;
+      const spans = report.summary.notOpenedLinesByAttribution as NonNullable<typeof report.summary.notOpenedLinesByAttribution>;
+      const associated = counts.retained + counts.anchorName + counts.anchorPath;
+      const associatedLines = spans.retained + spans.anchorName + spans.anchorPath;
+      findings.push({
+        level: "warning",
+        document: "read-coverage",
+        message: `read residual (advisory, feature-associated): ${associated} of ${report.summary.counted} counted read obligations were never opened (${associatedLines} line(s) unread) — retained ${counts.retained}, named ${counts.anchorName}, in-directory ${counts.anchorPath}. This is the partition to steer by; ${tail}`,
+      });
+      if (counts.unclassified) {
+        findings.push({
+          level: "warning",
+          document: "read-coverage",
+          // No fraction is quoted here on purpose. Any number would come from one target's one run, would
+          // be wrong on the next target, and would still be printed with authority on every run after that
+          // — which is the exact kind of misleading reading this slice exists to remove.
+          message: `read residual (advisory, unclassified): a further ${counts.unclassified} obligations (${spans.unclassified} line(s)) were never opened and carry none of this feature's vocabulary — often code that merely shares a file with it. On the run this partition was calibrated against, a meaningful share of it WAS real misses, so read it per file rather than dismissing it; ${tail}`,
+        });
+      }
+    } else {
+      findings.push({
+        level: "warning",
+        document: "read-coverage",
+        message: `read residual (advisory): ${ungatedNotOpened.length} of ${report.summary.counted} counted read obligations were never opened (${lines} line(s) unread) — ${tail}`,
+      });
+    }
   }
   // Only meaningful once claims exist: at freeze every opened obligation is trivially unconsumed.
   if (report.consumptionEvaluated && report.summary.openedNotConsumed) {
@@ -258,7 +309,7 @@ export function auditReadAccountability(input: ReadAccountabilityInput): AuditFi
   return findings;
 }
 
-function summarize(items: ReadCoverageItem[]): ReadCoverageReport["summary"] {
+function summarize(items: ReadCoverageItem[], annotated: boolean): ReadCoverageReport["summary"] {
   const byStatus = (status: ReadStatus): number => items.filter((item) => item.status === status).length;
   return {
     counted: items.length,
@@ -271,7 +322,38 @@ function summarize(items: ReadCoverageItem[]): ReadCoverageReport["summary"] {
     uncoveredLines: items.reduce((total, item) => total + item.uncoveredLines, 0),
     openedNotConsumed: items.filter((item) => item.openedWindows.length > 0 && item.consumedBy.length === 0).length,
     gatedNotOpened: items.filter((item) => item.gated && item.status === "not-opened").length,
+    ...attributionPartitions(items, annotated),
   };
+}
+
+/**
+ * Split `notOpened` four ways. Emitted only when the obligations carry anchor labels — a run frozen before
+ * they existed keeps a byte-identical residual.
+ *
+ * `retained` first: an obligation the prune kept is feature-relevant by the boundary's own reckoning, and
+ * measured it is the purest partition. The two anchor partitions follow, name before path. What is left is
+ * `unclassified`: mostly denominator noise, but NOT provably so — reporting it per file is the point.
+ */
+function attributionPartitions(items: ReadCoverageItem[], annotated: boolean): Partial<ReadCoverageReport["summary"]> {
+  // Keyed on whether annotation RAN, not on whether it matched anything. Deriving it from "some item has a
+  // label" would make a run whose vocabulary matched nothing indistinguishable from a run frozen before
+  // labels existed — and the first of those has a story to tell (its vocabulary is wrong).
+  if (!annotated) return {};
+  const notOpened = items.filter((item) => item.status === "not-opened");
+  const bucketOf = (item: ReadCoverageItem): "retained" | "anchorName" | "anchorPath" | "unclassified" => {
+    if (item.kind === "decision-function") return "retained";
+    if (item.anchorHit === "name") return "anchorName";
+    if (item.anchorHit === "path") return "anchorPath";
+    return "unclassified";
+  };
+  const counts = { retained: 0, anchorName: 0, anchorPath: 0, unclassified: 0 };
+  const lines = { retained: 0, anchorName: 0, anchorPath: 0, unclassified: 0 };
+  for (const item of notOpened) {
+    const bucket = bucketOf(item);
+    counts[bucket] += 1;
+    lines[bucket] += item.uncoveredLines;
+  }
+  return { notOpenedByAttribution: counts, notOpenedLinesByAttribution: lines };
 }
 
 function consumers(windows: EvidenceItem[], citationsByEvidence: Map<string, string[]>): string[] {

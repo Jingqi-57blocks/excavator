@@ -1,0 +1,2393 @@
+{
+  "version": "read-attribution-v1",
+  "run": ".work/wcp-bf72b0/runs/run-2026_08_15_17_36-请假管理-e7b7fd1a-5fbd4975-be85c5d5",
+  "feature": "请假管理",
+  "note": "225 项 not-opened 义务的人工裁定。判据：读者若要理解「请假管理」，这个函数本该被读吗？true-miss=是（真漏读）/ noise=否（在边界文件里但与本 feature 无关）/ gray=说不清。裁定按文件组进行，理由逐组记录，且【独立于任何信号】——先裁定再实现信号，否则就是拿信号去论证信号。 【机械元数据修正】items 的 kind originally 为空（生成 golden 时 coverage item 尚无该字段），已从同 run 的 read-obligations.json 按 path|name|startLine 补回。**verdict 未改动**——那是人的裁定，不随实现变。",
+  "groups": [
+    {
+      "prefix": "wcp-service/services/leaveService.js",
+      "verdict": "true-miss",
+      "reason": "v1 请假服务本体：类型/额度/状态全在这里，报告描述 v1 行为必须读"
+    },
+    {
+      "prefix": "wcp-service-v2/internal/handlers/leave/",
+      "verdict": "true-miss",
+      "reason": "v2 请假包：通知、桥接、收件人、DTO、工具函数均属实现本体"
+    },
+    {
+      "prefix": "wcp-service-v2/internal/handlers/leaveHistory/",
+      "verdict": "true-miss",
+      "reason": "请假历史与余额（含 PTO/BTO/特假余额），是额度扣减与回退的依据"
+    },
+    {
+      "prefix": "wcp-service-v2/internal/model/leave.go",
+      "verdict": "true-miss",
+      "reason": "请假领域模型"
+    },
+    {
+      "prefix": "wcp-service/services/approveService.js",
+      "verdict": "true-miss",
+      "reason": "v1 审批服务：创建/通过/驳回，是审批链的 v1 实现"
+    },
+    {
+      "prefix": "wcp-service/services/export/leaveReportService.js",
+      "verdict": "true-miss",
+      "reason": "请假报表导出"
+    },
+    {
+      "prefix": "wcp-service/services/export/retiredSummaryReportService.js",
+      "verdict": "true-miss",
+      "reason": "离职结算里的 PTO 计算（calculatePto/handleActualPto）是真请假逻辑；词法信号因别名缺 pto 而漏，正是必须保留可见的实例"
+    },
+    {
+      "prefix": "wcp-ui/src/pages/leave/",
+      "verdict": "true-miss",
+      "reason": "请假前端页面与组件：表单规则、条件渲染、导出弹窗"
+    },
+    {
+      "prefix": "wcp-service-v2/internal/tasks/latam_pto/",
+      "verdict": "true-miss",
+      "reason": "PTO 到期提醒任务，属请假额度域"
+    },
+    {
+      "prefix": "wcp-service-v2/internal/handlers/holiday/router.go",
+      "verdict": "true-miss",
+      "reason": "节假日小时数直接进请假额度计算"
+    },
+    {
+      "prefix": "wcp-service-v2/internal/handlers/management/",
+      "verdict": "noise",
+      "reason": "面试职位、工时表、项目月度——与请假无关；仅因边界文件同目录被枚举。旧读数把切片投向这里正是本片要修的 【评审指出的最灰两项，刻意保持原裁定】UserHasProjectLeaveHour / GetDayLeaveHours 读 se.LeaveMap 给工时表导出算请假小时，名字带 Leave 且 GetDayLeaveHours 还编码了跨项目请假小时归属规则——但它们是 worklog 导出行为，不是请假生命周期，按「理解请假管理本该读吗」判 noise 可辩护。若将来有人重裁为 gray，strong 纯度只会更好不会更差，方向上无风险。留此说明以免被当作漏判。"
+    },
+    {
+      "prefix": "wcp-service-v2/internal/handlers/ai_tool/",
+      "verdict": "noise",
+      "reason": "AI 工具 CRUD 与评分，与请假无关"
+    },
+    {
+      "prefix": "wcp-service-v2/internal/handlers/clientProj/",
+      "verdict": "noise",
+      "reason": "客户项目缩略图同步"
+    },
+    {
+      "prefix": "wcp-service-v2/internal/third_party/cron/cron.go",
+      "verdict": "noise",
+      "reason": "AI 生成与聊天清理的定时任务"
+    },
+    {
+      "prefix": "wcp-service-v2/main.go",
+      "verdict": "noise",
+      "reason": "进程入口"
+    },
+    {
+      "prefix": "wcp-service/common/scheduleService.js",
+      "verdict": "noise",
+      "reason": "Slack 定时消息的通用调度，非请假专有"
+    },
+    {
+      "prefix": "wcp-service-v2/internal/handlers/support/router.go",
+      "verdict": "gray",
+      "reason": "CalculationAuto 是通用计算入口，是否服务请假时长计算未验证"
+    }
+  ],
+  "items": [
+    {
+      "path": "wcp-service-v2/internal/handlers/ai_tool/router.go",
+      "name": "LeaveComment",
+      "startLine": 43,
+      "endLine": 56,
+      "lines": 14,
+      "tier": 1,
+      "verdict": "noise",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/ai_tool/router.go",
+      "name": "RateAiTool",
+      "startLine": 58,
+      "endLine": 68,
+      "lines": 11,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/ai_tool/router.go",
+      "name": "DeleteAiTool",
+      "startLine": 70,
+      "endLine": 76,
+      "lines": 7,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/ai_tool/router.go",
+      "name": "TrailAiTool",
+      "startLine": 78,
+      "endLine": 84,
+      "lines": 7,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/ai_tool/router.go",
+      "name": "ListAiTool",
+      "startLine": 86,
+      "endLine": 93,
+      "lines": 8,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/ai_tool/router.go",
+      "name": "UpdateComment",
+      "startLine": 95,
+      "endLine": 105,
+      "lines": 11,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/ai_tool/router.go",
+      "name": "DeleteComment",
+      "startLine": 107,
+      "endLine": 113,
+      "lines": 7,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/ai_tool/service.go",
+      "name": "CreateAiTool",
+      "startLine": 83,
+      "endLine": 140,
+      "lines": 58,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/ai_tool/service.go",
+      "name": "UpdateAiTool",
+      "startLine": 141,
+      "endLine": 206,
+      "lines": 66,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/ai_tool/service.go",
+      "name": "AiToolDetail",
+      "startLine": 208,
+      "endLine": 227,
+      "lines": 20,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/ai_tool/service.go",
+      "name": "LeaveComment",
+      "startLine": 229,
+      "endLine": 251,
+      "lines": 23,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/ai_tool/service.go",
+      "name": "RateAiTool",
+      "startLine": 253,
+      "endLine": 285,
+      "lines": 33,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/ai_tool/service.go",
+      "name": "DeleteAiTool",
+      "startLine": 287,
+      "endLine": 317,
+      "lines": 31,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/ai_tool/service.go",
+      "name": "DeleteComment",
+      "startLine": 319,
+      "endLine": 341,
+      "lines": 23,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/ai_tool/service.go",
+      "name": "UpdateComment",
+      "startLine": 343,
+      "endLine": 364,
+      "lines": 22,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/ai_tool/service.go",
+      "name": "TrailAiTool",
+      "startLine": 366,
+      "endLine": 383,
+      "lines": 18,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/clientProj/task.go",
+      "name": "SyncProjectUpdatesThumbnail",
+      "startLine": 240,
+      "endLine": 265,
+      "lines": 26,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/clientProj/task.go",
+      "name": "SyncClientThumbnail",
+      "startLine": 267,
+      "endLine": 292,
+      "lines": 26,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/clientProj/task.go",
+      "name": "Execute",
+      "startLine": 304,
+      "endLine": 312,
+      "lines": 9,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/clientProj/task.go",
+      "name": "BuildCpst",
+      "startLine": 314,
+      "endLine": 319,
+      "lines": 6,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/clientProj/task.go",
+      "name": "HandleComponents",
+      "startLine": 321,
+      "endLine": 329,
+      "lines": 9,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/clientProj/task.go",
+      "name": "BuildMsg",
+      "startLine": 331,
+      "endLine": 390,
+      "lines": 60,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/clientProj/task.go",
+      "name": "notifyActiveProj",
+      "startLine": 392,
+      "endLine": 429,
+      "lines": 38,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/clientProj/task.go",
+      "name": "sendProjectUpdatesNotification",
+      "startLine": 431,
+      "endLine": 485,
+      "lines": 55,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/holiday/router.go",
+      "name": "BySelfV2",
+      "startLine": 62,
+      "endLine": 64,
+      "lines": 3,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "route-handler"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leave/brdg_abst.go",
+      "name": "Apply",
+      "startLine": 458,
+      "endLine": 510,
+      "lines": 53,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+      "name": "crossRejection",
+      "startLine": 925,
+      "endLine": 968,
+      "lines": 44,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+      "name": "Consume",
+      "startLine": 1015,
+      "endLine": 1026,
+      "lines": 12,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+      "name": "Consume",
+      "startLine": 1163,
+      "endLine": 1174,
+      "lines": 12,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leave/dcrt_recipient.go",
+      "name": "Recipients",
+      "startLine": 99,
+      "endLine": 114,
+      "lines": 16,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leave/dcrt_recipient.go",
+      "name": "Recipients",
+      "startLine": 122,
+      "endLine": 140,
+      "lines": 19,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leave/dto.go",
+      "name": "AfterFind",
+      "startLine": 99,
+      "endLine": 109,
+      "lines": 11,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+      "name": "subject",
+      "startLine": 264,
+      "endLine": 324,
+      "lines": 61,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+      "name": "BuildCpst",
+      "startLine": 327,
+      "endLine": 356,
+      "lines": 30,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+      "name": "BuildCpntEmail",
+      "startLine": 359,
+      "endLine": 371,
+      "lines": 13,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+      "name": "handleSES",
+      "startLine": 373,
+      "endLine": 442,
+      "lines": 70,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+      "name": "BuildCpst",
+      "startLine": 530,
+      "endLine": 559,
+      "lines": 30,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+      "name": "BuildCpntEmail",
+      "startLine": 562,
+      "endLine": 574,
+      "lines": 13,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+      "name": "handleSES",
+      "startLine": 576,
+      "endLine": 650,
+      "lines": 75,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+      "name": "BuildCpntMobile",
+      "startLine": 653,
+      "endLine": 659,
+      "lines": 7,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+      "name": "subject",
+      "startLine": 674,
+      "endLine": 738,
+      "lines": 65,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+      "name": "BuildCpst",
+      "startLine": 741,
+      "endLine": 770,
+      "lines": 30,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+      "name": "BuildCpntEmail",
+      "startLine": 773,
+      "endLine": 785,
+      "lines": 13,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+      "name": "handleSES",
+      "startLine": 787,
+      "endLine": 873,
+      "lines": 87,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+      "name": "subject",
+      "startLine": 898,
+      "endLine": 955,
+      "lines": 58,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+      "name": "BuildCpst",
+      "startLine": 958,
+      "endLine": 987,
+      "lines": 30,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+      "name": "BuildCpntEmail",
+      "startLine": 990,
+      "endLine": 1002,
+      "lines": 13,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+      "name": "handleSES",
+      "startLine": 1004,
+      "endLine": 1091,
+      "lines": 88,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+      "name": "BuildCpntMobile",
+      "startLine": 1094,
+      "endLine": 1107,
+      "lines": 14,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+      "name": "subject",
+      "startLine": 1122,
+      "endLine": 1229,
+      "lines": 108,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+      "name": "BuildCpst",
+      "startLine": 1232,
+      "endLine": 1261,
+      "lines": 30,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+      "name": "BuildCpntEmail",
+      "startLine": 1264,
+      "endLine": 1277,
+      "lines": 14,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+      "name": "BuildCpntMobile",
+      "startLine": 1488,
+      "endLine": 1508,
+      "lines": 21,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+      "name": "subject",
+      "startLine": 1521,
+      "endLine": 1582,
+      "lines": 62,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+      "name": "BuildCpst",
+      "startLine": 1585,
+      "endLine": 1614,
+      "lines": 30,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+      "name": "BuildCpntEmail",
+      "startLine": 1617,
+      "endLine": 1644,
+      "lines": 28,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+      "name": "handleSES",
+      "startLine": 1646,
+      "endLine": 1727,
+      "lines": 82,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+      "name": "BuildCpntMobile",
+      "startLine": 1730,
+      "endLine": 1741,
+      "lines": 12,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+      "name": "Execute",
+      "startLine": 1755,
+      "endLine": 1763,
+      "lines": 9,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+      "name": "BuildCpst",
+      "startLine": 1765,
+      "endLine": 1782,
+      "lines": 18,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leave/service.go",
+      "name": "Pagination",
+      "startLine": 956,
+      "endLine": 1151,
+      "lines": 196,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leave/service.go",
+      "name": "OwnPagination",
+      "startLine": 1154,
+      "endLine": 1222,
+      "lines": 69,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leave/utils.go",
+      "name": "GetUserTotalSickLeaveHourMap",
+      "startLine": 162,
+      "endLine": 212,
+      "lines": 51,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leaveHistory/router.go",
+      "name": "init",
+      "startLine": 8,
+      "endLine": 10,
+      "lines": 3,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leaveHistory/router.go",
+      "name": "GetHolidayHour",
+      "startLine": 14,
+      "endLine": 24,
+      "lines": 11,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leaveHistory/router.go",
+      "name": "UpdateHolidayHour",
+      "startLine": 26,
+      "endLine": 37,
+      "lines": 12,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leaveHistory/router.go",
+      "name": "GetHolidayHourChangeLog",
+      "startLine": 39,
+      "endLine": 49,
+      "lines": 11,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leaveHistory/router.go",
+      "name": "ExportHolidayHour",
+      "startLine": 51,
+      "endLine": 57,
+      "lines": 7,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leaveHistory/service.go",
+      "name": "NewLvHistoryService",
+      "startLine": 35,
+      "endLine": 40,
+      "lines": 6,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leaveHistory/service.go",
+      "name": "GetHolidayHour",
+      "startLine": 42,
+      "endLine": 137,
+      "lines": 96,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leaveHistory/service.go",
+      "name": "ExportHolidayHour",
+      "startLine": 294,
+      "endLine": 438,
+      "lines": 145,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leaveHistory/tasks.go",
+      "name": "Execute",
+      "startLine": 31,
+      "endLine": 39,
+      "lines": 9,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leaveHistory/tasks.go",
+      "name": "BuildCpst",
+      "startLine": 41,
+      "endLine": 46,
+      "lines": 6,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leaveHistory/tasks.go",
+      "name": "HandleComponents",
+      "startLine": 48,
+      "endLine": 56,
+      "lines": 9,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leaveHistory/tasks.go",
+      "name": "BuildMsg",
+      "startLine": 58,
+      "endLine": 111,
+      "lines": 54,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leaveHistory/tasks.go",
+      "name": "sendEditHolidayHourEmail",
+      "startLine": 112,
+      "endLine": 132,
+      "lines": 21,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leaveHistory/utils.go",
+      "name": "GetEmpRemainSpecialMap",
+      "startLine": 10,
+      "endLine": 16,
+      "lines": 7,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leaveHistory/utils.go",
+      "name": "GetEmpRemainPtoMap",
+      "startLine": 18,
+      "endLine": 36,
+      "lines": 19,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/leaveHistory/utils.go",
+      "name": "GetEmpRemainBtoMap",
+      "startLine": 38,
+      "endLine": 71,
+      "lines": 34,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/export.go",
+      "name": "SetWorkLogMap",
+      "startLine": 75,
+      "endLine": 107,
+      "lines": 33,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/export.go",
+      "name": "GetMonthDate",
+      "startLine": 196,
+      "endLine": 210,
+      "lines": 15,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/export.go",
+      "name": "GetDayLog",
+      "startLine": 212,
+      "endLine": 228,
+      "lines": 17,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/export.go",
+      "name": "SetUserMap",
+      "startLine": 230,
+      "endLine": 241,
+      "lines": 12,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/export.go",
+      "name": "UserHasProjectLeaveHour",
+      "startLine": 243,
+      "endLine": 260,
+      "lines": 18,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/export.go",
+      "name": "GetDayLeaveHours",
+      "startLine": 262,
+      "endLine": 286,
+      "lines": 25,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/export.go",
+      "name": "GetUserProjTitle",
+      "startLine": 288,
+      "endLine": 298,
+      "lines": 11,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/export.go",
+      "name": "GetMonthWorkDis",
+      "startLine": 300,
+      "endLine": 320,
+      "lines": 21,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/export.go",
+      "name": "GetSingeProjectExcelData",
+      "startLine": 322,
+      "endLine": 394,
+      "lines": 73,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/export.go",
+      "name": "TotalColumn",
+      "startLine": 396,
+      "endLine": 401,
+      "lines": 6,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/export.go",
+      "name": "WriteSingleMonth",
+      "startLine": 414,
+      "endLine": 547,
+      "lines": 134,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/export.go",
+      "name": "IsHoliday",
+      "startLine": 549,
+      "endLine": 560,
+      "lines": 12,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/export.go",
+      "name": "WriteSingleProjSummary",
+      "startLine": 562,
+      "endLine": 627,
+      "lines": 66,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/export.go",
+      "name": "Export",
+      "startLine": 629,
+      "endLine": 796,
+      "lines": 168,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/service.go",
+      "name": "NewMngService",
+      "startLine": 80,
+      "endLine": 85,
+      "lines": 6,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/service.go",
+      "name": "CreateInterviewPosition",
+      "startLine": 87,
+      "endLine": 138,
+      "lines": 52,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/service.go",
+      "name": "UpdateInterviewPosition",
+      "startLine": 140,
+      "endLine": 211,
+      "lines": 72,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/service.go",
+      "name": "DeleteInterviewPosition",
+      "startLine": 213,
+      "endLine": 235,
+      "lines": 23,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/service.go",
+      "name": "GetInterviewPosition",
+      "startLine": 237,
+      "endLine": 244,
+      "lines": 8,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/service.go",
+      "name": "GetInterviewPositionByID",
+      "startLine": 246,
+      "endLine": 263,
+      "lines": 18,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/service.go",
+      "name": "ListInterviewPositions",
+      "startLine": 265,
+      "endLine": 291,
+      "lines": 27,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/service.go",
+      "name": "Sheet",
+      "startLine": 294,
+      "endLine": 307,
+      "lines": 14,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/service.go",
+      "name": "genImpl",
+      "startLine": 336,
+      "endLine": 357,
+      "lines": 22,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/service.go",
+      "name": "projsInfo",
+      "startLine": 359,
+      "endLine": 413,
+      "lines": 55,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/service.go",
+      "name": "projTotalHours",
+      "startLine": 415,
+      "endLine": 438,
+      "lines": 24,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/service.go",
+      "name": "projsDailyHours",
+      "startLine": 440,
+      "endLine": 465,
+      "lines": 26,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/service.go",
+      "name": "projNamesMap",
+      "startLine": 467,
+      "endLine": 483,
+      "lines": 17,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/service.go",
+      "name": "projMebsDistribution",
+      "startLine": 485,
+      "endLine": 778,
+      "lines": 294,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/service.go",
+      "name": "empsTitle",
+      "startLine": 780,
+      "endLine": 801,
+      "lines": 22,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/service.go",
+      "name": "empsPosition",
+      "startLine": 803,
+      "endLine": 822,
+      "lines": 20,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/service.go",
+      "name": "filledLogUserIds",
+      "startLine": 824,
+      "endLine": 841,
+      "lines": 18,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/service.go",
+      "name": "GenSheet",
+      "startLine": 846,
+      "endLine": 923,
+      "lines": 78,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/service.go",
+      "name": "GenSheet",
+      "startLine": 934,
+      "endLine": 1005,
+      "lines": 72,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/service.go",
+      "name": "mebRangeDistb",
+      "startLine": 1012,
+      "endLine": 1155,
+      "lines": 144,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/service.go",
+      "name": "GenSheet",
+      "startLine": 1157,
+      "endLine": 1177,
+      "lines": 21,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/service.go",
+      "name": "GenSheet",
+      "startLine": 1189,
+      "endLine": 1206,
+      "lines": 18,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/service.go",
+      "name": "EmpsOffMonthlyHour",
+      "startLine": 1208,
+      "endLine": 1261,
+      "lines": 54,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/service.go",
+      "name": "countTotalHour",
+      "startLine": 1263,
+      "endLine": 1268,
+      "lines": 6,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/service.go",
+      "name": "getMemberOfficeMap",
+      "startLine": 1270,
+      "endLine": 1281,
+      "lines": 12,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/service.go",
+      "name": "getProjNameMap",
+      "startLine": 1283,
+      "endLine": 1294,
+      "lines": 12,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/service.go",
+      "name": "ProjsMonthlyHours",
+      "startLine": 1296,
+      "endLine": 1419,
+      "lines": 124,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/service.go",
+      "name": "isHoliday",
+      "startLine": 1426,
+      "endLine": 1433,
+      "lines": 8,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/service.go",
+      "name": "MonthlyWorkHour",
+      "startLine": 1435,
+      "endLine": 1452,
+      "lines": 18,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/service.go",
+      "name": "getMembersInProjDB",
+      "startLine": 1458,
+      "endLine": 1516,
+      "lines": 59,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/service.go",
+      "name": "removeDuplicate",
+      "startLine": 1518,
+      "endLine": 1528,
+      "lines": 11,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/service.go",
+      "name": "getUserInfo",
+      "startLine": 1530,
+      "endLine": 1542,
+      "lines": 13,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/service.go",
+      "name": "getMembersByProjId",
+      "startLine": 1544,
+      "endLine": 1555,
+      "lines": 12,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/service.go",
+      "name": "SumManMonth",
+      "startLine": 1557,
+      "endLine": 1571,
+      "lines": 15,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/service.go",
+      "name": "GenSheet",
+      "startLine": 1581,
+      "endLine": 1794,
+      "lines": 214,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/service.go",
+      "name": "getActiveMembers",
+      "startLine": 1801,
+      "endLine": 1814,
+      "lines": 14,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/service.go",
+      "name": "GenSheet",
+      "startLine": 1816,
+      "endLine": 1923,
+      "lines": 108,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/service.go",
+      "name": "getProjectMemberIds",
+      "startLine": 1925,
+      "endLine": 1940,
+      "lines": 16,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/service.go",
+      "name": "getProjectLeaveMap",
+      "startLine": 1942,
+      "endLine": 1969,
+      "lines": 28,
+      "tier": 1,
+      "verdict": "noise",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/service.go",
+      "name": "WeekMonthSheet",
+      "startLine": 1971,
+      "endLine": 2254,
+      "lines": 284,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/service.go",
+      "name": "ApprovalCount",
+      "startLine": 2256,
+      "endLine": 2380,
+      "lines": 125,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/utils.go",
+      "name": "OrderSheetMember",
+      "startLine": 24,
+      "endLine": 73,
+      "lines": 50,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/utils.go",
+      "name": "GetNotConfirmedProjMonthMap",
+      "startLine": 75,
+      "endLine": 168,
+      "lines": 94,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/utils.go",
+      "name": "HasWorkLog",
+      "startLine": 170,
+      "endLine": 179,
+      "lines": 10,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/utils.go",
+      "name": "GetBillingOperateLogs",
+      "startLine": 181,
+      "endLine": 206,
+      "lines": 26,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/utils.go",
+      "name": "GetUnfilledMembers",
+      "startLine": 208,
+      "endLine": 318,
+      "lines": 111,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/utils.go",
+      "name": "GetMonthHolidays",
+      "startLine": 320,
+      "endLine": 337,
+      "lines": 18,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/utils.go",
+      "name": "CountEmpLogPer",
+      "startLine": 339,
+      "endLine": 363,
+      "lines": 25,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/utils.go",
+      "name": "isConfirmTimeRange",
+      "startLine": 365,
+      "endLine": 409,
+      "lines": 45,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/utils.go",
+      "name": "GetLeaveDisFromSnapshot",
+      "startLine": 411,
+      "endLine": 433,
+      "lines": 23,
+      "tier": 1,
+      "verdict": "noise",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/utils.go",
+      "name": "GetOtFromSnapshot",
+      "startLine": 435,
+      "endLine": 457,
+      "lines": 23,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/utils.go",
+      "name": "parseBillingDashboardMonthRange",
+      "startLine": 459,
+      "endLine": 474,
+      "lines": 16,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/utils.go",
+      "name": "sortBillsWithinMonth",
+      "startLine": 476,
+      "endLine": 490,
+      "lines": 15,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/utils.go",
+      "name": "dashboardWorklogItemsIfAny",
+      "startLine": 492,
+      "endLine": 498,
+      "lines": 7,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/utils.go",
+      "name": "GetProjectsUsedEquityMap",
+      "startLine": 500,
+      "endLine": 519,
+      "lines": 20,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/utils.go",
+      "name": "GetProjectUsedEquity",
+      "startLine": 521,
+      "endLine": 536,
+      "lines": 16,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/utils.go",
+      "name": "billingEquityTotal",
+      "startLine": 538,
+      "endLine": 571,
+      "lines": 34,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/utils.go",
+      "name": "validateBillingEquityWithinProjectCap",
+      "startLine": 573,
+      "endLine": 592,
+      "lines": 20,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/utils.go",
+      "name": "dashboardProjectEquityCap",
+      "startLine": 594,
+      "endLine": 599,
+      "lines": 6,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/utils.go",
+      "name": "buildDashboardClientEquityMaps",
+      "startLine": 601,
+      "endLine": 621,
+      "lines": 21,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/utils.go",
+      "name": "buildDashboardAllInvoiceMaps",
+      "startLine": 623,
+      "endLine": 651,
+      "lines": 29,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/utils.go",
+      "name": "applyDashboardEquityTotals",
+      "startLine": 653,
+      "endLine": 673,
+      "lines": 21,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/utils.go",
+      "name": "setSalesBillingEquityCapAndUsed",
+      "startLine": 675,
+      "endLine": 683,
+      "lines": 9,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/utils.go",
+      "name": "recomputeDashboardAggregates",
+      "startLine": 685,
+      "endLine": 721,
+      "lines": 37,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/utils.go",
+      "name": "GetDashboardData",
+      "startLine": 723,
+      "endLine": 1095,
+      "lines": 373,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/utils.go",
+      "name": "GetSharedInvoiceMap",
+      "startLine": 1097,
+      "endLine": 1131,
+      "lines": 35,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/utils.go",
+      "name": "GetAlreadyBilledPurchaseAndReimbursement",
+      "startLine": 1133,
+      "endLine": 1143,
+      "lines": 11,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/management/utils.go",
+      "name": "SaveOtherExpenses",
+      "startLine": 1145,
+      "endLine": 1227,
+      "lines": 83,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/handlers/support/router.go",
+      "name": "CalculationAuto",
+      "startLine": 100,
+      "endLine": 140,
+      "lines": 41,
+      "tier": 2,
+      "verdict": "gray",
+      "kind": "route-handler"
+    },
+    {
+      "path": "wcp-service-v2/internal/model/leave.go",
+      "name": "LeaveDetailDto",
+      "startLine": 221,
+      "endLine": 230,
+      "lines": 10,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/tasks/latam_pto/alert.go",
+      "name": "loadEmployeeFullName",
+      "startLine": 143,
+      "endLine": 155,
+      "lines": 13,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/tasks/latam_pto/alert.go",
+      "name": "recipientEmailsForLatAmSites",
+      "startLine": 159,
+      "endLine": 191,
+      "lines": 33,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/third_party/cron/cron.go",
+      "name": "syncAiGenerateIsFailed",
+      "startLine": 103,
+      "endLine": 138,
+      "lines": 36,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/internal/third_party/cron/cron.go",
+      "name": "syncChatNeedClearOrNot",
+      "startLine": 140,
+      "endLine": 180,
+      "lines": 41,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service-v2/main.go",
+      "name": "main",
+      "startLine": 25,
+      "endLine": 27,
+      "lines": 3,
+      "tier": 1,
+      "verdict": "noise",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service/common/scheduleService.js",
+      "name": "removeCrontab",
+      "startLine": 147,
+      "endLine": 156,
+      "lines": 10,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service/common/scheduleService.js",
+      "name": "cancelAllDailySlackMessageJob",
+      "startLine": 168,
+      "endLine": 172,
+      "lines": 5,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service/common/scheduleService.js",
+      "name": "restartDailySlackMessageJob",
+      "startLine": 174,
+      "endLine": 179,
+      "lines": 6,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service/common/scheduleService.js",
+      "name": "changeDailySlackMessageJob",
+      "startLine": 181,
+      "endLine": 202,
+      "lines": 22,
+      "tier": 2,
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service/services/approveService.js",
+      "name": "create",
+      "startLine": 9,
+      "endLine": 11,
+      "lines": 3,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service/services/approveService.js",
+      "name": "approve",
+      "startLine": 13,
+      "endLine": 21,
+      "lines": 9,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service/services/approveService.js",
+      "name": "reject",
+      "startLine": 23,
+      "endLine": 31,
+      "lines": 9,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service/services/approveService.js",
+      "name": "getWaitingApprove",
+      "startLine": 33,
+      "endLine": 46,
+      "lines": 14,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service/services/approveService.js",
+      "name": "getLeaveApproveHistory",
+      "startLine": 48,
+      "endLine": 87,
+      "lines": 40,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service/services/approveService.js",
+      "name": "getApproveListForAdmin",
+      "startLine": 89,
+      "endLine": 167,
+      "lines": 79,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service/services/export/leaveReportService.js",
+      "name": "exportLeaveRequest",
+      "startLine": 17,
+      "endLine": 137,
+      "lines": 121,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service/services/export/leaveReportService.js",
+      "name": "isThisType",
+      "startLine": 139,
+      "endLine": 141,
+      "lines": 3,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service/services/export/leaveReportService.js",
+      "name": "handleLeavingSummaryWorkSheetStyle",
+      "startLine": 143,
+      "endLine": 192,
+      "lines": 50,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service/services/export/leaveReportService.js",
+      "name": "handleUsersHaliday",
+      "startLine": 234,
+      "endLine": 294,
+      "lines": 61,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service/services/export/retiredSummaryReportService.js",
+      "name": "exportRetiredLeavingSummary",
+      "startLine": 28,
+      "endLine": 109,
+      "lines": 82,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service/services/export/retiredSummaryReportService.js",
+      "name": "handleActualPto",
+      "startLine": 111,
+      "endLine": 163,
+      "lines": 53,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service/services/export/retiredSummaryReportService.js",
+      "name": "calculatePto",
+      "startLine": 179,
+      "endLine": 247,
+      "lines": 69,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service/services/export/retiredSummaryReportService.js",
+      "name": "fillUpRetiredLeavingHeaderRow",
+      "startLine": 249,
+      "endLine": 270,
+      "lines": 22,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service/services/export/retiredSummaryReportService.js",
+      "name": "fillUpRetiredUserHeaderColumn",
+      "startLine": 285,
+      "endLine": 295,
+      "lines": 11,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service/services/export/retiredSummaryReportService.js",
+      "name": "fillUpRetiredLeavingContent",
+      "startLine": 297,
+      "endLine": 316,
+      "lines": 20,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service/services/export/retiredSummaryReportService.js",
+      "name": "handleStyle",
+      "startLine": 318,
+      "endLine": 370,
+      "lines": 53,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service/services/leaveService.js",
+      "name": "HOLIDAY_TYPE",
+      "startLine": 17,
+      "endLine": 27,
+      "lines": 11,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service/services/leaveService.js",
+      "name": "HolidayFields",
+      "startLine": 29,
+      "endLine": 40,
+      "lines": 12,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service/services/leaveService.js",
+      "name": "HolidayTypeName",
+      "startLine": 42,
+      "endLine": 53,
+      "lines": 12,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service/services/leaveService.js",
+      "name": "getLeaveDetailById",
+      "startLine": 55,
+      "endLine": 66,
+      "lines": 12,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service/services/leaveService.js",
+      "name": "buildHRCCMailList",
+      "startLine": 68,
+      "endLine": 97,
+      "lines": 30,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service/services/leaveService.js",
+      "name": "addHRccList",
+      "startLine": 99,
+      "endLine": 112,
+      "lines": 14,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service/services/leaveService.js",
+      "name": "addCcList",
+      "startLine": 114,
+      "endLine": 120,
+      "lines": 7,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service/services/leaveService.js",
+      "name": "recordTakeLeaveHours",
+      "startLine": 139,
+      "endLine": 316,
+      "lines": 178,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service/services/leaveService.js",
+      "name": "createApproveRecord",
+      "startLine": 318,
+      "endLine": 366,
+      "lines": 49,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service/services/leaveService.js",
+      "name": "sendInProcessMail",
+      "startLine": 368,
+      "endLine": 621,
+      "lines": 254,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service/services/leaveService.js",
+      "name": "sendProcessedMail",
+      "startLine": 648,
+      "endLine": 738,
+      "lines": 91,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service/services/leaveService.js",
+      "name": "getTakeLeaveTypes",
+      "startLine": 752,
+      "endLine": 765,
+      "lines": 14,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service/services/leaveService.js",
+      "name": "leaveRequestPreCheck",
+      "startLine": 768,
+      "endLine": 901,
+      "lines": 134,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service/services/leaveService.js",
+      "name": "availableHoursCheck",
+      "startLine": 903,
+      "endLine": 921,
+      "lines": 19,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service/services/leaveService.js",
+      "name": "getTotalTimeOfTwoYears",
+      "startLine": 923,
+      "endLine": 953,
+      "lines": 31,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service/services/leaveService.js",
+      "name": "saveUploadedFile",
+      "startLine": 955,
+      "endLine": 969,
+      "lines": 15,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service/services/leaveService.js",
+      "name": "create",
+      "startLine": 971,
+      "endLine": 1015,
+      "lines": 45,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service/services/leaveService.js",
+      "name": "getLevelByID",
+      "startLine": 1017,
+      "endLine": 1023,
+      "lines": 7,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service/services/leaveService.js",
+      "name": "getLeaveByUserIdAndId",
+      "startLine": 1025,
+      "endLine": 1032,
+      "lines": 8,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service/services/leaveService.js",
+      "name": "cancelTakeLeave",
+      "startLine": 1034,
+      "endLine": 1054,
+      "lines": 21,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service/services/leaveService.js",
+      "name": "findMyLeaves",
+      "startLine": 1056,
+      "endLine": 1094,
+      "lines": 39,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service/services/leaveService.js",
+      "name": "getLeaveDetail",
+      "startLine": 1096,
+      "endLine": 1117,
+      "lines": 22,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service/services/leaveService.js",
+      "name": "markLeaveDone",
+      "startLine": 1336,
+      "endLine": 1353,
+      "lines": 18,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service/services/leaveService.js",
+      "name": "sendEmail",
+      "startLine": 1355,
+      "endLine": 1358,
+      "lines": 4,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service/services/leaveService.js",
+      "name": "getSickLeaveByUserIdIn",
+      "startLine": 1360,
+      "endLine": 1369,
+      "lines": 10,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service/services/leaveService.js",
+      "name": "queryLeaveTimeInTimeFrame",
+      "startLine": 1371,
+      "endLine": 1406,
+      "lines": 36,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service/services/leaveService.js",
+      "name": "queryLeavesByDates",
+      "startLine": 1408,
+      "endLine": 1425,
+      "lines": 18,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-service/services/leaveService.js",
+      "name": "exportLeaveRequestByAdmin",
+      "startLine": 1427,
+      "endLine": 1451,
+      "lines": 25,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service/services/leaveService.js",
+      "name": "exportLeaveRequestByManager",
+      "startLine": 1453,
+      "endLine": 1509,
+      "lines": 57,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service/services/leaveService.js",
+      "name": "getLeaveUploadFileLinks",
+      "startLine": 1511,
+      "endLine": 1524,
+      "lines": 14,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service/services/leaveService.js",
+      "name": "getLeaveRecordByYearAndType",
+      "startLine": 1526,
+      "endLine": 1544,
+      "lines": 19,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-service/services/leaveService.js",
+      "name": "getSickLeaveHoursOfConsecutiveDays",
+      "startLine": 1546,
+      "endLine": 1567,
+      "lines": 22,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-ui/src/pages/leave/LeaveDetail.tsx",
+      "name": "LeaveDetail",
+      "startLine": 32,
+      "endLine": 359,
+      "lines": 328,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-ui/src/pages/leave/components/ExportLeaveHistoryModal.tsx",
+      "name": "ExportLeaveHistoryModal",
+      "startLine": 11,
+      "endLine": 91,
+      "lines": 81,
+      "tier": 2,
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
+    },
+    {
+      "path": "wcp-ui/src/pages/leave/components/LeaveTable.tsx",
+      "name": "LeaveTable",
+      "startLine": 34,
+      "endLine": 299,
+      "lines": 266,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    },
+    {
+      "path": "wcp-ui/src/pages/leave/components/LeaveTimeSheet.tsx",
+      "name": "LeaveRemainingTime",
+      "startLine": 13,
+      "endLine": 186,
+      "lines": 174,
+      "tier": 1,
+      "verdict": "true-miss",
+      "kind": "decision-function"
+    }
+  ],
+  "preRegistered": {
+    "note": "以下门限与基线在【信号实现之前】写定并提交。判据 2 的数值不得在看到信号表现后调整——那正是本片要防的自我 Goodhart。",
+    "thresholds": {
+      "strongTrueMissRatio": 0.8,
+      "unclassifiedNoiseRatio": 0.7,
+      "rationale": "strong 桶里真漏读应占多数（否则分层没意义）；unclassified 桶里噪声应占多数（否则该桶不该被降权）。数值取自规划方的预注册，不是实测后回填。"
+    },
+    "oldReadingTop5": [
+      {
+        "path": "wcp-service-v2/internal/handlers/management/service.go",
+        "lines": 2184
+      },
+      {
+        "path": "wcp-service/services/leaveService.js",
+        "lines": 1248
+      },
+      {
+        "path": "wcp-service-v2/internal/handlers/management/utils.go",
+        "lines": 1178
+      },
+      {
+        "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+        "lines": 1111
+      },
+      {
+        "path": "wcp-service-v2/internal/handlers/management/export.go",
+        "lines": 611
+      }
+    ],
+    "noiseDominatedFiles": [
+      "wcp-service-v2/internal/handlers/ai_tool/router.go",
+      "wcp-service-v2/internal/handlers/ai_tool/service.go",
+      "wcp-service-v2/internal/handlers/clientProj/task.go",
+      "wcp-service-v2/internal/handlers/management/export.go",
+      "wcp-service-v2/internal/handlers/management/service.go",
+      "wcp-service-v2/internal/handlers/management/utils.go",
+      "wcp-service-v2/internal/third_party/cron/cron.go",
+      "wcp-service-v2/main.go",
+      "wcp-service/common/scheduleService.js"
+    ],
+    "decisionDifferential": {
+      "requirement": "旧读数 top-5 至少含 2 个噪声主导文件（实测下方 oldReadingTop5 与 noiseDominatedFiles 的交集）；新强读数 top-5 必须含 0 个，且必须包含 leaveService.js 与 leave/notification.go 这两个已裁为真漏读的最大簇。",
+      "mustAppearInStrongTop5": [
+        "wcp-service/services/leaveService.js",
+        "wcp-service-v2/internal/handlers/leave/notification.go"
+      ]
+    }
+  }
+}

@@ -16,6 +16,7 @@ import { logicWorkItems, LOGIC_DISPOSITION_ASSURANCE_GENERATION } from "../assur
 import { readObligations, BOUNDARY_DENOMINATOR_ASSURANCE_GENERATION, CROSSREPO_DENOMINATOR_ASSURANCE_GENERATION, READ_ACCOUNTABILITY_ASSURANCE_GENERATION, type RouteHandlerObligation } from "../assurance/read-obligations.ts";
 import type { BoundaryFunctionsArtifact } from "../context/boundary-functions.ts";
 import { scanCrossRepoLinks } from "../crossrepo/crossrepo-scan.ts";
+import { featureAnchorTerms, tokenize } from "../context/context.ts";
 import { buildCrossRepoArtifact, mintCrossRepoEvidence, routeHandlerObligations, type CrossRepoArtifact } from "../crossrepo/crossrepo-artifact.ts";
 import { goImportAliases, parseHandlerTarget, resolveHandler } from "../crossrepo/handler-resolve.ts";
 import { CodeGraphIndex } from "../codegraph/codegraph.ts";
@@ -168,6 +169,16 @@ async function routeHandlerDenominator(
     for (const index of indexes.values()) index?.close();
   }
   return obligations.length ? obligations : null;
+}
+
+/** Each feature's anchor terms, keyed by feature cache key — the same derivation the boundary used. */
+function anchorTermsFor(manifest: RunManifest): Record<string, string[]> {
+  const byFeature: Record<string, string[]> = {};
+  for (const feature of manifest.request.features ?? []) {
+    const terms = [...new Set([feature.subject, ...(feature.aliases ?? [])].flatMap(tokenize))].filter(Boolean);
+    byFeature[featureCacheKey(feature)] = featureAnchorTerms(terms);
+  }
+  return byFeature;
 }
 
 export async function prepareRun(request: ReportRequest): Promise<{ runDir: string; manifest: RunManifest }> {
@@ -437,8 +448,11 @@ export async function freezeRun(runDirInput: string): Promise<{ manifest: RunMan
   const routeHandlers = readAccountable && assuranceGenerationAtLeast(manifest, CROSSREPO_DENOMINATOR_ASSURANCE_GENERATION)
     ? await routeHandlerDenominator(runDir, manifest, crossRepoLinks, factPacks)
     : null;
-  const obligations = readAccountable ? readObligations(Object.values(factPacks) as FeatureFactPack[], plan.items, boundaryFunctions, routeHandlers) : null;
-  const readResidual = obligations ? reconcileReadCoverage({ obligations: obligations.obligations, evidence: evidenceCatalog.evidence }) : null;
+  // The annotation uses the RUN'S OWN vocabulary, re-derived from its manifest through the same pure
+  // functions prepare used — so freeze, audit and eval all label identically with no extra I/O.
+  const anchorTermsByFeature = readAccountable ? anchorTermsFor(manifest) : null;
+  const obligations = readAccountable ? readObligations(Object.values(factPacks) as FeatureFactPack[], plan.items, boundaryFunctions, routeHandlers, anchorTermsByFeature) : null;
+  const readResidual = obligations ? reconcileReadCoverage({ obligations: obligations.obligations, evidence: evidenceCatalog.evidence, annotated: Boolean(anchorTermsByFeature) }) : null;
   const expectedPlan = createInvestigationPlan(manifest.id, manifest.request, manifest.documents);
   // Gate the generative expansion on the run's assurance GENERATION, not exact-version equality: a run
   // prepared under generation 4+ already baked these items, so re-derive them regardless of any later
@@ -838,7 +852,10 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
     }
     const claimCitations: ClaimCitation[] = [...claimsByDocument.entries()].flatMap(([documentId, entries]) =>
       entries.map(({ claim }) => ({ ref: `${documentId}#${claim.id}`, evidenceIds: claim.evidenceIds ?? [] })));
-    const readResidual = reconcileReadCoverage({ obligations: frozenObligations.obligations, evidence: evidenceCatalog.evidence, claims: claimCitations });
+    // The frozen artifact says whether it was annotated; audit must not re-derive that from the labels
+    // themselves, or a run whose vocabulary matched nothing would silently read like an un-annotated one.
+    const wasAnnotated = Boolean((frozenObligations as { summary?: { anchor?: unknown } }).summary?.anchor);
+    const readResidual = reconcileReadCoverage({ obligations: frozenObligations.obligations, evidence: evidenceCatalog.evidence, claims: claimCitations, annotated: wasAnnotated });
     // A scoped audit sees only its own document's claims, so persisting the residual from it would shrink
     // `consumedBy` and inflate `openedNotConsumed` — corrupting the very migration signal this report
     // exists to carry. Findings are still reported (already downgraded by runWide); only the write is

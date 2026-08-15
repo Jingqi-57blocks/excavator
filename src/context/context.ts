@@ -636,7 +636,8 @@ const GENERIC_FEATURE_ACTION_TERMS = new Set([
   "审批", "批准", "拒绝", "撤销", "取消", "创建", "更新", "删除", "管理", "流程"
 ]);
 
-function featureAnchorTerms(terms: string[]): string[] {
+/** Exported for the same reason as `tokenize` — the annotation must use the run's own vocabulary. */
+export function featureAnchorTerms(terms: string[]): string[] {
   const anchors = terms.filter((term) => !GENERIC_FEATURE_ACTION_TERMS.has(term.toLowerCase()));
   return anchors.length ? anchors : terms;
 }
@@ -689,7 +690,8 @@ export function featureCacheKey(feature: FeatureRequest): string {
   return `${slugify(feature.subject)}-${sha256(stableJson({ subject: feature.subject.toLowerCase(), aliases: [...feature.aliases].sort() })).slice(0, 10)}`;
 }
 
-function tokenize(value: string): string[] {
+/** Exported so the freeze path can re-derive a run's anchor terms from its manifest (57B-400). */
+export function tokenize(value: string): string[] {
   const stop = new Set(["management", "module", "system", "service", "feature", "time", "off", "data", "process", "report", "管理", "模块", "系统", "功能", "流程", "报告"]);
   const lower = value.toLowerCase().trim();
   const words = lower.match(/[\p{Letter}\p{Number}_-]{2,}/gu) ?? [];
