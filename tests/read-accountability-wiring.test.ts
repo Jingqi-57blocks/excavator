@@ -102,6 +102,23 @@ test("resolved cross-repo links are digest-pinned, and both tampering and remova
   assert.equal(removed.length, 1, "deleting the artifact must not silence the check");
 });
 
+// The freeze↔audit handshake is implicit: freeze writes `summary.anchor` whenever annotation ran, and audit
+// reads that field to decide whether to partition. A zero-hit run still writes an all-zero block, and it
+// MUST, or a run whose vocabulary matched nothing would silently read like one that was never annotated —
+// losing exactly the signal that says the vocabulary is wrong.
+test("an annotated run whose vocabulary matched nothing still gets partitioned at audit", async () => {
+  const { runDir } = await prepareRun(await featureRequest());
+  await disposeAllWorkItems(runDir);
+  assert.equal((await freezeRun(runDir)).frozen, true);
+
+  const obligations = await readJsonFile<{ summary: { anchor?: unknown } }>(join(runDir, "coverage", "read-obligations.json"));
+  assert.notEqual(obligations.summary.anchor, undefined, "freeze records that annotation ran, even with zero hits");
+
+  await auditRun(runDir);
+  const residual = await readJsonFile<{ summary: { notOpenedByAttribution?: unknown } }>(join(runDir, "coverage", "read-residual.json"));
+  assert.notEqual(residual.summary.notOpenedByAttribution, undefined, "audit partitions because the artifact says annotation ran, not because some item happened to match");
+});
+
 test("a run prepared before generation 5 is grandfathered: no denominator, no read findings, no knowledge field", async () => {
   const { runDir } = await prepareRun(await featureRequest());
   // Restamp exactly like a run prepared before this slice; the generation gate must then skip entirely.

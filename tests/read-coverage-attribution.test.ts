@@ -80,7 +80,8 @@ test("labelled obligations split the advisory in two, and neither line reads as 
 
   assert.ok(unclassified, "and what the labelling could not place stays loud");
   assert.match(unclassified.message, /a further 1 obligations/);
-  assert.match(unclassified.message, /about a quarter of this partition WAS a real miss/, "it must not invite dismissal");
+  assert.match(unclassified.message, /a meaningful share of it WAS real misses/, "it must not invite dismissal");
+  assert.doesNotMatch(unclassified.message, /\d+%|a quarter|a third|half of/, "no fraction: one target's number would be printed with authority on every other target");
   assert.equal(unclassified.level, "warning");
 });
 

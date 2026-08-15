@@ -42,8 +42,10 @@ export interface ReadCoverageItem {
   path: string;
   startLine: number;
   endLine?: number;
-  /** Which source found this obligation — `decision-function` is the prune's own retained set. */
-  kind: string;
+  /** Which source found this obligation — `decision-function` is the prune's own retained set. Present
+   *  only on an annotated run: the partitions need it, and an unannotated run's residual must stay
+   *  byte-identical to what it was before this field existed. */
+  kind?: string;
   /** Mirrors `ReadObligation.tier`; 2 marks a boundary supplement, which is never gated. */
   tier: 0 | 1 | 2;
   /** Mirrors `ReadObligation.anchorHit` — a label for grouping the reading, never a judgement. */
@@ -126,7 +128,7 @@ export function reconcileReadCoverage(input: ReadCoverageInput): ReadCoverageRep
   const items: ReadCoverageItem[] = [];
   for (const obligation of input.obligations) {
     if (obligation.excluded) continue;
-    items.push(coverageFor(obligation, windowsByPath.get(obligation.path) ?? [], citationsByEvidence));
+    items.push(coverageFor(obligation, windowsByPath.get(obligation.path) ?? [], citationsByEvidence, Boolean(input.annotated)));
   }
 
   return { version: READ_COVERAGE_VERSION, consumptionEvaluated: input.claims !== undefined, items, summary: summarize(items, Boolean(input.annotated)) };
@@ -136,13 +138,14 @@ function coverageFor(
   obligation: ReadObligation,
   windows: EvidenceItem[],
   citationsByEvidence: Map<string, string[]>,
+  annotated: boolean,
 ): ReadCoverageItem {
   const base: ReadCoverageItem = {
     id: obligation.id,
     name: obligation.name,
     path: obligation.path,
     startLine: obligation.startLine,
-    kind: obligation.kind,
+    ...(annotated ? { kind: obligation.kind } : {}),
     tier: obligation.tier,
     ...(obligation.anchorHit ? { anchorHit: obligation.anchorHit } : {}),
     gated: obligation.gated,
@@ -281,7 +284,10 @@ export function auditReadAccountability(input: ReadAccountabilityInput): AuditFi
         findings.push({
           level: "warning",
           document: "read-coverage",
-          message: `read residual (advisory, unclassified): a further ${counts.unclassified} obligations (${spans.unclassified} line(s)) were never opened and carry none of this feature's vocabulary — usually code that merely shares a file with it. Measured on a real run, about a quarter of this partition WAS a real miss, so read it per file rather than dismissing it; ${tail}`,
+          // No fraction is quoted here on purpose. Any number would come from one target's one run, would
+          // be wrong on the next target, and would still be printed with authority on every run after that
+          // — which is the exact kind of misleading reading this slice exists to remove.
+          message: `read residual (advisory, unclassified): a further ${counts.unclassified} obligations (${spans.unclassified} line(s)) were never opened and carry none of this feature's vocabulary — often code that merely shares a file with it. On the run this partition was calibrated against, a meaningful share of it WAS real misses, so read it per file rather than dismissing it; ${tail}`,
         });
       }
     } else {

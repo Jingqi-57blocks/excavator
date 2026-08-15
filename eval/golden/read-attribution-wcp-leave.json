@@ -2,7 +2,7 @@
   "version": "read-attribution-v1",
   "run": ".work/wcp-bf72b0/runs/run-2026_08_15_17_36-请假管理-e7b7fd1a-5fbd4975-be85c5d5",
   "feature": "请假管理",
-  "note": "225 项 not-opened 义务的人工裁定。判据：读者若要理解「请假管理」，这个函数本该被读吗？true-miss=是（真漏读）/ noise=否（在边界文件里但与本 feature 无关）/ gray=说不清。裁定按文件组进行，理由逐组记录，且【独立于任何信号】——先裁定再实现信号，否则就是拿信号去论证信号。",
+  "note": "225 项 not-opened 义务的人工裁定。判据：读者若要理解「请假管理」，这个函数本该被读吗？true-miss=是（真漏读）/ noise=否（在边界文件里但与本 feature 无关）/ gray=说不清。裁定按文件组进行，理由逐组记录，且【独立于任何信号】——先裁定再实现信号，否则就是拿信号去论证信号。 【机械元数据修正】items 的 kind originally 为空（生成 golden 时 coverage item 尚无该字段），已从同 run 的 read-obligations.json 按 path|name|startLine 补回。**verdict 未改动**——那是人的裁定，不随实现变。",
   "groups": [
     {
       "prefix": "wcp-service/services/leaveService.js",
@@ -98,7 +98,8 @@
       "endLine": 56,
       "lines": 14,
       "tier": 1,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/ai_tool/router.go",
@@ -107,7 +108,8 @@
       "endLine": 68,
       "lines": 11,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/ai_tool/router.go",
@@ -116,7 +118,8 @@
       "endLine": 76,
       "lines": 7,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/ai_tool/router.go",
@@ -125,7 +128,8 @@
       "endLine": 84,
       "lines": 7,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/ai_tool/router.go",
@@ -134,7 +138,8 @@
       "endLine": 93,
       "lines": 8,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/ai_tool/router.go",
@@ -143,7 +148,8 @@
       "endLine": 105,
       "lines": 11,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/ai_tool/router.go",
@@ -152,7 +158,8 @@
       "endLine": 113,
       "lines": 7,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/ai_tool/service.go",
@@ -161,7 +168,8 @@
       "endLine": 140,
       "lines": 58,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/ai_tool/service.go",
@@ -170,7 +178,8 @@
       "endLine": 206,
       "lines": 66,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/ai_tool/service.go",
@@ -179,7 +188,8 @@
       "endLine": 227,
       "lines": 20,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/ai_tool/service.go",
@@ -188,7 +198,8 @@
       "endLine": 251,
       "lines": 23,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/ai_tool/service.go",
@@ -197,7 +208,8 @@
       "endLine": 285,
       "lines": 33,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/ai_tool/service.go",
@@ -206,7 +218,8 @@
       "endLine": 317,
       "lines": 31,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/ai_tool/service.go",
@@ -215,7 +228,8 @@
       "endLine": 341,
       "lines": 23,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/ai_tool/service.go",
@@ -224,7 +238,8 @@
       "endLine": 364,
       "lines": 22,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/ai_tool/service.go",
@@ -233,7 +248,8 @@
       "endLine": 383,
       "lines": 18,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/clientProj/task.go",
@@ -242,7 +258,8 @@
       "endLine": 265,
       "lines": 26,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/clientProj/task.go",
@@ -251,7 +268,8 @@
       "endLine": 292,
       "lines": 26,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/clientProj/task.go",
@@ -260,7 +278,8 @@
       "endLine": 312,
       "lines": 9,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/clientProj/task.go",
@@ -269,7 +288,8 @@
       "endLine": 319,
       "lines": 6,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/clientProj/task.go",
@@ -278,7 +298,8 @@
       "endLine": 329,
       "lines": 9,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/clientProj/task.go",
@@ -287,7 +308,8 @@
       "endLine": 390,
       "lines": 60,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/clientProj/task.go",
@@ -296,7 +318,8 @@
       "endLine": 429,
       "lines": 38,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/clientProj/task.go",
@@ -305,7 +328,8 @@
       "endLine": 485,
       "lines": 55,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/holiday/router.go",
@@ -314,7 +338,8 @@
       "endLine": 64,
       "lines": 3,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "route-handler"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leave/brdg_abst.go",
@@ -323,7 +348,8 @@
       "endLine": 510,
       "lines": 53,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
@@ -332,7 +358,8 @@
       "endLine": 968,
       "lines": 44,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
@@ -341,7 +368,8 @@
       "endLine": 1026,
       "lines": 12,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
@@ -350,7 +378,8 @@
       "endLine": 1174,
       "lines": 12,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leave/dcrt_recipient.go",
@@ -359,7 +388,8 @@
       "endLine": 114,
       "lines": 16,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leave/dcrt_recipient.go",
@@ -368,7 +398,8 @@
       "endLine": 140,
       "lines": 19,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leave/dto.go",
@@ -377,7 +408,8 @@
       "endLine": 109,
       "lines": 11,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leave/notification.go",
@@ -386,7 +418,8 @@
       "endLine": 324,
       "lines": 61,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leave/notification.go",
@@ -395,7 +428,8 @@
       "endLine": 356,
       "lines": 30,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leave/notification.go",
@@ -404,7 +438,8 @@
       "endLine": 371,
       "lines": 13,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leave/notification.go",
@@ -413,7 +448,8 @@
       "endLine": 442,
       "lines": 70,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leave/notification.go",
@@ -422,7 +458,8 @@
       "endLine": 559,
       "lines": 30,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leave/notification.go",
@@ -431,7 +468,8 @@
       "endLine": 574,
       "lines": 13,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leave/notification.go",
@@ -440,7 +478,8 @@
       "endLine": 650,
       "lines": 75,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leave/notification.go",
@@ -449,7 +488,8 @@
       "endLine": 659,
       "lines": 7,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leave/notification.go",
@@ -458,7 +498,8 @@
       "endLine": 738,
       "lines": 65,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leave/notification.go",
@@ -467,7 +508,8 @@
       "endLine": 770,
       "lines": 30,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leave/notification.go",
@@ -476,7 +518,8 @@
       "endLine": 785,
       "lines": 13,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leave/notification.go",
@@ -485,7 +528,8 @@
       "endLine": 873,
       "lines": 87,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leave/notification.go",
@@ -494,7 +538,8 @@
       "endLine": 955,
       "lines": 58,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leave/notification.go",
@@ -503,7 +548,8 @@
       "endLine": 987,
       "lines": 30,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leave/notification.go",
@@ -512,7 +558,8 @@
       "endLine": 1002,
       "lines": 13,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leave/notification.go",
@@ -521,7 +568,8 @@
       "endLine": 1091,
       "lines": 88,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leave/notification.go",
@@ -530,7 +578,8 @@
       "endLine": 1107,
       "lines": 14,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leave/notification.go",
@@ -539,7 +588,8 @@
       "endLine": 1229,
       "lines": 108,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leave/notification.go",
@@ -548,7 +598,8 @@
       "endLine": 1261,
       "lines": 30,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leave/notification.go",
@@ -557,7 +608,8 @@
       "endLine": 1277,
       "lines": 14,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leave/notification.go",
@@ -566,7 +618,8 @@
       "endLine": 1508,
       "lines": 21,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leave/notification.go",
@@ -575,7 +628,8 @@
       "endLine": 1582,
       "lines": 62,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leave/notification.go",
@@ -584,7 +638,8 @@
       "endLine": 1614,
       "lines": 30,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leave/notification.go",
@@ -593,7 +648,8 @@
       "endLine": 1644,
       "lines": 28,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leave/notification.go",
@@ -602,7 +658,8 @@
       "endLine": 1727,
       "lines": 82,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leave/notification.go",
@@ -611,7 +668,8 @@
       "endLine": 1741,
       "lines": 12,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leave/notification.go",
@@ -620,7 +678,8 @@
       "endLine": 1763,
       "lines": 9,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leave/notification.go",
@@ -629,7 +688,8 @@
       "endLine": 1782,
       "lines": 18,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leave/service.go",
@@ -638,7 +698,8 @@
       "endLine": 1151,
       "lines": 196,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leave/service.go",
@@ -647,7 +708,8 @@
       "endLine": 1222,
       "lines": 69,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leave/utils.go",
@@ -656,7 +718,8 @@
       "endLine": 212,
       "lines": 51,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leaveHistory/router.go",
@@ -665,7 +728,8 @@
       "endLine": 10,
       "lines": 3,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leaveHistory/router.go",
@@ -674,7 +738,8 @@
       "endLine": 24,
       "lines": 11,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leaveHistory/router.go",
@@ -683,7 +748,8 @@
       "endLine": 37,
       "lines": 12,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leaveHistory/router.go",
@@ -692,7 +758,8 @@
       "endLine": 49,
       "lines": 11,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leaveHistory/router.go",
@@ -701,7 +768,8 @@
       "endLine": 57,
       "lines": 7,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leaveHistory/service.go",
@@ -710,7 +778,8 @@
       "endLine": 40,
       "lines": 6,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leaveHistory/service.go",
@@ -719,7 +788,8 @@
       "endLine": 137,
       "lines": 96,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leaveHistory/service.go",
@@ -728,7 +798,8 @@
       "endLine": 438,
       "lines": 145,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leaveHistory/tasks.go",
@@ -737,7 +808,8 @@
       "endLine": 39,
       "lines": 9,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leaveHistory/tasks.go",
@@ -746,7 +818,8 @@
       "endLine": 46,
       "lines": 6,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leaveHistory/tasks.go",
@@ -755,7 +828,8 @@
       "endLine": 56,
       "lines": 9,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leaveHistory/tasks.go",
@@ -764,7 +838,8 @@
       "endLine": 111,
       "lines": 54,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leaveHistory/tasks.go",
@@ -773,7 +848,8 @@
       "endLine": 132,
       "lines": 21,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leaveHistory/utils.go",
@@ -782,7 +858,8 @@
       "endLine": 16,
       "lines": 7,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leaveHistory/utils.go",
@@ -791,7 +868,8 @@
       "endLine": 36,
       "lines": 19,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/leaveHistory/utils.go",
@@ -800,7 +878,8 @@
       "endLine": 71,
       "lines": 34,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/export.go",
@@ -809,7 +888,8 @@
       "endLine": 107,
       "lines": 33,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/export.go",
@@ -818,7 +898,8 @@
       "endLine": 210,
       "lines": 15,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/export.go",
@@ -827,7 +908,8 @@
       "endLine": 228,
       "lines": 17,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/export.go",
@@ -836,7 +918,8 @@
       "endLine": 241,
       "lines": 12,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/export.go",
@@ -845,7 +928,8 @@
       "endLine": 260,
       "lines": 18,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/export.go",
@@ -854,7 +938,8 @@
       "endLine": 286,
       "lines": 25,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/export.go",
@@ -863,7 +948,8 @@
       "endLine": 298,
       "lines": 11,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/export.go",
@@ -872,7 +958,8 @@
       "endLine": 320,
       "lines": 21,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/export.go",
@@ -881,7 +968,8 @@
       "endLine": 394,
       "lines": 73,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/export.go",
@@ -890,7 +978,8 @@
       "endLine": 401,
       "lines": 6,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/export.go",
@@ -899,7 +988,8 @@
       "endLine": 547,
       "lines": 134,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/export.go",
@@ -908,7 +998,8 @@
       "endLine": 560,
       "lines": 12,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/export.go",
@@ -917,7 +1008,8 @@
       "endLine": 627,
       "lines": 66,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/export.go",
@@ -926,7 +1018,8 @@
       "endLine": 796,
       "lines": 168,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/service.go",
@@ -935,7 +1028,8 @@
       "endLine": 85,
       "lines": 6,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/service.go",
@@ -944,7 +1038,8 @@
       "endLine": 138,
       "lines": 52,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/service.go",
@@ -953,7 +1048,8 @@
       "endLine": 211,
       "lines": 72,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/service.go",
@@ -962,7 +1058,8 @@
       "endLine": 235,
       "lines": 23,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/service.go",
@@ -971,7 +1068,8 @@
       "endLine": 244,
       "lines": 8,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/service.go",
@@ -980,7 +1078,8 @@
       "endLine": 263,
       "lines": 18,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/service.go",
@@ -989,7 +1088,8 @@
       "endLine": 291,
       "lines": 27,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/service.go",
@@ -998,7 +1098,8 @@
       "endLine": 307,
       "lines": 14,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/service.go",
@@ -1007,7 +1108,8 @@
       "endLine": 357,
       "lines": 22,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/service.go",
@@ -1016,7 +1118,8 @@
       "endLine": 413,
       "lines": 55,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/service.go",
@@ -1025,7 +1128,8 @@
       "endLine": 438,
       "lines": 24,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/service.go",
@@ -1034,7 +1138,8 @@
       "endLine": 465,
       "lines": 26,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/service.go",
@@ -1043,7 +1148,8 @@
       "endLine": 483,
       "lines": 17,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/service.go",
@@ -1052,7 +1158,8 @@
       "endLine": 778,
       "lines": 294,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/service.go",
@@ -1061,7 +1168,8 @@
       "endLine": 801,
       "lines": 22,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/service.go",
@@ -1070,7 +1178,8 @@
       "endLine": 822,
       "lines": 20,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/service.go",
@@ -1079,7 +1188,8 @@
       "endLine": 841,
       "lines": 18,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/service.go",
@@ -1088,7 +1198,8 @@
       "endLine": 923,
       "lines": 78,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/service.go",
@@ -1097,7 +1208,8 @@
       "endLine": 1005,
       "lines": 72,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/service.go",
@@ -1106,7 +1218,8 @@
       "endLine": 1155,
       "lines": 144,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/service.go",
@@ -1115,7 +1228,8 @@
       "endLine": 1177,
       "lines": 21,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/service.go",
@@ -1124,7 +1238,8 @@
       "endLine": 1206,
       "lines": 18,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/service.go",
@@ -1133,7 +1248,8 @@
       "endLine": 1261,
       "lines": 54,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/service.go",
@@ -1142,7 +1258,8 @@
       "endLine": 1268,
       "lines": 6,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/service.go",
@@ -1151,7 +1268,8 @@
       "endLine": 1281,
       "lines": 12,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/service.go",
@@ -1160,7 +1278,8 @@
       "endLine": 1294,
       "lines": 12,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/service.go",
@@ -1169,7 +1288,8 @@
       "endLine": 1419,
       "lines": 124,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/service.go",
@@ -1178,7 +1298,8 @@
       "endLine": 1433,
       "lines": 8,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/service.go",
@@ -1187,7 +1308,8 @@
       "endLine": 1452,
       "lines": 18,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/service.go",
@@ -1196,7 +1318,8 @@
       "endLine": 1516,
       "lines": 59,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/service.go",
@@ -1205,7 +1328,8 @@
       "endLine": 1528,
       "lines": 11,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/service.go",
@@ -1214,7 +1338,8 @@
       "endLine": 1542,
       "lines": 13,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/service.go",
@@ -1223,7 +1348,8 @@
       "endLine": 1555,
       "lines": 12,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/service.go",
@@ -1232,7 +1358,8 @@
       "endLine": 1571,
       "lines": 15,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/service.go",
@@ -1241,7 +1368,8 @@
       "endLine": 1794,
       "lines": 214,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/service.go",
@@ -1250,7 +1378,8 @@
       "endLine": 1814,
       "lines": 14,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/service.go",
@@ -1259,7 +1388,8 @@
       "endLine": 1923,
       "lines": 108,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/service.go",
@@ -1268,7 +1398,8 @@
       "endLine": 1940,
       "lines": 16,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/service.go",
@@ -1277,7 +1408,8 @@
       "endLine": 1969,
       "lines": 28,
       "tier": 1,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/service.go",
@@ -1286,7 +1418,8 @@
       "endLine": 2254,
       "lines": 284,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/service.go",
@@ -1295,7 +1428,8 @@
       "endLine": 2380,
       "lines": 125,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/utils.go",
@@ -1304,7 +1438,8 @@
       "endLine": 73,
       "lines": 50,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/utils.go",
@@ -1313,7 +1448,8 @@
       "endLine": 168,
       "lines": 94,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/utils.go",
@@ -1322,7 +1458,8 @@
       "endLine": 179,
       "lines": 10,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/utils.go",
@@ -1331,7 +1468,8 @@
       "endLine": 206,
       "lines": 26,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/utils.go",
@@ -1340,7 +1478,8 @@
       "endLine": 318,
       "lines": 111,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/utils.go",
@@ -1349,7 +1488,8 @@
       "endLine": 337,
       "lines": 18,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/utils.go",
@@ -1358,7 +1498,8 @@
       "endLine": 363,
       "lines": 25,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/utils.go",
@@ -1367,7 +1508,8 @@
       "endLine": 409,
       "lines": 45,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/utils.go",
@@ -1376,7 +1518,8 @@
       "endLine": 433,
       "lines": 23,
       "tier": 1,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/utils.go",
@@ -1385,7 +1528,8 @@
       "endLine": 457,
       "lines": 23,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/utils.go",
@@ -1394,7 +1538,8 @@
       "endLine": 474,
       "lines": 16,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/utils.go",
@@ -1403,7 +1548,8 @@
       "endLine": 490,
       "lines": 15,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/utils.go",
@@ -1412,7 +1558,8 @@
       "endLine": 498,
       "lines": 7,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/utils.go",
@@ -1421,7 +1568,8 @@
       "endLine": 519,
       "lines": 20,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/utils.go",
@@ -1430,7 +1578,8 @@
       "endLine": 536,
       "lines": 16,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/utils.go",
@@ -1439,7 +1588,8 @@
       "endLine": 571,
       "lines": 34,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/utils.go",
@@ -1448,7 +1598,8 @@
       "endLine": 592,
       "lines": 20,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/utils.go",
@@ -1457,7 +1608,8 @@
       "endLine": 599,
       "lines": 6,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/utils.go",
@@ -1466,7 +1618,8 @@
       "endLine": 621,
       "lines": 21,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/utils.go",
@@ -1475,7 +1628,8 @@
       "endLine": 651,
       "lines": 29,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/utils.go",
@@ -1484,7 +1638,8 @@
       "endLine": 673,
       "lines": 21,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/utils.go",
@@ -1493,7 +1648,8 @@
       "endLine": 683,
       "lines": 9,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/utils.go",
@@ -1502,7 +1658,8 @@
       "endLine": 721,
       "lines": 37,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/utils.go",
@@ -1511,7 +1668,8 @@
       "endLine": 1095,
       "lines": 373,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/utils.go",
@@ -1520,7 +1678,8 @@
       "endLine": 1131,
       "lines": 35,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/utils.go",
@@ -1529,7 +1688,8 @@
       "endLine": 1143,
       "lines": 11,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/management/utils.go",
@@ -1538,7 +1698,8 @@
       "endLine": 1227,
       "lines": 83,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/handlers/support/router.go",
@@ -1547,7 +1708,8 @@
       "endLine": 140,
       "lines": 41,
       "tier": 2,
-      "verdict": "gray"
+      "verdict": "gray",
+      "kind": "route-handler"
     },
     {
       "path": "wcp-service-v2/internal/model/leave.go",
@@ -1556,7 +1718,8 @@
       "endLine": 230,
       "lines": 10,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service-v2/internal/tasks/latam_pto/alert.go",
@@ -1565,7 +1728,8 @@
       "endLine": 155,
       "lines": 13,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/tasks/latam_pto/alert.go",
@@ -1574,7 +1738,8 @@
       "endLine": 191,
       "lines": 33,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/third_party/cron/cron.go",
@@ -1583,7 +1748,8 @@
       "endLine": 138,
       "lines": 36,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/internal/third_party/cron/cron.go",
@@ -1592,7 +1758,8 @@
       "endLine": 180,
       "lines": 41,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service-v2/main.go",
@@ -1601,7 +1768,8 @@
       "endLine": 27,
       "lines": 3,
       "tier": 1,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service/common/scheduleService.js",
@@ -1610,7 +1778,8 @@
       "endLine": 156,
       "lines": 10,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service/common/scheduleService.js",
@@ -1619,7 +1788,8 @@
       "endLine": 172,
       "lines": 5,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service/common/scheduleService.js",
@@ -1628,7 +1798,8 @@
       "endLine": 179,
       "lines": 6,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service/common/scheduleService.js",
@@ -1637,7 +1808,8 @@
       "endLine": 202,
       "lines": 22,
       "tier": 2,
-      "verdict": "noise"
+      "verdict": "noise",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service/services/approveService.js",
@@ -1646,7 +1818,8 @@
       "endLine": 11,
       "lines": 3,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service/services/approveService.js",
@@ -1655,7 +1828,8 @@
       "endLine": 21,
       "lines": 9,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service/services/approveService.js",
@@ -1664,7 +1838,8 @@
       "endLine": 31,
       "lines": 9,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service/services/approveService.js",
@@ -1673,7 +1848,8 @@
       "endLine": 46,
       "lines": 14,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service/services/approveService.js",
@@ -1682,7 +1858,8 @@
       "endLine": 87,
       "lines": 40,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service/services/approveService.js",
@@ -1691,7 +1868,8 @@
       "endLine": 167,
       "lines": 79,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service/services/export/leaveReportService.js",
@@ -1700,7 +1878,8 @@
       "endLine": 137,
       "lines": 121,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service/services/export/leaveReportService.js",
@@ -1709,7 +1888,8 @@
       "endLine": 141,
       "lines": 3,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service/services/export/leaveReportService.js",
@@ -1718,7 +1898,8 @@
       "endLine": 192,
       "lines": 50,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service/services/export/leaveReportService.js",
@@ -1727,7 +1908,8 @@
       "endLine": 294,
       "lines": 61,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service/services/export/retiredSummaryReportService.js",
@@ -1736,7 +1918,8 @@
       "endLine": 109,
       "lines": 82,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service/services/export/retiredSummaryReportService.js",
@@ -1745,7 +1928,8 @@
       "endLine": 163,
       "lines": 53,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service/services/export/retiredSummaryReportService.js",
@@ -1754,7 +1938,8 @@
       "endLine": 247,
       "lines": 69,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service/services/export/retiredSummaryReportService.js",
@@ -1763,7 +1948,8 @@
       "endLine": 270,
       "lines": 22,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service/services/export/retiredSummaryReportService.js",
@@ -1772,7 +1958,8 @@
       "endLine": 295,
       "lines": 11,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service/services/export/retiredSummaryReportService.js",
@@ -1781,7 +1968,8 @@
       "endLine": 316,
       "lines": 20,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service/services/export/retiredSummaryReportService.js",
@@ -1790,7 +1978,8 @@
       "endLine": 370,
       "lines": 53,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service/services/leaveService.js",
@@ -1799,7 +1988,8 @@
       "endLine": 27,
       "lines": 11,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service/services/leaveService.js",
@@ -1808,7 +1998,8 @@
       "endLine": 40,
       "lines": 12,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service/services/leaveService.js",
@@ -1817,7 +2008,8 @@
       "endLine": 53,
       "lines": 12,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service/services/leaveService.js",
@@ -1826,7 +2018,8 @@
       "endLine": 66,
       "lines": 12,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service/services/leaveService.js",
@@ -1835,7 +2028,8 @@
       "endLine": 97,
       "lines": 30,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service/services/leaveService.js",
@@ -1844,7 +2038,8 @@
       "endLine": 112,
       "lines": 14,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service/services/leaveService.js",
@@ -1853,7 +2048,8 @@
       "endLine": 120,
       "lines": 7,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service/services/leaveService.js",
@@ -1862,7 +2058,8 @@
       "endLine": 316,
       "lines": 178,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service/services/leaveService.js",
@@ -1871,7 +2068,8 @@
       "endLine": 366,
       "lines": 49,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service/services/leaveService.js",
@@ -1880,7 +2078,8 @@
       "endLine": 621,
       "lines": 254,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service/services/leaveService.js",
@@ -1889,7 +2088,8 @@
       "endLine": 738,
       "lines": 91,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service/services/leaveService.js",
@@ -1898,7 +2098,8 @@
       "endLine": 765,
       "lines": 14,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service/services/leaveService.js",
@@ -1907,7 +2108,8 @@
       "endLine": 901,
       "lines": 134,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service/services/leaveService.js",
@@ -1916,7 +2118,8 @@
       "endLine": 921,
       "lines": 19,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service/services/leaveService.js",
@@ -1925,7 +2128,8 @@
       "endLine": 953,
       "lines": 31,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service/services/leaveService.js",
@@ -1934,7 +2138,8 @@
       "endLine": 969,
       "lines": 15,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service/services/leaveService.js",
@@ -1943,7 +2148,8 @@
       "endLine": 1015,
       "lines": 45,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service/services/leaveService.js",
@@ -1952,7 +2158,8 @@
       "endLine": 1023,
       "lines": 7,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service/services/leaveService.js",
@@ -1961,7 +2168,8 @@
       "endLine": 1032,
       "lines": 8,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service/services/leaveService.js",
@@ -1970,7 +2178,8 @@
       "endLine": 1054,
       "lines": 21,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service/services/leaveService.js",
@@ -1979,7 +2188,8 @@
       "endLine": 1094,
       "lines": 39,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service/services/leaveService.js",
@@ -1988,7 +2198,8 @@
       "endLine": 1117,
       "lines": 22,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service/services/leaveService.js",
@@ -1997,7 +2208,8 @@
       "endLine": 1353,
       "lines": 18,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service/services/leaveService.js",
@@ -2006,7 +2218,8 @@
       "endLine": 1358,
       "lines": 4,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service/services/leaveService.js",
@@ -2015,7 +2228,8 @@
       "endLine": 1369,
       "lines": 10,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service/services/leaveService.js",
@@ -2024,7 +2238,8 @@
       "endLine": 1406,
       "lines": 36,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service/services/leaveService.js",
@@ -2033,7 +2248,8 @@
       "endLine": 1425,
       "lines": 18,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-service/services/leaveService.js",
@@ -2042,7 +2258,8 @@
       "endLine": 1451,
       "lines": 25,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service/services/leaveService.js",
@@ -2051,7 +2268,8 @@
       "endLine": 1509,
       "lines": 57,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service/services/leaveService.js",
@@ -2060,7 +2278,8 @@
       "endLine": 1524,
       "lines": 14,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service/services/leaveService.js",
@@ -2069,7 +2288,8 @@
       "endLine": 1544,
       "lines": 19,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-service/services/leaveService.js",
@@ -2078,7 +2298,8 @@
       "endLine": 1567,
       "lines": 22,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-ui/src/pages/leave/LeaveDetail.tsx",
@@ -2087,7 +2308,8 @@
       "endLine": 359,
       "lines": 328,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-ui/src/pages/leave/components/ExportLeaveHistoryModal.tsx",
@@ -2096,7 +2318,8 @@
       "endLine": 91,
       "lines": 81,
       "tier": 2,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "boundary-decision-function"
     },
     {
       "path": "wcp-ui/src/pages/leave/components/LeaveTable.tsx",
@@ -2105,7 +2328,8 @@
       "endLine": 299,
       "lines": 266,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     },
     {
       "path": "wcp-ui/src/pages/leave/components/LeaveTimeSheet.tsx",
@@ -2114,7 +2338,8 @@
       "endLine": 186,
       "lines": 174,
       "tier": 1,
-      "verdict": "true-miss"
+      "verdict": "true-miss",
+      "kind": "decision-function"
     }
   ],
   "preRegistered": {
