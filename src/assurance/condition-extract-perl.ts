@@ -54,12 +54,14 @@ export async function loadPerlParser(): Promise<PerlParser | null> {
 }
 
 /** Extract every comparison against a literal in one Perl window. */
-export function extractPerlComparisons(parser: PerlParser, content: string, startLine: number): RawComparison[] {
+export function extractPerlComparisons(parser: PerlParser, content: string, startLine: number): RawComparison[] | null {
   let root: PerlNode;
   try {
     root = parser.parse(content).rootNode;
   } catch {
-    return [];
+    // `null`, not `[]`: the caller must be able to tell "parsed, found nothing" from "could not parse", or
+    // a failed parse would be labelled `via: "ast"` and read as a window with no rules.
+    return null;
   }
   const sites: RawComparison[] = [];
   const stack: PerlNode[] = [root];
@@ -81,7 +83,7 @@ export function extractPerlComparisons(parser: PerlParser, content: string, star
     sites.push({ field: left.text.trim(), operator: symbol, literal: literal.literal, literalKind: literal.kind, line: startLine + node.startPosition.row });
   }
   // Depth-first over a stack yields no useful order; sort so the artifact is byte-stable across runs.
-  sites.sort((a, b) => a.line - b.line || a.field.localeCompare(b.field) || a.literal.localeCompare(b.literal));
+  sites.sort((a, b) => a.line - b.line || a.field.localeCompare(b.field) || a.operator.localeCompare(b.operator) || a.literal.localeCompare(b.literal));
   return sites;
 }
 

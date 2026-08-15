@@ -269,10 +269,13 @@ function enumFamilies(items: ConditionCoverageItem[]): EnumFamily[] {
  * a preceding one does.
  */
 function mentionsLiteral(statement: string, literal: string, kind: "number" | "string"): boolean {
-  // A string enum value (`delayed_positions`, `DESC`) is distinctive enough that plain containment is the
-  // right test; the coincidence problem that forces token guards is specific to small numbers.
-  if (kind === "string") return literal.length > 1 && statement.includes(literal);
   const escaped = literal.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // Short enum values (`on`, `all`, `asc`, `new`) are common, and plain containment let "The configuration
+  // loads once." consume `mode === "on"` — a measured false green. Guard both sides on word and hyphen
+  // characters: a CJK or punctuation neighbour still matches, `configuration` and `open_positions` do not.
+  // A single character stays unmatchable as a string: guarded or not, one letter carries no evidence that
+  // the author meant this value. Numbers keep their own guard at any length (`Status == 3` is real).
+  if (kind === "string") return literal.length > 1 && new RegExp(`(?<![\\w-])${escaped}(?![\\w-])`).test(statement);
   return new RegExp(`(?<![\\w./])${escaped}(?![\\w]|[./]\\d)`).test(statement);
 }
 

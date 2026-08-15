@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { AST_LANGUAGES, extractComparisons, warmExtractors } from "../src/assurance/condition-extract.ts";
 import { inventoryConditions } from "../src/assurance/condition-inventory.ts";
 import type { EvidenceItem } from "../src/core/types.ts";
@@ -86,6 +87,22 @@ test("Perl goes through tree-sitter once warmed: sigils, arrows and string compa
   ]);
   assert.equal(sites[0].line, 104, "line numbers are absolute within the file");
   assert.equal(sites.filter((site) => site.literalKind === "string").length, 2);
+});
+
+// The warm-up is the footgun of this design: a caller that forgets it gets regex, silently. It cannot be
+// tested in-process (once warmed, there is no way back), so a child process pins the unwarmed contract —
+// degraded, labelled, and NOT a crash. The same shape of mistake (ESM `require` swallowed by try/catch)
+// already shipped once in this slice and was only visible through `via`.
+test("without warm-up a Perl window degrades to regex, labelled and not crashing", () => {
+  const script = `
+    const { extractComparisons } = await import(${JSON.stringify(new URL("../src/assurance/condition-extract.ts", import.meta.url).href)});
+    const result = extractComparisons({ id: "S", snapshotId: "s", kind: "source", title: "t", reason: "r", digest: "d",
+      path: "lib/ZMS/Leave.pm", startLine: 1, endLine: 1, content: "  if ($lv->{hours} > 16) { return 1; }" });
+    console.log(JSON.stringify({ via: result.via, sites: result.sites.length }));
+  `;
+  const child = spawnSync(process.execPath, ["--experimental-strip-types", "--input-type=module", "-e", script], { encoding: "utf8" });
+  assert.equal(child.status, 0, `child failed: ${child.stderr}`);
+  assert.deepEqual(JSON.parse(child.stdout.trim().split("\n").pop() as string), { via: "regex", sites: 0 });
 });
 
 test("the AST language set is an enumerable fact", () => {

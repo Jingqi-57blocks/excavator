@@ -14,7 +14,7 @@
 
 1. WCP「请假 16h/40h 阈值」漏报：`wcp-service-v2/internal/handlers/leave/service.go:510/557` 的窗口 505-612 在连续 5 次运行中一次都没被打开，而 work item `calculations-and-thresholds` 一直是 `found`；40 条阅读义务 16 条静默未读。模型**根本没看到**这段代码——"沉淀"无从谈起。
 2. 增量 3（authoring packet）复盘结论：该漏报根因是调查深度不足、非运输/结构问题（`docs/pending-decisions.md` 57B-359 增量 3 批次）；packet 只能运输已冻结的知识，"知识里没有的变不出来"（`src/assurance/authoring-packet.ts:26-29` 明文）。即"沉淀/运输层"已做过一次投入，实测不治此病。
-3. 分母自身也漏（prepare-miss 实例，已在真实 run 上精确定位）：`service.go` 的 `Creation`（起于第 56 行，附件必填规则在第 73 行）与 `Demand`（第 136 行）都不在义务分母里——真实 run（wcp-bf72b0 / run-2026_08_14_17_29，实测）在 `service.go` 上有 27 条义务，但义务区间存在 54–275 空洞，两个函数正落在其中：**文件在边界内、函数没被 prune 保留**。同名混淆警示：该 run 里名为 `Creation` 的义务是 `router.go:30-37` 的路由注册，不是这个附件规则函数，复核分母时勿据此误判"已覆盖"。`src/assurance/read-obligations.ts:12-15` 明文承认这一天花板。
+3. 分母自身也漏（prepare-miss 实例，已在真实 run 上精确定位）：`service.go` 的 `Creation`（起于第 56 行，附件必填规则在第 73 行）与 `Demand`（第 136 行）都不在义务分母里——真实 run（wcp-bf72b0 / run-2026_08_14_17_29，实测）在 `wcp-service-v2/internal/handlers/leave/service.go` 上有 16 条义务（11 counted + 5 declaration-only），但义务区间存在 54–275 空洞，两个函数正落在其中：**文件在边界内、函数没被 prune 保留**。同名混淆警示：该 run 里名为 `Creation` 的义务是 `router.go:30-37` 的路由注册，不是这个附件规则函数，复核分母时勿据此误判"已覆盖"。`src/assurance/read-obligations.ts:12-15` 明文承认这一天花板。
 4. 跨仓/跨模块边按设计不存在：`src/codegraph/codegraph-set.ts:9-13`（edge 只连同 module 内文件）、`src/context/cross-feature.ts:47-50`（仅 sharedFiles/Entities/ConfigKeys，graph edge deferred）。这既是 C 说的"没沉淀"，更准确的说法是**引擎在这一段结构上是盲的——同样属于"没看到"**。
 
 **两者的优先级判定方法（可执行，非感觉）——漏斗常备规则**：
@@ -106,7 +106,7 @@ audit（读问责硬门 + 冻结对账 + 条件 advisory + preset 持续 PASS）
 
 **S0（在途收尾）— 57B-395 V1.3：条件提取补 Perl AST 路径。**
 现状：ast-grep 换正则已落（WCP 24→78 条件点、regexOnlySites 0、535 窗口 0 解析失败，实测）；Perl 仍走正则回退且回退对 Perl 实际无效（`$`/`->`/`{}` 不在 LHS 字符类，`src/assurance/condition-extract.ts:65`），已探明接 tree-sitter-perl 的 `relational_expression`/`equality_expression`。
-**闸门**：provital 真实 run 的 `.pm` 窗口出现 `via: "ast"` 的 hash-element/scalar 比较 site（不预设具体表达式——此前流传的 `$lv->{hours} > 16` 是测试样例，非 provital 真实代码，闸门不得钉在编造的样例上）；WCP 78 sites 不回退；535 窗口 0 解析失败保持。**新增依赖为零**：tree-sitter-perl 已随 57B-385 过白名单并在 native-graph 使用，S0 不重走准入。
+**闸门**：provital 真实 run 的 `.pm` 窗口出现 `via: "ast"` 的 hash-element/scalar 比较 site（不预设具体表达式——此前流传的 `$lv->{hours} > 16` 是测试样例，非 provital 真实代码，闸门不得钉在编造的样例上）；WCP 78 sites 不回退；535 窗口 0 解析失败保持。**依赖**：S0 的 Perl 增量本身不引入新依赖（tree-sitter-perl 已随 57B-385 过白名单并在 native-graph 使用，不重走准入）；但 V1.3 整片确实新增了 `@ast-grep/napi` + `@ast-grep/lang-go`，已于 2026-08-15 补入白名单并记录五条准入的审计结论（`docs/tool-selection.md` §四）。
 
 **S1 — 义务分母第二来源：边界文件内的全部决策函数。**
 现分母 = pruned-FG 保留节点的 complement（`src/context/factpack.ts:152-161` 的 `logic` 类目），`Creation` 类漏报的文件其实**已在边界内**、只是函数没被 prune 保留。S1 用已有解析面（ast-grep/native-graph 函数 span）枚举边界文件里全部含决策点的函数 span，作为第二义务来源并入分母（打来源标记，advisory 计入残差、暂不进硬门）。
@@ -164,7 +164,7 @@ audit（读问责硬门 + 冻结对账 + 条件 advisory + preset 持续 PASS）
 ## 十一、护栏一致性逐条对齐
 
 - **Core 零模型调用**：S0-S4 全部确定性（解析、枚举、集合对账、树构建）；resolver 的 `inferred` 是规则化近似，仍无模型。任何模型参与的知识产物走 agent-interpreted Finding 合同，且不在 Core 内产生（`direction.md` 原则 18）。
-- **依赖白名单**：`@ast-grep/napi`(+lang-go) 已随 V1.3 在途入列；tree-sitter-perl 已随 57B-385 过白名单并在 native-graph 使用（S0 新增依赖为零，见 `docs/tool-selection.md` §一）；S1-S3 无新依赖；未来检索索引用 `node:sqlite` FTS5（工具表已列，零新依赖）。
+- **依赖白名单**：`@ast-grep/napi`(+lang-go) 已于 2026-08-15 随 V1.3 **正式入列**（五条准入审计结论见 `docs/tool-selection.md` §四；遗留风险：native 二进制 + install script 面，建议单独做 supply-chain review）；tree-sitter-perl 已随 57B-385 过白名单并在 native-graph 使用；S1-S3 无新依赖；未来检索索引用 `node:sqlite` FTS5（工具表已列，零新依赖）。
 - **垂直中立**：resolver 按协议分类（HTTP/GraphQL/proto/DB/messaging），不按业务垂直；框架特定约定走 framework pack 机制（Catalyst 先例）；分母/树/义务全部框架无关派生。
 - **后向兼容（preset 持续 PASS）**：所有分母扩张 advisory 先行，硬化走世代版本闸；已验证先例延续——16 个 v5 前 run 0 条 read-coverage finding（实测）；每片闸门强制三件套（§六）。
 - **字节确定性**：每个新工件（义务、树、链路、清单）双跑字节一致纳入测试（read-obligations/read-coverage 成例：pure、zero I/O、byte-stable ordering）。

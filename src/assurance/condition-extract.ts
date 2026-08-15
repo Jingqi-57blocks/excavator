@@ -127,7 +127,8 @@ export function extractComparisons(window: EvidenceItem): ExtractionResult {
     if (ast) return { sites: ast, via: "ast" };
   }
   if (perlParser && PERL_EXTENSIONS.has(extension)) {
-    return { sites: extractPerlComparisons(perlParser, content, startLine), via: "ast" };
+    const perl = extractPerlComparisons(perlParser, content, startLine);
+    if (perl) return { sites: perl, via: "ast" };
   }
   return { sites: extractWithRegex(content, startLine), via: "regex" };
 }
@@ -140,7 +141,8 @@ function extractWithAst(api: AstGrepApi, language: string, content: string, star
     return null;
   }
   const sites: RawComparison[] = [];
-  const seen = new Set<string>();
+  // ast-grep matches operators exactly — `$A == $N` does not match `x === 1`, `$A > $N` does not match
+  // `z >= 3` (verified against the real binding), so no cross-operator de-duplication is needed.
   for (const operator of OPERATORS) {
     let matches: AstMatch[];
     try {
@@ -155,10 +157,6 @@ function extractWithAst(api: AstGrepApi, language: string, content: string, star
       const classified = classifyLiteral(raw);
       if (!classified) continue;
       const line = startLine + match.range().start.line;
-      // `==` also matches inside `===`, so the same site can surface twice: key on the exact triple.
-      const key = `${line}:${field}:${operator}:${classified.literal}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
       sites.push({ field, operator, literal: classified.literal, literalKind: classified.kind, line });
     }
   }
