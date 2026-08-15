@@ -193,6 +193,11 @@ V1 的读义务分母来自 fact pack `logic` 类目 = 保留 pruned-FG 节点�
 
 **候选下一片（V1.3，需先校准）**：扩到 ① 字符串/引号字面量比较 ② 非 C 家族算符（SQL `=`/`<>`、shell 测试算符、Perl `eq/ne/gt/lt`）③ 按语言分组的降噪词表。**必须先校准**：字符串字面量会引入新噪声类（日志文案、SQL 片段、URL、CSS 类名），不校准直接上会重犯字面量保真的错误。
 
+## 批次 57B-398（S2 跨仓链路）产生（2026-08-15）
+
+- **测试套件存在间歇性失败（本轮观察到两次，未定位）**：`npm test` 偶发 1 条失败，紧接着重跑两次均 698/698 全绿，且失败输出未捕获到具体用例名。两次发生在不同批次改动之后，故不像是某次改动引入。**这类抖动比稳定失败更危险**——它会训练人忽略红灯。修法：在 CI 里保留失败时的完整 TAP 输出、或给 `node:test` 加 `--test-reporter=spec` 落盘，先把是哪条测试抓出来再谈修。**先量再定**，不要盲改。
+- **Go 内联 handler 无具名函数可指（诚实边界，非缺陷）**：express 的 25 个注册点用内联闭包做 handler，`parseHandlerTarget` 如实返回 null。此前的启发式会从闭包体里抓出 `res.json` 当 handler——**错配比漏配糟**，已改为遇到 `=>`/`function`/`{` 即判定内联。这 25 个注册点因此不进阅读义务，计数可见。
+
 ## 批次 57B-396（S1 义务分母第二来源）产生（2026-08-15，Fable 评审）
 
 - **`boundary-functions.json` 无 digest（下一片一行活）**：fact pack 有 `factPackDigests`，这个工件没有任何 digest 记录。**闸门本身无洞**——`knowledge.readObligationsDigest` 覆盖的是合并**之后**的分母，audit 对账冻结的 `read-obligations.json`（`src/core/run.ts:709-711`），所以篡改边界工件不会让分母悄悄变。但两个后果真实存在：冻结后篡改该工件**无法事后取证**；`eval read-denominator` 会从被篡改的工件重算出与冻结分母不同的数**而不报警**。修法：`buildKnowledge` 加 `boundaryFunctionsDigest`，audit 端镜像核验（缺文件/改文件两个方向都 error），与 `readObligationsDigest` 同款。
