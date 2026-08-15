@@ -40,12 +40,16 @@ export interface AuditFinding {
  * source — every decision-bearing function in the boundary's own files, not just the ones the prune
  * retained — because the first source inherits the boundary's recall ceiling (measured: a file inside the
  * boundary with obligations above and below a gap, and the rule-bearing functions sitting in the gap).
- * The second source is advisory: it widens what is counted and reported, and gates nothing.
+ * The second source is advisory: it widens what is counted and reported, and gates nothing. `v7` adds a
+ * THIRD source: the backend handlers that resolved cross-repo HTTP links point at. A handler normally
+ * lives in another repository and can never enter a feature's boundary on its own, so before this it was
+ * unreachable by any denominator — the frontend called it and nothing accounted for reading it. Also
+ * advisory.
  * A run stamps this at prepare (`manifest.assuranceVersion`); audit uses it to gate those strict
  * checks: only runs prepared under the current version are held to them, while older or field-less
  * runs are grandfathered so a later redaction/check bump never retroactively fails them.
  */
-export const ASSURANCE_VERSION = `assurance-v6-${REDACTION_VERSION}`;
+export const ASSURANCE_VERSION = `assurance-v7-${REDACTION_VERSION}`;
 
 /** Strict re-derivation checks apply only to runs prepared under exactly the current version. */
 export function runUsesCurrentAssurance(manifest: RunManifest): boolean {

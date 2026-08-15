@@ -11,12 +11,14 @@ import { createSnapshot } from "../snapshot/snapshot.ts";
 import { ASSURANCE_VERSION, assuranceGenerationAtLeast, auditChecklist, auditDetailedFeatureSection, auditEvidenceCatalog, auditEvidenceMarkerPlacement, auditReadabilityTables, auditRescuedLogicCoverage, auditSectionClaims, auditSectionEvidenceMarkers, auditTargetProblemAttribution, auditTraces, auditWorkItemClaimCoverage, auditWorkItems, checklistUpdatesToWorkItems, createInvestigationChecklist, createInvestigationPlan, hasEvidenceMarkers, mergeChecklist, mergeWorkItems, runUsesCurrentAssurance, type AuditFinding, validateClaimsInput, workItemsToChecklist } from "../assurance/assurance.ts";
 import { auditComparativeClaims } from "../assurance/claim-comparison.ts";
 import { auditFreezeOrder, auditFrozenKnowledge, buildKnowledge, freezePreconditions, knowledgeDigest, normalizeSupplement, recordSupplement } from "../assurance/freeze.ts";
-import { atomicWrite, ensureDir, exists, nowIso, readJson, REDACTION_VERSION, runIdTimestamp, sha256, slugify, stableJson, writeJson } from "./util.ts";
+import { atomicWrite, Deadline, ensureDir, exists, nowIso, readJson, REDACTION_VERSION, runIdTimestamp, sha256, slugify, stableJson, writeJson } from "./util.ts";
 import { logicWorkItems, LOGIC_DISPOSITION_ASSURANCE_GENERATION } from "../assurance/logic-workitems.ts";
-import { readObligations, BOUNDARY_DENOMINATOR_ASSURANCE_GENERATION, READ_ACCOUNTABILITY_ASSURANCE_GENERATION } from "../assurance/read-obligations.ts";
+import { readObligations, BOUNDARY_DENOMINATOR_ASSURANCE_GENERATION, CROSSREPO_DENOMINATOR_ASSURANCE_GENERATION, READ_ACCOUNTABILITY_ASSURANCE_GENERATION, type RouteHandlerObligation } from "../assurance/read-obligations.ts";
 import type { BoundaryFunctionsArtifact } from "../context/boundary-functions.ts";
 import { scanCrossRepoLinks } from "../crossrepo/crossrepo-scan.ts";
-import { buildCrossRepoArtifact, mintCrossRepoEvidence, type CrossRepoArtifact } from "../crossrepo/crossrepo-artifact.ts";
+import { buildCrossRepoArtifact, mintCrossRepoEvidence, routeHandlerObligations, type CrossRepoArtifact } from "../crossrepo/crossrepo-artifact.ts";
+import { goImportAliases, parseHandlerTarget, resolveHandler } from "../crossrepo/handler-resolve.ts";
+import { CodeGraphIndex } from "../codegraph/codegraph.ts";
 import { auditReadAccountability, reconcileReadCoverage, type ClaimCitation } from "../assurance/read-coverage.ts";
 import { auditConditionCoverage, inventoryConditions, type ClaimStatement } from "../assurance/condition-inventory.ts";
 import { warmExtractors } from "../assurance/condition-extract.ts";
@@ -105,6 +107,67 @@ async function resolveCrossRepoLinks(
 async function readCrossRepoLinks(runDir: string): Promise<CrossRepoArtifact | null> {
   const path = join(runDir, "context", "crossrepo-links.json");
   return await exists(path) ? await readJson<CrossRepoArtifact>(path) : null;
+}
+
+/**
+ * Turn resolved cross-repo links into reading obligations, attributed to the feature whose boundary holds
+ * the CALL. Best effort by design: a module whose graph cannot be opened contributes nothing rather than
+ * failing a freeze over an advisory input.
+ */
+async function routeHandlerDenominator(
+  runDir: string,
+  manifest: RunManifest,
+  links: CrossRepoArtifact | null,
+  factPacks: Record<string, FeatureFactPack>,
+): Promise<RouteHandlerObligation[] | null> {
+  if (!links?.links.length) return null;
+  const target = manifest.request.target;
+  const indexes = new Map<string, CodeGraphIndex | null>();
+  const aliases = new Map<string, Map<string, string>>();
+  const openIndex = (moduleId: string): CodeGraphIndex | null => {
+    if (!indexes.has(moduleId)) {
+      try {
+        indexes.set(moduleId, new CodeGraphIndex(join(target, moduleId, ".codegraph", "codegraph.db"), 5000, new Deadline(120_000, "route handler resolution")));
+      } catch {
+        indexes.set(moduleId, null);
+      }
+    }
+    return indexes.get(moduleId) ?? null;
+  };
+
+  // Import aliases are read up front, because resolution itself is synchronous: without them a Go qualifier
+  // that renames its package resolves to nothing (measured: 23 registrations lost to exactly this).
+  for (const link of links.links) {
+    const aliasKey = `${link.to.module}/${link.to.path}`;
+    if (aliases.has(aliasKey)) continue;
+    try {
+      aliases.set(aliasKey, goImportAliases(await readFile(join(target, aliasKey), "utf8")));
+    } catch {
+      aliases.set(aliasKey, new Map());
+    }
+  }
+
+  const obligations: RouteHandlerObligation[] = [];
+  try {
+    for (const [featureKey, pack] of Object.entries(factPacks)) {
+      const boundaryFiles = new Set((pack.items ?? []).map((item) => String(item.filePath ?? "")));
+      obligations.push(...routeHandlerObligations(links, featureKey, boundaryFiles, (link) => {
+        const targetSymbol = parseHandlerTarget(link.to.handlerExpression);
+        if (!targetSymbol) return null;
+        const index = openIndex(link.to.module);
+        if (!index) return null;
+        const aliasKey = `${link.to.module}/${link.to.path}`;
+        try {
+          return resolveHandler(targetSymbol, index.searchNodes([targetSymbol.name], 60), aliases.get(aliasKey));
+        } catch {
+          return null;
+        }
+      }));
+    }
+  } finally {
+    for (const index of indexes.values()) index?.close();
+  }
+  return obligations.length ? obligations : null;
 }
 
 export async function prepareRun(request: ReportRequest): Promise<{ runDir: string; manifest: RunManifest }> {
@@ -371,7 +434,10 @@ export async function freezeRun(runDirInput: string): Promise<{ manifest: RunMan
   // The cross-repo links are pinned in knowledge whenever the artifact exists — independent of the
   // obligation generation, because the digest protects the record, not the denominator.
   const crossRepoLinks = await readCrossRepoLinks(runDir);
-  const obligations = readAccountable ? readObligations(Object.values(factPacks) as FeatureFactPack[], plan.items, boundaryFunctions) : null;
+  const routeHandlers = readAccountable && assuranceGenerationAtLeast(manifest, CROSSREPO_DENOMINATOR_ASSURANCE_GENERATION)
+    ? await routeHandlerDenominator(runDir, manifest, crossRepoLinks, factPacks)
+    : null;
+  const obligations = readAccountable ? readObligations(Object.values(factPacks) as FeatureFactPack[], plan.items, boundaryFunctions, routeHandlers) : null;
   const readResidual = obligations ? reconcileReadCoverage({ obligations: obligations.obligations, evidence: evidenceCatalog.evidence }) : null;
   const expectedPlan = createInvestigationPlan(manifest.id, manifest.request, manifest.documents);
   // Gate the generative expansion on the run's assurance GENERATION, not exact-version equality: a run
