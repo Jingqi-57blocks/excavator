@@ -263,6 +263,21 @@ Run：`.work/wcp-bf72b0/runs/run-2026_08_15_21_40-请假管理-e7b7fd1a-5fbd4975
 - **freeze 失败时输出顺序误导**：findings 在前、完整 run.json 在后，`| tail` 只看到 JSON 会误判成功（退出码正确，脚本化无碍）。
 - 非缺陷观察：`--terms` 是字面子串匹配（`describe(` 命中 yup 的 `.describe()`），skill 值得加一句「选只在待证明对象中出现的词」。
 
+## 批次 57B-402（仪表诚实）评审产生（2026-08-15）
+
+**评审判定返工，两条 must-fix 都是构造出来实测的，且都击穿了我明确宣称过的性质**：
+
+- **第四态在一整族形态上复活**：我的绊线与结构判定**共享同一个相邻性假设**（client 标识符必须紧跟 `.` 或 `[`），所以 `client?.post`、`client!.post`、`(client).post`、`(client as X).post`、`client.post.call(…)` 一族**双网皆盲、零告警**。教训：**绊线的文本独立性只独立于 AST，不独立于共享前提**——设计绊线时必须逐条列出主实现的前提，并确认绊线一个都不共享。修法：结构侧解包接收者（`!`/括号/`as`/`satisfies`，但**不解包**改变被调对象的 `.call`/逗号表达式），绊线放弃相邻性。
+- **截断两情形在边界重合处互相冒充**：文件末尾恰好落在 `start+239` 时，纯算术判定无法区分，于是对**不存在的行**宣称「仍未读」，并让调用方白花一个窗口预算去发现。修法：短返回时读一次文件行数按证据判定（`SourceReader.lineCount`，不动 SourceWindow schema/缓存版本）。
+
+**保留的取舍（记档，非缺陷）**：绊线放弃相邻性后更宽松。**决定不加「排除属性链」的收窄**——那会重新引入「包裹的接收者 + 结构读不出的访问方式」这一类双盲形态，而原则是「过度报警可接受、假缺席才是失败」。**块边界收窄（间隔不跨 `{`/`}`）已采纳，但代价非零**——我最初记成「白拿的」，第三轮评审构造并用旧 commit 复测证伪：`(client as { post(u: string): Promise<T> }).post(url)` 与其 `satisfies` 孪生形态、以及注释含 `{` 的形态，在收窄前**可见**、收窄后**双网静默**。前两者按本模块自己的接收者解包契约**本应 resolve**（结构侧的 as-peel 字符类同样不跨 `{}`）。收益一侧同样是实测：cebreo 11→2（那 9 条全是 Angular `constructor(private http: HttpClient) {` 跨到下方方法）。**裁定保留收窄**——Angular 构造函数族常见、内联对象类型断言在 client 接收者上罕见——但代价已写进前提 3 的例子里。**教训**：在一条以「可辩护记档」为全部卖点的产品线里，一条「代价：零」的失实记录本身就是本片要消灭的缺陷类；「评审构造的 12 个形态全部仍通过」是真的，但那 12 个不含这一族，**没测到不等于没代价**。最终噪声：真实 target（wcp-ui，744 文件，真实 client 名单）**0 条**；cebreo 2、openmrs 1，均来自探针塞的过宽 client 名。字符串字面量里的示例代码仍会被报（本仓 tests 目录），是刻意保留的过度报警方向。
+
+**绊线自身的前提已列明（评审的元批评，已接受）**：第一版声称「makes silence impossible」而实际不成立——它共享了结构判定的相邻性前提。教训**同样施加于绊线自身**：前提必须逐条枚举，否则「独立」只是错觉。现已在 `unmatchedCallSites` 头部列出四条前提（client 标识符字面出现／verb 在 `MAX_TRIPWIRE_GAP` 内或走 destructure 形式／间隔不跨 `;{}`／非注释行），并把宣称改为「**在列明前提内不可能静默，前提外的盲区就是这四条，记档而非关闭**」。评审裁定 `client.withHeaders({h:"a;b"}).post(url)` 与 `client /* x; */ .post(url)` 两条对正则不可约，**记档不修**。
+
+**范围外记录**：`source` 请求 `end < start`（如 100..50）会静默矫正为 100..100 且无任何提示。既有行为、非本片引入。
+
+**评审确认无需动作的两条**：gold 地板 395/355 的检出力与重钉前边界相同（appRunnerApi=321、performanceReviewMainApi=70 消失必跳闸；mainApi=26 等小 client 在余量之下——57B-399 已记的已知边界）；`crossrepo-links.json` 只在 prepare 时写入，不追溯改写归档 run，且 `eval crossrepo` 不校验 reason 枚举，旧工件（411/365，reason 仅 `no-route`）过新 gold 10/10、无地板告警。
+
 ## 批次 57B-401（阅读残差曝光）产生（2026-08-15）
 
 **`metrics.claims` 少算 5.8 倍（顺带查出的既有缺陷，范围外未修）**：真实 run 有 **472 条 claim**（12 个 section 文件），而 `metrics.claims` 记的是 **81**。根因在 `assurance-artifacts.ts` 的 `collectClaims`：它按 `claims.set(claim.id, claim)` 建 Map，而 **claim id 只在 section 内唯一**（`claim-1`…），跨 section 直接互相覆盖——实测 74 个 id 各出现 12 次。两个后果：① `metrics.claims` 是「最大单 section claim 数」而非总数，而 `eval compare` 正是拿这个数做跨 run 比较（`run-stats.ts` → `compare-runs.ts`），**用它判断切片好坏会被系统性误导**；② `auditTraces` 收到的是 `new Set(allClaims.keys())`（81 个 id），所以 trace 的 claimIds 校验**分不清是哪个 section 的同名 claim**——方向是变松而非误报。修法：Map 改按 `${documentId}#${sectionIndex}#${claim.id}` 键控，或让 claim id 全局唯一。**先确认 `eval compare` 的历史结论有没有被这个数误导过**，再改。

@@ -131,7 +131,13 @@ async function main(): Promise<void> {
       }
       case "source": {
         const args = parseArgs(argv);
-        print(await addSourceEvidence(required(args.run, "--run"), required(args.path, "--path"), Number(required(args.start, "--start")), Number(required(args.end, "--end")), required(args.reason, "--reason"), supplementFrom(args)));
+        const result = await addSourceEvidence(required(args.run, "--run"), required(args.path, "--path"), Number(required(args.start, "--start")), Number(required(args.end, "--end")), required(args.reason, "--reason"), supplementFrom(args));
+        // Recording a window and reading it are one act. The default JSON escapes the excerpt into a single
+        // `\n`-laden line, which forces that act into two — read the file with one tool, record it blind with
+        // this one — and a window opened without being read is how an uncited window gets created.
+        if (args.text === "true") process.stdout.write(`${renderSourceWindow(result)}\n`);
+        else if (args.quiet === "true") process.stdout.write(`${sourceWindowSummary(result)}\n`);
+        else print(result);
         break;
       }
       case "search": {
@@ -517,10 +523,13 @@ const COMMAND_HELP: Record<string, CommandHelp> = {
       "--start <n>              First line of the excerpt (required)",
       "--end <n>                Last line of the excerpt (required)",
       "--reason <text>          Why the excerpt is recorded (required)",
+      "--text                   Print the excerpt as lines instead of JSON, so recording and reading are one act",
+      "--quiet                  Print only the evidence id, span and any truncation notice",
       "--supplement-reason <text>  Post-freeze only: why the frozen knowledge is insufficient",
       "--supplement-workitem <id>  Post-freeze only: the existing work item this supplement is charged to"
     ],
-    example: 'excavator source --run <run> --path src/server.ts --start 3 --end 5 --reason "route handler"'
+    example: 'excavator source --run <run> --path src/server.ts --start 3 --end 5 --reason "route handler" --text',
+    notes: "A window holds at most 240 lines. A longer request records the first 240 and says so, naming the range still unread — open another window for it. The reading gate requires a window OVERLAPPING a decision function, not covering it, so a tail left unread stays unread without anything failing."
   },
   search: {
     synopsis: "search --run <dir> (--query <expr> | --terms a,b) --reason <text> [--regex] [--case-sensitive] [--max-results <n>] [--path-prefixes a,b] [--supplement-reason <text> --supplement-workitem <id>]",
@@ -659,6 +668,41 @@ function requestsHelp(argv: string[]): boolean {
     }
   }
   return false;
+}
+
+interface RecordedWindow {
+  evidence?: { id?: string; path?: string; startLine?: number; endLine?: number; content?: string };
+  cacheHit?: boolean;
+  notice?: string;
+}
+
+/** One line naming what was recorded, plus the truncation notice when there is one. */
+function sourceWindowSummary(result: Record<string, unknown>): string {
+  const { evidence, cacheHit, notice } = result as RecordedWindow;
+  const head = `${evidence?.id ?? "?"}  ${evidence?.path ?? "?"}:${evidence?.startLine ?? "?"}-${evidence?.endLine ?? "?"}${cacheHit ? "  (cache hit)" : ""}`;
+  return notice ? `${head}\n${notice}` : head;
+}
+
+/**
+ * The summary plus the excerpt as actual lines, so recording a window also shows it.
+ *
+ * Control characters are stripped (tab kept). The excerpt is target source that has been redacted for
+ * secrets but not for terminal control: writing it raw would let a file under investigation drive the
+ * operator's terminal through ANSI escapes. The JSON path escapes them; this path has to do it itself.
+ */
+function renderSourceWindow(result: Record<string, unknown>): string {
+  const { evidence } = result as RecordedWindow;
+  const start = evidence?.startLine ?? 1;
+  const body = (evidence?.content ?? "")
+    .split("\n")
+    .map((line, index) => `${String(start + index).padStart(5)}  ${stripControl(line)}`)
+    .join("\n");
+  return `${sourceWindowSummary(result)}\n\n${body}`;
+}
+
+/** Drop C0/C1 control characters and DEL, keeping tab — nothing in source needs them to be readable. */
+function stripControl(value: string): string {
+  return value.replace(/[\u0000-\u0008\u000B-\u001F\u007F-\u009F]/g, "");
 }
 
 /** Resolve which help entry a `<command> [subcommand] --help` invocation should print. */

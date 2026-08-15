@@ -20,6 +20,14 @@ interface SourceReaderOptions {
   maxCharacters: number;
 }
 
+/**
+ * Ceiling on one window's line count. Callers are told when a request hits it (`addSourceEvidence` reports
+ * `clamped`): the window itself has always recorded the truth, but a caller who is not told believes a
+ * 378-line function was covered by one window and stops reading — and the reading gate cannot catch that,
+ * because it requires a window OVERLAPPING a decision function, not covering it.
+ */
+export const MAX_WINDOW_LINES = 240;
+
 export class SourceReader {
   private readonly options: SourceReaderOptions;
   private windows = 0;
@@ -31,6 +39,25 @@ export class SourceReader {
 
   get stats(): { windows: number; characters: number; hits: number } {
     return { windows: this.windows, characters: this.characters, hits: this.hits };
+  }
+
+  /**
+   * How many lines the file has. Exists so a caller can tell the two ways a window comes back short apart:
+   * the 240-line cap leaves real code unread, while a file that simply ended leaves nothing unread, and
+   * arithmetic alone cannot separate them when the file happens to end exactly at the cap. Reads the file
+   * without recording a window, so it charges nothing against the window budget.
+   */
+  async lineCount(relativePath: string): Promise<number> {
+    const normalized = relativePath.replaceAll("\\", "/").replace(/^\.\//, "");
+    const absolute = resolve(this.options.target, normalized);
+    if (!absolute.startsWith(`${resolve(this.options.target)}/`) && absolute !== resolve(this.options.target)) throw new Error(`Source path escapes target: ${relativePath}`);
+    const lines = (await readFile(absolute, "utf8")).split(/\r?\n/);
+    // A file ending in a newline splits into a trailing empty segment. Counting it invents a line: on the
+    // POSIX-normal 240-line file with a final newline, the caller was told line 241 was "still unread" and
+    // spent a window discovering it was nothing. `window()` keeps its own arithmetic — the phantom line
+    // there is harmless and its schema is frozen — so the correction lives here, where the claim is made.
+    if (lines.length > 1 && lines[lines.length - 1] === "") lines.pop();
+    return lines.length;
   }
 
   async window(relativePath: string, startLine: number, endLine: number, reason: string): Promise<SourceWindow> {
@@ -54,7 +81,7 @@ export class SourceReader {
     const lines = raw.split(/\r?\n/);
     const safeStart = Math.max(1, startLine);
     const requestedEnd = Math.min(lines.length, Math.max(safeStart, endLine));
-    const safeEnd = Math.min(requestedEnd, safeStart + 239);
+    const safeEnd = Math.min(requestedEnd, safeStart + MAX_WINDOW_LINES - 1);
     const selected = redactSecrets(lines.slice(safeStart - 1, safeEnd).join("\n"));
     if (this.characters + selected.length > this.options.maxCharacters) throw new Error(`Source character budget exceeded (${this.options.maxCharacters}); increase --max-source-characters (e.g. ${this.options.maxCharacters * 2})`);
     const value: SourceWindow = {
