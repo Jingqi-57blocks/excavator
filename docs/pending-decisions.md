@@ -281,6 +281,92 @@ Run：`.work/wcp-bf72b0/runs/run-2026_08_15_21_40-请假管理-e7b7fd1a-5fbd4975
 
 **评审指出的真缺口，已在本片关闭**：`auditConditionCoverage` 原本在 `unaccounted === 0` 时提前返回，于是**残差一旦归零，指向该工件的唯一指针随之消失**，排除计数就成了没人被告知去看的 JSON 数字——「标记而非删除」在那一刻退化成「删除但留了痕」。现改为排除计数**独立于残差**始终上报。（Goodhart run 的 unaccounted 已经是 1，这个状态迫在眉睫。）
 
+## 批次：403/404/405 落地后的 run#2（2026-08-16，按跑前钉死的判据判读）
+
+Run：`.work/wcp-bf72b0/runs/run-2026_08_16_02_01-请假管理-e7b7fd1a-5fbd4975-b6cd0139`（12 章 / 869 行 / **619 claims** / audit **0 error / 8 advisory**）。对照基线 `run-2026_08_15_21_40`。
+
+### 一、分母（403）✅
+
+来自两个 v1 express 文件的义务 **1 → 17**（其中 `recovered-route-handler` 16 条，`registrations` 16、`duplicate` 0）。719 可问责行进入分母。
+
+### 二、v1 规则陈述：**析取护栏的第二支兑现**（这正是把它写成析取的理由）
+
+报告本次**未**陈述 `hours > 8` / `holiday_type === 2`（基线 run#2 陈述了）。但**记账可见**：covered 9 / partial 3 / not-opened 5，**openedNotConsumed 0**。
+
+按预注册判据：「消失但记账可见 = **403 成功**、转诊断材料」；只有「消失且记账不可见」才是硬失败。**若无 403，这次消失将完全不可见**——这正是本片的价值主张。
+
+诊断层面还多一条信息：`openedNotConsumed 0` 说明 v1 窗口**被打开且被 claim 引用了**，作者只是选了另一个角度报告 v1（报告实际给出「v2 与遗留在恰好 40 小时处判定不一致」）。所以这不是「读了没用」，是「用了但换了个说法」——单跑措辞方差，不是损失。
+
+### 三、迁移信号（openedNotConsumed）✅ **退回监控带以下**
+
+| | 基线 | 本次 |
+| -- | -- | -- |
+| counted / notOpened / opened | 375 / 171 / 204 | 391 / 191 / 200 |
+| openedNotConsumed | 34 | **17** |
+| **uncitedRate** | **16.7%** | **8.5%** |
+
+按 57B-401 预注册的三档（<10% 正常边际递减 / 10–25% 监控 / >25% 立案），**从监控带退到正常带**。上一轮触发的那个 Goodhart 信号这一轮没有复现。
+
+### 四、strong 分区上升 48 → 66：**必须与窗口数一起读，不许只报好消息**
+
+goal 明写「strong 可能上升而非下降，单看一个数报好消息一律无效」。事实是：
+
+- 分母 375 → 391（+16，全是 403 新增）
+- **本次只开了 75 个窗口，基线开了 134 个**——作者这一轮**读得少得多**
+- strong +18 中，仅 5 条来自 v1 新义务；其余 13 条是既有义务从 opened 变回 not-opened
+
+**所以 strong 上升的主因不是分母增长，是这一轮读得少。** 这是单跑行为方差（`supplements` 也从 0 变成 3，说明它换了策略：少开窗口、多用补充通道）。**不构成 403/404/405 的退化，也不构成改善——它是噪声，如实记录。**
+
+### 五、条件卫生（404）✅
+
+**协议值垃圾句 0**（基线 3）。sites 72、excluded 8（排除率 11.1%）、unaccounted 26、families 5。
+
+### 六、claim 计数（405）✅ 端到端验证
+
+**直数 619 = `metrics.claims` 619**。基线是 560 直数 / 92 metrics。修复在真实 run 上兑现。
+
+### 七、曝光仍在起作用（57B-401 的因果签名复现）
+
+4 次 read-check（seq 2/3/88/95，freeze@109），**首次在 sequence 2、此前零窗口**；其后开窗 89 个，**78 个落在该事件点名的文件上**；预注册锐指标「头部 3 文件至少 1 个获得窗口」实际 **3/3**。
+
+### 八、XR 负空间结论：**重推导后仍然成立**（我曾预告可能被推翻）
+
+修好的仪表（泛型调用不再消失、`unparsed-shape` 0 条、508 registrations）上重新推导：**指向 `/leaves*`（v1 express，非 v2）的工作区内链路 = 0**。而 `/v2/leaves*` 有 **13 条**。
+
+所以上一轮那个结论**不是仪表撒谎撑起来的**——前端只调 v2，v1 路由确实无工作区内调用方。**结论保留，且现在建立在一台已知不静默漏泛型调用的仪表上。**
+
+### 九、run#2 暴露的最重缺陷：**脱敏器损坏业务证据**（撰写方反馈 #1，我已独立复现）
+
+`redactSecrets`（`src/core/util.ts:133`）用 `line.indexOf("=")` 找赋值，**不区分赋值与比较/复合赋值**。而这个领域用 `*Token` 后缀表示「已用小时数」，于是请假额度的算术在证据目录里不可读。我的独立复现（三条全中）：
+
+```
+holiday.PtoToken += hours                     → holiday.PtoToken += <redacted>
+const [oldHoursTem, token, err] = calc(a, b)  → const [oldHoursTem, token, err] = <redacted>
+if holiday.FuneralToken > 0 && err != nil {   → if holiday.FuneralToken > 0 && err != <redacted>
+```
+
+**第三条最糟**：`err != nil` 被改成 `err != <redacted>`——仅因同行提到 `FuneralToken`，而 `!=` 根本不是赋值。对照组正常：`holiday.PtoHours += hours` 未改，真机密 `const apiToken = "sk-live-abc123"` 正确遮盖。
+
+撰写方另报一条我未复现但形态可信的：`leaveService.js` 里同一个调用的字面量 `'pto'` **在单行写法下被遮盖、在多行写法下幸存**——同值同文件，仅因空白不同而输出不同。
+
+**后果**：`consumeByYear` 与 `withdrawHours` 各 10 个分支的额度算术全部不可引用，作者只能绕开写并在第 12 章披露。**这是证据损坏，不是过度保守**——审计会重新推导被脱敏的窗口，所以作者连「引用真实值」这条路都没有。
+
+**修法方向（确定性，可精确修）**：① 只认真正的赋值——排除 `+=` `-=` `*=` `/=` `!=` `==` `===` `<=` `>=` `:=` `=>`；② 值侧否决扩到裸标识符/参数（`= hours` 不是机密）；③ import 路径已豁免（实测 `mcp_token` 未改），保持。
+
+**为什么单独立片**：改脱敏会改 `REDACTION_VERSION`，而它进 `ASSURANCE_VERSION`、进所有审计产物字节——属独立切片 + 世代闸，不能顺手改。
+
+### 十、run#2 的其余撰写方反馈（未独立复现，按原话记录）
+
+- **`reading` 与 freeze 对「部分读」给相反建议**：`reading` 说「nothing counts how many entries you clear」，freeze 随后发 8 条 warning 点名它留下的**部分覆盖区间**。若 freeze 要点名 partial，`reading` 就该同时列出 per-function 的 partial（今天只列从未打开的）。**这条我认为成立且该修**——它正是「照文档做还被警告」的同型。
+- **`cannot-determine` 静默要求 `settledBy`**：SKILL 说「records why, what would settle it, and evidence」但从不点名字段，作者从 freeze 报错才学到（与 `searchScope` 同型，已在 57B-406）。
+- **`reportSection` 钉死在写作时不可见**：v2-vs-legacy 阈值对比本属第 4 章，但引用 `model-parity` 会硬错（该项钉在第 6 章），写作时无任何提示。
+- **n/a logic-disposition 是硬门却写得像建议**，且只在**最终全量 audit** 才浮现（此前 12 次单文档 audit 全清白）。
+- **冻结后无法重读自己冻结前的证据**：对冻结前记录的窗口跑 `excavator source`（纯缓存命中、零变更）仍被拒，作者只好手工解析 `evidence.json`。建议只读的 `excavator evidence show <id>`。
+- **authoring packet 约 80% 是重复**：177 项 `logic` 全表在第 3/4/5 章各抄一遍，packet 4507 行。
+- **事实包枚举闸推向填充**：403 个 entrypoints 里仅约 18 个是请假路由；`external-calls` 的 38 条里 13 条是前端调**本系统**的 `httpClient`，不是外部集成。为消警告写了两段对读者无价值的对账段落。
+- **负向发现难记录**：`searched-not-found` 需零命中且未截断的回执，首次补充检索 50 条截断不可用。
+- **真正兑现价值的（原话）**：「absence claims need a receipt」的压力**抓出了作者自己草稿里的一个真错**——他原写 `wcp_review_service` 不含请假代码，补充检索证明它直接 join `wcp_leave`/`wcp_leave_detail` 并带自己的状态过滤，「without the gate I'd have shipped a wrong boundary」。
+
 ## 批次 57B-405（对账诚实化）产生（2026-08-16）
 
 **`collectClaims` 改键控暴露了一处测试盲区（我改完才发现，记为教训）**：把 Map 键从 `claim.id` 改成 `${documentId}#${section}#${claim.id}` 后，**812 个测试全绿**——而 `auditTraces` 拿的正是 `new Set(allClaims.keys())`，去和 trace 里的**裸 claim id**（`claim-3`）比对。若不特判，每条合法的 trace 引用都会被报成 "references missing claim id"。**全绿本身就是证据：这条路径没有任何测试覆盖。** 已在调用点转换为裸 id 集，并补测试把这个洞钉住（同时断言「传复合键会破」）。
