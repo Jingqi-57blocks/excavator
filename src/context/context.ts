@@ -13,10 +13,10 @@ import { BOUNDARY_FUNCTIONS_VERSION, BOUNDARY_FUNCTION_KINDS, enumerateBoundaryF
 import { computeCrossFeatureRelationships, renderCrossFeatureSection } from "./cross-feature.ts";
 import { legacyWorkspaceWarning } from "../snapshot/workspace-residue.ts";
 
-// v19: CachedFeature now carries the boundary-function enumeration (57B-396), so a hit on a v18 key would
-// serve a feature with no second source and silently produce a narrower denominator. Bumping invalidates
-// it — the same 57B-375 lesson that v18's note records.
-const BUILDER_VERSION = "excavator-context-v19-boundary-functions";
+// v20: CachedFeature carries the boundary-function enumeration (57B-396). v19 introduced it; v20 adds the
+// `truncated` flag and per-feature warnings to that record, and a v19 hit would serve them as `undefined`
+// — a truncated enumeration that claims it was complete. Any change to a cached shape bumps this (57B-375).
+const BUILDER_VERSION = "excavator-context-v20-boundary-truncation";
 
 interface CachedShared {
   snapshotId: string;
@@ -170,7 +170,9 @@ export async function buildContexts(request: ReportRequest): Promise<ContextBuil
     graphAvailable: Boolean(graph),
     enumeratedKinds: [...BOUNDARY_FUNCTION_KINDS],
     features: boundaryFeatures,
-    warnings: [],
+    // Rolled up from the features rather than left empty: a reader of this artifact must be able to see
+    // its own degradation without cross-referencing the run manifest.
+    warnings: boundaryFeatures.flatMap((feature) => feature.warnings),
   };
 
   graph?.close();

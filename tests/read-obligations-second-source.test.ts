@@ -33,6 +33,8 @@ function boundaryOf(functions: Array<{ name: string; startLine: number; endLine:
       featureKey: "leave",
       files: 1,
       filesWithoutCandidates: [],
+      truncated: false,
+      warnings: [],
       functions: functions.map((fn) => ({ path: fn.path ?? PATH, name: fn.name, graphKind: "method", startLine: fn.startLine, endLine: fn.endLine, probe: fn.probe ?? "decision" })),
     }],
     ...extra,

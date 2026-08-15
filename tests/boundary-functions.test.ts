@@ -111,6 +111,28 @@ test("output ordering is byte-stable regardless of the order the graph returns c
   assert.equal(JSON.stringify(forward), JSON.stringify(reversed));
 });
 
+// The cap orders by file, so hitting it drops whole files off the end — and those files would then be
+// listed as "the graph knew nothing here", dressing a truncation up as language blindness.
+test("hitting the node cap is recorded, not inferred away as language blindness", async () => {
+  const { absolutePathFor } = await workspace();
+  const many = Array.from({ length: 5000 }, (_, index) => ({
+    kind: "method", name: `f${index}`, filePath: "svc/leave.go", startLine: 3, endLine: 8,
+  }));
+  const warnings: string[] = [];
+  const result = await enumerateBoundaryFunctions(graphOf(many), { featureKey: "k", files: ["svc/leave.go", "lib/ZMS/Leave.pm"], absolutePathFor }, warnings);
+  assert.equal(result.truncated, true);
+  assert.match(warnings.join("\n"), /hit the 5000-node cap/);
+  assert.match(result.warnings.join("\n"), /filesWithoutCandidates is not meaningful/, "the artifact carries its own degradation");
+});
+
+test("an untruncated enumeration says so, and carries no phantom warnings", async () => {
+  const { absolutePathFor } = await workspace();
+  const graph = graphOf([{ kind: "method", name: "Creation", filePath: "svc/leave.go", startLine: 3, endLine: 8 }]);
+  const result = await enumerateBoundaryFunctions(graph, { featureKey: "k", files: ["svc/leave.go"], absolutePathFor }, []);
+  assert.equal(result.truncated, false);
+  assert.deepEqual(result.warnings, []);
+});
+
 test("container kinds are not enumerated — a class span would swallow its own methods", () => {
   for (const kind of ["class", "struct", "interface", "file", "module"]) {
     assert.ok(!BOUNDARY_FUNCTION_KINDS.includes(kind), `${kind} must stay out of the allowlist`);

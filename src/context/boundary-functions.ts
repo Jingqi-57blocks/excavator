@@ -33,6 +33,9 @@ export const BOUNDARY_FUNCTION_KINDS: readonly string[] = ["component", "constru
 /** A file larger than this is not read for probing: the cost is unbounded and the payoff is one boolean. */
 const MAX_PROBE_BYTES = 1_500_000;
 
+/** Enumeration cap. Reaching it truncates by file, which `truncated` records rather than hides. */
+const NODE_CAP = 5000;
+
 export interface BoundaryFunction {
   path: string;
   name: string;
@@ -49,8 +52,16 @@ export interface FeatureBoundaryFunctions {
   /** Boundary files considered — the denominator of this enumeration, so its own scope is auditable. */
   files: number;
   functions: BoundaryFunction[];
-  /** Boundary files where the graph knew no function-shaped symbol: the language-blindness surface. */
+  /**
+   * Boundary files where the graph knew no function-shaped symbol: the language-blindness surface.
+   * Meaningless when `truncated` is set — a file past the query cap is indistinguishable from a file the
+   * graph had nothing for, which is exactly why truncation must be recorded rather than inferred.
+   */
   filesWithoutCandidates: string[];
+  /** The node cap was reached: this enumeration is a prefix, not the full set. */
+  truncated: boolean;
+  /** Why any candidate could not be probed — kept per feature so the artifact carries its own degradation. */
+  warnings: string[];
 }
 
 export interface BoundaryFunctionsArtifact {
@@ -81,15 +92,23 @@ export async function enumerateBoundaryFunctions(
   input: BoundaryEnumerationInput,
   warnings: string[],
 ): Promise<FeatureBoundaryFunctions> {
-  const result: FeatureBoundaryFunctions = { featureKey: input.featureKey, files: input.files.length, functions: [], filesWithoutCandidates: [] };
+  const local: string[] = [];
+  const note = (message: string): void => { local.push(message); warnings.push(message); };
+  const result: FeatureBoundaryFunctions = { featureKey: input.featureKey, files: input.files.length, functions: [], filesWithoutCandidates: [], truncated: false, warnings: local };
   if (!graph || !input.files.length) return result;
 
   let candidates: GraphNode[];
   try {
-    candidates = graph.nodesByKindInFiles([...BOUNDARY_FUNCTION_KINDS], input.files, 5000);
+    candidates = graph.nodesByKindInFiles([...BOUNDARY_FUNCTION_KINDS], input.files, NODE_CAP);
   } catch (error) {
-    warnings.push(`Boundary function enumeration for "${input.featureKey}" failed: ${(error as Error).message}`);
+    note(`Boundary function enumeration for "${input.featureKey}" failed: ${(error as Error).message}`);
     return result;
+  }
+  // The cap orders by file, so hitting it drops whole files off the end — and those files would then be
+  // reported as "the graph knew nothing here", dressing a truncation up as language blindness.
+  if (candidates.length >= NODE_CAP) {
+    result.truncated = true;
+    note(`Boundary function enumeration for "${input.featureKey}" hit the ${NODE_CAP}-node cap; filesWithoutCandidates is not meaningful for this feature`);
   }
 
   const withCandidates = new Set<string>();
@@ -104,7 +123,7 @@ export async function enumerateBoundaryFunctions(
     // A single-line symbol is a declaration; read-obligations excludes those anyway, and probing one line
     // would only ever answer `no-decision`.
     if (endLine <= startLine) continue;
-    const lines = await sourceLines(path, input.absolutePathFor, sourceCache, warnings);
+    const lines = await sourceLines(path, input.absolutePathFor, sourceCache, note);
     const probe: ProbeResult = lines === null
       ? "unavailable"
       : probeDecision(lines.slice(startLine - 1, endLine).join("\n"), path);
@@ -120,21 +139,21 @@ async function sourceLines(
   path: string,
   absolutePathFor: (path: string) => string | undefined,
   cache: Map<string, string[] | null>,
-  warnings: string[],
+  note: (message: string) => void,
 ): Promise<string[] | null> {
   const cached = cache.get(path);
   if (cached !== undefined) return cached;
   const absolute = absolutePathFor(path);
   let lines: string[] | null = null;
   if (!absolute) {
-    warnings.push(`Boundary function probe skipped ${path}: not in the snapshot manifest`);
+    note(`Boundary function probe skipped ${path}: not in the snapshot manifest`);
   } else {
     try {
       const text = await readFile(absolute, "utf8");
       lines = text.length > MAX_PROBE_BYTES ? null : text.split("\n");
-      if (lines === null) warnings.push(`Boundary function probe skipped ${path}: file exceeds ${MAX_PROBE_BYTES} bytes`);
+      if (lines === null) note(`Boundary function probe skipped ${path}: file exceeds ${MAX_PROBE_BYTES} bytes`);
     } catch (error) {
-      warnings.push(`Boundary function probe skipped ${path}: ${(error as Error).message}`);
+      note(`Boundary function probe skipped ${path}: ${(error as Error).message}`);
     }
   }
   cache.set(path, lines);

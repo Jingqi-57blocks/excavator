@@ -40,8 +40,12 @@ export interface DenominatorReport {
   /** Counted obligations lost by adding the second source. Non-empty means the non-regression gate failed. */
   lost: string[];
   must: MustResult[];
-  /** Per-file enumeration gaps that the second source closed, largest first. */
-  gapsClosed: Array<{ path: string; from: number; to: number; lines: number }>;
+  /**
+   * Per-file enumeration gaps the second source reached into, largest first. `covered` is how many of the
+   * gap's lines now sit inside a counted obligation — reported rather than implied, because "a new span
+   * starts in the gap" and "the gap is now read-accountable" are different claims.
+   */
+  gapsClosed: Array<{ path: string; from: number; to: number; lines: number; covered: number }>;
 }
 
 export function buildDenominatorReport(runDir: string, must: MustTarget[]): DenominatorReport {
@@ -93,11 +97,27 @@ function gapsClosed(before: ReadObligation[], after: ReadObligation[]): Denomina
       const from = spans[index - 1].end + 1;
       const to = spans[index].start - 1;
       if (to < from) continue;
-      const filled = later.some((span) => span.start >= from && span.start <= to);
-      if (filled) closed.push({ path, from, to, lines: to - from + 1 });
+      const covered = coveredWithin(later, from, to);
+      if (covered > 0) closed.push({ path, from, to, lines: to - from + 1, covered });
     }
   }
   return closed.sort((a, b) => b.lines - a.lines || cmp(a.path, b.path) || a.from - b.from);
+}
+
+/** Lines of [from, to] that fall inside at least one span. Overlapping spans are counted once. */
+function coveredWithin(spans: Array<{ start: number; end: number }>, from: number, to: number): number {
+  let covered = 0;
+  let cursor = from;
+  for (const span of spans) {
+    if (span.end < cursor || span.start > to) continue;
+    const start = Math.max(span.start, cursor);
+    const end = Math.min(span.end, to);
+    if (end >= start) {
+      covered += end - start + 1;
+      cursor = end + 1;
+    }
+  }
+  return covered;
 }
 
 function groupByPath(obligations: ReadObligation[]): Map<string, Array<{ start: number; end: number }>> {
@@ -136,8 +156,10 @@ export function renderDenominator(report: DenominatorReport): string {
       : `  must ${entry.path}:${entry.line} — MISSING from the counted denominator`);
   }
   if (report.gapsClosed.length) {
-    lines.push(`  enumeration gaps closed: ${report.gapsClosed.length}`);
-    for (const gap of report.gapsClosed.slice(0, 5)) lines.push(`      ${gap.path} ${gap.from}-${gap.to} (${gap.lines} lines)`);
+    lines.push(`  enumeration gaps reached: ${report.gapsClosed.length}`);
+    for (const gap of report.gapsClosed.slice(0, 5)) {
+      lines.push(`      ${gap.path} ${gap.from}-${gap.to} — ${gap.covered}/${gap.lines} lines now accountable (${Math.round(gap.covered / gap.lines * 100)}%)`);
+    }
   }
   return lines.join("\n");
 }
