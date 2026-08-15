@@ -243,10 +243,16 @@ export function normaliseTemplatePath(rest: string): string | null {
  *
  *   1. the client identifier appears literally — a client reached only through a value this scan never named
  *      (returned from a factory, read off a map) is invisible;
- *   2. the verb is within `MAX_TRIPWIRE_GAP` characters after it, or the destructure form puts it before;
- *   3. that span crosses no `;`, `{` or `}` — so `client.withHeaders({...}).post(url)` and a client mentioned
- *      a block away from the verb are both out of reach (the second exclusion was measured: without it, an
- *      Angular `constructor(private http: HttpClient) {` reported once per service file, 11 across 405);
+ *   2. the verb is within `MAX_TRIPWIRE_GAP` characters after it, or a destructure pattern (up to one level
+ *      of nesting) puts it before. A computed key is covered only when it is a bare identifier —
+ *      `client[this.method](url)` and `client['po' + 'st'](url)` are arbitrary expressions and out of reach;
+ *   3. that span crosses no `;`, `{` or `}`. MEASURED COST, not free: this excludes
+ *      `client.withHeaders({...}).post(url)`, a client mentioned a block away from the verb, AND the
+ *      inline-object-type receiver family — `(client as { post(u: string): Promise<T> }).post(url)` and its
+ *      `satisfies` twin, which by this module's own receiver-unwrapping contract SHOULD resolve but reach
+ *      neither net (the structural as-peel does not cross `{}` either). Kept anyway: measured against it,
+ *      an Angular `constructor(private http: HttpClient) {` reported once per service file — 11 across 405 —
+ *      and that family is common while inline object types on a client receiver are rare;
  *   4. the line is not a `//` or `*` comment line — a call inside a STRING literal is still reported, which
  *      is the over-eager direction and stays.
  *
@@ -274,7 +280,13 @@ function unmatchedCallSites(path: string, source: string, clientNames: string[],
   // client can see it. `const { post } = client` and `const { post: send } = client` were both measured
   // producing nothing anywhere. Only the declaration is reported — following `send` to its call site would
   // be data flow, which this module does not do and must not pretend to.
-  const destructure = new RegExp(`\\{[^{}]*\\b(${verbs})\\b[^{}]*\\}\\s*=\\s*(?:${clients})\\b`, "g");
+  //
+  // One level of nesting is allowed inside the pattern because the axios-shaped idiom
+  // `const { get, defaults: { baseURL } } = client` is a destructure like any other — and premise 2 below
+  // promises "the destructure form", with no flatness qualifier. A pattern that stopped at the first inner
+  // brace would make that promise false, which is the exact defect class this module exists to remove.
+  const patternBody = `(?:[^{}]|\\{[^{}]*\\})*`;
+  const destructure = new RegExp(`\\{${patternBody}\\b(${verbs})\\b${patternBody}\\}\\s*=\\s*(?:${clients})\\b`, "g");
 
   const out: FrontendCall[] = [];
   const lineStarts = lineOffsets(source);

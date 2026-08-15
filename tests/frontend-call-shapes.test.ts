@@ -197,6 +197,37 @@ test("a verb destructured off the client is reported at its declaration", () => 
   }
 });
 
+// Premise 2 promises "the destructure form" with no flatness qualifier, and `const { get, defaults: { … } }`
+// is the axios-shaped idiom. A pattern that stopped at the first inner brace would make that promise false —
+// the same over-claiming this module exists to remove, committed by its own premise list.
+test("a nested destructure is still a destructure", () => {
+  const url = "`${config.appRunnerApi}/v2/leaves`";
+  for (const source of [
+    `const { post, defaults: { baseURL } } = httpClient;\npost(${url}, body);`,
+    `const { post: send, defaults: { baseURL } } = httpClient;\nsend(${url});`,
+  ]) {
+    const calls = callsIn(source);
+    assert.ok(calls.some((call) => call.unresolvedReason === "unparsed-shape" && call.line === 1), source);
+  }
+  assert.deepEqual(callsIn("const { post } = somethingElse;\npost('/x');"), [], "and a non-client right-hand side is not a client call");
+});
+
+// A KNOWN BLIND SPOT, pinned so it stays visible and costs something to keep. The block-boundary narrowing
+// (gap crosses no `{`/`}`) was recorded as free; it is not. These receivers do not change which object is
+// called, so this module's own contract says they should RESOLVE — but the structural as-peel does not cross
+// braces either, so neither net sees them. Kept because the family it buys silence from (an Angular
+// `constructor(private http: HttpClient) {`, 11 reports across 405 files) is far more common. If a later
+// change makes these visible, this test fails — update the premise list and pending-decisions with it.
+test("inline object-type receivers are a recorded blind spot, not a silent one", () => {
+  const url = "`${config.appRunnerApi}/v2/leaves`";
+  for (const source of [
+    `(httpClient as { post(u: string): Promise<T> }).post(${url}, body);`,
+    `(httpClient satisfies { get(u): Promise<T> }).get(${url});`,
+  ]) {
+    assert.deepEqual(callsIn(source), [], `${source}\n  ↑ if this now produces output, the narrowing's cost changed — update the record`);
+  }
+});
+
 // A call split across lines is one call. The tripwire counts on the line the CLIENT sits on, which is where
 // the structural read starts a call expression too — otherwise a cross-line call on line 1 cancels a
 // different call on line 1 and the second one vanishes.
