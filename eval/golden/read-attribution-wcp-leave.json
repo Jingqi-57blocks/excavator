@@ -57,7 +57,7 @@
     {
       "prefix": "wcp-service-v2/internal/handlers/management/",
       "verdict": "noise",
-      "reason": "面试职位、工时表、项目月度——与请假无关；仅因边界文件同目录被枚举。旧读数把切片投向这里正是本片要修的"
+      "reason": "面试职位、工时表、项目月度——与请假无关；仅因边界文件同目录被枚举。旧读数把切片投向这里正是本片要修的 【评审指出的最灰两项，刻意保持原裁定】UserHasProjectLeaveHour / GetDayLeaveHours 读 se.LeaveMap 给工时表导出算请假小时，名字带 Leave 且 GetDayLeaveHours 还编码了跨项目请假小时归属规则——但它们是 worklog 导出行为，不是请假生命周期，按「理解请假管理本该读吗」判 noise 可辩护。若将来有人重裁为 gray，strong 纯度只会更好不会更差，方向上无风险。留此说明以免被当作漏判。"
     },
     {
       "prefix": "wcp-service-v2/internal/handlers/ai_tool/",
