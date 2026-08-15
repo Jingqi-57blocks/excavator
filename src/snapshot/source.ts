@@ -51,7 +51,13 @@ export class SourceReader {
     const normalized = relativePath.replaceAll("\\", "/").replace(/^\.\//, "");
     const absolute = resolve(this.options.target, normalized);
     if (!absolute.startsWith(`${resolve(this.options.target)}/`) && absolute !== resolve(this.options.target)) throw new Error(`Source path escapes target: ${relativePath}`);
-    return (await readFile(absolute, "utf8")).split(/\r?\n/).length;
+    const lines = (await readFile(absolute, "utf8")).split(/\r?\n/);
+    // A file ending in a newline splits into a trailing empty segment. Counting it invents a line: on the
+    // POSIX-normal 240-line file with a final newline, the caller was told line 241 was "still unread" and
+    // spent a window discovering it was nothing. `window()` keeps its own arithmetic — the phantom line
+    // there is harmless and its schema is frozen — so the correction lives here, where the claim is made.
+    if (lines.length > 1 && lines[lines.length - 1] === "") lines.pop();
+    return lines.length;
   }
 
   async window(relativePath: string, startLine: number, endLine: number, reason: string): Promise<SourceWindow> {

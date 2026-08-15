@@ -166,6 +166,79 @@ test("another module's client is not read as this one's", () => {
     "neither resolved nor reported: it is not a call through a client this scan knows");
 });
 
+// MISATTRIBUTION, not mere blindness: testing only the first and last character for parens peeled a pair
+// that was not a pair, leaving a string whose trailing identifier happened to be the client — and the call
+// RESOLVED to a route the client never requested. A wrong route is worse than an unresolved one.
+test("a paren pair that is not a pair is not peeled", () => {
+  const url = "`${config.appRunnerApi}/v2/leaves`";
+  for (const source of [
+    `(x).wrap(httpClient).post(${url}, body);`,
+    `(0, wrap)(httpClient).post(${url}, body);`,
+    `((a) + (httpClient)).post(${url}, body);`,
+  ]) {
+    const calls = callsIn(source);
+    assert.equal(calls.filter((call) => !call.unresolvedReason).length, 0, `resolved a call the client did not make: ${source}`);
+    assert.ok(calls.some((call) => call.unresolvedReason === "unparsed-shape"), `and it must still be visible: ${source}`);
+  }
+});
+
+// The verb can be taken OFF the client, in which case it appears BEFORE it and no scan starting at the
+// client can see it. Only the declaration is reported: following the binding to its call site would be data
+// flow, which this module does not do and must not pretend to.
+test("a verb destructured off the client is reported at its declaration", () => {
+  const url = "`${config.appRunnerApi}/v2/leaves`";
+  for (const source of [
+    `const { post } = httpClient;\npost(${url}, body);`,
+    `const { post: send } = httpClient;\nsend(${url}, body);`,
+  ]) {
+    const calls = callsIn(source);
+    assert.ok(calls.some((call) => call.unresolvedReason === "unparsed-shape" && call.line === 1), `not reported at the declaration: ${source}`);
+    assert.equal(calls.filter((call) => !call.unresolvedReason).length, 0, "and nothing is resolved from a binding this module cannot follow");
+  }
+});
+
+// A call split across lines is one call. The tripwire counts on the line the CLIENT sits on, which is where
+// the structural read starts a call expression too — otherwise a cross-line call on line 1 cancels a
+// different call on line 1 and the second one vanishes.
+test("a call broken across lines is read, and cannot cancel another call on its first line", () => {
+  const url = "`${config.appRunnerApi}/v2/leaves`";
+  const wrapped = callsIn(`httpClient\n.get(${url});`);
+  assert.equal(wrapped.length, 1);
+  assert.equal(wrapped[0].routePath, "/v2/leaves", "a newline before the verb is not a different call");
+
+  const bracketed = callsIn(`httpClient\n['post'](${url});`);
+  assert.ok(bracketed.some((call) => call.unresolvedReason === "unparsed-shape"), "and an unreadable access split across lines is still reported");
+
+  const both = callsIn(`httpClient['get'](${url}); httpClient\n.get(${url});`);
+  assert.equal(both.length, 2, "one resolved, one reported — neither swallows the other");
+  assert.equal(both.filter((call) => !call.unresolvedReason).length, 1);
+  assert.equal(both.filter((call) => call.unresolvedReason === "unparsed-shape").length, 1);
+});
+
+test("a computed verb is reported with an honest UNKNOWN rather than guessed", () => {
+  const calls = callsIn("httpClient[method](`${config.appRunnerApi}/v2/leaves`, body);");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].unresolvedReason, "unparsed-shape");
+  assert.equal(calls[0].method, "UNKNOWN");
+  assert.equal(calls[0].routePath, null);
+});
+
+// The gap is bounded and stops at block boundaries. Measured cost of NOT stopping at braces: an Angular
+// `constructor(private http: HttpClient) {` reported once per service file — 11 across 405 files — while
+// stopping at them lost none of the forms above.
+test("a client mentioned a block away from a verb is not a call site", () => {
+  const source = [
+    "class LogsService {",
+    "  constructor(private httpClient: HttpClient) {",
+    "  }",
+    "  list() {",
+    "    return this.other.get('/x');",
+    "  }",
+    "}",
+  ].join("\n");
+  assert.deepEqual(callsIn(source), []);
+});
+
 // A blind scanner returning `[]` is indistinguishable from a file with no calls — the exact silence this
 // module exists to remove, so the two blind paths must speak.
 test("a parse failure says so instead of returning no calls", () => {

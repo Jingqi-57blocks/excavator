@@ -672,7 +672,11 @@ export async function addSourceEvidence(runDirInput: string, relativePath: strin
     ...(cappedAt
       ? { clamped: true, requestedEndLine: endLine, unreadFrom: window.endLine + 1, unreadThrough: Math.min(endLine, totalLines), notice: `Only lines ${window.startLine}-${window.endLine} were recorded: one window holds at most ${MAX_WINDOW_LINES} lines. Lines ${window.endLine + 1}-${Math.min(endLine, totalLines)} are still unread — open another window if they carry behavior.` }
       : short
-        ? { requestedEndLine: endLine, notice: `The file ends at line ${totalLines}; lines ${window.endLine + 1}-${endLine} do not exist, so nothing is left unread here.` }
+        // The absent range starts after the file's LAST REAL LINE, not after the window's end line: a file
+        // ending in a newline makes `window()` report one line more than exists, and its arithmetic is
+        // frozen (schema + cache). Anchoring the message on `totalLines` keeps the two consistent without
+        // touching it — otherwise a 40-line file reads "ends at line 40; lines 42-500 do not exist".
+        ? { requestedEndLine: endLine, notice: `The file ends at line ${totalLines}; lines ${totalLines + 1}-${endLine} do not exist, so nothing is left unread here.` }
         : {}),
   };
 }

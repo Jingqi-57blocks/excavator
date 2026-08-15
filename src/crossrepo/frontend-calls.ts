@@ -24,6 +24,17 @@ export const FRONTEND_CALLS_VERSION = "frontend-calls-v1";
 
 const HTTP_METHODS = ["get", "post", "put", "delete", "patch", "head"];
 
+/**
+ * How far the tripwire looks between a client identifier and an HTTP verb, newlines included. Bounded on
+ * purpose: an unbounded run would swallow a whole semicolon-free file and report the same call from every
+ * client mention above it, which turns an audit into noise. Wide enough for the real multi-line forms
+ * (`client\n  .post(url)`, a receiver wrapped in a type assertion), narrow enough to stay a local check.
+ */
+const MAX_TRIPWIRE_GAP = 200;
+
+/** The verb of a call whose method is computed (`client[method](url)`) — knowable at runtime, not here. */
+const UNKNOWN_METHOD = "UNKNOWN";
+
 export interface FrontendCall {
   path: string;
   line: number;
@@ -221,50 +232,108 @@ export function normaliseTemplatePath(rest: string): string | null {
  * nobody anticipated (today: type arguments; tomorrow: something else) then surfaces as a visible
  * `unparsed-shape` entry with its line, instead of not existing.
  *
- * It is allowed to be slightly over-eager. A false entry costs one visible line saying "look here"; a false
- * absence costs a route nobody knows is missing, which is exactly the failure this repairs.
+ * It is allowed to be over-eager. A false entry costs one visible line saying "look here"; a false absence
+ * costs a route nobody knows is missing, which is the failure this repairs.
+ *
+ * ITS OWN PREMISES, LISTED — because the first version of this check claimed to make silence impossible and
+ * did not. It shared the structural read's assumption that the client identifier is immediately followed by
+ * `.`, and a whole family (`client?.post`, `(client as X).post`, `client.post.call`) fell through BOTH nets
+ * with no signal. The lesson generalises to this comment: a tripwire is only as independent as its premises
+ * are enumerated, so here they are, and each is a known blind spot rather than a claim of completeness:
+ *
+ *   1. the client identifier appears literally — a client reached only through a value this scan never named
+ *      (returned from a factory, read off a map) is invisible;
+ *   2. the verb is within `MAX_TRIPWIRE_GAP` characters after it, or the destructure form puts it before;
+ *   3. that span crosses no `;`, `{` or `}` — so `client.withHeaders({...}).post(url)` and a client mentioned
+ *      a block away from the verb are both out of reach (the second exclusion was measured: without it, an
+ *      Angular `constructor(private http: HttpClient) {` reported once per service file, 11 across 405);
+ *   4. the line is not a `//` or `*` comment line — a call inside a STRING literal is still reported, which
+ *      is the over-eager direction and stays.
+ *
+ * So the honest claim is: within those premises silence is impossible; outside them the blind spots are the
+ * four above, recorded rather than closed.
  */
 function unmatchedCallSites(path: string, source: string, clientNames: string[], produced: FrontendCall[]): FrontendCall[] {
   if (!clientNames.length) return [];
-  // Counted, not set-membership: `httpClient.get(a); httpClient['get'](b);` on one line is TWO call sites,
-  // and keying on line+method alone would let the structural hit for the first silence the report of the
-  // second. The tripwire reports the surplus it sees over what the structural read produced.
+  // Counted, not set-membership: `client.get(a); client['get'](b);` is TWO call sites, and keying on
+  // line+method alone would let the structural hit for the first silence the report of the second. Both
+  // sides count on the line the CLIENT IDENTIFIER sits on — which is where the structural read starts a
+  // call expression too — so a call split across lines cannot cancel a different call on the first line.
   const structural = new Map<string, number>();
   for (const call of produced) structural.set(`${call.line}:${call.method}`, (structural.get(`${call.line}:${call.method}`) ?? 0) + 1);
 
   const clients = clientNames.map(escapeForRegExp).join("|");
   const verbs = HTTP_METHODS.join("|");
-  // NO ADJACENCY between the client and the verb. Requiring the identifier to be immediately followed by
-  // `.` or `[` is the very assumption the structural read makes, so sharing it made both nets blind to the
-  // same family — measured: `client?.post(…)`, `client!.post(…)`, `(client).post(…)`,
-  // `(client as X).post(…)`, `client.post.call(…)` produced nothing anywhere, with no warning. Textual
-  // independence from the AST is not independence from a shared premise.
-  //
-  // So: the client identifier appears, and an HTTP verb is accessed somewhere after it on the same line. The
-  // trailing `(` is not required either — `(0, client.post)(url)` never puts one after the verb. `\b` after
-  // the verb keeps `.getBaseUrl()` from reading as `get`.
-  const finder = new RegExp(`\\b(?:${clients})\\b[^;]*?(?:\\.\\s*(${verbs})\\b|\\[\\s*['"\`](${verbs})['"\`]\\s*\\])`, "g");
+  // The gap between client and verb spans newlines but is BOUNDED, and stops at a statement end. Unbounded
+  // would be unusable in a semicolon-free codebase, where one `[^;]` run swallows the whole file; the bound
+  // is what keeps this a local check. `\b` after the verb keeps `.getBaseUrl()` from reading as `get`.
+  const gap = `[^;{}]{0,${MAX_TRIPWIRE_GAP}}?`;
+  const access = `(?:\\.\\s*(${verbs})\\b|\\[\\s*(?:['"\`](${verbs})['"\`]|([A-Za-z_$][A-Za-z0-9_$]*))\\s*\\])`;
+  const finder = new RegExp(`\\b(?:${clients})\\b${gap}${access}`, "g");
+  // The mirror form: the verb is taken OFF the client, so it appears BEFORE it and no scan starting at the
+  // client can see it. `const { post } = client` and `const { post: send } = client` were both measured
+  // producing nothing anywhere. Only the declaration is reported — following `send` to its call site would
+  // be data flow, which this module does not do and must not pretend to.
+  const destructure = new RegExp(`\\{[^{}]*\\b(${verbs})\\b[^{}]*\\}\\s*=\\s*(?:${clients})\\b`, "g");
+
   const out: FrontendCall[] = [];
-  const lines = source.split(/\r?\n/);
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index];
-    const trimmed = line.trim();
-    if (trimmed.startsWith("//") || trimmed.startsWith("*")) continue;
-    finder.lastIndex = 0;
-    const textual = new Map<string, number>();
+  const lineStarts = lineOffsets(source);
+  const textual = new Map<string, number>();
+  const samples = new Map<string, string>();
+  const note = (offset: number, method: string): void => {
+    const line = lineAt(lineStarts, offset);
+    if (isCommentLine(source, lineStarts, line)) return;
+    const key = `${line}:${method}`;
+    textual.set(key, (textual.get(key) ?? 0) + 1);
+    if (!samples.has(key)) samples.set(key, lineText(source, lineStarts, line).trim().slice(0, 200));
+  };
+  for (const [regex, isDestructure] of [[finder, false], [destructure, true]] as const) {
+    regex.lastIndex = 0;
     let match: RegExpExecArray | null;
-    while ((match = finder.exec(line)) !== null) {
-      const method = (match[1] ?? match[2]).toUpperCase();
-      textual.set(method, (textual.get(method) ?? 0) + 1);
-    }
-    for (const [method, count] of textual) {
-      const surplus = count - (structural.get(`${index + 1}:${method}`) ?? 0);
-      for (let extra = 0; extra < surplus; extra += 1) {
-        out.push({ path, line: index + 1, method, baseIdentifier: null, baseKey: null, routePath: null, expression: trimmed.slice(0, 200), unresolvedReason: "unparsed-shape" });
-      }
+    while ((match = regex.exec(source)) !== null) {
+      const verb = isDestructure ? match[1] : (match[1] ?? match[2]);
+      // A computed member with a non-literal key (`client[method](url)`) is a call whose verb is not known
+      // statically. Reporting it with an honest UNKNOWN beats both guessing and silence.
+      note(match.index, verb ? verb.toUpperCase() : UNKNOWN_METHOD);
     }
   }
-  return out;
+  for (const [key, count] of [...textual].sort()) {
+    const [line, method] = [Number(key.slice(0, key.indexOf(":"))), key.slice(key.indexOf(":") + 1)];
+    const surplus = count - (structural.get(key) ?? 0);
+    for (let extra = 0; extra < surplus; extra += 1) {
+      out.push({ path, line, method, baseIdentifier: null, baseKey: null, routePath: null, expression: samples.get(key) ?? "", unresolvedReason: "unparsed-shape" });
+    }
+  }
+  return out.sort((a, b) => a.line - b.line || cmp(a.method, b.method));
+}
+
+/** Offsets where each line starts, so a match position converts to a line number without splitting twice. */
+function lineOffsets(source: string): number[] {
+  const offsets = [0];
+  for (let index = 0; index < source.length; index += 1) if (source[index] === "\n") offsets.push(index + 1);
+  return offsets;
+}
+
+function lineAt(lineStarts: number[], offset: number): number {
+  let low = 0;
+  let high = lineStarts.length - 1;
+  while (low < high) {
+    const mid = Math.ceil((low + high) / 2);
+    if (lineStarts[mid] <= offset) low = mid;
+    else high = mid - 1;
+  }
+  return low + 1;
+}
+
+function lineText(source: string, lineStarts: number[], line: number): string {
+  const start = lineStarts[line - 1];
+  const end = line < lineStarts.length ? lineStarts[line] - 1 : source.length;
+  return source.slice(start, end);
+}
+
+function isCommentLine(source: string, lineStarts: number[], line: number): boolean {
+  const trimmed = lineText(source, lineStarts, line).trim();
+  return trimmed.startsWith("//") || trimmed.startsWith("*");
 }
 
 function escapeForRegExp(value: string): string {
@@ -292,11 +361,35 @@ function calleeVerb(calleeText: string, clients: Set<string>): string | null {
     const before = receiver;
     receiver = receiver.replace(/!+$/, "").trim();
     receiver = receiver.replace(/\s+(?:as|satisfies)\s+[A-Za-z0-9_$.<>\[\]|&\s]+$/, "").trim();
-    if (receiver.startsWith("(") && receiver.endsWith(")")) receiver = receiver.slice(1, -1).trim();
+    receiver = stripMatchedParens(receiver);
     if (receiver === before) break;
   }
   const identifier = /([A-Za-z_$][A-Za-z0-9_$]*)$/.exec(receiver);
   return identifier && clients.has(identifier[1]) ? tail[1] : null;
+}
+
+/**
+ * Strip a wrapping paren pair, and ONLY a wrapping pair.
+ *
+ * Testing the first and last characters alone was measured producing a wrong ROUTE, not just a wrong
+ * classification: `(x).wrap(httpClient).post(url)` has a leading `(` and a trailing `)` that are not the same
+ * pair, so peeling them left `x).wrap(httpClient` — whose trailing identifier is the client — and the call
+ * resolved as if the client had made it. A misattributed route is worse than an unresolved one, and this is
+ * exactly the contract this module states for indirections: a wrapper that changes WHICH object is called
+ * must never be resolved as this client's call.
+ */
+function stripMatchedParens(value: string): string {
+  if (!value.startsWith("(") || !value.endsWith(")")) return value;
+  let depth = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    if (value[index] === "(") depth += 1;
+    else if (value[index] === ")") {
+      depth -= 1;
+      // The opening paren closed before the end, so the trailing `)` belongs to something else.
+      if (depth === 0) return index === value.length - 1 ? value.slice(1, -1).trim() : value;
+    }
+  }
+  return value;
 }
 
 /** The call's first argument, read from the argument list rather than a pattern capture. */

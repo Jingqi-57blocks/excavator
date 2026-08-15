@@ -99,6 +99,28 @@ test("the unread range a cap truncation names stops at the end of the file", asy
   assert.match(result.notice ?? "", /Lines 250-300 are still unread/);
 });
 
+// A file ending in a newline is the POSIX norm, and it is where the false alarm came back: the line count
+// counted the empty segment after the final newline, so a 240-line file "ended" at 241 and the caller was
+// told line 241 was still unread — then spent a window discovering it was nothing. Every fixture above is
+// written WITHOUT a trailing newline, which is exactly why this layer went untested.
+test("a trailing newline does not invent a line", async () => {
+  const { runDir, target } = await runWithLongFile();
+  await writeFile(join(target, "src/nl240.ts"), `${numbered(MAX_WINDOW_LINES, "N")}\n`);
+  await writeFile(join(target, "src/crlf240.ts"), `${numbered(MAX_WINDOW_LINES, "R").replaceAll("\n", "\r\n")}\r\n`);
+  await writeFile(join(target, "src/nl40.ts"), `${numbered(40, "S")}\n`);
+
+  for (const path of ["src/nl240.ts", "src/crlf240.ts"]) {
+    const result = await addSourceEvidence(runDir, path, 1, 500, "trailing newline at the cap") as unknown as WindowResult;
+    assert.equal(result.clamped, undefined, `${path}: the file ended, the cap did not cut`);
+    assert.match(result.notice ?? "", /file ends at line 240/, path);
+    assert.doesNotMatch(result.notice ?? "", /still unread/, path);
+  }
+
+  // The absent range must start after the last REAL line, not after the window's phantom one.
+  const short = await addSourceEvidence(runDir, "src/nl40.ts", 1, 500, "short file with trailing newline") as unknown as WindowResult;
+  assert.match(short.notice ?? "", /file ends at line 40; lines 41-500 do not exist/);
+});
+
 // The span that is exactly the cap is the off-by-one this pair exists to pin.
 test("a request of exactly the cap is satisfied, and one line more is not", async () => {
   const { runDir } = await runWithLongFile();
