@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
-import { readFile, rm } from "node:fs/promises";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import { buildAuthoringPacket } from "../src/assurance/authoring-packet.ts";
 import { freezeRun, prepareRun, readingCheck } from "../src/core/run.ts";
 import { readTimeline } from "../src/assurance/timeline.ts";
@@ -98,6 +98,33 @@ test("after freeze the check reports the frozen denominator, not a fresh derivat
   assert.equal(afterRemoval.exposure?.unclassified.count, frozen.exposure?.unclassified.count,
     "the obligation the boundary source contributed is still counted, because the denominator was frozen");
   assert.deepEqual(afterRemoval.exposure?.totals, frozen.exposure?.totals);
+});
+
+// Refusing to answer is a real outcome and has to be honest about WHICH refusal it is: a run that never had
+// a denominator and a run whose frozen denominator is gone both decline to re-derive, but only one of them
+// is old. Both must also leave the run untouched — there is nothing to record.
+test("a run with no denominator is told why, and nothing is written", async () => {
+  const { runDir } = await prepareRun(await featureRequest());
+  await disposeAllWorkItems(runDir);
+  assert.equal((await freezeRun(runDir)).frozen, true);
+  await rm(join(runDir, "coverage", "read-obligations.json"));
+  const timelineBefore = await readFile(join(runDir, "timeline.jsonl"), "utf8");
+  const manifestBefore = await readFile(join(runDir, "run.json"), "utf8");
+
+  const lost = await readingCheck(runDir);
+  assert.equal(lost.exposure, null);
+  assert.match(lost.report, /frozen read-obligation denominator is missing/);
+  assert.doesNotMatch(lost.report, /prepared before reading accountability/, "a lost artifact must not be reported as an old run");
+  assert.equal(await readFile(join(runDir, "timeline.jsonl"), "utf8"), timelineBefore, "nothing to report means nothing to record");
+  assert.equal(await readFile(join(runDir, "run.json"), "utf8"), manifestBefore);
+
+  // The other refusal: a run prepared before reading accountability existed at all.
+  const manifest = JSON.parse(manifestBefore) as RunManifest & { assuranceVersion?: string };
+  manifest.assuranceVersion = "assurance-v2";
+  await writeFile(join(runDir, "run.json"), JSON.stringify(manifest, null, 2));
+  const old = await readingCheck(runDir);
+  assert.match(old.report, /prepared before reading accountability existed/);
+  assert.equal(await readFile(join(runDir, "timeline.jsonl"), "utf8"), timelineBefore);
 });
 
 // The end-to-end leg: without it, the packet renderer can be perfect while freeze never hands it anything.

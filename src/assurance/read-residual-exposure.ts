@@ -212,7 +212,7 @@ export function renderReadingBoundary(exposure: ReadingExposure): string {
     "feature's boundary or carry its vocabulary. Nothing is known about their contents — that is what this block " +
     "records. It exists so the document is written with its blind spots in view: where a section touches an area " +
     "listed here, state what was verified rather than speculating about what was never read. Do not answer this " +
-    "list item by item, do not mention it in the report, and do not open windows merely to shorten it — an " +
+    "list item by item, do not reproduce it in the report, and do not open windows merely to shorten it — an " +
     "opened-but-uncited window is recorded as a drive-by read, and no audit counts anything in this block. If, " +
     "while writing, one of these files becomes genuinely necessary, open it with `excavator source` using " +
     "--supplement-reason and --supplement-workitem.",

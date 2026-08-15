@@ -170,6 +170,12 @@ test("the packet block states a boundary and asks for nothing countable", () => 
   assert.match(block, /99 functions across 25 files, 4121 unread lines — retained 54, named 7, in-directory 38\./);
   assert.match(block, /Do not answer this list item by item/);
   assert.match(block, /do not open windows merely to shorten it/);
+  // "do not reproduce it" forbids dumping the list; an earlier draft said "do not mention it in the report",
+  // which a careful author could read as "do not disclose what went unread" — the opposite of the honesty
+  // this block exists to serve, and it would suppress legitimate `unavailable` claims.
+  assert.match(block, /do not reproduce it in the report/);
+  assert.doesNotMatch(block, /do not mention it in the report/);
+  assert.match(block, /state what was verified rather than speculating about what was never read/);
   assert.match(block, /no audit counts anything in this block/);
   assert.doesNotMatch(block, /State every|state every one/, "the condition inventory's wording is what produced sentences written for the counter");
   assert.doesNotMatch(block, /\d+%|a quarter|a third|half of/, "one target's fraction would be printed with authority on every other target");

@@ -177,6 +177,7 @@ export async function readingCheck(runDirInput: string): Promise<{ frozen: boole
   const plan = await readJson<InvestigationPlan>(join(runDir, "workitems.json"));
 
   let accountability: ReadAccountability | null = null;
+  let denominatorLost = false;
   if (frozen) {
     const frozenPath = join(runDir, "coverage", "read-obligations.json");
     if (await exists(frozenPath)) {
@@ -185,13 +186,24 @@ export async function readingCheck(runDirInput: string): Promise<{ frozen: boole
       // would make a run whose vocabulary matched nothing read like a run frozen before labels existed.
       const annotated = Boolean(obligations.summary.anchor);
       accountability = { obligations, annotated, boundaryFunctions: null, residual: reconcileReadCoverage({ obligations: obligations.obligations, evidence: evidenceCatalog.evidence, annotated }) };
+    } else {
+      // A generation that HAD a denominator and no longer has the artifact is a different fact from a run
+      // that never had one. Both refuse to re-derive — a fresh derivation after freeze would silently answer
+      // from inputs the run is no longer accountable to — but they must not give the same reason.
+      denominatorLost = assuranceGenerationAtLeast(manifest, READ_ACCOUNTABILITY_ASSURANCE_GENERATION);
     }
   } else {
     const factPacks = await readFrozenFactPacks(runDir, manifest);
     accountability = await deriveReadAccountability(runDir, manifest, factPacks, plan.items, evidenceCatalog.evidence, await readCrossRepoLinks(runDir));
   }
   if (!accountability) {
-    return { frozen, exposure: null, report: "This run has no read-obligation denominator: it was prepared before reading accountability existed." };
+    return {
+      frozen,
+      exposure: null,
+      report: denominatorLost
+        ? "This run's frozen read-obligation denominator is missing (coverage/read-obligations.json): it cannot be read, and re-deriving one after freeze would answer from inputs this run is no longer accountable to."
+        : "This run has no read-obligation denominator: it was prepared before reading accountability existed.",
+    };
   }
   // Before freeze this is literally the reconciliation freeze will gate on — not a second one that agrees.
   const exposure = readingExposure({ obligations: accountability.obligations.obligations, items: accountability.residual.items, annotated: accountability.annotated });
@@ -209,7 +221,11 @@ export async function readingCheck(runDirInput: string): Promise<{ frozen: boole
     },
   });
   manifest.metrics.timelineEvents = (manifest.metrics.timelineEvents ?? 0) + 1;
+  // Both copies of the counter move together, as every other mutator here keeps them. `updatedAt` is
+  // deliberately NOT bumped: this command changes nothing about the run, and leaving the stamp alone also
+  // keeps it clear of the concurrency guard that watches for a run mutated underneath a draft.
   await writeJson(join(runDir, "run.json"), manifest);
+  await writeJson(join(runDir, "metrics.json"), manifest.metrics);
   return { frozen, exposure, report: renderReadingCheck(exposure, { frozen }) };
 }
 
