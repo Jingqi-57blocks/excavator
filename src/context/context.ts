@@ -9,13 +9,14 @@ import { SourceReader, evidenceFromWindow, manifestSummary, selectProjectDocumen
 import { Deadline, ensureDir, exists, projectWorkspace, readJson, sha256, slugify, stableJson, truncate, writeJson } from "../core/util.ts";
 import { createProviderRegistry, resolveCodeGraphDatabase } from "../snapshot/providers.ts";
 import { buildFactPack, factPackEvidence, renderFactPackSection } from "./factpack.ts";
+import { BOUNDARY_FUNCTIONS_VERSION, BOUNDARY_FUNCTION_KINDS, enumerateBoundaryFunctions, type BoundaryFunctionsArtifact, type FeatureBoundaryFunctions } from "./boundary-functions.ts";
 import { computeCrossFeatureRelationships, renderCrossFeatureSection } from "./cross-feature.ts";
 import { legacyWorkspaceWarning } from "../snapshot/workspace-residue.ts";
 
-// v18: the feature prune now applies the module-local strong-rescue floor (57B-377), which changes
-// the CachedFeature scope shape for multi-module targets. Bumping the version invalidates any stale
-// pre-floor cache so a cache hit on the old key can never serve a pre-floor scope (57B-375 lesson).
-const BUILDER_VERSION = "excavator-context-v18-module-floor";
+// v19: CachedFeature now carries the boundary-function enumeration (57B-396), so a hit on a v18 key would
+// serve a feature with no second source and silently produce a narrower denominator. Bumping invalidates
+// it — the same 57B-375 lesson that v18's note records.
+const BUILDER_VERSION = "excavator-context-v19-boundary-functions";
 
 interface CachedShared {
   snapshotId: string;
@@ -35,6 +36,8 @@ interface CachedFeature {
   evidence: EvidenceItem[];
   markdown: string;
   factPack: FeatureFactPack;
+  /** Second source for the read-obligation denominator; absent on a source-only run (57B-396). */
+  boundaryFunctions?: FeatureBoundaryFunctions;
   warnings: string[];
 }
 
@@ -125,6 +128,7 @@ export async function buildContexts(request: ReportRequest): Promise<ContextBuil
   const featureScopes = new Map<string, { nodes: any[]; files: string[]; evidenceIds: string[] }>();
   const featureMarkdowns = new Map<string, string>();
   const featureFactPacks = new Map<string, FeatureFactPack>();
+  const boundaryFeatures: FeatureBoundaryFunctions[] = [];
 
   for (const audience of request.overviewAudiences) {
     const id = `overview-${audience}`;
@@ -149,6 +153,7 @@ export async function buildContexts(request: ReportRequest): Promise<ContextBuil
     warnings.push(...(cached.warnings ?? []));
     allEvidence.push(...cached.evidence.filter((item) => !allEvidence.some((existing) => existing.id === item.id)));
     featureScopes.set(key, { nodes: cached.nodes as any[], files: cached.files, evidenceIds: cached.evidence.map((item) => item.id) });
+    if (cached.boundaryFunctions) boundaryFeatures.push(cached.boundaryFunctions);
     featureMarkdowns.set(key, cached.markdown);
     featureFactPacks.set(key, cached.factPack);
     for (const audience of feature.audiences) {
@@ -156,6 +161,17 @@ export async function buildContexts(request: ReportRequest): Promise<ContextBuil
       documentContexts.set(id, renderFeatureContext(audience, request.language, feature.subject, key));
     }
   }
+
+  // `graphAvailable` is recorded rather than inferred from an empty list: "source-only run" and "graph that
+  // found nothing" are different facts, and a reader of the denominator must be able to tell them apart.
+  const boundaryFunctions: BoundaryFunctionsArtifact = {
+    version: BOUNDARY_FUNCTIONS_VERSION,
+    snapshotId: snapshot.id,
+    graphAvailable: Boolean(graph),
+    enumeratedKinds: [...BOUNDARY_FUNCTION_KINDS],
+    features: boundaryFeatures,
+    warnings: [],
+  };
 
   graph?.close();
   const sourceStats = sourceReader.stats;
@@ -176,7 +192,7 @@ export async function buildContexts(request: ReportRequest): Promise<ContextBuil
 
   timing.totalPrepareMs = Date.now() - t0;
   return {
-    prepared: { snapshot, evidence: dedupeEvidence(allEvidence), sharedMarkdown, documentContexts, featureMarkdowns, featureFactPacks, featureScopes, crossFeature },
+    prepared: { snapshot, evidence: dedupeEvidence(allEvidence), sharedMarkdown, documentContexts, featureMarkdowns, featureFactPacks, featureScopes, crossFeature, boundaryFunctions },
     projectDir,
     stats: {
       graphQueries: graph?.stats.queries ?? 0,
@@ -376,9 +392,18 @@ async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], fea
     featureGraph: { nodes, edges, seeds }
   });
   evidence.push(...factPackEvidence(factPack));
+  // The second obligation source (57B-396). The fact pack above enumerates what the prune RETAINED; this
+  // enumerates every decision-bearing function in the same boundary FILES, which is where the retained
+  // set's recall ceiling shows up as unread rules.
+  const absoluteByPath = new Map(files.map((file) => [file.relativePath, file.absolutePath]));
+  const boundaryFunctions = await enumerateBoundaryFunctions(graph, {
+    featureKey: key,
+    files: scopeFiles,
+    absolutePathFor: (path) => absoluteByPath.get(path),
+  }, warnings);
   const inventory = buildFeatureInventory(nodes, scopeFiles);
   const markdown = renderFeatureMarkdown(feature, terms, nodes, edges, unresolved, scopeFiles, evidence, needBroadFallback, inventory, warnings, factPack);
-  return { snapshotId: snapshot.id, key, subject: feature.subject, aliases: feature.aliases, nodes, files: scopeFiles, evidence: dedupeEvidence(evidence), markdown, factPack, warnings: [...warnings, ...factPack.warnings] };
+  return { snapshotId: snapshot.id, key, subject: feature.subject, aliases: feature.aliases, nodes, files: scopeFiles, evidence: dedupeEvidence(evidence), markdown, factPack, boundaryFunctions, warnings: [...warnings, ...factPack.warnings] };
 }
 
 function renderSharedMarkdown(snapshot: Snapshot, graphSummary: unknown, coverage: { indexed: number; eligible: number; ratio: number }, docs: Array<Record<string, unknown>>, representativeNodes: any[], routes: any[], evidence: EvidenceItem[], warnings: string[]): string {

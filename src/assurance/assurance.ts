@@ -36,12 +36,16 @@ export interface AuditFinding {
  * function blocks freeze and audit; `v5` adds READING accountability — a frozen read-obligation
  * denominator (every in-boundary decision function with its span), reconciliation against the windows
  * actually opened, a hard gate rejecting a `found` disposition whose citations never touch the function
- * it reports, and an advisory residual for what was left unread.
+ * it reports, and an advisory residual for what was left unread; `v6` gives that denominator a SECOND
+ * source — every decision-bearing function in the boundary's own files, not just the ones the prune
+ * retained — because the first source inherits the boundary's recall ceiling (measured: a file inside the
+ * boundary with obligations above and below a gap, and the rule-bearing functions sitting in the gap).
+ * The second source is advisory: it widens what is counted and reported, and gates nothing.
  * A run stamps this at prepare (`manifest.assuranceVersion`); audit uses it to gate those strict
  * checks: only runs prepared under the current version are held to them, while older or field-less
  * runs are grandfathered so a later redaction/check bump never retroactively fails them.
  */
-export const ASSURANCE_VERSION = `assurance-v5-${REDACTION_VERSION}`;
+export const ASSURANCE_VERSION = `assurance-v6-${REDACTION_VERSION}`;
 
 /** Strict re-derivation checks apply only to runs prepared under exactly the current version. */
 export function runUsesCurrentAssurance(manifest: RunManifest): boolean {

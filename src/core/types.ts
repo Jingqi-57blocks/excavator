@@ -1,4 +1,5 @@
 import type { CrossFeatureRelationships } from "../context/cross-feature.ts";
+import type { BoundaryFunctionsArtifact } from "../context/boundary-functions.ts";
 
 export type Audience = "product" | "engineering" | "prd";
 export type DocumentKind = "overview" | "feature";
@@ -471,4 +472,6 @@ export interface PreparedContext {
   featureFactPacks: Map<string, FeatureFactPack>;
   featureScopes: Map<string, { nodes: GraphNode[]; files: string[]; evidenceIds: string[] }>;
   crossFeature: CrossFeatureRelationships;
+  /** Second source for the read-obligation denominator (57B-396); frozen as a run artifact at prepare. */
+  boundaryFunctions: BoundaryFunctionsArtifact;
 }
