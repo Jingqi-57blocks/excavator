@@ -44,12 +44,17 @@ export interface AuditFinding {
  * THIRD source: the backend handlers that resolved cross-repo HTTP links point at. A handler normally
  * lives in another repository and can never enter a feature's boundary on its own, so before this it was
  * unreachable by any denominator — the frontend called it and nothing accounted for reading it. Also
- * advisory.
+ * advisory. `v8` adds a FOURTH source: recovered route REGISTRATIONS whose handler is written inline. The
+ * third source needs a named handler to resolve to, so an inline closure resolves to nothing and every
+ * earlier source is silent on it — measured on the real target, two v1 express files held 16 registrations,
+ * 9 decision-bearing, 719 accountable lines that no denominator enumerated, and because a file with no
+ * obligation contributes to no bucket, windows opened there were invisible to BOTH sides of the funnel.
+ * Also advisory: it widens what is counted and reported, and gates nothing.
  * A run stamps this at prepare (`manifest.assuranceVersion`); audit uses it to gate those strict
  * checks: only runs prepared under the current version are held to them, while older or field-less
  * runs are grandfathered so a later redaction/check bump never retroactively fails them.
  */
-export const ASSURANCE_VERSION = `assurance-v7-${REDACTION_VERSION}`;
+export const ASSURANCE_VERSION = `assurance-v8-${REDACTION_VERSION}`;
 
 /** Strict re-derivation checks apply only to runs prepared under exactly the current version. */
 export function runUsesCurrentAssurance(manifest: RunManifest): boolean {

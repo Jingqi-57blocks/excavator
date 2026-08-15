@@ -13,12 +13,12 @@ import { auditComparativeClaims } from "../assurance/claim-comparison.ts";
 import { auditFreezeOrder, auditFrozenKnowledge, buildKnowledge, freezePreconditions, knowledgeDigest, normalizeSupplement, recordSupplement } from "../assurance/freeze.ts";
 import { atomicWrite, Deadline, ensureDir, exists, nowIso, readJson, REDACTION_VERSION, runIdTimestamp, sha256, slugify, stableJson, writeJson } from "./util.ts";
 import { logicWorkItems, LOGIC_DISPOSITION_ASSURANCE_GENERATION } from "../assurance/logic-workitems.ts";
-import { readObligations, BOUNDARY_DENOMINATOR_ASSURANCE_GENERATION, CROSSREPO_DENOMINATOR_ASSURANCE_GENERATION, READ_ACCOUNTABILITY_ASSURANCE_GENERATION, type ReadObligationsArtifact, type RouteHandlerObligation } from "../assurance/read-obligations.ts";
+import { readObligations, BOUNDARY_DENOMINATOR_ASSURANCE_GENERATION, CROSSREPO_DENOMINATOR_ASSURANCE_GENERATION, READ_ACCOUNTABILITY_ASSURANCE_GENERATION, RECOVERED_ROUTE_DENOMINATOR_ASSURANCE_GENERATION, type ReadObligationsArtifact, type RouteHandlerObligation } from "../assurance/read-obligations.ts";
 import { readingExposure, renderReadingCheck, type ReadingExposure } from "../assurance/read-residual-exposure.ts";
 import type { BoundaryFunctionsArtifact } from "../context/boundary-functions.ts";
 import { scanCrossRepoLinks } from "../crossrepo/crossrepo-scan.ts";
 import { featureAnchorTerms, tokenize } from "../context/context.ts";
-import { buildCrossRepoArtifact, mintCrossRepoEvidence, routeHandlerObligations, type CrossRepoArtifact } from "../crossrepo/crossrepo-artifact.ts";
+import { buildCrossRepoArtifact, mintCrossRepoEvidence, recoveredRouteObligations, routeHandlerObligations, type CrossRepoArtifact } from "../crossrepo/crossrepo-artifact.ts";
 import { goImportAliases, parseHandlerTarget, resolveHandler } from "../crossrepo/handler-resolve.ts";
 import { CodeGraphIndex } from "../codegraph/codegraph.ts";
 import { auditReadAccountability, reconcileReadCoverage, type ClaimCitation, type ReadCoverageReport } from "../assurance/read-coverage.ts";
@@ -148,7 +148,12 @@ async function deriveReadAccountability(
   // The annotation uses the RUN'S OWN vocabulary, re-derived from its manifest through the same pure
   // functions prepare used — so freeze, audit and eval all label identically with no extra I/O.
   const anchorTermsByFeature = anchorTermsFor(manifest);
-  const obligations = readObligations(Object.values(factPacks) as FeatureFactPack[], workItems, boundaryFunctions, routeHandlers, anchorTermsByFeature);
+  // Generation 8 admits the recovered-registration source. Gated on the run's own generation like every
+  // denominator widening before it, so a run prepared under 7 keeps exactly the denominator it was frozen with.
+  const recoveredRoutes = assuranceGenerationAtLeast(manifest, RECOVERED_ROUTE_DENOMINATOR_ASSURANCE_GENERATION)
+    ? recoveredRouteObligations(crossRepoLinks, factPacks)
+    : null;
+  const obligations = readObligations(Object.values(factPacks) as FeatureFactPack[], workItems, boundaryFunctions, routeHandlers, anchorTermsByFeature, recoveredRoutes);
   const annotated = Boolean(anchorTermsByFeature);
   return { obligations, residual: reconcileReadCoverage({ obligations: obligations.obligations, evidence, annotated }), annotated, boundaryFunctions };
 }

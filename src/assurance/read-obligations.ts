@@ -41,13 +41,25 @@ export const READ_ACCOUNTABILITY_ASSURANCE_GENERATION = 5;
  *  the fact-pack complement, `boundary-decision-function` is the boundary-file enumeration that closes its
  *  recall gap. A function both sources find keeps the first kind, so the second kind counts exactly the
  *  additions — and so a work-item join built on the first kind's ids never shifts underneath. */
-export type ObligationKind = "decision-function" | "boundary-decision-function" | "route-handler";
+export type ObligationKind = "decision-function" | "boundary-decision-function" | "route-handler" | "recovered-route-handler";
 
 /** The assurance generation that admits the boundary-file second source into the denominator. */
 export const BOUNDARY_DENOMINATOR_ASSURANCE_GENERATION = 6;
 
 /** The generation that admits resolved cross-repo route handlers as a third source. */
 export const CROSSREPO_DENOMINATOR_ASSURANCE_GENERATION = 7;
+
+/**
+ * The generation that admits RECOVERED route registrations as a fourth source.
+ *
+ * The third source only reaches handlers a cross-repo link resolved to a named function. An express
+ * registration whose handler is an inline closure resolves to nothing — and on the real target that is where
+ * the v1 leave logic lives: 16 registrations across two files, 9 decision-bearing, 719 accountable lines that
+ * NO source enumerated. Measured consequence: those files were opened 9 times in one run and 13 in another,
+ * and neither the read side nor the consume side of the funnel could see any of it, because a file with no
+ * obligation contributes to no bucket at all.
+ */
+export const RECOVERED_ROUTE_DENOMINATOR_ASSURANCE_GENERATION = 8;
 
 /** Why an obligation is outside the counted denominator. It stays in the artifact for visibility. */
 export type ObligationExclusion = "declaration-only" | "contained";
@@ -118,6 +130,12 @@ export interface ReadObligationsArtifact {
       duplicate: number;
       added: number;
     };
+    /** Present only when recovered route registrations were supplied (generation 8+). */
+    recoveredRouteSource?: {
+      registrations: number;
+      duplicate: number;
+      added: number;
+    };
   };
 }
 
@@ -151,6 +169,7 @@ export function readObligations(
   boundary?: BoundaryFunctionsArtifact | null,
   routeHandlers?: RouteHandlerObligation[] | null,
   anchorTermsByFeature?: Record<string, string[]> | null,
+  recoveredRoutes?: RouteHandlerObligation[] | null,
 ): ReadObligationsArtifact {
   const gatedIds = new Set(
     workItems.filter((item) => item.dimension === LOGIC_WORKITEM_DIMENSION).map((item) => item.id),
@@ -174,8 +193,12 @@ export function readObligations(
   // Third source, merged LAST and by the same rules: a handler both a boundary enumeration and a route
   // resolution found keeps the earlier kind, so `route-handler` counts exactly what only the routes reached.
   const third = routeHandlers?.length ? routeSupplement(routeHandlers, known) : null;
-  const obligations = third || second
-    ? [...primary, ...(second?.added ?? []), ...(third?.added ?? [])].sort(byLocation)
+  const knownAfterThird = third ? [...known, ...third.added] : known;
+  // Fourth source, merged last by the same rules. It reaches what no resolution can: a registration whose
+  // handler is written inline has no named function to resolve TO, so every earlier source is silent on it.
+  const fourth = recoveredRoutes?.length ? routeSupplement(recoveredRoutes, knownAfterThird, "recovered-route-handler") : null;
+  const obligations = fourth || third || second
+    ? [...primary, ...(second?.added ?? []), ...(third?.added ?? []), ...(fourth?.added ?? [])].sort(byLocation)
     : primary;
 
   // Annotate every obligation from every source with one rule, so the label means the same thing across
@@ -208,6 +231,7 @@ export function readObligations(
   }
   if (second) summary.secondSource = second.stats;
   if (third) summary.routeSource = third.stats;
+  if (fourth) summary.recoveredRouteSource = { registrations: fourth.stats.handlers, duplicate: fourth.stats.duplicate, added: fourth.stats.added };
   return { version: READ_OBLIGATIONS_VERSION, obligations, summary };
 }
 
@@ -266,10 +290,18 @@ function supplement(
   };
 }
 
-/** Phase 4: route handlers the earlier sources never enumerated become obligations of their own kind. */
+/**
+ * Phase 4/5: route-shaped handlers the earlier sources never enumerated become obligations of their own kind.
+ *
+ * `kind` is a parameter because the two route sources answer different questions and must stay countable
+ * apart: `route-handler` is "a cross-repo link resolved to this named function", `recovered-route-handler`
+ * is "a registration exists here and its handler is inline". Sharing one kind would let one source's
+ * regression hide inside the other's count.
+ */
 function routeSupplement(
   handlers: RouteHandlerObligation[],
   known: ReadObligation[],
+  kind: "route-handler" | "recovered-route-handler" = "route-handler",
 ): { added: ReadObligation[]; stats: NonNullable<ReadObligationsArtifact["summary"]["routeSource"]> } {
   const seen = new Set(known.map((obligation) => `${obligation.featureKey}\u0000${obligation.path}\u0000${obligation.startLine}`));
   const added: ReadObligation[] = [];
@@ -280,8 +312,8 @@ function routeSupplement(
     if (seen.has(key)) { duplicate++; continue; }
     seen.add(key);
     added.push({
-      id: `feature:${handler.featureKey}:route-handler:${handler.name}@${handler.path}:${handler.startLine}`,
-      kind: "route-handler",
+      id: `feature:${handler.featureKey}:${kind}:${handler.name}@${handler.path}:${handler.startLine}`,
+      kind,
       featureKey: handler.featureKey,
       name: handler.name,
       path,

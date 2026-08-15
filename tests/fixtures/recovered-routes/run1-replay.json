@@ -1,0 +1,260 @@
+{
+  "note": "run#1 (17_36) frozen artifacts, reduced to what the fourth denominator source touches. The registrations are a deterministic function of the target source; run#1 froze before this artifact carried them, so they are re-derived rather than read from it.",
+  "featureKey": "请假管理-970cf024db",
+  "registrations": [
+    {
+      "endLine": 70,
+      "file": "routes/leave.js",
+      "framework": "express",
+      "line": 62,
+      "method": "GET",
+      "module": "wcp-service",
+      "path": "/leaves/leave/types"
+    },
+    {
+      "endLine": 118,
+      "file": "routes/leave.js",
+      "framework": "express",
+      "line": 110,
+      "method": "GET",
+      "module": "wcp-service",
+      "path": "/leaves/leave/statuses"
+    },
+    {
+      "endLine": 239,
+      "file": "routes/leave.js",
+      "framework": "express",
+      "line": 149,
+      "method": "POST",
+      "module": "wcp-service",
+      "path": "/leaves"
+    },
+    {
+      "endLine": 282,
+      "file": "routes/leave.js",
+      "framework": "express",
+      "line": 267,
+      "method": "GET",
+      "module": "wcp-service",
+      "path": "/leaves/me/leaves"
+    },
+    {
+      "endLine": 346,
+      "file": "routes/leave.js",
+      "framework": "express",
+      "line": 293,
+      "method": "PUT",
+      "module": "wcp-service",
+      "path": "/leaves/cancel"
+    },
+    {
+      "endLine": 595,
+      "file": "routes/leave.js",
+      "framework": "express",
+      "line": 388,
+      "method": "GET",
+      "module": "wcp-service",
+      "path": "/leaves/:id"
+    },
+    {
+      "endLine": 649,
+      "file": "routes/leave.js",
+      "framework": "express",
+      "line": 606,
+      "method": "POST",
+      "module": "wcp-service",
+      "path": "/leaves/approve"
+    },
+    {
+      "endLine": 685,
+      "file": "routes/leave.js",
+      "framework": "express",
+      "line": 661,
+      "method": "POST",
+      "module": "wcp-service",
+      "path": "/leaves/reject"
+    },
+    {
+      "endLine": 776,
+      "file": "routes/leave.js",
+      "framework": "express",
+      "line": 720,
+      "method": "GET",
+      "module": "wcp-service",
+      "path": "/leaves"
+    },
+    {
+      "endLine": 859,
+      "file": "routes/leave.js",
+      "framework": "express",
+      "line": 813,
+      "method": "GET",
+      "module": "wcp-service",
+      "path": "/leaves/me/simple"
+    },
+    {
+      "endLine": 894,
+      "file": "routes/leave.js",
+      "framework": "express",
+      "line": 872,
+      "method": "GET",
+      "module": "wcp-service",
+      "path": "/leaves/sick_leave/:date"
+    },
+    {
+      "endLine": 48,
+      "file": "routes/report.js",
+      "framework": "express",
+      "line": 33,
+      "method": "GET",
+      "module": "wcp-service",
+      "path": "/reports/holidays"
+    },
+    {
+      "endLine": 224,
+      "file": "routes/report.js",
+      "framework": "express",
+      "line": 68,
+      "method": "GET",
+      "module": "wcp-service",
+      "path": "/reports/worklogs"
+    },
+    {
+      "endLine": 284,
+      "file": "routes/report.js",
+      "framework": "express",
+      "line": 240,
+      "method": "GET",
+      "module": "wcp-service",
+      "path": "/reports/leaves"
+    },
+    {
+      "endLine": 324,
+      "file": "routes/report.js",
+      "framework": "express",
+      "line": 300,
+      "method": "GET",
+      "module": "wcp-service",
+      "path": "/reports/retired/leaves"
+    },
+    {
+      "endLine": 350,
+      "file": "routes/report.js",
+      "framework": "express",
+      "line": 326,
+      "method": "GET",
+      "module": "wcp-service",
+      "path": "/reports/monthly-report"
+    }
+  ],
+  "windows": [
+    {
+      "id": "S-a249cb600b",
+      "snapshotId": "replay",
+      "kind": "source",
+      "title": "wcp-service/routes/leave.js:3-65",
+      "path": "wcp-service/routes/leave.js",
+      "startLine": 3,
+      "endLine": 65,
+      "content": "",
+      "reason": "verify 请假管理 rules semantics beyond the graph index",
+      "digest": "6a6b824dcd793533fe2d92bfe982a39b60c810639292e0df880e988e6db08039"
+    },
+    {
+      "id": "S-6d270513b1",
+      "snapshotId": "replay",
+      "kind": "source",
+      "title": "wcp-service/routes/leave.js:257-291",
+      "path": "wcp-service/routes/leave.js",
+      "startLine": 257,
+      "endLine": 291,
+      "content": "",
+      "reason": "verify 请假管理 entrypoints semantics beyond the graph index",
+      "digest": "141ceb3e6d35897349ab37eba6e84d692220ee2d9c93b9be8be848d277ac9214"
+    },
+    {
+      "id": "S-3852f86091",
+      "snapshotId": "replay",
+      "kind": "source",
+      "title": "wcp-service/routes/leave.js:596-630",
+      "path": "wcp-service/routes/leave.js",
+      "startLine": 596,
+      "endLine": 630,
+      "content": "",
+      "reason": "verify 请假管理 entrypoints semantics beyond the graph index",
+      "digest": "9100e7b50378ed1f0a92ab3315536cc510dae1744ba1e9f0c891cacf3de439f8"
+    },
+    {
+      "id": "S-80c0386874",
+      "snapshotId": "replay",
+      "kind": "source",
+      "title": "wcp-service/routes/report.js:230-264",
+      "path": "wcp-service/routes/report.js",
+      "startLine": 230,
+      "endLine": 264,
+      "content": "",
+      "reason": "verify 请假管理 entrypoints semantics beyond the graph index",
+      "digest": "6ca137baf0ddd9554c97b6bb3e90fb769dd1385b381f1650c9ba5eff7fa3c640"
+    },
+    {
+      "id": "S-4fcb12aab1",
+      "snapshotId": "replay",
+      "kind": "source",
+      "title": "wcp-service/routes/report.js:290-324",
+      "path": "wcp-service/routes/report.js",
+      "startLine": 290,
+      "endLine": 324,
+      "content": "",
+      "reason": "verify 请假管理 entrypoints semantics beyond the graph index",
+      "digest": "d70f5dab57779acbe4510dbc9c101a564228654cf3b4ecca37df88e4f41014d4"
+    },
+    {
+      "id": "S-746ef65574",
+      "snapshotId": "replay",
+      "kind": "source",
+      "title": "wcp-service/routes/leave.js:1-73",
+      "path": "wcp-service/routes/leave.js",
+      "startLine": 1,
+      "endLine": 73,
+      "content": "",
+      "reason": "feature source fallback because graph coverage was insufficient",
+      "digest": "b43b18503cfe1e7ffa5e8e7480e432aa6666a87b266dc3fef6d0805d1c7930a1"
+    },
+    {
+      "id": "S-ebab9edb4c",
+      "snapshotId": "replay",
+      "kind": "source",
+      "title": "wcp-service/routes/leave.js:1-160",
+      "path": "wcp-service/routes/leave.js",
+      "startLine": 1,
+      "endLine": 160,
+      "content": "",
+      "reason": "v1 express leave routes: auth middleware, list, create",
+      "digest": "d4a60a03bc4c363ed4dd51fc740bc9b352bb176432f3233444c7a7f988dbf4f9"
+    },
+    {
+      "id": "S-95a180441d",
+      "snapshotId": "replay",
+      "kind": "source",
+      "title": "wcp-service/routes/leave.js:160-300",
+      "path": "wcp-service/routes/leave.js",
+      "startLine": 160,
+      "endLine": 300,
+      "content": "",
+      "reason": "v1 leave create handler and update route",
+      "digest": "6a049e4f0bff0dbc5fe45f76637911f4a8b58a2e18aca114b14ad07c25498dcf"
+    },
+    {
+      "id": "S-d30e0becb5",
+      "snapshotId": "replay",
+      "kind": "source",
+      "title": "wcp-service/routes/leave.js:596-730",
+      "path": "wcp-service/routes/leave.js",
+      "startLine": 596,
+      "endLine": 730,
+      "content": "",
+      "reason": "v1 approve and reject routes with inline authorization",
+      "digest": "7e75b439177495565f46cb2b41090df80fb6b98b0412a4377216ce5b8c7f5d73"
+    }
+  ]
+}
