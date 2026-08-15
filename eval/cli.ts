@@ -5,6 +5,7 @@
 //   view --run <dir> [--json]                              render one run's metrics + timeline
 //   compare --a <dir> --b <dir> [--json]                   cross-run A->B metrics + knowledge delta
 //   boundary (--run <dir> | --nodes <file>) --gold <file> [--json]   feature-graph boundary recall
+//   read-denominator --run <dir> [--must <path:line>]... [--json]   what the boundary second source added
 // diff exits 1 on any mustFind missing / forbidden violation / coverage failure; 0 otherwise.
 // boundary exits 1 on any mustFind miss; 0 otherwise (same honest-red contract as diff).
 // --prepare-only runs ONLY the anchor-in-scope containment check (zero model, sub-second).
@@ -32,6 +33,7 @@ import {
   type LayeredBoundaryReport
 } from "./boundary.ts";
 import { buildPoolFromRun, loadPrunePool, prunePoolToNodes, writePrunePool } from "./prune-replay.ts";
+import { buildDenominatorReport, denominatorExitCode, parseMust, renderDenominator } from "./read-denominator.ts";
 
 interface Flags {
   run?: string;
@@ -45,12 +47,13 @@ interface Flags {
   pool?: string;
   emitPool?: string;
   modules: string[];
+  must: string[];
   json: boolean;
   prepareOnly: boolean;
 }
 
 function parseFlags(argv: string[]): Flags {
-  const flags: Flags = { json: false, prepareOnly: false, modules: [] };
+  const flags: Flags = { json: false, prepareOnly: false, modules: [], must: [] };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "--run") flags.run = argv[++i];
@@ -60,6 +63,7 @@ function parseFlags(argv: string[]): Flags {
     else if (arg === "--gold") flags.gold = argv[++i];
     else if (arg === "--nodes") flags.nodes = argv[++i];
     else if (arg === "--layer") flags.layer = argv[++i];
+    else if (arg === "--must") flags.must.push(argv[++i]);
     else if (arg === "--out") flags.out = argv[++i];
     else if (arg === "--pool") flags.pool = argv[++i];
     else if (arg === "--emit-pool") flags.emitPool = argv[++i];
@@ -173,6 +177,18 @@ function parseLayer(value: string | undefined): BoundaryLayer | "both" | undefin
   if (value === undefined) return undefined;
   if (value === "fg" || value === "factpack" || value === "both") return value;
   throw new Error(`--layer must be fg|factpack|both, got ${value}`);
+}
+
+/**
+ * Report what the boundary-file second source added to a run's read-obligation denominator, and gate on it:
+ * exit 1 if a previously counted obligation was lost, or if a `--must <path:line>` target is not inside a
+ * counted obligation. Reads only the run's own frozen artifacts, so it needs neither the target repo nor a
+ * CodeGraph database and runs the same way in CI as on a real run.
+ */
+function runReadDenominator(flags: Flags): number {
+  const report = buildDenominatorReport(requireFlag(flags.run, "--run"), flags.must.map(parseMust));
+  process.stdout.write(`${flags.json ? JSON.stringify(report, null, 2) : renderDenominator(report)}\n`);
+  return denominatorExitCode(report);
 }
 
 function runBoundary(flags: Flags): number {
@@ -290,6 +306,7 @@ function main(argv: string[]): number {
   if (command === "compare") return runCompare(flags);
   if (command === "boundary") return runBoundary(flags);
   if (command === "prune-replay") return runPruneReplay(flags);
+  if (command === "read-denominator") return runReadDenominator(flags);
   throw new Error(`unknown command: ${command}`);
 }
 

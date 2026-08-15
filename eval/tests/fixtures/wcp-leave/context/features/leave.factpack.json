@@ -1,0 +1,1030 @@
+{
+  "coverage": [],
+  "featureKey": "请假管理-4d1c219b61",
+  "items": [
+    {
+      "category": "logic",
+      "detail": "(c context.Context, dates []string) (*cmon.Response, error)",
+      "endLine": 1901,
+      "filePath": "wcp-service-v2/internal/handlers/leave/service.go",
+      "line": 1877,
+      "name": "ApplyLeavePrompt",
+      "rank": 5,
+      "signal": "anchor-token leave, instantiates LeaveDetailDto(x1)",
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context) ([]*wcpNtf.SES, error)",
+      "endLine": 1485,
+      "filePath": "wcp-service-v2/internal/handlers/leave/notification.go",
+      "line": 1279,
+      "name": "handleSES",
+      "rank": 7,
+      "signal": "calls LvHldyTypeC(x2), calls getLeaveLink(x2)",
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context, lvID uint64, reason string) (*cmon.Response, error)",
+      "endLine": 922,
+      "filePath": "wcp-service-v2/internal/handlers/leave/service.go",
+      "line": 810,
+      "name": "Reject",
+      "rank": 8,
+      "signal": "calls GetSelfHandLeaveIds(x2), calls LvHldyTypeC(x1), calls queryLeaveEssInfo(x1), calls updateLvStatus(x1)",
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context, repr *ExportLeaveRepr) (*cmon.Response, error)",
+      "endLine": 1790,
+      "filePath": "wcp-service-v2/internal/handlers/leave/service.go",
+      "line": 1452,
+      "name": "Export",
+      "rank": 9,
+      "signal": "calls GetSickLeaveHourInTheSelectedPeriod(x1), calls GetUserPaidSickLeaveExhaustionDateMap(x1), calls GetUserSickLeaveDis(x1), calls GetUserTotalSickLeaveHourMap(x1)",
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(tx *gorm.DB, lvID uint64, status uint8) error",
+      "endLine": 753,
+      "filePath": "wcp-service-v2/internal/handlers/leave/service.go",
+      "line": 741,
+      "name": "updateLvStatus",
+      "rank": 18,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(tx *gorm.DB, aprvrID, approverID uint64, desc string, status uint8) error",
+      "endLine": 790,
+      "filePath": "wcp-service-v2/internal/handlers/leave/service.go",
+      "line": 776,
+      "name": "updateAprvStatus",
+      "rank": 19,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(leave *LeaveEssInfo) (*withdrawBgResp, error)",
+      "endLine": 524,
+      "filePath": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+      "line": 513,
+      "name": "withdrawBgData",
+      "rank": 20,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context, tx *gorm.DB, leave *LeaveEssInfo, reason string, bgData *withdrawBgResp) error",
+      "endLine": 677,
+      "filePath": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+      "line": 652,
+      "name": "withdrawByType",
+      "rank": 21,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(tx *gorm.DB, capper *latam_pto.PTOWithdrawCapper, holiday *HolidayHour, t constant.LvHldyTypeC, hours float64) error",
+      "endLine": 650,
+      "filePath": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+      "line": 640,
+      "name": "restoreWithCap",
+      "rank": 22,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(self bool) string",
+      "endLine": 28,
+      "filePath": "wcp-service-v2/internal/handlers/leave/notification.go",
+      "line": 22,
+      "name": "getLeaveLink",
+      "rank": 23,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context, consumeInput consumeInput) ([]LeaveDetail, error)",
+      "endLine": 506,
+      "filePath": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+      "line": 390,
+      "name": "consumeCurtHoliday",
+      "rank": 25,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(db *gorm.DB, year string, userID uint64) (*HolidayHour, error)",
+      "endLine": 542,
+      "filePath": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+      "line": 526,
+      "name": "holidayByYear",
+      "rank": 26,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "endLine": 465,
+      "filePath": "wcp-service-v2/internal/handlers/leave/notification.go",
+      "line": 455,
+      "name": "nextApproverBuilder",
+      "rank": 27,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context) (cpst.Composite, error)",
+      "endLine": 559,
+      "filePath": "wcp-service-v2/internal/handlers/leave/notification.go",
+      "line": 530,
+      "name": "BuildCpst",
+      "rank": 28,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context, tx *gorm.DB, leave *LeaveEssInfo, reason string, recordStatus uint8, flow constant.LvAprvFlwC, mngMap map[uint64]uint64) error",
+      "endLine": 774,
+      "filePath": "wcp-service-v2/internal/handlers/leave/service.go",
+      "line": 755,
+      "name": "updateAddAprvRecords",
+      "rank": 29,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(tx *gorm.DB, lvID, aprvrID uint64, flow, desc string, status *uint8) error",
+      "endLine": 807,
+      "filePath": "wcp-service-v2/internal/handlers/leave/service.go",
+      "line": 792,
+      "name": "addAprvRecord",
+      "rank": 30,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context, userID uint64) ([]uint64, error)",
+      "endLine": 52,
+      "filePath": "wcp-service-v2/internal/handlers/leave/utils.go",
+      "line": 41,
+      "name": "GetSelfHandLeaveIds",
+      "rank": 31,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context, tx *gorm.DB, input aprvInput) error",
+      "endLine": 117,
+      "filePath": "wcp-service-v2/internal/handlers/leave/approvement.go",
+      "line": 58,
+      "name": "GenAprvRecord",
+      "rank": 34,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context, repr cmon.LevRequestRepr) (bgData, error)",
+      "endLine": 91,
+      "filePath": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+      "line": 42,
+      "name": "backgroundData",
+      "rank": 35,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(tx *gorm.DB, input struct { UserID uint64 Repr cmon.LevRequestRepr Head time.Time Tail time.Time TotalHours float64 LeaderID uint64 }) (*Leave, error)",
+      "endLine": 196,
+      "filePath": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+      "line": 109,
+      "name": "saveLeaveRelated",
+      "rank": 36,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(tx *gorm.DB, input struct { Year int HldType uint8 LeaveID uint64 EmpID uint64 MaxAvailable float64 OffArrange *support.OffArrange HolidayMap map[int]*model.HolidayHour }) ([]LeaveDetail, error)",
+      "endLine": 295,
+      "filePath": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+      "line": 204,
+      "name": "consumeByYear",
+      "rank": 37,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context, consumeInput consumeInput) ([]LeaveDetail, error)",
+      "endLine": 388,
+      "filePath": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+      "line": 298,
+      "name": "mixConsume",
+      "rank": 38,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(tx *gorm.DB, leave *LeaveEssInfo) (*latam_pto.PTOWithdrawCapper, error)",
+      "endLine": 613,
+      "filePath": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+      "line": 608,
+      "name": "newPTOWithdrawCapper",
+      "rank": 39,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context, tx *gorm.DB, leave *LeaveEssInfo, cmMap map[constant.LvCommentF]float64, reason string) error",
+      "endLine": 729,
+      "filePath": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+      "line": 679,
+      "name": "withdrawByComments",
+      "rank": 40,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context, reason string, leave *LeaveEssInfo) (interface{}, error)",
+      "endLine": 802,
+      "filePath": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+      "line": 731,
+      "name": "generalCancellation",
+      "rank": 41,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context, leave *LeaveEssInfo, reason string) (interface{}, error)",
+      "endLine": 837,
+      "filePath": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+      "line": 804,
+      "name": "generalRejection",
+      "rank": 42,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context, leave *LeaveEssInfo, reason string) (interface{}, error)",
+      "endLine": 922,
+      "filePath": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+      "line": 840,
+      "name": "crossCancellation",
+      "rank": 43,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context, leave *LeaveEssInfo, reason string) (interface{}, error)",
+      "endLine": 968,
+      "filePath": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+      "line": 925,
+      "name": "crossRejection",
+      "rank": 44,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(ccList []*string) []*string",
+      "endLine": 23,
+      "filePath": "wcp-service-v2/internal/handlers/leave/dcrt_recipient.go",
+      "line": 13,
+      "name": "RemoveDuplicateElement",
+      "rank": 45,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "endLine": 66,
+      "filePath": "wcp-service-v2/internal/handlers/leave/dcrt_recipient.go",
+      "line": 63,
+      "name": "Approvers",
+      "rank": 46,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context, toList []string, subject string) (*cpst.NotifyMobileCpst, error)",
+      "endLine": 69,
+      "filePath": "wcp-service-v2/internal/handlers/leave/notification.go",
+      "line": 30,
+      "name": "genMobileComposite",
+      "rank": 47,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context, lvID uint64) (*LeaveEssInfo, error)",
+      "endLine": 359,
+      "filePath": "wcp-service-v2/internal/handlers/leave/service.go",
+      "line": 276,
+      "name": "queryLeaveEssInfo",
+      "rank": 48,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(year string) (map[uint64]float64, map[uint64]float64, error)",
+      "endLine": 160,
+      "filePath": "wcp-service-v2/internal/handlers/leave/utils.go",
+      "line": 134,
+      "name": "GetUserSickLeaveDis",
+      "rank": 49,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(year string) (map[uint64]float64, error)",
+      "endLine": 212,
+      "filePath": "wcp-service-v2/internal/handlers/leave/utils.go",
+      "line": 162,
+      "name": "GetUserTotalSickLeaveHourMap",
+      "rank": 50,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context, tx *gorm.DB, input aprvInput) error",
+      "endLine": 21,
+      "filePath": "wcp-service-v2/internal/handlers/leave/approvement.go",
+      "line": 21,
+      "name": "GenAprvRecord",
+      "rank": 53,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "endLine": 56,
+      "filePath": "wcp-service-v2/internal/handlers/leave/approvement.go",
+      "line": 54,
+      "name": "HrApprover",
+      "rank": 54,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(hType constant.LvHldyTypeC, year int, uID string) string",
+      "endLine": 185,
+      "filePath": "wcp-service-v2/internal/handlers/leave/brdg_abst.go",
+      "line": 183,
+      "name": "UnknownHolidayType",
+      "rank": 55,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context, uID uint64) (map[int]HolidayHour, error)",
+      "endLine": 205,
+      "filePath": "wcp-service-v2/internal/handlers/leave/brdg_abst.go",
+      "line": 187,
+      "name": "employeeHolidays",
+      "rank": 56,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(head time.Time, addition time.Duration) (time.Time, time.Time)",
+      "endLine": 107,
+      "filePath": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+      "line": 93,
+      "name": "handleHeadAndTail",
+      "rank": 57,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(tx *gorm.DB, holiday *HolidayHour, t constant.LvHldyTypeC, hours float64) error",
+      "endLine": 602,
+      "filePath": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+      "line": 544,
+      "name": "withdrawHours",
+      "rank": 58,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(tx *gorm.DB, holiday *HolidayHour, overflow float64) error",
+      "endLine": 636,
+      "filePath": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+      "line": 617,
+      "name": "reducePTOOverCap",
+      "rank": 59,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context) ([]*string, error)",
+      "endLine": 91,
+      "filePath": "wcp-service-v2/internal/handlers/leave/dcrt_recipient.go",
+      "line": 68,
+      "name": "Recipients",
+      "rank": 60,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "endLine": 86,
+      "filePath": "wcp-service-v2/internal/handlers/leave/notification.go",
+      "line": 73,
+      "name": "waitingApprovedByLevelBuilder",
+      "rank": 61,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "() error",
+      "endLine": 134,
+      "filePath": "wcp-service-v2/internal/handlers/leave/notification.go",
+      "line": 88,
+      "name": "subject",
+      "rank": 62,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context) (cpst.Composite, error)",
+      "endLine": 166,
+      "filePath": "wcp-service-v2/internal/handlers/leave/notification.go",
+      "line": 137,
+      "name": "BuildCpst",
+      "rank": 63,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c *gin.Context) (interface{}, error)",
+      "endLine": 55,
+      "filePath": "wcp-service-v2/internal/handlers/leave/router.go",
+      "line": 48,
+      "name": "Demand",
+      "rank": 64,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "() *cmon.LevPaginationRepr",
+      "endLine": 154,
+      "filePath": "wcp-service-v2/internal/handlers/leave/router.go",
+      "line": 149,
+      "name": "deftPgRepr",
+      "rank": 65,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "() *cmon.OwnLevPaginationRepr",
+      "endLine": 179,
+      "filePath": "wcp-service-v2/internal/handlers/leave/router.go",
+      "line": 174,
+      "name": "deftOwnPgRepr",
+      "rank": 66,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c *gin.Context) (interface{}, error)",
+      "endLine": 204,
+      "filePath": "wcp-service-v2/internal/handlers/leave/router.go",
+      "line": 192,
+      "name": "DeletionApplication",
+      "rank": 67,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c *gin.Context) (interface{}, error)",
+      "endLine": 229,
+      "filePath": "wcp-service-v2/internal/handlers/leave/router.go",
+      "line": 217,
+      "name": "Deletion",
+      "rank": 68,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c *gin.Context) (interface{}, error)",
+      "endLine": 253,
+      "filePath": "wcp-service-v2/internal/handlers/leave/router.go",
+      "line": 247,
+      "name": "ApproveLeavePrompt",
+      "rank": 69,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context, lvID uint64, reason string) (*cmon.Response, error)",
+      "endLine": 30,
+      "filePath": "wcp-service-v2/internal/handlers/leave/service.go",
+      "line": 30,
+      "name": "Approve",
+      "rank": 70,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context, leaveID uint64) (*cmon.Response, error)",
+      "endLine": 41,
+      "filePath": "wcp-service-v2/internal/handlers/leave/service.go",
+      "line": 41,
+      "name": "ApproveLeavePrompt",
+      "rank": 71,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "() LeaveService",
+      "endLine": 53,
+      "filePath": "wcp-service-v2/internal/handlers/leave/service.go",
+      "line": 48,
+      "name": "NewLvService",
+      "rank": 72,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context, lvID uint64, comments string) (*cmon.Response, error)",
+      "endLine": 739,
+      "filePath": "wcp-service-v2/internal/handlers/leave/service.go",
+      "line": 362,
+      "name": "Approve",
+      "rank": 73,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context, leaveID uint64) (*cmon.Response, error)",
+      "endLine": 1875,
+      "filePath": "wcp-service-v2/internal/handlers/leave/service.go",
+      "line": 1792,
+      "name": "ApproveLeavePrompt",
+      "rank": 74,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "() (map[uint64]float64, error)",
+      "endLine": 39,
+      "filePath": "wcp-service-v2/internal/handlers/leave/utils.go",
+      "line": 15,
+      "name": "GetRemainsPTOMap",
+      "rank": 75,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(year string, userTotalSickLeaveHourMap map[uint64]float64) (map[uint64]string, error)",
+      "endLine": 94,
+      "filePath": "wcp-service-v2/internal/handlers/leave/utils.go",
+      "line": 54,
+      "name": "GetUserPaidSickLeaveExhaustionDateMap",
+      "rank": 76,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(startDate, endDate, year string) (map[uint64]float64, error)",
+      "endLine": 114,
+      "filePath": "wcp-service-v2/internal/handlers/leave/utils.go",
+      "line": 96,
+      "name": "GetSickLeaveHourInTheSelectedPeriod",
+      "rank": 77,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(startDateStr, endDateStr, year string) (string, string)",
+      "endLine": 132,
+      "filePath": "wcp-service-v2/internal/handlers/leave/utils.go",
+      "line": 116,
+      "name": "GetInTheSelectedPeriodByYear",
+      "rank": 78,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(targetID, level uint64, projID uint64, mngs []model.ProjectManager) bool",
+      "endLine": 42,
+      "filePath": "wcp-service-v2/internal/handlers/leave/approvement.go",
+      "line": 31,
+      "name": "isTheLevel",
+      "rank": 87,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(level uint64, projID uint64, mngs []model.ProjectManager) *model.ProjectManager",
+      "endLine": 52,
+      "filePath": "wcp-service-v2/internal/handlers/leave/approvement.go",
+      "line": 44,
+      "name": "getManagerByLevel",
+      "rank": 88,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context, pInfoP model.ProjectInfo, level uint64) (*model.Employee, error)",
+      "endLine": 361,
+      "filePath": "wcp-service-v2/internal/handlers/leave/approvement.go",
+      "line": 343,
+      "name": "queryMangerByLevel",
+      "rank": 89,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context, hType constant.LvHldyTypeC, artItems []support.ArgItem) (map[int]float64, error)",
+      "endLine": 86,
+      "filePath": "wcp-service-v2/internal/handlers/leave/brdg_abst.go",
+      "line": 41,
+      "name": "distributeYearsHours",
+      "rank": 90,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context, hType constant.LvHldyTypeC) (map[int]float64, error)",
+      "endLine": 181,
+      "filePath": "wcp-service-v2/internal/handlers/leave/brdg_abst.go",
+      "line": 88,
+      "name": "maxAvailableHoliday",
+      "rank": 91,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context) (cpst.Component, error)",
+      "endLine": 181,
+      "filePath": "wcp-service-v2/internal/handlers/leave/notification.go",
+      "line": 169,
+      "name": "BuildCpntEmail",
+      "rank": 92,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "() (*wcpNtf.SES, error)",
+      "endLine": 238,
+      "filePath": "wcp-service-v2/internal/handlers/leave/notification.go",
+      "line": 183,
+      "name": "handleSES",
+      "rank": 93,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context) (cpst.Component, error)",
+      "endLine": 248,
+      "filePath": "wcp-service-v2/internal/handlers/leave/notification.go",
+      "line": 241,
+      "name": "BuildCpntMobile",
+      "rank": 94,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context) error",
+      "endLine": 527,
+      "filePath": "wcp-service-v2/internal/handlers/leave/notification.go",
+      "line": 467,
+      "name": "subject",
+      "rank": 95,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context) (cpst.Component, error)",
+      "endLine": 574,
+      "filePath": "wcp-service-v2/internal/handlers/leave/notification.go",
+      "line": 562,
+      "name": "BuildCpntEmail",
+      "rank": 96,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context) (*wcpNtf.SES, error)",
+      "endLine": 650,
+      "filePath": "wcp-service-v2/internal/handlers/leave/notification.go",
+      "line": 576,
+      "name": "handleSES",
+      "rank": 97,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context) (cpst.Component, error)",
+      "endLine": 659,
+      "filePath": "wcp-service-v2/internal/handlers/leave/notification.go",
+      "line": 653,
+      "name": "BuildCpntMobile",
+      "rank": 98,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "()",
+      "endLine": 16,
+      "filePath": "wcp-service-v2/internal/handlers/leave/router.go",
+      "line": 14,
+      "name": "init",
+      "rank": 99,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c *gin.Context) (interface{}, error)",
+      "endLine": 37,
+      "filePath": "wcp-service-v2/internal/handlers/leave/router.go",
+      "line": 30,
+      "name": "Creation",
+      "rank": 100,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c *gin.Context) (interface{}, error)",
+      "endLine": 78,
+      "filePath": "wcp-service-v2/internal/handlers/leave/router.go",
+      "line": 66,
+      "name": "Approve",
+      "rank": 101,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c *gin.Context) (interface{}, error)",
+      "endLine": 101,
+      "filePath": "wcp-service-v2/internal/handlers/leave/router.go",
+      "line": 89,
+      "name": "Reject",
+      "rank": 102,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c *gin.Context) (interface{}, error)",
+      "endLine": 129,
+      "filePath": "wcp-service-v2/internal/handlers/leave/router.go",
+      "line": 104,
+      "name": "Between",
+      "rank": 103,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c *gin.Context) (interface{}, error)",
+      "endLine": 147,
+      "filePath": "wcp-service-v2/internal/handlers/leave/router.go",
+      "line": 140,
+      "name": "Pagination",
+      "rank": 104,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c *gin.Context) (interface{}, error)",
+      "endLine": 172,
+      "filePath": "wcp-service-v2/internal/handlers/leave/router.go",
+      "line": 165,
+      "name": "OwnPagination",
+      "rank": 105,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c *gin.Context) (interface{}, error)",
+      "endLine": 237,
+      "filePath": "wcp-service-v2/internal/handlers/leave/router.go",
+      "line": 231,
+      "name": "SimpleForLogTime",
+      "rank": 106,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c *gin.Context) (interface{}, error)",
+      "endLine": 245,
+      "filePath": "wcp-service-v2/internal/handlers/leave/router.go",
+      "line": 239,
+      "name": "Export",
+      "rank": 107,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c *gin.Context) (interface{}, error)",
+      "endLine": 261,
+      "filePath": "wcp-service-v2/internal/handlers/leave/router.go",
+      "line": 255,
+      "name": "ApplyLeavePrompt",
+      "rank": 108,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c *gin.Context) (interface{}, error)",
+      "endLine": 265,
+      "filePath": "wcp-service-v2/internal/handlers/leave/router.go",
+      "line": 263,
+      "name": "GetUserRemainFullySickLeave",
+      "rank": 109,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "endLine": 54,
+      "filePath": "wcp-service-v2/internal/handlers/leave/dto.go",
+      "line": 11,
+      "name": "LeaveEssInfo",
+      "rank": 139,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "endLine": 64,
+      "filePath": "wcp-service-v2/internal/handlers/leave/leave.go",
+      "line": 52,
+      "name": "LeaveApprove",
+      "rank": 144,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context, dates []string) (*cmon.Response, error)",
+      "endLine": 42,
+      "filePath": "wcp-service-v2/internal/handlers/leave/service.go",
+      "line": 42,
+      "name": "ApplyLeavePrompt",
+      "rank": 147,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context) (*cmon.Response, error)",
+      "endLine": 43,
+      "filePath": "wcp-service-v2/internal/handlers/leave/service.go",
+      "line": 43,
+      "name": "GetUserRemainFullySickLeave",
+      "rank": 148,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "endLine": 46,
+      "filePath": "wcp-service-v2/internal/handlers/leave/service.go",
+      "line": 46,
+      "name": "leaveService",
+      "rank": 149,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context) (*cmon.Response, error)",
+      "endLine": 1928,
+      "filePath": "wcp-service-v2/internal/handlers/leave/service.go",
+      "line": 1903,
+      "name": "GetUserRemainFullySickLeave",
+      "rank": 150,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context, input consumeInput) ([]LeaveDetail, error)",
+      "endLine": 978,
+      "filePath": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+      "line": 975,
+      "name": "Consume",
+      "rank": 163,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context, leave *LeaveEssInfo, reason string) (interface{}, error)",
+      "endLine": 983,
+      "filePath": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+      "line": 980,
+      "name": "Cancel",
+      "rank": 164,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context, leave *LeaveEssInfo, reason string) (interface{}, error)",
+      "endLine": 988,
+      "filePath": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+      "line": 985,
+      "name": "Reject",
+      "rank": 165,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context, input consumeInput) ([]LeaveDetail, error)",
+      "endLine": 998,
+      "filePath": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+      "line": 995,
+      "name": "Consume",
+      "rank": 166,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context, leave *LeaveEssInfo, reason string) (interface{}, error)",
+      "endLine": 1003,
+      "filePath": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+      "line": 1000,
+      "name": "Cancel",
+      "rank": 167,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context, leave *LeaveEssInfo, reason string) (interface{}, error)",
+      "endLine": 1008,
+      "filePath": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+      "line": 1005,
+      "name": "Reject",
+      "rank": 168,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context, input consumeInput) ([]LeaveDetail, error)",
+      "endLine": 1026,
+      "filePath": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+      "line": 1015,
+      "name": "Consume",
+      "rank": 169,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context, leave *LeaveEssInfo, reason string) (interface{}, error)",
+      "endLine": 1031,
+      "filePath": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+      "line": 1028,
+      "name": "Cancel",
+      "rank": 170,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context, leave *LeaveEssInfo, reason string) (interface{}, error)",
+      "endLine": 1036,
+      "filePath": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+      "line": 1033,
+      "name": "Reject",
+      "rank": 171,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context, input consumeInput) ([]LeaveDetail, error)",
+      "endLine": 1046,
+      "filePath": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+      "line": 1043,
+      "name": "Consume",
+      "rank": 172,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context, leave *LeaveEssInfo, reason string) (interface{}, error)",
+      "endLine": 1051,
+      "filePath": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+      "line": 1048,
+      "name": "Cancel",
+      "rank": 173,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context, leave *LeaveEssInfo, reason string) (interface{}, error)",
+      "endLine": 1056,
+      "filePath": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+      "line": 1053,
+      "name": "Reject",
+      "rank": 174,
+      "source": "graph"
+    },
+    {
+      "category": "logic",
+      "detail": "(c context.Context, input consumeInput) ([]LeaveDetail, error)",
+      "endLine": 1066,
+      "filePath": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+      "line": 1063,
+      "name": "Consume",
+      "rank": 175,
+      "source": "graph"
+    }
+  ],
+  "snapshotId": "e7b7fd1a3489390b9d48",
+  "version": "factpack-v1",
+  "warnings": [
+    "Fact pack category entrypoints is incomplete: the feature scope node cap was reached upstream, so the graph node set this category was enumerated over may be short",
+    "Fact pack category entities is incomplete: the feature scope node cap was reached upstream, so the graph node set this category was enumerated over may be short",
+    "Fact pack category states is incomplete: the feature scope node cap was reached upstream, so the graph node set this category was enumerated over may be short"
+  ]
+}

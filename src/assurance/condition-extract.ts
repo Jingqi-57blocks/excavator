@@ -55,8 +55,9 @@ export interface ExtractionResult {
 
 const OPERATORS = [">=", "<=", "===", "!==", "==", "!=", ">", "<"] as const;
 
-/** Extension → ast-grep language id. Built-ins need no package; `go` is registered dynamically below. */
-const AST_LANGUAGE_BY_EXTENSION: Record<string, string> = {
+/** Extension → ast-grep language id. Built-ins need no package; `go` is registered dynamically below.
+ *  Exported so every ast-grep consumer resolves languages the same way — grammar registration has one owner. */
+export const AST_LANGUAGE_BY_EXTENSION: Record<string, string> = {
   ".ts": "TypeScript",
   ".tsx": "Tsx",
   ".js": "JavaScript",
@@ -85,11 +86,12 @@ export async function warmExtractors(): Promise<void> {
 /** Numeric-only fallback, byte-identical in behaviour to the regex this module replaces. */
 const REGEX_COMPARISON = /([A-Za-z_][\w.[\]()]{0,40})\s*(===?|!==?|>=|<=|>|<)\s*(\d+(?:\.\d+)?)\b/g;
 
-interface AstGrepApi {
+export interface AstGrepApi {
   parse(language: string, source: string): { root(): AstNode };
 }
-interface AstNode {
-  findAll(pattern: string): AstMatch[];
+export interface AstNode {
+  /** A pattern string (`$A > $N`) or a rule object (`{ rule: { kind: "if_statement" } }`). */
+  findAll(query: string | { rule: { kind: string } }): AstMatch[];
 }
 interface AstMatch {
   getMatch(name: string): { text(): string } | null;
@@ -98,7 +100,7 @@ interface AstMatch {
 
 /** Loaded once, lazily, and never fatal: a platform without the native binding degrades to regex. */
 let astGrep: AstGrepApi | null | undefined;
-function loadAstGrep(): AstGrepApi | null {
+export function loadAstGrep(): AstGrepApi | null {
   if (astGrep !== undefined) return astGrep;
   try {
     const api = requireNative("@ast-grep/napi") as AstGrepApi & { registerDynamicLanguage(langs: Record<string, unknown>): void };

@@ -24,6 +24,7 @@
 // denominator from the same frozen fact packs.
 
 import type { FactPackItem, FeatureFactPack, InvestigationWorkItem } from "../core/types.ts";
+import type { BoundaryFunctionsArtifact } from "../context/boundary-functions.ts";
 import { LOGIC_WORKITEM_DIMENSION } from "./logic-workitems.ts";
 
 export const READ_OBLIGATIONS_VERSION = "read-obligations-v1";
@@ -32,8 +33,14 @@ export const READ_OBLIGATIONS_VERSION = "read-obligations-v1";
 export const READ_ACCOUNTABILITY_ASSURANCE_GENERATION = 5;
 
 /** Obligation kinds. An enum from day one so a later denominator (route/table/module/test) adds a member,
- *  never a new artifact shape. */
-export type ObligationKind = "decision-function";
+ *  never a new artifact shape. The kind records WHICH source found the obligation: `decision-function` is
+ *  the fact-pack complement, `boundary-decision-function` is the boundary-file enumeration that closes its
+ *  recall gap. A function both sources find keeps the first kind, so the second kind counts exactly the
+ *  additions — and so a work-item join built on the first kind's ids never shifts underneath. */
+export type ObligationKind = "decision-function" | "boundary-decision-function";
+
+/** The assurance generation that admits the boundary-file second source into the denominator. */
+export const BOUNDARY_DENOMINATOR_ASSURANCE_GENERATION = 6;
 
 /** Why an obligation is outside the counted denominator. It stays in the artifact for visibility. */
 export type ObligationExclusion = "declaration-only" | "contained";
@@ -50,8 +57,9 @@ export interface ReadObligation {
   endLine?: number;
   /** Span length when known — the cost of this obligation, so a read budget is visible, not implied. */
   lines?: number;
-  /** 0 = structurally rescued (carries a fact-pack signal), 1 = plain complement member. */
-  tier: 0 | 1;
+  /** 0 = structurally rescued (carries a fact-pack signal), 1 = plain complement member,
+   *  2 = boundary supplement (the prune never retained it; only the second source found it). */
+  tier: 0 | 1 | 2;
   /** True when a promoted logic work item covers this obligation — i.e. it is within the HARD gate's
    *  reach. The denominator is deliberately WIDER than the gate: gating is rescued-only (cap-bounded),
    *  while visibility must cover every decision function. */
@@ -75,45 +83,153 @@ export interface ReadObligationsArtifact {
     gated: number;
     /** Total lines of counted obligation span — the read budget this run is accountable for. */
     lines: number;
+    /** Present only when a boundary artifact was supplied, so a run without one stays byte-identical. */
+    secondSource?: {
+      graphAvailable: boolean;
+      /** Every function-shaped candidate the enumeration saw, whatever its probe verdict. */
+      candidates: number;
+      decisionBearing: number;
+      /** Decision-bearing candidates the first source had already enumerated. */
+      duplicate: number;
+      /** Obligations this source actually contributed — the headline reading of the slice. */
+      added: number;
+      /** Candidates in a language with no grammar: judged by nobody, counted by everybody. */
+      unprobed: number;
+      filesWithoutCandidates: number;
+    };
   };
 }
 
-/** Derive the frozen read-obligation denominator from a run's fact packs and work items. */
+/**
+ * Derive the frozen read-obligation denominator from a run's fact packs and work items, optionally widened
+ * by the boundary-file enumeration.
+ *
+ * Three phases, in this order, and the order is load-bearing:
+ *   1. the first source is built and excluded exactly as it always was — with no boundary artifact the
+ *      output is byte-identical to the pre-second-source version, which is what keeps frozen runs stable;
+ *   2. boundary candidates that the first source already found are dropped (same feature, path and start
+ *      line is the same reading unit, and charging it twice would inflate the denominator);
+ *   3. exclusions are marked on the SUPPLEMENTS ONLY. A first-source obligation is never re-judged as
+ *      `contained` because a supplement happens to span it: reconciliation skips excluded items, so
+ *      re-judging one would remove it from coverage entirely and silently narrow the gate it feeds.
+ */
 export function readObligations(
   factPacks: FeatureFactPack[],
   workItems: InvestigationWorkItem[] = [],
+  boundary?: BoundaryFunctionsArtifact | null,
 ): ReadObligationsArtifact {
   const gatedIds = new Set(
     workItems.filter((item) => item.dimension === LOGIC_WORKITEM_DIMENSION).map((item) => item.id),
   );
 
-  const obligations: ReadObligation[] = [];
+  const primary: ReadObligation[] = [];
   for (const pack of factPacks) {
     const featureKey = String(pack.featureKey ?? "");
     if (!featureKey) continue;
     for (const item of pack.items ?? []) {
       if (item.category !== "logic") continue;
-      obligations.push(obligationFor(featureKey, item, gatedIds));
+      primary.push(obligationFor(featureKey, item, gatedIds));
     }
   }
 
-  obligations.sort((a, b) => cmp(a.path, b.path) || a.startLine - b.startLine || cmp(a.name, b.name) || cmp(a.id, b.id));
-  markExclusions(obligations);
+  primary.sort(byLocation);
+  markExclusions(primary);
+
+  const second = boundary ? supplement(boundary, primary) : null;
+  const obligations = second ? [...primary, ...second.added].sort(byLocation) : primary;
 
   const counted = obligations.filter((obligation) => !obligation.excluded);
+  const summary: ReadObligationsArtifact["summary"] = {
+    total: obligations.length,
+    counted: counted.length,
+    excludedDeclarationOnly: obligations.filter((o) => o.excluded === "declaration-only").length,
+    excludedContained: obligations.filter((o) => o.excluded === "contained").length,
+    noSpan: counted.filter((o) => o.endLine === undefined).length,
+    gated: counted.filter((o) => o.gated).length,
+    lines: counted.reduce((total, o) => total + (o.lines ?? 0), 0),
+  };
+  if (second) summary.secondSource = second.stats;
+  return { version: READ_OBLIGATIONS_VERSION, obligations, summary };
+}
+
+/** Phase 2 + 3: turn decision-bearing boundary functions into obligations the first source never had. */
+function supplement(
+  boundary: BoundaryFunctionsArtifact,
+  primary: ReadObligation[],
+): { added: ReadObligation[]; stats: NonNullable<ReadObligationsArtifact["summary"]["secondSource"]> } {
+  const known = new Set(primary.map((obligation) => `${obligation.featureKey}${obligation.path}${obligation.startLine}`));
+  const added: ReadObligation[] = [];
+  let candidates = 0;
+  let decisionBearing = 0;
+  let duplicate = 0;
+  let unprobed = 0;
+  let filesWithoutCandidates = 0;
+
+  for (const feature of boundary.features ?? []) {
+    const featureKey = String(feature.featureKey ?? "");
+    filesWithoutCandidates += feature.filesWithoutCandidates?.length ?? 0;
+    for (const fn of feature.functions ?? []) {
+      candidates++;
+      if (fn.probe === "unavailable") unprobed++;
+      if (fn.probe !== "decision") continue;
+      decisionBearing++;
+      const path = normalizeObligationPath(fn.path);
+      if (known.has(`${featureKey}${path}${fn.startLine}`)) { duplicate++; continue; }
+      added.push({
+        id: `feature:${featureKey}:boundary-fn:${fn.name}@${fn.path}:${fn.startLine}`,
+        kind: "boundary-decision-function",
+        featureKey,
+        name: fn.name,
+        path,
+        startLine: fn.startLine,
+        endLine: fn.endLine,
+        lines: fn.endLine - fn.startLine + 1,
+        tier: 2,
+        // Gating is rescued-only and cap-bounded; a supplement is visibility, never a hard gate's reach.
+        gated: false,
+      });
+    }
+  }
+
+  added.sort(byLocation);
+  markSupplementExclusions(added, primary);
   return {
-    version: READ_OBLIGATIONS_VERSION,
-    obligations,
-    summary: {
-      total: obligations.length,
-      counted: counted.length,
-      excludedDeclarationOnly: obligations.filter((o) => o.excluded === "declaration-only").length,
-      excludedContained: obligations.filter((o) => o.excluded === "contained").length,
-      noSpan: counted.filter((o) => o.endLine === undefined).length,
-      gated: counted.filter((o) => o.gated).length,
-      lines: counted.reduce((total, o) => total + (o.lines ?? 0), 0),
+    added,
+    stats: {
+      graphAvailable: Boolean(boundary.graphAvailable),
+      candidates,
+      decisionBearing,
+      duplicate,
+      added: added.length,
+      unprobed,
+      filesWithoutCandidates,
     },
   };
+}
+
+/** Same two exclusions as the first source, applied to supplements only — see the phase-3 note above. */
+function markSupplementExclusions(supplements: ReadObligation[], primary: ReadObligation[]): void {
+  for (const obligation of supplements) {
+    if (obligation.endLine !== undefined && obligation.endLine === obligation.startLine) {
+      obligation.excluded = "declaration-only";
+    }
+  }
+  const containers = [...primary, ...supplements].filter((o) => !o.excluded && o.endLine !== undefined);
+  for (const inner of supplements) {
+    if (inner.excluded || inner.endLine === undefined) continue;
+    const container = containers.find((outer) =>
+      outer !== inner
+      && !outer.excluded
+      && outer.path === inner.path
+      && outer.startLine <= inner.startLine
+      && (outer.endLine as number) >= (inner.endLine as number)
+      && (outer.startLine !== inner.startLine || outer.endLine !== inner.endLine));
+    if (container) inner.excluded = "contained";
+  }
+}
+
+function byLocation(a: ReadObligation, b: ReadObligation): number {
+  return cmp(a.path, b.path) || a.startLine - b.startLine || cmp(a.name, b.name) || cmp(a.id, b.id);
 }
 
 function obligationFor(featureKey: string, item: FactPackItem, gatedIds: Set<string>): ReadObligation {

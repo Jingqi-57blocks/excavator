@@ -164,7 +164,7 @@ audit（读问责硬门 + 冻结对账 + 条件 advisory + preset 持续 PASS）
 ## 十一、护栏一致性逐条对齐
 
 - **Core 零模型调用**：S0-S4 全部确定性（解析、枚举、集合对账、树构建）；resolver 的 `inferred` 是规则化近似，仍无模型。任何模型参与的知识产物走 agent-interpreted Finding 合同，且不在 Core 内产生（`direction.md` 原则 18）。
-- **依赖白名单**：`@ast-grep/napi`(+lang-go) 已于 2026-08-15 随 V1.3 **正式入列**（五条准入审计结论见 `docs/tool-selection.md` §四；遗留风险：native 二进制 + install script 面，建议单独做 supply-chain review）；tree-sitter-perl 已随 57B-385 过白名单并在 native-graph 使用；S1-S3 无新依赖；未来检索索引用 `node:sqlite` FTS5（工具表已列，零新依赖）。
+- **依赖白名单**：`@ast-grep/napi`(+lang-go) 已于 2026-08-15 随 V1.3 **正式入列**（五条准入审计结论见 `docs/tool-selection.md` §四）；tree-sitter-perl 已随 57B-385 过白名单并在 native-graph 使用；S1-S3 无新依赖；未来检索索引用 `node:sqlite` FTS5（工具表已列，零新依赖）。
 - **垂直中立**：resolver 按协议分类（HTTP/GraphQL/proto/DB/messaging），不按业务垂直；框架特定约定走 framework pack 机制（Catalyst 先例）；分母/树/义务全部框架无关派生。
 - **后向兼容（preset 持续 PASS）**：所有分母扩张 advisory 先行，硬化走世代版本闸；已验证先例延续——16 个 v5 前 run 0 条 read-coverage finding（实测）；每片闸门强制三件套（§六）。
 - **字节确定性**：每个新工件（义务、树、链路、清单）双跑字节一致纳入测试（read-obligations/read-coverage 成例：pure、zero I/O、byte-stable ordering）。

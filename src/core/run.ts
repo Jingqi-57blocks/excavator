@@ -13,7 +13,8 @@ import { auditComparativeClaims } from "../assurance/claim-comparison.ts";
 import { auditFreezeOrder, auditFrozenKnowledge, buildKnowledge, freezePreconditions, knowledgeDigest, normalizeSupplement, recordSupplement } from "../assurance/freeze.ts";
 import { atomicWrite, ensureDir, exists, nowIso, readJson, REDACTION_VERSION, runIdTimestamp, sha256, slugify, stableJson, writeJson } from "./util.ts";
 import { logicWorkItems, LOGIC_DISPOSITION_ASSURANCE_GENERATION } from "../assurance/logic-workitems.ts";
-import { readObligations, READ_ACCOUNTABILITY_ASSURANCE_GENERATION } from "../assurance/read-obligations.ts";
+import { readObligations, BOUNDARY_DENOMINATOR_ASSURANCE_GENERATION, READ_ACCOUNTABILITY_ASSURANCE_GENERATION } from "../assurance/read-obligations.ts";
+import type { BoundaryFunctionsArtifact } from "../context/boundary-functions.ts";
 import { auditReadAccountability, reconcileReadCoverage, type ClaimCitation } from "../assurance/read-coverage.ts";
 import { auditConditionCoverage, inventoryConditions, type ClaimStatement } from "../assurance/condition-inventory.ts";
 import { warmExtractors } from "../assurance/condition-extract.ts";
@@ -63,6 +64,16 @@ async function readFrozenFactPacks(runDir: string, manifest: RunManifest): Promi
     if (await exists(packPath)) factPacks[key] = await readJson<FeatureFactPack>(packPath);
   }
   return factPacks;
+}
+
+/**
+ * Read the frozen second obligation source. Absent means "this run has no second source" — a generation-6
+ * run prepared before the artifact existed, or a prepare that produced none — and the denominator falls
+ * back to the first source alone rather than failing the run for an advisory input.
+ */
+async function readBoundaryFunctions(runDir: string): Promise<BoundaryFunctionsArtifact | null> {
+  const path = join(runDir, "context", "boundary-functions.json");
+  return await exists(path) ? await readJson<BoundaryFunctionsArtifact>(path) : null;
 }
 
 export async function prepareRun(request: ReportRequest): Promise<{ runDir: string; manifest: RunManifest }> {
@@ -189,6 +200,9 @@ export async function prepareRun(request: ReportRequest): Promise<{ runDir: stri
   for (const [key, factPack] of result.prepared.featureFactPacks) {
     await writeJson(join(runDir, "context", "features", `${key}.factpack.json`), factPack);
   }
+  // The second obligation source is frozen at prepare beside the fact packs, for the same reason they are:
+  // freeze and audit must both derive the denominator from one recorded set of facts, never recompute it.
+  await writeJson(join(runDir, "context", "boundary-functions.json"), result.prepared.boundaryFunctions);
   // Cross-feature relationships need at least two features to have any pair to relate; single-feature
   // and overview-only runs skip the artifact, matching the shared-context section's own condition.
   if (request.features.length >= 2) {
@@ -310,7 +324,13 @@ export async function freezeRun(runDirInput: string): Promise<{ manifest: RunMan
   // fact packs and is FROZEN as a run artifact rather than recomputed at audit time — a later assurance
   // change must never silently move the denominator under an already-frozen run.
   const readAccountable = assuranceGenerationAtLeast(manifest, READ_ACCOUNTABILITY_ASSURANCE_GENERATION);
-  const obligations = readAccountable ? readObligations(Object.values(factPacks) as FeatureFactPack[], plan.items) : null;
+  // Generation 6 widens that denominator with the boundary-file enumeration. Gated on the run's own
+  // generation, so a generation-5 run keeps exactly the denominator it was prepared with — and a run
+  // prepared under 6 whose artifact is missing degrades to the first source alone rather than failing.
+  const boundaryFunctions = readAccountable && assuranceGenerationAtLeast(manifest, BOUNDARY_DENOMINATOR_ASSURANCE_GENERATION)
+    ? await readBoundaryFunctions(runDir)
+    : null;
+  const obligations = readAccountable ? readObligations(Object.values(factPacks) as FeatureFactPack[], plan.items, boundaryFunctions) : null;
   const readResidual = obligations ? reconcileReadCoverage({ obligations: obligations.obligations, evidence: evidenceCatalog.evidence }) : null;
   const expectedPlan = createInvestigationPlan(manifest.id, manifest.request, manifest.documents);
   // Gate the generative expansion on the run's assurance GENERATION, not exact-version equality: a run

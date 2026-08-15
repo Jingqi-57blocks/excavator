@@ -9,7 +9,7 @@
 > ④ Core 零运行时 npm 依赖改为绝对约束（"尽量"只适用于周边包）；
 > ⑤ §八 重构：指令层中立化提前进 M1（Phase 1C），MCP 保持 M1 后，独立 Agent 形态列为未来阶梯项。
 > ⑥（2026-08-13，用户裁定 · 57B-385）**Core 零运行时 npm 依赖（绝对约束）→ 审计过的白名单依赖**：CodeGraph 覆盖不到的语言（Perl/Zope 等）需要成熟解析库补全，自维护每语言解析器不可持续。`tree-sitter` / `tree-sitter-*` 语法与 `universal-ctags` 升为 Core 可用（见 §一、§二工具表、§四）。零模型调用不变；放开不改变可辩护/无黑箱与供应链安全两条真正收益，白名单正为守住它们而设。
-> ⑦（2026-08-15 · 57B-395）**`@ast-grep/napi` + `@ast-grep/lang-*` 进入 Core 审计白名单**（库形态；CLI 形态仍未采用）。用于把条件提取从手写正则换成 AST。五条准入的审计结论见 §四；遗留风险：native 二进制 + install script 面，建议单独做一次 supply-chain review。
+> ⑦（2026-08-15 · 57B-395）**`@ast-grep/napi` + `@ast-grep/lang-*` 进入 Core 审计白名单**（库形态；CLI 形态仍未采用）。用于把条件提取从手写正则换成 AST。五条准入的审计结论见 §四。
 
 ## 一、选型原则
 
@@ -103,7 +103,7 @@ CI 必须检查：Schema 本身合法；validator 可以重新生成；生成结
 
 **Tree-sitter 已于 2026-08-13（57B-385）从 Benchmark-only 升为 Core 采用**：作为 CodeGraph 语言盲区（Perl/Zope 等）的补充符号+调用抽取器进入 `src/`（审计白名单）。其产物是导航层（等同 CodeGraph 的定位角色），报告事实仍 grounding 到源码窗口；静态不可解析的动态分派诚实标 `cannot-determine`，不臆造调用边。`universal-ctags` 以可选外部二进制同期进入，出跨语言定义清单。
 
-**ast-grep 的库形态（`@ast-grep/napi`）已于 2026-08-15（57B-395）进入 Core（审计白名单）**，CLI 形态仍未采用。用途：把源码内的条件（比较表达式）从手写正则换成 AST 提取——正则是按语言计的漏检机器（实测 WCP 24 / provital 5 / cebreo 0 条件点），且会把注释与字符串体里的比较误当真条件。五条准入的审计结论：① **不联网**——运行期纯内存解析，无网络面；安装期 prebuild 随包发布，缺 prebuild 时才本地构建；② **不越界读写**——解析调用方传入的字符串，不自行读写文件；③ **传递依赖可控**——同 org 的平台二进制包 + `@ast-grep/setup-lang`；④ **字节确定性**——真实 run 双跑逐字节一致（WCP 78 site / provital 11 site 各验）；⑤ **降级路径**——native binding 缺失或语言无语法时降级为正则，且按 site 记录 `via` 字段使降级可见。**遗留风险（已记账）**：native 二进制 + install script 面，跑在他人机密代码上，建议单独做一次 supply-chain review。
+**ast-grep 的库形态（`@ast-grep/napi`）已于 2026-08-15（57B-395）进入 Core（审计白名单）**，CLI 形态仍未采用。用途：把源码内的条件（比较表达式）从手写正则换成 AST 提取——正则是按语言计的漏检机器（实测 WCP 24 / provital 5 / cebreo 0 条件点），且会把注释与字符串体里的比较误当真条件。五条准入的审计结论：① **不联网**——运行期纯内存解析，无网络面；安装期 prebuild 随包发布，缺 prebuild 时才本地构建；② **不越界读写**——解析调用方传入的字符串，不自行读写文件；③ **传递依赖可控**——同 org 的平台二进制包 + `@ast-grep/setup-lang`；④ **字节确定性**——真实 run 双跑逐字节一致（WCP 78 site / provital 11 site 各验）；⑤ **降级路径**——native binding 缺失或语言无语法时降级为正则，且按 site 记录 `via` 字段使降级可见。分发形态与 `tree-sitter` 同类（按平台预编译的 native 绑定），按同一标准处置。**（2026-08-15 用户裁定：ast-grep / tree-sitter 均为热门且安全的开源工具，不单独安排 supply-chain review；白名单五条准入已足够。原为此开的 57B-397 已取消。）**
 
 ## 五、文本搜索边界
 

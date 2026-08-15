@@ -193,6 +193,12 @@ V1 的读义务分母来自 fact pack `logic` 类目 = 保留 pruned-FG 节点�
 
 **候选下一片（V1.3，需先校准）**：扩到 ① 字符串/引号字面量比较 ② 非 C 家族算符（SQL `=`/`<>`、shell 测试算符、Perl `eq/ne/gt/lt`）③ 按语言分组的降噪词表。**必须先校准**：字符串字面量会引入新噪声类（日志文案、SQL 片段、URL、CSS 类名），不校准直接上会重犯字面量保真的错误。
 
+## 批次 57B-396（S1 义务分母第二来源）产生（2026-08-15，Fable 评审）
+
+- **`boundary-functions.json` 无 digest（下一片一行活）**：fact pack 有 `factPackDigests`，这个工件没有任何 digest 记录。**闸门本身无洞**——`knowledge.readObligationsDigest` 覆盖的是合并**之后**的分母，audit 对账冻结的 `read-obligations.json`（`src/core/run.ts:709-711`），所以篡改边界工件不会让分母悄悄变。但两个后果真实存在：冻结后篡改该工件**无法事后取证**；`eval read-denominator` 会从被篡改的工件重算出与冻结分母不同的数**而不报警**。修法：`buildKnowledge` 加 `boundaryFunctionsDigest`，audit 端镜像核验（缺文件/改文件两个方向都 error），与 `readObligationsDigest` 同款。
+- **JSX `cond && <X/>` 盲区已量化（评审实测，规模小但真实）**：决策探针认 if/三元/switch/循环节点，只用 `&&` 短路渲染的组件会被判 `no-decision`。真实 run 上 4 个 `no-decision` 的 `.tsx/.jsx` 候选里**恰好 1 个是真规则载体**——`wcp-ui/src/pages/PersonalOutlet.tsx:26-81`（`accessible && <Route/>` 权限路由门控，3 处）；ApplyLeave/LeaveDetail 这类规则密集组件因兼有 if/三元而正确判 `decision`。故「前端组件已覆盖」的说法需收窄为「**if/三元/switch 承载的组件已覆盖，`&&`-only 组件在候选中可数**」。修法：把 JSX 逻辑与表达式纳入决策 kind 集合，但需先量误报（`a && b` 在普通表达式里极常见，不是所有 `&&` 都是渲染分支）。
+- **`gapsClosed` 是「被穿透」而非「已闭合」**：读数已改为同时报实际覆盖行数与百分比（实测前四大空洞覆盖 89%–98%），口径不再依赖命名。
+
 ## 批次 57B-395（V1.3 条件提取换 AST）产生（2026-08-15）
 
 上一条"候选下一片（V1.3）"的三项已落地：① 字符串字面量比较（AST 路径产出，正则永不产字符串）② Perl 走 tree-sitter（`eq/ne/lt/gt/le/ge` 与哈希元素左值）③ 降噪过滤器补字符串侧（空串守卫、`typeof`）。实测：WCP 24→78 site（22 数值 + 56 字符串）、30 个枚举族、`regexOnlySites` 0；provital 5(全 regex)→11 site + 5 族，37/37 个 `.pm` 窗口走 AST。剩余记账：
