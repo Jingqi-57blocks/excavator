@@ -649,13 +649,16 @@ function reconcileFactPack(document: DocumentPlan, sectionIndex: number, section
 /** Lenient by design: any mention of the item name or its `path:line` location counts as coverage. */
 /**
  * Whether a claim disposed this rescued item by naming its work item — the binding the contract promises.
- * The id shape is fixed by `logicWorkItems`, so this is a lookup, not a heuristic.
+ *
+ * EXACT id, never a suffix. The id shape is `feature:<key>:logic:<name>@<path>:<line>`, and a suffix match
+ * drops the feature key: measured, `feature:OTHER:logic:f@x.js:10` then "covers" `feature:k:logic:f@x.js:10`,
+ * so in a multi-feature run one feature's disposition silences another's rescued item. A silenced real miss
+ * is worse than a false warning, which is why this is a lookup on the whole id and the caller supplies the
+ * feature key. (A name containing `@` collides the same way under suffix matching; exact ids end that too.)
  */
-function logicItemDisposed(item: { name?: string; filePath?: string; line?: number }, disposedIds: Set<string>): boolean {
-  if (!disposedIds.size) return false;
-  const suffix = `:${item.name ?? ""}@${item.filePath ?? ""}:${item.line ?? ""}`;
-  for (const id of disposedIds) if (id.endsWith(suffix)) return true;
-  return false;
+function logicItemDisposed(item: { name?: string; filePath?: string; line?: number }, disposedIds: Set<string>, featureKey: string): boolean {
+  if (!disposedIds.size || !featureKey) return false;
+  return disposedIds.has(`feature:${featureKey}:logic:${item.name ?? ""}@${item.filePath ?? ""}:${item.line ?? ""}`);
 }
 
 function factItemCovered(sectionText: string, item: { name?: string; filePath?: string; line?: number }): boolean {
@@ -680,6 +683,7 @@ export function auditRescuedLogicCoverage(
   reportText: string,
   factEvidence: EvidenceItem[],
   claims: SectionClaim[] = [],
+  featureKey = "",
 ): AuditFinding[] {
   const logic = factEvidence.find((item) => (item.data as { category?: string } | undefined)?.category === "logic")?.data as
     | { items?: Array<{ name?: string; filePath?: string; line?: number; signal?: string }> }
@@ -694,7 +698,7 @@ export function auditRescuedLogicCoverage(
   // An advisory that fires when the documented practice is followed is worse than no advisory: it teaches
   // people to ignore advisories, and this system's honesty rests on them being read.
   const disposedIds = new Set(claims.flatMap((claim) => claim.workItemIds ?? []));
-  const uncovered = rescued.filter((item) => !logicItemDisposed(item, disposedIds) && !factItemCovered(reportText, item));
+  const uncovered = rescued.filter((item) => !logicItemDisposed(item, disposedIds, featureKey) && !factItemCovered(reportText, item));
   if (!uncovered.length) return [];
   const sample = uncovered.slice(0, 5).map((item) => item.name || `${item.filePath ?? "?"}:${item.line ?? "?"}`).join(", ");
   return [warning(documentId, `report does not represent ${uncovered.length} rescued logic fact(s) that need individual disposition (e.g. ${sample})`)];

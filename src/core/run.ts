@@ -951,8 +951,11 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
     // promises, with a report-text match kept only as a fallback. Placed after the section loop because the
     // claims it reads are collected there; running it before them is what left it with nothing but text.
     if (reportText) {
+      const featureKey = manifest.request.features
+        .map((candidate) => featureCacheKey(candidate))
+        .find((key) => document.id === `feature-${key}-${document.audience}`) ?? "";
       findings.push(...auditRescuedLogicCoverage(document.id, reportText, featureFactEvidence,
-        (claimsByDocument.get(document.id) ?? []).map((entry) => entry.claim)));
+        (claimsByDocument.get(document.id) ?? []).map((entry) => entry.claim), featureKey));
     }
     if (!document.sections.every((section) => section.complete)) incompleteDocuments.push(document);
   }

@@ -32,16 +32,30 @@ function claim(overrides: Partial<SectionClaim>): SectionClaim {
   return { id: "claim-1", kind: "fact", statement: "s", evidenceIds: [], ...overrides } as SectionClaim;
 }
 
+const DISPOSED = `feature:k:logic:${ITEM.name}@${ITEM.filePath}:${ITEM.line}`;
+
 test("a rescued item disposed by a claim is covered, even when the prose never names it", () => {
   const report = "本章说明请假小时数如何按年度扣减，具体规则见折叠证据块。";
-  const disposing = claim({ workItemIds: [`feature:k:logic:${ITEM.name}@${ITEM.filePath}:${ITEM.line}`] });
-
-  assert.deepEqual(auditRescuedLogicCoverage("doc", report, logicEvidence([ITEM]), [disposing]), [],
+  assert.deepEqual(auditRescuedLogicCoverage("doc", report, logicEvidence([ITEM]), [claim({ workItemIds: [DISPOSED] })], "k"), [],
     "the contract binds through the ledger, so the check must read the ledger");
 });
 
+// The id is matched WHOLE. A suffix match drops the feature key, and then — measured while writing this —
+// one feature's disposition silences another feature's rescued item in a multi-feature run. A silenced real
+// miss is strictly worse than a false warning, so this is the collision that decides the matching rule.
+test("another feature's disposition does not cover this feature's item", () => {
+  const otherFeature = claim({ workItemIds: [`feature:OTHER:logic:${ITEM.name}@${ITEM.filePath}:${ITEM.line}`] });
+  const findings = auditRescuedLogicCoverage("doc", "无关正文。", logicEvidence([ITEM]), [otherFeature], "k");
+  assert.equal(findings.length, 1, "same name, same file, same line — different feature");
+});
+
+test("without a feature key the binding path stays closed rather than matching loosely", () => {
+  const findings = auditRescuedLogicCoverage("doc", "无关正文。", logicEvidence([ITEM]), [claim({ workItemIds: [DISPOSED] })], "");
+  assert.equal(findings.length, 1, "no key means no exact id to check against; the text fallback still applies");
+});
+
 test("a rescued item nothing disposed and nothing names is still reported", () => {
-  const findings = auditRescuedLogicCoverage("doc", "报告完全没提这件事。", logicEvidence([ITEM]), []);
+  const findings = auditRescuedLogicCoverage("doc", "报告完全没提这件事。", logicEvidence([ITEM]), [], "k");
   assert.equal(findings.length, 1);
   assert.match(findings[0].message, /1 rescued logic fact/);
   assert.equal(findings[0].level, "warning", "advisory, as it has always been");
@@ -50,12 +64,12 @@ test("a rescued item nothing disposed and nothing names is still reported", () =
 // The fallback stays: a report that names the item is covered even with no claim binding, which keeps every
 // run that predates work-item ids passing exactly as before.
 test("naming the item in the report still counts, so older runs are unaffected", () => {
-  assert.deepEqual(auditRescuedLogicCoverage("doc", `见 ${ITEM.name} 的实现。`, logicEvidence([ITEM]), []), []);
+  assert.deepEqual(auditRescuedLogicCoverage("doc", `见 ${ITEM.name} 的实现。`, logicEvidence([ITEM]), [], "k"), []);
 });
 
 test("a claim disposing a different item does not cover this one", () => {
   const other = claim({ workItemIds: ["feature:k:logic:somethingElse@other/file.js:10"] });
-  assert.equal(auditRescuedLogicCoverage("doc", "无关正文。", logicEvidence([ITEM]), [other]).length, 1);
+  assert.equal(auditRescuedLogicCoverage("doc", "无关正文。", logicEvidence([ITEM]), [other], "k").length, 1);
 });
 
 // --- claim counting ---
