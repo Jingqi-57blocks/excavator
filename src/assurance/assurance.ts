@@ -647,6 +647,17 @@ function reconcileFactPack(document: DocumentPlan, sectionIndex: number, section
 }
 
 /** Lenient by design: any mention of the item name or its `path:line` location counts as coverage. */
+/**
+ * Whether a claim disposed this rescued item by naming its work item — the binding the contract promises.
+ * The id shape is fixed by `logicWorkItems`, so this is a lookup, not a heuristic.
+ */
+function logicItemDisposed(item: { name?: string; filePath?: string; line?: number }, disposedIds: Set<string>): boolean {
+  if (!disposedIds.size) return false;
+  const suffix = `:${item.name ?? ""}@${item.filePath ?? ""}:${item.line ?? ""}`;
+  for (const id of disposedIds) if (id.endsWith(suffix)) return true;
+  return false;
+}
+
 function factItemCovered(sectionText: string, item: { name?: string; filePath?: string; line?: number }): boolean {
   const name = (item.name ?? "").trim();
   const path = (item.filePath ?? "").trim();
@@ -664,13 +675,26 @@ function factItemCovered(sectionText: string, item: { name?: string; filePath?: 
  * evidence, no rescued items, or no report reconciles nothing. Consistent with the "enumeration
  * reconciliation is advisory, never a hard gate" ruling.
  */
-export function auditRescuedLogicCoverage(documentId: string, reportText: string, factEvidence: EvidenceItem[]): AuditFinding[] {
+export function auditRescuedLogicCoverage(
+  documentId: string,
+  reportText: string,
+  factEvidence: EvidenceItem[],
+  claims: SectionClaim[] = [],
+): AuditFinding[] {
   const logic = factEvidence.find((item) => (item.data as { category?: string } | undefined)?.category === "logic")?.data as
     | { items?: Array<{ name?: string; filePath?: string; line?: number; signal?: string }> }
     | undefined;
   if (!logic) return [];
   const rescued = (logic.items ?? []).filter((item) => typeof item.signal === "string" && item.signal.length);
-  const uncovered = rescued.filter((item) => !factItemCovered(reportText, item));
+  // BINDING FIRST, TEXT ONLY AS A FALLBACK. `writing-rules.md` states the contract this check has to
+  // measure: "The prose need not contain the identifier — the coverage ledger binds through the cited
+  // evidence." A full-text search for the identifier measures something else, and measured on a real run it
+  // punished an author for FOLLOWING that contract — five rescued items warned while every one of them was
+  // disposed through a claim, until the identifiers were stuffed into a collapsed block to silence it.
+  // An advisory that fires when the documented practice is followed is worse than no advisory: it teaches
+  // people to ignore advisories, and this system's honesty rests on them being read.
+  const disposedIds = new Set(claims.flatMap((claim) => claim.workItemIds ?? []));
+  const uncovered = rescued.filter((item) => !logicItemDisposed(item, disposedIds) && !factItemCovered(reportText, item));
   if (!uncovered.length) return [];
   const sample = uncovered.slice(0, 5).map((item) => item.name || `${item.filePath ?? "?"}:${item.line ?? "?"}`).join(", ");
   return [warning(documentId, `report does not represent ${uncovered.length} rescued logic fact(s) that need individual disposition (e.g. ${sample})`)];
