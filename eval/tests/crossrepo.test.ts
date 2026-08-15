@@ -11,6 +11,11 @@ import { buildCrossRepoReport, crossRepoExitCode, loadCrossRepoGold } from "../c
 // so a real extraction is the right fixture here, and it keeps CI independent of the target repository.
 //
 // A gate that cannot go red is decoration, so every check below is exercised in both directions.
+//
+// The mechanism tests below deliberately load gold WITHOUT floors. The fixture is a trimmed artifact, so
+// the real target's floors already fail on it — and an exit-code assertion that would hold even with the
+// mechanism deleted proves nothing. Floors have their own tests; these ones must reflect only the
+// mechanism under test.
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const GOLD = join(HERE, "..", "fixtures", "wcp-crossrepo", "crossrepo-gold.json");
@@ -38,7 +43,7 @@ test("a link that vanishes fails the gate", () => {
     const links = artifact.links as Array<{ from: { path: string } }>;
     artifact.links = links.filter((link) => link.from.path !== "src/pages/leave/leave-service.ts");
   });
-  const report = buildCrossRepoReport(path, loadCrossRepoGold(GOLD), 0);
+  const report = buildCrossRepoReport(path, goldWithFloors(undefined), 0);
   assert.ok(report.gold.some((entry) => entry.status === "missing"));
   assert.equal(crossRepoExitCode(report), 1);
 });
@@ -49,7 +54,7 @@ test("a link that points at the wrong backend fails the gate, and says what it g
     const target = links.find((link) => link.from.line === 176);
     if (target) target.to = { ...target.to, module: "wcp-service", route: "POST /leaves" };
   });
-  const report = buildCrossRepoReport(path, loadCrossRepoGold(GOLD), 0);
+  const report = buildCrossRepoReport(path, goldWithFloors(undefined), 0);
   const wrong = report.gold.find((entry) => entry.status === "wrong-target");
   assert.ok(wrong, "a link redirected to another backend must fail");
   assert.match(wrong.actual ?? "", /wcp-service POST \/leaves/);
@@ -62,7 +67,7 @@ test("a link whose handler changed underneath it fails the gate", () => {
     const target = links.find((link) => link.from.line === 176);
     if (target) target.to.handlerExpression = "e.CatchError(leave.SomethingElse)";
   });
-  const report = buildCrossRepoReport(path, loadCrossRepoGold(GOLD), 0);
+  const report = buildCrossRepoReport(path, goldWithFloors(undefined), 0);
   assert.ok(report.gold.some((entry) => entry.status === "wrong-target"));
 });
 
@@ -79,7 +84,7 @@ test("silencing a known non-link fails the gate too", () => {
       resolution: "static", confidence: "confirmed", rule: "R1", evidenceIds: ["a", "b"],
     });
   });
-  const report = buildCrossRepoReport(path, loadCrossRepoGold(GOLD), 0);
+  const report = buildCrossRepoReport(path, goldWithFloors(undefined), 0);
   const silenced = report.mustUnresolved.find((entry) => entry.status === "now-linked");
   assert.ok(silenced, "a call the backend does not serve must stay unresolved");
   assert.equal(crossRepoExitCode(report), 1);
@@ -90,7 +95,7 @@ test("a link that carries no evidence pair fails the gate — an unverifiable li
     const links = artifact.links as Array<{ evidenceIds: string[] }>;
     links[0].evidenceIds = ["only-one"];
   });
-  const report = buildCrossRepoReport(path, loadCrossRepoGold(GOLD), 0);
+  const report = buildCrossRepoReport(path, goldWithFloors(undefined), 0);
   assert.equal(report.unboundLinks.length, 1);
   assert.equal(crossRepoExitCode(report), 1);
 });
