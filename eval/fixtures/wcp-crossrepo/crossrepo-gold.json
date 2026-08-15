@@ -1,0 +1,75 @@
+{
+  "version": "crossrepo-gold-v1",
+  "target": "wcp",
+  "note": "Hand-fixed from a real run's crossrepo-links.json, then verified against both source files. Chosen for diversity of the mechanisms that can break independently: literal vs parameterised paths, gin vs express backends, four different backend modules, the literal-over-parameter precedence case, and the two frontend files whose base binding traps (renamed destructure, derived base) would silently point a call at the wrong backend.",
+  "links": [
+    {
+      "id": "leave-create",
+      "from": { "path": "src/pages/leave/leave-service.ts", "line": 176, "method": "POST" },
+      "to": { "module": "wcp-service-v2", "route": "POST /v2/leaves", "handler": "leave.Creation" },
+      "note": "pure literal path; the handler S1's denominator work was built around"
+    },
+    {
+      "id": "leave-read",
+      "from": { "path": "src/pages/leave/leave-service.ts", "line": 157, "method": "GET" },
+      "to": { "module": "wcp-service-v2", "route": "GET /v2/leaves/:leave_id", "handler": "leave.Demand" },
+      "note": "parameterised: the frontend template hole must align with the route parameter"
+    },
+    {
+      "id": "leave-delete",
+      "from": { "path": "src/pages/leave/leave-service.ts", "line": 180, "method": "DELETE" },
+      "to": { "module": "wcp-service-v2", "route": "DELETE /v2/leaves/:leave_id", "handler": "leave.Deletion" },
+      "note": "same path as leave-read, different method — pins that the method participates in matching"
+    },
+    {
+      "id": "leave-list",
+      "from": { "path": "src/pages/leave/leave-service.ts", "line": 16, "method": "GET" },
+      "to": { "module": "wcp-service-v2", "route": "GET /v2/leaves", "handler": "leave.Pagination" },
+      "note": "the collection route, distinct from the /me route below"
+    },
+    {
+      "id": "leave-mine",
+      "from": { "path": "src/pages/leave/leave-service.ts", "line": 10, "method": "GET" },
+      "to": { "module": "wcp-service-v2", "route": "GET /v2/leaves/me", "handler": "leave.OwnPagination" },
+      "note": "PRECEDENCE: /v2/leaves/me and /v2/leaves/:leave_id both exist; a literal segment must win"
+    },
+    {
+      "id": "express-projects",
+      "from": { "path": "src/api/account-service.ts", "line": 14, "method": "GET" },
+      "to": { "module": "wcp-service", "route": "GET /projects/me/work-projects" },
+      "note": "express backend: the path exists only after the app.use mount prefix is composed; handler is inline, so none is pinned"
+    },
+    {
+      "id": "express-worklogs",
+      "from": { "path": "src/api/dateApi.ts", "line": 9, "method": "GET" },
+      "to": { "module": "wcp-service", "route": "GET /worklogs/remain-hour" },
+      "note": "second express target, different mount"
+    },
+    {
+      "id": "review-position",
+      "from": { "path": "src/api/common-service.ts", "line": 165, "method": "GET" },
+      "to": { "module": "wcp_review_service", "route": "GET /v2/support/position/:position_id", "handler": "support.RequestByPosition" },
+      "note": "a third backend module; also exercises the inline `${config.key}` base form"
+    },
+    {
+      "id": "auth-gmail",
+      "from": { "path": "src/pages/auth/auth-service.ts", "line": 25, "method": "POST" },
+      "to": { "module": "wcp-auth", "route": "POST /oauth/token/gmail", "handler": "oauth.GMail" },
+      "note": "fourth backend module"
+    },
+    {
+      "id": "client-renamed-base",
+      "from": { "path": "src/api/clientApi.ts", "line": 137, "method": "GET" },
+      "to": { "module": "wcp-service-v2", "route": "GET /v2/employee/projects", "handler": "employee.ProjsInvoled" },
+      "note": "clientApi.ts renames its base (`clientMainApi: mainApi`); attributing bases by identifier name globally would send this call to the wrong backend"
+    }
+  ],
+  "mustUnresolved": [
+    {
+      "id": "employee-patch-method-mismatch",
+      "from": { "path": "src/api/personalInformationApi.ts", "line": 158, "method": "PATCH" },
+      "routePath": "/v2/employee/:p1/personal-information",
+      "note": "REAL PRODUCT FINDING: the frontend sends PATCH; the backend registers only GET/PUT on this path. It must stay unresolved — a resolver that 'helpfully' matched it would hide a bug."
+    }
+  ]
+}

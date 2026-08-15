@@ -6,6 +6,7 @@
 //   compare --a <dir> --b <dir> [--json]                   cross-run A->B metrics + knowledge delta
 //   boundary (--run <dir> | --nodes <file>) --gold <file> [--json]   feature-graph boundary recall
 //   read-denominator --run <dir> [--must <path:line>]... [--json]   what the boundary second source added
+//   crossrepo --run <dir> --gold <file> [--sample N] [--json]       cross-repo link gate + review sample
 // diff exits 1 on any mustFind missing / forbidden violation / coverage failure; 0 otherwise.
 // boundary exits 1 on any mustFind miss; 0 otherwise (same honest-red contract as diff).
 // --prepare-only runs ONLY the anchor-in-scope containment check (zero model, sub-second).
@@ -34,6 +35,7 @@ import {
 } from "./boundary.ts";
 import { buildPoolFromRun, loadPrunePool, prunePoolToNodes, writePrunePool } from "./prune-replay.ts";
 import { buildDenominatorReport, denominatorExitCode, parseMust, renderDenominator } from "./read-denominator.ts";
+import { artifactExists, buildCrossRepoReport, crossRepoExitCode, loadCrossRepoGold, renderCrossRepoReport } from "./crossrepo.ts";
 
 interface Flags {
   run?: string;
@@ -48,6 +50,7 @@ interface Flags {
   emitPool?: string;
   modules: string[];
   must: string[];
+  sample?: string;
   json: boolean;
   prepareOnly: boolean;
 }
@@ -64,6 +67,7 @@ function parseFlags(argv: string[]): Flags {
     else if (arg === "--nodes") flags.nodes = argv[++i];
     else if (arg === "--layer") flags.layer = argv[++i];
     else if (arg === "--must") flags.must.push(argv[++i]);
+    else if (arg === "--sample") flags.sample = argv[++i];
     else if (arg === "--out") flags.out = argv[++i];
     else if (arg === "--pool") flags.pool = argv[++i];
     else if (arg === "--emit-pool") flags.emitPool = argv[++i];
@@ -185,6 +189,26 @@ function parseLayer(value: string | undefined): BoundaryLayer | "both" | undefin
  * counted obligation. Reads only the run's own frozen artifacts, so it needs neither the target repo nor a
  * CodeGraph database and runs the same way in CI as on a real run.
  */
+/**
+ * Gate a run's cross-repo links against gold, in both directions, and print a deterministic sample of the
+ * links gold does NOT cover — the part a human still has to look at, because ten checked pairs say nothing
+ * about the precision of the other several hundred.
+ */
+function runCrossRepoGate(flags: Flags): number {
+  const runDir = requireFlag(flags.run, "--run");
+  const artifactPath = `${runDir}/context/crossrepo-links.json`;
+  if (!artifactExists(artifactPath)) {
+    process.stdout.write(`crossrepo gate — no crossrepo-links.json in ${runDir} (single-module run, or resolved before this slice)\n`);
+    return 0;
+  }
+  const gold = loadCrossRepoGold(requireFlag(flags.gold, "--gold"));
+  const sampleSize = flags.sample ? Number(flags.sample) : 20;
+  if (!Number.isInteger(sampleSize) || sampleSize < 0) throw new Error("--sample expects a non-negative integer");
+  const report = buildCrossRepoReport(artifactPath, gold, sampleSize);
+  process.stdout.write(`${flags.json ? JSON.stringify(report, null, 2) : renderCrossRepoReport(report)}\n`);
+  return crossRepoExitCode(report);
+}
+
 function runReadDenominator(flags: Flags): number {
   const report = buildDenominatorReport(requireFlag(flags.run, "--run"), flags.must.map(parseMust));
   process.stdout.write(`${flags.json ? JSON.stringify(report, null, 2) : renderDenominator(report)}\n`);
@@ -307,6 +331,7 @@ function main(argv: string[]): number {
   if (command === "boundary") return runBoundary(flags);
   if (command === "prune-replay") return runPruneReplay(flags);
   if (command === "read-denominator") return runReadDenominator(flags);
+  if (command === "crossrepo") return runCrossRepoGate(flags);
   throw new Error(`unknown command: ${command}`);
 }
 

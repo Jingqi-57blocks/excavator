@@ -1,0 +1,1373 @@
+{
+  "ambiguous": [
+    {
+      "candidates": [
+        {
+          "module": "wcp-service-v2",
+          "route": "GET /v2/support/projects"
+        },
+        {
+          "module": "wcp_review_service",
+          "route": "GET /v2/support/projects"
+        }
+      ],
+      "line": 135,
+      "method": "GET",
+      "module": "wcp-ui",
+      "path": "src/api/common-service.ts",
+      "routePath": "/v2/support/projects"
+    },
+    {
+      "candidates": [
+        {
+          "module": "wcp-service-v2",
+          "route": "GET /v2/support/locations"
+        },
+        {
+          "module": "wcp_review_service",
+          "route": "GET /v2/support/locations"
+        }
+      ],
+      "line": 462,
+      "method": "GET",
+      "module": "wcp-ui",
+      "path": "src/api/performanceReviewApi.ts",
+      "routePath": "/v2/support/locations"
+    }
+  ],
+  "candidates": [
+    {
+      "candidates": [
+        {
+          "module": "wcp-service",
+          "route": "GET /holidays/:id"
+        },
+        {
+          "module": "wcp-service",
+          "route": "GET /leaves/:id"
+        },
+        {
+          "module": "wcp-service",
+          "route": "GET /projects/:id"
+        },
+        {
+          "module": "wcp-service",
+          "route": "GET /users/projects"
+        },
+        {
+          "module": "wcp-service",
+          "route": "GET /worklogs/:id"
+        }
+      ],
+      "line": 133,
+      "method": "GET",
+      "module": "wcp-ui",
+      "path": "src/api/clientApi.ts",
+      "routePath": "/:p1/projects"
+    },
+    {
+      "candidates": [
+        {
+          "module": "wcp-service-v2",
+          "route": "GET /v2/projects/plan/:year"
+        }
+      ],
+      "line": 141,
+      "method": "GET",
+      "module": "wcp-ui",
+      "path": "src/api/clientApi.ts",
+      "routePath": "/v2/projects/:p1/feeds"
+    }
+  ],
+  "clients": [
+    "apiClient",
+    "authRequest",
+    "httpClient",
+    "request"
+  ],
+  "links": [
+    {
+      "confidence": "confirmed",
+      "evidenceIds": [
+        "XR-call-e86690b5149b",
+        "XR-route-e66225abdc04"
+      ],
+      "from": {
+        "baseKey": "mainApi",
+        "expression": "`${config.mainApi}/projects/me/work-projects?status=${status}`",
+        "line": 14,
+        "method": "GET",
+        "module": "wcp-ui",
+        "path": "src/api/account-service.ts",
+        "routePath": "/projects/me/work-projects"
+      },
+      "id": "xrl:wcp-ui:src/api/account-service.ts:14:GET",
+      "kind": "http-route",
+      "resolution": "static",
+      "rule": "R1",
+      "to": {
+        "handlerExpression": "passport.authenticate('jwt', { session: false }),\n    wrapAsync(async (req, res, next) => {\n      const projects = await projectService.findMemberWorkedProjects(\n        req.user.user_id,\n        req.query.status\n      );\n      res.json({ projects: projects });\n      next();\n    })",
+        "line": 345,
+        "localPath": "/me/work-projects",
+        "module": "wcp-service",
+        "path": "routes/projects.js",
+        "prefixComposed": true,
+        "route": "GET /projects/me/work-projects"
+      }
+    },
+    {
+      "confidence": "confirmed",
+      "evidenceIds": [
+        "XR-call-88f083969d58",
+        "XR-route-3869de348414"
+      ],
+      "from": {
+        "baseKey": "appRunnerApi",
+        "expression": "`${appRunnerApi}/v2/employee/projects`",
+        "line": 137,
+        "method": "GET",
+        "module": "wcp-ui",
+        "path": "src/api/clientApi.ts",
+        "routePath": "/v2/employee/projects"
+      },
+      "id": "xrl:wcp-ui:src/api/clientApi.ts:137:GET",
+      "kind": "http-route",
+      "resolution": "static",
+      "rule": "R1",
+      "to": {
+        "handlerExpression": "e.CatchError(employee.ProjsInvoled)",
+        "line": 133,
+        "localPath": "/projects",
+        "module": "wcp-service-v2",
+        "path": "internal/handlers/handlers.go",
+        "prefixComposed": true,
+        "route": "GET /v2/employee/projects"
+      }
+    },
+    {
+      "confidence": "confirmed",
+      "evidenceIds": [
+        "XR-call-625d3936aaf9",
+        "XR-route-65f839581029"
+      ],
+      "from": {
+        "baseKey": "performanceReviewMainApi",
+        "expression": "`${config.performanceReviewMainApi}/v2/support/position/${positionId}?hideexp=${hideexp ? hideexp : ''\n    }`",
+        "line": 165,
+        "method": "GET",
+        "module": "wcp-ui",
+        "path": "src/api/common-service.ts",
+        "routePath": "/v2/support/position/:p1"
+      },
+      "id": "xrl:wcp-ui:src/api/common-service.ts:165:GET",
+      "kind": "http-route",
+      "resolution": "static",
+      "rule": "R2",
+      "to": {
+        "handlerExpression": "e.CatchError(support.RequestByPosition)",
+        "line": 81,
+        "localPath": "/position/:position_id",
+        "module": "wcp_review_service",
+        "path": "internal/handler/handler.go",
+        "prefixComposed": true,
+        "route": "GET /v2/support/position/:position_id"
+      }
+    },
+    {
+      "confidence": "confirmed",
+      "evidenceIds": [
+        "XR-call-8f8d562fb372",
+        "XR-route-12351b784603"
+      ],
+      "from": {
+        "baseKey": "mainApi",
+        "expression": "`${mainApi}/worklogs/remain-hour`",
+        "line": 9,
+        "method": "GET",
+        "module": "wcp-ui",
+        "path": "src/api/dateApi.ts",
+        "routePath": "/worklogs/remain-hour"
+      },
+      "id": "xrl:wcp-ui:src/api/dateApi.ts:9:GET",
+      "kind": "http-route",
+      "resolution": "static",
+      "rule": "R1",
+      "to": {
+        "handlerExpression": "validate([\n      query('log_date')\n        .isString()\n        .isLength({ min: 10, max: 10 }),\n    ]),\n    passport.authenticate('jwt', { session: false }),\n    wrapAsync(async (req, res, next) => {\n      const [userId, logDate] = [req.user.user_id, req.query.log_date];\n\n      const defaultDto = await worklogService.getDefaultLogTime(userId, logDate);\n      res.json({ defaultLogTime: defaultDto });\n      next();\n    })",
+        "line": 522,
+        "localPath": "/remain-hour",
+        "module": "wcp-service",
+        "path": "routes/worklogs.js",
+        "prefixComposed": true,
+        "route": "GET /worklogs/remain-hour"
+      }
+    },
+    {
+      "confidence": "confirmed",
+      "evidenceIds": [
+        "XR-call-a57830de87e1",
+        "XR-route-4320c29e1a71"
+      ],
+      "from": {
+        "baseKey": "authApi",
+        "expression": "`${authApi}/oauth/token/gmail`",
+        "line": 25,
+        "method": "POST",
+        "module": "wcp-ui",
+        "path": "src/pages/auth/auth-service.ts",
+        "routePath": "/oauth/token/gmail"
+      },
+      "id": "xrl:wcp-ui:src/pages/auth/auth-service.ts:25:POST",
+      "kind": "http-route",
+      "resolution": "static",
+      "rule": "R1",
+      "to": {
+        "handlerExpression": "e.CatchError(oauth.GMail)",
+        "line": 32,
+        "localPath": "/token/gmail",
+        "module": "wcp-auth",
+        "path": "internal/handlers/handler.go",
+        "prefixComposed": true,
+        "route": "POST /oauth/token/gmail"
+      }
+    },
+    {
+      "confidence": "confirmed",
+      "evidenceIds": [
+        "XR-call-3c456fd04a9b",
+        "XR-route-c0f928218485"
+      ],
+      "from": {
+        "baseKey": "appRunnerApi",
+        "expression": "`${config.appRunnerApi}/v2/leaves/me`",
+        "line": 10,
+        "method": "GET",
+        "module": "wcp-ui",
+        "path": "src/pages/leave/leave-service.ts",
+        "routePath": "/v2/leaves/me"
+      },
+      "id": "xrl:wcp-ui:src/pages/leave/leave-service.ts:10:GET",
+      "kind": "http-route",
+      "resolution": "static",
+      "rule": "R1",
+      "to": {
+        "handlerExpression": "e.CatchError(leave.OwnPagination)",
+        "line": 106,
+        "localPath": "/me",
+        "module": "wcp-service-v2",
+        "path": "internal/handlers/handlers.go",
+        "prefixComposed": true,
+        "route": "GET /v2/leaves/me"
+      }
+    },
+    {
+      "confidence": "confirmed",
+      "evidenceIds": [
+        "XR-call-80db901024de",
+        "XR-route-95761f5d9b55"
+      ],
+      "from": {
+        "baseKey": "appRunnerApi",
+        "expression": "`${config.appRunnerApi}/v2/leaves`",
+        "line": 16,
+        "method": "GET",
+        "module": "wcp-ui",
+        "path": "src/pages/leave/leave-service.ts",
+        "routePath": "/v2/leaves"
+      },
+      "id": "xrl:wcp-ui:src/pages/leave/leave-service.ts:16:GET",
+      "kind": "http-route",
+      "resolution": "static",
+      "rule": "R1",
+      "to": {
+        "handlerExpression": "e.CatchError(leave.Pagination)",
+        "line": 105,
+        "localPath": "",
+        "module": "wcp-service-v2",
+        "path": "internal/handlers/handlers.go",
+        "prefixComposed": true,
+        "route": "GET /v2/leaves"
+      }
+    },
+    {
+      "confidence": "confirmed",
+      "evidenceIds": [
+        "XR-call-9844e409c55a",
+        "XR-route-c475b51f6c91"
+      ],
+      "from": {
+        "baseKey": "appRunnerApi",
+        "expression": "`${appRunnerApi}/v2/leaves/${id}`",
+        "line": 157,
+        "method": "GET",
+        "module": "wcp-ui",
+        "path": "src/pages/leave/leave-service.ts",
+        "routePath": "/v2/leaves/:p1"
+      },
+      "id": "xrl:wcp-ui:src/pages/leave/leave-service.ts:157:GET",
+      "kind": "http-route",
+      "resolution": "static",
+      "rule": "R2",
+      "to": {
+        "handlerExpression": "e.CatchError(leave.Demand)",
+        "line": 99,
+        "localPath": "/:leave_id",
+        "module": "wcp-service-v2",
+        "path": "internal/handlers/handlers.go",
+        "prefixComposed": true,
+        "route": "GET /v2/leaves/:leave_id"
+      }
+    },
+    {
+      "confidence": "confirmed",
+      "evidenceIds": [
+        "XR-call-ea0c714fde84",
+        "XR-route-1f722a64b58c"
+      ],
+      "from": {
+        "baseKey": "appRunnerApi",
+        "expression": "`${appRunnerApi}/v2/leaves`",
+        "line": 176,
+        "method": "POST",
+        "module": "wcp-ui",
+        "path": "src/pages/leave/leave-service.ts",
+        "routePath": "/v2/leaves"
+      },
+      "id": "xrl:wcp-ui:src/pages/leave/leave-service.ts:176:POST",
+      "kind": "http-route",
+      "resolution": "static",
+      "rule": "R1",
+      "to": {
+        "handlerExpression": "e.CatchError(leave.Creation)",
+        "line": 98,
+        "localPath": "",
+        "module": "wcp-service-v2",
+        "path": "internal/handlers/handlers.go",
+        "prefixComposed": true,
+        "route": "POST /v2/leaves"
+      }
+    },
+    {
+      "confidence": "confirmed",
+      "evidenceIds": [
+        "XR-call-7d94b903ab30",
+        "XR-route-a13f0da8499f"
+      ],
+      "from": {
+        "baseKey": "appRunnerApi",
+        "expression": "`${appRunnerApi}/v2/leaves/${id}`",
+        "line": 180,
+        "method": "DELETE",
+        "module": "wcp-ui",
+        "path": "src/pages/leave/leave-service.ts",
+        "routePath": "/v2/leaves/:p1"
+      },
+      "id": "xrl:wcp-ui:src/pages/leave/leave-service.ts:180:DELETE",
+      "kind": "http-route",
+      "resolution": "static",
+      "rule": "R2",
+      "to": {
+        "handlerExpression": "e.CatchError(leave.Deletion)",
+        "line": 109,
+        "localPath": "/:leave_id",
+        "module": "wcp-service-v2",
+        "path": "internal/handlers/handlers.go",
+        "prefixComposed": true,
+        "route": "DELETE /v2/leaves/:leave_id"
+      }
+    },
+    {
+      "confidence": "confirmed",
+      "evidenceIds": [
+        "XR-call-66f7aa9aaced",
+        "XR-route-de927cf5cb10"
+      ],
+      "from": {
+        "baseKey": "appRunnerApi",
+        "expression": "`${config.appRunnerApi}/v2/leaves/me/simple`",
+        "line": 18,
+        "method": "GET",
+        "module": "wcp-ui",
+        "path": "src/api/account-service.ts",
+        "routePath": "/v2/leaves/me/simple"
+      },
+      "id": "xrl:wcp-ui:src/api/account-service.ts:18:GET",
+      "kind": "http-route",
+      "resolution": "static",
+      "rule": "R1",
+      "to": {
+        "handlerExpression": "e.CatchError(leave.SimpleForLogTime)",
+        "line": 110,
+        "localPath": "/me/simple",
+        "module": "wcp-service-v2",
+        "path": "internal/handlers/handlers.go",
+        "prefixComposed": true,
+        "route": "GET /v2/leaves/me/simple"
+      }
+    },
+    {
+      "confidence": "confirmed",
+      "evidenceIds": [
+        "XR-call-1d600d7e7332",
+        "XR-route-c08e4e14a53b"
+      ],
+      "from": {
+        "baseKey": "appRunnerApi",
+        "expression": "`${config.appRunnerApi}/v2/management/approval-count`",
+        "line": 35,
+        "method": "GET",
+        "module": "wcp-ui",
+        "path": "src/api/account-service.ts",
+        "routePath": "/v2/management/approval-count"
+      },
+      "id": "xrl:wcp-ui:src/api/account-service.ts:35:GET",
+      "kind": "http-route",
+      "resolution": "static",
+      "rule": "R1",
+      "to": {
+        "handlerExpression": "e.CatchError(management.ApprovalCount)",
+        "line": 203,
+        "localPath": "/approval-count",
+        "module": "wcp-service-v2",
+        "path": "internal/handlers/handlers.go",
+        "prefixComposed": true,
+        "route": "GET /v2/management/approval-count"
+      }
+    },
+    {
+      "confidence": "confirmed",
+      "evidenceIds": [
+        "XR-call-0eb685e66097",
+        "XR-route-bf7b2e2e83c2"
+      ],
+      "from": {
+        "baseKey": "appRunnerApi",
+        "expression": "`${appRunnerApi}/v2/openai/employee/${user_id}/generate`",
+        "line": 100,
+        "method": "POST",
+        "module": "wcp-ui",
+        "path": "src/api/aiApi.ts",
+        "routePath": "/v2/openai/employee/:p1/generate"
+      },
+      "id": "xrl:wcp-ui:src/api/aiApi.ts:100:POST",
+      "kind": "http-route",
+      "resolution": "static",
+      "rule": "R2",
+      "to": {
+        "handlerExpression": "e.CatchError(resourcepool.GenerateAllInternalWorkExperience)",
+        "line": 403,
+        "localPath": "/employee/:id/generate",
+        "module": "wcp-service-v2",
+        "path": "internal/handlers/handlers.go",
+        "prefixComposed": true,
+        "route": "POST /v2/openai/employee/:id/generate"
+      }
+    },
+    {
+      "confidence": "confirmed",
+      "evidenceIds": [
+        "XR-call-1b724398347d",
+        "XR-route-760685ac825e"
+      ],
+      "from": {
+        "baseKey": "appRunnerApi",
+        "expression": "`${appRunnerApi}/v2/openai/employee/${user_id}/comgen/status`",
+        "line": 114,
+        "method": "GET",
+        "module": "wcp-ui",
+        "path": "src/api/aiApi.ts",
+        "routePath": "/v2/openai/employee/:p1/comgen/status"
+      },
+      "id": "xrl:wcp-ui:src/api/aiApi.ts:114:GET",
+      "kind": "http-route",
+      "resolution": "static",
+      "rule": "R2",
+      "to": {
+        "handlerExpression": "e.CatchError(resourcepool.GetUserCompanyGenerateStatus)",
+        "line": 407,
+        "localPath": "/employee/:id/comgen/status",
+        "module": "wcp-service-v2",
+        "path": "internal/handlers/handlers.go",
+        "prefixComposed": true,
+        "route": "GET /v2/openai/employee/:id/comgen/status"
+      }
+    },
+    {
+      "confidence": "confirmed",
+      "evidenceIds": [
+        "XR-call-75b6db8a4b7b",
+        "XR-route-e2b9388d6d44"
+      ],
+      "from": {
+        "baseKey": "appRunnerApi",
+        "expression": "`${appRunnerApi}/v2/openai/employee/${user_id}/projects`",
+        "line": 125,
+        "method": "GET",
+        "module": "wcp-ui",
+        "path": "src/api/aiApi.ts",
+        "routePath": "/v2/openai/employee/:p1/projects"
+      },
+      "id": "xrl:wcp-ui:src/api/aiApi.ts:125:GET",
+      "kind": "http-route",
+      "resolution": "static",
+      "rule": "R2",
+      "to": {
+        "handlerExpression": "e.CatchError(resourcepool.GetAllProjectByUser)",
+        "line": 408,
+        "localPath": "/employee/:id/projects",
+        "module": "wcp-service-v2",
+        "path": "internal/handlers/handlers.go",
+        "prefixComposed": true,
+        "route": "GET /v2/openai/employee/:id/projects"
+      }
+    },
+    {
+      "confidence": "confirmed",
+      "evidenceIds": [
+        "XR-call-1efe30fef875",
+        "XR-route-5a6516b71a5d"
+      ],
+      "from": {
+        "baseKey": "appRunnerApi",
+        "expression": "`${appRunnerApi}/v2/openai/employee/${user_id}/project/generate`",
+        "line": 136,
+        "method": "POST",
+        "module": "wcp-ui",
+        "path": "src/api/aiApi.ts",
+        "routePath": "/v2/openai/employee/:p1/project/generate"
+      },
+      "id": "xrl:wcp-ui:src/api/aiApi.ts:136:POST",
+      "kind": "http-route",
+      "resolution": "static",
+      "rule": "R2",
+      "to": {
+        "handlerExpression": "e.CatchError(resourcepool.GenerateUserProjectDescription)",
+        "line": 404,
+        "localPath": "/employee/:id/project/generate",
+        "module": "wcp-service-v2",
+        "path": "internal/handlers/handlers.go",
+        "prefixComposed": true,
+        "route": "POST /v2/openai/employee/:id/project/generate"
+      }
+    },
+    {
+      "confidence": "confirmed",
+      "evidenceIds": [
+        "XR-call-9076840daf77",
+        "XR-route-7c2fafbedc4c"
+      ],
+      "from": {
+        "baseKey": "appRunnerApi",
+        "expression": "`${appRunnerApi}/v2/openai/employee/${user_id}/company/generate`",
+        "line": 151,
+        "method": "POST",
+        "module": "wcp-ui",
+        "path": "src/api/aiApi.ts",
+        "routePath": "/v2/openai/employee/:p1/company/generate"
+      },
+      "id": "xrl:wcp-ui:src/api/aiApi.ts:151:POST",
+      "kind": "http-route",
+      "resolution": "static",
+      "rule": "R2",
+      "to": {
+        "handlerExpression": "e.CatchError(resourcepool.GenerateUserCompanyRes)",
+        "line": 405,
+        "localPath": "/employee/:id/company/generate",
+        "module": "wcp-service-v2",
+        "path": "internal/handlers/handlers.go",
+        "prefixComposed": true,
+        "route": "POST /v2/openai/employee/:id/company/generate"
+      }
+    },
+    {
+      "confidence": "confirmed",
+      "evidenceIds": [
+        "XR-call-b65539a6e2dc",
+        "XR-route-be10e3277a8f"
+      ],
+      "from": {
+        "baseKey": "appRunnerApi",
+        "expression": "`${appRunnerApi}/v2/openai/employee/${user_id}/summary/generate`",
+        "line": 166,
+        "method": "POST",
+        "module": "wcp-ui",
+        "path": "src/api/aiApi.ts",
+        "routePath": "/v2/openai/employee/:p1/summary/generate"
+      },
+      "id": "xrl:wcp-ui:src/api/aiApi.ts:166:POST",
+      "kind": "http-route",
+      "resolution": "static",
+      "rule": "R2",
+      "to": {
+        "handlerExpression": "e.CatchError(resourcepool.GenerateUserSummary)",
+        "line": 406,
+        "localPath": "/employee/:id/summary/generate",
+        "module": "wcp-service-v2",
+        "path": "internal/handlers/handlers.go",
+        "prefixComposed": true,
+        "route": "POST /v2/openai/employee/:id/summary/generate"
+      }
+    },
+    {
+      "confidence": "confirmed",
+      "evidenceIds": [
+        "XR-call-1445e8901b48",
+        "XR-route-7d9c8a427b51"
+      ],
+      "from": {
+        "baseKey": "appRunnerApi",
+        "expression": "`${appRunnerApi}/v2/openai/rewrite`",
+        "line": 180,
+        "method": "POST",
+        "module": "wcp-ui",
+        "path": "src/api/aiApi.ts",
+        "routePath": "/v2/openai/rewrite"
+      },
+      "id": "xrl:wcp-ui:src/api/aiApi.ts:180:POST",
+      "kind": "http-route",
+      "resolution": "static",
+      "rule": "R1",
+      "to": {
+        "handlerExpression": "e.CatchError(resourcepool.OpenAiRewrite)",
+        "line": 409,
+        "localPath": "/rewrite",
+        "module": "wcp-service-v2",
+        "path": "internal/handlers/handlers.go",
+        "prefixComposed": true,
+        "route": "POST /v2/openai/rewrite"
+      }
+    },
+    {
+      "confidence": "confirmed",
+      "evidenceIds": [
+        "XR-call-8b76dc99bc95",
+        "XR-route-5fe5bd4c7e31"
+      ],
+      "from": {
+        "baseKey": "appRunnerApi",
+        "expression": "`${appRunnerApi}/v2/openai/chat`",
+        "line": 192,
+        "method": "POST",
+        "module": "wcp-ui",
+        "path": "src/api/aiApi.ts",
+        "routePath": "/v2/openai/chat"
+      },
+      "id": "xrl:wcp-ui:src/api/aiApi.ts:192:POST",
+      "kind": "http-route",
+      "resolution": "static",
+      "rule": "R1",
+      "to": {
+        "handlerExpression": "e.CatchError(resourcepool.ChatWithOpenAI)",
+        "line": 414,
+        "localPath": "/chat",
+        "module": "wcp-service-v2",
+        "path": "internal/handlers/handlers.go",
+        "prefixComposed": true,
+        "route": "POST /v2/openai/chat"
+      }
+    },
+    {
+      "confidence": "confirmed",
+      "evidenceIds": [
+        "XR-call-6dc9a63ab812",
+        "XR-route-892e13ff6375"
+      ],
+      "from": {
+        "baseKey": "appRunnerApi",
+        "expression": "`${appRunnerApi}/v2/openai/chat`",
+        "line": 201,
+        "method": "GET",
+        "module": "wcp-ui",
+        "path": "src/api/aiApi.ts",
+        "routePath": "/v2/openai/chat"
+      },
+      "id": "xrl:wcp-ui:src/api/aiApi.ts:201:GET",
+      "kind": "http-route",
+      "resolution": "static",
+      "rule": "R1",
+      "to": {
+        "handlerExpression": "e.CatchError(resourcepool.GetChatWithOpenAIRecord)",
+        "line": 415,
+        "localPath": "/chat",
+        "module": "wcp-service-v2",
+        "path": "internal/handlers/handlers.go",
+        "prefixComposed": true,
+        "route": "GET /v2/openai/chat"
+      }
+    },
+    {
+      "confidence": "confirmed",
+      "evidenceIds": [
+        "XR-call-a61d7617c069",
+        "XR-route-9e2d07f04722"
+      ],
+      "from": {
+        "baseKey": "appRunnerApi",
+        "expression": "`${appRunnerApi}/v2/openai/chat`",
+        "line": 210,
+        "method": "DELETE",
+        "module": "wcp-ui",
+        "path": "src/api/aiApi.ts",
+        "routePath": "/v2/openai/chat"
+      },
+      "id": "xrl:wcp-ui:src/api/aiApi.ts:210:DELETE",
+      "kind": "http-route",
+      "resolution": "static",
+      "rule": "R1",
+      "to": {
+        "handlerExpression": "e.CatchError(resourcepool.DeleteChatWithOpenAI)",
+        "line": 416,
+        "localPath": "/chat",
+        "module": "wcp-service-v2",
+        "path": "internal/handlers/handlers.go",
+        "prefixComposed": true,
+        "route": "DELETE /v2/openai/chat"
+      }
+    },
+    {
+      "confidence": "confirmed",
+      "evidenceIds": [
+        "XR-call-58fd87cf214d",
+        "XR-route-3809dc36545a"
+      ],
+      "from": {
+        "baseKey": "appRunnerApi",
+        "expression": "`${appRunnerApi}/v2/openai/chat/clear`",
+        "line": 214,
+        "method": "POST",
+        "module": "wcp-ui",
+        "path": "src/api/aiApi.ts",
+        "routePath": "/v2/openai/chat/clear"
+      },
+      "id": "xrl:wcp-ui:src/api/aiApi.ts:214:POST",
+      "kind": "http-route",
+      "resolution": "static",
+      "rule": "R1",
+      "to": {
+        "handlerExpression": "e.CatchError(resourcepool.ClearChatWithOpenAI)",
+        "line": 417,
+        "localPath": "/chat/clear",
+        "module": "wcp-service-v2",
+        "path": "internal/handlers/handlers.go",
+        "prefixComposed": true,
+        "route": "POST /v2/openai/chat/clear"
+      }
+    },
+    {
+      "confidence": "confirmed",
+      "evidenceIds": [
+        "XR-call-2d709556d3e2",
+        "XR-route-08ab11001839"
+      ],
+      "from": {
+        "baseKey": "appRunnerApi",
+        "expression": "`${appRunnerApi}/v2/openai/employee/${userId}/project/sort`",
+        "line": 220,
+        "method": "GET",
+        "module": "wcp-ui",
+        "path": "src/api/aiApi.ts",
+        "routePath": "/v2/openai/employee/:p1/project/sort"
+      },
+      "id": "xrl:wcp-ui:src/api/aiApi.ts:220:GET",
+      "kind": "http-route",
+      "resolution": "static",
+      "rule": "R2",
+      "to": {
+        "handlerExpression": "e.CatchError(resourcepool.MemberSortedProjects)",
+        "line": 419,
+        "localPath": "/employee/:id/project/sort",
+        "module": "wcp-service-v2",
+        "path": "internal/handlers/handlers.go",
+        "prefixComposed": true,
+        "route": "GET /v2/openai/employee/:id/project/sort"
+      }
+    },
+    {
+      "confidence": "confirmed",
+      "evidenceIds": [
+        "XR-call-dbd76f1305a8",
+        "XR-route-0ac13f3a9168"
+      ],
+      "from": {
+        "baseKey": "appRunnerApi",
+        "expression": "`${appRunnerApi}/v2/openai/setting`",
+        "line": 21,
+        "method": "GET",
+        "module": "wcp-ui",
+        "path": "src/api/aiSetting.ts",
+        "routePath": "/v2/openai/setting"
+      },
+      "id": "xrl:wcp-ui:src/api/aiSetting.ts:21:GET",
+      "kind": "http-route",
+      "resolution": "static",
+      "rule": "R1",
+      "to": {
+        "handlerExpression": "e.CatchError(resourcepool.GetOpenAISetting)",
+        "line": 411,
+        "localPath": "/setting",
+        "module": "wcp-service-v2",
+        "path": "internal/handlers/handlers.go",
+        "prefixComposed": true,
+        "route": "GET /v2/openai/setting"
+      }
+    },
+    {
+      "confidence": "confirmed",
+      "evidenceIds": [
+        "XR-call-547f3d79c157",
+        "XR-route-ba9594d8590c"
+      ],
+      "from": {
+        "baseKey": "appRunnerApi",
+        "expression": "`${appRunnerApi}/v2/openai/setting/${params.id}`",
+        "line": 25,
+        "method": "PUT",
+        "module": "wcp-ui",
+        "path": "src/api/aiSetting.ts",
+        "routePath": "/v2/openai/setting/:p1"
+      },
+      "id": "xrl:wcp-ui:src/api/aiSetting.ts:25:PUT",
+      "kind": "http-route",
+      "resolution": "static",
+      "rule": "R2",
+      "to": {
+        "handlerExpression": "e.CatchError(resourcepool.UpdateOneOpenAISetting)",
+        "line": 413,
+        "localPath": "/setting/:id",
+        "module": "wcp-service-v2",
+        "path": "internal/handlers/handlers.go",
+        "prefixComposed": true,
+        "route": "PUT /v2/openai/setting/:id"
+      }
+    },
+    {
+      "confidence": "confirmed",
+      "evidenceIds": [
+        "XR-call-729c8bc8ece9",
+        "XR-route-34170b058171"
+      ],
+      "from": {
+        "baseKey": "appRunnerApi",
+        "expression": "`${appRunnerApi}/v2/aitool`",
+        "line": 187,
+        "method": "GET",
+        "module": "wcp-ui",
+        "path": "src/api/aiToolApi.ts",
+        "routePath": "/v2/aitool"
+      },
+      "id": "xrl:wcp-ui:src/api/aiToolApi.ts:187:GET",
+      "kind": "http-route",
+      "resolution": "static",
+      "rule": "R1",
+      "to": {
+        "handlerExpression": "e.CatchError(ai_tool.ListAiTool)",
+        "line": 513,
+        "localPath": "",
+        "module": "wcp-service-v2",
+        "path": "internal/handlers/handlers.go",
+        "prefixComposed": true,
+        "route": "GET /v2/aitool"
+      }
+    },
+    {
+      "confidence": "confirmed",
+      "evidenceIds": [
+        "XR-call-403d4af617d4",
+        "XR-route-dd8697ca2191"
+      ],
+      "from": {
+        "baseKey": "appRunnerApi",
+        "expression": "`${appRunnerApi}/v2/aitool`",
+        "line": 198,
+        "method": "POST",
+        "module": "wcp-ui",
+        "path": "src/api/aiToolApi.ts",
+        "routePath": "/v2/aitool"
+      },
+      "id": "xrl:wcp-ui:src/api/aiToolApi.ts:198:POST",
+      "kind": "http-route",
+      "resolution": "static",
+      "rule": "R1",
+      "to": {
+        "handlerExpression": "e.CatchError(ai_tool.CreateAiTool)",
+        "line": 516,
+        "localPath": "",
+        "module": "wcp-service-v2",
+        "path": "internal/handlers/handlers.go",
+        "prefixComposed": true,
+        "route": "POST /v2/aitool"
+      }
+    },
+    {
+      "confidence": "confirmed",
+      "evidenceIds": [
+        "XR-call-e9e706246efe",
+        "XR-route-e9f624328e56"
+      ],
+      "from": {
+        "baseKey": "appRunnerApi",
+        "expression": "`${appRunnerApi}/v2/aitool/${id}`",
+        "line": 202,
+        "method": "PUT",
+        "module": "wcp-ui",
+        "path": "src/api/aiToolApi.ts",
+        "routePath": "/v2/aitool/:p1"
+      },
+      "id": "xrl:wcp-ui:src/api/aiToolApi.ts:202:PUT",
+      "kind": "http-route",
+      "resolution": "static",
+      "rule": "R2",
+      "to": {
+        "handlerExpression": "e.CatchError(ai_tool.UpdateAiTool)",
+        "line": 517,
+        "localPath": "/:id",
+        "module": "wcp-service-v2",
+        "path": "internal/handlers/handlers.go",
+        "prefixComposed": true,
+        "route": "PUT /v2/aitool/:id"
+      }
+    },
+    {
+      "confidence": "confirmed",
+      "evidenceIds": [
+        "XR-call-65bab73cec16",
+        "XR-route-610871341fb4"
+      ],
+      "from": {
+        "baseKey": "appRunnerApi",
+        "expression": "`${appRunnerApi}/v2/aitool/${id}`",
+        "line": 206,
+        "method": "GET",
+        "module": "wcp-ui",
+        "path": "src/api/aiToolApi.ts",
+        "routePath": "/v2/aitool/:p1"
+      },
+      "id": "xrl:wcp-ui:src/api/aiToolApi.ts:206:GET",
+      "kind": "http-route",
+      "resolution": "static",
+      "rule": "R2",
+      "to": {
+        "handlerExpression": "e.CatchError(ai_tool.AiToolDetail)",
+        "line": 518,
+        "localPath": "/:id",
+        "module": "wcp-service-v2",
+        "path": "internal/handlers/handlers.go",
+        "prefixComposed": true,
+        "route": "GET /v2/aitool/:id"
+      }
+    },
+    {
+      "confidence": "confirmed",
+      "evidenceIds": [
+        "XR-call-478243681b6c",
+        "XR-route-75ea4f582da8"
+      ],
+      "from": {
+        "baseKey": "appRunnerApi",
+        "expression": "`${appRunnerApi}/v2/aitool/${id}`",
+        "line": 212,
+        "method": "DELETE",
+        "module": "wcp-ui",
+        "path": "src/api/aiToolApi.ts",
+        "routePath": "/v2/aitool/:p1"
+      },
+      "id": "xrl:wcp-ui:src/api/aiToolApi.ts:212:DELETE",
+      "kind": "http-route",
+      "resolution": "static",
+      "rule": "R2",
+      "to": {
+        "handlerExpression": "e.CatchError(ai_tool.DeleteAiTool)",
+        "line": 519,
+        "localPath": "/:id",
+        "module": "wcp-service-v2",
+        "path": "internal/handlers/handlers.go",
+        "prefixComposed": true,
+        "route": "DELETE /v2/aitool/:id"
+      }
+    },
+    {
+      "confidence": "confirmed",
+      "evidenceIds": [
+        "XR-call-a9afc6433bb5",
+        "XR-route-70c0d9e857bc"
+      ],
+      "from": {
+        "baseKey": "appRunnerApi",
+        "expression": "`${appRunnerApi}/v2/aitool/${id}/comment`",
+        "line": 219,
+        "method": "POST",
+        "module": "wcp-ui",
+        "path": "src/api/aiToolApi.ts",
+        "routePath": "/v2/aitool/:p1/comment"
+      },
+      "id": "xrl:wcp-ui:src/api/aiToolApi.ts:219:POST",
+      "kind": "http-route",
+      "resolution": "static",
+      "rule": "R2",
+      "to": {
+        "handlerExpression": "e.CatchError(ai_tool.LeaveComment)",
+        "line": 521,
+        "localPath": "/:id/comment",
+        "module": "wcp-service-v2",
+        "path": "internal/handlers/handlers.go",
+        "prefixComposed": true,
+        "route": "POST /v2/aitool/:id/comment"
+      }
+    },
+    {
+      "confidence": "confirmed",
+      "evidenceIds": [
+        "XR-call-be38eb198800",
+        "XR-route-1ea0c66adf61"
+      ],
+      "from": {
+        "baseKey": "appRunnerApi",
+        "expression": "`${appRunnerApi}/v2/aitool/comment/${commentId}`",
+        "line": 225,
+        "method": "PUT",
+        "module": "wcp-ui",
+        "path": "src/api/aiToolApi.ts",
+        "routePath": "/v2/aitool/comment/:p1"
+      },
+      "id": "xrl:wcp-ui:src/api/aiToolApi.ts:225:PUT",
+      "kind": "http-route",
+      "resolution": "static",
+      "rule": "R2",
+      "to": {
+        "handlerExpression": "e.CatchError(ai_tool.UpdateComment)",
+        "line": 514,
+        "localPath": "comment/:id",
+        "module": "wcp-service-v2",
+        "path": "internal/handlers/handlers.go",
+        "prefixComposed": true,
+        "route": "PUT /v2/aitool/comment/:id"
+      }
+    },
+    {
+      "confidence": "confirmed",
+      "evidenceIds": [
+        "XR-call-2f04cff30b81",
+        "XR-route-9d90ef184f4c"
+      ],
+      "from": {
+        "baseKey": "appRunnerApi",
+        "expression": "`${appRunnerApi}/v2/aitool/comment/${commentId}`",
+        "line": 230,
+        "method": "DELETE",
+        "module": "wcp-ui",
+        "path": "src/api/aiToolApi.ts",
+        "routePath": "/v2/aitool/comment/:p1"
+      },
+      "id": "xrl:wcp-ui:src/api/aiToolApi.ts:230:DELETE",
+      "kind": "http-route",
+      "resolution": "static",
+      "rule": "R2",
+      "to": {
+        "handlerExpression": "e.CatchError(ai_tool.DeleteComment)",
+        "line": 515,
+        "localPath": "comment/:id",
+        "module": "wcp-service-v2",
+        "path": "internal/handlers/handlers.go",
+        "prefixComposed": true,
+        "route": "DELETE /v2/aitool/comment/:id"
+      }
+    },
+    {
+      "confidence": "confirmed",
+      "evidenceIds": [
+        "XR-call-e29e5e503ff2",
+        "XR-route-eb419da39ef2"
+      ],
+      "from": {
+        "baseKey": "appRunnerApi",
+        "expression": "`${appRunnerApi}/v2/aitool/${id}/rate`",
+        "line": 237,
+        "method": "POST",
+        "module": "wcp-ui",
+        "path": "src/api/aiToolApi.ts",
+        "routePath": "/v2/aitool/:p1/rate"
+      },
+      "id": "xrl:wcp-ui:src/api/aiToolApi.ts:237:POST",
+      "kind": "http-route",
+      "resolution": "static",
+      "rule": "R2",
+      "to": {
+        "handlerExpression": "e.CatchError(ai_tool.RateAiTool)",
+        "line": 522,
+        "localPath": "/:id/rate",
+        "module": "wcp-service-v2",
+        "path": "internal/handlers/handlers.go",
+        "prefixComposed": true,
+        "route": "POST /v2/aitool/:id/rate"
+      }
+    },
+    {
+      "confidence": "confirmed",
+      "evidenceIds": [
+        "XR-call-86793d8277ed",
+        "XR-route-417e279a6292"
+      ],
+      "from": {
+        "baseKey": "appRunnerApi",
+        "expression": "`${appRunnerApi}/v2/aitool/${id}/trail`",
+        "line": 243,
+        "method": "POST",
+        "module": "wcp-ui",
+        "path": "src/api/aiToolApi.ts",
+        "routePath": "/v2/aitool/:p1/trail"
+      },
+      "id": "xrl:wcp-ui:src/api/aiToolApi.ts:243:POST",
+      "kind": "http-route",
+      "resolution": "static",
+      "rule": "R2",
+      "to": {
+        "handlerExpression": "e.CatchError(ai_tool.TrailAiTool)",
+        "line": 520,
+        "localPath": "/:id/trail",
+        "module": "wcp-service-v2",
+        "path": "internal/handlers/handlers.go",
+        "prefixComposed": true,
+        "route": "POST /v2/aitool/:id/trail"
+      }
+    },
+    {
+      "confidence": "confirmed",
+      "evidenceIds": [
+        "XR-call-797eb1f5f5de",
+        "XR-route-527bc7ae6b4d"
+      ],
+      "from": {
+        "baseKey": "appRunnerApi",
+        "expression": "`${appRunnerApi}/v2/employee/${employee_id}/feeds`",
+        "line": 155,
+        "method": "GET",
+        "module": "wcp-ui",
+        "path": "src/api/clientApi.ts",
+        "routePath": "/v2/employee/:p1/feeds"
+      },
+      "id": "xrl:wcp-ui:src/api/clientApi.ts:155:GET",
+      "kind": "http-route",
+      "resolution": "static",
+      "rule": "R2",
+      "to": {
+        "handlerExpression": "e.CatchError(employee.WorkLogs)",
+        "line": 135,
+        "localPath": "/:employee_id/feeds",
+        "module": "wcp-service-v2",
+        "path": "internal/handlers/handlers.go",
+        "prefixComposed": true,
+        "route": "GET /v2/employee/:employee_id/feeds"
+      }
+    },
+    {
+      "confidence": "confirmed",
+      "evidenceIds": [
+        "XR-call-a1bd35b5e2c3",
+        "XR-route-e62417ebf641"
+      ],
+      "from": {
+        "baseKey": "appRunnerApi",
+        "expression": "`${appRunnerApi}/v2/prospa/${spaceId}/employee/${employeeId}/worklog`",
+        "line": 171,
+        "method": "GET",
+        "module": "wcp-ui",
+        "path": "src/api/clientApi.ts",
+        "routePath": "/v2/prospa/:p1/employee/:p2/worklog"
+      },
+      "id": "xrl:wcp-ui:src/api/clientApi.ts:171:GET",
+      "kind": "http-route",
+      "resolution": "static",
+      "rule": "R2",
+      "to": {
+        "handlerExpression": "e.CatchError(projectspace.GetWorkLog)",
+        "line": 324,
+        "localPath": "/:space_id/employee/:employee_id/worklog",
+        "module": "wcp-service-v2",
+        "path": "internal/handlers/handlers.go",
+        "prefixComposed": true,
+        "route": "GET /v2/prospa/:space_id/employee/:employee_id/worklog"
+      }
+    },
+    {
+      "confidence": "confirmed",
+      "evidenceIds": [
+        "XR-call-23352986f6ec",
+        "XR-route-3de158b46637"
+      ],
+      "from": {
+        "baseKey": "appRunnerApi",
+        "expression": "`${appRunnerApi}/v2/projects/${project_id}/members`",
+        "line": 191,
+        "method": "GET",
+        "module": "wcp-ui",
+        "path": "src/api/clientApi.ts",
+        "routePath": "/v2/projects/:p1/members"
+      },
+      "id": "xrl:wcp-ui:src/api/clientApi.ts:191:GET",
+      "kind": "http-route",
+      "resolution": "static",
+      "rule": "R2",
+      "to": {
+        "handlerExpression": "e.CatchError(project.Members)",
+        "line": 163,
+        "localPath": "/:project_id/members",
+        "module": "wcp-service-v2",
+        "path": "internal/handlers/handlers.go",
+        "prefixComposed": true,
+        "route": "GET /v2/projects/:project_id/members"
+      }
+    },
+    {
+      "confidence": "confirmed",
+      "evidenceIds": [
+        "XR-call-a91943db7719",
+        "XR-route-8b4f67512220"
+      ],
+      "from": {
+        "baseKey": "appRunnerApi",
+        "expression": "`${appRunnerApi}/v2/projects/${project_id}/members`",
+        "line": 204,
+        "method": "PUT",
+        "module": "wcp-ui",
+        "path": "src/api/clientApi.ts",
+        "routePath": "/v2/projects/:p1/members"
+      },
+      "id": "xrl:wcp-ui:src/api/clientApi.ts:204:PUT",
+      "kind": "http-route",
+      "resolution": "static",
+      "rule": "R2",
+      "to": {
+        "handlerExpression": "e.CatchError(project.MebSetting)",
+        "line": 164,
+        "localPath": "/:project_id/members",
+        "module": "wcp-service-v2",
+        "path": "internal/handlers/handlers.go",
+        "prefixComposed": true,
+        "route": "PUT /v2/projects/:project_id/members"
+      }
+    }
+  ],
+  "modules": [
+    "wcp-auth",
+    "wcp-service",
+    "wcp-service-v2",
+    "wcp-ui",
+    "wcp_review_service"
+  ],
+  "routeRecovery": [
+    {
+      "framework": "gin",
+      "graphRouteNodes": 14,
+      "module": "wcp-auth",
+      "recovered": 14,
+      "unrecovered": 0
+    },
+    {
+      "framework": "express",
+      "graphRouteNodes": 36,
+      "module": "wcp-service",
+      "recovered": 90,
+      "unrecovered": 0
+    },
+    {
+      "framework": "gin",
+      "graphRouteNodes": 20,
+      "module": "wcp-service-v2",
+      "recovered": 339,
+      "unrecovered": 0
+    },
+    {
+      "framework": "none",
+      "graphRouteNodes": 20,
+      "module": "wcp-ui",
+      "recovered": 0,
+      "unrecovered": 0
+    },
+    {
+      "framework": "gin",
+      "graphRouteNodes": 22,
+      "module": "wcp_review_service",
+      "recovered": 65,
+      "unrecovered": 0
+    }
+  ],
+  "snapshotId": "e7b7fd1a3489390b9d48",
+  "summary": {
+    "ambiguous": 4,
+    "calls": 411,
+    "framework": 0,
+    "routes": 508,
+    "static": 365,
+    "unresolved": 36,
+    "weak": 6
+  },
+  "unresolved": [
+    {
+      "line": 158,
+      "method": "PATCH",
+      "module": "wcp-ui",
+      "nearMisses": [
+        {
+          "mismatch": "method",
+          "module": "wcp-service-v2",
+          "route": "GET /v2/employee/:employee_id/personal-information"
+        },
+        {
+          "mismatch": "method",
+          "module": "wcp-service-v2",
+          "route": "PUT /v2/employee/:employee_id/personal-information"
+        }
+      ],
+      "path": "src/api/personalInformationApi.ts",
+      "reason": "no-route",
+      "routePath": "/v2/employee/:p1/personal-information"
+    },
+    {
+      "line": 129,
+      "method": "GET",
+      "module": "wcp-ui",
+      "nearMisses": [],
+      "path": "src/api/clientApi.ts",
+      "reason": "no-route",
+      "routePath": "/client/profile"
+    },
+    {
+      "line": 187,
+      "method": "GET",
+      "module": "wcp-ui",
+      "nearMisses": [],
+      "path": "src/api/clientApi.ts",
+      "reason": "no-route",
+      "routePath": "/project/:p1/team"
+    },
+    {
+      "line": 200,
+      "method": "GET",
+      "module": "wcp-ui",
+      "nearMisses": [],
+      "path": "src/api/clientApi.ts",
+      "reason": "no-route",
+      "routePath": "/project/:p1/member/:p2"
+    },
+    {
+      "line": 235,
+      "method": "POST",
+      "module": "wcp-ui",
+      "nearMisses": [],
+      "path": "src/api/clientApi.ts",
+      "reason": "no-route",
+      "routePath": "/project/:p1/member/:p2/accolade"
+    },
+    {
+      "line": 239,
+      "method": "PUT",
+      "module": "wcp-ui",
+      "nearMisses": [],
+      "path": "src/api/clientApi.ts",
+      "reason": "no-route",
+      "routePath": "/client/profile"
+    }
+  ],
+  "version": "crossrepo-links-v1",
+  "warnings": []
+}
