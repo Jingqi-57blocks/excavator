@@ -452,7 +452,7 @@ export async function freezeRun(runDirInput: string): Promise<{ manifest: RunMan
   // functions prepare used — so freeze, audit and eval all label identically with no extra I/O.
   const anchorTermsByFeature = readAccountable ? anchorTermsFor(manifest) : null;
   const obligations = readAccountable ? readObligations(Object.values(factPacks) as FeatureFactPack[], plan.items, boundaryFunctions, routeHandlers, anchorTermsByFeature) : null;
-  const readResidual = obligations ? reconcileReadCoverage({ obligations: obligations.obligations, evidence: evidenceCatalog.evidence }) : null;
+  const readResidual = obligations ? reconcileReadCoverage({ obligations: obligations.obligations, evidence: evidenceCatalog.evidence, annotated: Boolean(anchorTermsByFeature) }) : null;
   const expectedPlan = createInvestigationPlan(manifest.id, manifest.request, manifest.documents);
   // Gate the generative expansion on the run's assurance GENERATION, not exact-version equality: a run
   // prepared under generation 4+ already baked these items, so re-derive them regardless of any later
@@ -852,7 +852,10 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
     }
     const claimCitations: ClaimCitation[] = [...claimsByDocument.entries()].flatMap(([documentId, entries]) =>
       entries.map(({ claim }) => ({ ref: `${documentId}#${claim.id}`, evidenceIds: claim.evidenceIds ?? [] })));
-    const readResidual = reconcileReadCoverage({ obligations: frozenObligations.obligations, evidence: evidenceCatalog.evidence, claims: claimCitations });
+    // The frozen artifact says whether it was annotated; audit must not re-derive that from the labels
+    // themselves, or a run whose vocabulary matched nothing would silently read like an un-annotated one.
+    const wasAnnotated = Boolean((frozenObligations as { summary?: { anchor?: unknown } }).summary?.anchor);
+    const readResidual = reconcileReadCoverage({ obligations: frozenObligations.obligations, evidence: evidenceCatalog.evidence, claims: claimCitations, annotated: wasAnnotated });
     // A scoped audit sees only its own document's claims, so persisting the residual from it would shrink
     // `consumedBy` and inflate `openedNotConsumed` — corrupting the very migration signal this report
     // exists to carry. Findings are still reported (already downgraded by runWide); only the write is
