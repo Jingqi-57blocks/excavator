@@ -38,12 +38,10 @@
 
 import type { EvidenceItem } from "../core/types.ts";
 import type { AuditFinding } from "./assurance.ts";
+import { extractComparisons, type RawComparison } from "./condition-extract.ts";
 import { normalizeObligationPath } from "./read-obligations.ts";
 
 export const CONDITION_INVENTORY_VERSION = "condition-inventory-v1";
-
-/** A comparison of some expression against a numeric literal, e.g. `lv.Hours > 40`. */
-const COMPARISON = /([A-Za-z_][\w.[\]()]{0,40})\s*(===?|!==?|>=|<=|>|<)\s*(\d+(?:\.\d+)?)\b/g;
 
 /**
  * Left-hand sides that measure STRUCTURE or PRESENTATION rather than domain state. Calibrated against real
@@ -88,8 +86,26 @@ export interface ConditionSite {
   field: string;
   operator: string;
   literal: string;
+  /** A numeric threshold or a string enum value — the two shapes a business literal takes. */
+  literalKind: "number" | "string";
+  /** Which extraction path produced it, so degraded (regex, numeric-only) coverage is visible, not implied. */
+  via: "ast" | "regex";
   /** The opened source window this condition was found inside. */
   windowId: string;
+}
+
+/**
+ * A field compared against several string literals — an enum family. Grouping is not cosmetic: six separate
+ * `repr.View == "..."` lines say far less than one line saying WHICH values that field accepts, and "which
+ * modes exist" is exactly the question a report has to answer (measured on a real run: 66 string comparisons
+ * collapsed into 30 field families, e.g. `activeTab ∈ {feature-breakdowns, team-rampup}`).
+ */
+export interface EnumFamily {
+  path: string;
+  field: string;
+  values: string[];
+  lines: number[];
+  status: "consumed" | "partial" | "unaccounted";
 }
 
 export interface ConditionCoverageItem extends ConditionSite {
@@ -101,12 +117,18 @@ export interface ConditionCoverageItem extends ConditionSite {
 export interface ConditionInventory {
   version: string;
   items: ConditionCoverageItem[];
+  /** String comparisons regrouped per field — "which values this field accepts". */
+  families: EnumFamily[];
   summary: {
     total: number;
     consumed: number;
     unaccounted: number;
     /** Windows that contained at least one qualifying condition. */
     windowsWithConditions: number;
+    numericSites: number;
+    stringSites: number;
+    /** Sites whose window had no AST grammar, so only numeric literals could be seen there. */
+    regexOnlySites: number;
   };
 }
 
@@ -136,29 +158,28 @@ export function inventoryConditions(evidence: EvidenceItem[], claims: ClaimState
   for (const window of evidence) {
     if (window.kind !== "source" || typeof window.content !== "string" || typeof window.startLine !== "number") continue;
     const path = normalizeObligationPath(window.path);
-    const lines = window.content.split("\n");
     const citing = statementsByWindow.get(window.id) ?? [];
-    for (let offset = 0; offset < lines.length; offset++) {
-      COMPARISON.lastIndex = 0;
-      let match: RegExpExecArray | null;
-      while ((match = COMPARISON.exec(lines[offset])) !== null) {
-        const [, field, operator, literal] = match;
-        if (isStructuralLiteral(literal) || STRUCTURAL_LHS.test(field) || isProtocolComparison(field, literal)) continue;
-        const line = window.startLine + offset;
-        const expression = `${field.trim()} ${operator} ${literal}`;
-        const consumedBy = citing
-          .filter((claim) => mentionsLiteral(claim.statement, literal))
-          .map((claim) => claim.ref)
-          .sort(cmp);
-        windowsWithConditions.add(window.id);
+    const { sites, via } = extractComparisons(window);
+    for (const site of sites) {
+      if (!isBusinessComparison(site)) continue;
+      const { field, operator, literal, literalKind, line } = site;
+      const expression = literalKind === "string" ? `${field} ${operator} "${literal}"` : `${field} ${operator} ${literal}`;
+      const consumedBy = citing
+        .filter((claim) => mentionsLiteral(claim.statement, literal, literalKind))
+        .map((claim) => claim.ref)
+        .sort(cmp);
+      windowsWithConditions.add(window.id);
+      {
         items.push({
           id: `${path}:${line}:${expression}`,
           path,
           line,
           expression,
-          field: field.trim(),
+          field,
           operator,
           literal,
+          literalKind,
+          via,
           windowId: window.id,
           status: consumedBy.length ? "consumed" : "unaccounted",
           consumedBy: [...new Set(consumedBy)],
@@ -186,13 +207,58 @@ export function inventoryConditions(evidence: EvidenceItem[], claims: ClaimState
   return {
     version: CONDITION_INVENTORY_VERSION,
     items: unique,
+    families: enumFamilies(unique),
     summary: {
       total: unique.length,
       consumed: unique.filter((item) => item.status === "consumed").length,
       unaccounted: unique.filter((item) => item.status === "unaccounted").length,
       windowsWithConditions: windowsWithConditions.size,
+      numericSites: unique.filter((item) => item.literalKind === "number").length,
+      stringSites: unique.filter((item) => item.literalKind === "string").length,
+      regexOnlySites: unique.filter((item) => item.via === "regex").length,
     },
   };
+}
+
+/**
+ * The judgement layer, kept deliberately separate from the (open-source) syntactic extraction: which
+ * comparison is a business rule. Numeric filters are the ones calibrated in 57B-393; the two string filters
+ * were calibrated the same way on a real run (164 raw string comparisons → 66 after these two):
+ *   - an empty-string comparison (`loc == ""`) is the string analogue of the 0/1 existence guard;
+ *   - a `typeof` comparison (`typeof value !== "string"`) is a type guard, never domain behaviour.
+ */
+function isBusinessComparison(site: RawComparison): boolean {
+  if (STRUCTURAL_LHS.test(site.field)) return false;
+  if (site.literalKind === "string") {
+    if (site.literal === "") return false;
+    if (/\btypeof\b/.test(site.field)) return false;
+    return true;
+  }
+  return !isStructuralLiteral(site.literal) && !isProtocolComparison(site.field, site.literal);
+}
+
+/** Group string-literal comparisons per (path, field) into the enum family that field accepts. */
+function enumFamilies(items: ConditionCoverageItem[]): EnumFamily[] {
+  const byKey = new Map<string, { path: string; field: string; values: Set<string>; lines: Set<number>; consumed: number; total: number }>();
+  for (const item of items) {
+    if (item.literalKind !== "string") continue;
+    const key = `${item.path}${item.field}`;
+    const entry = byKey.get(key) ?? { path: item.path, field: item.field, values: new Set<string>(), lines: new Set<number>(), consumed: 0, total: 0 };
+    entry.values.add(item.literal);
+    entry.lines.add(item.line);
+    entry.total += 1;
+    if (item.status === "consumed") entry.consumed += 1;
+    byKey.set(key, entry);
+  }
+  return [...byKey.values()]
+    .map((entry): EnumFamily => ({
+      path: entry.path,
+      field: entry.field,
+      values: [...entry.values].sort(cmp),
+      lines: [...entry.lines].sort((a, b) => a - b),
+      status: entry.consumed === 0 ? "unaccounted" : entry.consumed === entry.total ? "consumed" : "partial",
+    }))
+    .sort((a, b) => b.values.length - a.values.length || cmp(a.path, b.path) || cmp(a.field, b.field));
 }
 
 /**
@@ -202,8 +268,14 @@ export function inventoryConditions(evidence: EvidenceItem[], claims: ClaimState
  * "结果为 10/4" must not consume `!= 10`, so a following `.digit` or `/digit` disqualifies the match just as
  * a preceding one does.
  */
-function mentionsLiteral(statement: string, literal: string): boolean {
+function mentionsLiteral(statement: string, literal: string, kind: "number" | "string"): boolean {
   const escaped = literal.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // Short enum values (`on`, `all`, `asc`, `new`) are common, and plain containment let "The configuration
+  // loads once." consume `mode === "on"` — a measured false green. Guard both sides on word and hyphen
+  // characters: a CJK or punctuation neighbour still matches, `configuration` and `open_positions` do not.
+  // A single character stays unmatchable as a string: guarded or not, one letter carries no evidence that
+  // the author meant this value. Numbers keep their own guard at any length (`Status == 3` is real).
+  if (kind === "string") return literal.length > 1 && new RegExp(`(?<![\\w-])${escaped}(?![\\w-])`).test(statement);
   return new RegExp(`(?<![\\w./])${escaped}(?![\\w]|[./]\\d)`).test(statement);
 }
 
@@ -219,11 +291,21 @@ export function auditConditionCoverage(inventory: ConditionInventory): AuditFind
     .filter((item) => item.status === "unaccounted")
     .slice(0, 12)
     .map((item) => `${item.path}:${item.line} (${item.expression})`);
-  return [{
+  const findings: AuditFinding[] = [{
     level: "warning",
     document: "condition-coverage",
-    message: `condition residual (advisory): ${inventory.summary.unaccounted} of ${inventory.summary.total} literal domain conditions inside opened windows are stated by no claim — ${worst.join("; ")}${inventory.summary.unaccounted > worst.length ? `; +${inventory.summary.unaccounted - worst.length} more` : ""}; see coverage/condition-inventory.json. This measures extraction, not reading: a window can be opened and its rules still never reported.`,
+    message: `condition residual (advisory): ${inventory.summary.unaccounted} of ${inventory.summary.total} literal domain conditions inside opened windows are stated by no claim (${inventory.summary.numericSites} numeric, ${inventory.summary.stringSites} string-enum${inventory.summary.regexOnlySites ? `; ${inventory.summary.regexOnlySites} site(s) came from a language with no AST grammar, where only numeric literals are visible` : ""}) — ${worst.join("; ")}${inventory.summary.unaccounted > worst.length ? `; +${inventory.summary.unaccounted - worst.length} more` : ""}; see coverage/condition-inventory.json. This measures extraction, not reading: a window can be opened and its rules still never reported.`,
   }];
+  const unstatedFamilies = inventory.families.filter((family) => family.values.length > 1 && family.status !== "consumed");
+  if (unstatedFamilies.length) {
+    const named = unstatedFamilies.slice(0, 6).map((family) => `${family.field} ∈ {${family.values.join(", ")}}`);
+    findings.push({
+      level: "warning",
+      document: "condition-coverage",
+      message: `value-set residual (advisory): ${unstatedFamilies.length} field(s) are compared against a set of literal values no claim fully states — ${named.join("; ")}${unstatedFamilies.length > named.length ? `; +${unstatedFamilies.length - named.length} more` : ""}. A value set is the modes/types/states that exist; omitting it usually means the report describes one path and leaves the others invisible.`,
+    });
+  }
+  return findings;
 }
 
 function cmp(a: string, b: string): number {

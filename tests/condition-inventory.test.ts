@@ -167,6 +167,43 @@ test("the advisory names the unaccounted conditions and states what it measures;
   assert.deepEqual(auditConditionCoverage(allConsumed), []);
 });
 
+// A string enum value must be a token in the statement, not a substring of an unrelated word. Plain
+// containment made "The configuration loads once." consume `mode === "on"` — a false green, which is worse
+// than a false red because it inflates the very consume bucket the attribution funnel steers by.
+test("a string enum value is not consumed by a longer word that merely contains it", () => {
+  const modes = window("S-modes", 700, [`	if (settings.mode === "on") { start(); }`, `	if (settings.view === "open") { list(); }`]);
+  const bystander = inventoryConditions([modes], [
+    claim("doc#c1", "The configuration loads once, then open_positions is rendered.", ["S-modes"]),
+  ]);
+  assert.equal(bystander.summary.consumed, 0, "'on' ⊄ 'configuration' and 'open' ⊄ 'open_positions'");
+
+  const stated = inventoryConditions([modes], [
+    claim("doc#c2", "mode 为 on 时启动；view 为 open 时展示列表。", ["S-modes"]),
+  ]);
+  assert.equal(stated.summary.consumed, 2, "a CJK or punctuation neighbour is still a real mention");
+});
+
+// The value-set residual is a second, separate advisory: a field can have every individual comparison
+// consumed in prose and still never have its SET stated, which is how a report describes one mode and
+// leaves the others invisible.
+test("a value set no claim fully states raises its own advisory, and silence once stated", () => {
+  const views = window("S-views", 40, [
+    `	if repr.View == "open_positions" {`,
+    `	} else if repr.View == "delayed_positions" {`,
+  ]);
+  const unstated = auditConditionCoverage(inventoryConditions([views], []));
+  const valueSet = unstated.filter((finding) => finding.message.includes("value-set residual"));
+  assert.equal(valueSet.length, 1);
+  assert.equal(valueSet[0].level, "warning");
+  assert.match(valueSet[0].message, /repr\.View ∈ \{delayed_positions, open_positions\}/, "values are sorted, not source-ordered — the artifact must be byte-stable");
+
+  const stated = inventoryConditions([views], [
+    claim("doc#c1", "视图取值为 open_positions 与 delayed_positions 两种。", ["S-views"]),
+  ]);
+  assert.equal(stated.families[0].status, "consumed");
+  assert.equal(auditConditionCoverage(stated).filter((f) => f.message.includes("value-set residual")).length, 0);
+});
+
 test("the inventory is byte-stable regardless of window order", () => {
   const second = window("S-b", 900, ["	if record.ItemType > 3 {"]);
   const a = inventoryConditions([APPROVE_WINDOW, second], []);

@@ -67,6 +67,26 @@ test("conditions inside a section's cited window are rendered in that section's 
   assert.doesNotMatch(text, /not linked to a section/, "an assigned window needs no orphan block");
 });
 
+// A field compared against several literals is a value SET — the modes/types/states that exist. Rendered
+// once per document because a field's values usually span several windows, and reports routinely describe
+// one path while leaving the others invisible.
+test("a field compared against several values is rendered as a value set, once per document", () => {
+  const views = window("S-views", 40, [
+    `	if repr.View == "open_positions" {`,
+    `	} else if repr.View == "fulfilled_positions" {`,
+    `	} else if repr.View == "delayed_positions" {`,
+  ]);
+  const text = packet([workItem({ evidenceIds: ["S-views"] })], [views], true);
+  assert.match(text, /## Value sets compared in these windows \(enum families\)/);
+  assert.match(text, /`repr\.View` ∈ \{ `delayed_positions`, `fulfilled_positions`, `open_positions` \}/);
+  assert.equal(text.match(/Value sets compared in these windows/g)?.length, 1, "once per document, not per section");
+});
+
+test("a single-valued field is not a value set — no enum-family block appears", () => {
+  const text = packet([workItem({ evidenceIds: ["S-thresholds"] })], [THRESHOLDS], true);
+  assert.doesNotMatch(text, /Value sets compared in these windows/, "two numeric thresholds on one field are not an enum");
+});
+
 test("conditions in a window no work item cites are rendered as an unassigned block, never dropped", () => {
   // The real failure this caught: the window was opened during investigation but cited by no work item, so it
   // belonged to no section block and its conditions silently vanished from the packet.
