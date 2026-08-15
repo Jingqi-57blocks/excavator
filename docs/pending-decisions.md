@@ -195,7 +195,17 @@ V1 的读义务分母来自 fact pack `logic` 类目 = 保留 pruned-FG 节点�
 
 ## 批次 57B-398（S2 跨仓链路）产生（2026-08-15）
 
+**57B-399 计数地板的诚实边界（评审构造并实测，本片明确不防）**：
+
+- **地板值未钉被测 target 的版本（待单独确认）**：calls/routes/linked 三个数绑死在对 `excavator-test-repos/wcp` 的一次测量上，而那个仓不由我们控制。不钉住被测版本，地板值就不可辩护、不可复现。**形态事实（评审实测）**：wcp workspace 根**不是 git 仓**，但五个模块各自是，HEAD 均可读（wcp-ui b86dfa27 / wcp-auth 76e958d / wcp-service 9df6897 / wcp-service-v2 7db2ee8d / wcp_review_service 272bbe7）——所以「钉 hash」的形态是**五枚而非一枚**。待确认：这五个仓有无远端、hash 是否稳定、五枚 hash 进 gold 是否值得（维护成本 vs 可辩护性）。
+
+- **余量以下的侵蚀**：实测砍掉 7 个非 gold 文件共 18 条链路，地板仍绿。所以「整个 client 消失会被抓住」这个说法对**链路数 ≤25 条的小 client 不成立**。后端侧无此问题——gold 恰好覆盖全部 4 个后端，任一后端路由表消失会先被对应 gold 条目抓住。缓解只能靠缩小余量（会换来误红）或给每个前端 client 各钉一条 gold。
+- **计数中性的精度塌方**：把 329 条非 gold 链路全部改指向同一条错误路由，计数不变、gold 完好、闸门 exit 0。地板按定义防不住这个（它数的是数量不是正确性）。现有缓解只有 `mustUnresolved`（1 条）与人工抽样 20 条。若要机检，需要另一类断言（例如「同一后端路由被 N 条以上前端调用指向」的异常检测），本片不做。
+
 **评审记账（Fable 最终评审，判可合前的 should-fix）**：
+
+- **handler 解析率没有做成 floor（本片明确的非目标，附理由）**：它是 freeze 时才算出的数、且**按 feature 计**（实测 leave 特征下为 13），不同 feature 请求会让它剧烈变化，做成固定 floor 会脆到没人敢信。scan 层的三个数（calls/routes/linked）与 feature 无关，才适合当 floor。若要给 handler 解析率设 floor，正确修法是**把 handler 解析移进 scan 阶段**（它本就是链路的属性而非 feature 的属性），让工件自带 `handlersResolved/handlersTotal`——那是一次跨 prepare/freeze 的重构，单独一片。
+- **三处残余的访问/脱敏面（评审穷尽后列出，均低危不阻塞）**：① `crossrepo-scan.ts:90` 的 `readSource(join(moduleRoot, relative))`，`relative` 来自 codegraph db 而 db 可由 `--codegraph` 外部供给，路径无收口（同款前缀校验一行可修）；② `run.ts` 的 `readFile(join(target, aliasKey))`，`aliasKey` 来自 links 工件，而该工件在 prepare 与 freeze 之间尚未被 digest 钉住，篡改可导向任意读（仅进 alias 解析、不外泄内容）；③ `context/crossrepo-links.json` 与 CLI 输出工件仍带**原文** `expression`/`handlerExpression`——给 evidence 做脱敏的理由（持久产物 + URL 可携 token）对这两个文件同样成立。**口径应统一**：要么在 scan/artifact 边界统一脱敏，要么把「context/ 与 snapshot 同信任域」记为明示假设。
 
 - **freeze 时硬猜 CodeGraph db 路径且静默**：`routeHandlerDenominator` 按 `join(target, moduleId, ".codegraph", "codegraph.db")` 拼路径，catch 后静默。db 若建在 workdir 缓存（`resolveCodeGraphDatabase` 支持这种形态）或 `dir !== id` 的 target 上，**第三义务来源会无警告地归零**——方向诚实（少算义务）但违背本模块自己的 never-silent 纪律。修法：把 prepare 已有的 `codegraphModules` 路径穿透到 freeze，或至少 openIndex 失败时 push warning。
 - **闸门无计数地板**：`eval/crossrepo.ts` 只验 gold 10 条与 mustUnresolved。若 `discoverClients` 回归丢掉整个 client、或 `handler-resolve` 回归到 0，`summary.calls`/`routes`/handler 解析率塌方而 gold 幸存时闸门**仍绿**。修法：gold 文件里加 target 专属 floor（如 calls ≥ 380、routes ≥ 480、handler 解析率 ≥ 85%）。

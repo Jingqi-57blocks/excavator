@@ -1293,13 +1293,13 @@
   ],
   "snapshotId": "e7b7fd1a3489390b9d48",
   "summary": {
-    "ambiguous": 4,
-    "calls": 411,
+    "calls": 50,
+    "static": 40,
     "framework": 0,
-    "routes": 508,
-    "static": 365,
-    "unresolved": 36,
-    "weak": 6
+    "unresolved": 6,
+    "ambiguous": 2,
+    "weak": 2,
+    "routes": 508
   },
   "unresolved": [
     {
