@@ -273,6 +273,14 @@ Run：`.work/wcp-bf72b0/runs/run-2026_08_15_21_40-请假管理-e7b7fd1a-5fbd4975
 
 **测试缺口（我自己的变异抓到，记为教训）**：packet 渲染条件有**两条路径**——section 块内（`renderConditions`）与末尾未归属块（`renderUnassignedConditions`）。我第一版测试只走了第二条，于是「删掉 section 块守卫」的变异**存活**。补测第一条后变红。**教训与 57B-402 同型：一个模块有几条输出路径，测试就得走几条，否则变异验证只是在验证我走过的那条。**
 
+**评审构造的误杀反例，已按其给的机制修（非记档）**：仅凭「字段末段」无法区分回调协议与业务状态——`leave.status === "approved"`、`user.type === "admin"`、`notification.type === "leave_request"`、`item?.leave?.status === "pending"` 在 `.tsx` 里**全部会被误杀**（评审实测）。加第四条件「**RHS 字面量也必须是协议词**」后，四个反例全部改判 owed，而真实 run 的 7 条真杀零损失（其 RHS 只有 `change`/`next`，另一 run 还有 `error`）。
+
+**为什么这个词表可以存在，而 relevance-annotation 的同义词表不可以**：本词表**只会让过滤器更严格**——每移除一个词就把 site 还回债务里，所以没人能靠转它把残差弄好看，它**对转动它的人不利**。而 anchor 词表转动会直接移动召回读数（被判定的那个数），方向相反。残余偏差是诚实的那一侧：没被列进词表的协议值仍然欠着。
+
+**`.vue` 是死分支（评审实测，范围外，记档）**：`AST_LANGUAGE_BY_EXTENSION` 无 vue 语法 → 回退正则只见数字字面量 → **`.vue` 的字符串比较根本进不了条件清单**。所以过滤器的 vue 分支今天无害但不可测。更大的事实是：**Vue target 的字符串条件在上游就全盲**——这不是本片引入的，但对以 Vue 为主的目标是一整类不可见。
+
+**评审指出的真缺口，已在本片关闭**：`auditConditionCoverage` 原本在 `unaccounted === 0` 时提前返回，于是**残差一旦归零，指向该工件的唯一指针随之消失**，排除计数就成了没人被告知去看的 JSON 数字——「标记而非删除」在那一刻退化成「删除但留了痕」。现改为排除计数**独立于残差**始终上报。（Goodhart run 的 unaccounted 已经是 1，这个状态迫在眉睫。）
+
 ## 外部项目调研裁定 · Graphify（2026-08-16，规划层裁定）
 
 用户提供 Graphify（github.com/Graphify-Labs/graphify，v8）+ 另一位开发者的分析，要求评估是否改方向。**裁定：不改序列。Graphify 是一面好镜子和一个便宜的对照臂，不是方向变更的理由。**

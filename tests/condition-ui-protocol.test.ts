@@ -98,10 +98,49 @@ test("an excluded site never reaches the author's packet, by either rendering pa
   assert.doesNotMatch(inSection, /`action === "next"`/, "and the protocol value is not");
 });
 
+// Review's counterexamples: the field name alone cannot tell a callback from a domain state, so the VALUE
+// must be a protocol word too. Without that fourth condition all four of these were wrongly excluded.
+test("a domain state compared on a protocol-shaped field is still owed", () => {
+  for (const [expression, literal] of [
+    [`if (user.type === 'admin') {`, "admin"],
+    [`if (notification.type === 'leave_request') {`, "leave_request"],
+    [`if (item?.leave?.status === 'pending') {`, "pending"],
+    [`if (leave.status === 'approved') {`, "approved"],
+  ]) {
+    const inventory = inventoryConditions([window("S-x", PATH, 10, [expression])], []);
+    const site = inventory.items.find((item) => item.literal === literal);
+    assert.ok(site, expression);
+    assert.equal(site.excluded, undefined, `${expression} is a domain rule, not a callback protocol`);
+  }
+});
+
+test("the protocol values measured on real runs are still excluded", () => {
+  for (const [expression, literal] of [
+    [`if (action === 'next') {`, "next"],
+    [`if (info.type === 'change') {`, "change"],
+    [`if (file.status === 'error') {`, "error"],
+  ]) {
+    const inventory = inventoryConditions([window("S-x", PATH, 10, [expression])], []);
+    assert.equal(inventory.items.find((item) => item.literal === literal)?.excluded, "ui-event-protocol", expression);
+  }
+});
+
+// A mark nobody can reach is a drop with extra steps. When the residual reaches zero the audit's only
+// pointer to this artifact would vanish with it, taking the exclusions' visibility along.
+test("the exclusions are reported even when nothing is owed", () => {
+  const inventory = inventoryConditions([UI_PROTOCOL], []);
+  assert.equal(inventory.summary.unaccounted, 0, "nothing owed — the state where visibility is at risk");
+  const findings = auditConditionCoverage(inventory);
+  assert.equal(findings.length, 1);
+  assert.match(findings[0].message, /1 comparison\(s\) were classified as UI event-protocol/);
+  assert.match(findings[0].message, /can be checked and disputed/);
+});
+
 test("an excluded site is never named in the audit residual", () => {
   const inventory = inventoryConditions([UI_PROTOCOL, DOMAIN_RULE], []);
   const findings = auditConditionCoverage(inventory);
-  const text = findings.map((finding) => finding.message).join("\n");
+  const residual = findings.filter((finding) => /condition residual/.test(finding.message));
+  const text = residual.map((finding) => finding.message).join("\n");
   assert.doesNotMatch(text, /next/);
   assert.match(text, /bto/, "the residual still reports what is genuinely unstated");
 });

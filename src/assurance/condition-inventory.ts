@@ -257,24 +257,40 @@ function isBusinessComparison(site: RawComparison): boolean {
  * condition inventory moved into the authoring packet, the author — asked to state every condition carrying
  * reportable behaviour — wrote sentences like "whether the action value at submit is `next` decides jumping
  * to the next form" purely to drive the residual from 18 to 1. Reading the source confirms the judgement:
- * `action === 'next'` chooses `goNext()` over `refresh()` after an approval, and `info.type === 'change'`
- * resets a table to page 1 on a filter change. Neither is leave behaviour; both are framework protocol.
+ * `action === 'next'` chooses `goNext()` over `refresh()` after an approval, `info.type === 'change'` resets
+ * a table to page 1, and `file.status === 'error'` is Ant Design's upload state. None is leave behaviour.
  *
- * Three conditions, all necessary, calibrated on a real run (kills 7 of 7 such sites, spares all 21 other
- * string comparisons in the same files):
+ * FOUR conditions, all necessary, and the fourth is the one that makes the filter safe:
  *   - a string comparison, in
  *   - a UI component file, where
- *   - the compared field's LAST SEGMENT is exactly an event-protocol word.
- * Exactness is what protects the domain rules: `leaveType === "bto"` ends in `leaveType`, not `type`, and
- * `info.name === "holiday_type"` is compared on `name`, so both survive.
+ *   - the compared field's LAST SEGMENT is exactly an event-protocol word, AND
+ *   - the value compared against is itself a protocol word.
+ *
+ * KNOWN BIAS (documented rather than silently accepted, as `isStructuralLiteral` above does for its own).
+ * The field name alone cannot separate a callback from a domain state: `application.status === 'approved'`
+ * and `file.status === 'error'` are the same shape. Review constructed the false kills that proves it —
+ * `user.type === 'admin'`, `notification.type === 'leave_request'`, `item?.leave?.status === 'pending'` —
+ * all of which the VALUE list spares. The list is a knob, and knobs are normally refused here; this one is
+ * admissible because it only ever makes the filter STRICTER. Every word removed from it returns sites to
+ * the debt, so nobody can turn it to make a residual look better — it works against whoever turns it.
+ *
+ * The residual bias is the other direction: a UI protocol value nobody listed stays owed, which is the
+ * honest failure. Extending the list is therefore a calibration change and belongs with measurements, not
+ * with a convenient moment.
  */
 const UI_COMPONENT_FILE = /\.(tsx|jsx|vue)$/;
 const EVENT_PROTOCOL_FIELDS = new Set(["type", "action", "status"]);
+/** Values a component library uses to name its own events and states — never a domain vocabulary. */
+const EVENT_PROTOCOL_VALUES = new Set([
+  "change", "next", "prev", "previous", "done", "error", "uploading", "removed",
+  "click", "submit", "cancel", "close", "open", "blur", "focus", "input", "paginate", "sort", "filter",
+]);
 
 function uiEventProtocol(site: RawComparison, path: string): "ui-event-protocol" | undefined {
   if (site.literalKind !== "string" || !UI_COMPONENT_FILE.test(path)) return undefined;
   const lastSegment = site.field.split(/[.?!\[\]]/).filter(Boolean).pop() ?? "";
-  return EVENT_PROTOCOL_FIELDS.has(lastSegment) ? "ui-event-protocol" : undefined;
+  if (!EVENT_PROTOCOL_FIELDS.has(lastSegment)) return undefined;
+  return EVENT_PROTOCOL_VALUES.has(site.literal.toLowerCase()) ? "ui-event-protocol" : undefined;
 }
 
 /** Group string-literal comparisons per (path, field) into the enum family that field accepts. */
@@ -326,12 +342,25 @@ function mentionsLiteral(statement: string, literal: string, kind: "number" | "s
  * mechanically, which is the same Goodhart migration the read gates already have to watch for.
  */
 export function auditConditionCoverage(inventory: ConditionInventory): AuditFinding[] {
-  if (!inventory.summary.unaccounted) return [];
+  // What this filter removed is reported even when nothing is owed — especially then. A residual that
+  // reaches zero would otherwise take the only pointer to this artifact with it, and the exclusions would
+  // survive as a number in a JSON file nobody is told to open: silently dropped in every way that matters,
+  // however carefully the items were kept. Curation may mark instead of dropping only while the mark is
+  // reachable.
+  const excluded = inventory.summary.excluded ?? 0;
+  const exclusionNotice: AuditFinding[] = excluded
+    ? [{
+        level: "warning",
+        document: "condition-coverage",
+        message: `condition inventory (advisory): ${excluded} comparison(s) were classified as UI event-protocol values and are neither owed nor shown to the author — they stay listed in coverage/condition-inventory.json with an \`excluded\` marker, so the classification can be checked and disputed`,
+      }]
+    : [];
+  if (!inventory.summary.unaccounted) return exclusionNotice;
   const worst = inventory.items
     .filter((item) => item.status === "unaccounted" && !item.excluded)
     .slice(0, 12)
     .map((item) => `${item.path}:${item.line} (${item.expression})`);
-  const findings: AuditFinding[] = [{
+  const findings: AuditFinding[] = [...exclusionNotice, {
     level: "warning",
     document: "condition-coverage",
     message: `condition residual (advisory): ${inventory.summary.unaccounted} of ${inventory.summary.total} literal domain conditions inside opened windows are stated by no claim (${inventory.summary.numericSites} numeric, ${inventory.summary.stringSites} string-enum${inventory.summary.regexOnlySites ? `; ${inventory.summary.regexOnlySites} site(s) came from a language with no AST grammar, where only numeric literals are visible` : ""}) — ${worst.join("; ")}${inventory.summary.unaccounted > worst.length ? `; +${inventory.summary.unaccounted - worst.length} more` : ""}; see coverage/condition-inventory.json. This measures extraction, not reading: a window can be opened and its rules still never reported.`,
