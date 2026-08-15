@@ -1,0 +1,1333 @@
+{
+  "enumeratedKinds": [
+    "component",
+    "constructor",
+    "function",
+    "method"
+  ],
+  "features": [
+    {
+      "featureKey": "请假管理-4d1c219b61",
+      "files": 11,
+      "filesWithoutCandidates": [],
+      "functions": [
+        {
+          "endLine": 42,
+          "graphKind": "function",
+          "name": "isTheLevel",
+          "path": "wcp-service-v2/internal/handlers/leave/approvement.go",
+          "probe": "decision",
+          "startLine": 31
+        },
+        {
+          "endLine": 52,
+          "graphKind": "function",
+          "name": "getManagerByLevel",
+          "path": "wcp-service-v2/internal/handlers/leave/approvement.go",
+          "probe": "decision",
+          "startLine": 44
+        },
+        {
+          "endLine": 117,
+          "graphKind": "method",
+          "name": "GenAprvRecord",
+          "path": "wcp-service-v2/internal/handlers/leave/approvement.go",
+          "probe": "decision",
+          "startLine": 58
+        },
+        {
+          "endLine": 193,
+          "graphKind": "method",
+          "name": "GenAprvRecord",
+          "path": "wcp-service-v2/internal/handlers/leave/approvement.go",
+          "probe": "decision",
+          "startLine": 124
+        },
+        {
+          "endLine": 270,
+          "graphKind": "method",
+          "name": "GenAprvRecord",
+          "path": "wcp-service-v2/internal/handlers/leave/approvement.go",
+          "probe": "decision",
+          "startLine": 199
+        },
+        {
+          "endLine": 341,
+          "graphKind": "method",
+          "name": "GenAprvRecord",
+          "path": "wcp-service-v2/internal/handlers/leave/approvement.go",
+          "probe": "decision",
+          "startLine": 276
+        },
+        {
+          "endLine": 361,
+          "graphKind": "function",
+          "name": "queryMangerByLevel",
+          "path": "wcp-service-v2/internal/handlers/leave/approvement.go",
+          "probe": "decision",
+          "startLine": 343
+        },
+        {
+          "endLine": 86,
+          "graphKind": "function",
+          "name": "distributeYearsHours",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_abst.go",
+          "probe": "decision",
+          "startLine": 41
+        },
+        {
+          "endLine": 181,
+          "graphKind": "function",
+          "name": "maxAvailableHoliday",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_abst.go",
+          "probe": "decision",
+          "startLine": 88
+        },
+        {
+          "endLine": 185,
+          "graphKind": "function",
+          "name": "UnknownHolidayType",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_abst.go",
+          "probe": "no-decision",
+          "startLine": 183
+        },
+        {
+          "endLine": 205,
+          "graphKind": "function",
+          "name": "employeeHolidays",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_abst.go",
+          "probe": "decision",
+          "startLine": 187
+        },
+        {
+          "endLine": 325,
+          "graphKind": "method",
+          "name": "Apply",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_abst.go",
+          "probe": "decision",
+          "startLine": 213
+        },
+        {
+          "endLine": 329,
+          "graphKind": "method",
+          "name": "SetImpl",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_abst.go",
+          "probe": "no-decision",
+          "startLine": 327
+        },
+        {
+          "endLine": 447,
+          "graphKind": "method",
+          "name": "Apply",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_abst.go",
+          "probe": "decision",
+          "startLine": 337
+        },
+        {
+          "endLine": 451,
+          "graphKind": "method",
+          "name": "SetImpl",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_abst.go",
+          "probe": "no-decision",
+          "startLine": 449
+        },
+        {
+          "endLine": 510,
+          "graphKind": "method",
+          "name": "Apply",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_abst.go",
+          "probe": "decision",
+          "startLine": 458
+        },
+        {
+          "endLine": 514,
+          "graphKind": "method",
+          "name": "SetImpl",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_abst.go",
+          "probe": "no-decision",
+          "startLine": 512
+        },
+        {
+          "endLine": 53,
+          "graphKind": "method",
+          "name": "Build",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_director.go",
+          "probe": "decision",
+          "startLine": 39
+        },
+        {
+          "endLine": 91,
+          "graphKind": "function",
+          "name": "backgroundData",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "decision",
+          "startLine": 42
+        },
+        {
+          "endLine": 107,
+          "graphKind": "function",
+          "name": "handleHeadAndTail",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "decision",
+          "startLine": 93
+        },
+        {
+          "endLine": 196,
+          "graphKind": "function",
+          "name": "saveLeaveRelated",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "decision",
+          "startLine": 109
+        },
+        {
+          "endLine": 295,
+          "graphKind": "function",
+          "name": "consumeByYear",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "decision",
+          "startLine": 204
+        },
+        {
+          "endLine": 388,
+          "graphKind": "function",
+          "name": "mixConsume",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "decision",
+          "startLine": 298
+        },
+        {
+          "endLine": 506,
+          "graphKind": "function",
+          "name": "consumeCurtHoliday",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "decision",
+          "startLine": 390
+        },
+        {
+          "endLine": 524,
+          "graphKind": "function",
+          "name": "withdrawBgData",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "decision",
+          "startLine": 513
+        },
+        {
+          "endLine": 542,
+          "graphKind": "function",
+          "name": "holidayByYear",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "decision",
+          "startLine": 526
+        },
+        {
+          "endLine": 602,
+          "graphKind": "function",
+          "name": "withdrawHours",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "decision",
+          "startLine": 544
+        },
+        {
+          "endLine": 613,
+          "graphKind": "function",
+          "name": "newPTOWithdrawCapper",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "decision",
+          "startLine": 608
+        },
+        {
+          "endLine": 636,
+          "graphKind": "function",
+          "name": "reducePTOOverCap",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "decision",
+          "startLine": 617
+        },
+        {
+          "endLine": 650,
+          "graphKind": "function",
+          "name": "restoreWithCap",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "decision",
+          "startLine": 640
+        },
+        {
+          "endLine": 677,
+          "graphKind": "function",
+          "name": "withdrawByType",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "decision",
+          "startLine": 652
+        },
+        {
+          "endLine": 729,
+          "graphKind": "function",
+          "name": "withdrawByComments",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "decision",
+          "startLine": 679
+        },
+        {
+          "endLine": 802,
+          "graphKind": "function",
+          "name": "generalCancellation",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "decision",
+          "startLine": 731
+        },
+        {
+          "endLine": 837,
+          "graphKind": "function",
+          "name": "generalRejection",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "decision",
+          "startLine": 804
+        },
+        {
+          "endLine": 922,
+          "graphKind": "function",
+          "name": "crossCancellation",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "decision",
+          "startLine": 840
+        },
+        {
+          "endLine": 968,
+          "graphKind": "function",
+          "name": "crossRejection",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "decision",
+          "startLine": 925
+        },
+        {
+          "endLine": 978,
+          "graphKind": "method",
+          "name": "Consume",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "no-decision",
+          "startLine": 975
+        },
+        {
+          "endLine": 983,
+          "graphKind": "method",
+          "name": "Cancel",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "no-decision",
+          "startLine": 980
+        },
+        {
+          "endLine": 988,
+          "graphKind": "method",
+          "name": "Reject",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "no-decision",
+          "startLine": 985
+        },
+        {
+          "endLine": 998,
+          "graphKind": "method",
+          "name": "Consume",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "no-decision",
+          "startLine": 995
+        },
+        {
+          "endLine": 1003,
+          "graphKind": "method",
+          "name": "Cancel",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "no-decision",
+          "startLine": 1000
+        },
+        {
+          "endLine": 1008,
+          "graphKind": "method",
+          "name": "Reject",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "no-decision",
+          "startLine": 1005
+        },
+        {
+          "endLine": 1026,
+          "graphKind": "method",
+          "name": "Consume",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "decision",
+          "startLine": 1015
+        },
+        {
+          "endLine": 1031,
+          "graphKind": "method",
+          "name": "Cancel",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "no-decision",
+          "startLine": 1028
+        },
+        {
+          "endLine": 1036,
+          "graphKind": "method",
+          "name": "Reject",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "no-decision",
+          "startLine": 1033
+        },
+        {
+          "endLine": 1046,
+          "graphKind": "method",
+          "name": "Consume",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "no-decision",
+          "startLine": 1043
+        },
+        {
+          "endLine": 1051,
+          "graphKind": "method",
+          "name": "Cancel",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "no-decision",
+          "startLine": 1048
+        },
+        {
+          "endLine": 1056,
+          "graphKind": "method",
+          "name": "Reject",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "no-decision",
+          "startLine": 1053
+        },
+        {
+          "endLine": 1066,
+          "graphKind": "method",
+          "name": "Consume",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "no-decision",
+          "startLine": 1063
+        },
+        {
+          "endLine": 1071,
+          "graphKind": "method",
+          "name": "Cancel",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "no-decision",
+          "startLine": 1068
+        },
+        {
+          "endLine": 1076,
+          "graphKind": "method",
+          "name": "Reject",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "no-decision",
+          "startLine": 1073
+        },
+        {
+          "endLine": 1086,
+          "graphKind": "method",
+          "name": "Consume",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "no-decision",
+          "startLine": 1083
+        },
+        {
+          "endLine": 1091,
+          "graphKind": "method",
+          "name": "Cancel",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "no-decision",
+          "startLine": 1088
+        },
+        {
+          "endLine": 1096,
+          "graphKind": "method",
+          "name": "Reject",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "no-decision",
+          "startLine": 1093
+        },
+        {
+          "endLine": 1106,
+          "graphKind": "method",
+          "name": "Consume",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "no-decision",
+          "startLine": 1103
+        },
+        {
+          "endLine": 1111,
+          "graphKind": "method",
+          "name": "Cancel",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "no-decision",
+          "startLine": 1108
+        },
+        {
+          "endLine": 1116,
+          "graphKind": "method",
+          "name": "Reject",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "no-decision",
+          "startLine": 1113
+        },
+        {
+          "endLine": 1126,
+          "graphKind": "method",
+          "name": "Consume",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "no-decision",
+          "startLine": 1123
+        },
+        {
+          "endLine": 1131,
+          "graphKind": "method",
+          "name": "Cancel",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "no-decision",
+          "startLine": 1128
+        },
+        {
+          "endLine": 1136,
+          "graphKind": "method",
+          "name": "Reject",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "no-decision",
+          "startLine": 1133
+        },
+        {
+          "endLine": 1146,
+          "graphKind": "method",
+          "name": "Consume",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "no-decision",
+          "startLine": 1143
+        },
+        {
+          "endLine": 1151,
+          "graphKind": "method",
+          "name": "Cancel",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "no-decision",
+          "startLine": 1148
+        },
+        {
+          "endLine": 1156,
+          "graphKind": "method",
+          "name": "Reject",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "no-decision",
+          "startLine": 1153
+        },
+        {
+          "endLine": 1174,
+          "graphKind": "method",
+          "name": "Consume",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "decision",
+          "startLine": 1163
+        },
+        {
+          "endLine": 1179,
+          "graphKind": "method",
+          "name": "Cancel",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "no-decision",
+          "startLine": 1176
+        },
+        {
+          "endLine": 1184,
+          "graphKind": "method",
+          "name": "Reject",
+          "path": "wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+          "probe": "no-decision",
+          "startLine": 1181
+        },
+        {
+          "endLine": 23,
+          "graphKind": "function",
+          "name": "RemoveDuplicateElement",
+          "path": "wcp-service-v2/internal/handlers/leave/dcrt_recipient.go",
+          "probe": "decision",
+          "startLine": 13
+        },
+        {
+          "endLine": 34,
+          "graphKind": "method",
+          "name": "Recipients",
+          "path": "wcp-service-v2/internal/handlers/leave/dcrt_recipient.go",
+          "probe": "no-decision",
+          "startLine": 30
+        },
+        {
+          "endLine": 60,
+          "graphKind": "method",
+          "name": "Recipients",
+          "path": "wcp-service-v2/internal/handlers/leave/dcrt_recipient.go",
+          "probe": "decision",
+          "startLine": 42
+        },
+        {
+          "endLine": 91,
+          "graphKind": "method",
+          "name": "Recipients",
+          "path": "wcp-service-v2/internal/handlers/leave/dcrt_recipient.go",
+          "probe": "decision",
+          "startLine": 68
+        },
+        {
+          "endLine": 114,
+          "graphKind": "method",
+          "name": "Recipients",
+          "path": "wcp-service-v2/internal/handlers/leave/dcrt_recipient.go",
+          "probe": "decision",
+          "startLine": 99
+        },
+        {
+          "endLine": 140,
+          "graphKind": "method",
+          "name": "Recipients",
+          "path": "wcp-service-v2/internal/handlers/leave/dcrt_recipient.go",
+          "probe": "decision",
+          "startLine": 122
+        },
+        {
+          "endLine": 66,
+          "graphKind": "method",
+          "name": "AfterFind",
+          "path": "wcp-service-v2/internal/handlers/leave/dto.go",
+          "probe": "decision",
+          "startLine": 56
+        },
+        {
+          "endLine": 109,
+          "graphKind": "method",
+          "name": "AfterFind",
+          "path": "wcp-service-v2/internal/handlers/leave/dto.go",
+          "probe": "decision",
+          "startLine": 99
+        },
+        {
+          "endLine": 32,
+          "graphKind": "method",
+          "name": "TableName",
+          "path": "wcp-service-v2/internal/handlers/leave/leave.go",
+          "probe": "no-decision",
+          "startLine": 30
+        },
+        {
+          "endLine": 50,
+          "graphKind": "method",
+          "name": "TableName",
+          "path": "wcp-service-v2/internal/handlers/leave/leave.go",
+          "probe": "no-decision",
+          "startLine": 48
+        },
+        {
+          "endLine": 68,
+          "graphKind": "method",
+          "name": "TableName",
+          "path": "wcp-service-v2/internal/handlers/leave/leave.go",
+          "probe": "no-decision",
+          "startLine": 66
+        },
+        {
+          "endLine": 102,
+          "graphKind": "method",
+          "name": "TableName",
+          "path": "wcp-service-v2/internal/handlers/leave/leave.go",
+          "probe": "no-decision",
+          "startLine": 100
+        },
+        {
+          "endLine": 117,
+          "graphKind": "method",
+          "name": "TableName",
+          "path": "wcp-service-v2/internal/handlers/leave/leave.go",
+          "probe": "no-decision",
+          "startLine": 115
+        },
+        {
+          "endLine": 28,
+          "graphKind": "function",
+          "name": "getLeaveLink",
+          "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+          "probe": "decision",
+          "startLine": 22
+        },
+        {
+          "endLine": 69,
+          "graphKind": "function",
+          "name": "genMobileComposite",
+          "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+          "probe": "no-decision",
+          "startLine": 30
+        },
+        {
+          "endLine": 134,
+          "graphKind": "method",
+          "name": "subject",
+          "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+          "probe": "decision",
+          "startLine": 88
+        },
+        {
+          "endLine": 166,
+          "graphKind": "method",
+          "name": "BuildCpst",
+          "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+          "probe": "decision",
+          "startLine": 137
+        },
+        {
+          "endLine": 181,
+          "graphKind": "method",
+          "name": "BuildCpntEmail",
+          "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+          "probe": "decision",
+          "startLine": 169
+        },
+        {
+          "endLine": 238,
+          "graphKind": "method",
+          "name": "handleSES",
+          "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+          "probe": "decision",
+          "startLine": 183
+        },
+        {
+          "endLine": 248,
+          "graphKind": "method",
+          "name": "BuildCpntMobile",
+          "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+          "probe": "no-decision",
+          "startLine": 241
+        },
+        {
+          "endLine": 324,
+          "graphKind": "method",
+          "name": "subject",
+          "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+          "probe": "decision",
+          "startLine": 264
+        },
+        {
+          "endLine": 356,
+          "graphKind": "method",
+          "name": "BuildCpst",
+          "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+          "probe": "decision",
+          "startLine": 327
+        },
+        {
+          "endLine": 371,
+          "graphKind": "method",
+          "name": "BuildCpntEmail",
+          "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+          "probe": "decision",
+          "startLine": 359
+        },
+        {
+          "endLine": 442,
+          "graphKind": "method",
+          "name": "handleSES",
+          "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+          "probe": "decision",
+          "startLine": 373
+        },
+        {
+          "endLine": 451,
+          "graphKind": "method",
+          "name": "BuildCpntMobile",
+          "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+          "probe": "no-decision",
+          "startLine": 445
+        },
+        {
+          "endLine": 527,
+          "graphKind": "method",
+          "name": "subject",
+          "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+          "probe": "decision",
+          "startLine": 467
+        },
+        {
+          "endLine": 559,
+          "graphKind": "method",
+          "name": "BuildCpst",
+          "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+          "probe": "decision",
+          "startLine": 530
+        },
+        {
+          "endLine": 574,
+          "graphKind": "method",
+          "name": "BuildCpntEmail",
+          "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+          "probe": "decision",
+          "startLine": 562
+        },
+        {
+          "endLine": 650,
+          "graphKind": "method",
+          "name": "handleSES",
+          "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+          "probe": "decision",
+          "startLine": 576
+        },
+        {
+          "endLine": 659,
+          "graphKind": "method",
+          "name": "BuildCpntMobile",
+          "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+          "probe": "no-decision",
+          "startLine": 653
+        },
+        {
+          "endLine": 738,
+          "graphKind": "method",
+          "name": "subject",
+          "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+          "probe": "decision",
+          "startLine": 674
+        },
+        {
+          "endLine": 770,
+          "graphKind": "method",
+          "name": "BuildCpst",
+          "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+          "probe": "decision",
+          "startLine": 741
+        },
+        {
+          "endLine": 785,
+          "graphKind": "method",
+          "name": "BuildCpntEmail",
+          "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+          "probe": "decision",
+          "startLine": 773
+        },
+        {
+          "endLine": 873,
+          "graphKind": "method",
+          "name": "handleSES",
+          "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+          "probe": "decision",
+          "startLine": 787
+        },
+        {
+          "endLine": 882,
+          "graphKind": "method",
+          "name": "BuildCpntMobile",
+          "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+          "probe": "no-decision",
+          "startLine": 876
+        },
+        {
+          "endLine": 955,
+          "graphKind": "method",
+          "name": "subject",
+          "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+          "probe": "decision",
+          "startLine": 898
+        },
+        {
+          "endLine": 987,
+          "graphKind": "method",
+          "name": "BuildCpst",
+          "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+          "probe": "decision",
+          "startLine": 958
+        },
+        {
+          "endLine": 1002,
+          "graphKind": "method",
+          "name": "BuildCpntEmail",
+          "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+          "probe": "decision",
+          "startLine": 990
+        },
+        {
+          "endLine": 1091,
+          "graphKind": "method",
+          "name": "handleSES",
+          "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+          "probe": "decision",
+          "startLine": 1004
+        },
+        {
+          "endLine": 1107,
+          "graphKind": "method",
+          "name": "BuildCpntMobile",
+          "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+          "probe": "decision",
+          "startLine": 1094
+        },
+        {
+          "endLine": 1229,
+          "graphKind": "method",
+          "name": "subject",
+          "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+          "probe": "decision",
+          "startLine": 1122
+        },
+        {
+          "endLine": 1261,
+          "graphKind": "method",
+          "name": "BuildCpst",
+          "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+          "probe": "decision",
+          "startLine": 1232
+        },
+        {
+          "endLine": 1277,
+          "graphKind": "method",
+          "name": "BuildCpntEmail",
+          "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+          "probe": "decision",
+          "startLine": 1264
+        },
+        {
+          "endLine": 1485,
+          "graphKind": "method",
+          "name": "handleSES",
+          "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+          "probe": "decision",
+          "startLine": 1279
+        },
+        {
+          "endLine": 1508,
+          "graphKind": "method",
+          "name": "BuildCpntMobile",
+          "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+          "probe": "decision",
+          "startLine": 1488
+        },
+        {
+          "endLine": 1582,
+          "graphKind": "method",
+          "name": "subject",
+          "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+          "probe": "decision",
+          "startLine": 1521
+        },
+        {
+          "endLine": 1614,
+          "graphKind": "method",
+          "name": "BuildCpst",
+          "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+          "probe": "decision",
+          "startLine": 1585
+        },
+        {
+          "endLine": 1644,
+          "graphKind": "method",
+          "name": "BuildCpntEmail",
+          "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+          "probe": "decision",
+          "startLine": 1617
+        },
+        {
+          "endLine": 1727,
+          "graphKind": "method",
+          "name": "handleSES",
+          "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+          "probe": "decision",
+          "startLine": 1646
+        },
+        {
+          "endLine": 1741,
+          "graphKind": "method",
+          "name": "BuildCpntMobile",
+          "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+          "probe": "decision",
+          "startLine": 1730
+        },
+        {
+          "endLine": 1753,
+          "graphKind": "method",
+          "name": "AddExecutor",
+          "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+          "probe": "no-decision",
+          "startLine": 1751
+        },
+        {
+          "endLine": 1763,
+          "graphKind": "method",
+          "name": "Execute",
+          "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+          "probe": "decision",
+          "startLine": 1755
+        },
+        {
+          "endLine": 1782,
+          "graphKind": "method",
+          "name": "BuildCpst",
+          "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+          "probe": "decision",
+          "startLine": 1765
+        },
+        {
+          "endLine": 1806,
+          "graphKind": "method",
+          "name": "HandleComponents",
+          "path": "wcp-service-v2/internal/handlers/leave/notification.go",
+          "probe": "no-decision",
+          "startLine": 1784
+        },
+        {
+          "endLine": 16,
+          "graphKind": "function",
+          "name": "init",
+          "path": "wcp-service-v2/internal/handlers/leave/router.go",
+          "probe": "no-decision",
+          "startLine": 14
+        },
+        {
+          "endLine": 37,
+          "graphKind": "function",
+          "name": "Creation",
+          "path": "wcp-service-v2/internal/handlers/leave/router.go",
+          "probe": "decision",
+          "startLine": 30
+        },
+        {
+          "endLine": 55,
+          "graphKind": "function",
+          "name": "Demand",
+          "path": "wcp-service-v2/internal/handlers/leave/router.go",
+          "probe": "decision",
+          "startLine": 48
+        },
+        {
+          "endLine": 78,
+          "graphKind": "function",
+          "name": "Approve",
+          "path": "wcp-service-v2/internal/handlers/leave/router.go",
+          "probe": "decision",
+          "startLine": 66
+        },
+        {
+          "endLine": 101,
+          "graphKind": "function",
+          "name": "Reject",
+          "path": "wcp-service-v2/internal/handlers/leave/router.go",
+          "probe": "decision",
+          "startLine": 89
+        },
+        {
+          "endLine": 129,
+          "graphKind": "function",
+          "name": "Between",
+          "path": "wcp-service-v2/internal/handlers/leave/router.go",
+          "probe": "decision",
+          "startLine": 104
+        },
+        {
+          "endLine": 147,
+          "graphKind": "function",
+          "name": "Pagination",
+          "path": "wcp-service-v2/internal/handlers/leave/router.go",
+          "probe": "decision",
+          "startLine": 140
+        },
+        {
+          "endLine": 154,
+          "graphKind": "function",
+          "name": "deftPgRepr",
+          "path": "wcp-service-v2/internal/handlers/leave/router.go",
+          "probe": "no-decision",
+          "startLine": 149
+        },
+        {
+          "endLine": 172,
+          "graphKind": "function",
+          "name": "OwnPagination",
+          "path": "wcp-service-v2/internal/handlers/leave/router.go",
+          "probe": "decision",
+          "startLine": 165
+        },
+        {
+          "endLine": 179,
+          "graphKind": "function",
+          "name": "deftOwnPgRepr",
+          "path": "wcp-service-v2/internal/handlers/leave/router.go",
+          "probe": "no-decision",
+          "startLine": 174
+        },
+        {
+          "endLine": 204,
+          "graphKind": "function",
+          "name": "DeletionApplication",
+          "path": "wcp-service-v2/internal/handlers/leave/router.go",
+          "probe": "decision",
+          "startLine": 192
+        },
+        {
+          "endLine": 229,
+          "graphKind": "function",
+          "name": "Deletion",
+          "path": "wcp-service-v2/internal/handlers/leave/router.go",
+          "probe": "decision",
+          "startLine": 217
+        },
+        {
+          "endLine": 237,
+          "graphKind": "function",
+          "name": "SimpleForLogTime",
+          "path": "wcp-service-v2/internal/handlers/leave/router.go",
+          "probe": "decision",
+          "startLine": 231
+        },
+        {
+          "endLine": 245,
+          "graphKind": "function",
+          "name": "Export",
+          "path": "wcp-service-v2/internal/handlers/leave/router.go",
+          "probe": "decision",
+          "startLine": 239
+        },
+        {
+          "endLine": 253,
+          "graphKind": "function",
+          "name": "ApproveLeavePrompt",
+          "path": "wcp-service-v2/internal/handlers/leave/router.go",
+          "probe": "decision",
+          "startLine": 247
+        },
+        {
+          "endLine": 261,
+          "graphKind": "function",
+          "name": "ApplyLeavePrompt",
+          "path": "wcp-service-v2/internal/handlers/leave/router.go",
+          "probe": "decision",
+          "startLine": 255
+        },
+        {
+          "endLine": 265,
+          "graphKind": "function",
+          "name": "GetUserRemainFullySickLeave",
+          "path": "wcp-service-v2/internal/handlers/leave/router.go",
+          "probe": "no-decision",
+          "startLine": 263
+        },
+        {
+          "endLine": 53,
+          "graphKind": "function",
+          "name": "NewLvService",
+          "path": "wcp-service-v2/internal/handlers/leave/service.go",
+          "probe": "decision",
+          "startLine": 48
+        },
+        {
+          "endLine": 133,
+          "graphKind": "method",
+          "name": "Creation",
+          "path": "wcp-service-v2/internal/handlers/leave/service.go",
+          "probe": "decision",
+          "startLine": 56
+        },
+        {
+          "endLine": 274,
+          "graphKind": "method",
+          "name": "Demand",
+          "path": "wcp-service-v2/internal/handlers/leave/service.go",
+          "probe": "decision",
+          "startLine": 136
+        },
+        {
+          "endLine": 359,
+          "graphKind": "function",
+          "name": "queryLeaveEssInfo",
+          "path": "wcp-service-v2/internal/handlers/leave/service.go",
+          "probe": "decision",
+          "startLine": 276
+        },
+        {
+          "endLine": 739,
+          "graphKind": "method",
+          "name": "Approve",
+          "path": "wcp-service-v2/internal/handlers/leave/service.go",
+          "probe": "decision",
+          "startLine": 362
+        },
+        {
+          "endLine": 753,
+          "graphKind": "function",
+          "name": "updateLvStatus",
+          "path": "wcp-service-v2/internal/handlers/leave/service.go",
+          "probe": "decision",
+          "startLine": 741
+        },
+        {
+          "endLine": 774,
+          "graphKind": "function",
+          "name": "updateAddAprvRecords",
+          "path": "wcp-service-v2/internal/handlers/leave/service.go",
+          "probe": "decision",
+          "startLine": 755
+        },
+        {
+          "endLine": 790,
+          "graphKind": "function",
+          "name": "updateAprvStatus",
+          "path": "wcp-service-v2/internal/handlers/leave/service.go",
+          "probe": "decision",
+          "startLine": 776
+        },
+        {
+          "endLine": 807,
+          "graphKind": "function",
+          "name": "addAprvRecord",
+          "path": "wcp-service-v2/internal/handlers/leave/service.go",
+          "probe": "decision",
+          "startLine": 792
+        },
+        {
+          "endLine": 922,
+          "graphKind": "method",
+          "name": "Reject",
+          "path": "wcp-service-v2/internal/handlers/leave/service.go",
+          "probe": "decision",
+          "startLine": 810
+        },
+        {
+          "endLine": 953,
+          "graphKind": "method",
+          "name": "Between",
+          "path": "wcp-service-v2/internal/handlers/leave/service.go",
+          "probe": "decision",
+          "startLine": 925
+        },
+        {
+          "endLine": 1151,
+          "graphKind": "method",
+          "name": "Pagination",
+          "path": "wcp-service-v2/internal/handlers/leave/service.go",
+          "probe": "decision",
+          "startLine": 956
+        },
+        {
+          "endLine": 1222,
+          "graphKind": "method",
+          "name": "OwnPagination",
+          "path": "wcp-service-v2/internal/handlers/leave/service.go",
+          "probe": "decision",
+          "startLine": 1154
+        },
+        {
+          "endLine": 1339,
+          "graphKind": "method",
+          "name": "DeletionApplication",
+          "path": "wcp-service-v2/internal/handlers/leave/service.go",
+          "probe": "decision",
+          "startLine": 1225
+        },
+        {
+          "endLine": 1393,
+          "graphKind": "method",
+          "name": "Deletion",
+          "path": "wcp-service-v2/internal/handlers/leave/service.go",
+          "probe": "decision",
+          "startLine": 1342
+        },
+        {
+          "endLine": 1450,
+          "graphKind": "method",
+          "name": "SimpleForLogTime",
+          "path": "wcp-service-v2/internal/handlers/leave/service.go",
+          "probe": "decision",
+          "startLine": 1395
+        },
+        {
+          "endLine": 1790,
+          "graphKind": "method",
+          "name": "Export",
+          "path": "wcp-service-v2/internal/handlers/leave/service.go",
+          "probe": "decision",
+          "startLine": 1452
+        },
+        {
+          "endLine": 1875,
+          "graphKind": "method",
+          "name": "ApproveLeavePrompt",
+          "path": "wcp-service-v2/internal/handlers/leave/service.go",
+          "probe": "decision",
+          "startLine": 1792
+        },
+        {
+          "endLine": 1901,
+          "graphKind": "method",
+          "name": "ApplyLeavePrompt",
+          "path": "wcp-service-v2/internal/handlers/leave/service.go",
+          "probe": "decision",
+          "startLine": 1877
+        },
+        {
+          "endLine": 1928,
+          "graphKind": "method",
+          "name": "GetUserRemainFullySickLeave",
+          "path": "wcp-service-v2/internal/handlers/leave/service.go",
+          "probe": "decision",
+          "startLine": 1903
+        },
+        {
+          "endLine": 39,
+          "graphKind": "function",
+          "name": "GetRemainsPTOMap",
+          "path": "wcp-service-v2/internal/handlers/leave/utils.go",
+          "probe": "decision",
+          "startLine": 15
+        },
+        {
+          "endLine": 52,
+          "graphKind": "function",
+          "name": "GetSelfHandLeaveIds",
+          "path": "wcp-service-v2/internal/handlers/leave/utils.go",
+          "probe": "decision",
+          "startLine": 41
+        },
+        {
+          "endLine": 94,
+          "graphKind": "function",
+          "name": "GetUserPaidSickLeaveExhaustionDateMap",
+          "path": "wcp-service-v2/internal/handlers/leave/utils.go",
+          "probe": "decision",
+          "startLine": 54
+        },
+        {
+          "endLine": 114,
+          "graphKind": "function",
+          "name": "GetSickLeaveHourInTheSelectedPeriod",
+          "path": "wcp-service-v2/internal/handlers/leave/utils.go",
+          "probe": "decision",
+          "startLine": 96
+        },
+        {
+          "endLine": 132,
+          "graphKind": "function",
+          "name": "GetInTheSelectedPeriodByYear",
+          "path": "wcp-service-v2/internal/handlers/leave/utils.go",
+          "probe": "decision",
+          "startLine": 116
+        },
+        {
+          "endLine": 160,
+          "graphKind": "function",
+          "name": "GetUserSickLeaveDis",
+          "path": "wcp-service-v2/internal/handlers/leave/utils.go",
+          "probe": "decision",
+          "startLine": 134
+        },
+        {
+          "endLine": 212,
+          "graphKind": "function",
+          "name": "GetUserTotalSickLeaveHourMap",
+          "path": "wcp-service-v2/internal/handlers/leave/utils.go",
+          "probe": "decision",
+          "startLine": 162
+        }
+      ]
+    }
+  ],
+  "graphAvailable": true,
+  "snapshotId": "e7b7fd1a3489390b9d48",
+  "version": "boundary-functions-v1",
+  "warnings": []
+}
