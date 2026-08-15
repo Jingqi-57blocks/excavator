@@ -60,6 +60,75 @@ test("every HTTP verb is read the same way, with or without type arguments", () 
   assert.deepEqual(callsIn(source).map((call) => call.method), ["GET", "POST", "PUT", "DELETE", "PATCH"]);
 });
 
+// Wrappers that do not change WHICH object is called are unwrapped, so these resolve rather than merely
+// being reported. Each of these was measured producing NOTHING AT ALL — no result, no unresolved entry, no
+// warning — because the tripwire shared the structural read's assumption that the client identifier is
+// immediately followed by `.`. Textual independence from the AST is not independence from a shared premise.
+test("wrappers around the receiver do not change which call this is", () => {
+  const url = "`${config.appRunnerApi}/v2/leaves/${id}`";
+  for (const source of [
+    `httpClient?.post(${url}, body);`,
+    `httpClient?.post<Foo>(${url}, body);`,
+    `httpClient!.post(${url}, body);`,
+    `(httpClient).post(${url}, body);`,
+    `(httpClient as HttpClient).post(${url}, body);`,
+    `(httpClient satisfies Client).post(${url}, body);`,
+  ]) {
+    const calls = callsIn(source);
+    assert.equal(calls.length, 1, source);
+    assert.equal(calls[0].unresolvedReason, undefined, source);
+    assert.equal(calls[0].routePath, "/v2/leaves/:p1", source);
+    assert.equal(calls[0].method, "POST", source);
+  }
+});
+
+// Wrappers that DO change which object is called are not unwrapped — resolving them would attribute a route
+// to a call whose first argument is not the URL. They must still be visible.
+test("an indirection through the function object is reported, never resolved", () => {
+  const url = "`${config.appRunnerApi}/v2/leaves`";
+  for (const source of [
+    `(0, httpClient.post)(${url}, body);`,
+    `httpClient.post.call(httpClient, ${url}, body);`,
+    `httpClient.post.apply(httpClient, [${url}, body]);`,
+    `httpClient.post.bind(httpClient)(${url}, body);`,
+  ]) {
+    const calls = callsIn(source);
+    assert.equal(calls.length, 1, source);
+    assert.equal(calls[0].unresolvedReason, "unparsed-shape", source);
+    assert.equal(calls[0].routePath, null, source);
+  }
+});
+
+// The tripwire counts rather than deduplicates: a structural hit for the first call must not silence the
+// report of a second one on the same line with the same verb.
+test("two calls of one verb on one line are both accounted for", () => {
+  const url = "`${config.appRunnerApi}/v2/leaves`";
+  const calls = callsIn(`httpClient.get(${url}); httpClient['get'](${url});`);
+  assert.equal(calls.length, 2);
+  assert.equal(calls.filter((call) => !call.unresolvedReason).length, 1, "the dotted one resolves");
+  assert.equal(calls.filter((call) => call.unresolvedReason === "unparsed-shape").length, 1, "the bracketed one is reported");
+});
+
+test("a verb name that is only a prefix of a longer member is not a call", () => {
+  assert.deepEqual(callsIn("const u = httpClient.getBaseUrl();"), [], "`getBaseUrl` is not `get`");
+});
+
+// The combination is what the tripwire's independence is FOR, and it is the only thing that requires it: a
+// receiver the structural read unwraps, reached through an access it cannot produce. With the receiver
+// wrapped, the verb is no longer adjacent to the client identifier — so a tripwire that kept the structural
+// read's adjacency premise would be blind here too, and the call would have no bucket at all.
+test("a wrapped receiver reached through an unreadable access is still reported", () => {
+  for (const source of [
+    "const c = (httpClient as App.HttpClient)['post'](`${config.appRunnerApi}/v2/leaves`, body);",
+    "const c = (httpClient!)['get'](`${config.appRunnerApi}/v2/leaves`);",
+    "const c = (httpClient as Client).post.call(httpClient, `${config.appRunnerApi}/v2/leaves`, body);",
+  ]) {
+    const calls = callsIn(source);
+    assert.ok(calls.length >= 1, `no bucket at all for: ${source}`);
+    assert.ok(calls.some((call) => call.unresolvedReason === "unparsed-shape"), `not reported: ${source}`);
+  }
+});
+
 // The invariant that makes silence impossible.
 test("a call shape the structural read cannot produce is reported, not dropped", () => {
   const calls = callsIn("const c = httpClient['post']('/api/leave/weird', body);");

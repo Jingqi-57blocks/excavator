@@ -683,12 +683,26 @@ function sourceWindowSummary(result: Record<string, unknown>): string {
   return notice ? `${head}\n${notice}` : head;
 }
 
-/** The summary plus the excerpt as actual lines, so recording a window also shows it. */
+/**
+ * The summary plus the excerpt as actual lines, so recording a window also shows it.
+ *
+ * Control characters are stripped (tab kept). The excerpt is target source that has been redacted for
+ * secrets but not for terminal control: writing it raw would let a file under investigation drive the
+ * operator's terminal through ANSI escapes. The JSON path escapes them; this path has to do it itself.
+ */
 function renderSourceWindow(result: Record<string, unknown>): string {
   const { evidence } = result as RecordedWindow;
   const start = evidence?.startLine ?? 1;
-  const body = (evidence?.content ?? "").split("\n").map((line, index) => `${String(start + index).padStart(5)}  ${line}`).join("\n");
+  const body = (evidence?.content ?? "")
+    .split("\n")
+    .map((line, index) => `${String(start + index).padStart(5)}  ${stripControl(line)}`)
+    .join("\n");
   return `${sourceWindowSummary(result)}\n\n${body}`;
+}
+
+/** Drop C0/C1 control characters and DEL, keeping tab — nothing in source needs them to be readable. */
+function stripControl(value: string): string {
+  return value.replace(/[\u0000-\u0008\u000B-\u001F\u007F-\u009F]/g, "");
 }
 
 /** Resolve which help entry a `<command> [subcommand] --help` invocation should print. */

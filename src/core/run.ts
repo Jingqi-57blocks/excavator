@@ -658,15 +658,21 @@ export async function addSourceEvidence(runDirInput: string, relativePath: strin
   // The two ways a request comes back short are NOT the same fact and must not share a message: the cap
   // leaves real code unread, while a short file leaves nothing unread at all. Saying "the cap truncated you"
   // when the file simply ended would be a false alarm, and false alarms are how true ones stop being read.
+  //
+  // Arithmetic alone cannot separate them: a file whose last line falls exactly on `start + 239` satisfies
+  // the cap test while having nothing after it, and that case was measured pointing a reader at a line that
+  // does not exist — then charging a window against the budget to find out. So the file's length is read
+  // (one extra read, only when the window came back short) and the two facts are told apart by evidence.
   const short = window.endLine < endLine;
-  const cappedAt = short && endLine - window.startLine + 1 > MAX_WINDOW_LINES && window.endLine === window.startLine + MAX_WINDOW_LINES - 1;
+  const totalLines = short ? await reader.lineCount(relativePath) : 0;
+  const cappedAt = short && window.endLine < totalLines;
   return {
     evidence: evidenceFromWindow(window),
     cacheHit: reader.stats.hits > 0,
     ...(cappedAt
-      ? { clamped: true, requestedEndLine: endLine, unreadFrom: window.endLine + 1, notice: `Only lines ${window.startLine}-${window.endLine} were recorded: one window holds at most ${MAX_WINDOW_LINES} lines. Line ${window.endLine + 1} onward (you asked through ${endLine}) is still unread — open another window if it carries behavior.` }
+      ? { clamped: true, requestedEndLine: endLine, unreadFrom: window.endLine + 1, unreadThrough: Math.min(endLine, totalLines), notice: `Only lines ${window.startLine}-${window.endLine} were recorded: one window holds at most ${MAX_WINDOW_LINES} lines. Lines ${window.endLine + 1}-${Math.min(endLine, totalLines)} are still unread — open another window if they carry behavior.` }
       : short
-        ? { requestedEndLine: endLine, notice: `The file ends at line ${window.endLine}; lines ${window.endLine + 1}-${endLine} do not exist, so nothing is left unread here.` }
+        ? { requestedEndLine: endLine, notice: `The file ends at line ${totalLines}; lines ${window.endLine + 1}-${endLine} do not exist, so nothing is left unread here.` }
         : {}),
   };
 }

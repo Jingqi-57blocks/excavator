@@ -263,6 +263,19 @@ Run：`.work/wcp-bf72b0/runs/run-2026_08_15_21_40-请假管理-e7b7fd1a-5fbd4975
 - **freeze 失败时输出顺序误导**：findings 在前、完整 run.json 在后，`| tail` 只看到 JSON 会误判成功（退出码正确，脚本化无碍）。
 - 非缺陷观察：`--terms` 是字面子串匹配（`describe(` 命中 yup 的 `.describe()`），skill 值得加一句「选只在待证明对象中出现的词」。
 
+## 批次 57B-402（仪表诚实）评审产生（2026-08-15）
+
+**评审判定返工，两条 must-fix 都是构造出来实测的，且都击穿了我明确宣称过的性质**：
+
+- **第四态在一整族形态上复活**：我的绊线与结构判定**共享同一个相邻性假设**（client 标识符必须紧跟 `.` 或 `[`），所以 `client?.post`、`client!.post`、`(client).post`、`(client as X).post`、`client.post.call(…)` 一族**双网皆盲、零告警**。教训：**绊线的文本独立性只独立于 AST，不独立于共享前提**——设计绊线时必须逐条列出主实现的前提，并确认绊线一个都不共享。修法：结构侧解包接收者（`!`/括号/`as`/`satisfies`，但**不解包**改变被调对象的 `.call`/逗号表达式），绊线放弃相邻性。
+- **截断两情形在边界重合处互相冒充**：文件末尾恰好落在 `start+239` 时，纯算术判定无法区分，于是对**不存在的行**宣称「仍未读」，并让调用方白花一个窗口预算去发现。修法：短返回时读一次文件行数按证据判定（`SourceReader.lineCount`，不动 SourceWindow schema/缓存版本）。
+
+**保留的取舍（记档，非缺陷）**：绊线放弃相邻性后更宽松。实测噪声——真实 target（wcp-ui，744 文件）**0 条**；cebreo 2 条、openmrs 1 条，全部形如 `request.headers.get(...)`，来自探针里塞的过宽 client 名（真实 `discoverClients` 结构化识别客户端，不会把 `request` 当 client）；本仓 tests 目录 28 条，全是**字符串字面量里的示例代码**。**决定不加「排除属性链」的收窄**——那会重新引入「包裹的接收者 + 结构读不出的访问方式」这一类双盲形态，而评审自己定的原则是「过度报警可接受、假缺席才是失败」。字符串字面量与属性链是已知的有界代价。
+
+**范围外记录**：`source` 请求 `end < start`（如 100..50）会静默矫正为 100..100 且无任何提示。既有行为、非本片引入。
+
+**评审确认无需动作的两条**：gold 地板 395/355 的检出力与重钉前边界相同（appRunnerApi=321、performanceReviewMainApi=70 消失必跳闸；mainApi=26 等小 client 在余量之下——57B-399 已记的已知边界）；`crossrepo-links.json` 只在 prepare 时写入，不追溯改写归档 run，且 `eval crossrepo` 不校验 reason 枚举，旧工件（411/365，reason 仅 `no-route`）过新 gold 10/10、无地板告警。
+
 ## 批次 57B-401（阅读残差曝光）产生（2026-08-15）
 
 **`metrics.claims` 少算 5.8 倍（顺带查出的既有缺陷，范围外未修）**：真实 run 有 **472 条 claim**（12 个 section 文件），而 `metrics.claims` 记的是 **81**。根因在 `assurance-artifacts.ts` 的 `collectClaims`：它按 `claims.set(claim.id, claim)` 建 Map，而 **claim id 只在 section 内唯一**（`claim-1`…），跨 section 直接互相覆盖——实测 74 个 id 各出现 12 次。两个后果：① `metrics.claims` 是「最大单 section claim 数」而非总数，而 `eval compare` 正是拿这个数做跨 run 比较（`run-stats.ts` → `compare-runs.ts`），**用它判断切片好坏会被系统性误导**；② `auditTraces` 收到的是 `new Set(allClaims.keys())`（81 个 id），所以 trace 的 claimIds 校验**分不清是哪个 section 的同名 claim**——方向是变松而非误报。修法：Map 改按 `${documentId}#${sectionIndex}#${claim.id}` 键控，或让 claim id 全局唯一。**先确认 `eval compare` 的历史结论有没有被这个数误导过**，再改。

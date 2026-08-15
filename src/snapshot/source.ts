@@ -41,6 +41,19 @@ export class SourceReader {
     return { windows: this.windows, characters: this.characters, hits: this.hits };
   }
 
+  /**
+   * How many lines the file has. Exists so a caller can tell the two ways a window comes back short apart:
+   * the 240-line cap leaves real code unread, while a file that simply ended leaves nothing unread, and
+   * arithmetic alone cannot separate them when the file happens to end exactly at the cap. Reads the file
+   * without recording a window, so it charges nothing against the window budget.
+   */
+  async lineCount(relativePath: string): Promise<number> {
+    const normalized = relativePath.replaceAll("\\", "/").replace(/^\.\//, "");
+    const absolute = resolve(this.options.target, normalized);
+    if (!absolute.startsWith(`${resolve(this.options.target)}/`) && absolute !== resolve(this.options.target)) throw new Error(`Source path escapes target: ${relativePath}`);
+    return (await readFile(absolute, "utf8")).split(/\r?\n/).length;
+  }
+
   async window(relativePath: string, startLine: number, endLine: number, reason: string): Promise<SourceWindow> {
     const normalized = relativePath.replaceAll("\\", "/").replace(/^\.\//, "");
     const key = sha256(`${SOURCE_WINDOW_CACHE_VERSION}:${this.options.snapshotId}:${normalized}:${startLine}:${endLine}`);

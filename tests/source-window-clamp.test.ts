@@ -22,18 +22,25 @@ interface WindowResult {
   clamped?: boolean;
   requestedEndLine?: number;
   unreadFrom?: number;
+  unreadThrough?: number;
   notice?: string;
   evidence: { startLine: number; endLine: number; content: string };
 }
 
-async function runWithLongFile(): Promise<{ runDir: string; lines: number }> {
+/** `numbered(n)` writes an n-line file, so a test can say exactly where a file ends. */
+function numbered(lines: number, prefix: string): string {
+  return Array.from({ length: lines }, (_, index) => `export const ${prefix}${index} = ${index};`).join("\n");
+}
+
+async function runWithLongFile(extra: Record<string, number> = {}): Promise<{ runDir: string; target: string; lines: number }> {
   const target = await copyFixture("residual-target");
   const lines = 400;
-  await writeFile(join(target, "src/long.ts"), Array.from({ length: lines }, (_, index) => `export const L${index} = ${index};`).join("\n"));
+  await writeFile(join(target, "src/long.ts"), numbered(lines, "L"));
+  for (const [name, count] of Object.entries(extra)) await writeFile(join(target, `src/${name}`), numbered(count, "X"));
   const workdir = await tempDir();
   const request: ReportRequest = { target, workdir, language: "en-US", detailLevel: "standard", overviewAudiences: ["product"], features: [], budgets: BUDGETS };
   const { runDir } = await prepareRun(request);
-  return { runDir, lines };
+  return { runDir, target, lines };
 }
 
 test("a request past the cap says how much was recorded and where reading must resume", async () => {
@@ -66,6 +73,30 @@ test("a request the file satisfies exactly carries no notice at all", async () =
   assert.equal(result.clamped, undefined);
   assert.equal(result.notice, undefined, "a notice on every call is a notice nobody reads");
   assert.equal(result.evidence.endLine, 40);
+});
+
+// The case arithmetic alone cannot decide: the file's last line falls exactly where the cap would have cut,
+// so the cap test is satisfied while there is nothing after it. Measured before the fix, this pointed the
+// reader at a line that does not exist and then charged a window against the budget to find out.
+test("a file ending exactly at the cap is not reported as a cap truncation", async () => {
+  const { runDir } = await runWithLongFile({ "exact240.ts": MAX_WINDOW_LINES });
+  const result = await addSourceEvidence(runDir, "src/exact240.ts", 1, 500, "the file ends exactly at the cap") as unknown as WindowResult;
+
+  assert.equal(result.clamped, undefined, "the cap did not cut anything off — the file ended there");
+  assert.equal(result.unreadFrom, undefined, "there is no line 241 to point at");
+  assert.match(result.notice ?? "", /file ends at line 240/);
+  assert.doesNotMatch(result.notice ?? "", /still unread/);
+});
+
+test("the unread range a cap truncation names stops at the end of the file", async () => {
+  const { runDir } = await runWithLongFile({ "f300.ts": 300 });
+  const result = await addSourceEvidence(runDir, "src/f300.ts", 10, 400, "ask past the end, cap binds first") as unknown as WindowResult;
+
+  assert.equal(result.clamped, true);
+  assert.equal(result.evidence.endLine, 249);
+  assert.equal(result.unreadFrom, 250);
+  assert.equal(result.unreadThrough, 300, "not 400 — lines past the end are not unread, they are absent");
+  assert.match(result.notice ?? "", /Lines 250-300 are still unread/);
 });
 
 // The span that is exactly the cap is the off-by-one this pair exists to pin.

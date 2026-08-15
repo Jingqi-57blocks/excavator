@@ -137,11 +137,11 @@ export function extractFrontendCalls(path: string, source: string, clientNames: 
   // it: await, type arguments, parentheses, whatever wraps the call next year.
   const clients = new Set(clientNames);
   for (const node of findAllKind(root, "call_expression")) {
-    const callee = CALLEE_TAIL.exec(node.field?.("function")?.text()?.trim() ?? "");
-    if (!callee || !clients.has(callee[1])) continue;
+    const verb = calleeVerb(node.field?.("function")?.text()?.trim() ?? "", clients);
+    if (!verb) continue;
     const raw = firstArgument(node);
     if (!raw) continue;
-    calls.push(classify(path, raw, callee[2].toUpperCase(), lineOf(node), bindings));
+    calls.push(classify(path, raw, verb.toUpperCase(), lineOf(node), bindings));
   }
   // Whatever the structural matcher did not produce is reported, never dropped. Without this, a call shape
   // nobody anticipated has a FOURTH outcome besides resolved/ambiguous/unresolved: non-existence.
@@ -226,12 +226,24 @@ export function normaliseTemplatePath(rest: string): string | null {
  */
 function unmatchedCallSites(path: string, source: string, clientNames: string[], produced: FrontendCall[]): FrontendCall[] {
   if (!clientNames.length) return [];
-  const seen = new Set(produced.map((call) => `${call.line}:${call.method}`));
+  // Counted, not set-membership: `httpClient.get(a); httpClient['get'](b);` on one line is TWO call sites,
+  // and keying on line+method alone would let the structural hit for the first silence the report of the
+  // second. The tripwire reports the surplus it sees over what the structural read produced.
+  const structural = new Map<string, number>();
+  for (const call of produced) structural.set(`${call.line}:${call.method}`, (structural.get(`${call.line}:${call.method}`) ?? 0) + 1);
+
   const clients = clientNames.map(escapeForRegExp).join("|");
-  // Dotted and bracketed access both count. The extractor deliberately reads only the dotted form — a
-  // computed member is not something to guess at — so the bracketed one shows up here as a visible gap.
   const verbs = HTTP_METHODS.join("|");
-  const finder = new RegExp(`\\b(?:${clients})\\s*(?:\\.\\s*(${verbs})|\\[\\s*['"\`](${verbs})['"\`]\\s*\\])\\s*(?:<[^;{}()]*>)?\\s*\\(`, "g");
+  // NO ADJACENCY between the client and the verb. Requiring the identifier to be immediately followed by
+  // `.` or `[` is the very assumption the structural read makes, so sharing it made both nets blind to the
+  // same family — measured: `client?.post(…)`, `client!.post(…)`, `(client).post(…)`,
+  // `(client as X).post(…)`, `client.post.call(…)` produced nothing anywhere, with no warning. Textual
+  // independence from the AST is not independence from a shared premise.
+  //
+  // So: the client identifier appears, and an HTTP verb is accessed somewhere after it on the same line. The
+  // trailing `(` is not required either — `(0, client.post)(url)` never puts one after the verb. `\b` after
+  // the verb keeps `.getBaseUrl()` from reading as `get`.
+  const finder = new RegExp(`\\b(?:${clients})\\b[^;]*?(?:\\.\\s*(${verbs})\\b|\\[\\s*['"\`](${verbs})['"\`]\\s*\\])`, "g");
   const out: FrontendCall[] = [];
   const lines = source.split(/\r?\n/);
   for (let index = 0; index < lines.length; index += 1) {
@@ -239,13 +251,17 @@ function unmatchedCallSites(path: string, source: string, clientNames: string[],
     const trimmed = line.trim();
     if (trimmed.startsWith("//") || trimmed.startsWith("*")) continue;
     finder.lastIndex = 0;
+    const textual = new Map<string, number>();
     let match: RegExpExecArray | null;
     while ((match = finder.exec(line)) !== null) {
       const method = (match[1] ?? match[2]).toUpperCase();
-      const key = `${index + 1}:${method}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      out.push({ path, line: index + 1, method, baseIdentifier: null, baseKey: null, routePath: null, expression: trimmed.slice(0, 200), unresolvedReason: "unparsed-shape" });
+      textual.set(method, (textual.get(method) ?? 0) + 1);
+    }
+    for (const [method, count] of textual) {
+      const surplus = count - (structural.get(`${index + 1}:${method}`) ?? 0);
+      for (let extra = 0; extra < surplus; extra += 1) {
+        out.push({ path, line: index + 1, method, baseIdentifier: null, baseKey: null, routePath: null, expression: trimmed.slice(0, 200), unresolvedReason: "unparsed-shape" });
+      }
     }
   }
   return out;
@@ -255,12 +271,33 @@ function escapeForRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/** The HTTP verb the callee ends on, through an optional or non-null access as readily as a plain one. */
+const CALLEE_VERB = new RegExp(`[?!]?\\s*\\.\\s*(${HTTP_METHODS.join("|")})\\s*$`);
+
 /**
- * The callee's last two segments: the identifier the call is made on and the HTTP verb. Anchored at the end
- * so wrappers (`await`, `this.`, `api.client.`) do not change the answer, and so `client.get` is recognised
- * whether it stands alone or ends a longer member chain.
+ * Read a callee as `<receiver>.<verb>` and say whether the receiver is one of this scan's clients.
+ *
+ * The receiver is UNWRAPPED rather than matched: `httpClient`, `httpClient!`, `(httpClient)` and
+ * `(httpClient as HttpClient)` are the same object, and a matcher that only accepts the bare identifier
+ * reports the other three as unparsed — or, before the tripwire stopped sharing its adjacency assumption,
+ * did not report them at all. Wrappers that change WHICH object is called (a comma expression, `.call`) are
+ * deliberately NOT unwrapped: those are not this client's call and must not be resolved as one.
  */
-const CALLEE_TAIL = new RegExp(`([A-Za-z_$][A-Za-z0-9_$]*)\\s*\\.\\s*(${HTTP_METHODS.join("|")})\\s*$`);
+function calleeVerb(calleeText: string, clients: Set<string>): string | null {
+  const tail = CALLEE_VERB.exec(calleeText);
+  if (!tail) return null;
+  let receiver = calleeText.slice(0, tail.index).trim();
+  // Peel one layer at a time until stable: non-null assertions, type assertions, redundant parentheses.
+  for (let guard = 0; guard < 8; guard += 1) {
+    const before = receiver;
+    receiver = receiver.replace(/!+$/, "").trim();
+    receiver = receiver.replace(/\s+(?:as|satisfies)\s+[A-Za-z0-9_$.<>\[\]|&\s]+$/, "").trim();
+    if (receiver.startsWith("(") && receiver.endsWith(")")) receiver = receiver.slice(1, -1).trim();
+    if (receiver === before) break;
+  }
+  const identifier = /([A-Za-z_$][A-Za-z0-9_$]*)$/.exec(receiver);
+  return identifier && clients.has(identifier[1]) ? tail[1] : null;
+}
 
 /** The call's first argument, read from the argument list rather than a pattern capture. */
 function firstArgument(node: AstMatchLike): string {
