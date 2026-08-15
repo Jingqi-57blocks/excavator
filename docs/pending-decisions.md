@@ -263,6 +263,56 @@ Run：`.work/wcp-bf72b0/runs/run-2026_08_15_21_40-请假管理-e7b7fd1a-5fbd4975
 - **freeze 失败时输出顺序误导**：findings 在前、完整 run.json 在后，`| tail` 只看到 JSON 会误判成功（退出码正确，脚本化无碍）。
 - 非缺陷观察：`--terms` 是字面子串匹配（`describe(` 命中 yup 的 `.describe()`），skill 值得加一句「选只在待证明对象中出现的词」。
 
+## 外部项目调研裁定 · Graphify（2026-08-16，规划层裁定）
+
+用户提供 Graphify（github.com/Graphify-Labs/graphify，v8）+ 另一位开发者的分析，要求评估是否改方向。**裁定：不改序列。Graphify 是一面好镜子和一个便宜的对照臂，不是方向变更的理由。**
+
+### 一、事实核查（分析里四条未证实/矛盾，两条我自己也错了）
+
+官方材料**实有**：Leiden 社区检测、`--exclude-hubs 99`（p99 度数排除出 partitioning）、`--resolution` 可调、tree-sitter 本地抽取 37 语法、`--code-only` 完全离线无需 API key、Apache-2.0 + MIT 双许可、扁平节点 schema、`merge-graphs`/`check-update`/`update`/`query`/`path`/`explain`/`prs --conflicts`。
+
+分析里**未证实或与官方矛盾**：① `affected`/`graph_diff` **不在命令表中**（分析把它列为四大可借之一）；② 25% 再拆分 / cohesion 再拆 / super-hub majority-vote **均未文档化**；③ tsconfig paths / baseUrl / package exports / pnpm workspace **官方完全没提**（分析列为「非常值得研究」第二项）；④ 「每文件 SHA256 cache」无据——**但我说的 mtime 同样无据**，官方只写「re-extract only changed files」，机制根本没写。**这条是我把未证实的说法当事实转述，记为测量纪律的反例。**
+
+分析对我们的**硬错误**：称「Excavator 是 Node 22 + no runtime npm dependencies」——2026-08-13 起「零依赖绝对约束」已被**审计白名单**取代（现有四个运行时依赖）。它用这条过时前提论证「不要 embed、只做外部索引器」，**结论对但理由是死的**。
+
+### 二、核心裁定
+
+1. **不改序列**。三个实测桶（strong read-miss 48 / openedNotConsumed 34 / 未进账的 719 行分母洞）**没有一个是图拓扑问题**。用社区检测去「发现」`filesWithoutCandidates` 已经点名的文件是荒谬的。
+2. **真正有价值的只有一条架构洞察**：「Community 是长期结构、Feature Scope 是临时查询」。但它**没有开新问题**——`docs/investigation-engine.md` §九-4 早已预注册重启条件（「模块树在 ≥2 个真实目标上作为分母来源的 gold 漏报率实测低于 feature scope」）。Graphify 只是给同一槽位添了第二个候选。
+3. **一条我没想到的不对称性（规划层补充）**：**分母的确定性是硬门，召回只是比较项**——「你没碰模块 X」可执行，「你没碰 Community 7」不可执行。即使聚类赢了召回，若分区不能确定复现，也只配「用确定性手段复刻其拓扑思想」，不配接入工具。
+4. **不采纳 Semantic Graph**（§九-1 重启条件未触及）。且分析**内在矛盾**：一边把「Graphify 的图太扁平、没有语义层」列为不要照搬的第一条，一边拿它的存在提议我们建本体。**一个自身没有语义层的工具，不能构成「实测需要语义层」的任何证据。** 新信息可以重开已裁定问题，但必须与该问题相关。
+5. **只做 optional external index builder**，走**外部工具阶梯**（Benchmark Candidate → Experimental → Supported）而非 npm 白名单五条——它是 Python 工具，白名单管不到。真正会疼的一条：**Python 传递依赖树比 CodeGraph 重得多，而 Excavator 跑在他人机密代码上**。永不消费 LLM 社区标签（零模型调用），永不消费其内部增量/缓存路径作审计输入（故 mtime 之争与任何决定无关）。
+
+### 三、三臂对照实验（预注册，离线零模型零 token，跑前钉死）
+
+**问题**：作为 S3 模块级分母来源，拓扑社区是否在边界召回上优于确定性模块树与现役 pruned-FG。
+
+**尺**：57B-370 的 boundary gold —— `eval/fixtures/wcp-leave/boundary-gold.json`（28 项 / 13 mustFind）+ `boundary-gold-frontend.json`（31 项 / 16 mustFind），**合计 59 项 / 29 mustFind**，测 FG 节点集边界。
+
+> **测量纪律（我这次混过一次，记档防再犯）**：57B-320 的 **84 项**是 **claim 层召回 gold**，与上面这把尺**不是一回事**，不可混用。
+
+**三臂**：A = 现役 pruned-FG（fixture 现成）；B = 确定性模块树近似（含种子文件的 module 下全部文件）；C = Graphify 社区（`--code-only --no-label`）。
+
+**社区选取规则（跑前钉死，禁止事后挑）**：取包含三个种子文件（`wcp-service-v2/internal/handlers/leave/service.go`、`wcp-ui/src/pages/leave/ApplyLeave.tsx`、v1 `routes/leave.js`）中至少一个的社区之并集；另记「仅含 service.go 的单社区」作对照变体。仅此两种。
+
+**指标**：mustFind 召回（主）+ **nodeCount/fileCount（同等重要——靠把边界吹大 3 倍换来的召回不是赢）** + T3「neither」桶 12 个已知难例的捕获（诊断）+ 双跑字节一致（硬门）。
+
+**判据**：**C 更好** = C 的 mustFind 比 A、B 都多 ≥3 项（约 10pp）且 fileCount ≤ 1.5×B 且分区确定性过关 → 开 Benchmark Candidate 线 + 启动第二目标（provital）；**B 更好或打平** = B ≥ C 或 C 确定性失格 → S3 照原案，Graphify 关闭归档；**问题不重要** = 三臂互差 ≤1 项 → S3 分母来源按最便宜的确定性方案定案。
+
+**前置终止条件**：先跑两遍 diff 产物，分区不确定且不可 seed → 实验直接终止，记「分母角色失格」。
+
+**排期**：**队列之外的 bench 测量，不占切片位**。零 token、读 fixture，与 403/404/405 零冲突可并行。硬约束只有一条：**S3 方案落笔前必须有结果**（它决定 S3 分母来源）。
+
+### 四、值得单独学的（分析没提到）
+
+- **`--exclude-hubs`（p99 度数预排除）**：我们的剪枝有桥信号方向性排 hub（57B-371），但**没有池级度数预过滤**。可在 `eval/prune-replay.ts` 离线试，churn 门照旧。诚实边界：治不了 application 别名污染（那是词项问题不是度数问题）。
+- **Aider RepoMap 的 PageRank + token-budget 排序**：与上一条同批离线试，共用 churn 门（我补充的候选）。
+- 反面教材两条（分析说对了）：watch/hook 的常青更新与我们的不可变 run + freeze 正面冲突；其 `path.split("/")[0]` 式 cross-repo 印证 SnapshotRoot 层不应退化。
+
+### 五、明确不做
+
+不改序列；不建语义层/本体；不 embed Python；不在 bench 出数据 + 有真实消费者前建 GraphifyProvider；不消费 LLM 标签；不依赖未文档化的 affected/graph_diff（Impact 线自建）；不做常青/watch 形态。
+
 ## 批次 57B-402（仪表诚实）评审产生（2026-08-15）
 
 **评审判定返工，两条 must-fix 都是构造出来实测的，且都击穿了我明确宣称过的性质**：
@@ -280,7 +330,15 @@ Run：`.work/wcp-bf72b0/runs/run-2026_08_15_21_40-请假管理-e7b7fd1a-5fbd4975
 
 ## 批次 57B-401（阅读残差曝光）产生（2026-08-15）
 
-**`metrics.claims` 少算 5.8 倍（顺带查出的既有缺陷，范围外未修）**：真实 run 有 **472 条 claim**（12 个 section 文件），而 `metrics.claims` 记的是 **81**。根因在 `assurance-artifacts.ts` 的 `collectClaims`：它按 `claims.set(claim.id, claim)` 建 Map，而 **claim id 只在 section 内唯一**（`claim-1`…），跨 section 直接互相覆盖——实测 74 个 id 各出现 12 次。两个后果：① `metrics.claims` 是「最大单 section claim 数」而非总数，而 `eval compare` 正是拿这个数做跨 run 比较（`run-stats.ts` → `compare-runs.ts`），**用它判断切片好坏会被系统性误导**；② `auditTraces` 收到的是 `new Set(allClaims.keys())`（81 个 id），所以 trace 的 claimIds 校验**分不清是哪个 section 的同名 claim**——方向是变松而非误报。修法：Map 改按 `${documentId}#${sectionIndex}#${claim.id}` 键控，或让 claim id 全局唯一。**先确认 `eval compare` 的历史结论有没有被这个数误导过**，再改。
+**`metrics.claims` 少算 5.8 倍（顺带查出的既有缺陷，范围外未修）**：真实 run 有 **472 条 claim**（12 个 section 文件），而 `metrics.claims` 记的是 **81**。根因在 `assurance-artifacts.ts` 的 `collectClaims`：它按 `claims.set(claim.id, claim)` 建 Map，而 **claim id 只在 section 内唯一**（`claim-1`…），跨 section 直接互相覆盖——实测 74 个 id 各出现 12 次。两个后果：① `metrics.claims` 是「最大单 section claim 数」而非总数，而 `eval compare` 正是拿这个数做跨 run 比较（`run-stats.ts` → `compare-runs.ts`），**用它判断切片好坏会被系统性误导**；② `auditTraces` 收到的是 `new Set(allClaims.keys())`（81 个 id），所以 trace 的 claimIds 校验**分不清是哪个 section 的同名 claim**——方向是变松而非误报。修法：Map 改按 `${documentId}#${sectionIndex}#${claim.id}` 键控，或让 claim id 全局唯一。**前置核查已完成（2026-08-16，影响面为零，可直接修）**：
+
+- `eval/compare-runs.ts:164` —— **assessment 只对时间类指标断言，计数类恒为 `neutral`**（:44 有明文注释「improvement/regression is asserted ONLY for lower-is-better time metrics」）。所以工具**从未**用 claims 数下过「改善/退化」判定。
+- 但 `:165` 的 `notable` 对计数类在 `|pct| ≥ 25%` 时仍会点亮——**存在被高亮误导的通道**，只是没被走到。
+- 历史记录逐条查过：**没有任何一条结论出自 `eval compare`**。文档里的 472 / 560 全部是直接遍历 section 文件数出来的（`run-stats` 的口径从未进过结论）。
+
+**口径修正**：上文「最大单 section claim 数」不够准确。实测 `metrics.claims` = **distinct claim id 数**（两个真实 run 分别 81 / 92），在 `claim-1..claim-N` 这种顺序命名下**恰好**等于最大 section 的 claim 数——两者相等是命名方案的巧合，不是定义。
+
+结论：57B-405 可以直接修键控，**不需要回溯重审任何已下的切片结论**。
 
 **从 `read-residual.json` 读 `kind` 会静默降级（测量纪律，已在代码里钉住）**：S1.5 为保住旧 run 字节恒等，让 `ReadCoverageItem.kind` **只在标注过的 run 上输出**。于是对未标注的 run，从残差读 `kind` 得到的 strong 分区是 anchor-only 的**降级读数**——实测同一个 run 上 84/24 vs 正确的 99/25。正确口径是**从冻结的 `read-obligations.json` 取 `kind`** 再按 id join（`read-residual-exposure.ts` 已按此实现并写明理由）。这与 57B-400 那次「临时脚本算出的数进了永久记录」是同型风险，故此处记档。
 
