@@ -193,6 +193,53 @@ V1 的读义务分母来自 fact pack `logic` 类目 = 保留 pruned-FG 节点�
 
 **候选下一片（V1.3，需先校准）**：扩到 ① 字符串/引号字面量比较 ② 非 C 家族算符（SQL `=`/`<>`、shell 测试算符、Perl `eq/ne/gt/lt`）③ 按语言分组的降噪词表。**必须先校准**：字符串字面量会引入新噪声类（日志文案、SQL 片段、URL、CSS 类名），不校准直接上会重犯字面量保真的错误。
 
+## 批次：S0–S2 落地后的首次真实撰写 run（2026-08-15，验收测量）
+
+Run：`.work/wcp-bf72b0/runs/run-2026_08_15_17_36-请假管理-e7b7fd1a-5fbd4975-be85c5d5`（12 章 / 472 claims / audit 0 error）。这是 S1、S2 落地后第一次读到完整漏斗账，以下按重要性排序。
+
+**账目**：义务 total 391 / counted 375（decision-function 177 · boundary-decision-function 212 · route-handler 2）；残差 covered 114 / partial 36 / **notOpened 225** / cannotDetermine 0；`openedNotConsumed` 冻结时 150 → 撰写后 13；条件 43 条中 consumed 42；audit 最终 0 error / 11 warning。
+
+### 一、S1 在 express 路由文件上失效（与「正则对 Perl 无效」同型）
+
+`boundary-functions.json` 的 `filesWithoutCandidates` 里有 **`wcp-service/routes/leave.js`（897 行）** 与 `report.js`——v1 遗留请假实现最核心的两个文件。CodeGraph 不把 `module.exports = passport => { router.post(..., wrapAsync(async (req,res)=>{...})) }` 暴露为函数节点，所以第二来源对它们**贡献 0 项**；加上第一来源也只有 **1 条**义务。v1 的创建校验、审批授权、`hours > 8`、`holiday_type === 2` 全部落在分母之外。同目录的 `services/*.js` 都有候选，所以这是 express 路由文件那个形状特有的盲区。
+
+S1 声称枚举「边界文件内全部决策函数」，在这个文件形状上是**静默的零产出**。机制本身诚实（`filesWithoutCandidates` 如实记了），但没人看，直到这次真实 run 才暴露。
+
+**修法（便宜且现成）**：S2 的 `recoverExpressRoutes` 已经解析出这些文件里每一条 `router.post('/x', handler)` 注册，内联闭包就是决策函数、span 可得。接成又一条义务来源即可闭合。
+
+### 二、分母口径混淆了 read-miss 的归因（对仪表本身的质疑）
+
+分母是「边界**文件**内全部决策函数」，不是「请假相关决策函数」。169 项 S1 新增的 not-opened 里，相当一部分是 `management/service.go`(47)、`management/utils.go`(27)、`management/export.go`(20) 这类**只是碰巧与请假代码同文件/同目录**的方法。
+
+后果：`not-opened` 把「该读没读」与「在边界文件里但与本 feature 无关」混在一起，**S1 那 20% 的覆盖率不代表 80% 的漏读**。漏斗的 read-miss 桶因此不能直接当切片决策依据。要么给义务加相关性维度，要么在读数里把两者分列。**这条是对我们自己仪表的质疑，优先级高于继续加来源。**
+
+### 三、条件清单诱导「为指标而写」的垃圾句（Goodhart 现场）
+
+13 个字符串条件里有 3 个是 **UI 事件回调的协议值**：`info.type === "change"`（表单事件）、`action === "next"`（点下一条）、`file.status === "error"`（上传失败）。它们不是业务规则，但为了把 unaccounted 从 18 压到 1，作者**不得不**把这些字面量硬塞进句子（「按提交时的动作值是否为 `next` 决定跳到下一单」）——**这句话对读者价值接近零，是为指标写的**。
+
+这正是基准文档预言的形式闸门 Goodhart 迁移，第一次在真实撰写中被观察到。**修法**：对 UI 事件回调的字符串比较加过滤（与已有的空串守卫、`typeof` 守卫同类）。
+
+### 四、枚举族的单值族是噪声
+
+8 个族里 **7 个是单值族**（`{next}`、`{change}`、`{error}`、`{Submit Cancel Request}`、`{0}`）。单值族不构成「取值集合」，价值等同于单条条件。audit 的 family advisory 已按 `values.length > 1` 过滤，但 **packet 里仍全列**——口径不一致，一行修。
+
+真正有价值的那个族是 `toLower(item.name) ∈ {bto, pto, special leave}`——它让作者发现申请页对三种类型各做一次余额过滤而非统一逻辑，这条原本会漏。
+
+### 五、引擎与文档的口径差（逐条）
+
+- **`cannot-determine` 的 `settledBy` 字段未在 SKILL 中点名**：SKILL 只说「记录什么能解决它」，实现要求字段名 `settledBy`，freeze 因此报 error。
+- **rescued logic 的匹配规则与 writing-rules 冲突**：全量 audit 的 `report does not represent N rescued logic fact(s)` 要求正文出现**标识符名或 `path:line`**，而 writing-rules 明说「散文不必包含标识符」。证据块写的是 `path:start-end`，匹配不上。
+- **scoped audit 不刷新 coverage 工件**：`audit --run X --document Y` 只在 finding 文本里报真实值，磁盘上的 `condition-inventory.json` 仍是 freeze 时的数。
+- **本地化 marker 词表未文档化**：只有 `事实/验证/推断/不可得` 会被剥离，写 `已验证`/`无法获取` 会把 marker 词留在 claim 里。
+- **`--query` + `--regex` 疑似失效**：`search --query "func Test|describe\(" --regex` 返回 0，而 `--terms "func Test"` 返回 34。待查。
+- **工作项跨章链接易踩**：散文可跨章讲，但 claim 链接的 work item 必须回到其 pinned 章节，否则报 error。
+
+### 六、正面结论：跨仓链路的价值在它的反面
+
+20 条 claim 引用了 `XR-` 证据（28 个 distinct id）。但最有价值的不是链路本身，而是**没有链路**：365 条解析结果里落到 `wcp-service` 的 25 条**没有一条指向 `/leaves` 前缀**，这让「v1 遗留请假端点仍挂载但工作区内无调用方」从猜测变成可引证的**验证**级结论——纯靠读代码给不出来。
+
+`derived` 纪律被遵守：凡陈述 handler 行为处（`leave.Approve` 的 16/40 阈值、`Export` 的角色闸）都另开了 `S-*` 源码窗口，XR 只用于「谁调了谁」。
+
 ## 批次 57B-398（S2 跨仓链路）产生（2026-08-15）
 
 **57B-399 计数地板的诚实边界（评审构造并实测，本片明确不防）**：
