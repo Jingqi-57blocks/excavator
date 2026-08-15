@@ -197,6 +197,9 @@ V1 的读义务分母来自 fact pack `logic` 类目 = 保留 pruned-FG 节点�
 
 **评审记账（Fable 最终评审，判可合前的 should-fix）**：
 
+- **handler 解析率没有做成 floor（本片明确的非目标，附理由）**：它是 freeze 时才算出的数、且**按 feature 计**（实测 leave 特征下为 13），不同 feature 请求会让它剧烈变化，做成固定 floor 会脆到没人敢信。scan 层的三个数（calls/routes/linked）与 feature 无关，才适合当 floor。若要给 handler 解析率设 floor，正确修法是**把 handler 解析移进 scan 阶段**（它本就是链路的属性而非 feature 的属性），让工件自带 `handlersResolved/handlersTotal`——那是一次跨 prepare/freeze 的重构，单独一片。
+- **三处残余的访问/脱敏面（评审穷尽后列出，均低危不阻塞）**：① `crossrepo-scan.ts:90` 的 `readSource(join(moduleRoot, relative))`，`relative` 来自 codegraph db 而 db 可由 `--codegraph` 外部供给，路径无收口（同款前缀校验一行可修）；② `run.ts` 的 `readFile(join(target, aliasKey))`，`aliasKey` 来自 links 工件，而该工件在 prepare 与 freeze 之间尚未被 digest 钉住，篡改可导向任意读（仅进 alias 解析、不外泄内容）；③ `context/crossrepo-links.json` 与 CLI 输出工件仍带**原文** `expression`/`handlerExpression`——给 evidence 做脱敏的理由（持久产物 + URL 可携 token）对这两个文件同样成立。**口径应统一**：要么在 scan/artifact 边界统一脱敏，要么把「context/ 与 snapshot 同信任域」记为明示假设。
+
 - **freeze 时硬猜 CodeGraph db 路径且静默**：`routeHandlerDenominator` 按 `join(target, moduleId, ".codegraph", "codegraph.db")` 拼路径，catch 后静默。db 若建在 workdir 缓存（`resolveCodeGraphDatabase` 支持这种形态）或 `dir !== id` 的 target 上，**第三义务来源会无警告地归零**——方向诚实（少算义务）但违背本模块自己的 never-silent 纪律。修法：把 prepare 已有的 `codegraphModules` 路径穿透到 freeze，或至少 openIndex 失败时 push warning。
 - **闸门无计数地板**：`eval/crossrepo.ts` 只验 gold 10 条与 mustUnresolved。若 `discoverClients` 回归丢掉整个 client、或 `handler-resolve` 回归到 0，`summary.calls`/`routes`/handler 解析率塌方而 gold 幸存时闸门**仍绿**。修法：gold 文件里加 target 专属 floor（如 calls ≥ 380、routes ≥ 480、handler 解析率 ≥ 85%）。
 - **`linkId` 可碰撞**：只含 from 侧 `module:path:line:method`。同一行两个同方法不同 URL 的调用（如签入的 bundle）会撞 id → 重复 evidence id → audit error。修法：id 掺入 expression 摘要。

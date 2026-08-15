@@ -5,71 +5,159 @@
   "links": [
     {
       "id": "leave-create",
-      "from": { "path": "src/pages/leave/leave-service.ts", "line": 176, "method": "POST" },
-      "to": { "module": "wcp-service-v2", "route": "POST /v2/leaves", "handler": "leave.Creation" },
+      "from": {
+        "path": "src/pages/leave/leave-service.ts",
+        "line": 176,
+        "method": "POST"
+      },
+      "to": {
+        "module": "wcp-service-v2",
+        "route": "POST /v2/leaves",
+        "handler": "leave.Creation"
+      },
       "note": "pure literal path; the handler S1's denominator work was built around"
     },
     {
       "id": "leave-read",
-      "from": { "path": "src/pages/leave/leave-service.ts", "line": 157, "method": "GET" },
-      "to": { "module": "wcp-service-v2", "route": "GET /v2/leaves/:leave_id", "handler": "leave.Demand" },
+      "from": {
+        "path": "src/pages/leave/leave-service.ts",
+        "line": 157,
+        "method": "GET"
+      },
+      "to": {
+        "module": "wcp-service-v2",
+        "route": "GET /v2/leaves/:leave_id",
+        "handler": "leave.Demand"
+      },
       "note": "parameterised: the frontend template hole must align with the route parameter"
     },
     {
       "id": "leave-delete",
-      "from": { "path": "src/pages/leave/leave-service.ts", "line": 180, "method": "DELETE" },
-      "to": { "module": "wcp-service-v2", "route": "DELETE /v2/leaves/:leave_id", "handler": "leave.Deletion" },
+      "from": {
+        "path": "src/pages/leave/leave-service.ts",
+        "line": 180,
+        "method": "DELETE"
+      },
+      "to": {
+        "module": "wcp-service-v2",
+        "route": "DELETE /v2/leaves/:leave_id",
+        "handler": "leave.Deletion"
+      },
       "note": "same path as leave-read, different method — pins that the method participates in matching"
     },
     {
       "id": "leave-list",
-      "from": { "path": "src/pages/leave/leave-service.ts", "line": 16, "method": "GET" },
-      "to": { "module": "wcp-service-v2", "route": "GET /v2/leaves", "handler": "leave.Pagination" },
+      "from": {
+        "path": "src/pages/leave/leave-service.ts",
+        "line": 16,
+        "method": "GET"
+      },
+      "to": {
+        "module": "wcp-service-v2",
+        "route": "GET /v2/leaves",
+        "handler": "leave.Pagination"
+      },
       "note": "the collection route, distinct from the /me route below"
     },
     {
       "id": "leave-mine",
-      "from": { "path": "src/pages/leave/leave-service.ts", "line": 10, "method": "GET" },
-      "to": { "module": "wcp-service-v2", "route": "GET /v2/leaves/me", "handler": "leave.OwnPagination" },
+      "from": {
+        "path": "src/pages/leave/leave-service.ts",
+        "line": 10,
+        "method": "GET"
+      },
+      "to": {
+        "module": "wcp-service-v2",
+        "route": "GET /v2/leaves/me",
+        "handler": "leave.OwnPagination"
+      },
       "note": "PRECEDENCE: /v2/leaves/me and /v2/leaves/:leave_id both exist; a literal segment must win"
     },
     {
       "id": "express-projects",
-      "from": { "path": "src/api/account-service.ts", "line": 14, "method": "GET" },
-      "to": { "module": "wcp-service", "route": "GET /projects/me/work-projects" },
+      "from": {
+        "path": "src/api/account-service.ts",
+        "line": 14,
+        "method": "GET"
+      },
+      "to": {
+        "module": "wcp-service",
+        "route": "GET /projects/me/work-projects"
+      },
       "note": "express backend: the path exists only after the app.use mount prefix is composed; handler is inline, so none is pinned"
     },
     {
       "id": "express-worklogs",
-      "from": { "path": "src/api/dateApi.ts", "line": 9, "method": "GET" },
-      "to": { "module": "wcp-service", "route": "GET /worklogs/remain-hour" },
+      "from": {
+        "path": "src/api/dateApi.ts",
+        "line": 9,
+        "method": "GET"
+      },
+      "to": {
+        "module": "wcp-service",
+        "route": "GET /worklogs/remain-hour"
+      },
       "note": "second express target, different mount"
     },
     {
       "id": "review-position",
-      "from": { "path": "src/api/common-service.ts", "line": 165, "method": "GET" },
-      "to": { "module": "wcp_review_service", "route": "GET /v2/support/position/:position_id", "handler": "support.RequestByPosition" },
+      "from": {
+        "path": "src/api/common-service.ts",
+        "line": 165,
+        "method": "GET"
+      },
+      "to": {
+        "module": "wcp_review_service",
+        "route": "GET /v2/support/position/:position_id",
+        "handler": "support.RequestByPosition"
+      },
       "note": "a third backend module; also exercises the inline `${config.key}` base form"
     },
     {
       "id": "auth-gmail",
-      "from": { "path": "src/pages/auth/auth-service.ts", "line": 25, "method": "POST" },
-      "to": { "module": "wcp-auth", "route": "POST /oauth/token/gmail", "handler": "oauth.GMail" },
+      "from": {
+        "path": "src/pages/auth/auth-service.ts",
+        "line": 25,
+        "method": "POST"
+      },
+      "to": {
+        "module": "wcp-auth",
+        "route": "POST /oauth/token/gmail",
+        "handler": "oauth.GMail"
+      },
       "note": "fourth backend module"
     },
     {
       "id": "client-renamed-base",
-      "from": { "path": "src/api/clientApi.ts", "line": 137, "method": "GET" },
-      "to": { "module": "wcp-service-v2", "route": "GET /v2/employee/projects", "handler": "employee.ProjsInvoled" },
+      "from": {
+        "path": "src/api/clientApi.ts",
+        "line": 137,
+        "method": "GET"
+      },
+      "to": {
+        "module": "wcp-service-v2",
+        "route": "GET /v2/employee/projects",
+        "handler": "employee.ProjsInvoled"
+      },
       "note": "clientApi.ts renames its base (`clientMainApi: mainApi`); attributing bases by identifier name globally would send this call to the wrong backend"
     }
   ],
   "mustUnresolved": [
     {
       "id": "employee-patch-method-mismatch",
-      "from": { "path": "src/api/personalInformationApi.ts", "line": 158, "method": "PATCH" },
+      "from": {
+        "path": "src/api/personalInformationApi.ts",
+        "line": 158,
+        "method": "PATCH"
+      },
       "routePath": "/v2/employee/:p1/personal-information",
       "note": "REAL PRODUCT FINDING: the frontend sends PATCH; the backend registers only GET/PUT on this path. It must stay unresolved — a resolver that 'helpfully' matched it would hide a bug."
     }
-  ]
+  ],
+  "floors": {
+    "note": "Gold pins 10 links in 6 frontend files, but the target has 365 links across 32 files. A regression that silently drops a whole client — or a whole backend's route table — can leave every gold pair intact. These floors are what notices that. Values are the measured counts with ~7% headroom, so ordinary target churn does not trip them.",
+    "calls": 380,
+    "routes": 480,
+    "linked": 340
+  }
 }

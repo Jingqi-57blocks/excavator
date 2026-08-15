@@ -106,6 +106,45 @@ test("the review sample excludes gold, is bounded, and is the same every time", 
   }
 });
 
+// Gold pins ten links in six frontend files; the real target has hundreds across dozens. A regression that
+// drops a whole client — or a whole backend's route table — can leave every gold pair standing. Measured on
+// the real artifact: 365 links across 32 files, of which gold covers 6. The floors are what notices.
+test("a collapse that leaves gold intact still fails the gate", () => {
+  const gold = loadCrossRepoGold(GOLD);
+  assert.ok(gold.floors?.calls && gold.floors.routes && gold.floors.linked, "this target declares floors");
+
+  const path = withArtifact((artifact) => {
+    const summary = artifact.summary as Record<string, number>;
+    // Every gold pair survives; a whole client's calls do not.
+    summary.calls = 40;
+    summary.static = 30;
+  });
+  const report = buildCrossRepoReport(path, gold, 0);
+  assert.deepEqual(report.gold.filter((entry) => entry.status !== "found"), [], "gold is untouched — that is the point");
+  assert.ok(report.floorFailures.some((failure) => failure.startsWith("calls")), `expected a calls floor breach, got ${JSON.stringify(report.floorFailures)}`);
+  assert.ok(report.floorFailures.some((failure) => failure.startsWith("linked")));
+  assert.equal(crossRepoExitCode(report), 1);
+});
+
+test("a backend whose route table vanishes trips the routes floor", () => {
+  const path = withArtifact((artifact) => {
+    (artifact.summary as Record<string, number>).routes = 90;
+  });
+  const report = buildCrossRepoReport(path, loadCrossRepoGold(GOLD), 0);
+  assert.ok(report.floorFailures.some((failure) => failure.startsWith("routes")));
+  assert.equal(crossRepoExitCode(report), 1);
+});
+
+test("a gold file with no floors declared simply has no floor check", () => {
+  const goldPath = join(mkdtempSync(join(tmpdir(), "xr-gold-")), "gold.json");
+  const gold = JSON.parse(readFileSync(GOLD, "utf8")) as Record<string, unknown>;
+  delete gold.floors;
+  writeFileSync(goldPath, JSON.stringify(gold));
+  const report = buildCrossRepoReport(ARTIFACT, loadCrossRepoGold(goldPath), 0);
+  assert.deepEqual(report.floorFailures, []);
+  assert.equal(crossRepoExitCode(report), 0);
+});
+
 test("a gold file of the wrong version is rejected rather than half-read", () => {
   const path = join(mkdtempSync(join(tmpdir(), "xr-gold-")), "gold.json");
   writeFileSync(path, JSON.stringify({ version: "crossrepo-gold-v99", links: [] }));

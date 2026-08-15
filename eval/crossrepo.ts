@@ -36,6 +36,12 @@ export interface CrossRepoGold {
   target: string;
   links: CrossRepoGoldLink[];
   mustUnresolved: CrossRepoGoldUnresolved[];
+  /**
+   * Minimum counts this target must still produce. Gold pins ten links in six frontend files; the target
+   * has hundreds across dozens. A regression that drops a whole client, or a whole backend's route table,
+   * can leave every gold pair standing — these floors are what notices.
+   */
+  floors?: { calls?: number; routes?: number; linked?: number };
 }
 
 /** A gold call site is matched by file + method, with a small line tolerance so edits above it do not lie. */
@@ -50,7 +56,7 @@ export function loadCrossRepoGold(path: string): CrossRepoGold {
       throw new Error(`gold link ${String(link.id)} is missing a required field`);
     }
   }
-  return { version: parsed.version, target: parsed.target ?? "", links: parsed.links, mustUnresolved: parsed.mustUnresolved ?? [] };
+  return { version: parsed.version, target: parsed.target ?? "", links: parsed.links, mustUnresolved: parsed.mustUnresolved ?? [], floors: parsed.floors };
 }
 
 interface ArtifactLink {
@@ -89,6 +95,8 @@ export interface CrossRepoReport {
   mustUnresolved: UnresolvedResult[];
   /** Links whose two evidence records are not both present — a link nobody can check. */
   unboundLinks: string[];
+  /** Counts that fell below the target's floor: a collapse gold alone would not have noticed. */
+  floorFailures: string[];
   sample: Array<{ id: string; resolution: string; rule: string; from: string; to: string }>;
   summary: Record<string, number>;
 }
@@ -143,7 +151,15 @@ export function buildCrossRepoReport(artifactPath: string, gold: CrossRepoGold, 
       to: `${link.to.module} ${link.to.route} @${link.to.path}:${link.to.line}`,
     }));
 
-  return { artifactPath, gold: results, mustUnresolved: unresolvedResults, unboundLinks, sample, summary: artifact.summary };
+  const floorFailures: string[] = [];
+  const linked = (artifact.summary.static ?? 0) + (artifact.summary.framework ?? 0);
+  const observed: Record<string, number> = { calls: artifact.summary.calls ?? 0, routes: artifact.summary.routes ?? 0, linked };
+  for (const [name, floor] of Object.entries(gold.floors ?? {})) {
+    if (typeof floor !== "number" || !(name in observed)) continue;
+    if (observed[name] < floor) floorFailures.push(`${name} ${observed[name]} < floor ${floor}`);
+  }
+
+  return { artifactPath, gold: results, mustUnresolved: unresolvedResults, unboundLinks, floorFailures, sample, summary: artifact.summary };
 }
 
 /** Exit 1 on any gold miss, wrong target, silenced non-link, or unbound link — the honest-red contract. */
@@ -151,6 +167,7 @@ export function crossRepoExitCode(report: CrossRepoReport): number {
   if (report.gold.some((entry) => entry.status !== "found")) return 1;
   if (report.mustUnresolved.some((entry) => entry.status !== "still-unresolved")) return 1;
   if (report.unboundLinks.length) return 1;
+  if (report.floorFailures.length) return 1;
   return 0;
 }
 
@@ -172,6 +189,10 @@ export function renderCrossRepoReport(report: CrossRepoReport): string {
   if (report.unboundLinks.length) {
     lines.push(`  UNBOUND LINKS: ${report.unboundLinks.length} link(s) do not carry two evidence records`);
     for (const id of report.unboundLinks.slice(0, 5)) lines.push(`      ${id}`);
+  }
+
+  if (report.floorFailures.length) {
+    lines.push(`  FLOOR BREACHED: ${report.floorFailures.join("; ")} — gold can stay green while a whole client or backend disappears`);
   }
 
   if (report.sample.length) {
