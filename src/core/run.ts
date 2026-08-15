@@ -918,9 +918,6 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
     // Section claims live on disk from checkpoint, independent of assembly: read them regardless of
     // report existence so a checkpointed document is audited even when the run was never assembled.
     const featureFactEvidence = factPackEvidenceForDocument(document, manifest, evidenceById);
-    // Rescued-logic coverage advisory (document-level, warning-only): every rescued business/decision
-    // function should surface somewhere in the assembled report. Self-gated on a report and logic evidence.
-    if (reportText) findings.push(...auditRescuedLogicCoverage(document.id, reportText, featureFactEvidence));
     for (const section of document.sections) {
       if (!await exists(section.file)) {
         // A section marked complete must have its checkpointed file on disk (fail closed); a section
@@ -949,10 +946,30 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
         findings.push({ level: "error", document: document.id, message: `section ${section.index} contains supported claims but has no evidence block` });
       }
     }
+    // Rescued-logic coverage advisory (document-level, warning-only): every rescued business/decision
+    // function should be DISPOSED — by a claim naming its work item, which is the binding `writing-rules`
+    // promises, with a report-text match kept only as a fallback. Placed after the section loop because the
+    // claims it reads are collected there; running it before them is what left it with nothing but text.
+    if (reportText) {
+      const featureKey = manifest.request.features
+        .map((candidate) => featureCacheKey(candidate))
+        .find((key) => document.id === `feature-${key}-${document.audience}`) ?? "";
+      findings.push(...auditRescuedLogicCoverage(document.id, reportText, featureFactEvidence,
+        (claimsByDocument.get(document.id) ?? []).map((entry) => entry.claim), featureKey));
+    }
     if (!document.sections.every((section) => section.complete)) incompleteDocuments.push(document);
   }
 
-  findings.push(...auditTraces(traces, new Set(manifest.documents.map((document) => document.id)), evidenceIds, new Set(allClaims.keys())));
+  // A trace step cites a claim by its BARE id (`claim-3`), which is how an author writes it, so this check
+  // gets the bare ids — not the document+section keys the map is now built on. Keying the map that way is
+  // what makes `metrics.claims` a real total; feeding those composite keys to a check that compares against
+  // bare ids would turn every legitimate trace citation into "references missing claim id".
+  //
+  // The honest limitation, unchanged by either shape: bare ids are not unique across sections, so this can
+  // only verify that SOME section defines the id, never that the right one does. Recorded rather than
+  // tightened — narrowing it needs trace steps to carry the section, which is a contract change.
+  const claimIdsForTraces = new Set([...allClaims.values()].map((claim) => claim.id));
+  findings.push(...auditTraces(traces, new Set(manifest.documents.map((document) => document.id)), evidenceIds, claimIdsForTraces));
   // The forced logic-disposition work items derive from the on-disk fact packs, version-gated exactly like
   // prepare/freeze. The plan, its checklist mirror and this audit all expand from this one list, so the three
   // expected sets never disagree (a diverging set would false-flag `unexpected non-open` or `required missing`).

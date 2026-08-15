@@ -72,13 +72,23 @@ export function mergeTraces(existing: TraceCatalog, updates: TraceRecord[]): Tra
   return { ...existing, traces: [...byId.values()] };
 }
 
+/**
+ * Every claim in the run, keyed by document + section + claim id.
+ *
+ * A claim id is unique only WITHIN its section — sections number their claims `claim-1`, `claim-2`, … — so
+ * keying on the id alone silently collapses the whole run into one section's worth. Measured: a real run
+ * with 472 claims across 12 sections reported 81, because 74 ids appeared 12 times each. That number is
+ * `metrics.claims` and it feeds `eval compare`, so it was a 5.8x undercount sitting in the cross-run
+ * comparison. (Checked before fixing: no recorded conclusion ever came from it — `compare-runs.ts` asserts
+ * improvement/regression only for time metrics, and counts stay neutral.)
+ */
 export async function collectClaims(runDir: string, documents: DocumentPlan[]): Promise<Map<string, SectionClaim>> {
   const claims = new Map<string, SectionClaim>();
   for (const document of documents) {
     for (const section of document.sections) {
       if (!await exists(section.claimsFile)) continue;
       const file = await readJsonFile<SectionClaimsFile>(section.claimsFile);
-      for (const claim of file.claims) claims.set(claim.id, claim);
+      for (const claim of file.claims) claims.set(`${document.id}#${section.index}#${claim.id}`, claim);
     }
   }
   return claims;
