@@ -25,9 +25,13 @@
 
 import type { FactPackItem, FeatureFactPack, InvestigationWorkItem } from "../core/types.ts";
 import type { BoundaryFunctionsArtifact } from "../context/boundary-functions.ts";
+import { anchorHitFor, type AnchorHit } from "./relevance-annotation.ts";
 import { LOGIC_WORKITEM_DIMENSION } from "./logic-workitems.ts";
 
-export const READ_OBLIGATIONS_VERSION = "read-obligations-v1";
+// v2 adds `anchorHit`: a LABEL saying where the feature's own vocabulary was found, never a judgement about
+// whether an obligation counts. The denominator is unchanged — see relevance-annotation.ts for why filtering
+// on this signal would delete real misses.
+export const READ_OBLIGATIONS_VERSION = "read-obligations-v2";
 
 /** The assurance generation that introduced reading accountability (obligations, reconciliation, gates). */
 export const READ_ACCOUNTABILITY_ASSURANCE_GENERATION = 5;
@@ -68,7 +72,12 @@ export interface ReadObligation {
    *  while visibility must cover every decision function. */
   gated: boolean;
   workItemId?: string;
+  /** The route a `route-handler` obligation serves — vocabulary a Go symbol name may not carry. */
+  route?: string;
   excluded?: ObligationExclusion;
+  /** Where the feature's vocabulary was found. Absent means "nowhere", NOT "irrelevant" — measured, this
+   *  signal misses 23–28% of real misses, so it groups the reading and decides nothing. */
+  anchorHit?: AnchorHit;
 }
 
 export interface ReadObligationsArtifact {
@@ -86,6 +95,9 @@ export interface ReadObligationsArtifact {
     gated: number;
     /** Total lines of counted obligation span — the read budget this run is accountable for. */
     lines: number;
+    /** Where the feature's vocabulary was found, over counted obligations. Present only when anchor terms
+     *  were supplied, so a run without them stays byte-identical. */
+    anchor?: { name: number; path: number; none: number };
     /** Present only when a boundary artifact was supplied, so a run without one stays byte-identical. */
     secondSource?: {
       graphAvailable: boolean;
@@ -138,6 +150,7 @@ export function readObligations(
   workItems: InvestigationWorkItem[] = [],
   boundary?: BoundaryFunctionsArtifact | null,
   routeHandlers?: RouteHandlerObligation[] | null,
+  anchorTermsByFeature?: Record<string, string[]> | null,
 ): ReadObligationsArtifact {
   const gatedIds = new Set(
     workItems.filter((item) => item.dimension === LOGIC_WORKITEM_DIMENSION).map((item) => item.id),
@@ -165,6 +178,17 @@ export function readObligations(
     ? [...primary, ...(second?.added ?? []), ...(third?.added ?? [])].sort(byLocation)
     : primary;
 
+  // Annotate every obligation from every source with one rule, so the label means the same thing across
+  // the denominator regardless of which machine found the item.
+  if (anchorTermsByFeature) {
+    for (const obligation of obligations) {
+      const terms = anchorTermsByFeature[obligation.featureKey];
+      if (!terms?.length) continue;
+      const hit = anchorHitFor({ name: obligation.name, path: obligation.path, route: obligation.route }, terms);
+      if (hit) obligation.anchorHit = hit;
+    }
+  }
+
   const counted = obligations.filter((obligation) => !obligation.excluded);
   const summary: ReadObligationsArtifact["summary"] = {
     total: obligations.length,
@@ -175,6 +199,13 @@ export function readObligations(
     gated: counted.filter((o) => o.gated).length,
     lines: counted.reduce((total, o) => total + (o.lines ?? 0), 0),
   };
+  if (anchorTermsByFeature) {
+    summary.anchor = {
+      name: counted.filter((o) => o.anchorHit === "name").length,
+      path: counted.filter((o) => o.anchorHit === "path").length,
+      none: counted.filter((o) => !o.anchorHit).length,
+    };
+  }
   if (second) summary.secondSource = second.stats;
   if (third) summary.routeSource = third.stats;
   return { version: READ_OBLIGATIONS_VERSION, obligations, summary };
@@ -259,6 +290,7 @@ function routeSupplement(
       lines: handler.endLine - handler.startLine + 1,
       tier: 2,
       gated: false,
+      route: handler.route,
     });
   }
   added.sort(byLocation);
