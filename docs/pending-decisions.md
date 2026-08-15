@@ -263,6 +263,16 @@ Run：`.work/wcp-bf72b0/runs/run-2026_08_15_21_40-请假管理-e7b7fd1a-5fbd4975
 - **freeze 失败时输出顺序误导**：findings 在前、完整 run.json 在后，`| tail` 只看到 JSON 会误判成功（退出码正确，脚本化无碍）。
 - 非缺陷观察：`--terms` 是字面子串匹配（`describe(` 命中 yup 的 `.describe()`），skill 值得加一句「选只在待证明对象中出现的词」。
 
+## 批次 57B-404（条件清单 Goodhart 卫生）产生（2026-08-16）
+
+**过期记录已更正（跑前核实，避免「修一个已经对的东西」）**：57B-404 原文第 2 项说「packet 渲染与 audit 的 `values.length > 1` 口径不一致，8 个族里 7 个单值」。**实测两侧口径已经一致**——`authoring-packet.ts:338` 与 `condition-inventory.ts:299` 都是 `values.length > 1`（该记录写于某次修复之前，未同步）。**本片不动它**。真实 run 上是 15 个族、13 个单值、2 个多值。
+
+**范围切分（我的判断，非规划层裁定）**：57B-404 原有三项，第 1 项（协议值过滤）已完全校准可独立交付，第 3 项（诚实清零的排除通道）是**新的作者面机制**（新命令 + 新工件 + 审计接线），拆为 **57B-404b**。依据「每片独立可测可交付」。
+
+**协议值过滤的自校准（送评前预检，goal 硬性）**：把真实 run 的 28 条 UI 字符串比较全部列出人工判，规则「字符串比较 + 文件扩展 ∈ {tsx,jsx,vue} + LHS **末段精确等于** type/action/status」杀 7 放 21。**精确匹配是保护域规则的关键**：`leaveType === "bto"` 末段是 `leaveType` 不是 `type`，`info.name === "holiday_type"` 比较的是 `name`——两者都活。另**亲眼读了源码**确认那 7 条确是协议：`action === 'next'` 决定批准后 `goNext()` 还是 `refresh()`；`info.type === 'change'` 决定筛选变化时是否重置到第 1 页。
+
+**测试缺口（我自己的变异抓到，记为教训）**：packet 渲染条件有**两条路径**——section 块内（`renderConditions`）与末尾未归属块（`renderUnassignedConditions`）。我第一版测试只走了第二条，于是「删掉 section 块守卫」的变异**存活**。补测第一条后变红。**教训与 57B-402 同型：一个模块有几条输出路径，测试就得走几条，否则变异验证只是在验证我走过的那条。**
+
 ## 外部项目调研裁定 · Graphify（2026-08-16，规划层裁定）
 
 用户提供 Graphify（github.com/Graphify-Labs/graphify，v8）+ 另一位开发者的分析，要求评估是否改方向。**裁定：不改序列。Graphify 是一面好镜子和一个便宜的对照臂，不是方向变更的理由。**

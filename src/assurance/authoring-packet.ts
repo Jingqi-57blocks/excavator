@@ -317,7 +317,10 @@ function renderFactCategory(category: FactPackCategory, coverage: FactPackCovera
 function renderConditions(block: PacketSection, conditions: ConditionInventory | undefined): string {
   if (!conditions?.items.length || !block.evidenceIds.length) return "";
   const windows = new Set(block.evidenceIds);
-  const mine = conditions.items.filter((item) => windows.has(item.windowId));
+  // An excluded site is listed in the inventory but never put in front of the author: the packet is where
+  // "state every condition that carries reportable behaviour" turns a framework protocol value into a
+  // sentence written for a counter. Measured: three such values produced three near-worthless sentences.
+  const mine = conditions.items.filter((item) => windows.has(item.windowId) && !item.excluded);
   if (!mine.length) return "";
   const lines = ["### Literal conditions inside these windows"];
   lines.push(
@@ -364,7 +367,7 @@ function renderReadingBlock(document: DocumentPlan, reading: ReadingExposureSour
 function renderUnassignedConditions(sections: PacketSection[], conditions: ConditionInventory | undefined): string {
   if (!conditions?.items.length) return "";
   const assigned = new Set(sections.flatMap((block) => block.evidenceIds));
-  const orphans = conditions.items.filter((item) => !assigned.has(item.windowId));
+  const orphans = conditions.items.filter((item) => !assigned.has(item.windowId) && !item.excluded);
   if (!orphans.length) return "";
   const lines = ["## Literal conditions in opened windows not linked to a section"];
   lines.push(
