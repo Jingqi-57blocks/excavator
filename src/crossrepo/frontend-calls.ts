@@ -37,8 +37,13 @@ export interface FrontendCall {
   routePath: string | null;
   /** The call's first argument verbatim, so a reader can see what was parsed. */
   expression: string;
-  /** Why a call could not be turned into a route path — kept so degradation is countable. */
-  unresolvedReason?: "no-base" | "unknown-base" | "not-a-template" | "dynamic";
+  /**
+   * Why a call could not be turned into a route path — kept so degradation is countable.
+   *
+   * `unparsed-shape` is the completeness tripwire, not a parse outcome: the call site exists, the structural
+   * matcher did not produce it, and it is reported rather than dropped. See `unmatchedCallSites`.
+   */
+  unresolvedReason?: "no-base" | "unknown-base" | "not-a-template" | "dynamic" | "unparsed-shape";
 }
 
 export interface BaseBinding {
@@ -110,23 +115,37 @@ export function extractFrontendCalls(path: string, source: string, clientNames: 
   let root: AstNode;
   try {
     root = api.parse(path.endsWith(".tsx") ? "Tsx" : "TypeScript", source).root();
-  } catch {
+  } catch (error) {
+    // Same reasoning as the missing-binding branch above: an empty result here would read as "this file
+    // makes no HTTP calls", which is the silent form of the loss this module is built to make visible.
+    warnings?.push(`frontend call extraction failed to parse ${path}: ${(error as Error).message}`);
     return [];
   }
   const bindings = new Map(resolveBaseBindings(source).map((binding) => [binding.identifier, binding]));
   const calls: FrontendCall[] = [];
 
-  for (const client of clientNames) {
-    for (const method of HTTP_METHODS) {
-      for (const pattern of [`${client}.${method}($URL, $$$REST)`, `${client}.${method}($URL)`]) {
-        for (const match of findAll(root, pattern)) {
-          const raw = text(match, "URL");
-          if (!raw) continue;
-          calls.push(classify(path, raw, method.toUpperCase(), lineOf(match), bindings));
-        }
-      }
-    }
+  // Every call expression, then a structural test on its callee — NOT a list of textual call shapes.
+  //
+  // This module used to enumerate patterns (`client.post($URL)`, `client.post($URL, $$$REST)`). That is a
+  // losing game and it lost measurably: a call with type arguments is a different AST shape, so
+  // `httpClient.post<App.ResponseBase<T>>(url)` matched nothing — and on the real target the calls that
+  // vanished were `approve` and `reject`, the two most important in the feature under investigation, with
+  // no warning, no `unresolved` entry, nothing. Adding a type-argument pattern then revealed the next hole
+  // (`await client.get<T>(url)` matched neither), which is the shape of a game with no end.
+  //
+  // Walking `call_expression` and asking "is the callee <a client>.<an http verb>" is invariant to all of
+  // it: await, type arguments, parentheses, whatever wraps the call next year.
+  const clients = new Set(clientNames);
+  for (const node of findAllKind(root, "call_expression")) {
+    const callee = CALLEE_TAIL.exec(node.field?.("function")?.text()?.trim() ?? "");
+    if (!callee || !clients.has(callee[1])) continue;
+    const raw = firstArgument(node);
+    if (!raw) continue;
+    calls.push(classify(path, raw, callee[2].toUpperCase(), lineOf(node), bindings));
   }
+  // Whatever the structural matcher did not produce is reported, never dropped. Without this, a call shape
+  // nobody anticipated has a FOURTH outcome besides resolved/ambiguous/unresolved: non-existence.
+  calls.push(...unmatchedCallSites(path, source, clientNames, calls));
 
   // A call site can match both the with-rest and without-rest pattern; key on the exact triple.
   const seen = new Set<string>();
@@ -194,6 +213,71 @@ export function normaliseTemplatePath(rest: string): string | null {
   return joined.replace(/\/+$/, "") || "/";
 }
 
+/**
+ * Client call sites the structural patterns did not produce.
+ *
+ * Deliberately TEXTUAL. Its whole job is to disagree with the AST matcher, so deriving it from that matcher
+ * would make disagreement impossible — the check would confirm the matcher instead of auditing it. A shape
+ * nobody anticipated (today: type arguments; tomorrow: something else) then surfaces as a visible
+ * `unparsed-shape` entry with its line, instead of not existing.
+ *
+ * It is allowed to be slightly over-eager. A false entry costs one visible line saying "look here"; a false
+ * absence costs a route nobody knows is missing, which is exactly the failure this repairs.
+ */
+function unmatchedCallSites(path: string, source: string, clientNames: string[], produced: FrontendCall[]): FrontendCall[] {
+  if (!clientNames.length) return [];
+  const seen = new Set(produced.map((call) => `${call.line}:${call.method}`));
+  const clients = clientNames.map(escapeForRegExp).join("|");
+  // Dotted and bracketed access both count. The extractor deliberately reads only the dotted form — a
+  // computed member is not something to guess at — so the bracketed one shows up here as a visible gap.
+  const verbs = HTTP_METHODS.join("|");
+  const finder = new RegExp(`\\b(?:${clients})\\s*(?:\\.\\s*(${verbs})|\\[\\s*['"\`](${verbs})['"\`]\\s*\\])\\s*(?:<[^;{}()]*>)?\\s*\\(`, "g");
+  const out: FrontendCall[] = [];
+  const lines = source.split(/\r?\n/);
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    const trimmed = line.trim();
+    if (trimmed.startsWith("//") || trimmed.startsWith("*")) continue;
+    finder.lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = finder.exec(line)) !== null) {
+      const method = (match[1] ?? match[2]).toUpperCase();
+      const key = `${index + 1}:${method}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ path, line: index + 1, method, baseIdentifier: null, baseKey: null, routePath: null, expression: trimmed.slice(0, 200), unresolvedReason: "unparsed-shape" });
+    }
+  }
+  return out;
+}
+
+function escapeForRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * The callee's last two segments: the identifier the call is made on and the HTTP verb. Anchored at the end
+ * so wrappers (`await`, `this.`, `api.client.`) do not change the answer, and so `client.get` is recognised
+ * whether it stands alone or ends a longer member chain.
+ */
+const CALLEE_TAIL = new RegExp(`([A-Za-z_$][A-Za-z0-9_$]*)\\s*\\.\\s*(${HTTP_METHODS.join("|")})\\s*$`);
+
+/** The call's first argument, read from the argument list rather than a pattern capture. */
+function firstArgument(node: AstMatchLike): string {
+  const args = node.field?.("arguments");
+  if (!args) return "";
+  const children = (args.children?.() ?? []).filter((child: AstChildLike) => !["(", ")", ","].includes(child.kind?.() ?? ""));
+  return children[0]?.text()?.trim() ?? "";
+}
+
+function findAllKind(root: AstNode, kind: string): AstMatchLike[] {
+  try {
+    return root.findAll({ rule: { kind } } as never) as unknown as AstMatchLike[];
+  } catch {
+    return [];
+  }
+}
+
 function findAll(root: AstNode, pattern: string): AstMatchLike[] {
   try {
     return root.findAll(pattern) as unknown as AstMatchLike[];
@@ -202,9 +286,17 @@ function findAll(root: AstNode, pattern: string): AstMatchLike[] {
   }
 }
 
+/** The slice of ast-grep's node surface this module uses; `field`/`children` are how a call is read structurally. */
 interface AstMatchLike {
   getMatch(name: string): { text(): string } | null;
   range(): { start: { line: number } };
+  field?(name: string): AstChildLike | null;
+}
+
+interface AstChildLike {
+  text(): string;
+  kind?(): string;
+  children?(): AstChildLike[];
 }
 
 function text(match: AstMatchLike, name: string): string {

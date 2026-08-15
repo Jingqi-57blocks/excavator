@@ -20,6 +20,14 @@ interface SourceReaderOptions {
   maxCharacters: number;
 }
 
+/**
+ * Ceiling on one window's line count. Callers are told when a request hits it (`addSourceEvidence` reports
+ * `clamped`): the window itself has always recorded the truth, but a caller who is not told believes a
+ * 378-line function was covered by one window and stops reading — and the reading gate cannot catch that,
+ * because it requires a window OVERLAPPING a decision function, not covering it.
+ */
+export const MAX_WINDOW_LINES = 240;
+
 export class SourceReader {
   private readonly options: SourceReaderOptions;
   private windows = 0;
@@ -54,7 +62,7 @@ export class SourceReader {
     const lines = raw.split(/\r?\n/);
     const safeStart = Math.max(1, startLine);
     const requestedEnd = Math.min(lines.length, Math.max(safeStart, endLine));
-    const safeEnd = Math.min(requestedEnd, safeStart + 239);
+    const safeEnd = Math.min(requestedEnd, safeStart + MAX_WINDOW_LINES - 1);
     const selected = redactSecrets(lines.slice(safeStart - 1, safeEnd).join("\n"));
     if (this.characters + selected.length > this.options.maxCharacters) throw new Error(`Source character budget exceeded (${this.options.maxCharacters}); increase --max-source-characters (e.g. ${this.options.maxCharacters * 2})`);
     const value: SourceWindow = {

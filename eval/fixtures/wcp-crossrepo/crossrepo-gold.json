@@ -155,9 +155,9 @@
     }
   ],
   "floors": {
-    "note": "Gold pins 10 links in 6 frontend files, but the target has 365 links across 32 files. A regression that silently drops a whole client — or a whole backend's route table — can leave every gold pair intact. These floors are what notices that. Values are the measured counts with ~7% headroom, so ordinary target churn does not trip them.",
-    "calls": 380,
+    "note": "Gold pins 10 links in 6 frontend files, but the target has 383 links across 32 files. A regression that silently drops a whole client — or a whole backend's route table — can leave every gold pair intact. These floors are what notices that. Re-pinned after 57B-402 made the extractor read call expressions structurally: the previous values (380/480/340) were measured while type-argument calls were silently dropped, so leaving them would have handed the recovered 19 calls straight back. Values are the measured counts with ~7% headroom, so ordinary target churn does not trip them.",
+    "calls": 395,
     "routes": 480,
-    "linked": 340
+    "linked": 355
   }
 }

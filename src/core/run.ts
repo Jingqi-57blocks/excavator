@@ -6,7 +6,7 @@ import type { Audience, ChecklistItem, DocumentPlan, EvidenceItem, FeatureFactPa
 import { auditAuthoringPacketConsumption, buildAuthoringPacket } from "../assurance/authoring-packet.ts";
 import { buildContexts, featureCacheKey } from "../context/context.ts";
 import { FACT_PACK_CATEGORIES, factPackEvidenceId } from "../context/factpack.ts";
-import { SourceReader, evidenceFromWindow, sourceSearch, type SourceSearchStats } from "../snapshot/source.ts";
+import { MAX_WINDOW_LINES, SourceReader, evidenceFromWindow, sourceSearch, type SourceSearchStats } from "../snapshot/source.ts";
 import { createSnapshot } from "../snapshot/snapshot.ts";
 import { ASSURANCE_VERSION, assuranceGenerationAtLeast, auditChecklist, auditDetailedFeatureSection, auditEvidenceCatalog, auditEvidenceMarkerPlacement, auditReadabilityTables, auditRescuedLogicCoverage, auditSectionClaims, auditSectionEvidenceMarkers, auditTargetProblemAttribution, auditTraces, auditWorkItemClaimCoverage, auditWorkItems, checklistUpdatesToWorkItems, createInvestigationChecklist, createInvestigationPlan, hasEvidenceMarkers, mergeChecklist, mergeWorkItems, runUsesCurrentAssurance, type AuditFinding, validateClaimsInput, workItemsToChecklist } from "../assurance/assurance.ts";
 import { auditComparativeClaims } from "../assurance/claim-comparison.ts";
@@ -649,7 +649,26 @@ export async function addSourceEvidence(runDirInput: string, relativePath: strin
   await writeJson(runPath, manifest);
   await writeJson(join(runDir, "metrics.json"), manifest.metrics);
   if (supp) await recordSupplement(runDir, "source", [window.id], supp);
-  return { evidence: evidenceFromWindow(window), cacheHit: reader.stats.hits > 0 };
+  // A window is capped at 240 lines. The artifact has always been honest — `endLine` is what was actually
+  // read, so the read residual counts the rest as unread — but the CALLER was not told, and a caller who
+  // believes one window covered a 378-line function stops reading there. The reading gate cannot catch that:
+  // it requires a window OVERLAPPING a decision function, not covering it. Derived by comparison rather than
+  // recorded on the window, so no artifact byte moves.
+  //
+  // The two ways a request comes back short are NOT the same fact and must not share a message: the cap
+  // leaves real code unread, while a short file leaves nothing unread at all. Saying "the cap truncated you"
+  // when the file simply ended would be a false alarm, and false alarms are how true ones stop being read.
+  const short = window.endLine < endLine;
+  const cappedAt = short && endLine - window.startLine + 1 > MAX_WINDOW_LINES && window.endLine === window.startLine + MAX_WINDOW_LINES - 1;
+  return {
+    evidence: evidenceFromWindow(window),
+    cacheHit: reader.stats.hits > 0,
+    ...(cappedAt
+      ? { clamped: true, requestedEndLine: endLine, unreadFrom: window.endLine + 1, notice: `Only lines ${window.startLine}-${window.endLine} were recorded: one window holds at most ${MAX_WINDOW_LINES} lines. Line ${window.endLine + 1} onward (you asked through ${endLine}) is still unread — open another window if it carries behavior.` }
+      : short
+        ? { requestedEndLine: endLine, notice: `The file ends at line ${window.endLine}; lines ${window.endLine + 1}-${endLine} do not exist, so nothing is left unread here.` }
+        : {}),
+  };
 }
 
 export async function searchSourceEvidence(runDirInput: string, termsInput: string[], reason: string, options: { maxResults?: number; pathPrefixes?: string[]; regex?: boolean; caseSensitive?: boolean } = {}, supplement?: SupplementInput): Promise<Record<string, unknown>> {
