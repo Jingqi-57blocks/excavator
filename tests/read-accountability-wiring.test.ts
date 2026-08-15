@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
-import { readFile } from "node:fs/promises";
+import { readFile, rm } from "node:fs/promises";
 import type { KnowledgeArtifact, ReportRequest, RunManifest } from "../src/core/types.ts";
 import { auditRun, freezeRun, prepareRun } from "../src/core/run.ts";
 import { exists, sha256, stableJson, writeJson } from "../src/core/util.ts";
@@ -48,6 +48,31 @@ test("freeze writes the read-obligation denominator and residual, and pins the d
 
   const knowledge = await readJsonFile<KnowledgeArtifact>(join(runDir, "knowledge.json"));
   assert.equal(knowledge.readObligationsDigest, sha256(stableJson(obligations)), "knowledge pins WHICH obligations this run was accountable for");
+});
+
+// The denominator's own digest already stops the frozen numbers from moving. This pins the subtler case:
+// the numbers still reconcile while the input a reader would re-derive them from has been changed or
+// removed — which would leave the second source unfalsifiable after the fact.
+test("the boundary second source is digest-pinned, and both tampering and removal are caught", async () => {
+  const { runDir } = await prepareRun(await featureRequest());
+  await disposeAllWorkItems(runDir);
+  assert.equal((await freezeRun(runDir)).frozen, true);
+
+  const boundaryPath = join(runDir, "context", "boundary-functions.json");
+  const knowledge = await readJsonFile<KnowledgeArtifact>(join(runDir, "knowledge.json"));
+  const boundary = await readJsonFile<Record<string, unknown>>(boundaryPath);
+  assert.equal(knowledge.boundaryFunctionsDigest, sha256(stableJson(boundary)), "knowledge pins the second source this denominator was built from");
+  assert.deepEqual((await auditRun(runDir)).findings.filter((finding) => /boundary-functions/.test(finding.message)), []);
+
+  await writeJson(boundaryPath, { ...boundary, enumeratedKinds: ["tampered"] });
+  const tampered = (await auditRun(runDir)).findings.filter((finding) => /boundary-functions\.json does not match/.test(finding.message));
+  assert.equal(tampered.length, 1, "a changed artifact is an error");
+  assert.equal(tampered[0].level, "error");
+
+  await rm(boundaryPath);
+  const removed = (await auditRun(runDir)).findings.filter((finding) => /boundary-functions\.json is gone/.test(finding.message));
+  assert.equal(removed.length, 1, "deleting the artifact must not be the way to silence the check");
+  assert.equal(removed[0].level, "error");
 });
 
 test("a run prepared before generation 5 is grandfathered: no denominator, no read findings, no knowledge field", async () => {

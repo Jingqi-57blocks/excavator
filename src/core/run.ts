@@ -364,7 +364,7 @@ export async function freezeRun(runDirInput: string): Promise<{ manifest: RunMan
   const crossFeaturePath = join(runDir, "context", "cross-feature.json");
   const crossFeature = await exists(crossFeaturePath) ? await readJson<unknown>(crossFeaturePath) : null;
   const frozenAt = nowIso();
-  const knowledge = buildKnowledge({ manifest, plan, evidence: evidenceCatalog.evidence, traces, factPacks, crossFeature, frozenAt, readObligations: obligations });
+  const knowledge = buildKnowledge({ manifest, plan, evidence: evidenceCatalog.evidence, traces, factPacks, crossFeature, frozenAt, readObligations: obligations, boundaryFunctions });
   await writeJson(join(runDir, "knowledge.json"), knowledge);
   // Render the per-document authoring packets from the just-frozen knowledge: a deterministic, model-free
   // view organized by report section that the author reads before writing each section. Regenerable view,
@@ -708,6 +708,17 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
       const frozenKnowledge = await readJson<KnowledgeArtifact>(knowledgePath);
       if (frozenKnowledge.readObligationsDigest && frozenKnowledge.readObligationsDigest !== sha256(stableJson(frozenObligations))) {
         findings.push({ level: "error", document: "read-coverage", message: "coverage/read-obligations.json does not match the read-obligation digest recorded at freeze; the denominator was changed after freeze" });
+      }
+      // The second source is checked in BOTH directions: a changed artifact and a vanished one. The
+      // denominator itself is already protected by the digest above, so this catches the subtler case —
+      // the frozen numbers still reconcile while the inputs a reader would re-derive them from no longer do.
+      if (frozenKnowledge.boundaryFunctionsDigest) {
+        const boundaryPath = join(runDir, "context", "boundary-functions.json");
+        if (!await exists(boundaryPath)) {
+          findings.push({ level: "error", document: "read-coverage", message: "knowledge.json records a boundary-functions digest but context/boundary-functions.json is gone; the second obligation source cannot be re-derived" });
+        } else if (frozenKnowledge.boundaryFunctionsDigest !== sha256(stableJson(await readJson<unknown>(boundaryPath)))) {
+          findings.push({ level: "error", document: "read-coverage", message: "context/boundary-functions.json does not match the digest recorded at freeze; the second obligation source was changed after freeze" });
+        }
       }
     }
     const claimCitations: ClaimCitation[] = [...claimsByDocument.entries()].flatMap(([documentId, entries]) =>

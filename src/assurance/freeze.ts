@@ -71,11 +71,13 @@ export interface BuildKnowledgeInput {
   /** The read-obligation denominator (generation 5+), digested so the frozen record pins WHICH obligations
    *  this run was accountable for — a later denominator change cannot move retroactively. Null before gen 5. */
   readObligations?: unknown | null;
+  /** The boundary-function second source, so tampering with it after freeze is detectable (57B-396). */
+  boundaryFunctions?: unknown | null;
 }
 
 /** Build the knowledge-v1 record: frozen fingerprints of the run's artifacts plus a completeness report. */
 export function buildKnowledge(input: BuildKnowledgeInput): KnowledgeArtifact {
-  const { manifest, plan, evidence, traces, factPacks, crossFeature, frozenAt, readObligations } = input;
+  const { manifest, plan, evidence, traces, factPacks, crossFeature, frozenAt, readObligations, boundaryFunctions } = input;
   const evidenceIds = evidence.map((item) => item.id).sort((a, b) => a.localeCompare(b));
   const workitems = plan.items.map((item) => ({ id: item.id, status: item.status })).sort((a, b) => a.id.localeCompare(b.id));
   const traceIds = traces.traces.map((trace) => trace.id).sort((a, b) => a.localeCompare(b));
@@ -96,6 +98,7 @@ export function buildKnowledge(input: BuildKnowledgeInput): KnowledgeArtifact {
     factPackDigests,
     ...(crossFeature != null ? { crossFeatureDigest: sha256(stableJson(crossFeature)) } : {}),
     ...(readObligations != null ? { readObligationsDigest: sha256(stableJson(readObligations)) } : {}),
+    ...(boundaryFunctions != null ? { boundaryFunctionsDigest: sha256(stableJson(boundaryFunctions)) } : {}),
     completeness: buildCompleteness(plan),
     supplements: []
   };
