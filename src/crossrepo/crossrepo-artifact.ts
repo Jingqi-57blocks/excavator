@@ -113,6 +113,7 @@ export interface CrossRepoArtifact {
   ambiguous: CrossRepoScan["ambiguous"];
   candidates: CrossRepoScan["candidates"];
   routeRecovery: CrossRepoScan["routeRecovery"];
+  registrations: CrossRepoScan["registrations"];
   summary: CrossRepoScan["summary"];
   warnings: string[];
 }
@@ -140,6 +141,7 @@ export function buildCrossRepoArtifact(scan: CrossRepoScan, snapshotId: string, 
     ambiguous: scan.ambiguous,
     candidates: scan.candidates,
     routeRecovery: scan.routeRecovery,
+    registrations: scan.registrations,
     summary: scan.summary,
     warnings: scan.warnings,
   };

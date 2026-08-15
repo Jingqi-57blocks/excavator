@@ -64,6 +64,12 @@ export interface CrossRepoScan {
   /** Weak alignments: recorded for a human, never asserted as links (measured 4/4 semantically wrong). */
   candidates: Array<{ module: string; path: string; line: number; method: string; routePath: string; candidates: Array<{ module: string; route: string }> }>;
   routeRecovery: Array<{ module: string; framework: string; recovered: number; graphRouteNodes: number; unrecovered: number }>;
+  /**
+   * Every recovered registration with its full span. The counts above say HOW MANY were recovered; these
+   * say WHERE, which is what a reading obligation needs. An express registration's inline closure IS the
+   * handler, so this span is the only handle on 897 lines of v1 leave logic that no other source enumerates.
+   */
+  registrations: Array<{ module: string; method: string; path: string; file: string; line: number; endLine?: number; framework: string }>;
   /** Registrations found but not turned into routes, with the reason — the audit trail for "recorded, not guessed". */
   unrecoveredRoutes: UnrecoveredEntry[];
   summary: { calls: number; static: number; framework: number; unresolved: number; ambiguous: number; weak: number; routes: number };
@@ -128,6 +134,9 @@ export async function scanCrossRepoLinks(workspace: string, modules: ScanModule[
     ambiguous: [],
     candidates: [],
     routeRecovery,
+    registrations: routeCandidates
+      .map(({ module, route }) => ({ module, method: route.method, path: route.path, file: route.file, line: route.line, ...(route.endLine === undefined ? {} : { endLine: route.endLine }), framework: route.framework }))
+      .sort((a, b) => (a.module < b.module ? -1 : a.module > b.module ? 1 : 0) || (a.file < b.file ? -1 : a.file > b.file ? 1 : 0) || a.line - b.line),
     unrecoveredRoutes: unrecoveredDetail,
     summary: { calls: 0, static: 0, framework: 0, unresolved: 0, ambiguous: 0, weak: 0, routes: routeCandidates.length },
     warnings,

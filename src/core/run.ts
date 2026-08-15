@@ -13,7 +13,7 @@ import { auditComparativeClaims } from "../assurance/claim-comparison.ts";
 import { auditFreezeOrder, auditFrozenKnowledge, buildKnowledge, freezePreconditions, knowledgeDigest, normalizeSupplement, recordSupplement } from "../assurance/freeze.ts";
 import { atomicWrite, Deadline, ensureDir, exists, nowIso, readJson, REDACTION_VERSION, runIdTimestamp, sha256, slugify, stableJson, writeJson } from "./util.ts";
 import { logicWorkItems, LOGIC_DISPOSITION_ASSURANCE_GENERATION } from "../assurance/logic-workitems.ts";
-import { readObligations, BOUNDARY_DENOMINATOR_ASSURANCE_GENERATION, CROSSREPO_DENOMINATOR_ASSURANCE_GENERATION, READ_ACCOUNTABILITY_ASSURANCE_GENERATION, type ReadObligationsArtifact, type RouteHandlerObligation } from "../assurance/read-obligations.ts";
+import { readObligations, BOUNDARY_DENOMINATOR_ASSURANCE_GENERATION, CROSSREPO_DENOMINATOR_ASSURANCE_GENERATION, READ_ACCOUNTABILITY_ASSURANCE_GENERATION, RECOVERED_ROUTE_DENOMINATOR_ASSURANCE_GENERATION, type ReadObligationsArtifact, type RouteHandlerObligation } from "../assurance/read-obligations.ts";
 import { readingExposure, renderReadingCheck, type ReadingExposure } from "../assurance/read-residual-exposure.ts";
 import type { BoundaryFunctionsArtifact } from "../context/boundary-functions.ts";
 import { scanCrossRepoLinks } from "../crossrepo/crossrepo-scan.ts";
@@ -148,7 +148,12 @@ async function deriveReadAccountability(
   // The annotation uses the RUN'S OWN vocabulary, re-derived from its manifest through the same pure
   // functions prepare used — so freeze, audit and eval all label identically with no extra I/O.
   const anchorTermsByFeature = anchorTermsFor(manifest);
-  const obligations = readObligations(Object.values(factPacks) as FeatureFactPack[], workItems, boundaryFunctions, routeHandlers, anchorTermsByFeature);
+  // Generation 8 admits the recovered-registration source. Gated on the run's own generation like every
+  // denominator widening before it, so a run prepared under 7 keeps exactly the denominator it was frozen with.
+  const recoveredRoutes = assuranceGenerationAtLeast(manifest, RECOVERED_ROUTE_DENOMINATOR_ASSURANCE_GENERATION)
+    ? recoveredRouteDenominator(crossRepoLinks, factPacks)
+    : null;
+  const obligations = readObligations(Object.values(factPacks) as FeatureFactPack[], workItems, boundaryFunctions, routeHandlers, anchorTermsByFeature, recoveredRoutes);
   const annotated = Boolean(anchorTermsByFeature);
   return { obligations, residual: reconcileReadCoverage({ obligations: obligations.obligations, evidence, annotated }), annotated, boundaryFunctions };
 }
@@ -234,6 +239,47 @@ export async function readingCheck(runDirInput: string): Promise<{ frozen: boole
  * the CALL. Best effort by design: a module whose graph cannot be opened contributes nothing rather than
  * failing a freeze over an advisory input.
  */
+/**
+ * Turn RECOVERED route registrations into obligations — the fourth denominator source.
+ *
+ * Distinct from `routeHandlerDenominator` in what it can reach, not in how it works. That one starts from a
+ * resolved cross-repo link and needs a NAMED handler to resolve to; a registration whose handler is written
+ * inline resolves to nothing, so it enumerates none of them. Measured on the real target: two v1 express
+ * files hold 16 registrations, 9 decision-bearing, 719 accountable lines that no source enumerated — and
+ * because a file with no obligation contributes to no bucket, windows opened there were invisible to BOTH
+ * sides of the funnel (9 in one run, 13 in another, all unaccounted).
+ *
+ * The name carries the route because that is where the vocabulary lives: a mounted express path is often
+ * just `/` locally, so `relevance-annotation` would have nothing to match without it.
+ */
+function recoveredRouteDenominator(
+  links: CrossRepoArtifact | null,
+  factPacks: Record<string, FeatureFactPack>,
+): RouteHandlerObligation[] | null {
+  const registrations = links?.registrations ?? [];
+  const obligations: RouteHandlerObligation[] = [];
+  for (const [featureKey, pack] of Object.entries(factPacks)) {
+    const boundaryFiles = new Set((pack.items ?? []).map((item) => String(item.filePath ?? "")));
+    for (const entry of registrations) {
+      // Only a registration whose span is known can become an obligation: without an end line there is no
+      // span to reconcile, and a span-less obligation would reconcile to `cannot-determine` forever.
+      if (entry.endLine === undefined || entry.endLine < entry.line) continue;
+      const qualified = `${entry.module}/${entry.file}`;
+      if (!boundaryFiles.has(entry.file) && !boundaryFiles.has(qualified)) continue;
+      obligations.push({
+        featureKey,
+        name: `${entry.method} ${entry.path}`,
+        path: qualified,
+        startLine: entry.line,
+        endLine: entry.endLine,
+        route: entry.path,
+      });
+    }
+  }
+  obligations.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0) || a.startLine - b.startLine);
+  return obligations.length ? obligations : null;
+}
+
 async function routeHandlerDenominator(
   runDir: string,
   manifest: RunManifest,

@@ -39,6 +39,12 @@ export interface RecoveredRoute {
   handlerExpression: string;
   file: string;
   line: number;
+  /**
+   * Last line of the whole registration, handler body included. A registration's inline closure IS the
+   * handler — 897 lines of v1 leave logic live inside these spans — so without an end line the span cannot
+   * become a reading obligation and those lines stay outside the denominator entirely.
+   */
+  endLine?: number;
   framework: RouteFramework;
 }
 
@@ -168,6 +174,7 @@ export function recoverExpressRoutes(file: string, source: string, mountPrefix: 
       const rawPath = text(match, "PATH");
       const literal = stringLiteral(rawPath);
       const line = lineOf(match);
+      const endLine = endLineOf(match);
       if (literal === null) {
         recovery.unrecovered.push({ file, line, reason: "path is not a string literal", text: nodeText(match).slice(0, 120) });
         continue;
@@ -179,6 +186,7 @@ export function recoverExpressRoutes(file: string, source: string, mountPrefix: 
         handlerExpression: handlerArgument(nodeText(match), method),
         file,
         line,
+        endLine,
         framework: "express",
       });
     }
@@ -261,7 +269,7 @@ function findAll(root: AstNode, pattern: string): AstMatchLike[] {
 
 interface AstMatchLike {
   getMatch(name: string): { text(): string } | null;
-  range(): { start: { line: number } };
+  range(): { start: { line: number }; end: { line: number } };
   text(): string;
 }
 
@@ -275,6 +283,11 @@ function nodeText(match: AstMatchLike): string {
 
 function lineOf(match: AstMatchLike): number {
   return match.range().start.line + 1;
+}
+
+/** Last line of the match, so a registration with an inline handler carries the handler's whole span. */
+function endLineOf(match: AstMatchLike): number {
+  return match.range().end.line + 1;
 }
 
 function sortRoutes(routes: RecoveredRoute[]): void {
