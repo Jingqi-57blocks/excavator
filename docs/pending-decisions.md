@@ -213,6 +213,56 @@ V1 的读义务分母来自 fact pack `logic` 类目 = 保留 pruned-FG 节点�
 
 **另注（本次测量的污染）**：上一次真实撰写 run 的 agent 是被我明确要求「跑完 audit 后读取并汇报这些数字」才去读 coverage JSON 的——那不代表正常作者会读。此处的结论只依赖「packet/prompts 里 0 次出现」这个确定性事实，不依赖对作者行为的推测。
 
+## 批次：曝光片落地后的首次真实 run（2026-08-15，预注册口径判定）
+
+Run：`.work/wcp-bf72b0/runs/run-2026_08_15_21_40-请假管理-e7b7fd1a-5fbd4975-300ae843`（12 章 / 560 claims / audit 0 error / 14 advisory）。对照基线 `run-2026_08_15_17_36`。判据在跑之前就已钉死（57B-401 §五），下面按那份口径逐条读。
+
+### 一、曝光已送达 ✅
+
+5 条 `investigation.read-check` 事件（sequence 2/63/136/137/148），**全部早于 freeze**（158）；packet 里 `Reading boundary` 块存在（56 行）。
+
+### 二、起作用 ✅（确定性痕迹，非自报）
+
+| | 基线 | 本次 |
+| -- | -- | -- |
+| sourceWindows | 69 | **134** |
+| 义务已覆盖 / 部分 / 未打开 | 114 / 36 / 225 | 176 / 28 / **171** |
+| **strong 分区（冻结时）** | 99 | **48** |
+| 报告行数 / claims | 921 / 472 | **867 / 560**（更短更密，非灌水） |
+
+**因果签名**：第一条 read-check 发生在 sequence 2，**此前零窗口**；其后到 freeze 之间开了 137 个窗口，其中 **108 个落在该事件点名的文件上**；预注册的锐指标「清单头部 3 个文件至少 1 个获得窗口」实际是 **3/3**——而基线的 69 个窗口对这三个文件**全程零命中**。n=1 下这是巧合无法伪造的形态。
+
+**实质回报**：报告首次陈述 **16 小时**阈值（基线里 `16 小时` 出现 **0 次**，`40 小时` 2 次；本次分别为 2 次与 5 次），并带窗口 `S-ac48e2c07e — leaveService.js:1211-1285`。这正是启动整条线的那个漏报（spike：`leave/service.go:510/557` 连续 5 个 run 一次没打开）。
+
+### 三、有害：三个 Goodhart 信号中**一个已触发** ⚠️
+
+- (i) 「开签名不开函数体」**未触发**——partial 反而从 36 降到 28。
+- (ii) **`openedNotConsumed` 从 13 跳到 34**。按「已打开义务」归一：8.7%（13/150）→ **16.7%（34/204）**，约翻倍。notOpened 降了 54，而 openedNotConsumed 升了 21——**约 40% 的新打开义务变成了无人引用的顺手读**。audit 自己打出了那句为此设计的告警（"an opened-not-consumed count that rises while not-opened falls means the loss migrated rather than closed"）。
+- (iii) 枚举式提及未见；但 packet 消费 advisory 报了 5 条冻结证据无 claim 引用。
+
+**判定**：曝光**有效**且**同时产生了可测量的迁移**，两者都真。损失没有单纯地「关闭」，一部分从「从未打开」移到了「打开但从未被引用」。这是探测器**首次实战即按设计触发**，也是它存在的理由。
+
+**尚不可判的部分（诚实边界）**：16.7% 的顺手读率里，有多少是「被清单诱导的刷窗」、有多少是「读得多必然引用率下降的正常定向阅读」，n=1 无法区分。这是下一片的输入，不是本次的结论。
+
+### 四、本次 run 顺带暴露的引擎缺陷（撰写方反馈 + 我的独立复现）
+
+**两条静默损失（最重，均已独立复现）**：
+
+- **`source` 静默截断到 240 行**（`src/snapshot/source.ts:57`：`Math.min(requestedEnd, safeStart + 239)`）。调用方传 `--start 1 --end 247` 得到 1-240，**无任何告警**，只能从返回的 `endLine` 反推。工件本身诚实（残差按真实 endLine 算），但**调用方的心智模型会偏离**：`Approve` 是 378 行，作者若以为一次窗口覆盖了它，尾部就静默未读。修法：返回 `clamped: true` 或显式告警。
+- **跨仓解析静默漏掉泛型调用**（`extractFrontendCalls`）。最小复现（我构造并实测）：三个调用中只有非泛型那个被找到，`httpClient.post<App.ResponseBase<LeaveInfo>>(...)` 与 `httpClient.get<Foo>(...)` **既不在结果里、也不在 `ambiguous`/`unresolved`、`warnings` 为空**——对引擎而言根本不存在。真实 target 上消失的恰是 **approve 与 reject** 这两个最关键的请假调用。**静默缺失比标成未解析危险得多**，这正是本条线要消灭的失败类。
+
+**其余八条（撰写方反馈，未独立复现，按其原话记录）**：
+
+- `source` 输出是带 `\n` 转义的 JSON 字符串，无法阅读——记录窗口与阅读代码本是同一动作，现被迫拆成两次（Read 工具 + CLI 盲记）。给个 `--quiet` 或纯文本渲染即可合一。
+- `trace` / `workitem` / claims 的 JSON schema **全无文档**，`--help` 只有 `--file <json>`；作者是从上一个 run 的产物反推字段的，且错误一次只报一条。修法：`--print-schema` 或 skill 里放示例。
+- **`searchScope` 是 `searched-not-found` 的硬性字段但任何文档里都没有**，字段名只存在于源码。相关提示也该说清「只能引用零命中回执」。
+- **句中标记静默破坏 claim 匹配**：`……类型 \`事实\`，与 Go 侧不一致。` 会让 statement 在 section 里找不到（标记从 claim 剥了、从正文没剥），报错指不到病因。修法：两侧同样归一化，或 writing-rules 写死「标记必须落在句段末尾」。
+- **rescued-logic 检查与 skill 自相矛盾**：skill 明说「prose 不必出现符号名，账由证据绑定」，而 `auditRescuedLogicCoverage` 只做全文文本匹配。照 skill 写会被全部警告。二者必须统一。
+- **事实包对账看不见它自己给的逃生口**：提示说可「折叠进显式计数的分组」，作者照做仍报 "38 item(s) not represented"。照文档做还被警告的告警会被长期无视。且这些类目混了大量域外项（LDAP 键、JWT 公钥），逐条点名反而污染报告。
+- **`condition residual` 无法诚实清零**：62/102 里含同行被多窗口重复记录的条件、以及确无可报告行为的 UI 条件，没有「已考虑并有意排除」的标记手段，数字永远归不了零，久了会被当噪声。（与已排期的条件清单卫生片同源。）
+- **freeze 失败时输出顺序误导**：findings 在前、完整 run.json 在后，`| tail` 只看到 JSON 会误判成功（退出码正确，脚本化无碍）。
+- 非缺陷观察：`--terms` 是字面子串匹配（`describe(` 命中 yup 的 `.describe()`），skill 值得加一句「选只在待证明对象中出现的词」。
+
 ## 批次 57B-401（阅读残差曝光）产生（2026-08-15）
 
 **`metrics.claims` 少算 5.8 倍（顺带查出的既有缺陷，范围外未修）**：真实 run 有 **472 条 claim**（12 个 section 文件），而 `metrics.claims` 记的是 **81**。根因在 `assurance-artifacts.ts` 的 `collectClaims`：它按 `claims.set(claim.id, claim)` 建 Map，而 **claim id 只在 section 内唯一**（`claim-1`…），跨 section 直接互相覆盖——实测 74 个 id 各出现 12 次。两个后果：① `metrics.claims` 是「最大单 section claim 数」而非总数，而 `eval compare` 正是拿这个数做跨 run 比较（`run-stats.ts` → `compare-runs.ts`），**用它判断切片好坏会被系统性误导**；② `auditTraces` 收到的是 `new Set(allClaims.keys())`（81 个 id），所以 trace 的 claimIds 校验**分不清是哪个 section 的同名 claim**——方向是变松而非误报。修法：Map 改按 `${documentId}#${sectionIndex}#${claim.id}` 键控，或让 claim id 全局唯一。**先确认 `eval compare` 的历史结论有没有被这个数误导过**，再改。
