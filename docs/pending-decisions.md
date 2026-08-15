@@ -195,6 +195,11 @@ V1 的读义务分母来自 fact pack `logic` 类目 = 保留 pruned-FG 节点�
 
 ## 批次 57B-398（S2 跨仓链路）产生（2026-08-15）
 
+**57B-399 计数地板的诚实边界（评审构造并实测，本片明确不防）**：
+
+- **余量以下的侵蚀**：实测砍掉 7 个非 gold 文件共 18 条链路，地板仍绿。所以「整个 client 消失会被抓住」这个说法对**链路数 ≤25 条的小 client 不成立**。后端侧无此问题——gold 恰好覆盖全部 4 个后端，任一后端路由表消失会先被对应 gold 条目抓住。缓解只能靠缩小余量（会换来误红）或给每个前端 client 各钉一条 gold。
+- **计数中性的精度塌方**：把 329 条非 gold 链路全部改指向同一条错误路由，计数不变、gold 完好、闸门 exit 0。地板按定义防不住这个（它数的是数量不是正确性）。现有缓解只有 `mustUnresolved`（1 条）与人工抽样 20 条。若要机检，需要另一类断言（例如「同一后端路由被 N 条以上前端调用指向」的异常检测），本片不做。
+
 **评审记账（Fable 最终评审，判可合前的 should-fix）**：
 
 - **handler 解析率没有做成 floor（本片明确的非目标，附理由）**：它是 freeze 时才算出的数、且**按 feature 计**（实测 leave 特征下为 13），不同 feature 请求会让它剧烈变化，做成固定 floor 会脆到没人敢信。scan 层的三个数（calls/routes/linked）与 feature 无关，才适合当 floor。若要给 handler 解析率设 floor，正确修法是**把 handler 解析移进 scan 阶段**（它本就是链路的属性而非 feature 的属性），让工件自带 `handlersResolved/handlersTotal`——那是一次跨 prepare/freeze 的重构，单独一片。

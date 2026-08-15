@@ -41,11 +41,14 @@ export interface CrossRepoGold {
    * has hundreds across dozens. A regression that drops a whole client, or a whole backend's route table,
    * can leave every gold pair standing — these floors are what notices.
    */
-  floors?: { calls?: number; routes?: number; linked?: number };
+  floors?: { calls?: number; routes?: number; linked?: number; note?: string };
 }
 
 /** A gold call site is matched by file + method, with a small line tolerance so edits above it do not lie. */
 const LINE_TOLERANCE = 3;
+
+/** The counts a gold file may set a floor on. Anything else is a typo, and a typo must not be silent. */
+const FLOOR_KEYS = new Set(["calls", "routes", "linked"]);
 
 export function loadCrossRepoGold(path: string): CrossRepoGold {
   const parsed = JSON.parse(readFileSync(path, "utf8")) as Partial<CrossRepoGold>;
@@ -55,6 +58,14 @@ export function loadCrossRepoGold(path: string): CrossRepoGold {
     if (!link.id || !link.from?.path || !link.from?.method || !link.to?.module || !link.to?.route) {
       throw new Error(`gold link ${String(link.id)} is missing a required field`);
     }
+  }
+  // A floor is only a floor if a typo cannot silence it. `callz: 999999` or `calls: "999999"` would have
+  // been skipped at check time and the gate would have lost a tooth without saying so — and the moment
+  // that matters is the next time someone re-measures the target and edits these numbers.
+  for (const [name, value] of Object.entries(parsed.floors ?? {})) {
+    if (name === "note") continue;
+    if (!FLOOR_KEYS.has(name)) throw new Error(`unknown floor "${name}" (expected one of ${[...FLOOR_KEYS].join(", ")})`);
+    if (typeof value !== "number" || !Number.isFinite(value)) throw new Error(`floor "${name}" must be a finite number, got ${JSON.stringify(value)}`);
   }
   return { version: parsed.version, target: parsed.target ?? "", links: parsed.links, mustUnresolved: parsed.mustUnresolved ?? [], floors: parsed.floors };
 }
@@ -70,6 +81,7 @@ interface ArtifactLink {
 
 interface Artifact {
   links: ArtifactLink[];
+  routeRecovery?: Array<{ recovered?: number }>;
   unresolved: Array<{ path: string; line: number; method: string; routePath: string | null }>;
   candidates: Array<{ path: string; line: number; method: string; routePath: string }>;
   ambiguous: Array<{ path: string; line: number; method: string; routePath: string }>;
@@ -151,9 +163,15 @@ export function buildCrossRepoReport(artifactPath: string, gold: CrossRepoGold, 
       to: `${link.to.module} ${link.to.route} @${link.to.path}:${link.to.line}`,
     }));
 
+  // Derived from the arrays, NEVER from `artifact.summary`: the summary is the guarded component's own
+  // report of itself. Measured attack — cut links 365 → 36 and leave summary untouched, and all three
+  // floors stay silent. A floor that trusts the number it is checking is not a floor.
   const floorFailures: string[] = [];
-  const linked = (artifact.summary.static ?? 0) + (artifact.summary.framework ?? 0);
-  const observed: Record<string, number> = { calls: artifact.summary.calls ?? 0, routes: artifact.summary.routes ?? 0, linked };
+  const observed: Record<string, number> = {
+    linked: artifact.links.length,
+    calls: artifact.links.length + artifact.unresolved.length + artifact.ambiguous.length + artifact.candidates.length,
+    routes: (artifact.routeRecovery ?? []).reduce((total, entry) => total + (entry.recovered ?? 0), 0),
+  };
   for (const [name, floor] of Object.entries(gold.floors ?? {})) {
     if (typeof floor !== "number" || !(name in observed)) continue;
     if (observed[name] < floor) floorFailures.push(`${name} ${observed[name]} < floor ${floor}`);
