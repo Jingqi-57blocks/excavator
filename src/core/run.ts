@@ -11,10 +11,14 @@ import { createSnapshot } from "../snapshot/snapshot.ts";
 import { ASSURANCE_VERSION, assuranceGenerationAtLeast, auditChecklist, auditDetailedFeatureSection, auditEvidenceCatalog, auditEvidenceMarkerPlacement, auditReadabilityTables, auditRescuedLogicCoverage, auditSectionClaims, auditSectionEvidenceMarkers, auditTargetProblemAttribution, auditTraces, auditWorkItemClaimCoverage, auditWorkItems, checklistUpdatesToWorkItems, createInvestigationChecklist, createInvestigationPlan, hasEvidenceMarkers, mergeChecklist, mergeWorkItems, runUsesCurrentAssurance, type AuditFinding, validateClaimsInput, workItemsToChecklist } from "../assurance/assurance.ts";
 import { auditComparativeClaims } from "../assurance/claim-comparison.ts";
 import { auditFreezeOrder, auditFrozenKnowledge, buildKnowledge, freezePreconditions, knowledgeDigest, normalizeSupplement, recordSupplement } from "../assurance/freeze.ts";
-import { atomicWrite, ensureDir, exists, nowIso, readJson, REDACTION_VERSION, runIdTimestamp, sha256, slugify, stableJson, writeJson } from "./util.ts";
+import { atomicWrite, Deadline, ensureDir, exists, nowIso, readJson, REDACTION_VERSION, runIdTimestamp, sha256, slugify, stableJson, writeJson } from "./util.ts";
 import { logicWorkItems, LOGIC_DISPOSITION_ASSURANCE_GENERATION } from "../assurance/logic-workitems.ts";
-import { readObligations, BOUNDARY_DENOMINATOR_ASSURANCE_GENERATION, READ_ACCOUNTABILITY_ASSURANCE_GENERATION } from "../assurance/read-obligations.ts";
+import { readObligations, BOUNDARY_DENOMINATOR_ASSURANCE_GENERATION, CROSSREPO_DENOMINATOR_ASSURANCE_GENERATION, READ_ACCOUNTABILITY_ASSURANCE_GENERATION, type RouteHandlerObligation } from "../assurance/read-obligations.ts";
 import type { BoundaryFunctionsArtifact } from "../context/boundary-functions.ts";
+import { scanCrossRepoLinks } from "../crossrepo/crossrepo-scan.ts";
+import { buildCrossRepoArtifact, mintCrossRepoEvidence, routeHandlerObligations, type CrossRepoArtifact } from "../crossrepo/crossrepo-artifact.ts";
+import { goImportAliases, parseHandlerTarget, resolveHandler } from "../crossrepo/handler-resolve.ts";
+import { CodeGraphIndex } from "../codegraph/codegraph.ts";
 import { auditReadAccountability, reconcileReadCoverage, type ClaimCitation } from "../assurance/read-coverage.ts";
 import { auditConditionCoverage, inventoryConditions, type ClaimStatement } from "../assurance/condition-inventory.ts";
 import { warmExtractors } from "../assurance/condition-extract.ts";
@@ -76,6 +80,96 @@ async function readBoundaryFunctions(runDir: string): Promise<BoundaryFunctionsA
   return await exists(path) ? await readJson<BoundaryFunctionsArtifact>(path) : null;
 }
 
+/**
+ * Resolve cross-repo HTTP links for a multi-module target. Returns null when the target has no module
+ * databases (a single-repo run has no cross-repo edge to find), and never throws: an advisory input must
+ * not be able to fail a run.
+ */
+async function resolveCrossRepoLinks(
+  target: string,
+  modules: Array<{ id: string; dir: string; path: string }> | undefined,
+  snapshotId: string,
+  warnings: string[],
+): Promise<{ artifact: CrossRepoArtifact; evidence: EvidenceItem[] } | null> {
+  if (!modules?.length) return null;
+  try {
+    const scan = await scanCrossRepoLinks(target, modules.map((module) => ({ id: module.id, dir: module.dir, databasePath: module.path })));
+    warnings.push(...scan.warnings.slice(0, 20));
+    const binding = mintCrossRepoEvidence(scan, snapshotId);
+    return { artifact: buildCrossRepoArtifact(scan, snapshotId, binding), evidence: binding.evidence };
+  } catch (error) {
+    warnings.push(`cross-repo link resolution skipped: ${(error as Error).message}`);
+    return null;
+  }
+}
+
+/** Read the frozen cross-repo link artifact; absent simply means this run resolved none. */
+async function readCrossRepoLinks(runDir: string): Promise<CrossRepoArtifact | null> {
+  const path = join(runDir, "context", "crossrepo-links.json");
+  return await exists(path) ? await readJson<CrossRepoArtifact>(path) : null;
+}
+
+/**
+ * Turn resolved cross-repo links into reading obligations, attributed to the feature whose boundary holds
+ * the CALL. Best effort by design: a module whose graph cannot be opened contributes nothing rather than
+ * failing a freeze over an advisory input.
+ */
+async function routeHandlerDenominator(
+  runDir: string,
+  manifest: RunManifest,
+  links: CrossRepoArtifact | null,
+  factPacks: Record<string, FeatureFactPack>,
+): Promise<RouteHandlerObligation[] | null> {
+  if (!links?.links.length) return null;
+  const target = manifest.request.target;
+  const indexes = new Map<string, CodeGraphIndex | null>();
+  const aliases = new Map<string, Map<string, string>>();
+  const openIndex = (moduleId: string): CodeGraphIndex | null => {
+    if (!indexes.has(moduleId)) {
+      try {
+        indexes.set(moduleId, new CodeGraphIndex(join(target, moduleId, ".codegraph", "codegraph.db"), 5000, new Deadline(120_000, "route handler resolution")));
+      } catch {
+        indexes.set(moduleId, null);
+      }
+    }
+    return indexes.get(moduleId) ?? null;
+  };
+
+  // Import aliases are read up front, because resolution itself is synchronous: without them a Go qualifier
+  // that renames its package resolves to nothing (measured: 23 registrations lost to exactly this).
+  for (const link of links.links) {
+    const aliasKey = `${link.to.module}/${link.to.path}`;
+    if (aliases.has(aliasKey)) continue;
+    try {
+      aliases.set(aliasKey, goImportAliases(await readFile(join(target, aliasKey), "utf8")));
+    } catch {
+      aliases.set(aliasKey, new Map());
+    }
+  }
+
+  const obligations: RouteHandlerObligation[] = [];
+  try {
+    for (const [featureKey, pack] of Object.entries(factPacks)) {
+      const boundaryFiles = new Set((pack.items ?? []).map((item) => String(item.filePath ?? "")));
+      obligations.push(...routeHandlerObligations(links, featureKey, boundaryFiles, (link) => {
+        const targetSymbol = parseHandlerTarget(link.to.handlerExpression);
+        if (!targetSymbol) return null;
+        const index = openIndex(link.to.module);
+        if (!index) return null;
+        const aliasKey = `${link.to.module}/${link.to.path}`;
+        try {
+          return resolveHandler(targetSymbol, index.searchNodes([targetSymbol.name], 60), aliases.get(aliasKey));
+        } catch {
+          return null;
+        }
+      }));
+    }
+  } finally {
+    for (const index of indexes.values()) index?.close();
+  }
+  return obligations.length ? obligations : null;
+}
+
 export async function prepareRun(request: ReportRequest): Promise<{ runDir: string; manifest: RunManifest }> {
   // prd is a feature-only audience: no prd-overview template exists. This single Core guard covers the CLI
   // overview command, the report --overview arg and request.json, so the overview branch (buildContexts →
@@ -129,8 +223,13 @@ export async function prepareRun(request: ReportRequest): Promise<{ runDir: stri
   plan.items.push(...logic.items);
   result.stats.warnings.push(...logic.warnings);
   const traces = emptyTraceCatalog(runId);
+  // Resolved BEFORE the evidence catalog is assembled: link evidence has to be IN the catalog, or a claim
+  // citing it would fail audit for citing an evidence id that does not exist. Its kind is `derived`, never
+  // `source` — resolving a route is not reading it (see crossrepo-artifact.ts).
+  const crossRepo = await resolveCrossRepoLinks(request.target, result.stats.codegraphModules, result.prepared.snapshot.id, result.stats.warnings);
   const evidence: EvidenceItem[] = [
     ...result.prepared.evidence,
+    ...(crossRepo?.evidence ?? []),
     {
       id: `PROVIDER-${providerRegistry.digest.slice(0, 12)}`,
       snapshotId: result.prepared.snapshot.id,
@@ -203,6 +302,8 @@ export async function prepareRun(request: ReportRequest): Promise<{ runDir: stri
   // The second obligation source is frozen at prepare beside the fact packs, for the same reason they are:
   // freeze and audit must both derive the denominator from one recorded set of facts, never recompute it.
   await writeJson(join(runDir, "context", "boundary-functions.json"), result.prepared.boundaryFunctions);
+  if (crossRepo) await writeJson(join(runDir, "context", "crossrepo-links.json"), crossRepo.artifact);
+
   // Cross-feature relationships need at least two features to have any pair to relate; single-feature
   // and overview-only runs skip the artifact, matching the shared-context section's own condition.
   if (request.features.length >= 2) {
@@ -330,7 +431,13 @@ export async function freezeRun(runDirInput: string): Promise<{ manifest: RunMan
   const boundaryFunctions = readAccountable && assuranceGenerationAtLeast(manifest, BOUNDARY_DENOMINATOR_ASSURANCE_GENERATION)
     ? await readBoundaryFunctions(runDir)
     : null;
-  const obligations = readAccountable ? readObligations(Object.values(factPacks) as FeatureFactPack[], plan.items, boundaryFunctions) : null;
+  // The cross-repo links are pinned in knowledge whenever the artifact exists — independent of the
+  // obligation generation, because the digest protects the record, not the denominator.
+  const crossRepoLinks = await readCrossRepoLinks(runDir);
+  const routeHandlers = readAccountable && assuranceGenerationAtLeast(manifest, CROSSREPO_DENOMINATOR_ASSURANCE_GENERATION)
+    ? await routeHandlerDenominator(runDir, manifest, crossRepoLinks, factPacks)
+    : null;
+  const obligations = readAccountable ? readObligations(Object.values(factPacks) as FeatureFactPack[], plan.items, boundaryFunctions, routeHandlers) : null;
   const readResidual = obligations ? reconcileReadCoverage({ obligations: obligations.obligations, evidence: evidenceCatalog.evidence }) : null;
   const expectedPlan = createInvestigationPlan(manifest.id, manifest.request, manifest.documents);
   // Gate the generative expansion on the run's assurance GENERATION, not exact-version equality: a run
@@ -364,7 +471,7 @@ export async function freezeRun(runDirInput: string): Promise<{ manifest: RunMan
   const crossFeaturePath = join(runDir, "context", "cross-feature.json");
   const crossFeature = await exists(crossFeaturePath) ? await readJson<unknown>(crossFeaturePath) : null;
   const frozenAt = nowIso();
-  const knowledge = buildKnowledge({ manifest, plan, evidence: evidenceCatalog.evidence, traces, factPacks, crossFeature, frozenAt, readObligations: obligations, boundaryFunctions });
+  const knowledge = buildKnowledge({ manifest, plan, evidence: evidenceCatalog.evidence, traces, factPacks, crossFeature, frozenAt, readObligations: obligations, boundaryFunctions, crossRepoLinks });
   await writeJson(join(runDir, "knowledge.json"), knowledge);
   // Render the per-document authoring packets from the just-frozen knowledge: a deterministic, model-free
   // view organized by report section that the author reads before writing each section. Regenerable view,
@@ -712,6 +819,14 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
       // The second source is checked in BOTH directions: a changed artifact and a vanished one. The
       // denominator itself is already protected by the digest above, so this catches the subtler case —
       // the frozen numbers still reconcile while the inputs a reader would re-derive them from no longer do.
+      if (frozenKnowledge.crossRepoLinksDigest) {
+        const linksPath = join(runDir, "context", "crossrepo-links.json");
+        if (!await exists(linksPath)) {
+          findings.push({ level: "error", document: "read-coverage", message: "knowledge.json records a cross-repo links digest but context/crossrepo-links.json is gone; the resolved links cannot be re-derived" });
+        } else if (frozenKnowledge.crossRepoLinksDigest !== sha256(stableJson(await readJson<unknown>(linksPath)))) {
+          findings.push({ level: "error", document: "read-coverage", message: "context/crossrepo-links.json does not match the digest recorded at freeze; the resolved links were changed after freeze" });
+        }
+      }
       if (frozenKnowledge.boundaryFunctionsDigest) {
         const boundaryPath = join(runDir, "context", "boundary-functions.json");
         if (!await exists(boundaryPath)) {

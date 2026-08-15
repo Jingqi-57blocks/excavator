@@ -75,6 +75,33 @@ test("the boundary second source is digest-pinned, and both tampering and remova
   assert.equal(removed[0].level, "error");
 });
 
+// Cross-repo links are asserted facts about which backend serves which frontend call, so they get the
+// same treatment as the obligation denominator: pinned at freeze, checked in both directions at audit.
+test("resolved cross-repo links are digest-pinned, and both tampering and removal are caught", async () => {
+  const { runDir } = await prepareRun(await featureRequest());
+  // The test target is a single module, so no links are resolved for it; the artifact is written directly
+  // to exercise the freeze/audit contract rather than the resolver, which has its own tests.
+  const linksPath = join(runDir, "context", "crossrepo-links.json");
+  const artifact = { version: "crossrepo-links-v1", snapshotId: "s", modules: ["a", "b"], clients: [], links: [], unresolved: [], ambiguous: [], candidates: [], routeRecovery: [], summary: {}, warnings: [] };
+  await writeJson(linksPath, artifact);
+
+  await disposeAllWorkItems(runDir);
+  assert.equal((await freezeRun(runDir)).frozen, true);
+
+  const knowledge = await readJsonFile<KnowledgeArtifact>(join(runDir, "knowledge.json"));
+  assert.equal(knowledge.crossRepoLinksDigest, sha256(stableJson(artifact)), "knowledge pins which links this run asserted");
+  assert.deepEqual((await auditRun(runDir)).findings.filter((finding) => /crossrepo-links/.test(finding.message)), []);
+
+  await writeJson(linksPath, { ...artifact, modules: ["a", "b", "tampered"] });
+  const tampered = (await auditRun(runDir)).findings.filter((finding) => /crossrepo-links\.json does not match/.test(finding.message));
+  assert.equal(tampered.length, 1);
+  assert.equal(tampered[0].level, "error");
+
+  await rm(linksPath);
+  const removed = (await auditRun(runDir)).findings.filter((finding) => /crossrepo-links\.json is gone/.test(finding.message));
+  assert.equal(removed.length, 1, "deleting the artifact must not silence the check");
+});
+
 test("a run prepared before generation 5 is grandfathered: no denominator, no read findings, no knowledge field", async () => {
   const { runDir } = await prepareRun(await featureRequest());
   // Restamp exactly like a run prepared before this slice; the generation gate must then skip entirely.

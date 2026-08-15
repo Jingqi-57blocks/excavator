@@ -54,6 +54,7 @@ export interface ContextBuildResult {
     codegraphCoverage?: { indexed: number; eligible: number; ratio: number };
     codegraphPath?: string;
     codegraphModulePaths?: string[];
+    codegraphModules?: Array<{ id: string; dir: string; path: string }>;
     codegraphSource: "explicit" | "auto" | "disabled" | "unavailable";
     providerRegistry: ProviderRegistry;
     cache: Record<string, "hit" | "miss" | "unused">;
@@ -206,6 +207,9 @@ export async function buildContexts(request: ReportRequest): Promise<ContextBuil
       codegraphCoverage: shared.metrics.coverage,
       codegraphPath: effectiveCodegraph,
       codegraphModulePaths: moduleDatabases?.map((module) => module.path),
+      // Full module identity (not just the db path) so cross-repo resolution can name the module a link
+      // ends in — a link that cannot say WHICH repo serves it is not a cross-repo fact.
+      codegraphModules: moduleDatabases?.map((module) => ({ id: module.id, dir: module.dir, path: module.path })),
       codegraphSource: codegraphResolution.source,
       providerRegistry,
       cache,

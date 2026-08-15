@@ -37,10 +37,13 @@ export const READ_ACCOUNTABILITY_ASSURANCE_GENERATION = 5;
  *  the fact-pack complement, `boundary-decision-function` is the boundary-file enumeration that closes its
  *  recall gap. A function both sources find keeps the first kind, so the second kind counts exactly the
  *  additions — and so a work-item join built on the first kind's ids never shifts underneath. */
-export type ObligationKind = "decision-function" | "boundary-decision-function";
+export type ObligationKind = "decision-function" | "boundary-decision-function" | "route-handler";
 
 /** The assurance generation that admits the boundary-file second source into the denominator. */
 export const BOUNDARY_DENOMINATOR_ASSURANCE_GENERATION = 6;
+
+/** The generation that admits resolved cross-repo route handlers as a third source. */
+export const CROSSREPO_DENOMINATOR_ASSURANCE_GENERATION = 7;
 
 /** Why an obligation is outside the counted denominator. It stays in the artifact for visibility. */
 export type ObligationExclusion = "declaration-only" | "contained";
@@ -97,7 +100,24 @@ export interface ReadObligationsArtifact {
       unprobed: number;
       filesWithoutCandidates: number;
     };
+    /** Present only when resolved cross-repo handlers were supplied. */
+    routeSource?: {
+      handlers: number;
+      duplicate: number;
+      added: number;
+    };
   };
+}
+
+/** A handler a cross-repo link resolved to, attributed to the feature whose boundary the CALL sits in. */
+export interface RouteHandlerObligation {
+  featureKey: string;
+  name: string;
+  path: string;
+  startLine: number;
+  endLine: number;
+  /** The route this handler serves, kept so the obligation says WHY it is one. */
+  route: string;
 }
 
 /**
@@ -117,6 +137,7 @@ export function readObligations(
   factPacks: FeatureFactPack[],
   workItems: InvestigationWorkItem[] = [],
   boundary?: BoundaryFunctionsArtifact | null,
+  routeHandlers?: RouteHandlerObligation[] | null,
 ): ReadObligationsArtifact {
   const gatedIds = new Set(
     workItems.filter((item) => item.dimension === LOGIC_WORKITEM_DIMENSION).map((item) => item.id),
@@ -136,7 +157,13 @@ export function readObligations(
   markExclusions(primary);
 
   const second = boundary ? supplement(boundary, primary) : null;
-  const obligations = second ? [...primary, ...second.added].sort(byLocation) : primary;
+  const known = second ? [...primary, ...second.added] : primary;
+  // Third source, merged LAST and by the same rules: a handler both a boundary enumeration and a route
+  // resolution found keeps the earlier kind, so `route-handler` counts exactly what only the routes reached.
+  const third = routeHandlers?.length ? routeSupplement(routeHandlers, known) : null;
+  const obligations = third || second
+    ? [...primary, ...(second?.added ?? []), ...(third?.added ?? [])].sort(byLocation)
+    : primary;
 
   const counted = obligations.filter((obligation) => !obligation.excluded);
   const summary: ReadObligationsArtifact["summary"] = {
@@ -149,6 +176,7 @@ export function readObligations(
     lines: counted.reduce((total, o) => total + (o.lines ?? 0), 0),
   };
   if (second) summary.secondSource = second.stats;
+  if (third) summary.routeSource = third.stats;
   return { version: READ_OBLIGATIONS_VERSION, obligations, summary };
 }
 
@@ -205,6 +233,37 @@ function supplement(
       filesWithoutCandidates,
     },
   };
+}
+
+/** Phase 4: route handlers the earlier sources never enumerated become obligations of their own kind. */
+function routeSupplement(
+  handlers: RouteHandlerObligation[],
+  known: ReadObligation[],
+): { added: ReadObligation[]; stats: NonNullable<ReadObligationsArtifact["summary"]["routeSource"]> } {
+  const seen = new Set(known.map((obligation) => `${obligation.featureKey}\u0000${obligation.path}\u0000${obligation.startLine}`));
+  const added: ReadObligation[] = [];
+  let duplicate = 0;
+  for (const handler of handlers) {
+    const path = normalizeObligationPath(handler.path);
+    const key = `${handler.featureKey}\u0000${path}\u0000${handler.startLine}`;
+    if (seen.has(key)) { duplicate++; continue; }
+    seen.add(key);
+    added.push({
+      id: `feature:${handler.featureKey}:route-handler:${handler.name}@${handler.path}:${handler.startLine}`,
+      kind: "route-handler",
+      featureKey: handler.featureKey,
+      name: handler.name,
+      path,
+      startLine: handler.startLine,
+      endLine: handler.endLine,
+      lines: handler.endLine - handler.startLine + 1,
+      tier: 2,
+      gated: false,
+    });
+  }
+  added.sort(byLocation);
+  markSupplementExclusions(added, known);
+  return { added, stats: { handlers: handlers.length, duplicate, added: added.length } };
 }
 
 /** Same two exclusions as the first source, applied to supplements only — see the phase-3 note above. */

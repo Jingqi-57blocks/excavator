@@ -9,6 +9,7 @@ import { buildCodeGraph, codeGraphStatus } from "./codegraph/codegraph-command.t
 import { runDbSchema } from "./schema/db-schema-command.ts";
 import { runNativeGraph } from "./nativegraph/native-graph-command.ts";
 import { runFramework } from "./framework/framework-command.ts";
+import { runCrossRepo } from "./crossrepo/crossrepo-command.ts";
 import { deriveDefaultBudgets, plannedDocumentCount } from "./core/budgets.ts";
 import { DEFAULT_WORKDIR } from "./core/defaults.ts";
 
@@ -85,6 +86,16 @@ async function main(): Promise<void> {
           out: args.out
         });
         print(result);
+        break;
+      }
+      case "crossrepo": {
+        const args = parseArgs(argv);
+        const result = await runCrossRepo({
+          target: required(args.target, "--target"),
+          out: args.out
+        });
+        // The scan itself can be large; print the counts and where the full artifact landed.
+        print({ target: result.target, jsonPath: result.jsonPath, summaryPath: result.summaryPath, summary: result.scan.summary, routeRecovery: result.scan.routeRecovery });
         break;
       }
       case "claims": {
@@ -311,6 +322,7 @@ Commands:
   prepare    Alias of report; accepts --request request.json
   codegraph  Inspect or build an optional CodeGraph index
   db-schema  Recover a database design (tables, columns, relationships) from source, deterministically
+  crossrepo     Resolve frontend HTTP calls to the backend routes that serve them (deterministic, zero model)
   native-graph  Build a symbol+call navigation graph for CodeGraph-unsupported languages (Perl, Zope templates)
   framework  Recover routes/components from framework conventions (Catalyst, …) — for dynamically-dispatched apps
   begin      Start or restart one document authoring timer
