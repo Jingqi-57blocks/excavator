@@ -13,7 +13,7 @@
 // neither is a superset and both numbers belong in the artifact.
 
 import { readFile, readdir } from "node:fs/promises";
-import { dirname, extname, join } from "node:path";
+import { dirname, extname, join, resolve } from "node:path";
 import { CodeGraphIndex } from "../codegraph/codegraph.ts";
 import { Deadline } from "../core/util.ts";
 import { extractFrontendCalls, type FrontendCall } from "./frontend-calls.ts";
@@ -286,9 +286,14 @@ async function recoverExpressWorkspace(
 /** Resolve a `require` target relative to the requiring file, trying the usual extensions. */
 async function resolveRouterFile(moduleRoot: string, from: string, target: string): Promise<{ relative: string; source: string } | null> {
   const base = target.startsWith(".") ? join(dirname(from), target) : target;
+  // A `require('../../../etc/x')` must not walk out of the module being scanned. The engine reads only
+  // inside the boundary it was pointed at; a target that escapes it resolves to nothing.
+  const resolvedRoot = resolve(moduleRoot);
   for (const suffix of ["", ".js", ".ts", "/index.js", "/index.ts"]) {
     const relative = `${base}${suffix}`;
-    const source = await readSource(join(moduleRoot, relative), []);
+    const absolute = resolve(moduleRoot, relative);
+    if (absolute !== resolvedRoot && !absolute.startsWith(`${resolvedRoot}/`)) continue;
+    const source = await readSource(absolute, []);
     if (source !== null) return { relative, source };
   }
   return null;

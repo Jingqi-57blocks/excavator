@@ -83,6 +83,20 @@ test("two calls to the same handler resolve one handler, not two", () => {
   assert.deepEqual(resolvedHandlers(artifact).map((handler) => `${handler.path}:${handler.line}`), ["internal/handlers/handlers.go:98"]);
 });
 
+// evidence.json is a durable artifact, and a URL literal can carry a token. Copying source text into it
+// verbatim would route around the redaction pipeline every other evidence path goes through.
+test("source text minted into evidence goes through redaction", () => {
+  const withSecret: CrossRepoScan["links"][number] = {
+    ...LINK,
+    from: { ...LINK.from, expression: "`${api}/v2/leaves?token=ghp_aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789`" },
+  };
+  const { evidence } = mintCrossRepoEvidence(scanWith([withSecret]), "snap-1");
+  const call = evidence.find((item) => item.id.startsWith("XR-call-"));
+  const expression = String((call?.data as { expression?: string })?.expression ?? "");
+  assert.ok(!expression.includes("ghp_aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789"), `the token must not survive into evidence: ${expression}`);
+  assert.ok(expression.includes("/v2/leaves"), "the path itself is still legible");
+});
+
 test("an empty scan produces an artifact with no links and no evidence, not a crash", () => {
   const binding = mintCrossRepoEvidence(scanWith([]), "snap-1");
   const artifact = buildCrossRepoArtifact(scanWith([]), "snap-1", binding);
