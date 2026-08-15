@@ -318,6 +318,8 @@ export interface KnowledgeArtifact {
   readObligationsDigest?: string;
   /** Digest of `context/boundary-functions.json` — the read-obligation second source (57B-396). */
   boundaryFunctionsDigest?: string;
+  /** Digest of `context/crossrepo-links.json` — the resolved cross-repo HTTP links (57B-398). */
+  crossRepoLinksDigest?: string;
   completeness: KnowledgeCompleteness;
   supplements: KnowledgeSupplement[];
 }

@@ -73,11 +73,13 @@ export interface BuildKnowledgeInput {
   readObligations?: unknown | null;
   /** The boundary-function second source, so tampering with it after freeze is detectable (57B-396). */
   boundaryFunctions?: unknown | null;
+  /** The resolved cross-repo links, pinned for the same reason (57B-398). */
+  crossRepoLinks?: unknown | null;
 }
 
 /** Build the knowledge-v1 record: frozen fingerprints of the run's artifacts plus a completeness report. */
 export function buildKnowledge(input: BuildKnowledgeInput): KnowledgeArtifact {
-  const { manifest, plan, evidence, traces, factPacks, crossFeature, frozenAt, readObligations, boundaryFunctions } = input;
+  const { manifest, plan, evidence, traces, factPacks, crossFeature, frozenAt, readObligations, boundaryFunctions, crossRepoLinks } = input;
   const evidenceIds = evidence.map((item) => item.id).sort((a, b) => a.localeCompare(b));
   const workitems = plan.items.map((item) => ({ id: item.id, status: item.status })).sort((a, b) => a.id.localeCompare(b.id));
   const traceIds = traces.traces.map((trace) => trace.id).sort((a, b) => a.localeCompare(b));
@@ -99,6 +101,7 @@ export function buildKnowledge(input: BuildKnowledgeInput): KnowledgeArtifact {
     ...(crossFeature != null ? { crossFeatureDigest: sha256(stableJson(crossFeature)) } : {}),
     ...(readObligations != null ? { readObligationsDigest: sha256(stableJson(readObligations)) } : {}),
     ...(boundaryFunctions != null ? { boundaryFunctionsDigest: sha256(stableJson(boundaryFunctions)) } : {}),
+    ...(crossRepoLinks != null ? { crossRepoLinksDigest: sha256(stableJson(crossRepoLinks)) } : {}),
     completeness: buildCompleteness(plan),
     supplements: []
   };
