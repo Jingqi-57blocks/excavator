@@ -201,13 +201,34 @@ V1 的读义务分母来自 fact pack `logic` 类目 = 保留 pruned-FG 节点�
 
 更精确地说：`SKILL.md:175` 给了作者一个**指针**——「detail 在 `coverage/read-residual.json`」——但没给内容。对照条件清单是**渲染进 packet** 的，作者想躲也躲不开。
 
+**上条的自我修正（当日稍后核实，本条以修正版为准）**：「从未曝光」说过头了。`src/cli.ts` 的 freeze 分支是 `print(result)`，而 `result.findings` 含 `run.ts` 推入的全部 `auditReadAccountability` finding——**残差会打到调查者的 console 上**，只是形态为聚合两行、逐文件明细仍只在 JSON 里。准确的说法是：**曝光发生在 freeze 的 stdout，写作阶段（读 packet 时）完全不在上下文里**。
+
+**而那条到达面本身是失效的（这才是真问题，57B-401 由此改形）**：`SKILL.md:175` 写着「Clear the ones that matter **before** freezing」，但阅读义务与残差**只在 freeze 时计算**（`readObligations` 全仓仅两个调用点：freeze 与 audit 复核），`runStatus` 无阅读维度——**freeze 之前没有任何办法看到残差**。残差是 warning 级 → freeze 成功 → run 被冻结 → 拒绝再 freeze。于是**调查者第一次看到账单的那一刻，正是它变贵的那一刻**：此后开窗必须走补充通道，而闸门文案还在主动劝退。佐证：上一次真实 run 的 `sourceWindows: 69`、**`supplements: 0`**——补充通道实测使用为零。
+
 **这正是 57B-394 立论的那句话没有应用到阅读侧**：「测量不干预不会让产品变好」。当时把条件清单从审计残差搬进 packet，才让它真正影响了写作（好的一面：16/40 阈值对照；坏的一面：为压 unaccounted 写出的垃圾句）。阅读残差至今停在「测量但不干预」的状态。
 
 **后果**：S1.5 修好的分区读数目前只服务 **between-runs 的漏斗决策**（下一片投哪），不服务 **in-run 的作者阅读选择**。前者已由机检钉死，后者机制上还不存在。
 
-**下一片（57B-401）**：把 strong 分区接进 authoring packet。教训要带上——packet 里给的是「**该开哪些文件**」，不是「每条都写一句话」；后者正是条件清单产生垃圾句的形状。
+**下一片（57B-401，已落地为双曝光面）**：主曝光是**冻结前的只读命令** `excavator reading`（零摩擦窗口，也让 SKILL:175 那条既有指令第一次可执行）；次曝光是 packet 末尾的 `Reading boundary` 块——它**只声明边界、不索要窗口**（packet 在冻结后才被读，索要窗口等于把行动成本钉在最高点）。教训带上了：给的是「**该开哪些文件**」，不是「每条都写一句话」；后者正是条件清单产生垃圾句的形状。
 
 **另注（本次测量的污染）**：上一次真实撰写 run 的 agent 是被我明确要求「跑完 audit 后读取并汇报这些数字」才去读 coverage JSON 的——那不代表正常作者会读。此处的结论只依赖「packet/prompts 里 0 次出现」这个确定性事实，不依赖对作者行为的推测。
+
+## 批次 57B-401（阅读残差曝光）产生（2026-08-15）
+
+**`metrics.claims` 少算 5.8 倍（顺带查出的既有缺陷，范围外未修）**：真实 run 有 **472 条 claim**（12 个 section 文件），而 `metrics.claims` 记的是 **81**。根因在 `assurance-artifacts.ts` 的 `collectClaims`：它按 `claims.set(claim.id, claim)` 建 Map，而 **claim id 只在 section 内唯一**（`claim-1`…），跨 section 直接互相覆盖——实测 74 个 id 各出现 12 次。两个后果：① `metrics.claims` 是「最大单 section claim 数」而非总数，而 `eval compare` 正是拿这个数做跨 run 比较（`run-stats.ts` → `compare-runs.ts`），**用它判断切片好坏会被系统性误导**；② `auditTraces` 收到的是 `new Set(allClaims.keys())`（81 个 id），所以 trace 的 claimIds 校验**分不清是哪个 section 的同名 claim**——方向是变松而非误报。修法：Map 改按 `${documentId}#${sectionIndex}#${claim.id}` 键控，或让 claim id 全局唯一。**先确认 `eval compare` 的历史结论有没有被这个数误导过**，再改。
+
+**从 `read-residual.json` 读 `kind` 会静默降级（测量纪律，已在代码里钉住）**：S1.5 为保住旧 run 字节恒等，让 `ReadCoverageItem.kind` **只在标注过的 run 上输出**。于是对未标注的 run，从残差读 `kind` 得到的 strong 分区是 anchor-only 的**降级读数**——实测同一个 run 上 84/24 vs 正确的 99/25。正确口径是**从冻结的 `read-obligations.json` 取 `kind`** 再按 id join（`read-residual-exposure.ts` 已按此实现并写明理由）。这与 57B-400 那次「临时脚本算出的数进了永久记录」是同型风险，故此处记档。
+
+**`excavator audit` 会改写归档 run 的 `coverage/read-residual.json`（行为记录，非缺陷）**：`run.ts` 的 full-run audit 会重算并落盘残差。对基线测量的影响：**先量后审**，否则量到的是审计重算后的版本。本片的归档基线因此按 findings 比对（29/29 逐字相同），不按文件字节比对（时间戳与 audit 自增的 `timelineEvents` 必然变）。
+
+**本片明确不做（规划层裁定，列为候选）**：
+
+- **补充闸文案与「引擎自指漏读」的预授权通道**：曝光前移之后，走补充通道的应当只剩真正的写作期发现，劝退文案对那种情形是恰当摩擦。等真实 run 显示确有正当补窗被劝退再议。
+- **任何对曝光消费的审计计数**（含「是否跑过 `reading`」）：审计它就是把曝光变义务，Goodhart 第二次上演。检测器已存在且正为此设计——`openedNotConsumed` 在曝光诱发刷窗时会涨。
+- unclassified 的**函数级**渲染（两个面都不做）；overview 文档曝光（strong 分区按构造是 feature 域的，overview 无 featureKey 可作用域）；跨 feature 汇总视图。
+- supplement 之后重新生成 packet（开窗命令本身回显内容，陈旧块可接受）；`runStatus` 加阅读维度（被 `reading` 取代，不做两个入口）。
+
+**规模观察（真实数据，留给下一次 run 判定）**：strong 分区头部文件 `notification.go` 的 28 条义务里，函数名高度重复（`handleSES`×5、`subject`×6、`BuildCpst`×6）——那是按通知类型复制的模板文件。console 侧不截断函数行（规划层裁定：冻结前盘上无 `read-residual.json` 可指，remainder 无处可指），所以这 28 行会照实列出。**重复本身是否构成信息**（读者据此判断该文件是模板、决策价值低）还是噪声，等第一次真实 run 的行为数据再定，不预先加规则。
 
 ## 批次：S0–S2 落地后的首次真实撰写 run（2026-08-15，验收测量）
 
