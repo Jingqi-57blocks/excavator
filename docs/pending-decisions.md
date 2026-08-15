@@ -195,6 +195,16 @@ V1 的读义务分母来自 fact pack `logic` 类目 = 保留 pruned-FG 节点�
 
 ## 批次 57B-398（S2 跨仓链路）产生（2026-08-15）
 
+**评审记账（Fable 最终评审，判可合前的 should-fix）**：
+
+- **freeze 时硬猜 CodeGraph db 路径且静默**：`routeHandlerDenominator` 按 `join(target, moduleId, ".codegraph", "codegraph.db")` 拼路径，catch 后静默。db 若建在 workdir 缓存（`resolveCodeGraphDatabase` 支持这种形态）或 `dir !== id` 的 target 上，**第三义务来源会无警告地归零**——方向诚实（少算义务）但违背本模块自己的 never-silent 纪律。修法：把 prepare 已有的 `codegraphModules` 路径穿透到 freeze，或至少 openIndex 失败时 push warning。
+- **闸门无计数地板**：`eval/crossrepo.ts` 只验 gold 10 条与 mustUnresolved。若 `discoverClients` 回归丢掉整个 client、或 `handler-resolve` 回归到 0，`summary.calls`/`routes`/handler 解析率塌方而 gold 幸存时闸门**仍绿**。修法：gold 文件里加 target 专属 floor（如 calls ≥ 380、routes ≥ 480、handler 解析率 ≥ 85%）。
+- **`linkId` 可碰撞**：只含 from 侧 `module:path:line:method`。同一行两个同方法不同 URL 的调用（如签入的 bundle）会撞 id → 重复 evidence id → audit error。修法：id 掺入 expression 摘要。
+- **`parseHandlerTarget` 的 inline 判定过宽**：对整个 handler 实参串判 `{`/`;`，导致「具名 handler 跟在带 options 对象的中间件之后」（`passport.authenticate('jwt', { session: false }), ctrl.create`）被误判 inline 而漏配。方向诚实（漏不是错）。修法：按顶层逗号拆参，只看最后一个实参。
+- **`searchNodes` 的 LIKE 子串搜索 + cap 60**：短名可被 route/component 占满 60 条把真函数截断；叠加两个同名目录 + 同名函数可构造「唯一但错」。实测不唯一 0，风险低。修法：换 exact-name 查询或提高 cap。
+- **`eval/knowledge.ts:123` 按 `S-` 前缀收窗口而非按 kind**（既有代码，与其自身注释不符）：`XR-` 证据天然被排除，行为正确但理由是巧合。
+
+
 - **测试套件存在间歇性失败（本轮观察到两次，未定位）**：`npm test` 偶发 1 条失败，紧接着重跑两次均 698/698 全绿，且失败输出未捕获到具体用例名。两次发生在不同批次改动之后，故不像是某次改动引入。**这类抖动比稳定失败更危险**——它会训练人忽略红灯。修法：在 CI 里保留失败时的完整 TAP 输出、或给 `node:test` 加 `--test-reporter=spec` 落盘，先把是哪条测试抓出来再谈修。**先量再定**，不要盲改。
 - **Go 内联 handler 无具名函数可指（诚实边界，非缺陷）**：express 的 25 个注册点用内联闭包做 handler，`parseHandlerTarget` 如实返回 null。此前的启发式会从闭包体里抓出 `res.json` 当 handler——**错配比漏配糟**，已改为遇到 `=>`/`function`/`{` 即判定内联。这 25 个注册点因此不进阅读义务，计数可见。
 
