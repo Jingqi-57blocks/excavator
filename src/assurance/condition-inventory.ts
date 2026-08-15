@@ -112,6 +112,12 @@ export interface ConditionCoverageItem extends ConditionSite {
   status: "consumed" | "unaccounted";
   /** Claim refs that cite this window AND state the literal. */
   consumedBy: string[];
+  /**
+   * Why this site carries no reportable behaviour. Present means: still listed, never counted as a debt,
+   * never put in front of the author. Marking rather than dropping is the same discipline read-obligations
+   * states for its own exclusions — a filter nobody can see is a filter nobody can challenge.
+   */
+  excluded?: "ui-event-protocol";
 }
 
 export interface ConditionInventory {
@@ -123,6 +129,8 @@ export interface ConditionInventory {
     total: number;
     consumed: number;
     unaccounted: number;
+    /** Sites listed but deliberately not owed — the filter is a number, not an invisible drop. */
+    excluded?: number;
     /** Windows that contained at least one qualifying condition. */
     windowsWithConditions: number;
     numericSites: number;
@@ -162,6 +170,7 @@ export function inventoryConditions(evidence: EvidenceItem[], claims: ClaimState
     const { sites, via } = extractComparisons(window);
     for (const site of sites) {
       if (!isBusinessComparison(site)) continue;
+      const excluded = uiEventProtocol(site, path);
       const { field, operator, literal, literalKind, line } = site;
       const expression = literalKind === "string" ? `${field} ${operator} "${literal}"` : `${field} ${operator} ${literal}`;
       const consumedBy = citing
@@ -178,6 +187,7 @@ export function inventoryConditions(evidence: EvidenceItem[], claims: ClaimState
           field,
           operator,
           literal,
+          ...(excluded ? { excluded } : {}),
           literalKind,
           via,
           windowId: window.id,
@@ -211,7 +221,10 @@ export function inventoryConditions(evidence: EvidenceItem[], claims: ClaimState
     summary: {
       total: unique.length,
       consumed: unique.filter((item) => item.status === "consumed").length,
-      unaccounted: unique.filter((item) => item.status === "unaccounted").length,
+      // Excluded sites are listed but never owed: counting them as unaccounted is exactly the pressure that
+      // produced sentences written for the counter rather than for a reader.
+      unaccounted: unique.filter((item) => item.status === "unaccounted" && !item.excluded).length,
+      excluded: unique.filter((item) => item.excluded).length,
       windowsWithConditions: windowsWithConditions.size,
       numericSites: unique.filter((item) => item.literalKind === "number").length,
       stringSites: unique.filter((item) => item.literalKind === "string").length,
@@ -237,11 +250,54 @@ function isBusinessComparison(site: RawComparison): boolean {
   return !isStructuralLiteral(site.literal) && !isProtocolComparison(site.field, site.literal);
 }
 
+/**
+ * A UI event-callback protocol value: the component library's own vocabulary, not the product's.
+ *
+ * This is the ONE filter that exists because of a measured harm rather than measured noise. When the
+ * condition inventory moved into the authoring packet, the author — asked to state every condition carrying
+ * reportable behaviour — wrote sentences like "whether the action value at submit is `next` decides jumping
+ * to the next form" purely to drive the residual from 18 to 1. Reading the source confirms the judgement:
+ * `action === 'next'` chooses `goNext()` over `refresh()` after an approval, `info.type === 'change'` resets
+ * a table to page 1, and `file.status === 'error'` is Ant Design's upload state. None is leave behaviour.
+ *
+ * FOUR conditions, all necessary, and the fourth is the one that makes the filter safe:
+ *   - a string comparison, in
+ *   - a UI component file, where
+ *   - the compared field's LAST SEGMENT is exactly an event-protocol word, AND
+ *   - the value compared against is itself a protocol word.
+ *
+ * KNOWN BIAS (documented rather than silently accepted, as `isStructuralLiteral` above does for its own).
+ * The field name alone cannot separate a callback from a domain state: `application.status === 'approved'`
+ * and `file.status === 'error'` are the same shape. Review constructed the false kills that proves it —
+ * `user.type === 'admin'`, `notification.type === 'leave_request'`, `item?.leave?.status === 'pending'` —
+ * all of which the VALUE list spares. The list is a knob, and knobs are normally refused here; this one is
+ * admissible because it only ever makes the filter STRICTER. Every word removed from it returns sites to
+ * the debt, so nobody can turn it to make a residual look better — it works against whoever turns it.
+ *
+ * The residual bias is the other direction: a UI protocol value nobody listed stays owed, which is the
+ * honest failure. Extending the list is therefore a calibration change and belongs with measurements, not
+ * with a convenient moment.
+ */
+const UI_COMPONENT_FILE = /\.(tsx|jsx|vue)$/;
+const EVENT_PROTOCOL_FIELDS = new Set(["type", "action", "status"]);
+/** Values a component library uses to name its own events and states — never a domain vocabulary. */
+const EVENT_PROTOCOL_VALUES = new Set([
+  "change", "next", "prev", "previous", "done", "error", "uploading", "removed",
+  "click", "submit", "cancel", "close", "open", "blur", "focus", "input", "paginate", "sort", "filter",
+]);
+
+function uiEventProtocol(site: RawComparison, path: string): "ui-event-protocol" | undefined {
+  if (site.literalKind !== "string" || !UI_COMPONENT_FILE.test(path)) return undefined;
+  const lastSegment = site.field.split(/[.?!\[\]]/).filter(Boolean).pop() ?? "";
+  if (!EVENT_PROTOCOL_FIELDS.has(lastSegment)) return undefined;
+  return EVENT_PROTOCOL_VALUES.has(site.literal.toLowerCase()) ? "ui-event-protocol" : undefined;
+}
+
 /** Group string-literal comparisons per (path, field) into the enum family that field accepts. */
 function enumFamilies(items: ConditionCoverageItem[]): EnumFamily[] {
   const byKey = new Map<string, { path: string; field: string; values: Set<string>; lines: Set<number>; consumed: number; total: number }>();
   for (const item of items) {
-    if (item.literalKind !== "string") continue;
+    if (item.literalKind !== "string" || item.excluded) continue;
     const key = `${item.path}${item.field}`;
     const entry = byKey.get(key) ?? { path: item.path, field: item.field, values: new Set<string>(), lines: new Set<number>(), consumed: 0, total: 0 };
     entry.values.add(item.literal);
@@ -286,12 +342,25 @@ function mentionsLiteral(statement: string, literal: string, kind: "number" | "s
  * mechanically, which is the same Goodhart migration the read gates already have to watch for.
  */
 export function auditConditionCoverage(inventory: ConditionInventory): AuditFinding[] {
-  if (!inventory.summary.unaccounted) return [];
+  // What this filter removed is reported even when nothing is owed — especially then. A residual that
+  // reaches zero would otherwise take the only pointer to this artifact with it, and the exclusions would
+  // survive as a number in a JSON file nobody is told to open: silently dropped in every way that matters,
+  // however carefully the items were kept. Curation may mark instead of dropping only while the mark is
+  // reachable.
+  const excluded = inventory.summary.excluded ?? 0;
+  const exclusionNotice: AuditFinding[] = excluded
+    ? [{
+        level: "warning",
+        document: "condition-coverage",
+        message: `condition inventory (advisory): ${excluded} comparison(s) were classified as UI event-protocol values and are neither owed nor shown to the author — they stay listed in coverage/condition-inventory.json with an \`excluded\` marker, so the classification can be checked and disputed`,
+      }]
+    : [];
+  if (!inventory.summary.unaccounted) return exclusionNotice;
   const worst = inventory.items
-    .filter((item) => item.status === "unaccounted")
+    .filter((item) => item.status === "unaccounted" && !item.excluded)
     .slice(0, 12)
     .map((item) => `${item.path}:${item.line} (${item.expression})`);
-  const findings: AuditFinding[] = [{
+  const findings: AuditFinding[] = [...exclusionNotice, {
     level: "warning",
     document: "condition-coverage",
     message: `condition residual (advisory): ${inventory.summary.unaccounted} of ${inventory.summary.total} literal domain conditions inside opened windows are stated by no claim (${inventory.summary.numericSites} numeric, ${inventory.summary.stringSites} string-enum${inventory.summary.regexOnlySites ? `; ${inventory.summary.regexOnlySites} site(s) came from a language with no AST grammar, where only numeric literals are visible` : ""}) — ${worst.join("; ")}${inventory.summary.unaccounted > worst.length ? `; +${inventory.summary.unaccounted - worst.length} more` : ""}; see coverage/condition-inventory.json. This measures extraction, not reading: a window can be opened and its rules still never reported.`,
