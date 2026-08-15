@@ -106,7 +106,11 @@ test("material feature-flow work items require a verified trace", async () => {
     confidence: "high",
     documentIds: [manifest.documents[0].id],
     steps: [
-      { index: 1, action: "The user enters the leave route.", evidenceIds: [evidenceId] },
+      // `claimIds` is cited here on purpose. `collectClaims` keys its map by document+section+claim id so
+      // `metrics.claims` is a real total, while a trace cites a claim by its BARE id — so audit has to
+      // convert before checking. Nothing in the suite exercised that conversion, and a mutation removing it
+      // stayed green: the check below is what makes a regression visible from the caller's side.
+      { index: 1, action: "The user enters the leave route.", evidenceIds: [evidenceId], claimIds: ["C-1"] },
       { index: 2, action: "The handler returns the current leave result.", evidenceIds: [evidenceId] }
     ],
     createdAt: new Date().toISOString()
@@ -116,6 +120,8 @@ test("material feature-flow work items require a verified trace", async () => {
   await assembleRun(runDir);
   audit = await auditRun(runDir);
   assert.ok(!audit.findings.some((finding) => /material flow work item has no trace|missing trace/i.test(finding.message)), JSON.stringify(audit.findings, null, 2));
+  assert.ok(!audit.findings.some((finding) => /missing claim id/i.test(finding.message)),
+    `a trace citing a real claim must resolve: ${JSON.stringify(audit.findings.filter((finding) => /claim id/i.test(finding.message)), null, 2)}`);
 });
 
 test("assemble writes claims, trace and coverage companion files", async () => {
