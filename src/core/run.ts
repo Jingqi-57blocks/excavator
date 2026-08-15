@@ -13,14 +13,15 @@ import { auditComparativeClaims } from "../assurance/claim-comparison.ts";
 import { auditFreezeOrder, auditFrozenKnowledge, buildKnowledge, freezePreconditions, knowledgeDigest, normalizeSupplement, recordSupplement } from "../assurance/freeze.ts";
 import { atomicWrite, Deadline, ensureDir, exists, nowIso, readJson, REDACTION_VERSION, runIdTimestamp, sha256, slugify, stableJson, writeJson } from "./util.ts";
 import { logicWorkItems, LOGIC_DISPOSITION_ASSURANCE_GENERATION } from "../assurance/logic-workitems.ts";
-import { readObligations, BOUNDARY_DENOMINATOR_ASSURANCE_GENERATION, CROSSREPO_DENOMINATOR_ASSURANCE_GENERATION, READ_ACCOUNTABILITY_ASSURANCE_GENERATION, type RouteHandlerObligation } from "../assurance/read-obligations.ts";
+import { readObligations, BOUNDARY_DENOMINATOR_ASSURANCE_GENERATION, CROSSREPO_DENOMINATOR_ASSURANCE_GENERATION, READ_ACCOUNTABILITY_ASSURANCE_GENERATION, type ReadObligationsArtifact, type RouteHandlerObligation } from "../assurance/read-obligations.ts";
+import { readingExposure, renderReadingCheck, type ReadingExposure } from "../assurance/read-residual-exposure.ts";
 import type { BoundaryFunctionsArtifact } from "../context/boundary-functions.ts";
 import { scanCrossRepoLinks } from "../crossrepo/crossrepo-scan.ts";
 import { featureAnchorTerms, tokenize } from "../context/context.ts";
 import { buildCrossRepoArtifact, mintCrossRepoEvidence, routeHandlerObligations, type CrossRepoArtifact } from "../crossrepo/crossrepo-artifact.ts";
 import { goImportAliases, parseHandlerTarget, resolveHandler } from "../crossrepo/handler-resolve.ts";
 import { CodeGraphIndex } from "../codegraph/codegraph.ts";
-import { auditReadAccountability, reconcileReadCoverage, type ClaimCitation } from "../assurance/read-coverage.ts";
+import { auditReadAccountability, reconcileReadCoverage, type ClaimCitation, type ReadCoverageReport } from "../assurance/read-coverage.ts";
 import { auditConditionCoverage, inventoryConditions, type ClaimStatement } from "../assurance/condition-inventory.ts";
 import { warmExtractors } from "../assurance/condition-extract.ts";
 import { collectClaims, createAnalysisScope, emptyTraceCatalog, mergeTraces, writeReportCompanions } from "../assurance/assurance-artifacts.ts";
@@ -108,6 +109,124 @@ async function resolveCrossRepoLinks(
 async function readCrossRepoLinks(runDir: string): Promise<CrossRepoArtifact | null> {
   const path = join(runDir, "context", "crossrepo-links.json");
   return await exists(path) ? await readJson<CrossRepoArtifact>(path) : null;
+}
+
+/** The reading denominator and its reconciliation, or null when the run predates reading accountability. */
+interface ReadAccountability {
+  obligations: ReadObligationsArtifact;
+  residual: ReadCoverageReport;
+  /** Whether relevance annotation ran — carried explicitly, never re-derived from whether labels matched. */
+  annotated: boolean;
+  boundaryFunctions: BoundaryFunctionsArtifact | null;
+}
+
+/**
+ * Derive the read-obligation denominator and reconcile it against the opened windows.
+ *
+ * Extracted so freeze and the pre-freeze `reading` check run the SAME derivation. Two commands deriving a
+ * denominator separately is the failure this shape forbids: one run must never be able to show two different
+ * reading readouts, and a check that disagreed with the gate it precedes would be worse than no check.
+ */
+async function deriveReadAccountability(
+  runDir: string,
+  manifest: RunManifest,
+  factPacks: Record<string, FeatureFactPack>,
+  workItems: InvestigationWorkItem[],
+  evidence: EvidenceItem[],
+  crossRepoLinks: CrossRepoArtifact | null,
+): Promise<ReadAccountability | null> {
+  if (!assuranceGenerationAtLeast(manifest, READ_ACCOUNTABILITY_ASSURANCE_GENERATION)) return null;
+  // Generation 6 widens the denominator with the boundary-file enumeration. Gated on the run's own
+  // generation, so a generation-5 run keeps exactly the denominator it was prepared with — and a run
+  // prepared under 6 whose artifact is missing degrades to the first source alone rather than failing.
+  const boundaryFunctions = assuranceGenerationAtLeast(manifest, BOUNDARY_DENOMINATOR_ASSURANCE_GENERATION)
+    ? await readBoundaryFunctions(runDir)
+    : null;
+  const routeHandlers = assuranceGenerationAtLeast(manifest, CROSSREPO_DENOMINATOR_ASSURANCE_GENERATION)
+    ? await routeHandlerDenominator(runDir, manifest, crossRepoLinks, factPacks)
+    : null;
+  // The annotation uses the RUN'S OWN vocabulary, re-derived from its manifest through the same pure
+  // functions prepare used — so freeze, audit and eval all label identically with no extra I/O.
+  const anchorTermsByFeature = anchorTermsFor(manifest);
+  const obligations = readObligations(Object.values(factPacks) as FeatureFactPack[], workItems, boundaryFunctions, routeHandlers, anchorTermsByFeature);
+  const annotated = Boolean(anchorTermsByFeature);
+  return { obligations, residual: reconcileReadCoverage({ obligations: obligations.obligations, evidence, annotated }), annotated, boundaryFunctions };
+}
+
+/**
+ * Report which decision code inside the feature boundary no source window covers yet — the read residual,
+ * rendered where it can still be acted on cheaply.
+ *
+ * Read-only in every sense that matters: it opens no window, changes no artifact, and consumes no
+ * supplement even after freeze. The one thing it writes is a timeline event, so the run carries its own
+ * before/after: a window opened after this event on a file this event named is a deterministic trace that
+ * the exposure changed a reading choice, which is not something an aggregate recall number can show.
+ *
+ * That event is safe on a frozen run by construction, not by luck: the post-freeze supplement gate lists
+ * the four actions that MUTATE investigation state (`freeze.ts` `GATED_TIMELINE_ACTIONS`), and asking a
+ * question is not one of them.
+ *
+ * Before freeze the denominator is derived live; after freeze it is read from the FROZEN artifact, the same
+ * rule audit follows — one run, one denominator, whoever asks and whenever.
+ */
+export async function readingCheck(runDirInput: string): Promise<{ frozen: boolean; report: string; exposure: ReadingExposure | null }> {
+  const runDir = resolve(runDirInput);
+  const manifest = await readJson<RunManifest>(join(runDir, "run.json"));
+  const frozen = Boolean(manifest.frozenAt);
+  const evidenceCatalog = await readJson<{ evidence: EvidenceItem[] }>(join(runDir, "evidence.json"));
+  const plan = await readJson<InvestigationPlan>(join(runDir, "workitems.json"));
+
+  let accountability: ReadAccountability | null = null;
+  let denominatorLost = false;
+  if (frozen) {
+    const frozenPath = join(runDir, "coverage", "read-obligations.json");
+    if (await exists(frozenPath)) {
+      const obligations = await readJson<ReadObligationsArtifact>(frozenPath);
+      // The frozen artifact states whether annotation ran; re-deriving that from whether labels are present
+      // would make a run whose vocabulary matched nothing read like a run frozen before labels existed.
+      const annotated = Boolean(obligations.summary.anchor);
+      accountability = { obligations, annotated, boundaryFunctions: null, residual: reconcileReadCoverage({ obligations: obligations.obligations, evidence: evidenceCatalog.evidence, annotated }) };
+    } else {
+      // A generation that HAD a denominator and no longer has the artifact is a different fact from a run
+      // that never had one. Both refuse to re-derive — a fresh derivation after freeze would silently answer
+      // from inputs the run is no longer accountable to — but they must not give the same reason.
+      denominatorLost = assuranceGenerationAtLeast(manifest, READ_ACCOUNTABILITY_ASSURANCE_GENERATION);
+    }
+  } else {
+    const factPacks = await readFrozenFactPacks(runDir, manifest);
+    accountability = await deriveReadAccountability(runDir, manifest, factPacks, plan.items, evidenceCatalog.evidence, await readCrossRepoLinks(runDir));
+  }
+  if (!accountability) {
+    return {
+      frozen,
+      exposure: null,
+      report: denominatorLost
+        ? "This run's frozen read-obligation denominator is missing (coverage/read-obligations.json): it cannot be read, and re-deriving one after freeze would answer from inputs this run is no longer accountable to."
+        : "This run has no read-obligation denominator: it was prepared before reading accountability existed.",
+    };
+  }
+  // Before freeze this is literally the reconciliation freeze will gate on — not a second one that agrees.
+  const exposure = readingExposure({ obligations: accountability.obligations.obligations, items: accountability.residual.items, annotated: accountability.annotated });
+  await appendTimeline(runDir, manifest.id, {
+    stage: "investigation",
+    action: "investigation.read-check",
+    data: {
+      frozen,
+      functions: exposure.totals.functions,
+      files: exposure.totals.files,
+      unreadLines: exposure.totals.unreadLines,
+      unclassified: exposure.unclassified.count,
+      // The file list is the join key the effect check needs; capped so a large target cannot bloat the ledger.
+      paths: exposure.files.slice(0, 50).map((file) => file.path),
+    },
+  });
+  manifest.metrics.timelineEvents = (manifest.metrics.timelineEvents ?? 0) + 1;
+  // Both copies of the counter move together, as every other mutator here keeps them. `updatedAt` is
+  // deliberately NOT bumped: this command changes nothing about the run, and leaving the stamp alone also
+  // keeps it clear of the concurrency guard that watches for a run mutated underneath a draft.
+  await writeJson(join(runDir, "run.json"), manifest);
+  await writeJson(join(runDir, "metrics.json"), manifest.metrics);
+  return { frozen, exposure, report: renderReadingCheck(exposure, { frozen }) };
 }
 
 /**
@@ -435,24 +554,13 @@ export async function freezeRun(runDirInput: string): Promise<{ manifest: RunMan
   // Reading accountability (generation 5+): the read-obligation denominator derives from those same frozen
   // fact packs and is FROZEN as a run artifact rather than recomputed at audit time — a later assurance
   // change must never silently move the denominator under an already-frozen run.
-  const readAccountable = assuranceGenerationAtLeast(manifest, READ_ACCOUNTABILITY_ASSURANCE_GENERATION);
-  // Generation 6 widens that denominator with the boundary-file enumeration. Gated on the run's own
-  // generation, so a generation-5 run keeps exactly the denominator it was prepared with — and a run
-  // prepared under 6 whose artifact is missing degrades to the first source alone rather than failing.
-  const boundaryFunctions = readAccountable && assuranceGenerationAtLeast(manifest, BOUNDARY_DENOMINATOR_ASSURANCE_GENERATION)
-    ? await readBoundaryFunctions(runDir)
-    : null;
   // The cross-repo links are pinned in knowledge whenever the artifact exists — independent of the
   // obligation generation, because the digest protects the record, not the denominator.
   const crossRepoLinks = await readCrossRepoLinks(runDir);
-  const routeHandlers = readAccountable && assuranceGenerationAtLeast(manifest, CROSSREPO_DENOMINATOR_ASSURANCE_GENERATION)
-    ? await routeHandlerDenominator(runDir, manifest, crossRepoLinks, factPacks)
-    : null;
-  // The annotation uses the RUN'S OWN vocabulary, re-derived from its manifest through the same pure
-  // functions prepare used — so freeze, audit and eval all label identically with no extra I/O.
-  const anchorTermsByFeature = readAccountable ? anchorTermsFor(manifest) : null;
-  const obligations = readAccountable ? readObligations(Object.values(factPacks) as FeatureFactPack[], plan.items, boundaryFunctions, routeHandlers, anchorTermsByFeature) : null;
-  const readResidual = obligations ? reconcileReadCoverage({ obligations: obligations.obligations, evidence: evidenceCatalog.evidence, annotated: Boolean(anchorTermsByFeature) }) : null;
+  const accountability = await deriveReadAccountability(runDir, manifest, factPacks, plan.items, evidenceCatalog.evidence, crossRepoLinks);
+  const obligations = accountability?.obligations ?? null;
+  const readResidual = accountability?.residual ?? null;
+  const boundaryFunctions = accountability?.boundaryFunctions ?? null;
   const expectedPlan = createInvestigationPlan(manifest.id, manifest.request, manifest.documents);
   // Gate the generative expansion on the run's assurance GENERATION, not exact-version equality: a run
   // prepared under generation 4+ already baked these items, so re-derive them regardless of any later
@@ -478,8 +586,10 @@ export async function freezeRun(runDirInput: string): Promise<{ manifest: RunMan
   // The literal conditions inside the opened windows, computed WITHOUT claims (none exist yet). Measured
   // extraction of these was ~0 while they were only an audit-time residual, so they are put in front of the
   // author here — the packet below renders them per section — and re-reconciled with consumption at audit.
-  if (readAccountable) await warmExtractors();
-  const freezeConditions = readAccountable ? inventoryConditions(evidenceCatalog.evidence, []) : null;
+  // `accountability` is non-null exactly when the run is generation 5+, so it carries the same gate the
+  // condition inventory has always used — one predicate, not two that could drift apart.
+  if (accountability) await warmExtractors();
+  const freezeConditions = accountability ? inventoryConditions(evidenceCatalog.evidence, []) : null;
   if (freezeConditions) await writeJson(join(runDir, "coverage", "condition-inventory.json"), freezeConditions);
 
   const crossFeaturePath = join(runDir, "context", "cross-feature.json");
@@ -492,7 +602,8 @@ export async function freezeRun(runDirInput: string): Promise<{ manifest: RunMan
   // not a ledger, so it is written after knowledge.json but before the manifest is stamped frozen.
   let authoringPackets = 0;
   for (const document of manifest.documents) {
-    const markdown = buildAuthoringPacket(document, plan, evidenceById, traces, factPacks, freezeConditions ?? undefined);
+    const markdown = buildAuthoringPacket(document, plan, evidenceById, traces, factPacks, freezeConditions ?? undefined,
+      accountability ? { obligations: accountability.obligations.obligations, items: accountability.residual.items, annotated: accountability.annotated } : undefined);
     await atomicWrite(join(runDir, "context", "authoring", `${document.id}.md`), markdown);
     authoringPackets += 1;
   }

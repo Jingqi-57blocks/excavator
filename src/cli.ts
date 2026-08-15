@@ -2,7 +2,7 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { Audience, BudgetConfig, ChecklistItem, FeatureRequest, InvestigationWorkItem, ReportRequest, SectionClaim, TraceRecord } from "./core/types.ts";
-import { addSourceEvidence, assembleRun, auditRun, beginDocument, checkpointSection, freezeRun, prepareRun, resumeRun, runStatus, scaffoldClaims, searchSourceEvidence, updateChecklist, updateTraces, updateWorkItems, type SupplementInput } from "./core/run.ts";
+import { addSourceEvidence, assembleRun, auditRun, beginDocument, checkpointSection, freezeRun, prepareRun, readingCheck, resumeRun, runStatus, scaffoldClaims, searchSourceEvidence, updateChecklist, updateTraces, updateWorkItems, type SupplementInput } from "./core/run.ts";
 import { collectDrafts, draftSection } from "./assurance/parallel-authoring.ts";
 import { stableJson } from "./core/util.ts";
 import { buildCodeGraph, codeGraphStatus } from "./codegraph/codegraph-command.ts";
@@ -119,6 +119,14 @@ async function main(): Promise<void> {
         const result = await freezeRun(required(args.run, "--run"));
         print(result);
         if (!result.frozen) process.exitCode = 1;
+        break;
+      }
+      case "reading": {
+        // Prose, not JSON: this is read by whoever decides what to open next, and a list to act on should
+        // not have to be unpacked first. Always exit 0 — a read residual is a cost to weigh, never a failure.
+        const args = parseArgs(argv);
+        const result = await readingCheck(required(args.run, "--run"));
+        process.stdout.write(`${result.report}\n`);
         break;
       }
       case "source": {
@@ -326,6 +334,7 @@ Commands:
   native-graph  Build a symbol+call navigation graph for CodeGraph-unsupported languages (Perl, Zope templates)
   framework  Recover routes/components from framework conventions (Catalyst, …) — for dynamically-dispatched apps
   begin      Start or restart one document authoring timer
+  reading    Show which in-boundary decision code no source window covers yet — run it before freeze, where opening one is free
   freeze     Freeze the completed investigation into knowledge.json before authoring; also renders per-document authoring packets
   source     Record a bounded source excerpt as evidence
   search     Search source under the run snapshot and record a reusable receipt
@@ -349,6 +358,7 @@ Examples:
   excavator db-schema --target ./workspace --out ./db --language en-US
   excavator native-graph --target ./workspace --out ./nav
   excavator framework --target ./workspace --out ./fw
+  excavator reading --run <run>
   excavator freeze --run <run>
   excavator feature --target ./workspace --subject "Account access" --aliases access,permission,role --audience both --detail detailed
   excavator search --run <run> --query "\\bTODO\\b|@deprecated" --regex --case-sensitive --reason "investigate unfinished behavior"
@@ -484,11 +494,20 @@ const COMMAND_HELP: Record<string, CommandHelp> = {
     ],
     example: "excavator begin --run <run> --document overview-product"
   },
+  reading: {
+    synopsis: "reading --run <dir>",
+    flags: [
+      "--run <dir>          Run directory (required)",
+      "Read-only: opens no window, changes no artifact, needs no supplement even after freeze."
+    ],
+    example: "excavator reading --run <run>",
+    notes: "Ranked by unread weight, so it aids an investment decision; it is not a checklist and nothing counts how many entries are cleared. Before freeze the denominator is derived live and opening a window is ordinary investigation; after freeze it reads the frozen denominator and any window costs a supplement."
+  },
   freeze: {
     synopsis: "freeze --run <dir>",
     flags: ["--run <dir>          Run directory (required)"],
     example: "excavator freeze --run <run>",
-    notes: "On success, also renders per-document authoring packets under context/authoring/."
+    notes: "On success, also renders per-document authoring packets under context/authoring/, including a reading-boundary block naming what the investigation never opened."
   },
   source: {
     synopsis: "source --run <dir> --path <file> --start <n> --end <n> --reason <text> [--supplement-reason <text> --supplement-workitem <id>]",

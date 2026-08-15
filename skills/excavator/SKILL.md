@@ -172,7 +172,15 @@ Investigate before you write. After prepare and before any `begin`, work the pla
 
 - The authoring packet lists the literal conditions found inside the windows you opened (`lv.Hours > 40` at its file and line), per section plus one unassigned block. Read that list before writing the section: state every condition that carries reportable behavior and cite the window it came from. Leaving one out is a decision, not an oversight — if a condition is not reportable behavior, omit it deliberately.
 
-- Freeze also reports a read residual: every in-boundary decision function that was never opened, or only partly opened, with the unread line ranges. Those are advisories, not blockers. Clear the ones that matter before freezing, and read the ranges rather than the signature — a decision function's thresholds and branch conditions live in its body, so opening only its opening lines leaves the rule unread. `coverage/read-obligations.json` (the frozen denominator) and `coverage/read-residual.json` (what was and was not read) carry the detail. Read coverage is relative to the retained boundary: full coverage never means nothing was missed.
+- Ask what you have not read, while reading is still free:
+
+  ```bash
+  excavator reading --run <run-dir>
+  ```
+
+  It lists the in-boundary decision functions no source window covers yet, grouped by file and ranked by unread weight, with the partition that carries this feature's vocabulary first and the rest counted per file below it. Run it before freezing: until then, opening a window is ordinary investigation, while afterwards the same window costs a supplement. It is an investment aid, not a checklist — open the files heavy enough to hide reportable behavior, leave the rest, and read the unread ranges rather than the signature, since a decision function's thresholds and branch conditions live in its body. Nothing counts how many entries you clear, and opening a window you do not use is recorded as a drive-by read. The command is read-only and can be run at any time, including after freeze.
+
+- Freeze also reports the same residual as two aggregate advisories, and the authoring packet carries a `Reading boundary` block naming what was never opened for that document's feature. `coverage/read-obligations.json` (the frozen denominator) and `coverage/read-residual.json` (what was and was not read) carry the detail. Read coverage is relative to the retained boundary: full coverage never means nothing was missed.
 
 - Search under the immutable run snapshot when the prepared context does not identify a path, and retain the reusable receipt. Repeating the same snapshot-bound search is a cache hit; a `searched-not-found` disposition cites the returned `SEARCH-*` evidence ID.
 
@@ -212,13 +220,16 @@ Establish the following while investigating, not at audit:
 
 ## Freeze
 
-When every required work item is disposed and every material flow is traced, freeze the investigation:
+When every required work item is disposed and every material flow is traced, check what is still unread and then freeze:
 
 ```bash
+excavator reading --run <run-dir>
 excavator freeze --run <run-dir>
 ```
 
-Freeze is a deterministic gate: it admits the run only when the investigation would already pass audit — every required item disposed, every `found` material flow carrying a verified trace, the evidence catalog and its digest intact, and the snapshot unchanged. On a non-zero exit it reports the exact gaps — items still pending, flows still missing a trace — so continue investigating and freeze again. On success it writes `knowledge.json`, the frozen record authoring consumes, and renders one authoring packet per document under `context/authoring/<document-id>.md`: a deterministic, model-free view of the frozen knowledge organized by report section, listing the work items, deterministic facts and evidence excerpts each section must cover. Freeze once; a change after freeze goes through the supplement channel described below.
+Run `reading` first because freeze changes the price: before it, a window is ordinary investigation; after it, every window is a supplement charged to a work item. Whatever you decide to leave unread is a legitimate outcome — the point of asking beforehand is that it becomes a decision rather than an accident.
+
+Freeze is a deterministic gate: it admits the run only when the investigation would already pass audit — every required item disposed, every `found` material flow carrying a verified trace, the evidence catalog and its digest intact, and the snapshot unchanged. On a non-zero exit it reports the exact gaps — items still pending, flows still missing a trace — so continue investigating and freeze again. On success it writes `knowledge.json`, the frozen record authoring consumes, and renders one authoring packet per document under `context/authoring/<document-id>.md`: a deterministic, model-free view of the frozen knowledge organized by report section, listing the work items, deterministic facts and evidence excerpts each section must cover, and closing with the reading boundary — the feature-associated decision code the investigation never opened. Freeze once; a change after freeze goes through the supplement channel described below.
 
 Under the current assurance version freeze is a hard precondition of authoring, not a suggestion: `excavator begin` refuses an unfrozen run, and a run authored without — or before — a freeze fails audit. Runs prepared under an older assurance version are grandfathered and keep the earlier soft guidance.
 
@@ -239,7 +250,7 @@ For each document:
    excavator begin --run <run-dir> --document <document-id>
    ```
 
-3. Write one template section at a time. Start from that section's block in `context/authoring/<document-id>.md`, drawing on the frozen evidence, work items and traces already in the run: cover every work item, deterministic fact and evidence excerpt the block lists for the section, or state explicitly why it does not apply.
+3. Write one template section at a time. Start from that section's block in `context/authoring/<document-id>.md`, drawing on the frozen evidence, work items and traces already in the run: cover every work item, deterministic fact and evidence excerpt the block lists for the section, or state explicitly why it does not apply. The packet's closing `Reading boundary` block is the exception to that rule: it names what the investigation never opened, so it is there to keep the writing honest where it borders on unread code, not to be answered entry by entry or mentioned in the report.
 4. Generate the claims skeleton from the written section, then fill it in:
 
    ```bash

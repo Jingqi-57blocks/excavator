@@ -1,6 +1,9 @@
 import { join } from "node:path";
 import type { AuditFinding } from "./assurance.ts";
 import type { ConditionInventory } from "./condition-inventory.ts";
+import type { ReadCoverageItem } from "./read-coverage.ts";
+import type { ReadObligation } from "./read-obligations.ts";
+import { readingExposure, renderReadingBoundary } from "./read-residual-exposure.ts";
 import type {
   DocumentPlan,
   EvidenceItem,
@@ -70,6 +73,18 @@ const FACT_CATEGORY_ORDER: FactPackCategory[] = ["entrypoints", "entities", "sta
 
 /** Disposition order for the completeness header; statuses absent from the document are omitted. */
 const STATUS_ORDER = ["found", "searched-not-found", "cannot-determine", "not-applicable", "in_progress", "pending"] as const;
+
+/**
+ * What the reading-boundary block needs: the run's own denominator and its reconciliation. The block is
+ * derived here rather than handed in pre-rendered so the packet scopes it to its own feature — the caller
+ * holds one run-wide reconciliation, and a document must never show another feature's residual.
+ */
+export interface ReadingExposureSource {
+  obligations: ReadObligation[];
+  items: ReadCoverageItem[];
+  /** Whether the obligations were relevance-annotated; without labels there is no partition to render. */
+  annotated: boolean;
+}
 
 /**
  * One organizational block of a packet: a report section for feature documents, or the single project
@@ -142,7 +157,11 @@ export function buildAuthoringPacket(
    *  absent the packet is byte-identical to before, so older runs and callers are unaffected. Measured
    *  extraction of these conditions was ~0, which is why they are put in front of the author BEFORE writing
    *  rather than only reported as an audit residual afterwards. */
-  conditions?: ConditionInventory
+  conditions?: ConditionInventory,
+  /** The reconciled read obligations, for the reading-boundary block (generation 5+). Optional and additive
+   *  on the same terms as `conditions`: absent, the packet is byte-identical to before. Feature documents
+   *  only — the partitions are feature-scoped by construction, so an overview has nothing to scope them to. */
+  reading?: ReadingExposureSource
 ): string {
   const sections = packetEvidenceForDocument(document, plan);
   const relevant = plan.items.filter((item) => item.requiredFor.includes(document.id));
@@ -181,6 +200,10 @@ export function buildAuthoringPacket(
   if (unassignedConditions) parts.push(unassignedConditions);
   const families = renderEnumFamilies(conditions);
   if (families) parts.push(families);
+  // Last block in the packet, and deliberately so: everything above renders knowledge that was frozen, while
+  // this renders the known unknowns. A boundary statement belongs after what it bounds.
+  const boundary = renderReadingBlock(document, reading);
+  if (boundary) parts.push(boundary);
 
   if (!sections.length) parts.push("No work item is required for this document.");
   return `${parts.join("\n\n")}\n`;
@@ -323,6 +346,18 @@ function renderEnumFamilies(conditions: ConditionInventory | undefined): string 
     lines.push(`- \`${family.field}\` ∈ { ${family.values.map((value) => `\`${value}\``).join(", ")} } — ${family.path}:${family.lines.join(",")}`);
   }
   return lines.join("\n");
+}
+
+/**
+ * The reading boundary for THIS document's feature. Overviews get nothing: the strong partition is
+ * feature-scoped by construction (its `retained` half comes from a feature boundary, its anchor half from a
+ * feature's vocabulary), so an overview could only be given every feature's residual at once — a dump, not
+ * a boundary. Both audiences of one feature render it: each packet is read in its own authoring pass, and
+ * nothing counts the block, so showing it twice creates no second obligation.
+ */
+function renderReadingBlock(document: DocumentPlan, reading: ReadingExposureSource | undefined): string {
+  if (!reading || document.kind !== "feature") return "";
+  return renderReadingBoundary(readingExposure({ ...reading, featureKey: featureKeyOf(document) }));
 }
 
 /** Conditions whose window no section block claims — rendered once, unassigned, so none is silently dropped. */
