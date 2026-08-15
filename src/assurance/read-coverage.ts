@@ -42,7 +42,8 @@ export interface ReadCoverageItem {
   path: string;
   startLine: number;
   endLine?: number;
-  tier: 0 | 1;
+  /** Mirrors `ReadObligation.tier`; 2 marks a boundary supplement, which is never gated. */
+  tier: 0 | 1 | 2;
   gated: boolean;
   status: ReadStatus;
   /** Evidence ids of the source windows overlapping this span, sorted. */
