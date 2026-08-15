@@ -15,7 +15,7 @@ function scanWith(links: CrossRepoScan["links"]): CrossRepoScan {
     ambiguous: [],
     candidates: [],
     routeRecovery: [],
-  registrations: [],
+    registrations: [],
     unrecoveredRoutes: [],
     summary: { calls: links.length, static: links.length, framework: 0, unresolved: 0, ambiguous: 0, weak: 0, routes: 1 },
     warnings: [],

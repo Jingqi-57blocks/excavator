@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { readObligations, RECOVERED_ROUTE_DENOMINATOR_ASSURANCE_GENERATION } from "../src/assurance/read-obligations.ts";
+import { recoveredRouteObligations } from "../src/crossrepo/crossrepo-artifact.ts";
 import { reconcileReadCoverage } from "../src/assurance/read-coverage.ts";
 import type { EvidenceItem, FeatureFactPack } from "../src/core/types.ts";
 
@@ -25,7 +26,7 @@ const FIXTURE = join(HERE, "fixtures", "recovered-routes", "run1-replay.json");
 
 interface Replay {
   featureKey: string;
-  registrations: Array<{ module: string; method: string; path: string; file: string; line: number; endLine: number }>;
+  registrations: Array<{ module: string; method: string; path: string; file: string; line: number; endLine: number; framework: string }>;
   windows: EvidenceItem[];
 }
 
@@ -33,19 +34,14 @@ function replay(): Replay {
   return JSON.parse(readFileSync(FIXTURE, "utf8")) as Replay;
 }
 
-/** Mirrors `recoveredRouteDenominator` in run.ts: the same filter and the same name/route composition. */
-function recoveredSource(data: Replay, boundaryFiles: Set<string>) {
-  return data.registrations
-    .filter((entry) => entry.endLine !== undefined && entry.endLine >= entry.line)
-    .filter((entry) => boundaryFiles.has(entry.file) || boundaryFiles.has(`${entry.module}/${entry.file}`))
-    .map((entry) => ({
-      featureKey: data.featureKey,
-      name: `${entry.method} ${entry.path}`,
-      path: `${entry.module}/${entry.file}`,
-      startLine: entry.line,
-      endLine: entry.endLine,
-      route: entry.path,
-    }));
+/**
+ * The SHIPPED construction, not a copy of it. An earlier version of this file mirrored the filter by hand;
+ * two mutations proved what that is worth — deleting the qualified-path match, and disconnecting the whole
+ * fourth source from freeze, both left the suite green. A test that re-implements the thing it tests can
+ * only ever agree with itself.
+ */
+function recoveredSource(data: Replay, factPack: FeatureFactPack) {
+  return recoveredRouteObligations({ registrations: data.registrations }, { [data.featureKey]: factPack as never }) ?? [];
 }
 
 function pack(data: Replay): FeatureFactPack {
@@ -63,8 +59,7 @@ test("the generation constant is the next one, so a run frozen under 7 keeps its
 test("registrations with an inline handler become obligations of their own kind", () => {
   const data = replay();
   const factPack = pack(data);
-  const boundary = new Set((factPack.items as Array<{ filePath: string }>).map((item) => item.filePath));
-  const artifact = readObligations([factPack], [], null, null, null, recoveredSource(data, boundary));
+  const artifact = readObligations([factPack], [], null, null, null, recoveredSource(data, factPack));
   const recovered = artifact.obligations.filter((obligation) => obligation.kind === "recovered-route-handler");
 
   assert.equal(recovered.length, 16, "the two v1 express files' registrations");
@@ -81,8 +76,7 @@ test("registrations with an inline handler become obligations of their own kind"
 test("replaying run #1 puts every registration in a bucket, and the distribution is pinned", () => {
   const data = replay();
   const factPack = pack(data);
-  const boundary = new Set((factPack.items as Array<{ filePath: string }>).map((item) => item.filePath));
-  const artifact = readObligations([factPack], [], null, null, null, recoveredSource(data, boundary));
+  const artifact = readObligations([factPack], [], null, null, null, recoveredSource(data, factPack));
   const report = reconcileReadCoverage({ obligations: artifact.obligations, evidence: data.windows });
 
   const items = report.items.filter((item) => item.id.includes(":recovered-route-handler:"));
@@ -104,8 +98,7 @@ test("replaying run #1 puts every registration in a bucket, and the distribution
 test("the v1 creation rules were READ and unstated, while another 208-line handler was never opened", () => {
   const data = replay();
   const factPack = pack(data);
-  const boundary = new Set((factPack.items as Array<{ filePath: string }>).map((item) => item.filePath));
-  const artifact = readObligations([factPack], [], null, null, null, recoveredSource(data, boundary));
+  const artifact = readObligations([factPack], [], null, null, null, recoveredSource(data, factPack));
   const report = reconcileReadCoverage({ obligations: artifact.obligations, evidence: data.windows });
 
   const creation = report.items.find((item) => item.name === "POST /leaves");
@@ -122,9 +115,8 @@ test("the v1 creation rules were READ and unstated, while another 208-line handl
 test("the fourth source only adds — existing obligations keep their id and kind", () => {
   const data = replay();
   const factPack = pack(data);
-  const boundary = new Set((factPack.items as Array<{ filePath: string }>).map((item) => item.filePath));
   const before = readObligations([factPack], [], null, null, null);
-  const after = readObligations([factPack], [], null, null, null, recoveredSource(data, boundary));
+  const after = readObligations([factPack], [], null, null, null, recoveredSource(data, factPack));
 
   const kinds = new Map(before.obligations.map((obligation) => [obligation.id, obligation.kind]));
   for (const [id, kind] of kinds) {
@@ -137,9 +129,54 @@ test("the fourth source only adds — existing obligations keep their id and kin
 test("a registration with no end line contributes nothing rather than a span-less obligation", () => {
   const data = replay();
   const factPack = pack(data);
-  const boundary = new Set((factPack.items as Array<{ filePath: string }>).map((item) => item.filePath));
-  const spanless = recoveredSource(data, boundary).map((entry) => ({ ...entry, endLine: entry.startLine - 1 }));
+  const spanless = recoveredSource(data, factPack).map((entry) => ({ ...entry, endLine: entry.startLine - 1 }));
   const artifact = readObligations([factPack], [], null, null, null, spanless.filter((entry) => entry.endLine >= entry.startLine));
   assert.equal(artifact.obligations.filter((obligation) => obligation.kind === "recovered-route-handler").length, 0,
     "a span that cannot be reconciled would sit in cannot-determine forever");
+});
+
+// THE WIRING, not just the construction. The first version of this file tested a hand-copied mirror of the
+// filter, and two mutations showed what that buys: deleting the qualified-path match, and disconnecting the
+// fourth source from freeze entirely, both left the whole suite green. So this asserts the path from a
+// frozen artifact to a frozen denominator — the thing a user actually gets.
+test("freeze turns an artifact's registrations into obligations end to end", async () => {
+  const { writeJson } = await import("../src/core/util.ts");
+  const { freezeRun, prepareRun } = await import("../src/core/run.ts");
+  const { copyFixture, disposeAllWorkItems, tempDir } = await import("./helpers.ts");
+  const { readFile } = await import("node:fs/promises");
+
+  const target = await copyFixture("residual-target");
+  const workdir = await tempDir();
+  const { runDir } = await prepareRun({
+    target, workdir, language: "en-US", detailLevel: "standard", overviewAudiences: [],
+    features: [{ subject: "Leave management", aliases: ["leave"], audiences: ["product"] }],
+    budgets: { prepareMs: 30_000, authorMs: 30_000, maxGraphQueries: 40, maxSourceWindows: 20, maxSourceCharacters: 400_000, maxFiles: 10_000, maxFeatureNodes: 80, maxExpansionDepth: 2 },
+  } as never);
+
+  // A minimal cross-repo artifact whose only content is a registration inside the feature's boundary.
+  const factPackPath = join(runDir, "context", "features");
+  const { readdirSync } = await import("node:fs");
+  const packFile = readdirSync(factPackPath).find((name) => name.endsWith(".factpack.json"))!;
+  const factPack = JSON.parse(await readFile(join(factPackPath, packFile), "utf8")) as { items: Array<{ filePath: string }> };
+  const boundaryFile = factPack.items[0]?.filePath;
+  assert.ok(boundaryFile, "the fixture must put at least one file in the boundary");
+
+  await writeJson(join(runDir, "context", "crossrepo-links.json"), {
+    version: "crossrepo-artifact-v1", snapshotId: "s", modules: [], clients: [], links: [],
+    unresolved: [], ambiguous: [], candidates: [], routeRecovery: [], unrecoveredRoutes: [], warnings: [],
+    registrations: [{ module: "", method: "POST", path: "/leaves", file: boundaryFile, line: 1, endLine: 4, framework: "express" }],
+  });
+
+  await disposeAllWorkItems(runDir);
+  assert.equal((await freezeRun(runDir)).frozen, true);
+
+  const frozen = JSON.parse(await readFile(join(runDir, "coverage", "read-obligations.json"), "utf8")) as {
+    obligations: Array<{ kind: string; name: string; route?: string }>;
+    summary: { recoveredRouteSource?: { added: number } };
+  };
+  const recovered = frozen.obligations.filter((obligation) => obligation.kind === "recovered-route-handler");
+  assert.equal(recovered.length, 1, "the registration reached the frozen denominator");
+  assert.equal(recovered[0].name, "POST /leaves");
+  assert.equal(recovered[0].route, "/leaves", "the route rides along, or anchor annotation has nothing to match");
+  assert.equal(frozen.summary.recoveredRouteSource?.added, 1);
 });

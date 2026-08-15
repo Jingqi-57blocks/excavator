@@ -178,6 +178,53 @@ export function routeHandlerObligations(
   return out;
 }
 
+/**
+ * Turn RECOVERED route registrations into reading obligations — the FOURTH denominator source.
+ *
+ * Distinct from `routeHandlerObligations` in what it can reach, not in how it works. That one starts from a
+ * resolved link and needs a NAMED handler to resolve to; a registration whose handler is written inline
+ * resolves to nothing, so every earlier source is silent on it. Measured on the real target: two v1 express
+ * files hold 16 registrations, 9 decision-bearing, 719 accountable lines that no source enumerated — and
+ * because a file with no obligation contributes to no bucket, windows opened there were invisible to BOTH
+ * sides of the funnel (9 in one run, 13 in another, all unaccounted).
+ *
+ * The name carries the route because that is where the vocabulary lives: a mounted express path is often
+ * just `/` locally, so `relevance-annotation` would have nothing to match without it.
+ *
+ * Exported and pure for the same reason its sibling is: a construction that only exists inside a freeze
+ * function can be deleted whole with every test still green — measured, twice, on this very function.
+ */
+export function recoveredRouteObligations(
+  links: { registrations?: CrossRepoArtifact["registrations"] } | null,
+  factPacks: Record<string, { items?: Array<{ filePath?: unknown }> }>,
+): Array<{ featureKey: string; name: string; path: string; startLine: number; endLine: number; route: string }> | null {
+  const registrations = links?.registrations ?? [];
+  const obligations: Array<{ featureKey: string; name: string; path: string; startLine: number; endLine: number; route: string }> = [];
+  for (const [featureKey, pack] of Object.entries(factPacks)) {
+    const boundaryFiles = new Set((pack.items ?? []).map((item) => String(item.filePath ?? "")));
+    for (const entry of registrations) {
+      // Only a registration whose span is known can become an obligation: without an end line there is no
+      // span to reconcile, and a span-less obligation would sit in `cannot-determine` forever.
+      if (entry.endLine === undefined || entry.endLine < entry.line) continue;
+      // Both forms, because a fact pack's paths are target-relative while a registration knows its module:
+      // whichever way the target's modules are laid out, one of the two matches — and a scan that matched
+      // neither would contribute zero obligations without saying so, which is the silence this line removes.
+      const qualified = `${entry.module}/${entry.file}`;
+      if (!boundaryFiles.has(entry.file) && !boundaryFiles.has(qualified)) continue;
+      obligations.push({
+        featureKey,
+        name: `${entry.method} ${entry.path}`,
+        path: qualified,
+        startLine: entry.line,
+        endLine: entry.endLine,
+        route: entry.path,
+      });
+    }
+  }
+  obligations.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0) || a.startLine - b.startLine);
+  return obligations.length ? obligations : null;
+}
+
 /** The handler spans this artifact resolves — the input the read-obligation third source consumes. */
 export function resolvedHandlers(artifact: CrossRepoArtifact): Array<{ module: string; path: string; line: number; route: string; symbol: string }> {
   const seen = new Set<string>();
