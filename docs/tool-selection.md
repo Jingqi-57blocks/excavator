@@ -8,8 +8,8 @@
 > ③ §四 Benchmark 数据同时用于 Provider Sufficiency 模型标定；补 Tree-sitter 适用说明；
 > ④ Core 零运行时 npm 依赖改为绝对约束（"尽量"只适用于周边包）；
 > ⑤ §八 重构：指令层中立化提前进 M1（Phase 1C），MCP 保持 M1 后，独立 Agent 形态列为未来阶梯项。
-> ⑦（2026-08-15 · 57B-395）**`@ast-grep/napi` + `@ast-grep/lang-*` 进入 Core 审计白名单**（库形态；CLI 形态仍未采用）。用于把条件提取从手写正则换成 AST。五条准入的审计结论见 §四；遗留风险：native 二进制 + install script 面，建议单独做一次 supply-chain review。
 > ⑥（2026-08-13，用户裁定 · 57B-385）**Core 零运行时 npm 依赖（绝对约束）→ 审计过的白名单依赖**：CodeGraph 覆盖不到的语言（Perl/Zope 等）需要成熟解析库补全，自维护每语言解析器不可持续。`tree-sitter` / `tree-sitter-*` 语法与 `universal-ctags` 升为 Core 可用（见 §一、§二工具表、§四）。零模型调用不变；放开不改变可辩护/无黑箱与供应链安全两条真正收益，白名单正为守住它们而设。
+> ⑦（2026-08-15 · 57B-395）**`@ast-grep/napi` + `@ast-grep/lang-*` 进入 Core 审计白名单**（库形态；CLI 形态仍未采用）。用于把条件提取从手写正则换成 AST。五条准入的审计结论见 §四；遗留风险：native 二进制 + install script 面，建议单独做一次 supply-chain review。
 
 ## 一、选型原则
 
