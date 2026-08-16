@@ -25,6 +25,16 @@ export const ID_SEPARATOR = "\u0000";
 
 const KIND_RANK: Record<string, number> = { route: 0, component: 1, function: 2, method: 3 };
 
+/**
+ * Seats reserved per module that matched anything.
+ *
+ * Two, not one: a single seed rarely survives the downstream prune, and the prune's own module floor
+ * (57B-377) only protects modules already IN the pool — it cannot rescue a module that never got a seed.
+ * Two, not more: the floor is a guarantee against silence, and every seat it takes is one the global
+ * ranking does not get to decide.
+ */
+const FLOOR_SEATS_PER_MODULE = 2;
+
 interface ModuleDatabase {
   module: DetectedModule;
   path: string;
@@ -97,9 +107,53 @@ export class CodeGraphSet implements GraphReader {
     return roundRobin(this.members.map((member) => member.index.routeSummary(limit).map((node) => this.globalNode(member, node))), limit);
   }
 
+  /**
+   * Seeds for the feature scope, with a FLOOR so a module cannot be silently zeroed.
+   *
+   * The old form merged every member's hits and took the global top `limit`. That is a single competition
+   * across modules, and a module can lose it outright: simulated on the five-module real target with the
+   * leave vocabulary, `wcp-auth` and `wcp_review_service` each won ZERO seats — and a module with no seed is
+   * then skipped entirely by `expand` (`if (!seeds?.length) continue`), so nothing downstream can recover it.
+   * A whole repository contributing nothing is the failure that function-level read obligations cannot even
+   * express, because a module outside the boundary lands in no bucket at all.
+   *
+   * So a module that matched anything is guaranteed a couple of seats, and the rest of the budget is decided
+   * by the same global order as before. Nx does the equivalent structurally — `normalizeProjectNodes` makes
+   * every project a node before any edge is considered — while Turborepo's `globalDependencies` only reaches
+   * the task hash and never the package selection, which is exactly the shape of the bug being fixed here.
+   *
+   * The OUTPUT stays globally sorted: the floor changes which nodes are included, never their order, so a
+   * scope whose modules all placed anyway is byte-identical to before.
+   */
   searchNodes(terms: string[], limit = 120): GraphNode[] {
-    const merged = this.members.flatMap((member) => member.index.searchNodes(terms, limit).map((node) => this.globalNode(member, node)));
-    return sortNodes(merged).slice(0, limit);
+    const perModule = this.members
+      .map((member) => sortNodes(member.index.searchNodes(terms, limit).map((node) => this.globalNode(member, node))))
+      .filter((hits) => hits.length > 0);
+    if (!perModule.length) return [];
+
+    // Strongest module first, so when the floor cannot seat everyone the seats go by the same order the
+    // global competition would have used. `compareNodes` is total, so this is deterministic.
+    const ordered = [...perModule].sort((a, b) => compareNodes(a[0], b[0]));
+
+    // The floor may never take more than half the budget: it exists to prevent silence, not to replace
+    // ranking. When modules outnumber the seats it can spend, the remainder simply competes globally — and
+    // when they outnumber `limit` itself, one seat each is all there is, which is still defined behaviour
+    // rather than an empty module.
+    const floorBudget = Math.max(1, Math.floor(limit / 2));
+    const taken = new Set<string>();
+    const floor: GraphNode[] = [];
+    for (let seat = 0; seat < FLOOR_SEATS_PER_MODULE && floor.length < floorBudget; seat += 1) {
+      for (const hits of ordered) {
+        if (floor.length >= floorBudget) break;
+        const node = hits[seat];
+        if (!node || taken.has(node.id)) continue;
+        floor.push(node);
+        taken.add(node.id);
+      }
+    }
+
+    const contested = sortNodes(perModule.flat()).filter((node) => !taken.has(node.id));
+    return sortNodes([...floor, ...contested.slice(0, Math.max(0, limit - floor.length))]);
   }
 
   searchNodesInFiles(terms: string[], filePaths: string[], limit = 120): GraphNode[] {
@@ -237,13 +291,16 @@ function roundRobin(lists: GraphNode[][], limit: number): GraphNode[] {
   return result;
 }
 
-function sortNodes(nodes: GraphNode[]): GraphNode[] {
-  return [...nodes].sort((a, b) =>
-    (KIND_RANK[a.kind] ?? 4) - (KIND_RANK[b.kind] ?? 4)
+/** The total order over nodes: kind rank, then path, then position, then id. Total, so sorting is stable. */
+function compareNodes(a: GraphNode, b: GraphNode): number {
+  return (KIND_RANK[a.kind] ?? 4) - (KIND_RANK[b.kind] ?? 4)
     || compare(a.filePath, b.filePath)
     || a.startLine - b.startLine
-    || compare(a.id, b.id)
-  );
+    || compare(a.id, b.id);
+}
+
+function sortNodes(nodes: GraphNode[]): GraphNode[] {
+  return [...nodes].sort(compareNodes);
 }
 
 function mergeCounts(rows: Array<readonly [string, number]>): Array<[string, number]> {
