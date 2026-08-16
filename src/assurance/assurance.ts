@@ -376,7 +376,6 @@ export function auditSectionClaims(options: {
   evidenceIds: Set<string>;
   traceIds?: Set<string>;
 }): AuditFinding[] {
-  const { documentId, sectionIndex, sectionText, claimsFile, evidenceIds, traceIds = new Set<string>() } = options;
   // One generation at a time, whole comparison: the segments and the claim statements are folded the same
   // way before being compared, and the section is accepted if ANY generation is internally consistent.
   // Mixing generations is what broke archived runs — see TEXT_FOLDINGS.
@@ -389,8 +388,16 @@ export function auditSectionClaims(options: {
   return attempts.reduce((best, attempt) => (cost(attempt) < cost(best) ? attempt : best), attempts[0]);
 }
 
-/** The findings whose outcome depends on how text was folded; everything else is generation-independent. */
-const FOLDING_SENSITIVE = /statement is not present in section|has an unclaimed substantive statement/;
+/**
+ * The findings whose outcome depends on how text was folded; everything else is generation-independent.
+ *
+ * `too short to bind` belongs here and was missed: folding decides the length. A statement written as
+ * `` `事实` 共5项 `` folds to `事实 共5项` (6 characters, binds) under the legacy generation and to `共5项`
+ * (3) under the current one — so a section that is entirely self-consistent under legacy was reported as
+ * too-short because the cost comparison could not see it. Leaving it out contradicted this fix's own
+ * contract, that a section passes when ANY generation reads it consistently.
+ */
+const FOLDING_SENSITIVE = /statement is not present in section|has an unclaimed substantive statement|statement is too short to bind/;
 
 function judgeSectionClaims(options: {
   documentId: string;
@@ -1022,12 +1029,10 @@ function normalizeTextLegacy(value: string): string {
 /**
  * The foldings a section may be judged under, newest first.
  *
- * A section passes if ANY generation is INTERNALLY consistent — segments and claim statements folded the
- * same way, then compared. The first attempt at this fix applied the new folding to the segments and a
- * per-check fallback only to the statement-present test, which was wrong twice over: `substantiveSegments`
- * calls `normalizeText` itself (so changing the folding silently moved the segments too), and the coverage
- * check at the top of `auditSectionClaims` had no fallback at all. Both halves have to move together or the
- * two sides are compared across generations — which is the very drift this fix exists to remove.
+ * A section passes if ANY generation is INTERNALLY consistent: segments and claim statements folded the same
+ * way, then compared. Both halves must move together — `substantiveSegments` folds through `normalizeText`
+ * itself, so a per-check fallback compares the two sides across generations, which is the drift this exists
+ * to remove.
  */
 const TEXT_FOLDINGS: Array<(value: string) => string> = [normalizeText, normalizeTextLegacy];
 function featureScopeKey(subject: string, aliases: string[]): string { return sha256(stableJson({ subject: subject.trim().toLowerCase(), aliases: [...aliases].sort() })).slice(0, 10); }
