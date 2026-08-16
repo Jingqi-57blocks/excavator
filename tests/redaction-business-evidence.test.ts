@@ -264,6 +264,11 @@ const LEAKED_ONCE: Array<[string, string]> = [
   ["conn = \"user=admin;password=changeme\"", "changeme"],
   ["x = 'api_key=deadbeef'", "deadbeef"],
   ["opts := \"host=db password=letmein sslmode=require\"", "letmein"],
+  // ...and the edge of the exemption that closed it: a placeholder names something ELSEWHERE, so a shell
+  // default and an angle-bracket convention are not placeholders — both carry the literal with them.
+  ["c = \"password=${DEFAULT:-changeme}\"", "changeme"],
+  ["c = \"password=<changeme>\"", "changeme"],
+  ["c = \"password=${PW:=letmein}\"", "letmein"],
 ];
 
 test("every construction that ever leaked stays redacted", () => {

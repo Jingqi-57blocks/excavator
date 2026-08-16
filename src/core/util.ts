@@ -438,7 +438,11 @@ function shouldRedactValue(raw: string, bareReferenceAllowed = false, bound = fa
  * revoking it for every literal containing `=` also took `"token = ?"`, a SQL fragment whose value side is
  * a placeholder and which this same round exists to keep readable. A placeholder binds nothing.
  */
-const PLACEHOLDER_VALUE = /^(?:\?|\$\d+|:[A-Za-z_]\w*|%[a-z]|\$\{[^}]*\}|<[^>]*>)$/;
+// A placeholder names something ELSEWHERE. `${VAR}` does; `${VAR:-changeme}` carries the literal with it,
+// and `<changeme>` is only a placeholder by convention — both were measured walking out through this list,
+// so the brace form is narrowed to a bare variable and the angle form is gone. Redacting a README's
+// `<your-password>` costs nothing; keeping a default value readable costs the whole exemption.
+const PLACEHOLDER_VALUE = /^(?:\?|\$\d+|:[A-Za-z_]\w*|%[a-z]|\$\{[A-Za-z_][A-Za-z0-9_]*\})$/;
 const LITERAL_PAIR = /([A-Za-z_][A-Za-z0-9_.-]*)\s*=\s*([^;&\s]*)/g;
 
 function carriesCredentialPair(content: string): boolean {
