@@ -500,4 +500,6 @@ export interface PreparedContext {
    * module was never looked at" can be stated at all. Absent for features analysed without a graph.
    */
   scopeCensus: Map<string, ScopeCensus>;
+  /** Why a feature has no census, keyed by feature — so "no table" always states its cause. */
+  censusUnavailable: Map<string, "no-graph" | "empty-vocabulary">;
 }

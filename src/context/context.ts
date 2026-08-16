@@ -46,8 +46,10 @@ interface CachedFeature {
   factPack: FeatureFactPack;
   /** Second source for the read-obligation denominator; absent on a source-only run (57B-396). */
   boundaryFunctions?: FeatureBoundaryFunctions;
-  /** Per-module scope accounting; absent on a source-only run (no graph census to build it from). */
+  /** Per-module scope accounting; absent when no census could be built. */
   scopeCensus?: ScopeCensus;
+  /** Which cause, when `scopeCensus` is absent. */
+  censusUnavailableReason?: "no-graph" | "empty-vocabulary";
   warnings: string[];
 }
 
@@ -141,6 +143,7 @@ export async function buildContexts(request: ReportRequest): Promise<ContextBuil
   const documentContexts = new Map<string, string>();
   const featureScopes = new Map<string, { nodes: any[]; files: string[]; evidenceIds: string[] }>();
   const scopeCensusByFeature = new Map<string, ScopeCensus>();
+  const censusUnavailableByFeature = new Map<string, "no-graph" | "empty-vocabulary">();
   const featureMarkdowns = new Map<string, string>();
   const featureFactPacks = new Map<string, FeatureFactPack>();
   const boundaryFeatures: FeatureBoundaryFunctions[] = [];
@@ -169,6 +172,7 @@ export async function buildContexts(request: ReportRequest): Promise<ContextBuil
     allEvidence.push(...cached.evidence.filter((item) => !allEvidence.some((existing) => existing.id === item.id)));
     featureScopes.set(key, { nodes: cached.nodes as any[], files: cached.files, evidenceIds: cached.evidence.map((item) => item.id) });
     if (cached.scopeCensus) scopeCensusByFeature.set(key, cached.scopeCensus);
+    else censusUnavailableByFeature.set(key, cached.censusUnavailableReason ?? "no-graph");
     if (cached.boundaryFunctions) boundaryFeatures.push(cached.boundaryFunctions);
     featureMarkdowns.set(key, cached.markdown);
     featureFactPacks.set(key, cached.factPack);
@@ -210,7 +214,7 @@ export async function buildContexts(request: ReportRequest): Promise<ContextBuil
 
   timing.totalPrepareMs = Date.now() - t0;
   return {
-    prepared: { snapshot, evidence: dedupeEvidence(allEvidence), sharedMarkdown, documentContexts, featureMarkdowns, featureFactPacks, featureScopes, crossFeature, boundaryFunctions, scopeCensus: scopeCensusByFeature },
+    prepared: { snapshot, evidence: dedupeEvidence(allEvidence), sharedMarkdown, documentContexts, featureMarkdowns, featureFactPacks, featureScopes, crossFeature, boundaryFunctions, scopeCensus: scopeCensusByFeature, censusUnavailable: censusUnavailableByFeature },
     projectDir,
     stats: {
       graphQueries: graph?.stats.queries ?? 0,
@@ -329,9 +333,15 @@ async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], fea
   let edges: any[] = [];
   let seeds: any[] = [];
   let unresolved: any[] = [];
-  /** Per-module scope accounting. Null only when there is no graph at all (source-fallback runs). */
+  /**
+   * Per-module scope accounting. Null when no census could be built — either no graph, or a subject whose
+   * vocabulary tokenised to nothing so no graph search ran. `censusUnavailableReason` says which; the two
+   * are recorded separately because a reason naming the wrong cause is one someone will act on wrongly.
+   */
   let scopeCensus: ScopeCensus | null = null;
+  let censusUnavailableReason: "no-graph" | "empty-vocabulary" = "no-graph";
 
+  if (graph && !terms.length) censusUnavailableReason = "empty-vocabulary";
   if (graph && terms.length) {
     const anchorTerms = featureAnchorTerms(terms);
     const actionTerms = terms.filter((term) => !anchorTerms.includes(term));
@@ -434,7 +444,7 @@ async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], fea
   }, warnings);
   const inventory = buildFeatureInventory(nodes, scopeFiles);
   const markdown = renderFeatureMarkdown(feature, terms, nodes, edges, unresolved, scopeFiles, evidence, needBroadFallback, inventory, warnings, factPack);
-  return { snapshotId: snapshot.id, key, subject: feature.subject, aliases: feature.aliases, nodes, files: scopeFiles, evidence: dedupeEvidence(evidence), markdown, factPack, boundaryFunctions, scopeCensus: scopeCensus ?? undefined, warnings: [...warnings, ...factPack.warnings] };
+  return { snapshotId: snapshot.id, key, subject: feature.subject, aliases: feature.aliases, nodes, files: scopeFiles, evidence: dedupeEvidence(evidence), markdown, factPack, boundaryFunctions, scopeCensus: scopeCensus ?? undefined, censusUnavailableReason, warnings: [...warnings, ...factPack.warnings] };
 }
 
 function renderSharedMarkdown(snapshot: Snapshot, graphSummary: unknown, coverage: { indexed: number; eligible: number; ratio: number }, docs: Array<Record<string, unknown>>, representativeNodes: any[], routes: any[], evidence: EvidenceItem[], warnings: string[]): string {

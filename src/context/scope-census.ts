@@ -31,22 +31,34 @@ import type { GraphSummary } from "../codegraph/codegraph.ts";
 export const SCOPE_CENSUS_VERSION = "scope-census-v1";
 
 /**
- * Why no per-module accounting exists for a feature. Written as an artifact of its own rather than by
+ * Why no per-module accounting exists for a feature, and WHICH cause. Written as an artifact of its own
+ * rather than by
  * omitting the file, because "there is no table" and "the table says everything is accounted for" must not
  * look the same on disk — which is precisely the flattening this whole module argues against, and which the
  * first version of it committed by writing nothing on source-fallback runs.
  */
 export interface ScopeCensusUnavailable {
   version: string;
-  reason: "no-graph";
+  reason: "no-graph" | "empty-vocabulary";
   detail: string;
 }
 
-export function scopeCensusUnavailable(): ScopeCensusUnavailable {
+const UNAVAILABLE_DETAIL: Record<ScopeCensusUnavailable["reason"], string> = {
+  "no-graph": "This feature was analysed without a CodeGraph index, so there is no module census to account against.",
+  "empty-vocabulary": "This feature's subject and aliases tokenised to nothing, so no graph search ran and no module census was built.",
+};
+
+/**
+ * Two reasons, not one. Review caught the first version labelling both as `no-graph`: the census is built
+ * under `graph && terms.length`, so a feature whose vocabulary tokenises to nothing took the same label as a
+ * run with no index at all. The record stayed visible either way — it was never a fourth state — but a
+ * reason that names the wrong cause is a reason someone will act on wrongly.
+ */
+export function scopeCensusUnavailable(reason: ScopeCensusUnavailable["reason"] = "no-graph"): ScopeCensusUnavailable {
   return {
     version: SCOPE_CENSUS_VERSION,
-    reason: "no-graph",
-    detail: "This feature was analysed without a CodeGraph index, so there is no module census to account against. Absence of module accounting is not evidence that every module was covered.",
+    reason,
+    detail: `${UNAVAILABLE_DETAIL[reason]} Absence of module accounting is not evidence that every module was covered.`,
   };
 }
 

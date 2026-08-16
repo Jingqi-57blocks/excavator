@@ -460,7 +460,7 @@ export async function prepareRun(request: ReportRequest): Promise<{ runDir: stri
   // would make "no graph" and "nothing to report" indistinguishable on disk.
   for (const featureKey of [...result.prepared.featureFactPacks.keys()].sort((a, b) => a.localeCompare(b))) {
     const census = result.prepared.scopeCensus.get(featureKey);
-    await writeJson(join(runDir, "context", `${featureKey}.scope-census.json`), census ?? scopeCensusUnavailable());
+    await writeJson(join(runDir, "context", `${featureKey}.scope-census.json`), census ?? scopeCensusUnavailable(result.prepared.censusUnavailable.get(featureKey)));
   }
   if (crossRepo) await writeJson(join(runDir, "context", "crossrepo-links.json"), crossRepo.artifact);
 

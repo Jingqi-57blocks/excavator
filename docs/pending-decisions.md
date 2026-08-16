@@ -265,6 +265,17 @@ S1 声称枚举「边界文件内全部决策函数」，在这个文件形状�
 
 `derived` 纪律被遵守：凡陈述 handler 行为处（`leave.Approve` 的 16/40 阈值、`Export` 的角色闸）都另开了 `S-*` 源码窗口，XR 只用于「谁调了谁」。
 
+## census 分母继承 snapshot 准入（2026-08-16，57B-411 实测，范围外记账）
+
+模块级范围记账的 census 查询 join `allowed_files`，而该表由 snapshot 的文件集一次性固定。
+后果：**只在图里、不在 snapshot 里的文件对 census 不可见**——写 57B-411 的测试时实证到，
+往 CodeGraph 插了 `billing/invoice.ts` 节点但没在 target 里建真实文件，census 里就没有 `billing` 行。
+
+这意味着 **`maxFiles` 截断会静默缩小 census 分母**，而那正是 `external-architecture-review.md`
+里引的 deepwiki-open 失败形态（规划视图与索引视图共用过滤器、但共用点在过滤之后）。
+今天不构成缺陷（census 的诚实边界就是「已索引且在 snapshot 内的模块」），但**若将来把
+zero-hit advisory 硬化成闸，必须先让 snapshot 截断本身可见**，否则分母被缩小而闸门照绿。
+
 ## 测试里的墙钟断言在 CPU 争用下假失败（2026-08-16，范围外记账）
 
 `tests/run.test.ts:191`「a timed-out checkpoint keeps the section it was given」断言
