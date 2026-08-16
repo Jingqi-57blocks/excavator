@@ -94,7 +94,12 @@ Bazel 的 `//...` 只在「已声明的 package」内完备；EMSE 2025 横评�
 
 **落法**（零模型、零新依赖、字节确定）：
 1. `codegraph-set.ts:100-103` 的全局 `slice(0, limit)` 改为**每模块保底 k 席 + 剩余名额全局竞争**——`roundRobin()` 就在同文件 224 行，`routeSummary` 已在用，直接复用。
-2. **闭环**：把已有的读义务 / 框架约定恢复 / 跨仓链接产物**回流作结构兜底种子**，使 `:133` 的 `continue` 不再触发。这是本轮最大的架构发现——我们已经算出「本应读什么」，只是没喂回去。
+2. **闭环**：把 **prepare 期 scan 级确定性产物**（跨仓路由表、express/Catalyst 约定恢复）**回流作结构兜底种子**，使 `:133` 的 `continue` 不再触发。
+
+   > **一处修正（规划层复核指出，我已逐行验证）**：本条初稿写的是「把读义务回流作种子」，**同一 run 内这是循环的**——`readObligations` 在 `deriveReadAccountability`（`run.ts:142`）里从 fact pack 算出，而 fact pack 依赖候选池，自引用。
+   > 可行的回流源只能是 **feature 无关的 scan 级产物**：`resolveCrossRepoLinks`（`run.ts:379`）目前跑在 `buildContexts`（`run.ts:326`）**之后**，把它（或其路由恢复子集）提前即可非循环地作种子。跨 run 知识回流是另一条线，不进本片。
+   >
+   > **另一处**：`roundRobin` 的使用者是 `representativeNodes`（`:93`）**与** `routeSummary`（`:97`），不只后者。`representativeNodes` 本身就是每模块轮转的代表性采样器——**零命中模块的结构兜底种子已有现成函数，只是没接到种子路径上**。
 3. 反调绊线：断言「每个已索引模块在候选池 ≥1 席」，违反即残差上报。
 
 **别一起抄的**：Nx 自己在 `getTouchedProjects` 里把未匹配任何 project 的文件静默丢弃——正是我们「不许有第四态」要禁的东西。
