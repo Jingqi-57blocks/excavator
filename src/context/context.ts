@@ -4,6 +4,7 @@ import type { Audience, EvidenceItem, FeatureFactPack, FeatureRequest, PreparedC
 import { CodeGraphIndex, type GraphReader } from "../codegraph/codegraph.ts";
 import { CodeGraphSet } from "../codegraph/codegraph-set.ts";
 import { pruneFeatureGraphWithModuleFloor } from "./prune-module-floor.ts";
+import { buildScopeCensus, type ScopeCensus } from "./scope-census.ts";
 import { createSnapshot, isLikelySource, type ScannedFile } from "../snapshot/snapshot.ts";
 import { SourceReader, evidenceFromWindow, manifestSummary, selectProjectDocuments, sourceSearch } from "../snapshot/source.ts";
 import { Deadline, ensureDir, exists, projectWorkspace, readJson, redactionCacheTag, sha256, slugify, stableJson, truncate, writeJson } from "../core/util.ts";
@@ -38,6 +39,8 @@ interface CachedFeature {
   factPack: FeatureFactPack;
   /** Second source for the read-obligation denominator; absent on a source-only run (57B-396). */
   boundaryFunctions?: FeatureBoundaryFunctions;
+  /** Per-module scope accounting; absent on a source-only run (no graph census to build it from). */
+  scopeCensus?: ScopeCensus;
   warnings: string[];
 }
 
@@ -130,6 +133,7 @@ export async function buildContexts(request: ReportRequest): Promise<ContextBuil
   const allEvidence = [...shared.evidence];
   const documentContexts = new Map<string, string>();
   const featureScopes = new Map<string, { nodes: any[]; files: string[]; evidenceIds: string[] }>();
+  const scopeCensusByFeature = new Map<string, ScopeCensus>();
   const featureMarkdowns = new Map<string, string>();
   const featureFactPacks = new Map<string, FeatureFactPack>();
   const boundaryFeatures: FeatureBoundaryFunctions[] = [];
@@ -157,6 +161,7 @@ export async function buildContexts(request: ReportRequest): Promise<ContextBuil
     warnings.push(...(cached.warnings ?? []));
     allEvidence.push(...cached.evidence.filter((item) => !allEvidence.some((existing) => existing.id === item.id)));
     featureScopes.set(key, { nodes: cached.nodes as any[], files: cached.files, evidenceIds: cached.evidence.map((item) => item.id) });
+    if (cached.scopeCensus) scopeCensusByFeature.set(key, cached.scopeCensus);
     if (cached.boundaryFunctions) boundaryFeatures.push(cached.boundaryFunctions);
     featureMarkdowns.set(key, cached.markdown);
     featureFactPacks.set(key, cached.factPack);
@@ -198,7 +203,7 @@ export async function buildContexts(request: ReportRequest): Promise<ContextBuil
 
   timing.totalPrepareMs = Date.now() - t0;
   return {
-    prepared: { snapshot, evidence: dedupeEvidence(allEvidence), sharedMarkdown, documentContexts, featureMarkdowns, featureFactPacks, featureScopes, crossFeature, boundaryFunctions },
+    prepared: { snapshot, evidence: dedupeEvidence(allEvidence), sharedMarkdown, documentContexts, featureMarkdowns, featureFactPacks, featureScopes, crossFeature, boundaryFunctions, scopeCensus: scopeCensusByFeature },
     projectDir,
     stats: {
       graphQueries: graph?.stats.queries ?? 0,
@@ -317,6 +322,8 @@ async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], fea
   let edges: any[] = [];
   let seeds: any[] = [];
   let unresolved: any[] = [];
+  /** Per-module scope accounting. Null only when there is no graph at all (source-fallback runs). */
+  let scopeCensus: ScopeCensus | null = null;
 
   if (graph && terms.length) {
     const anchorTerms = featureAnchorTerms(terms);
@@ -335,6 +342,14 @@ async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], fea
     nodes = pruned.nodes;
     edges = pruned.edges;
     unresolved = graph.unresolvedForNodeIds(nodes.map((node) => node.id), 150);
+    // The row set comes from the CENSUS (`summary().roots` enumerates every indexed module, including ones
+    // this feature never touched), not from the pool — a pool-derived table cannot express the one fact
+    // worth reporting. See scope-census.ts for why that distinction is the whole point.
+    scopeCensus = buildScopeCensus({
+      roots: graph.summary().roots,
+      pool: expanded.nodes.map((node) => ({ filePath: String(node.filePath) })),
+      retained: nodes.map((node) => ({ filePath: String(node.filePath) })),
+    });
     evidence.push({ id: `FG-${featureCacheKey(feature)}-${snapshot.id}`, snapshotId: snapshot.id, kind: "graph", title: `CodeGraph scope for ${feature.subject}`, data: { terms, anchorTerms, actionTerms, seeds, nodes, edges, unresolved }, reason: "locate the feature from specific anchors before applying generic action vocabulary", digest: sha256(stableJson({ terms, anchorTerms, actionTerms, seeds, nodes, edges, unresolved })) });
   }
 
@@ -412,7 +427,7 @@ async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], fea
   }, warnings);
   const inventory = buildFeatureInventory(nodes, scopeFiles);
   const markdown = renderFeatureMarkdown(feature, terms, nodes, edges, unresolved, scopeFiles, evidence, needBroadFallback, inventory, warnings, factPack);
-  return { snapshotId: snapshot.id, key, subject: feature.subject, aliases: feature.aliases, nodes, files: scopeFiles, evidence: dedupeEvidence(evidence), markdown, factPack, boundaryFunctions, warnings: [...warnings, ...factPack.warnings] };
+  return { snapshotId: snapshot.id, key, subject: feature.subject, aliases: feature.aliases, nodes, files: scopeFiles, evidence: dedupeEvidence(evidence), markdown, factPack, boundaryFunctions, scopeCensus: scopeCensus ?? undefined, warnings: [...warnings, ...factPack.warnings] };
 }
 
 function renderSharedMarkdown(snapshot: Snapshot, graphSummary: unknown, coverage: { indexed: number; eligible: number; ratio: number }, docs: Array<Record<string, unknown>>, representativeNodes: any[], routes: any[], evidence: EvidenceItem[], warnings: string[]): string {

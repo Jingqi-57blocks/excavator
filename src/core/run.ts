@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { basename, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Audience, ChecklistItem, DocumentPlan, EvidenceItem, FeatureFactPack, InvestigationChecklist, InvestigationPlan, InvestigationWorkItem, KnowledgeArtifact, ReportRequest, RunManifest, SearchReceipt, SectionClaim, SectionClaimsFile, TraceCatalog, TraceRecord } from "./types.ts";
@@ -18,6 +18,7 @@ import { readingExposure, renderReadingCheck, type ReadingExposure } from "../as
 import type { BoundaryFunctionsArtifact } from "../context/boundary-functions.ts";
 import { scanCrossRepoLinks } from "../crossrepo/crossrepo-scan.ts";
 import { featureAnchorTerms, tokenize } from "../context/context.ts";
+import { scopeCensusResidual, type ScopeCensus } from "../context/scope-census.ts";
 import { buildCrossRepoArtifact, mintCrossRepoEvidence, recoveredRouteObligations, routeHandlerObligations, type CrossRepoArtifact } from "../crossrepo/crossrepo-artifact.ts";
 import { goImportAliases, parseHandlerTarget, resolveHandler } from "../crossrepo/handler-resolve.ts";
 import { CodeGraphIndex } from "../codegraph/codegraph.ts";
@@ -452,6 +453,12 @@ export async function prepareRun(request: ReportRequest): Promise<{ runDir: stri
   // The second obligation source is frozen at prepare beside the fact packs, for the same reason they are:
   // freeze and audit must both derive the denominator from one recorded set of facts, never recompute it.
   await writeJson(join(runDir, "context", "boundary-functions.json"), result.prepared.boundaryFunctions);
+  // Per-module scope accounting, one file per feature. Written at prepare — BEFORE any authoring — because
+  // its whole purpose is to be readable while the scope can still be widened cheaply. A module row at zero
+  // that no rule explains means this run silently omitted a whole module.
+  for (const [featureKey, census] of [...result.prepared.scopeCensus].sort(([a], [b]) => a.localeCompare(b))) {
+    await writeJson(join(runDir, "context", `${featureKey}.scope-census.json`), census);
+  }
   if (crossRepo) await writeJson(join(runDir, "context", "crossrepo-links.json"), crossRepo.artifact);
 
   // Cross-feature relationships need at least two features to have any pair to relate; single-feature
@@ -1018,6 +1025,21 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
           findings.push({ level: "error", document: "read-coverage", message: "knowledge.json records a cross-repo links digest but context/crossrepo-links.json is gone; the resolved links cannot be re-derived" });
         } else if (frozenKnowledge.crossRepoLinksDigest !== sha256(stableJson(await readJson<unknown>(linksPath)))) {
           findings.push({ level: "error", document: "read-coverage", message: "context/crossrepo-links.json does not match the digest recorded at freeze; the resolved links were changed after freeze" });
+        }
+      }
+      // Per-module scope accounting, reported as an ADVISORY. A module row at zero that no named rule
+      // explains means this run's scope silently omitted a whole module — the failure that function-level
+      // read obligations structurally cannot express, since a module outside the boundary lands in no
+      // bucket at all. Advisory first on purpose: the reading has to be collected across real runs before
+      // it can be hardened into a gate, which is the order every previous denominator change followed.
+      for (const file of (await readdir(join(runDir, "context")).catch(() => [])).filter((name: string) => name.endsWith(".scope-census.json")).sort()) {
+        const census = await readJson<ScopeCensus>(join(runDir, "context", file));
+        const residual = scopeCensusResidual(census);
+        if (!residual.balanced) {
+          findings.push({ level: "error", document: "read-coverage", message: `${file}: the module accounting does not balance (census ${census.summary.censusModules} != counted ${census.summary.countedModules} + excluded ${census.summary.excludedModules} + zero-hit ${census.summary.zeroHitModules})` });
+        }
+        if (residual.unexplained.length > 0) {
+          findings.push({ level: "warning", document: "read-coverage", message: `${file}: ${residual.unexplained.length} of ${census.summary.censusModules} indexed module(s) contributed no scope and no rule explains it (${residual.unexplained.join(", ")}). Every per-module coverage figure in this run is a conditional reading: census ${census.summary.censusModules} / accounted ${census.summary.countedModules}.` });
         }
       }
       if (frozenKnowledge.boundaryFunctionsDigest) {
