@@ -259,6 +259,11 @@ const LEAKED_ONCE: Array<[string, string]> = [
   // the adjacent one, or every quoted config key stops naming what it assigns.
   ["\"password\" = \"changeme\"", "changeme"],
   ["'db_password' = 'letmein'", "letmein"],
+  // Round 7 — INHERITED, not introduced: a digit-free credential inside a compound literal passed both of
+  // `isNameLikeLiteral`'s conditions, so the most ordinary way a credential is written walked out intact.
+  ["conn = \"user=admin;password=changeme\"", "changeme"],
+  ["x = 'api_key=deadbeef'", "deadbeef"],
+  ["opts := \"host=db password=letmein sslmode=require\"", "letmein"],
 ];
 
 test("every construction that ever leaked stays redacted", () => {
@@ -291,6 +296,10 @@ const MUST_STAY_READABLE = [
   "$out =~ s{token=\\w+}{token=***}g;",
   "if err := db.DBConn(c).Where(\"token = ?\", token).First(&obj).Error; err != nil {",
   "if ($password =~ /^[a-z]{3}$/) {",
+  // The edge of that revocation: a placeholder binds nothing, so a query fragment is still a fragment.
+  "q = \"where password = :pwd\"",
+  "q = \"set token = ${v}\"",
+  "grant_type = \"client_credentials\"",
 ];
 
 // Pathological input must not be able to stop a run: `redactSecrets` sits on the evidence-recording path,

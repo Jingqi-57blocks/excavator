@@ -429,9 +429,27 @@ function shouldRedactValue(raw: string, bareReferenceAllowed = false, bound = fa
  * word list, and carries no digit. Names like `tb_token` or `client_credentials` spell the
  * word out and stop there; credential material almost always mixes digits in, so a digit
  * revokes the exemption and `"my-secret-2024"` stays redacted.
+ *
+ * A name is also ONE thing. `"user=admin;password=changeme"` hits the word list and carries no digit, so
+ * both conditions above passed and a connection string walked out intact — a leak this branch inherited
+ * rather than introduced, and the most ordinary way a credential is actually written.
+ *
+ * What revokes the exemption is a sensitive key BOUND TO A VALUE inside the literal, not compoundness:
+ * revoking it for every literal containing `=` also took `"token = ?"`, a SQL fragment whose value side is
+ * a placeholder and which this same round exists to keep readable. A placeholder binds nothing.
  */
+const PLACEHOLDER_VALUE = /^(?:\?|\$\d+|:[A-Za-z_]\w*|%[a-z]|\$\{[^}]*\}|<[^>]*>)$/;
+const LITERAL_PAIR = /([A-Za-z_][A-Za-z0-9_.-]*)\s*=\s*([^;&\s]*)/g;
+
+function carriesCredentialPair(content: string): boolean {
+  for (const pair of content.matchAll(LITERAL_PAIR)) {
+    if (isSensitiveIdentifier(pair[1]) && pair[2] && !PLACEHOLDER_VALUE.test(pair[2])) return true;
+  }
+  return false;
+}
+
 function isNameLikeLiteral(content: string): boolean {
-  return !/[0-9]/.test(content) && isSensitiveIdentifier(content);
+  return !/[0-9]/.test(content) && !carriesCredentialPair(content) && isSensitiveIdentifier(content);
 }
 
 function trailingPunctuation(raw: string): string {
