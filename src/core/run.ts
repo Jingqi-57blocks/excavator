@@ -18,7 +18,7 @@ import { readingExposure, renderReadingCheck, type ReadingExposure } from "../as
 import type { BoundaryFunctionsArtifact } from "../context/boundary-functions.ts";
 import { scanCrossRepoLinks } from "../crossrepo/crossrepo-scan.ts";
 import { featureAnchorTerms, tokenize } from "../context/context.ts";
-import { scopeCensusResidual, type ScopeCensus } from "../context/scope-census.ts";
+import { scopeCensusResidual, scopeCensusUnavailable, type ScopeCensus } from "../context/scope-census.ts";
 import { buildCrossRepoArtifact, mintCrossRepoEvidence, recoveredRouteObligations, routeHandlerObligations, type CrossRepoArtifact } from "../crossrepo/crossrepo-artifact.ts";
 import { goImportAliases, parseHandlerTarget, resolveHandler } from "../crossrepo/handler-resolve.ts";
 import { CodeGraphIndex } from "../codegraph/codegraph.ts";
@@ -456,8 +456,11 @@ export async function prepareRun(request: ReportRequest): Promise<{ runDir: stri
   // Per-module scope accounting, one file per feature. Written at prepare — BEFORE any authoring — because
   // its whole purpose is to be readable while the scope can still be widened cheaply. A module row at zero
   // that no rule explains means this run silently omitted a whole module.
-  for (const [featureKey, census] of [...result.prepared.scopeCensus].sort(([a], [b]) => a.localeCompare(b))) {
-    await writeJson(join(runDir, "context", `${featureKey}.scope-census.json`), census);
+  // Every feature gets a file — either the table or an explicit "no census could be built". A missing file
+  // would make "no graph" and "nothing to report" indistinguishable on disk.
+  for (const featureKey of [...result.prepared.featureFactPacks.keys()].sort((a, b) => a.localeCompare(b))) {
+    const census = result.prepared.scopeCensus.get(featureKey);
+    await writeJson(join(runDir, "context", `${featureKey}.scope-census.json`), census ?? scopeCensusUnavailable());
   }
   if (crossRepo) await writeJson(join(runDir, "context", "crossrepo-links.json"), crossRepo.artifact);
 
@@ -907,6 +910,32 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
   const allClaims = await collectClaims(runDir, manifest.documents);
   const claimsByDocument = new Map<string, Array<{ section: number; claim: SectionClaim }>>();
   const traceIds = new Set(traces.traces.map((trace) => trace.id));
+  // Per-module scope accounting, reported as an ADVISORY and reported EARLY. A module row at zero that no
+  // named rule explains means this run's scope silently omitted a whole module — the failure that
+  // function-level read obligations structurally cannot express, since a module outside the boundary lands
+  // in no bucket at all.
+  //
+  // Deliberately NOT nested under the frozen-knowledge checks. It was there first, and a test that actually
+  // exercised the path showed what that costs: those checks only run after freeze, so the finding would
+  // arrive after the authoring it was supposed to inform. The whole point of this reading is to be legible
+  // while widening the scope is still cheap, so it fires whenever the artifact exists.
+  for (const file of (await readdir(join(runDir, "context")).catch(() => [])).filter((name: string) => name.endsWith(".scope-census.json")).sort()) {
+    const raw = await readJson<ScopeCensus | { reason?: string; detail?: string }>(join(runDir, "context", file));
+    if ("reason" in raw && raw.reason !== undefined) {
+      // Reported, not skipped: a run with no module accounting must say so, or a reader cannot tell it
+      // apart from a run where everything was accounted for.
+      findings.push({ level: "warning", document: "read-coverage", message: `${file}: no module accounting for this feature (${raw.reason}). ${raw.detail ?? ""}`.trim() });
+      continue;
+    }
+    const census = raw as ScopeCensus;
+    const residual = scopeCensusResidual(census);
+    if (!residual.balanced) {
+      findings.push({ level: "error", document: "read-coverage", message: `${file}: the module accounting does not balance (census ${census.summary.censusModules} != counted ${census.summary.countedModules} + excluded ${census.summary.excludedModules} + zero-hit ${census.summary.zeroHitModules})` });
+    }
+    if (residual.unexplained.length > 0) {
+      findings.push({ level: "warning", document: "read-coverage", message: `${file}: ${residual.unexplained.length} of ${census.summary.censusModules} indexed module(s) contributed no scope and no rule explains it (${residual.unexplained.join(", ")}). Every per-module coverage figure in this run is a conditional reading: census ${census.summary.censusModules} / accounted ${census.summary.countedModules + census.summary.excludedModules}.` });
+    }
+  }
   if (manifest.evidenceDigest !== sha256(stableJson(evidenceCatalog.evidence))) findings.push({ level: "error", document: "evidence", message: "evidence catalog changed outside the recorded source-evidence workflow" });
   const providerUnsigned = { ...providerRegistry }; delete providerUnsigned.digest;
   if (sha256(stableJson(providerUnsigned)) !== providerRegistry.digest || manifest.providerRegistryDigest !== providerRegistry.digest) findings.push({ level: "error", document: "providers", message: "provider registry digest is invalid or changed" });
@@ -1025,21 +1054,6 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
           findings.push({ level: "error", document: "read-coverage", message: "knowledge.json records a cross-repo links digest but context/crossrepo-links.json is gone; the resolved links cannot be re-derived" });
         } else if (frozenKnowledge.crossRepoLinksDigest !== sha256(stableJson(await readJson<unknown>(linksPath)))) {
           findings.push({ level: "error", document: "read-coverage", message: "context/crossrepo-links.json does not match the digest recorded at freeze; the resolved links were changed after freeze" });
-        }
-      }
-      // Per-module scope accounting, reported as an ADVISORY. A module row at zero that no named rule
-      // explains means this run's scope silently omitted a whole module — the failure that function-level
-      // read obligations structurally cannot express, since a module outside the boundary lands in no
-      // bucket at all. Advisory first on purpose: the reading has to be collected across real runs before
-      // it can be hardened into a gate, which is the order every previous denominator change followed.
-      for (const file of (await readdir(join(runDir, "context")).catch(() => [])).filter((name: string) => name.endsWith(".scope-census.json")).sort()) {
-        const census = await readJson<ScopeCensus>(join(runDir, "context", file));
-        const residual = scopeCensusResidual(census);
-        if (!residual.balanced) {
-          findings.push({ level: "error", document: "read-coverage", message: `${file}: the module accounting does not balance (census ${census.summary.censusModules} != counted ${census.summary.countedModules} + excluded ${census.summary.excludedModules} + zero-hit ${census.summary.zeroHitModules})` });
-        }
-        if (residual.unexplained.length > 0) {
-          findings.push({ level: "warning", document: "read-coverage", message: `${file}: ${residual.unexplained.length} of ${census.summary.censusModules} indexed module(s) contributed no scope and no rule explains it (${residual.unexplained.join(", ")}). Every per-module coverage figure in this run is a conditional reading: census ${census.summary.censusModules} / accounted ${census.summary.countedModules}.` });
         }
       }
       if (frozenKnowledge.boundaryFunctionsDigest) {

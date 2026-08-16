@@ -1,7 +1,7 @@
 import { basename, join } from "node:path";
 import { readFile } from "node:fs/promises";
 import type { Audience, EvidenceItem, FeatureFactPack, FeatureRequest, PreparedContext, ProviderRegistry, ReportRequest, Snapshot } from "../core/types.ts";
-import { CodeGraphIndex, type GraphReader } from "../codegraph/codegraph.ts";
+import { CodeGraphIndex, type GraphReader, type GraphSummary } from "../codegraph/codegraph.ts";
 import { CodeGraphSet } from "../codegraph/codegraph-set.ts";
 import { pruneFeatureGraphWithModuleFloor } from "./prune-module-floor.ts";
 import { buildScopeCensus, type ScopeCensus } from "./scope-census.ts";
@@ -17,13 +17,20 @@ import { legacyWorkspaceWarning } from "../snapshot/workspace-residue.ts";
 // v20: CachedFeature carries the boundary-function enumeration (57B-396). v19 introduced it; v20 adds the
 // `truncated` flag and per-feature warnings to that record, and a v19 hit would serve them as `undefined`
 // — a truncated enumeration that claims it was complete. Any change to a cached shape bumps this (57B-375).
-const BUILDER_VERSION = "excavator-context-v20-boundary-truncation";
+const BUILDER_VERSION = "excavator-context-v21-scope-census";
 
 interface CachedShared {
   snapshotId: string;
   evidence: EvidenceItem[];
   markdown: string;
   graphFilePaths: string[];
+  /**
+   * The per-module census, carried on the shared context because `buildSharedContext` already computes the
+   * graph summary. Taking it here costs nothing on either path: cold runs reuse the summary that was just
+   * computed, and warm runs read it from the cached shared context instead of re-querying — which the
+   * "cached contexts must not repeat graph reads" invariant requires.
+   */
+  censusRoots: GraphSummary["roots"];
   metrics: { coverage?: { indexed: number; eligible: number; ratio: number }; warnings: string[] };
 }
 
@@ -154,7 +161,7 @@ export async function buildContexts(request: ReportRequest): Promise<ContextBuil
     } else {
       cache[`feature:${key}`] = "miss";
       const started = Date.now();
-      cached = await buildFeatureContext(snapshot, files, feature, graph, new Set(shared.graphFilePaths), sourceReader, deadline, request.budgets.maxFeatureNodes, request.budgets.maxExpansionDepth);
+      cached = await buildFeatureContext(snapshot, files, feature, graph, new Set(shared.graphFilePaths), sourceReader, deadline, request.budgets.maxFeatureNodes, request.budgets.maxExpansionDepth, shared.censusRoots ?? []);
       timing[`feature:${key}Ms`] = Date.now() - started;
       await writeJson(cachePath, cached);
     }
@@ -232,7 +239,7 @@ async function buildSharedContext(snapshot: Snapshot, files: ScannedFile[], grap
   const warnings: string[] = [];
   let graphPaths = new Set<string>();
   let coverage: { indexed: number; eligible: number; ratio: number } | undefined;
-  let graphSummary: unknown = null;
+  let graphSummary: GraphSummary | null = null;
   let representativeNodes: unknown[] = [];
   let routes: unknown[] = [];
 
@@ -308,10 +315,10 @@ async function buildSharedContext(snapshot: Snapshot, files: ScannedFile[], grap
   }
 
   const markdown = renderSharedMarkdown(snapshot, graphSummary, coverage, docSummaries, representativeNodes, routes, evidence, warnings);
-  return { snapshotId: snapshot.id, evidence: dedupeEvidence(evidence), markdown, graphFilePaths: [...graphPaths], metrics: { coverage, warnings } };
+  return { snapshotId: snapshot.id, evidence: dedupeEvidence(evidence), markdown, graphFilePaths: [...graphPaths], censusRoots: graphSummary?.roots ?? [], metrics: { coverage, warnings } };
 }
 
-async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], feature: FeatureRequest, graph: GraphReader | null, graphPaths: Set<string>, sourceReader: SourceReader, deadline: Deadline, maxNodes: number, depth: number): Promise<CachedFeature> {
+async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], feature: FeatureRequest, graph: GraphReader | null, graphPaths: Set<string>, sourceReader: SourceReader, deadline: Deadline, maxNodes: number, depth: number, censusRoots: GraphSummary["roots"]): Promise<CachedFeature> {
   const terms = [...new Set([feature.subject, ...feature.aliases].flatMap(tokenize))].filter(Boolean);
   const evidence: EvidenceItem[] = [];
   const warnings: string[] = [];
@@ -346,7 +353,7 @@ async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], fea
     // this feature never touched), not from the pool — a pool-derived table cannot express the one fact
     // worth reporting. See scope-census.ts for why that distinction is the whole point.
     scopeCensus = buildScopeCensus({
-      roots: graph.summary().roots,
+      roots: censusRoots,
       pool: expanded.nodes.map((node) => ({ filePath: String(node.filePath) })),
       retained: nodes.map((node) => ({ filePath: String(node.filePath) })),
     });

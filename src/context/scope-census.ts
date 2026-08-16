@@ -31,6 +31,26 @@ import type { GraphSummary } from "../codegraph/codegraph.ts";
 export const SCOPE_CENSUS_VERSION = "scope-census-v1";
 
 /**
+ * Why no per-module accounting exists for a feature. Written as an artifact of its own rather than by
+ * omitting the file, because "there is no table" and "the table says everything is accounted for" must not
+ * look the same on disk — which is precisely the flattening this whole module argues against, and which the
+ * first version of it committed by writing nothing on source-fallback runs.
+ */
+export interface ScopeCensusUnavailable {
+  version: string;
+  reason: "no-graph";
+  detail: string;
+}
+
+export function scopeCensusUnavailable(): ScopeCensusUnavailable {
+  return {
+    version: SCOPE_CENSUS_VERSION,
+    reason: "no-graph",
+    detail: "This feature was analysed without a CodeGraph index, so there is no module census to account against. Absence of module accounting is not evidence that every module was covered.",
+  };
+}
+
+/**
  * Why a module holds no scope. `zero-hit` is the honest default — it means NOBODY explained the absence,
  * and it is deliberately not a synonym for "fine". A named rule must announce itself: the `rule` field is
  * required on `excluded-by-rule`, so a future module-level exclusion cannot be added silently and land in
@@ -98,9 +118,29 @@ interface BuildScopeCensusInput {
   exemptions?: Record<string, string>;
 }
 
-/** The module a path belongs to: its first segment, matching how the census reports roots. */
-function moduleOf(filePath: string): string {
+/**
+ * The module a FILE PATH belongs to: its first segment, or `"."` when it has none.
+ *
+ * The `"."` matters and is not cosmetic. The census computes roots in SQL as
+ * `CASE WHEN instr(path,'/') > 0 THEN substr(...) ELSE '.' END`, so a top-level `main.go` is reported under
+ * root `"."`. Returning `"main.go"` here instead would put the two sides in different key domains, and on
+ * any target with top-level source files — `index.js`, `main.go`, entirely ordinary — the table would grow a
+ * false `.` row reading as an unexplained module plus one bogus zero-census row per top-level file. Aligning
+ * with the SQL convention is what keeps the join honest.
+ */
+function moduleOfPath(filePath: string): string {
   const normalized = filePath.replaceAll("\\", "/").replace(/^\.\//, "");
+  const cut = normalized.indexOf("/");
+  return cut === -1 ? "." : normalized.slice(0, cut);
+}
+
+/**
+ * The module a CENSUS ROOT LABEL denotes. A separate domain from file paths: `CodeGraphSet` prefixes each
+ * member's roots with its module directory, so a root-module label arrives as `service-a/.` and must fold
+ * back to `service-a`, while a bare `.` from a single-database target is already the module.
+ */
+function moduleOfRoot(root: string): string {
+  const normalized = root.replaceAll("\\", "/").replace(/^\.\//, "");
   const cut = normalized.indexOf("/");
   return cut === -1 ? normalized : normalized.slice(0, cut);
 }
@@ -108,7 +148,7 @@ function moduleOf(filePath: string): string {
 function countByModule(nodes: CensusNode[]): Map<string, number> {
   const counts = new Map<string, number>();
   for (const node of nodes) {
-    const key = moduleOf(node.filePath);
+    const key = moduleOfPath(node.filePath);
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }
   return counts;
@@ -130,7 +170,7 @@ export function buildScopeCensus(input: BuildScopeCensusInput): ScopeCensus {
 
   const censusByModule = new Map<string, { files: number; nodes: number }>();
   for (const root of input.roots) {
-    const key = moduleOf(root.root);
+    const key = moduleOfRoot(root.root);
     const prior = censusByModule.get(key) ?? { files: 0, nodes: 0 };
     censusByModule.set(key, { files: prior.files + root.files, nodes: prior.nodes + root.nodes });
   }
