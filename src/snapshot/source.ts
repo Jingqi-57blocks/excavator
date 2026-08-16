@@ -3,7 +3,7 @@ import { basename, dirname, extname, join, resolve } from "node:path";
 import type { EvidenceItem, SourceWindow } from "../core/types.ts";
 import type { ScannedFile } from "./snapshot.ts";
 import { CONTRACT_CATEGORIES, primaryCategory, projectDocumentGroup, scoreProjectDocument } from "./document-scoring.ts";
-import { atomicWrite, ensureDir, exists, readJson, redactSecrets, REDACTION_VERSION, sha256, truncate, writeJson } from "../core/util.ts";
+import { atomicWrite, ensureDir, exists, readJson, redactSecrets, redactionCacheTag, REDACTION_VERSION, sha256, truncate, writeJson } from "../core/util.ts";
 
 // The content-search corpus. It MUST cover every text extension the snapshot scans (`SOURCE_EXTENSIONS`
 // in snapshot.ts); otherwise a `searched-not-found` verdict silently omits files that were scanned but
@@ -12,12 +12,27 @@ import { atomicWrite, ensureDir, exists, readJson, redactSecrets, REDACTION_VERS
 export const TEXTUAL_EXTENSIONS = new Set([".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs", ".go", ".py", ".java", ".kt", ".kts", ".rb", ".php", ".cs", ".fs", ".rs", ".c", ".h", ".cc", ".cpp", ".hpp", ".swift", ".scala", ".vue", ".svelte", ".sql", ".yaml", ".yml", ".json", ".toml", ".xml", ".html", ".css", ".scss", ".md", ".sh", ".proto", ".graphql", ".gql", ".tf", ".hcl", ".astro", ".pm", ".pl", ".t", ".cgi", ".psgi", ".zpt", ".dtml"]);
 export const SOURCE_WINDOW_CACHE_VERSION = `source-window-v3-${REDACTION_VERSION}`;
 
+/** Cache identity for one redaction mode: a window recorded with redaction off must never satisfy a run
+ *  that asked for it on, or the audit re-derivation would compare against the wrong bytes. */
+export function windowCacheVersion(redact: boolean): string {
+  return `${SOURCE_WINDOW_CACHE_VERSION}${redactionCacheTag(redact)}`;
+}
+
 interface SourceReaderOptions {
   target: string;
   snapshotId: string;
   cacheDir: string;
   maxWindows: number;
   maxCharacters: number;
+  /**
+   * Whether to blank secret values in what is recorded; see `ReportRequest.redactSecrets`.
+   *
+   * REQUIRED, with no default, and that is the point. It began optional, and the one construction site that
+   * forgot it — the prepare path in `context.ts` — recorded README and route windows verbatim on a run that
+   * had ASKED for redaction, then failed its own audit with `source digest is stale`. A default that matches
+   * the product default makes forgetting invisible; requiring it makes every new recording site decide.
+   */
+  redact: boolean;
 }
 
 /**
@@ -36,6 +51,20 @@ export class SourceReader {
   private readonly memory = new Map<string, SourceWindow>();
 
   constructor(options: SourceReaderOptions) { this.options = options; }
+
+  /** Redaction as this run asked for it — the one place the mode is applied, so no path can disagree. */
+  private redact(text: string): string {
+    return this.options.redact ? redactSecrets(text) : text;
+  }
+
+  /**
+   * The run's mode, for recording paths that do not go through this reader (searches, fact packs).
+   *
+   * Reading it off the reader rather than re-deriving it from the request at each site is deliberate: the
+   * reader is already threaded everywhere source text is recorded, so there is one value to get wrong
+   * instead of five.
+   */
+  get redacts(): boolean { return this.options.redact; }
 
   get stats(): { windows: number; characters: number; hits: number } {
     return { windows: this.windows, characters: this.characters, hits: this.hits };
@@ -62,13 +91,13 @@ export class SourceReader {
 
   async window(relativePath: string, startLine: number, endLine: number, reason: string): Promise<SourceWindow> {
     const normalized = relativePath.replaceAll("\\", "/").replace(/^\.\//, "");
-    const key = sha256(`${SOURCE_WINDOW_CACHE_VERSION}:${this.options.snapshotId}:${normalized}:${startLine}:${endLine}`);
+    const key = sha256(`${windowCacheVersion(Boolean(this.options.redact))}:${this.options.snapshotId}:${normalized}:${startLine}:${endLine}`);
     const inMemory = this.memory.get(key);
     if (inMemory) { this.hits += 1; return inMemory; }
     const cachePath = join(this.options.cacheDir, "source-windows", `${key}.json`);
     if (await exists(cachePath)) {
       const cached = await readJson<SourceWindow>(cachePath);
-      if (cached.cacheVersion === SOURCE_WINDOW_CACHE_VERSION && cached.snapshotId === this.options.snapshotId && cached.digest === sha256(cached.content)) {
+      if (cached.cacheVersion === windowCacheVersion(Boolean(this.options.redact)) && cached.snapshotId === this.options.snapshotId && cached.digest === sha256(cached.content)) {
         this.memory.set(key, cached);
         this.hits += 1;
         return cached;
@@ -82,10 +111,10 @@ export class SourceReader {
     const safeStart = Math.max(1, startLine);
     const requestedEnd = Math.min(lines.length, Math.max(safeStart, endLine));
     const safeEnd = Math.min(requestedEnd, safeStart + MAX_WINDOW_LINES - 1);
-    const selected = redactSecrets(lines.slice(safeStart - 1, safeEnd).join("\n"));
+    const selected = this.redact(lines.slice(safeStart - 1, safeEnd).join("\n"));
     if (this.characters + selected.length > this.options.maxCharacters) throw new Error(`Source character budget exceeded (${this.options.maxCharacters}); increase --max-source-characters (e.g. ${this.options.maxCharacters * 2})`);
     const value: SourceWindow = {
-      cacheVersion: SOURCE_WINDOW_CACHE_VERSION,
+      cacheVersion: windowCacheVersion(Boolean(this.options.redact)),
       id: `S-${key.slice(0, 10)}`,
       snapshotId: this.options.snapshotId,
       path: normalized,
@@ -105,7 +134,7 @@ export class SourceReader {
   async wholeFile(relativePath: string, reason: string, maxCharacters = 20_000): Promise<SourceWindow> {
     const absolute = resolve(this.options.target, relativePath);
     if (!absolute.startsWith(`${resolve(this.options.target)}/`) && absolute !== resolve(this.options.target)) throw new Error(`Source path escapes target: ${relativePath}`);
-    const raw = redactSecrets(await readFile(absolute, "utf8"));
+    const raw = this.redact(await readFile(absolute, "utf8"));
     const lines = raw.split(/\r?\n/);
     let endLine = 1;
     let characters = 0;
@@ -183,6 +212,12 @@ export interface SourceSearchOptions {
   maxResults?: number;
   regex?: boolean;
   caseSensitive?: boolean;
+  /**
+   * Whether the recorded excerpt is redacted; follows the run's own mode. Required for the same reason
+   * `SourceReaderOptions.redact` is: `factpack.json` and the context excerpts are durable artifacts, and
+   * both were recording plain text on runs that asked for redaction because the flag was optional here.
+   */
+  redact: boolean;
 }
 
 export interface SourceSearchMatch {
@@ -205,7 +240,7 @@ export interface SourceSearchStats {
   truncated: boolean;
 }
 
-export function sourceSearch(files: ScannedFile[], terms: string[], options: SourceSearchOptions = {}, stats?: SourceSearchStats): Promise<SourceSearchMatch[]> {
+export function sourceSearch(files: ScannedFile[], terms: string[], options: SourceSearchOptions, stats?: SourceSearchStats): Promise<SourceSearchMatch[]> {
   const clean = [...new Set(terms.map((term) => term.trim()).filter((term) => options.regex ? term.length > 0 : term.length >= 2))];
   if (!clean.length) return Promise.resolve([]);
   const flags = options.caseSensitive ? "" : "i";
@@ -237,7 +272,7 @@ export function sourceSearch(files: ScannedFile[], terms: string[], options: Sou
         const line = lines[index];
         if (!union.test(line)) continue;
         const matchedTerms = clean.filter((_, termIndex) => expressions[termIndex].test(line));
-        const excerpt = redactSecrets(lines.slice(Math.max(0, index - 1), Math.min(lines.length, index + 2)).join("\n"));
+        const excerpt = options.redact ? redactSecrets(lines.slice(Math.max(0, index - 1), Math.min(lines.length, index + 2)).join("\n")) : lines.slice(Math.max(0, index - 1), Math.min(lines.length, index + 2)).join("\n");
         results.push({ file, line: index + 1, excerpt, matchedTerms, score: searchScore(file, line, matchedTerms, clean, options) });
         total += 1;
         fileMatches += 1;
@@ -289,7 +324,7 @@ export function evidenceFromWindow(window: SourceWindow, kind: EvidenceItem["kin
   };
 }
 
-export function manifestSummary(path: string, content: string): Record<string, unknown> {
+export function manifestSummary(path: string, content: string, redact: boolean): Record<string, unknown> {
   const name = basename(path);
   if (name === "package.json") {
     try {
@@ -309,7 +344,7 @@ export function manifestSummary(path: string, content: string): Record<string, u
     const requires = [...content.matchAll(/^\s*([\w./-]+)\s+v[^\s]+/gm)].map((m) => m[1]).slice(0, 100);
     return { module, go, requires };
   }
-  return { name, directory: dirname(path), excerpt: truncate(redactSecrets(content), 8000) };
+  return { name, directory: dirname(path), excerpt: truncate(redact ? redactSecrets(content) : content, 8000) };
 }
 
 function escapeRegex(value: string): string { return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }

@@ -429,6 +429,10 @@ if holiday.FuneralToken > 0 && err != nil {   → if holiday.FuneralToken > 0 &&
 - **继承相等（两版同放，非本片引入）**：① URL userinfo 形 `user:s3cret@host`——凭据由 `:` 绑定，而 `LITERAL_PAIR` 只认 `=`；② 模板串内的散文式机密 `` `the password is changeme` ``；③ 字面量内 `!` 开头且不含数字的值 `"password=!changeme"`——`!` 豁免是为 Vue 开关买的，这是它的已知代价面。
 - **`isSensitiveIdentifier` 词表边界**（详见上条）：连写 `mypassword=` 与未列词 `pass=` 两版同漏。
 
+**记档不修（57B-410 评审产生，继承行为）**：**pre-409 归档 run 里，凡窗口在 redaction-v4 与 v7 下脱敏结果不同者，今日在 main 上审计即报 stale。** 这是 409 改脱敏行为的必然结果（`auditEvidenceCatalog` 逐字重推导且**不设世代闸**），非 410 引入。要让这些 run 重新绿只能重新 prepare。
+
+**一处心智模型纠正（值得单独记，因为我原来是错的）**：`ASSURANCE_VERSION` bump **并不** grandfather 掉 stale-digest 检查——世代闸只管 marker 类严格检查，`auditEvidenceCatalog` 不看世代。所以保护「409 合入到 410 合入之间产生的 run」的**不是 bump，而是 `recordedUnderRedaction` 的「缺失/低世代 = 已脱敏」读法**。两样都做了所以结果正确，但归因要记在后者上，否则下次有人删掉那条读法、以为 bump 兜得住。
+
 **净安全面口径（评审判据，留给下次改脱敏的人）**：不看单条构造，看**相对基线的双向漂移**——真实仓逐行跑两版并分类为「新增遮盖 / 新增放行」。wcp（1714 文件、30 万行）实测新增遮盖 1、新增放行 113，放行抽样全为调用豁免。**差分工具无法区分"改进"与"泄漏"，只有记录下来的意图能**，所以放行侧必须逐类给出有意放宽的理由，否则视同泄漏。
 
 ## 批次 57B-405（对账诚实化）产生（2026-08-16）

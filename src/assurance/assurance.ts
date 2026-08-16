@@ -54,7 +54,29 @@ export interface AuditFinding {
  * checks: only runs prepared under the current version are held to them, while older or field-less
  * runs are grandfathered so a later redaction/check bump never retroactively fails them.
  */
-export const ASSURANCE_VERSION = `assurance-v8-${REDACTION_VERSION}`;
+// v9 marks the generation where a run STATES its redaction mode. Runs prepared under v8 do not carry the
+// field, and re-deriving their windows as plain would report every one of them stale — so the boundary is
+// drawn in the version rather than papered over by a default. See `recordedUnderRedaction`.
+/**
+ * Whether this run's recorded source text is redacted, as the run itself reports it.
+ *
+ * An ABSENT field is not "off": before the mode existed, every run redacted unconditionally, so absence is
+ * a fact about the old format rather than a default to guess at. Reading it as off made a whole generation
+ * of archived runs fail re-derivation at once.
+ */
+export function recordedUnderRedaction(manifest: RunManifest): boolean {
+  // Before v9 the field carries no meaning: redaction was unconditional, and a run whose request happened
+  // to hold `redactSecrets: false` — a library caller's field surviving the request spread — was redacted
+  // all the same. Honouring it there would re-derive a redacted archive as plain and report every window
+  // stale. The generation decides whether the field is evidence; the field only speaks from v9 on.
+  if (!assuranceGenerationAtLeast(manifest, REDACTION_MODE_ASSURANCE_GENERATION)) return true;
+  return manifest.request.redactSecrets ?? true;
+}
+
+/** The generation from which a run STATES its redaction mode, so the field may be believed. */
+export const REDACTION_MODE_ASSURANCE_GENERATION = 9;
+
+export const ASSURANCE_VERSION = `assurance-v9-mode-${REDACTION_VERSION}`;
 
 /** Strict re-derivation checks apply only to runs prepared under exactly the current version. */
 export function runUsesCurrentAssurance(manifest: RunManifest): boolean {
@@ -335,7 +357,11 @@ async function auditSourceEvidence(manifest: RunManifest, item: EvidenceItem): P
   if (item.startLine < 1 || item.endLine < item.startLine || item.endLine > lines.length) {
     return [error("evidence", `${item.id} has invalid source range ${item.startLine}-${item.endLine}; file has ${lines.length} lines`)];
   }
-  const selected = redactSecrets(lines.slice(item.startLine - 1, item.endLine).join("\n"));
+  // Re-derive exactly as the run recorded it. The mode is read from the run's OWN request, never from a
+  // module default: a run made with redaction off would otherwise be re-derived with it on and every window
+  // would report a stale digest — the check would be measuring the auditor's settings, not the run.
+  const excerpt = lines.slice(item.startLine - 1, item.endLine).join("\n");
+  const selected = recordedUnderRedaction(manifest) ? redactSecrets(excerpt) : excerpt;
   const digest = sha256(selected);
   if (digest !== item.digest) findings.push(error("evidence", `${item.id} source digest is stale for ${item.path}:${item.startLine}-${item.endLine}`));
   if (selected !== item.content) findings.push(error("evidence", `${item.id} stored excerpt does not match the current redacted source window`));

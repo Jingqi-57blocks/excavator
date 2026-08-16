@@ -77,7 +77,7 @@ async function scannedBoundary(sources: Record<string, string>): Promise<Boundar
     workdir,
     files,
     paths: files.map((file) => file.relativePath),
-    reader: new SourceReader({ target, snapshotId: "snapshot-fact-pack", cacheDir: join(workdir, "cache"), maxWindows: 20, maxCharacters: 100_000 }),
+    reader: new SourceReader({ target, snapshotId: "snapshot-fact-pack", cacheDir: join(workdir, "cache"), maxWindows: 20, maxCharacters: 100_000 , redact: false}),
     graph: null
   };
 }

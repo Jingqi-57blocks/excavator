@@ -250,6 +250,10 @@ function normalizeRequest(raw: Partial<ReportRequest>, args: Record<string, stri
     language: String(raw.language ?? args.language ?? "en-US"),
     detailLevel: raw.detailLevel === "standard" || args.detail === "standard" ? "standard" : "detailed",
     workdir: resolve(String(raw.workdir ?? args.workdir ?? DEFAULT_WORKDIR)),
+    // Rebuilt field by field, so a field missing HERE cannot be set at all: `redactSecrets` was absent, and
+    // that made the mode the request type documents unreachable from the CLI — the flag existed only for
+    // callers using the library directly.
+    redactSecrets: args.redact === "true" || raw.redactSecrets === true,
     overviewAudiences,
     features,
     budgets: { ...defaultBudgets({ overviewAudiences, features }), ...(raw.budgets ?? {}), ...budgetOverrides(args) }
@@ -377,6 +381,11 @@ Examples:
   excavator checklist --run <run> --file checklist-updates.json
   excavator audit --run <run> --document <id>
   excavator report --request request.json
+
+Secret redaction:
+  --redact            Blank secret-looking values in recorded source. Off by default: a local run reads code
+                      the operator already has. Turn it on when the run directory or its HTML export will
+                      leave this machine. \`excavator status\` reports which mode a run used.
 
 Report detail:
   --detail detailed   Default. Requires a chapter inventory, fine-grained material work-item coverage and minimum report density.
