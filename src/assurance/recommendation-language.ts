@@ -37,7 +37,16 @@ const ADVICE_PATTERNS: RegExp[] = [
  * `不属于本次范围。修复建议见附录` does not, because the full stop ends the negator's reach.
  */
 const NEGATOR = /(?:[不未无勿非]|\bnot\b|\bno\b|\bwithout\b|\bnever\b)/gi;
-const SENTENCE_END = /[。！？；.!?;]/;
+
+/**
+ * Where a negator stops governing. Sentence punctuation is not enough — my first version used only that, and
+ * probing it found three ways real advice walked through: a bullet list (`- 不涉及改动\n- 修复建议见附录`),
+ * a table row (`| 不适用 | 修复建议见附录 |`), and an English subordinate clause
+ * (`There is no doubt that we recommend …`). A newline, a cell boundary and a subordinator each start a new
+ * assertion, so each ends the reach. Enumerating verb forms failed the same way earlier in this file; the
+ * lesson repeated is that the boundary has to be STRUCTURAL, not a list of shapes.
+ */
+const REACH_END = /[。！？；.!?;\n|]|\bthat\b|\bbut\b|\bhowever\b/i;
 
 /** How far left of a match a negator may sit and still govern it. */
 const NEGATION_WINDOW = 24;
@@ -48,7 +57,7 @@ function negated(left: string): boolean {
   let last = -1;
   for (let match = scanner.exec(left); match !== null; match = scanner.exec(left)) last = match.index + match[0].length;
   if (last < 0) return false;
-  return !SENTENCE_END.test(left.slice(last));
+  return !REACH_END.test(left.slice(last));
 }
 
 export interface AdviceMatch {

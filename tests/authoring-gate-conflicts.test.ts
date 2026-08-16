@@ -30,6 +30,25 @@ test("advice with nothing negating it is still reported", () => {
   assert.equal(unnegatedAdvice("第 12 章给出解决方案概览。").length, 1);
 });
 
+// THREE WAYS REAL ADVICE WALKED THROUGH the first version of the negation rule, found by probing the
+// loosening direction rather than by review. Worth pinning because a gate that stops working fails GREEN:
+// nothing red, advice simply stops being reported.
+//
+// All three share a cause: the negator's reach ended only at sentence punctuation, so it leaked across
+// structural boundaries that start a new assertion — a bullet, a table cell, an English subordinate clause.
+test("a negator does not reach across a structural boundary", () => {
+  assert.equal(unnegatedAdvice("- 不涉及改动代码\n- 修复建议见附录").length, 1, "a newline starts a new bullet");
+  assert.equal(unnegatedAdvice("| 不适用 | 修复建议见附录 |").length, 1, "a pipe starts a new cell");
+  assert.equal(unnegatedAdvice("There is no doubt that we recommend switching to live mode.").length, 1,
+    "`that` starts a new clause, so the subordinate `no` does not license the main clause");
+});
+
+// And the boundaries must not be so eager that a single disclaiming sentence stops working: an enumeration
+// inside one clause is still governed by its negator.
+test("a negator still governs an enumeration inside its own clause", () => {
+  assert.deepEqual(unnegatedAdvice("本节不涉及改动、修复建议与迁移步骤。"), []);
+});
+
 // `镜像` is a container image in Chinese and `等价` is ordinary for semantic equivalence. Both were BARE
 // patterns in the comparative-wording list, so three sentences from a real engineering overview were flagged
 // as cross-source equivalence claims and the author rewrote 镜像 as 容器层 — trading terminology accuracy for
