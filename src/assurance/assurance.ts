@@ -64,9 +64,17 @@ export interface AuditFinding {
  * a fact about the old format rather than a default to guess at. Reading it as off made a whole generation
  * of archived runs fail re-derivation at once.
  */
-export function recordedUnderRedaction(manifest: { request: { redactSecrets?: boolean } }): boolean {
+export function recordedUnderRedaction(manifest: RunManifest): boolean {
+  // Before v9 the field carries no meaning: redaction was unconditional, and a run whose request happened
+  // to hold `redactSecrets: false` — a library caller's field surviving the request spread — was redacted
+  // all the same. Honouring it there would re-derive a redacted archive as plain and report every window
+  // stale. The generation decides whether the field is evidence; the field only speaks from v9 on.
+  if (!assuranceGenerationAtLeast(manifest, REDACTION_MODE_ASSURANCE_GENERATION)) return true;
   return manifest.request.redactSecrets ?? true;
 }
+
+/** The generation from which a run STATES its redaction mode, so the field may be believed. */
+export const REDACTION_MODE_ASSURANCE_GENERATION = 9;
 
 export const ASSURANCE_VERSION = `assurance-v9-mode-${REDACTION_VERSION}`;
 

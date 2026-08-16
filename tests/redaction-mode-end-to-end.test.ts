@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { readFile, readdir, writeFile } from "node:fs/promises";
 import type { ReportRequest } from "../src/core/types.ts";
 import { auditRun, prepareRun, runStatus, searchSourceEvidence } from "../src/core/run.ts";
+import { recordedUnderRedaction, REDACTION_MODE_ASSURANCE_GENERATION } from "../src/assurance/assurance.ts";
 import { copyFixture, tempDir } from "./helpers.ts";
 
 // REDACTION MODE, TESTED AS A PROPERTY OF THE RUN RATHER THAN OF ONE FUNCTION.
@@ -88,6 +89,24 @@ test("a run with redaction OFF records the source as written, and also audits it
   assert.deepEqual(rederivationFindings(await auditRun(runDir)), [], "and the re-derivation follows the run's own mode");
 
   assert.equal((await runStatus(runDir)).sourceText, "verbatim", "the operator is told, whether or not they asked");
+});
+
+// What actually protects archived runs is NOT the version bump — `auditEvidenceCatalog` re-derives digests
+// with no generation gate at all — it is this reading of the field. Before v9 redaction was unconditional,
+// so a pre-v9 manifest is redacted whatever its request happens to say; a stray `redactSecrets: false` on
+// one (a library caller's field surviving the request spread) would otherwise re-derive a redacted archive
+// as plain and report every window in it stale.
+test("a pre-v9 run is read as redacted whatever its request says", () => {
+  const legacy = (assuranceVersion: string, redactSecrets?: boolean) =>
+    ({ assuranceVersion, request: { redactSecrets } }) as unknown as Parameters<typeof recordedUnderRedaction>[0];
+
+  assert.equal(recordedUnderRedaction(legacy("assurance-v8-redaction-v7")), true, "absent, old generation");
+  assert.equal(recordedUnderRedaction(legacy("assurance-v8-redaction-v7", false)), true,
+    "and an explicit false is not evidence before the generation that introduced the field");
+  assert.equal(recordedUnderRedaction(legacy(`assurance-v${REDACTION_MODE_ASSURANCE_GENERATION}-mode-redaction-v7`, false)), false,
+    "from v9 the run speaks for itself");
+  assert.equal(recordedUnderRedaction(legacy(`assurance-v${REDACTION_MODE_ASSURANCE_GENERATION}-mode-redaction-v7`)), true,
+    "and a v9 run with the field missing still reads as redacted, never as silently off");
 });
 
 // The two modes share a project cache keyed by snapshot. Without the mode in the cache key, whichever run

@@ -110,7 +110,7 @@ async function resolveCrossRepoLinks(
     const scan = await scanCrossRepoLinks(target, modules.map((module) => ({ id: module.id, dir: module.dir, databasePath: module.path })));
     warnings.push(...scan.warnings.slice(0, 20));
     const binding = mintCrossRepoEvidence(scan, snapshotId, redact);
-    return { artifact: buildCrossRepoArtifact(scan, snapshotId, binding), evidence: binding.evidence };
+    return { artifact: buildCrossRepoArtifact(scan, snapshotId, binding, redact), evidence: binding.evidence };
   } catch (error) {
     warnings.push(`cross-repo link resolution skipped: ${(error as Error).message}`);
     return null;

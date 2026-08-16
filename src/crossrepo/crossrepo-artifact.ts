@@ -37,12 +37,31 @@ export function linkId(link: CrossRepoScan["links"][number]): string {
  * Mint the two derived evidence records each link is bound to. Deterministic: ids and digests derive from
  * the link's own coordinates, so the same snapshot yields byte-identical evidence.
  */
+/**
+ * The two fields of a link that are SOURCE TEXT rather than structure, under this run's mode.
+ *
+ * Shared by the evidence and the artifact because they were written separately and diverged: the evidence
+ * twin redacted a `?key=…` URL literal while `context/crossrepo-links.json` kept it verbatim, and nothing
+ * could see the difference — a structured artifact's digest is self-consistent whatever it holds, so the
+ * audit's re-derivation, the one check that catches a window recorded under the wrong mode, does not apply.
+ * One function so a third writer cannot invent a third answer.
+ */
+function underMode(link: CrossRepoScan["links"][number], redact: boolean): CrossRepoScan["links"][number] {
+  if (!redact) return link;
+  return {
+    ...link,
+    from: { ...link.from, expression: redactSecrets(link.from.expression) },
+    to: { ...link.to, handlerExpression: redactSecrets(link.to.handlerExpression) },
+  };
+}
+
 export function mintCrossRepoEvidence(scan: CrossRepoScan, snapshotId: string, redact: boolean): CrossRepoEvidence {
   const evidence: EvidenceItem[] = [];
   const byLink = new Map<string, [string, string]>();
 
-  for (const link of scan.links) {
-    const id = linkId(link);
+  for (const raw of scan.links) {
+    const link = underMode(raw, redact);
+    const id = linkId(raw);
     const fromId = `${EVIDENCE_PREFIX}-call-${sha256(id).slice(0, 12)}`;
     const toId = `${EVIDENCE_PREFIX}-route-${sha256(`${id}|${link.to.module}|${link.to.path}|${link.to.line}`).slice(0, 12)}`;
     const fromRecord = {
@@ -53,14 +72,14 @@ export function mintCrossRepoEvidence(scan: CrossRepoScan, snapshotId: string, r
       routePath: link.from.routePath,
       // Source text verbatim would route around the redaction pipeline: a URL literal can carry a
       // token (`?key=…`), and evidence.json is a durable artifact.
-      expression: redact ? redactSecrets(link.from.expression) : link.from.expression,
+      expression: link.from.expression,
     };
     const toRecord = {
       module: link.to.module,
       path: link.to.path,
       line: link.to.line,
       route: link.to.route,
-      handlerExpression: redact ? redactSecrets(link.to.handlerExpression) : link.to.handlerExpression,
+      handlerExpression: link.to.handlerExpression,
     };
     evidence.push({
       id: fromId,
@@ -118,14 +137,15 @@ export interface CrossRepoArtifact {
   warnings: string[];
 }
 
-export function buildCrossRepoArtifact(scan: CrossRepoScan, snapshotId: string, binding: CrossRepoEvidence): CrossRepoArtifact {
+export function buildCrossRepoArtifact(scan: CrossRepoScan, snapshotId: string, binding: CrossRepoEvidence, redact: boolean): CrossRepoArtifact {
   return {
     version: CROSSREPO_ARTIFACT_VERSION,
     snapshotId,
     modules: scan.modules,
     clients: scan.clients,
-    links: scan.links.map((link) => {
-      const id = linkId(link);
+    links: scan.links.map((raw) => {
+      const id = linkId(raw);
+      const link = underMode(raw, redact);
       return {
         id,
         kind: "http-route" as const,
