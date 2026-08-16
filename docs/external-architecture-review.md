@@ -147,6 +147,11 @@ LocAgent 对无 `.py` 目录 `graph.remove_node` **物理删除**；gitingest �
 2. **「被显式豁免」与「无人解释」必须是两个状态**（in-toto 队列消费 + 末尾 `DISALLOW *`；Stryker 的 `NoCoverage` vs `Survived`）。覆盖率工具全部把这两者压成同一个 0%，**这正是它们的输出层失效之处**。我们的排除清单必须携带「谁按哪条规则豁免的」，与「压根没人碰过」分开计。
 3. **报告层用双分母**（Stryker：`mutationScore = detected/valid` 与 `mutationScoreBasedOnCoveredCode = detected/covered` 并列）。凡出 coverage 百分比，必须同时给「对全集的分」与「对可达集的分」，**否则缺席会被稀释**。这与规划层裁定的「凡出百分比必带 census 模块 N / 入账模块 M 一行」同构。
 
+**规划层裁定加的两条方案条款（2026-08-16，写在这里以免落笔时忘记）**：
+
+- **② 的验收门加一条**：排除清单必须携带「按**哪条记名规则**豁免的」，并断言**残差恒等式 `census − 入账 − 记名豁免 = 0`**。残差非空先 advisory，攒够读数后按世代闸硬化。这是 in-toto「队列消费 + 末尾 DISALLOW *」在我们这里的形态。
+- **①③ 的回流边准入规则**（防「一堆特例回流边」固化成结构问题）：**只有 feature 无关的 scan 级产物可回流作种子**（跨仓路由表、框架约定恢复、census）；**一切 feature 依赖的派生物永不回流**（读义务、残差）。判据是结构性的、可机械检查：产物必须在 `buildContexts`（`run.ts:326`）之前可得，且不含 `featureKey`。
+
 **远期方向（不进 ② 本片）**：in-toto 的 `DISALLOW *` 把「残差非空」做成**验证失败条件**而不是报告里的一个数字。这是本轮约 40 个对象里唯一做到这一点的机制。我们的路径应是：② 先让残差可见（advisory）→ 攒够读数后按世代闸硬化为门。**先量后硬化，与既有纪律一致。**
 
 ### 第 3 名 · 约定即种子、失败退化为超集（治框架驱动系统）
@@ -189,6 +194,18 @@ PyT 的 `FrameworkAdaptor` 不硬编码框架，接一个谓词遍历全部函�
 | Sourcebot | 不自建索引（vendor 了 Zoekt fork），四个缺口一个都不治 |
 | ADDI 业务术语分类器 / EvolveWare / Blu Age | 机制不公开或依赖 ML 分类器 + 人工映射，不可零模型复刻 |
 | 「增量==全量」的现成保证 | 约 10 个索引系统里**只有 salsa 正式写下来过**（代价正是「所有查询必须是纯确定函数」——我们已付过这个价）。Kythe/Glean/Zoekt/SCIP 全是「官方未表态」，Stack Graphs 是 conjecture，Glean 甚至记录了已知反例。**我们要这个性质就得自己测** |
+
+## 五之二、被本轮调研**证伪**的一个重构候选（记下来免得再提）
+
+我曾提出「`stableJson` 是散在各生产者里的便利函数、不是管线里的一道闸，应按 SCIP/Kythe/Zoekt 收敛成写入前的独立阶段」。**这条不成立，闸已经存在**：
+
+- `src/core/util.ts:38-40` 的 `writeJson` = `atomicWrite(stableJson(value) + "\n")`——**这就是那道「写入前的独立阶段」**，全仓 JSON 工件写入全部走它。
+- 直接 `JSON.stringify` 落盘 **0 处**（唯一的 `timeline.ts:32` 是 jsonl 追加，其 digest 用 `sha256(stableJson(unsigned))` 计算并由 `auditTimeline` 重推导核验）。
+- 64 处 `stableJson` 直接引用绝大多数是 `sha256(stableJson(x))`——**这正是 Kythe 的 `Canonicalize()` → `Digest()`**，我们已经在用那个模式，差别只在名义。
+
+**教训（比这条候选本身更值钱）**：我是从外部报告的叙述里直接推出「我们大概也有这个毛病」，而没有先查自己的代码。同一轮里我犯过两次——另一次是「用 unresolved_refs 做跨仓 join」（实测 22449 条全在一个桶、可用信号仅 176 条）。**外部机制清单只能提出假设，不能充当我们自己的现状诊断。**
+
+可记账的一小条（非重构、不占队列位）：加一条反调绊线测试，断言 `src/` 内除白名单（timeline jsonl 等）外不得出现 `JSON.stringify` 落盘。捎带进任意切片即可。
 
 ## 六、顺带查到的我们自己的两处待议
 

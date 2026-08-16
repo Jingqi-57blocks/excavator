@@ -451,7 +451,12 @@ if holiday.FuneralToken > 0 && err != nil {   → if holiday.FuneralToken > 0 &&
 
 **文本回退保留的理由（评审裁定，比我原来的更强）**：作者合同显示**连 n/a 处置也走 claim 的 `workItemIds`**，所以绑定路径总是可用且比塞标识符更省事——**Goodhart 压力方向已经反转**（塞标识符从「消误报的唯一手段」变成多余动作）。删除或世代门控反而会在绑定因上游 id 歧义等作者不可控原因 miss 时，重新惩罚合规作者。残余半通道（纯散文提名即可消警告）记档。
 
-## 外部项目调研裁定 · Graphify（2026-08-16，规划层裁定）
+## 外部项目调研裁定 · Graphify（2026-08-16，规划层裁定；**已裁定归档**）
+
+> **框架更正（2026-08-16，用户裁定）：只参考这些开源项目的架构与实现方式，不引入它们。**
+> 本节以下内容成文于旧框架（把 Graphify 当候选**工具**评估，故有 C 臂与准入路径）。
+> **预注册与实测数字按原样保留**——那是「判据跑前钉死、禁止事后挑选」的证据，删掉即丢失可辩护性；
+> 但凡读起来像「我们仍在考虑引入它」的表述已就地更正。架构参照的蒸馏结论见 `docs/external-architecture-review.md`。
 
 用户提供 Graphify（github.com/Graphify-Labs/graphify，v8）+ 另一位开发者的分析，要求评估是否改方向。**裁定：不改序列。Graphify 是一面好镜子和一个便宜的对照臂，不是方向变更的理由。**
 
@@ -469,9 +474,12 @@ if holiday.FuneralToken > 0 && err != nil {   → if holiday.FuneralToken > 0 &&
 2. **真正有价值的只有一条架构洞察**：「Community 是长期结构、Feature Scope 是临时查询」。但它**没有开新问题**——`docs/investigation-engine.md` §九-4 早已预注册重启条件（「模块树在 ≥2 个真实目标上作为分母来源的 gold 漏报率实测低于 feature scope」）。Graphify 只是给同一槽位添了第二个候选。
 3. **一条我没想到的不对称性（规划层补充）**：**分母的确定性是硬门，召回只是比较项**——「你没碰模块 X」可执行，「你没碰 Community 7」不可执行。即使聚类赢了召回，若分区不能确定复现，也只配「用确定性手段复刻其拓扑思想」，不配接入工具。
 4. **不采纳 Semantic Graph**（§九-1 重启条件未触及）。且分析**内在矛盾**：一边把「Graphify 的图太扁平、没有语义层」列为不要照搬的第一条，一边拿它的存在提议我们建本体。**一个自身没有语义层的工具，不能构成「实测需要语义层」的任何证据。** 新信息可以重开已裁定问题，但必须与该问题相关。
-5. **只做 optional external index builder**，走**外部工具阶梯**（Benchmark Candidate → Experimental → Supported）而非 npm 白名单五条——它是 Python 工具，白名单管不到。真正会疼的一条：**Python 传递依赖树比 CodeGraph 重得多**，而这份依赖会随引擎进入操作者指定的任何代码库——**部署形态不固定**（本机跑与部署为服务都成立），所以既不能用「跑的是他人机密代码」把它说死，也不能用「反正是本地」把它抹掉；按准入阶梯逐条审，别用任一侧的假设代替审计。永不消费 LLM 社区标签（零模型调用），永不消费其内部增量/缓存路径作审计输入（故 mtime 之争与任何决定无关）。
+5. ~~**只做 optional external index builder**，走**外部工具阶梯**（Benchmark Candidate → Experimental → Supported）~~ **——本条已被用户裁定取代（2026-08-16：只参考架构，不引入工具），不再有「引入路径」这回事。** 以下论证与 Graphify 无关、对将来任何外部工具的准入都通用，故保留：它是 Python 工具，npm 白名单五条管不到。真正会疼的一条：**Python 传递依赖树比 CodeGraph 重得多**，而这份依赖会随引擎进入操作者指定的任何代码库——**部署形态不固定**（本机跑与部署为服务都成立），所以既不能用「跑的是他人机密代码」把它说死，也不能用「反正是本地」把它抹掉；按准入阶梯逐条审，别用任一侧的假设代替审计。永不消费 LLM 社区标签（零模型调用），永不消费其内部增量/缓存路径作审计输入（故 mtime 之争与任何决定无关）。
 
 ### 三、三臂对照实验（预注册，离线零模型零 token，跑前钉死）
+
+> **C 臂后经用户裁定取消**（只参考架构、不引入工具），其拓扑思想改由 §三之三 的 E1 承接并已实测拒绝。
+> 预注册正文按跑前原样保留，**因为「判据先于结果」本身就是这份记录的价值**——见 §三之二。
 
 **问题**：作为 S3 模块级分母来源，拓扑社区是否在边界召回上优于确定性模块树与现役 pruned-FG。
 
@@ -493,8 +501,8 @@ if holiday.FuneralToken > 0 && err != nil {   → if holiday.FuneralToken > 0 &&
 
 ### 四、值得单独学的（分析没提到）
 
-- **`--exclude-hubs`（p99 度数预排除）**：我们的剪枝有桥信号方向性排 hub（57B-371），但**没有池级度数预过滤**。可在 `eval/prune-replay.ts` 离线试，churn 门照旧。诚实边界：治不了 application 别名污染（那是词项问题不是度数问题）。
-- **Aider RepoMap 的 PageRank + token-budget 排序**：与上一条同批离线试，共用 churn 门（我补充的候选）。
+- **`--exclude-hubs`（p99 度数预排除）**：我们的剪枝有桥信号方向性排 hub（57B-371），但**没有池级度数预过滤**。可在 `eval/prune-replay.ts` 离线试，churn 门照旧。诚实边界：治不了 application 别名污染（那是词项问题不是度数问题）。**（已试完，见 §三之三：15/16 劣于基线，不采纳——p99 只排除 22 个节点却丢掉 `T2-leave-export`，因为该 feature 的导出处理器本身就是 hub。）**
+- **Aider RepoMap 的 PageRank + token-budget 排序**：与上一条同批离线试，共用 churn 门（我补充的候选）。**（已试完，见 §三之三：全局 PageRank 0/16、加种子 9/16，不采纳。但其「标识符普遍度降权」标量仍是候选，见 `external-architecture-review.md` §四荣誉提名。）**
 - 反面教材两条（分析说对了）：watch/hook 的常青更新与我们的不可变 run + freeze 正面冲突；其 `path.split("/")[0]` 式 cross-repo 印证 SnapshotRoot 层不应退化。
 
 ### 三之二、实测结果（2026-08-16 跑完，判据按 §三 跑前钉死的执行）
@@ -551,7 +559,7 @@ if holiday.FuneralToken > 0 && err != nil {   → if holiday.FuneralToken > 0 &&
 
 ### 五、明确不做
 
-不改序列；不建语义层/本体；不 embed Python；不在 bench 出数据 + 有真实消费者前建 GraphifyProvider；不消费 LLM 标签；不依赖未文档化的 affected/graph_diff（Impact 线自建）；不做常青/watch 形态。
+不改序列；不建语义层/本体；不 embed Python；**不建 GraphifyProvider（用户裁定：只参考架构，不引入工具——无条件，不再挂 bench 数据或消费者条件）**；不消费 LLM 标签；不依赖未文档化的 affected/graph_diff（Impact 线自建）；不做常青/watch 形态。
 
 ## 批次 57B-402（仪表诚实）评审产生（2026-08-15）
 
