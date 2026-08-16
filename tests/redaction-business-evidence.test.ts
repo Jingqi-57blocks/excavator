@@ -307,6 +307,22 @@ const MUST_STAY_READABLE = [
   "grant_type = \"client_credentials\"",
 ];
 
+// Skipping a delimited pattern whole is what keeps a substitution readable — but a skip that overshoots
+// walks past a real assignment, turning an evidence fix into a leak. Every closing form is checked with a
+// credential placed AFTER the pattern, including the unterminated case that must not skip at all.
+test("a skipped pattern never hides an assignment that follows it", () => {
+  for (const line of [
+    "$x =~ m,abc, && PASSWORD=changeme",
+    "$x =~ /a\\/b/ && PASSWORD=changeme",
+    "$x =~ /a/ ; $y =~ /b/ ; PASSWORD=changeme",
+    "$x =~ s{a}{b} && PASSWORD=changeme",
+    "$x =~ /unclosed && PASSWORD=changeme",
+    "$x =~ qr/a/ and $password = \"changeme\"",
+  ]) {
+    assert.doesNotMatch(redactSecrets(line), /changeme/, line);
+  }
+});
+
 // Pathological input must not be able to stop a run: `redactSecrets` sits on the evidence-recording path,
 // so a crafted file that crashes it crashes prepare. A recursive rescan overflowed the stack at 5000 chained
 // comparisons; the loop that replaced it also fixed the leak the rescan was added for.
