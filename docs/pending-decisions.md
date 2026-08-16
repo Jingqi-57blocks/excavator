@@ -276,6 +276,30 @@ S1 声称枚举「边界文件内全部决策函数」，在这个文件形状�
 今天不构成缺陷（census 的诚实边界就是「已索引且在 snapshot 内的模块」），但**若将来把
 zero-hit advisory 硬化成闸，必须先让 snapshot 截断本身可见**，否则分母被缩小而闸门照绿。
 
+## 证据 marker 词表有三处定义，语义各不相同（2026-08-16，57B-412 评审指出）
+
+`markersIn`（接受**英文裸词** `\bfact\b`）、`EVIDENCE_MARKER_TOKEN`（只匹配**反引号形态**）、
+`EVIDENCE_MARKER_WORD`（`assurance.ts:581` 附近）——同一份词表三处定义、三种语义。
+**新增一个 marker 词需三处同步，漏一处就是静默行为差异。**
+
+57B-412 只合并了 segmenter 与 audit 折叠共用的那一处（TOKEN），**没有**动 `markersIn`——
+它接受英文裸词，与 TOKEN 语义不同，合并会改 marker 检测行为，属范围外。
+合并前须先确定三种语义哪些是有意的。
+
+## segment 去重发生在折叠之后（2026-08-16，57B-412 评审构造，祖父条款）
+
+`substantiveSegments` 用 `new Set` 去重，而去重在**折叠之后**。于是仅装饰不同的孪生句
+（`配置项 on\`off\`切换 …。配置项 on off 切换 …。`）在 legacy 折叠下折成同一字符串被合并——
+当代 2 个 segment、legacy 1 个。
+
+**不是新开的洞**：旧 `normalizeText` 就是 legacy 折叠，主线两侧同折叠、同去重，本来就接受这个形状。
+**明确不修**：加「换代不得减少 segment 数」的前置约束会把主线本来绿过的归档 section 强推回当代判定
+而翻红，恰好破坏本修复要保的后向兼容。已钉成有记录的代价测试。
+
+**我在这里犯的错值得单记**：我曾把「segment 数与世代无关」当成**可证的安全性质**钉进测试，
+论证只覆盖了 `semanticLength` 过滤（那确实与世代无关），**漏了折叠后去重这一步**；测试全绿
+仅因夹具恰好避开碰撞。**把假性质当证明钉下来，比什么都不钉更糟。**
+
 ## 测试里的墙钟断言在 CPU 争用下假失败（2026-08-16，范围外记账）
 
 `tests/run.test.ts:191`「a timed-out checkpoint keeps the section it was given」断言

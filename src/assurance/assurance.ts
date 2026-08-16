@@ -376,10 +376,41 @@ export function auditSectionClaims(options: {
   evidenceIds: Set<string>;
   traceIds?: Set<string>;
 }): AuditFinding[] {
+  // One generation at a time, whole comparison: the segments and the claim statements are folded the same
+  // way before being compared, and the section is accepted if ANY generation is internally consistent.
+  // Mixing generations is what broke archived runs — see TEXT_FOLDINGS.
+  const attempts = TEXT_FOLDINGS.map((fold) => judgeSectionClaims(options, fold));
+  // The generation that reads the section best, reported WHOLE. Not "fewest errors across generations" —
+  // that would mix two readings; the findings returned are always one generation's, so the section is judged
+  // by a single self-consistent view. Ties keep the newest, so a section that binds under both is reported
+  // under current semantics.
+  const cost = (attempt: AuditFinding[]): number => attempt.filter((finding) => FOLDING_SENSITIVE.test(finding.message)).length;
+  return attempts.reduce((best, attempt) => (cost(attempt) < cost(best) ? attempt : best), attempts[0]);
+}
+
+/**
+ * The findings whose outcome depends on how text was folded; everything else is generation-independent.
+ *
+ * `too short to bind` belongs here and was missed: folding decides the length. A statement written as
+ * `` `事实` 共5项 `` folds to `事实 共5项` (6 characters, binds) under the legacy generation and to `共5项`
+ * (3) under the current one — so a section that is entirely self-consistent under legacy was reported as
+ * too-short because the cost comparison could not see it. Leaving it out contradicted this fix's own
+ * contract, that a section passes when ANY generation reads it consistently.
+ */
+const FOLDING_SENSITIVE = /statement is not present in section|has an unclaimed substantive statement|statement is too short to bind/;
+
+function judgeSectionClaims(options: {
+  documentId: string;
+  sectionIndex: number;
+  sectionText: string;
+  claimsFile: SectionClaimsFile | null;
+  evidenceIds: Set<string>;
+  traceIds?: Set<string>;
+}, fold: (value: string) => string): AuditFinding[] {
   const { documentId, sectionIndex, sectionText, claimsFile, evidenceIds, traceIds = new Set<string>() } = options;
   const findings: AuditFinding[] = [];
   const visible = visibleText(sectionText);
-  const segments = substantiveSegments(sectionText);
+  const segments = substantiveSegments(sectionText, fold);
   const markers = markersIn(visible);
   const cited = evidenceIdsInSection(sectionText, evidenceIds);
   if (!claimsFile) {
@@ -392,13 +423,13 @@ export function auditSectionClaims(options: {
   const declaredEvidence = new Set<string>();
   const claimMarkers = new Set<EvidenceMarker>();
   for (const claim of claimsFile.claims) {
-    findings.push(...auditClaim(documentId, sectionIndex, visible, claim, evidenceIds, traceIds));
+    findings.push(...auditClaim(documentId, sectionIndex, visible, claim, evidenceIds, traceIds, fold));
     if (claimIds.has(claim.id)) findings.push(error(documentId, `section ${sectionIndex} has duplicate claim id ${claim.id}`));
     claimIds.add(claim.id);
     claimMarkers.add(claim.marker);
     for (const id of claim.evidenceIds ?? []) declaredEvidence.add(id);
   }
-  const normalizedClaims = claimsFile.claims.map((claim) => normalizeText(claim.statement)).filter(Boolean);
+  const normalizedClaims = claimsFile.claims.map((claim) => fold(claim.statement)).filter(Boolean);
   for (const segment of segments) {
     const covered = normalizedClaims.some((statement) => statement.includes(segment) || segment.includes(statement));
     if (!covered) findings.push(error(documentId, `section ${sectionIndex} has an unclaimed substantive statement: ${segment.slice(0, 120)}`));
@@ -419,12 +450,12 @@ function evidenceIdsInSection(sectionText: string, knownEvidenceIds: Set<string>
   return cited;
 }
 
-function auditClaim(documentId: string, sectionIndex: number, visible: string, claim: SectionClaim, evidenceIds: Set<string>, traceIds: Set<string>): AuditFinding[] {
+function auditClaim(documentId: string, sectionIndex: number, visible: string, claim: SectionClaim, evidenceIds: Set<string>, traceIds: Set<string>, fold: (value: string) => string): AuditFinding[] {
   const findings: AuditFinding[] = [];
   if (!claim.id.trim()) findings.push(error(documentId, `section ${sectionIndex} has a claim with no id`));
-  const statement = normalizeText(claim.statement);
+  const statement = fold(claim.statement);
   if (statement.length < 6) findings.push(error(documentId, `claim ${claim.id || "<missing>"} statement is too short to bind to report prose`));
-  else if (!normalizeText(visible).includes(statement)) findings.push(error(documentId, `claim ${claim.id} statement is not present in section ${sectionIndex}`));
+  else if (!fold(visible).includes(statement)) findings.push(error(documentId, `claim ${claim.id} statement is not present in section ${sectionIndex}`));
   if (claim.marker === "unavailable") {
     if (claim.evidenceIds?.length) findings.push(error(documentId, `unavailable claim ${claim.id} must not cite evidence ids`));
     if (!claim.reason?.trim()) findings.push(error(documentId, `unavailable claim ${claim.id} requires a reason`));
@@ -876,7 +907,7 @@ function isCompleteWorkItem(status: InvestigationWorkItem["status"]): boolean {
   return !["pending", "in_progress"].includes(status);
 }
 
-export function substantiveSegments(section: string): string[] {
+export function substantiveSegments(section: string, fold: (value: string) => string = normalizeText): string[] {
   const lines = visibleText(section).split(/\r?\n/);
   const segments: string[] = [];
   for (let line of lines) {
@@ -887,13 +918,13 @@ export function substantiveSegments(section: string): string[] {
       .replace(/^[-*+]\s+/, "")
       .replace(/^\d+[.)]\s+/, "")
       .replace(/\*\*([^*]+)\*\*/g, "$1")
-      .replace(/`(?:事实|验证|推断|不可得|fact|verified|inferred|unavailable)`/gi, "")
+      .replace(EVIDENCE_MARKER_TOKEN, "")
       .trim();
     if (line.startsWith("|") && line.endsWith("|")) {
       line = line.slice(1, -1).split("|").map((cell) => cell.trim()).filter(Boolean).join("；");
     }
     for (const part of line.split(/(?<=[。！？!?；;])\s*|(?<=\.)\s+(?=[A-Z0-9])/u)) {
-      const normalized = normalizeText(part).trim();
+      const normalized = fold(part).trim();
       const semanticLength = (normalized.match(/[\p{Letter}\p{Number}]/gu) ?? []).length;
       if (semanticLength >= 8) segments.push(normalized);
     }
@@ -946,7 +977,64 @@ export function auditSectionEvidenceMarkers(options: {
   return [error(documentId, `section ${sectionIndex} has substantive statements but no evidence-level marker`)];
 }
 
-function normalizeText(value: string): string { return value.replace(/[`*_>#-]/g, " ").replace(/\s+/g, " ").trim(); }
+/**
+ * The evidence-level marker token, as prose carries it. One definition: the segmenter strips it and the
+ * audit's folding must strip it identically, or a segment stops being a substring of the text it came from.
+ */
+const EVIDENCE_MARKER_TOKEN = /`(?:事实|验证|推断|不可得|fact|verified|inferred|unavailable)`/gi;
+
+/**
+ * Remove what is decoration rather than content: the marker token, and the backticks and asterisks that sit
+ * BETWEEN characters a reader sees as adjacent.
+ *
+ * Shared by `substantiveSegments` and `normalizeText` because they had drifted twice in the same way, and
+ * each drift made a segment fail to be found in the very section that produced it — once on `**bold**`
+ * (asterisks became a space on one side and vanished on the other) and once on the marker token (removed
+ * entirely by the segmenter, left as a bare word by the audit). One function, so a third drift needs a
+ * deliberate edit rather than an oversight.
+ */
+function foldInlineDecoration(value: string): string {
+  return value.replace(EVIDENCE_MARKER_TOKEN, "").replace(/[`*]/g, "");
+}
+
+/**
+ * Fold report prose and a claim statement into one comparable form.
+ *
+ * INLINE DECORATION IS REMOVED, NOT SPACED. Backticks and emphasis asterisks sit BETWEEN characters that
+ * the reader sees as adjacent, so turning them into whitespace injects a separator that exists in no
+ * rendering of the text: `产品名为 **CMS3000**，其源码` folded to `… CMS3000 ，其源码` — a space before the
+ * comma. Nothing an author writes contains that space, so every claim binding a bold lead-in failed as
+ * "statement is not present in section", including the stubs `claims scaffold` emits itself. Two engine
+ * rules contradicted each other: `writing-rules.md` asks every chapter for bold lead-ins, and this
+ * function made them unbindable. Found by a real authoring run on a Perl target, ~30 errors in one report.
+ *
+ * The rest stay spaced. `-` and `_` occur INSIDE identifiers (`read-obligations`, `snake_case`), where
+ * removal would weld words together and change which statements match.
+ */
+function normalizeText(value: string): string {
+  return foldInlineDecoration(value).replace(/[_>#-]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+/**
+ * How text folded before inline decoration stopped being spaced.
+ *
+ * Kept because a run authored against it carries the artefact IN ITS CLAIMS: an archived statement reads
+ * `目录： cms provital` where the prose folds to `目录：cms provital` today. Measured on 31 archived runs —
+ * 8 of them, 4 previously green, gained errors when only the current folding was tried.
+ */
+function normalizeTextLegacy(value: string): string {
+  return value.replace(/[`*_>#-]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+/**
+ * The foldings a section may be judged under, newest first.
+ *
+ * A section passes if ANY generation is INTERNALLY consistent: segments and claim statements folded the same
+ * way, then compared. Both halves must move together — `substantiveSegments` folds through `normalizeText`
+ * itself, so a per-check fallback compares the two sides across generations, which is the drift this exists
+ * to remove.
+ */
+const TEXT_FOLDINGS: Array<(value: string) => string> = [normalizeText, normalizeTextLegacy];
 function featureScopeKey(subject: string, aliases: string[]): string { return sha256(stableJson({ subject: subject.trim().toLowerCase(), aliases: [...aliases].sort() })).slice(0, 10); }
 function error(document: string, message: string): AuditFinding { return { level: "error", document, message }; }
 function warning(document: string, message: string): AuditFinding { return { level: "warning", document, message }; }
