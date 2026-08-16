@@ -109,13 +109,56 @@ test("an unquoted credential is redacted whichever operator assigns it", () => {
   }
 });
 
-// The value-side distinction that lets both halves hold at once: a digit-free identifier names other code,
-// while credential material almost always mixes digits in — the same test `isNameLikeLiteral` already
-// applies to quoted names.
-test("a digit-free identifier is a code reference; one with digits is not", () => {
-  assert.equal(redactSecrets("\tholiday.PtoToken = hours"), "\tholiday.PtoToken = hours");
+// THE SECOND REGRESSION, found by review after the first rework: "no digits" is not enough to call a value
+// a code reference. A word-form weak password is spelled exactly like an identifier, and every one of these
+// was redacted before and passed through after. `isNameLikeLiteral` is safe because it requires no-digits
+// AND the content being a sensitive NAME; dropping that second conjunct is what opened the hole.
+test("a word-form password is not a code reference", () => {
+  for (const line of [
+    "PASSWORD=changeme",
+    "DB_PASSWORD=swordfish",
+    "db.password=changeme",
+    "password = letmein",
+    "password: changeme",
+    "MYSQL_ROOT_PASSWORD: example",
+    "API_KEY=deadbeef",
+  ]) {
+    const redacted = redactSecrets(line);
+    assert.match(redacted, /<redacted>/, line);
+    assert.doesNotMatch(redacted, /changeme|swordfish|letmein|example|deadbeef/, `${line} leaked`);
+  }
+});
+
+// So the bare-identifier exemption is spent only where the OPERATOR already means "a running quantity":
+// arithmetic accumulation, which a config file never uses to carry a secret.
+test("a bare identifier is spared by arithmetic accumulation, not by plain assignment", () => {
   assert.equal(redactSecrets("\tholiday.PtoToken += consumption"), "\tholiday.PtoToken += consumption");
-  assert.match(redactSecrets("\tapiToken = abcd1234"), /<redacted>/, "digits revoke the exemption");
+  assert.equal(redactSecrets("\tholiday.FuneralToken -= used"), "\tholiday.FuneralToken -= used");
+  assert.match(redactSecrets("\tholiday.PtoToken = hours"), /<redacted>/,
+    "plain assignment keeps the documented cost: `password = letmein` is the same text");
+});
+
+// Comparisons are back IN, because excluding them let shell password comparisons through — an independent
+// channel from the one above, since these carry digits and the quoted-literal fallback never sees them.
+test("an unquoted credential compared in a shell script is redacted, and a code comparison is not", () => {
+  for (const line of ["if [ $PASSWORD != s3cr3tpass99 ]; then", "if [ \"$TOKEN\" == hunter2pass99 ]; then"]) {
+    const redacted = redactSecrets(line);
+    assert.match(redacted, /<redacted>/, line);
+    assert.doesNotMatch(redacted, /s3cr3tpass99|hunter2pass99/, `${line} leaked`);
+  }
+  assert.equal(redactSecrets("\tif holiday.FuneralToken > 0 && err != nil {"), "\tif holiday.FuneralToken > 0 && err != nil {");
+  assert.equal(redactSecrets("\tif leftToken >= requested {"), "\tif leftToken >= requested {");
+});
+
+// The `:=` guard on the mapping branch had no test: a mutation disabling it left all nine green while
+// `apiToken := hours` came out as `apiToken :<redacted>`, losing the `=`.
+test("a Go short declaration is not read as a key: value mapping", () => {
+  // The guard protects the OPERATOR, not the value: `:=` is not arithmetic, so a bare identifier is still
+  // redacted there (a Makefile's `SECRET := changeme` has the same shape). What must not happen is the
+  // colon being eaten as a mapping separator, which produced `apiToken :<redacted>` and lost the `=`.
+  assert.match(redactSecrets("\tapiToken := hours"), /:= <redacted>/);
+  assert.doesNotMatch(redactSecrets("\tapiToken := hours"), /:<redacted>/);
+  assert.equal(redactSecrets("\tapiToken := calcHours(a)"), "\tapiToken := calcHours(a)", "a call is still exempt");
 });
 
 // A KNOWN LIMITATION, pinned rather than papered over. Redaction judges one line at a time, so whether a

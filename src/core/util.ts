@@ -136,13 +136,17 @@ export function redactSecrets(text: string): string {
 
 function redactSecretLine(line: string): string {
   const sensitive = (identifier: string): boolean => isSensitiveIdentifier(identifier);
-  const equals = assignmentIndex(line);
-  if (equals >= 0) {
-    const prefix = line.slice(0, equals);
-    const value = line.slice(equals + 1);
-    const identifiers = prefix.match(IDENTIFIER_PATTERN) ?? [];
-    if (identifiers.some((identifier) => sensitive(identifier)) && shouldRedactValue(value)) {
-      return `${line.slice(0, equals + 1)}${value.match(/^\s*/)?.[0] ?? " "}<redacted>${trailingPunctuation(value)}`;
+  const operator = classifyOperator(line);
+  if (operator) {
+    const head = line.slice(0, operator.index + operator.length);
+    const value = line.slice(operator.index + operator.length);
+    const identifiers = line.slice(0, operator.index).match(IDENTIFIER_PATTERN) ?? [];
+    // A bare identifier is only spared where the operator itself says "quantity", i.e. arithmetic
+    // accumulation, or on the right of a comparison where an unquoted operand is a reference. Everywhere
+    // else it stays redacted, because `PASSWORD=changeme` and `holiday.PtoToken = hours` are the same text.
+    const bareAllowed = operator.arithmetic || operator.kind === "compare";
+    if (identifiers.some((identifier) => sensitive(identifier)) && shouldRedactValue(value, bareAllowed)) {
+      return `${head}${value.match(/^\s*/)?.[0] ?? " "}<redacted>${trailingPunctuation(value)}`;
     }
   }
   // A `key: value` mapping — but NOT Go's `:=`, where the colon belongs to the assignment operator.
@@ -156,35 +160,41 @@ function redactSecretLine(line: string): string {
 }
 
 /**
- * Where a line ASSIGNS, or -1. Comparisons are not assignments; compound assignments are.
+ * Classify the operator a line joins on: an assignment, a comparison, or neither.
  *
  * `indexOf("=")` was measured destroying evidence rather than protecting it: it treats `==`, `!=`, `>=` and
- * `=>` as assignments, so on a codebase where `*Token` names an ordinary business quantity (hours already
- * consumed) `err != nil` was rewritten to `err != <redacted>` merely because the line mentioned
- * `FuneralToken`, and `if x == "…"` came out as `if x =<redacted>` — split through its own operator.
+ * `=>` as assignments, so where `*Token` names an ordinary business quantity `err != nil` became
+ * `err != <redacted>`, and `if x == "…"` was split through its own second character.
  *
- * The split is by MEANING, not by convenience. Every assigning operator stays in (`=`, `:=`, `+=`, `-=`,
- * `??=`, …) because a secret can be assigned by any of them, and an earlier attempt to exclude compound
- * forms wholesale leaked real material: `API_TOKEN := sk-live-abc123` in a Makefile and
- * `apiKey += sk-live-abc123` both stopped being redacted. What separates the business arithmetic from a
- * credential is the VALUE, and that judgement belongs to `shouldRedactValue` below.
- *
- * Comparisons stay out entirely. Their operand is a reference or a literal — a quoted literal is still
- * judged by `redactSensitiveStringLiterals`; an unquoted one is a variable name, not key material.
+ * Both sides are kept because both can carry a credential, and each was measured leaking when dropped:
+ * removing compound assignments let `API_TOKEN := sk-live-abc123` through, and removing comparisons let
+ * `if [ $PASSWORD != s3cr3tpass99 ]` through. What differs between them is only how much of the operand may
+ * be spared — see `bareReferenceAllowed`.
  */
-function assignmentIndex(line: string): number {
+type LineOperator = { index: number; length: number; kind: "assign" | "compare"; arithmetic: boolean };
+
+function classifyOperator(line: string): LineOperator | null {
   for (let index = 0; index < line.length; index += 1) {
     if (line[index] !== "=") continue;
-    // `==`, `===`, `=>` — comparison or arrow, never assignment.
-    if (line[index + 1] === "=" || line[index + 1] === ">") continue;
-    // `!=`, `<=`, `>=`, and the SECOND `=` of `==`/`===`/`!==` — comparison. Omitting `=` here was measured
-    // splitting `if x == "…"` at its own second character, which redacted the rest of the line including the
-    // brace that closes the condition.
-    if (index > 0 && "!<>=".includes(line[index - 1])) continue;
-    // `+=`, `:=`, `??=`, … all assign; `==`'s second character is caught by the rule above.
-    return index;
+    const before = index > 0 ? line[index - 1] : "";
+    const after = line[index + 1] ?? "";
+    // `=>` is an arrow, neither side of this split.
+    if (after === ">") continue;
+    // `==`, `===`, `!==` — the comparison starts at the FIRST `=`, or one character earlier for `!==`.
+    if (after === "=") {
+      const start = before === "!" ? index - 1 : index;
+      const length = line[index + 2] === "=" ? index + 3 - start : index + 2 - start;
+      return { index: start, length, kind: "compare", arithmetic: false };
+    }
+    if (before === "=") continue; // the tail of a `==` already returned above
+    if (before === "!" || before === "<" || before === ">") return { index: index - 1, length: 2, kind: "compare", arithmetic: false };
+    // Everything else assigns. `+=`, `-=`, `*=`, `/=`, `%=` are ARITHMETIC: they accumulate into a running
+    // quantity, which is what the business arithmetic looks like and what a config file never uses to carry
+    // a secret. That distinction is the only place a bare identifier may be spared.
+    const arithmetic = "+-*/%".includes(before);
+    return { index: arithmetic ? index - 1 : index, length: arithmetic ? 2 : 1, kind: "assign", arithmetic };
   }
-  return -1;
+  return null;
 }
 
 /**
@@ -219,8 +229,11 @@ function isSensitiveIdentifier(identifier: string): boolean {
  * `holiday.PtoToken = hours` loses `hours` for the same reason, and separating the two needs more than one
  * line of text. A CALL, by contrast, is never key material and is exempted outright.
  */
-function shouldRedactValue(raw: string): boolean {
-  const value = raw.trim().replace(/[,;]$/, "").trim();
+function shouldRedactValue(raw: string, bareReferenceAllowed = false): boolean {
+  // A comparison's right operand carries the syntax that closes the condition — `nil {`, `requested {`,
+  // `s3cr3tpass99 ]; then`. That tail is not part of the value, and judging it as one made every comparison
+  // look like credential material. The value is what stands before it.
+  const value = raw.trim().replace(/[,;]$/, "").replace(/\s*(?:\{|\]\s*;?.*|\)\s*\{?.*)$/, "").trim();
   if (!value || value.startsWith("${") || value === "null" || value === "true" || value === "false" || /^-?\d+(?:\.\d+)?$/.test(value)) return false;
   if (value.startsWith("{") || value.startsWith("[")) return false;
   if (MEMBER_EXPRESSION_PATTERN.test(value)) return false;
@@ -228,11 +241,15 @@ function shouldRedactValue(raw: string): boolean {
   // Redacting one destroys an import or the arithmetic a report needs, and protects nothing — a literal
   // passed INSIDE the call is still judged on its own by `redactSensitiveStringLiterals`.
   if (CALL_EXPRESSION_PATTERN.test(value)) return false;
-  // A digit-free identifier is a reference to other code (`hours`, `consumption`, `nil`), not key material.
-  // The digit is what carries the distinction, and it is the same test `isNameLikeLiteral` already applies to
-  // quoted names: credential material almost always mixes digits in, so `abcd1234` stays redacted while
-  // `holiday.PtoToken += hours` keeps the operand a report needs in order to state the arithmetic.
-  if (BARE_REFERENCE_PATTERN.test(value)) return false;
+  // A digit-free identifier MAY be a reference to other code (`hours`, `consumption`, `nil`) — but only
+  // where the operator already says so. "No digits" alone is not enough and was measured leaking: it let
+  // `PASSWORD=changeme`, `db.password=letmein` and `API_KEY=deadbeef` through, because a word-form weak
+  // password is spelled exactly like an identifier. The existing `isNameLikeLiteral` is safe precisely
+  // because it requires no-digits AND the content being a sensitive NAME; dropping that second conjunct
+  // here is what opened the hole.
+  if (bareReferenceAllowed && BARE_REFERENCE_PATTERN.test(value)) return false;
+  // A comparison's right operand carries the closing syntax of the condition (`]; then`, `{`), which is not
+  // part of the value; trim it before judging so `!= nil ]` reads as `nil`.
   const quoted = value.match(QUOTED_VALUE_PATTERN);
   if (quoted && isNameLikeLiteral(quoted[1] ?? quoted[2] ?? "")) return false;
   return true;
