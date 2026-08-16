@@ -231,6 +231,8 @@ Run `reading` first because freeze changes the price: before it, a window is ord
 
 Freeze is a deterministic gate: it admits the run only when the investigation would already pass audit — every required item disposed, every `found` material flow carrying a verified trace, the evidence catalog and its digest intact, and the snapshot unchanged. On a non-zero exit it reports the exact gaps — items still pending, flows still missing a trace — so continue investigating and freeze again. On success it writes `knowledge.json`, the frozen record authoring consumes, and renders one authoring packet per document under `context/authoring/<document-id>.md`: a deterministic, model-free view of the frozen knowledge organized by report section, listing the work items, deterministic facts and evidence excerpts each section must cover, and closing with the reading boundary — the feature-associated decision code the investigation never opened. Freeze once; a change after freeze goes through the supplement channel described below.
 
+Redaction of secrets is part of that version: when it changes, every existing run drops out of the current assurance generation and is grandfathered, so a run must be re-prepared to be held to the strict checks again. Its recorded evidence is never rewritten.
+
 Under the current assurance version freeze is a hard precondition of authoring, not a suggestion: `excavator begin` refuses an unfrozen run, and a run authored without — or before — a freeze fails audit. Runs prepared under an older assurance version are grandfathered and keep the earlier soft guidance.
 
 ## Authoring workflow

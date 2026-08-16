@@ -118,12 +118,14 @@ async function readTargetMarker(path: string): Promise<string | null> {
  * the assurance version embed this marker so a change to redaction invalidates stale caches and
  * flags runs prepared under an older redaction. Bump it whenever `redactSecrets` behavior changes.
  */
-export const REDACTION_VERSION = "redaction-v5";
+export const REDACTION_VERSION = "redaction-v6";
 
 const IDENTIFIER_PATTERN = /[A-Za-z_][A-Za-z0-9_.-]*/g;
 const STRING_LITERAL_PATTERN = /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g;
 const QUOTED_VALUE_PATTERN = /^"((?:[^"\\]|\\.)*)"$|^'((?:[^'\\]|\\.)*)'$/;
 const MEMBER_EXPRESSION_PATTERN = /^[A-Za-z_$][A-Za-z0-9_$]*(\.[A-Za-z_$][A-Za-z0-9_$]*)+$/;
+/** A left-hand side written in configuration case (`SECRET`, `API_TOKEN`) rather than code case. */
+const ALL_CAPS_TARGET = /(^|[^A-Za-z0-9_])[A-Z][A-Z0-9_]*\s*$/;
 /** An identifier with no digit — a name in the code, not key material (`hours`, `nil`, `consumption`). */
 const BARE_REFERENCE_PATTERN = /^[A-Za-z_$][A-Za-z_$]*$/;
 /** `fn(...)`, `a.b.fn(...)`, `await fn(...)`, `new Thing(...)` — a call, not a credential. */
@@ -145,8 +147,15 @@ function redactSecretLine(line: string): string {
     // accumulation, or on the right of a comparison where an unquoted operand is a reference. Everywhere
     // else it stays redacted, because `PASSWORD=changeme` and `holiday.PtoToken = hours` are the same text.
     const bareAllowed = operator.arithmetic || operator.kind === "compare";
-    if (identifiers.some((identifier) => sensitive(identifier)) && shouldRedactValue(value, bareAllowed)) {
+    if (identifiers.some((identifier) => sensitive(identifier)) && shouldRedactValue(value, bareAllowed, operator.bound)) {
       return `${head}${value.match(/^\s*/)?.[0] ?? " "}<redacted>${trailingPunctuation(value)}`;
+    }
+    // The FIRST operator does not own the line. `[ "$PASSWORD" == old ] && PASSWORD=news3cr3t99` passes the
+    // comparison and then assigns the real secret; judging only the first operator left that assignment
+    // unexamined. Re-scan what follows, so a later operator gets the same judgement as a first one.
+    if (operator.kind === "compare") {
+      const rest = redactSecretLine(value);
+      if (rest !== value) return `${head}${rest}`;
     }
   }
   // A `key: value` mapping — but NOT Go's `:=`, where the colon belongs to the assignment operator.
@@ -171,15 +180,19 @@ function redactSecretLine(line: string): string {
  * `if [ $PASSWORD != s3cr3tpass99 ]` through. What differs between them is only how much of the operand may
  * be spared — see `bareReferenceAllowed`.
  */
-type LineOperator = { index: number; length: number; kind: "assign" | "compare"; arithmetic: boolean };
+type LineOperator = { index: number; length: number; kind: "assign" | "compare"; arithmetic: boolean; bound?: boolean };
 
 function classifyOperator(line: string): LineOperator | null {
   for (let index = 0; index < line.length; index += 1) {
     if (line[index] !== "=") continue;
     const before = index > 0 ? line[index - 1] : "";
     const after = line[index + 1] ?? "";
-    // `=>` is an arrow and `=~` is Perl's binding operator; neither assigns.
-    if (after === ">" || after === "~") continue;
+    // `=>` is an arrow: neither side of this split.
+    if (after === ">") continue;
+    // `=~` binds a pattern. Skipping it entirely was measured leaking `$password =~ /^changeme$/` — a
+    // prefix check against a literal password — so it is judged like a comparison and the pattern is the
+    // operand. `shouldRedactValue` decides whether that pattern is a word or a real expression.
+    if (after === "~") return { index, length: 2, kind: "compare", arithmetic: false, bound: true };
     // `==`, `===`, `!==` — the comparison starts at the FIRST `=`, or one character earlier for `!==`.
     if (after === "=") {
       const start = before === "!" ? index - 1 : index;
@@ -187,12 +200,21 @@ function classifyOperator(line: string): LineOperator | null {
       return { index: start, length, kind: "compare", arithmetic: false };
     }
     if (before === "=") continue; // the tail of a `==` already returned above
+    // `>>=` and `<<=` shift-assign; only a single `<`/`>` before `=` is a comparison.
+    if ((before === "<" || before === ">") && line[index - 2] === before) {
+      return { index: index - 2, length: 3, kind: "assign", arithmetic: true };
+    }
     if (before === "!" || before === "<" || before === ">") return { index: index - 1, length: 2, kind: "compare", arithmetic: false };
     // Everything else assigns. `+=`, `-=`, `*=`, `/=`, `%=` are ARITHMETIC: they accumulate into a running
     // quantity, which is what the business arithmetic looks like and what a config file never uses to carry
     // a secret. That distinction is the only place a bare identifier may be spared.
-    const arithmetic = "+-*/%".includes(before);
-    return { index: arithmetic ? index - 1 : index, length: arithmetic ? 2 : 1, kind: "assign", arithmetic };
+    // `+=` ACCUMULATES a running quantity — but only in code. `SECRET += changeme` is a config file
+    // appending to a value, and an ALL-CAPS left-hand side is exactly how configuration spells that, while
+    // the business arithmetic this slice exists to protect is written `holiday.PtoToken += consumption`.
+    // So the exemption is spent on the operator AND the casing together, not on the operator alone.
+    const compound = "+-*/%".includes(before);
+    const arithmetic = compound && !ALL_CAPS_TARGET.test(line.slice(0, index - 1));
+    return { index: compound ? index - 1 : index, length: compound ? 2 : 1, kind: "assign", arithmetic };
   }
   return null;
 }
@@ -228,8 +250,37 @@ function isSensitiveIdentifier(identifier: string): boolean {
  * because `API_KEY=abcd1234` is indistinguishable from a real credential — a KNOWN, recorded cost: in code
  * `holiday.PtoToken = hours` loses `hours` for the same reason, and separating the two needs more than one
  * line of text. A CALL, by contrast, is never key material and is exempted outright.
+ *
+ * THE ADMISSION RULE FOR ANY FUTURE EXEMPTION, learned the expensive way: grant it by CONTEXT, never by
+ * SHAPE. Four rounds of this function granted exemptions by shape — "it is a compound assignment", "it has
+ * no digits", "it is a comparison", "it is a bound pattern" — and every one of them leaked, because
+ * `changeme` and `hours` are the same shape and only their surroundings tell them apart. The exemptions that
+ * survived are the ones that name a context: a call, a shell test's `$`-prefixed operand, arithmetic on a
+ * code-cased target, a substitution.
  */
-function shouldRedactValue(raw: string, bareReferenceAllowed = false): boolean {
+function shouldRedactValue(raw: string, bareReferenceAllowed = false, bound = false): boolean {
+  // A pattern bound with `=~`. A bare word between anchors is a literal being checked — `/^changeme$/`
+  // verifies a password — while a substitution or a pattern carrying real metacharacters is code a report
+  // may need to quote. This applies ONLY here: applied generally it fired on every bare word, which is the
+  // same shape-not-context mistake this file has now made four times.
+  if (bound) {
+    const value = raw.trim().replace(/\s*[)\]].*$/, "").trim();
+    if (/^s\//.test(value)) return false;
+    return /^\/?\^?[A-Za-z0-9_-]+\$?\/?[a-z]*$/.test(value);
+  }
+  // A shell test — the operand sits before `]` — is the one context where an unquoted word IS the literal
+  // rather than a reference: `if [ "$PASSWORD" != letmein ]`. Every value-shaped exemption is therefore
+  // withdrawn there, and only a `$`-prefixed variable stays readable.
+  //
+  // THE RULE THIS FOLLOWS, and the one every later exemption must follow: an exemption is granted by
+  // CONTEXT, never by SHAPE. Four rounds of this slice granted them by shape — "it is a compound assignment",
+  // "it has no digits", "it is a comparison" — and every one of those leaked, because `changeme` and `hours`
+  // are the same shape and only their surroundings differ.
+  const shellTest = /\]\s*;?\s*(?:then\b.*)?$/.test(raw.trimEnd()) || /^\s*[^\s]+\s*\]\]/.test(raw);
+  if (shellTest) {
+    const operand = raw.trim().replace(/\s*\]\]?.*$/, "").trim();
+    return Boolean(operand) && !operand.startsWith("$") && !operand.startsWith("\"$") && !/^\$/.test(operand);
+  }
   // A comparison's right operand carries the syntax that closes the condition — `nil {`, `requested {`,
   // `s3cr3tpass99 ]; then`. That tail is not part of the value, and judging it as one made every comparison
   // look like credential material.
@@ -240,6 +291,7 @@ function shouldRedactValue(raw: string, bareReferenceAllowed = false): boolean {
   const value = raw.trim().replace(/[,;]$/, "").replace(/\s+(?:\{|\}|\]\s*;?.*|\)\s*\{?.*)$/, "").trim();
   if (!value || value.startsWith("${") || value === "null" || value === "true" || value === "false" || /^-?\d+(?:\.\d+)?$/.test(value)) return false;
   if (value.startsWith("{") || value.startsWith("[")) return false;
+
   if (MEMBER_EXPRESSION_PATTERN.test(value)) return false;
   // A call is code, never key material: `require("./tokenService")`, `calcHours(a, b)`, `getSecret()`.
   // Redacting one destroys an import or the arithmetic a report needs, and protects nothing — a literal

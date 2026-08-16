@@ -150,14 +150,18 @@ test("an unquoted credential compared in a shell script is redacted, and a code 
   assert.equal(redactSecrets("\tif leftToken >= requested {"), "\tif leftToken >= requested {");
 });
 
-// Two surfaces this rework introduced, attacked before review saw them.
-//
-// `=~` is Perl's binding operator. Reading it as an assignment destroyed `$token =~ s/a/b/` into
-// `$token =<redacted>` — the same class of damage this whole slice exists to remove, on one of the target
-// languages the engine explicitly supports.
-test("Perl's binding operator is not an assignment", () => {
-  assert.equal(redactSecrets("$token =~ s/a/b/"), "$token =~ s/a/b/");
-  assert.equal(redactSecrets("\tif ($password =~ /^abc/) {"), "\tif ($password =~ /^abc/) {");
+// `=~` binds a pattern: not an assignment, but not nothing either. An earlier version of THIS TEST pinned
+// `if ($password =~ /^abc/)` as "unchanged" — pinning a leak as the expected behaviour, since that line is a
+// prefix check against a literal password. What separates the two is the pattern itself: a bare word between
+// anchors is a literal being verified; a substitution or a pattern with real metacharacters is code.
+test("a pattern bound to a sensitive name is judged, not skipped", () => {
+  assert.equal(redactSecrets("$token =~ s/a/b/"), "$token =~ s/a/b/", "a substitution is code");
+  assert.equal(redactSecrets("if ($password =~ /^[a-z]+\\d{2}$/) {"), "if ($password =~ /^[a-z]+\\d{2}$/) {", "a real pattern is code");
+  for (const line of ["if ($password =~ /^changeme$/) {", "[[ $PASSWORD =~ ^s3cr3t99$ ]]"]) {
+    assert.match(redactSecrets(line), /<redacted>/, line);
+    assert.doesNotMatch(redactSecrets(line), /changeme|s3cr3t99/, `${line} leaked`);
+  }
+  assert.doesNotMatch(redactSecrets("$token =~ s/a/b/"), /=<redacted>/, "and the operator is never split");
 });
 
 // Trimming a condition's closing syntax must require whitespace before it. Without that, `!= abc]` reads as
@@ -193,4 +197,74 @@ test("line-scoped judgement makes formatting matter, and that is recorded not hi
   assert.match(redactSecrets(singleLine), /'<redacted>'/, "the sensitive method name makes its whole line sensitive");
   assert.match(redactSecrets(wrapped), /'pto'/, "wrapped, the literal's own line names nothing sensitive");
   // Fixing this needs a redactor that sees expressions rather than lines — a different design, not a tweak.
+});
+
+// THE ANTI-LEAK CORPUS.
+//
+// Four rounds of this slice each traded a leak for readability in a different syntactic corner, and each was
+// caught only after the previous one was pinned. Per-case pins do not stop that: they pin the corner that was
+// looked at. This corpus pins the PROPERTY — every construction that any round of review or self-probing
+// found leaking stays redacted — so a fifth round cannot reopen a fourth-round hole while its own tests pass.
+//
+// Add to it, never trim it. A line removed here is a leak nobody will notice again.
+const LEAKED_ONCE: Array<[string, string]> = [
+  // Round 1 — operator-shaped exclusion vs unquoted values
+  ["API_TOKEN := sk-live-abc123", "sk-live-abc123"],
+  ["apiKey += sk-live-abc123", "sk-live-abc123"],
+  // Round 2 — "no digits means code reference"
+  ["PASSWORD=changeme", "changeme"],
+  ["DB_PASSWORD=swordfish", "swordfish"],
+  ["db.password=changeme", "changeme"],
+  ["password = letmein", "letmein"],
+  ["password: changeme", "changeme"],
+  ["MYSQL_ROOT_PASSWORD: example", "example"],
+  ["API_KEY=deadbeef", "deadbeef"],
+  // Round 2 — comparisons excluded wholesale
+  ["if [ $PASSWORD != s3cr3tpass99 ]; then", "s3cr3tpass99"],
+  ["if [ \"$TOKEN\" == hunter2pass99 ]; then", "hunter2pass99"],
+  // Round 3 — condition-tail trim swallowing the value
+  ["if [ $PASSWORD != abc]", "abc"],
+  ["if [ $TOKEN != a]b ]; then", "a]b"],
+  // Round 4 — shell test operands, bound patterns, config-case accumulation, first-operator ownership
+  ["if [ \"$PASSWORD\" != letmein ]; then", "letmein"],
+  ["if [ $PASSWORD != changeme ]; then", "changeme"],
+  ["if [[ $DB_PASSWORD == changeme ]]; then", "changeme"],
+  ["if [ \"$PASSWORD\" != 12345 ]", "12345"],
+  ["if [ \"$PASSWORD\" == \"secret\" ]", "secret"],
+  ["if ($password =~ /^changeme$/) {", "changeme"],
+  ["[[ $PASSWORD =~ ^s3cr3t99$ ]]", "s3cr3t99"],
+  ["SECRET += changeme", "changeme"],
+  ["SECRET+=changeme", "changeme"],
+  ["API_TOKEN += letmein", "letmein"],
+  ["[ \"$PASSWORD\" == old ] && PASSWORD=news3cr3t99", "news3cr3t99"],
+];
+
+test("every construction that ever leaked stays redacted", () => {
+  for (const [line, secret] of LEAKED_ONCE) {
+    const redacted = redactSecrets(line);
+    assert.match(redacted, /<redacted>/, `no redaction at all: ${line}`);
+    assert.doesNotMatch(redacted, new RegExp(secret.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), `leaked ${secret}: ${line}`);
+  }
+});
+
+// The other half of the corpus: what must stay readable. Kept beside it so a future tightening cannot quietly
+// buy safety back with the evidence this whole slice exists to protect.
+const MUST_STAY_READABLE = [
+  "\tholiday.PtoToken += consumption",
+  "\tholiday.FuneralToken -= used",
+  "\tleftToken += used",
+  "\toldHoursTem, token, err := calcHours(a, b)",
+  "\tif holiday.FuneralToken > 0 && err != nil {",
+  "\tif leftToken >= requested {",
+  "\tif apiToken == other {",
+  "\tconst tokenService = require(\"./tokenService\")",
+  "$token =~ s/a/b/",
+  "if password != foo(bar) {",
+  "if [ \"$PASSWORD\" == \"$STORED_PASSWORD\" ]",
+  "if [ $PASSWORD == $EXPECTED ]",
+  "apiKey >>= 2",
+];
+
+test("every construction a report needs stays readable", () => {
+  for (const line of MUST_STAY_READABLE) assert.equal(redactSecrets(line), line, line);
 });
