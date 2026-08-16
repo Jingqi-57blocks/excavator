@@ -1,0 +1,446 @@
+# 裁定与批次记账归档
+
+> 从 `docs/pending-decisions.md` 迁出：**已合入 main 的批次记账**。每节仍带原始出处（谁、何时、按什么判据），
+> 其中的「记档不修」清单**仍是活约束**——归档只表示"不再需要裁决"，不表示"已解决"。
+> 待裁决项与活约束留在 `pending-decisions.md`。
+
+## 已裁决 · 2026-08-07（触点一 PR #11 后）
+
+- **证据 ID 扫描器边界语义**（原 #1，PR #7）→ **接受现状**：消除伪 ID 级联的收益大于目录外 typo 静默的损失。放宽 lookahead 的备选留档于 git 历史。
+- **`grant_type` 类同行过度脱敏**（原 #3，PR #8）→ **接受现状**：fail-closed 方向，已用测试钉住；根治需键值配对解析，暂不做。
+- **特征作用域接口→实现盲区**（原 #5，Wave 0 实测）→ **转 Phase 2（57B-320）量化输入**，`leave` gold 集（84 项）锁为该阶段召回验收基准。完整分析见 git 历史与 PR #11 正文。
+
+## 已裁决 · 批次 C 合同（2026-08-07）
+
+批次 C 的更严检查会让升版前的历史 run 重审掉绿。用户裁定两条，落地为批次 C 的实现契约：
+
+- **存量兼容 = 版本门控**：run 在 prepare 时打一个 assurance/check 版本戳；audit 对**新 run（当前版本）**施加新的严格检查为 error，对**历史 run（旧版本）**grandfather（不追溯，降级/跳过）。此一机制统一覆盖：证据层级检查统一、`FACT-*` 前缀纳入伪 ID 扫描集（原 #4）、脱敏变更 × 历史 run 重审（原 #2，`auditEvidenceCatalog` 逐字比对不再让存量掉绿）、以及下面的枚举对账。**不做**版本感知逐条比对或迁移工具（更重，非本阶段）。
+- **枚举对账 = advisory / 分类目**：detailed 报告的枚举章节未覆盖事实包某行时，**作为 warning**，或仅对**未截断的小类目**（states / config-keys 等）强制；**不做** "缺行即 hard error"（Wave 0 实测事实包入口达 405 项且截断，硬 error 会让每份报告都挂）。
+
+原待裁决 #2、#4 由此吸收为批次 C 的执行项，不再单列。
+
+## 批次 C 已知项 · 威胁模型（记录，非缺陷；随 C 收口 PR 呈报）
+
+- **版本门控的信任边界**（fable C1 评审）：assurance 版本门控信任 manifest 自报的 `assuranceVersion`。能全权写 run 目录的对手可将其改旧、绕过活源码再推导（grandfather 路径下同时改写 content+digest 即自洽）。audit 的保证是**防漂移/事故**，不是防对 run 目录的全权写入者——这是"版本门控、不做逐项迁移"裁决的固有边界，非缺陷。
+- **`src/run.ts` 残余无反引号标记正则**（fable C3 评审）：C3 把证据层级检查收敛到 `markersIn`（要求反引号）后，另一条检查"章节含标记词 → 必须有 `<details>` 证据块"仍用**不要求反引号**的正则，散文中偶发"验证/推断"会误要求 details 块。先于 C3 存在、不在其范围。候选后续批次一并收敛到 `markersIn`。
+
+## 批次 G（57B-349，per-module CodeGraph）评审产生
+
+- **规划层升级（需裁决）——leaf-only 拆分在"根自带 marker"时的盲区**（fable G 评审）：per-module 拆分规则是"叶子 marker + ≥2 即拆"。当仓库**根**自带 `go.mod`/`package.json`，且又有 ≥2 个嵌套 marker（如 Go 仓的 `examples/*/go.mod`、JS 仓的 `docs/` + `e2e/` 各自 `package.json`——都常见）时，根被排除出 leaf → **主代码树失去图导航，只有边角目录得图**。行为安全（source fallback + coverage warning，不产生假边），但"单目标行为不变"护栏在此类目标的 build 侧实质被破。候选裁决：根有 marker 且未声明 workspaces 时抑制拆分。
+- **备忘（非缺陷，记录）**：`CodeGraphSet` census 元数据 `Object.assign` 后模块覆写前模块（census 有损、仍确定性）；`toGlobal(dir, ".")` 产生 `service-a/.` 的 root 标签（census 美观）；`CodeGraphSet` 构造中第 N 个库打开失败时前 N-1 个 sqlite 句柄泄漏（CLI 进程退出兜底，安全但不干净）。
+
+## 批次 57B-351（比较 claim 忠实性）评审产生
+
+- **方案假设修正（记录，非缺陷）**：plan-of-record 的 FP 回测称"0 噪声误报"，实际落地在真实 WCP run 上出现 3 条噪声误报——`同一自然日`（04/claim-18、04/claim-55）、`共享存储`（06/claim-36）命中了裁定保留的 `同一`/`共享` 词条。不构成升级：advisory 通道本就设计为吸收不精确、退出码不受影响（0 error）、每条 warning 带 claim id 易分诊，且收窄词表有真阳损失风险（`同一` 是 claim-1 `同一批` 的必保真阳）。
+- **词表调优候选（需更多样本后再裁决）**：`同一` + 时间量词负向前瞻 `同一(?![^\s]{0,3}[日天月年])`——可精确消灭 `同一自然日/同一天` 类而保住 `同一批/同一套/同一份`；`共享` + 资源名词（如 `共享存储`）保持现状不动——"两组件共享同一存储"本身可能是合法双侧断言，机械零模型不可判别，属固有残差。
+- **延后的非阻断测试缺口（fable 评审）**：`claim-comparison.test.ts` 缺两条负对照——`verified` marker 的比较句不告警（现仅由 `inferred` 用例间接覆盖 fact-only 裁决）、多根模式下 path 首段不匹配任何 root 的退化路径。可在后续切片补，不阻断本切片。
+
+## 批次 57B-353（workdir 统一 .work）产生
+
+- **`.work` 未进快照默认忽略表（需裁决，audit-semantic）**：Slice 1 把默认 workdir 从 `.excavator-work` 改为 `.work`，但 `src/snapshot.ts:39` 的默认忽略表含 `.excavator`/`.excavator-work` 却**不含 `.work`**。当**目标仓自身**含顶层 `.work/`（如分析 excavator 仓本身、或目标采用了 `.work`）时，`.work/` 会进入快照语料并影响哈希——旧默认 `.excavator-work` 是被忽略的，故属本次改名引入的 parity 退化。**未在 Slice 1 修**：改默认忽略表会改 `ignoreRulesDigest` → 快照身份，属 audit-semantic，且需先核清 audit 是"用 manifest 捕获的忽略规则"还是"按当前代码重新派生"（决定历史 run 重审是否会 `identity changed` 掉绿），再定是否需版本门控。候选并入 Slice 2（保证链切片）处理，或单列。低危（多数目标 workdir 与目标仓分离，不触发）。
+
+## 批次 57B-354（Slice 2 保证链/事实包正确性）评审产生
+
+- **#6b 比较词表残余过/欠匹配（advisory 固有残差，非缺陷）**（fable 评审）：收窄后仍有两处——`与…` 模式的分隔符类不含 ASCII 标点，`与 legacy 解耦, 日志格式一致` 会跨 ASCII 逗号误触发；`与…一致` 分支无 `(?!性)` 前瞻，`行为一致性良好` 会误触发。另有欠匹配：无 `与/两者` 连接词的裸 `相同`（`两套服务使用相同的取整规则`）不再触发。均被 fact+单源+无 sides 的后置门控稀释、且 advisory 不改通过性。后续如需再收窄可加 ASCII 标点分隔 + `一致(?!性)` 统一前瞻，但要防真阳损失。
+- **README checklist 终态漂移（并入 Slice 3 doc 一并修）**：`README.md:65` 仍写 checklist 终态只有 hit/searched-not-found/cannot-determine，未含本片新增的 `not-applicable`。评审建议勿在 Slice 2 顺手改；随 Slice 3（可读性/文档切片）一并订正。
+- **57B-329 schema 对齐补充**：若 `57b-329` 分支的 artifact schema 扩展到 checklist/workitems，其 verdict 枚举须含 `not-applicable`（与已记的 `sides` 协调项并列）。
+
+## 批次 57B-355（Slice 3 可读性 advisory）评审产生
+
+- **overview:product §3/§8 "表或列表"张力（advisory 噪声候选，非缺陷）**（fable 评审）：这两节的模板 directive 允许"表或嵌套列表"，但它们在 `READABILITY_TABLE_SECTIONS` advisory 集合内——作者按 directive 选列表仍会收到"consider a table (advisory)"warning。措辞为建议式、不改通过性，属批准集合内既定选择。若后续 warning 噪声反馈集中于此，把这两节判定放宽为"table 或 Markdown list 任一即可"。
+- **模板 directive 比 advisory 检查更严的保守不对称（记录，非缺陷）**：部分模板强制要求表格（feature:product §4 states、§12 coverage、overview:product §6/§10、engineering-overview §12）但对应索引不在 advisory 集合——directive 比检查严。刻意保守（漏提醒而非误提醒）。后续可对齐。
+
+## 批次 57B-360（run 可观测性 · view 增量）产生
+
+- **图查询无 timeline 事件，per-query 过程叙事需 Core 改动（决策押后 · R3）**：`eval view` 的过程叙事逐条渲染 timeline 事件，但图查询在 timeline 中**没有事件**（metrics 仅报 `graphQueries`/`graphQueryCacheHits` 计数）。要给图查询做 per-query 过程叙事，需 Core 往 timeline 加图查询事件（动哈希链事件流），属 Core 改动，决策押后。view 现状：图查询只显示计数，并在渲染中注明"no per-query timeline events exist"。
+
+- **view 渲染健壮性备忘（非阻断，下增量收）**（fable 评审）：① `render-run-stats.ts` searches 段 `identity:` 行把 `sourceSearches + sourceSearchCacheHits` 之和标为 "timeline events"、未与实际 timeline 搜索事件数比对——退化/截断数据下措辞会显矛盾；改 "expected to equal" 或不等时记 anomaly。② `run-stats.ts computeGaps` 遇不可解析时间戳静默得 0 gap 且 prevAt 变 NaN 级联，不抛异常（前向兼容 OK）但应补 "unparseable timestamp" anomaly。③ header runId 回退读 raw[0] 而非排序后 events[0]（纯装饰）。
+
+## 批次 57B-359 增量 1（冻结/解耦首切片）评审产生（fable，2026-08-10）
+
+增量 1 判定"可合"（软门 + supplement 双裁决逐字兑现、门不漂移、grandfather 字节零扰动、五闸无旁路）。五条非阻塞 finding，按方案纪律记账不顺手改：
+
+- **#1 冻结后审计的单向盲区（should-fix，归增量 2）**：`auditFrozenKnowledge`（`src/freeze.ts:141-170`）检查 2/3/4 是"当前 − 冻结"单向差集（只抓冻结后**新增**未记 supplement 的 evidence/workitem 状态变化/trace）。**冻结后直接编辑文件删除**一条 open-origin（非 required）workitem、或一条未被任何 workitem/claim 引用的 trace → audit 静默通过。`knowledge.workitemsDigest`/`tracesDigest` 已记录但从未与当前文件对账（当前是死重）。required 项删除仍由 `auditWorkItems` "missing" 兜住、evidence 删除由 evidenceDigest 兜住；CLI 的 merge 语义删不掉（仅直接文件篡改可触发），威胁面小。**与方案 §3.2 原文"当前 id 集 − 冻结集"字面一致，属方案预注册残差而非实现偏离。** 增量 2（ASSURANCE_VERSION v3 + 硬门，本就动 audit 语义）补对称检查：冻结集 ⊆ 当前集（post-freeze merge 只增不删，故冻结 id 消失即非法），或直接对账 workitemsDigest/tracesDigest。
+- **#2 freeze 对 auditTraces 传空 claim 集（nit）**：`src/freeze.ts:55`。软门世界若模型"先写作后 freeze"，trace step 引用了 claim id → freeze 以"references missing claim id"拒绝，与 audit（传真实 claim 集）在此边缘路径判定不一致——fail-closed 但报错语义误导。可在 `freezeRun` 收集已 checkpoint 的 claims 传入。正常三段流程（freeze 在任何 begin 前）不触发。
+- **#3 未冻结 run 静默丢弃完整 supplement 对（nit）**：`src/run.ts` `enforceFreezeGate` 未冻结时返回 undefined，丢弃一个已校验的完整 supplement 对（不记录、不提示）；而只传单个 flag 反而抛错。建议未冻结时对完整 supplement 对给明确报错/提示（"run not frozen, supplement ignored"）。
+- **#4 MATERIAL_FLOW_DIMENSIONS 重复（nit）**：`src/freeze.ts:16` 复制了 `src/assurance.ts:654` 的内联维度列表；仅供 completeness 报告数字、不参与门控，漂移只影响报告。可抽公共常量。
+- **#5 supplement 成功路径测试覆盖不全（nit）**：`tests/freeze.test.ts` 三处一致性只直测 search 与 workitem 两个变更器；source/checklist/trace 只测拒绝路径（记账共享 `recordSupplement`，风险低）。后续补齐。
+
+## 批次 57B-359 增量 1 真实 e2e 冒烟产生（2026-08-10，leave-mini 三段流程）
+
+e2e 结论：freeze 机制在真实产物上正确（freeze 门抓出真缺口、零 supplement、audit PASS 无 knowledge error）。顺带暴露两项与 57B-359 无关的既有项：
+
+- **`begin` 不为"已开始未完成"文档重置计时器（预存行为，非 57B-359 引入）**：`beginDocument`（`src/run.ts:205`）仅在 `!startedAt || completedAt` 时重置 `startedAt`；对已 `begin` 过、`startedAt` 已置且未 complete 的文档再次 `begin` 不重新计时，唯一重置窗口的是 `resume`（`src/run.ts:701`）。而 `begin` 的 help 文案写"Start or restart one document authoring timer"，语义误导。候选：要么让 `begin` 对未完成文档重新计时，要么订正 help 文案指向 `resume`。低优先，独立于本 issue。
+- **`eval` forbidden pin 对结构性分离的诚实否定 FP（已在修，Fable 规划中）**：见正在进行的 eval-harness 修复（57B-358 血脉，独立分支）。真实表格否定（"未发现任何通知发送代码"行的关键字单元格被抽成裸 claim）触发 `no-notification-send` 假阳。**此项不押后——是 3+3 测量前置**，故单独走方案而非仅记账。（备注：e2e 测试请求的 `authorMs=120000` 太小导致每次 checkpoint 抛 timeout，但 section 在抛前已落盘、零丢失——属我测试请求的预算设置，非产品问题，无需处理。）
+## 批次 57B-364（报告呈现打磨）评审产生（fable 复核 #2/#3，2026-08-11）
+
+判定"返工"（advisory 缺测试，已补齐同批），核心逻辑经 Fable 逐号核实无误。三条 advisory 残差（warning-only，不阻合）：
+
+- **`auditEvidenceMarkerPlacement` 假阴性：带 bullet 前缀的引导语逃检（nit）**：`EVIDENCE_LEVEL_LEAD_IN`（`src/assurance.ts:509`）锚定行首，未剥列表前缀，故 `- 证据级别: \`fact\`` 形态（引导语前带 `- `）不触发 warning。warning-only、影响小；后续如需可在检测前剥 `^\s*[-*+]\s+`。
+- **advisory 的 `EVIDENCE_MARKER_WORD` 口径比 `markersIn` 宽（nit）**：`src/assurance.ts:510` 无反引号的裸"事实"独行也触发 warning，而硬路径 `markersIn` 要求 CJK 必须带反引号。退化场景、warning-only、不影响硬路径判定。
+- **attribution 常量不做版本门控（planner 已自标注，fail-open）**：重审旧 product-feature run 时，问题章序号从旧 §10 变新 §11，旧 §10 的问题内容逃过 `auditTargetProblemAttribution` 检查——方向是**漏检非误报**（fail-open，不产生假 error），且旧完结 run 极少重审。做 per-version 序号映射属过度工程，不做。
+
+## 批次 57B-363（eval forbidden searched-not-found 豁免）评审产生（fable，2026-08-10）
+
+修复判定"可合"（谓词保守性、base/unless/pass 零改动、五种真幻觉全不豁免、真实 leave-mini run forbidden 2→0 均已核实）。两条 advisory 残差：
+
+- **正向断言只引零命中检索回执会被全局豁免（should-fix，归 audit 层）**：`isSearchedNotFound` 谓词让"引用 ≥1 证据且全部是零命中未截断 search 回执"的 claim 对**所有** forbidden 规则免疫。连贯写作下这类 claim 按构造是诚实否定；但**不连贯**的作者若写正向断言（"系统发送邮件"）却只引一条零命中回执，会被漏过。这属"引证不支撑声明"，正解在 audit 层的被引 SEARCH 回执支撑性校验（57B-362 S0a 合规线在做，尚未进 main 主线）。在主线补上前是真实但极小的盲区（自相矛盾的产物才触发）。`eval/README.md` 措辞 "by construction cannot be a positive assertion" 描述的是连贯写作构造，已在此标注其边界。
+- **`truncated` 缺失按未截断处理（nit）**：`eval/knowledge.ts` 的 `truncated: Boolean(item?.data?.truncated)` 把缺失字段当作未截断（可豁免）；严格保守应视缺失为"可能截断"而不豁免。产出方 `src/source.ts` 类型上保证必写该字段，仅畸形/手写 evidence.json 受影响；eval 属 advisory 诊断层，风险可忽略。后续如需可改为要求显式 `truncated === false`。
+
+## 批次 57B-365（leave-mini golden 深度化）评审产生（fable 复核，2026-08-11）
+
+判定"可合"（pattern 只宽不窄逐条核实、深度项 AND 语义、固化 fixture 字节级一致无泄漏、判别器真实工作 base-2/3 红=没查调用方、334 pass）。残差：
+- **leave-mini 深度天花板（核心边界）**：真判别器仅 `depth-restore-uncalled` 负空间一轴；结构深度项（终态/白名单/阈值/unpaid）当前 6/6 稳定命中、只作回归护栏无判别力；**WCP 式"大文件跳窗"失败在 leave-mini（最大文件 41 行、无窗可跳）结构上测不出**——需后续 leave-midi（多窗口大文件、阈值埋中段）切片。
+- **单语义改写的同义词残差（nit）**：`authz-l1-guard` 新 pattern 丢了旧"直接经理"同义词；`authz-scope-employee-self` 对"仅可见本人"类不命中——数学上非严格超集，但方案原文如此、6-run 实测零假阴；遇红按只宽不窄纪律再加宽。
+- **`depth-restore-uncalled` 裁量风险（有意为之）**：报告若把 restore 结论写进 reversal-flow workitem 而不出 claim → 红。深度门就该要求它成为报告命题。
+- **6-run bench 在仓库外**（excavator-measure-359/）、验证为本机人工步骤不进 CI，如实记。
+
+## 批次 57B-367（并行分节撰写）评审产生（fable 复核，2026-08-11）
+
+判定"通过"（四安全根逐行静态核验：draft 写路径零交集、collect 链由构造成立、冻结门无旁路、audit 三门不破；344 pass）。残差：
+- **collect 超时不写 `audit/<doc>-timeout.json` 诊断文件（待裁定，判可接受）**：checkpointSection 超时会写该诊断文件（run.ts:456），但方案只授权 export normalizeSection/archiveCheckpoint、未授权 diagnoseTimeout，故 collect 超时仅置 timed-out+warning、不写诊断文件。全库 grep：该文件**无任何程序消费方**（resume/audit/eval/SKILL 都不读），纯人读产物；timed-out+warning 已入账、resume 可续。coder 守授权边界上报而非扩权。候选：是否 export diagnoseTimeout 补 collect 侧诊断对等——低优先。
+- **并行 run 的 per-event "TIMED OUT" 标记永不出现（R2 时间语义，已 PR 披露）**：collect 预算在全部 append 之后才判，超时不打在 timeline 事件上；stage 级总墙钟不受影响。
+- **hasClaims sidecar 缺失 fail-closed 分支无对应测试（轻微覆盖缺口）**：parallel-authoring.ts:147，后续补。
+
+## 批次 57B-370（边界召回度量地基）评审产生（fable 复核 high effort，2026-08-11）
+
+判定"可合"（九项重点逐条实证：确定性/FG shape 判别防假贷记/路径语义同一/gold 三层/基线10-13可信/NUL修复等价；364 pass；独立复跑真实run确定性 + 独立重算fixture投影一致）。残差：
+- **leave-mini boundary gold 后续切片**：本切片只建 wcp-leave boundary gold（真实 run）。若 57B-371 需 CI 内端到端真 prepare 验证，可给 leave-mini 建 boundary gold 作后续切片。
+- **T3 informational 未逐条裁定实质性**：15 条 optional 是疑似额外边界缺口，照方案不进闸门，57B-371 用作诊断即可。
+- **旧报告窗口计数 tokenize 口径差异（无害）**：coder 机械复现 56 窗口/32 srcOnly vs 方案 64/37，但 gold 取材三桶（11 node-overlap / 4 file-in-FG-node-cut / 12 neither）与方案一致，gold 不受影响。差异来自 markdown 证据抽取 tokenize 口径。
+- **gold `_meta` 文档精度 nit**：T3 桶算术标注（"4 个 node-cut"实际 3 条）+ 一处 note 行号 :268 vs 实际 267——纯 provenance 文字，锚是 name 匹配不影响判定。后续顺手订正。
+- **coveredBySourceWindow 方向性预期未兑现（无碍）**：方案预期 optional miss 相当部分 true，本 demo run 实际只 2 条 UI modal（S-窗口集与旧好报告 run 不同）；机制两分支已测试覆盖。
+
+## 批次 57B-371（pruneFeatureGraph 两段式剪枝）评审产生（fable 复核 high effort，2026-08-12）
+
+判定"可合"（十项重点逐条对代码验证：硬上限三重保证永不超cap、stage1逐字节零churn、缩写骨架运行时派生框架无关、桥信号出边方向性排hub、edgesAmong四项、门测试13/13且nodeCount=250有效；387 pass）。范围外残差（本切片未动 diff、另议）：
+- **application 别名污染（比本切片更大的单一污染源）**：anchorTerms 的 `application` 把 promotion 路由 + application 模块（ApplicationForward/LeaderApplication/PeerApplication）拉进 leave 边界，占 ~3 救援席。是 Target Resolution 的下一个杠杆——别名生成质量（feature.aliases）本身该收窄。归 57B-320 后续切片。
+- **stage1 tie-break localeCompare 的 locale 稳定性隐患**：stage1 评分逐字节搬移时保留了原 `localeCompare`（locale 相关、字节稳定性隐患）；本切片为保零churn未动，新救援代码已用普通字典序 compareStr。后续可把 stage1 也统一为字节序。
+- **FG 主排名含 import/file kind 节点占席**：这些结构节点占 maxNodes 预算但对边界召回价值低；后续可在主排名过滤。
+- **expand edge LIMIT 截断时 kind 字母序隐性优先级**：截断恰落在同(kind,source,target)多行时行序依赖 sqlite 内部序（同 db 双跑字节一致已覆盖）；异构 sqlite 构建下留意。
+- **巨仓残差**：hop-1 圈 > 6×maxNodes 时仍会 expand 饥饿（优雅降级、不劣于现状）。
+- 理论角落：cap<quota（≤8 极端配置）stage1 空席、seeds 可能被救援顶掉——默认 220/demo 250 不可达，纯理论。
+
+## 批次 57B-375（救援 logic → logic-disposition work item）评审产生（fable 复核，2026-08-12）
+
+判定"返工"（两处小 must-fix 已修，余通过）。本切片修复项与后续待办：
+
+- **57B-372 漏 bump BUILDER_VERSION（既存缺陷，本切片 Fix 2 修复）**：57B-372 加 `logic` 类目时未 bump `BUILDER_VERSION`（`src/context.ts:15`），feature 缓存键 `${BUILDER_VERSION}-${key}.json` 命中即直接返回旧 fact pack。同 target 复跑（wcp-leave 常规流）命中缓存 → 服无 logic 项的旧 pack → v4 run 派生 0 个 logic work item → 三方期望一致、audit 零 finding → 强制函数被静默旁路（fail-open）。本切片 v16→v17 修复；记为 57B-372 的遗留。**教训：凡改 `buildFactPack`/context 产物形态必同步 bump BUILDER_VERSION。**
+- **前向祖父泄漏（本切片 Fix 1 修复）**：生成式期望集扩张原按 `runUsesCurrentAssurance`（精确串等）门控，下一次 assurance 或 REDACTION_VERSION bump 会使所有 v4 期 run 的 `=== ASSURANCE_VERSION` 变假，而其 `workitems.json` 已烘焙 origin-default 的 logic 项 → 每个此类 run 假失败 `unexpected non-open work item`×N。已改为按运行自身 assurance **世代**（`assuranceGenerationAtLeast(manifest, 4)`，解耦 redaction 后缀）门控；严格身份校验仍用精确串等。
+
+Fable 非阻塞后续（记录待议，本切片未动）：
+- **`mergeWorkItems` 不保护 `material` 字段**：作者可在冻结前把某 logic 项降为 `material:false` 逃避 claim-coverage 要求（处置本身仍被强制且 timeline 记账，故非静默跳过，但覆盖门可绕）。后续可让 mergeWorkItems 对 origin-default 项固定 `material`。
+- **`auditFrozenKnowledge` 不复核 `knowledge.factPackDigests` vs 磁盘 pack**：冻结后篡改 fact pack 文件会以"workitem 分歧"这种误导性形态浮现，而非直接的 pack 摘要不符。后续可加 factPackDigests 复核。
+- **authoring-packet 尾块标题硬编码 "rescued decision functions"，但实际收集所有无 `reportSection` 的项**（含 open-origin 项）——轻微标签漂移；后续可按块内实际成分动态措辞。
+- **`buildFactPack` 对 `name@path:line` 去重（已确认安全）**：logic 类目 `dedupeBy: "location"`（`category|filePath|line`），同 (path,line) 折叠为一条；work-item id `feature:<key>:logic:<name>@<path>:<line>` 的唯一性由 (path,line) 唯一性蕴含（去重键是其超集），故不会产生重复 id / freeze 重复项错误。记为已确认，无需改动。
+
+## 批次 57B-376（请假规则覆盖金标准 POST-forcing 校准）产生（2026-08-13）
+
+- **`extractKnowledge` 跨章节 claim-ref 冲突（记录，非缺陷；后续可修）**：`eval/knowledge.ts` 用 `${documentId}#${claimId}` 作 fact 的 `ref`，而多个 section 文件共享同一 `documentId`、各自从 `claim-1` 起编号，故不同 section 的相异 fact 会共享同一 `ref`（如多条 `…#claim-16`）。**不影响 found/miss 正确性**（diff 按 window+pattern+marker 逐 fact 匹配，不靠 ref 唯一性），仅使 `Diff.found[].via` 这个 provenance 串有歧义（按 ref 反查会取到首个同 ref fact，可能非真正命中的那条）。后续可让 ref 纳入 section/文件名消歧。
+
+## 批次 57B-404（条件清单 Goodhart 卫生）产生（2026-08-16）
+
+**过期记录已更正（跑前核实，避免「修一个已经对的东西」）**：57B-404 原文第 2 项说「packet 渲染与 audit 的 `values.length > 1` 口径不一致，8 个族里 7 个单值」。**实测两侧口径已经一致**——`authoring-packet.ts:338` 与 `condition-inventory.ts:299` 都是 `values.length > 1`（该记录写于某次修复之前，未同步）。**本片不动它**。真实 run 上是 15 个族、13 个单值、2 个多值。
+
+**范围切分（我的判断，非规划层裁定）**：57B-404 原有三项，第 1 项（协议值过滤）已完全校准可独立交付，第 3 项（诚实清零的排除通道）是**新的作者面机制**（新命令 + 新工件 + 审计接线），拆为 **57B-404b**。依据「每片独立可测可交付」。
+
+**协议值过滤的自校准（送评前预检，goal 硬性）**：把真实 run 的 28 条 UI 字符串比较全部列出人工判，规则「字符串比较 + 文件扩展 ∈ {tsx,jsx,vue} + LHS **末段精确等于** type/action/status」杀 7 放 21。**精确匹配是保护域规则的关键**：`leaveType === "bto"` 末段是 `leaveType` 不是 `type`，`info.name === "holiday_type"` 比较的是 `name`——两者都活。另**亲眼读了源码**确认那 7 条确是协议：`action === 'next'` 决定批准后 `goNext()` 还是 `refresh()`；`info.type === 'change'` 决定筛选变化时是否重置到第 1 页。
+
+**测试缺口（我自己的变异抓到，记为教训）**：packet 渲染条件有**两条路径**——section 块内（`renderConditions`）与末尾未归属块（`renderUnassignedConditions`）。我第一版测试只走了第二条，于是「删掉 section 块守卫」的变异**存活**。补测第一条后变红。**教训与 57B-402 同型：一个模块有几条输出路径，测试就得走几条，否则变异验证只是在验证我走过的那条。**
+
+**评审构造的误杀反例，已按其给的机制修（非记档）**：仅凭「字段末段」无法区分回调协议与业务状态——`leave.status === "approved"`、`user.type === "admin"`、`notification.type === "leave_request"`、`item?.leave?.status === "pending"` 在 `.tsx` 里**全部会被误杀**（评审实测）。加第四条件「**RHS 字面量也必须是协议词**」后，四个反例全部改判 owed，而真实 run 的 7 条真杀零损失（其 RHS 只有 `change`/`next`，另一 run 还有 `error`）。
+
+**为什么这个词表可以存在，而 relevance-annotation 的同义词表不可以**：本词表**只会让过滤器更严格**——每移除一个词就把 site 还回债务里，所以没人能靠转它把残差弄好看，它**对转动它的人不利**。而 anchor 词表转动会直接移动召回读数（被判定的那个数），方向相反。残余偏差是诚实的那一侧：没被列进词表的协议值仍然欠着。
+
+**`.vue` 是死分支（评审实测，范围外，记档）**：`AST_LANGUAGE_BY_EXTENSION` 无 vue 语法 → 回退正则只见数字字面量 → **`.vue` 的字符串比较根本进不了条件清单**。所以过滤器的 vue 分支今天无害但不可测。更大的事实是：**Vue target 的字符串条件在上游就全盲**——这不是本片引入的，但对以 Vue 为主的目标是一整类不可见。
+
+**评审指出的真缺口，已在本片关闭**：`auditConditionCoverage` 原本在 `unaccounted === 0` 时提前返回，于是**残差一旦归零，指向该工件的唯一指针随之消失**，排除计数就成了没人被告知去看的 JSON 数字——「标记而非删除」在那一刻退化成「删除但留了痕」。现改为排除计数**独立于残差**始终上报。（Goodhart run 的 unaccounted 已经是 1，这个状态迫在眉睫。）
+
+## 批次 57B-409（脱敏器修复）产生（2026-08-16）
+
+**根因**：`redactSecrets` 用 `line.indexOf("=")` 找赋值，把 `==`/`!=`/`>=`/`+=`/`=>`/`:=` 全当成赋值。改为 `simpleAssignmentIndex`（只认前后都不是运算符字符的裸 `=`）。
+
+**为什么这不是安全面放松（关键性质，实证过）**：被排除出赋值路径的每一种形态，**仍然经过行末的 `redactSensitiveStringLiterals` 兜底**，它逐个判断行内的引号字面量。实测 `apiKey += "sk-live-…"`、`token := "sk-live-…"`、`if token == "sk-live-…"` 三种形态**字面量照样被遮**。消失的只是从来不是机密的东西：裸标识符、调用、比较操作数。测试文件后半段专门守这条契约。
+
+**顺带修的两处（第一处是我的测试首跑抓到的）**：
+
+- **调用表达式豁免**：`const tokenService = require("./tokenService")` 原本被遮成 `= <redacted>`，**毁掉一条 import**——与额度算术同类的损坏，但走的是普通赋值路径，算符修复够不着。加 `CALL_EXPRESSION_PATTERN` 否决（`fn(...)`/`a.b.fn(...)`/`await`/`new`）。调用**内部**的字面量仍由兜底判断，实测 `login("sk-live-…")` 照样遮。
+- **Go `:=` 被 mapping 分支吃掉**：输出成 `apiToken :<redacted>`，值遮了但 `=` 丢了。mapping 分支现在排除 `:=`。
+
+**三轮才收敛，两轮都错在同一个方向（拿证据换暴露），如实记录**：
+
+- **v1（按算符排除）**：把 `+=`/`:=` 整个踢出赋值路径，理由是「兜底会接住」。**兜底只接引号字面量**，于是 `API_TOKEN := sk-live-abc123`（Makefile）与 `apiKey += sk-live-abc123` 漏遮。**我自己的探针抓到的。**
+- **v2（裸引用豁免只看"无数字"）**：把裸标识符一律当代码引用。**评审构造证伪**——单词形弱口令拼写得和标识符一模一样：`PASSWORD=changeme`、`db.password=letmein`、`API_KEY=deadbeef`、`MYSQL_ROOT_PASSWORD: example` 全部漏遮。评审指出了我错误的确切位置：**既有 `isNameLikeLiteral` 的安全性来自「无数字 **且** 内容本身是敏感名」这个合取，我丢了第二个合取项。**
+- **v2 还漏了一条独立通道**：比较整类排除后，shell 硬编码口令比较 `if [ $PASSWORD != s3cr3tpass99 ]` 漏遮。它**带数字**，所以与上一条不是同一个洞；兜底只看引号字面量，接不住。
+
+**v3（现行）：按算符语义分，裸引用豁免只在算符已经表明"是量"的地方花掉。**
+
+- 比较**回到**判定路径（保留运算符，只替换右操作数），因为排除它会漏 shell 口令比较；
+- **一切赋值**留在赋值路径；
+- **裸引用豁免仅限算术复合赋值**（`+=` `-=` `*=` `/=` `%=`）——配置文件几乎不用这些算符装载机密，而真实 target 实测形态正是 `+=`；
+- 纯 `=` / `:=` / mapping 对裸标识符**维持记档的"已知代价"**（`holiday.PtoToken = hours` 会被遮），因为它与 `password = letmein` 是同一段文本。
+
+判定右操作数前先裁掉条件的收尾语法（`{`、`]; then`），否则每个比较都像密钥材料。
+
+另修一处同源缺陷：`==` 的**第二个** `=` 曾被当赋值，把 `if x == "…" {` 从自身运算符中间切开、连右花括号一起遮掉。
+
+**第四轮：评审构造出 16 条漏遮 / 四族，并给出了这一系列错误的统一诊断**——
+
+> **豁免按语法形状发放，而「机密 vs 引用」是内容/语境属性。**
+
+四族与修法（每族评审都做过原型实测）：**A/B/C** shell 测试语境（`]` 收尾）里无引号操作数就是字面量词，撤销该语境下一切值形豁免、只放行 `$` 变量引用；**D** `=~` 整类跳过使 Perl/bash 的口令正则核对全漏——改为按语境判定「词形正则遮、真正则与 `s///` 留」；**E** `SECRET += changeme` 由 **ALL-CAPS 左值**（配置装载惯例）与业务算术（`holiday.PtoToken += consumption`）区分；**F** 首算符独占——比较放行后须对余串重扫，否则 `[ … ] && PASSWORD=news3cr3t99` 的真赋值永不被判。
+
+**我自己的测试把漏遮钉成了期望行为**：`if ($password =~ /^abc/)` 被我断言「保持原样」，而那是口令前缀核对。**逐条 pin 只能钉住看过的角落**，所以本轮改为固化 **24 条漏遮语料 + 13 条可读语料**的常驻反泄漏测试——钉的是性质不是个案，第五轮不能在自己测试全绿的情况下重开第四轮的洞。
+
+**豁免准入原则已写进 `shouldRedactValue` 的文档注释**：**按语境发放，绝不按形状**。存活下来的豁免都点名了语境（调用、shell 测试里的 `$` 操作数、代码大小写目标上的算术、置换）。
+
+**记档不修的一条已知限制（钉成测试）**：**行级判定使格式影响结果**。脱敏逐行判断，字面量所在行是否提到敏感名由格式决定：同一调用单行写时 `'pto'` 被遮、多行写时幸存。真实 target 上这条还有 4 处具体实例——`leaveService.js` 的 `addTokenHoursByType('pto', …)`，方法名含 `Token` 使整行敏感，于是**请假类型参数被当值遮掉**。
+
+考虑过两个修法，**都不安全，故不修**：① 按长度豁免短字面量——这是个**放宽方向的旋钮**，与「收窄可以有旋钮、放宽不行」的纪律相反；② 仅当敏感名是被调函数时豁免——`setApiKey("sk-live-abc123")` 会直接泄漏。**真正的修法是看表达式而非看行的脱敏器，属另一种设计。**
+
+**运营代价（必然，写下来免得有人踩）**：升 `REDACTION_VERSION` → 进 `ASSURANCE_VERSION` → **所有既有 run 立刻掉出「当前世代」**，包括刚跑完的 run#2（戳 `assurance-v8-redaction-v4`）。归档 run 因此 28/29 逐字相同（唯一差异是 404 那条已有 advisory，与脱敏无关）——严格检查被 grandfather 跳过，这正是世代闸的设计意图。**要让 run#2 吃到严格检查必须重新 prepare。**
+
+**真实 target 复验**：`brdg_impl.go` 整文件 `<redacted>` 出现次数 **0**（修复前 `consumeByYear`/`withdrawHours` 各 10 个分支全遮）；`holiday.PtoToken += consumption` 等六条额度累加全部可读。
+
+**第六、七轮记账（第七轮由我自查产生，不在评审清单里）**：
+
+- **"上限"在安全扫描里等于绕过口**。逐算符判定原带 64 步上限，70 个 `a=1 &&` 段之后的赋值直接走过去。上限的存在是因为逐段重新切片让扫描退化成 O(n²)——**改成按偏移扫描后全程线性，于是上限被删除而不是调大**。教训一般化：给安全判定加计数上限前，先问这个上限是不是可由输入构造抵达的；能抵达就是可绕过。
+- **交替是字面量的集合**。`/^(changeme|letmein)$/` 曾漏遮而基线会遮。把单词形当字面量、把两词形当代码，这条界线由攻击者选。
+- **逐段迭代会踩进"本该整体判定"的东西里**，代价一律是误遮而非漏遮，但打的正是本片要保护的证据：`s/password=\w+/password=***/`（一条**脱敏例程**本身）、`Where("token = ?", token)`（SQL）、`<input id="password" name=…>`（第二目标越过字符串取到上一个属性的值）。三条修法都点名语境：模式整体跳过、字符串内算符不绑定、第二目标不跨字符串。
+
+**记档不修（本轮新增）**：JSX 里 `<Form.Item className={styles.passwordFormItem} label="Password:">` 仍被兜底整串遮——`passwordFormItem` 使整行敏感，于是**同行的 UI 文案被当值遮掉**。与上面「行级判定使格式影响结果」是同一个根：兜底看行不看表达式。方向安全（误遮），真实 target 上仅此 1 处，故不为它再动兜底。
+
+**记档不修（词表边界，与基线同）**：`isSensitiveIdentifier` 按**分段**匹配（`_` 分隔或 camelCase 拆分），所以 `x-password`、`db.password`、`PASSWORD_2`、`myPassword` 都识别，但**无边界的连写** `mypassword=changeme` 与**未列词** `pass=changeme` 两版都漏。改法各有代价：改成子串匹配会让 `passwordless`/`passwordPolicy` 变敏感（方向安全但噪声未测），把 `pass` 入表会命中 `passed`/`passing`/`bypass`。**这是词表设计问题，不是判定路径问题**，与本片的算符/字面量修复正交，单独评估。
+
+**记档不修（第 8–10 轮评审穷尽后剩下的三类，均已双向实测）**：
+
+- **新增误遮：C# 可选参数签名**（cebreo 21 条全属此族）。`CancellationToken cancellationToken = default(...)`、`string provisionKey = null` 被遮掉行尾默认值——逐算符循环判到了基线只判首算符时够不着的那个 `=`，而 `CancellationToken` 按分段命中词表。方向安全，丢的是 API 签名的默认值部分，与已记的 `PtoToken` 同类代价。
+- **继承相等（两版同放，非本片引入）**：① URL userinfo 形 `user:s3cret@host`——凭据由 `:` 绑定，而 `LITERAL_PAIR` 只认 `=`；② 模板串内的散文式机密 `` `the password is changeme` ``；③ 字面量内 `!` 开头且不含数字的值 `"password=!changeme"`——`!` 豁免是为 Vue 开关买的，这是它的已知代价面。
+- **`isSensitiveIdentifier` 词表边界**（详见上条）：连写 `mypassword=` 与未列词 `pass=` 两版同漏。
+
+**记档不修（57B-410 评审产生，继承行为）**：**pre-409 归档 run 里，凡窗口在 redaction-v4 与 v7 下脱敏结果不同者，今日在 main 上审计即报 stale。** 这是 409 改脱敏行为的必然结果（`auditEvidenceCatalog` 逐字重推导且**不设世代闸**），非 410 引入。要让这些 run 重新绿只能重新 prepare。
+
+**一处心智模型纠正（值得单独记，因为我原来是错的）**：`ASSURANCE_VERSION` bump **并不** grandfather 掉 stale-digest 检查——世代闸只管 marker 类严格检查，`auditEvidenceCatalog` 不看世代。所以保护「409 合入到 410 合入之间产生的 run」的**不是 bump，而是 `recordedUnderRedaction` 的「缺失/低世代 = 已脱敏」读法**。两样都做了所以结果正确，但归因要记在后者上，否则下次有人删掉那条读法、以为 bump 兜得住。
+
+**净安全面口径（评审判据，留给下次改脱敏的人）**：不看单条构造，看**相对基线的双向漂移**——真实仓逐行跑两版并分类为「新增遮盖 / 新增放行」。wcp（1714 文件、30 万行）实测新增遮盖 1、新增放行 113，放行抽样全为调用豁免。**差分工具无法区分"改进"与"泄漏"，只有记录下来的意图能**，所以放行侧必须逐类给出有意放宽的理由，否则视同泄漏。
+
+## 批次 57B-405（对账诚实化）产生（2026-08-16）
+
+**`collectClaims` 改键控暴露了一处测试盲区（我改完才发现，记为教训）**：把 Map 键从 `claim.id` 改成 `${documentId}#${section}#${claim.id}` 后，**812 个测试全绿**——而 `auditTraces` 拿的正是 `new Set(allClaims.keys())`，去和 trace 里的**裸 claim id**（`claim-3`）比对。若不特判，每条合法的 trace 引用都会被报成 "references missing claim id"。**全绿本身就是证据：这条路径没有任何测试覆盖。** 已在调用点转换为裸 id 集，并补测试把这个洞钉住（同时断言「传复合键会破」）。
+
+**`auditTraces` 的诚实边界（记档，不修）**：裸 claim id 跨 section 不唯一，所以它只能验证「某个 section 定义了这个 id」，永远无法验证「是对的那个 section」。收紧需要 trace step 携带 section——那是合同变更，不在本片。
+
+**归档 run 重审新增一条 advisory（预期，非退化）**：57B-404 返工加的「排除计数独立于残差始终上报」使 `run-2026_08_15_17_36` 重审多出一条 warning（7 条协议值被分类排除）。实测 **audit exit=0、差异只有 1 条新增 0 条丢失**。这是纯加法的可见性修复，正是评审要求的。
+
+**评审在 405 抓到的唯一一条，正是本片自己教的那一课在修复里复现**：我给 `auditTraces` 加了裸 id 转换并写了测试，但测试直接调 `auditTraces` 构造集合——**钉住的是被调方合同，不是调用点行为**。评审的变异（把 `run.ts` 那行转换删掉）**820 全绿存活**。已在既有集成 fixture 里让 trace 真的引用一条 claim（5 行），M4 现在变红。
+
+**「绿不等于覆盖」四连（402/403/404/405 每片一次，值得固化为纪律）**：① 402 绊线与结构判定共享前提 → 一族形态双网皆盲；② 403 发货代码零覆盖、测试手抄镜像 → 拔掉整条线仍全绿；③ 404 packet 两条渲染路径只测了一条；④ 405 调用点转换零覆盖。**每次改动都要问「删掉这个机制，哪条测试会红」，答不上就是缺口。**
+
+**`@` 编码歧义（评审构造，记档不修）**：`name:"a"+path:"b@x.js"` 与 `name:"a@b"+path:"x.js"` 生成**字节相同**的 logic 项 id——但评审同时证明 `logicWorkItems` **上游就把这两个不同项生成为同一个 id**，plan/freeze/checklist 全链路已当作一个项。本检查不可能比它绑定的 id 系统更精确。属上游 id 格式的固有歧义，非本片引入。
+
+**文本回退保留的理由（评审裁定，比我原来的更强）**：作者合同显示**连 n/a 处置也走 claim 的 `workItemIds`**，所以绑定路径总是可用且比塞标识符更省事——**Goodhart 压力方向已经反转**（塞标识符从「消误报的唯一手段」变成多余动作）。删除或世代门控反而会在绑定因上游 id 歧义等作者不可控原因 miss 时，重新惩罚合规作者。残余半通道（纯散文提名即可消警告）记档。
+
+## 批次 57B-402（仪表诚实）评审产生（2026-08-15）
+
+**评审判定返工，两条 must-fix 都是构造出来实测的，且都击穿了我明确宣称过的性质**：
+
+- **第四态在一整族形态上复活**：我的绊线与结构判定**共享同一个相邻性假设**（client 标识符必须紧跟 `.` 或 `[`），所以 `client?.post`、`client!.post`、`(client).post`、`(client as X).post`、`client.post.call(…)` 一族**双网皆盲、零告警**。教训：**绊线的文本独立性只独立于 AST，不独立于共享前提**——设计绊线时必须逐条列出主实现的前提，并确认绊线一个都不共享。修法：结构侧解包接收者（`!`/括号/`as`/`satisfies`，但**不解包**改变被调对象的 `.call`/逗号表达式），绊线放弃相邻性。
+- **截断两情形在边界重合处互相冒充**：文件末尾恰好落在 `start+239` 时，纯算术判定无法区分，于是对**不存在的行**宣称「仍未读」，并让调用方白花一个窗口预算去发现。修法：短返回时读一次文件行数按证据判定（`SourceReader.lineCount`，不动 SourceWindow schema/缓存版本）。
+
+**保留的取舍（记档，非缺陷）**：绊线放弃相邻性后更宽松。**决定不加「排除属性链」的收窄**——那会重新引入「包裹的接收者 + 结构读不出的访问方式」这一类双盲形态，而原则是「过度报警可接受、假缺席才是失败」。**块边界收窄（间隔不跨 `{`/`}`）已采纳，但代价非零**——我最初记成「白拿的」，第三轮评审构造并用旧 commit 复测证伪：`(client as { post(u: string): Promise<T> }).post(url)` 与其 `satisfies` 孪生形态、以及注释含 `{` 的形态，在收窄前**可见**、收窄后**双网静默**。前两者按本模块自己的接收者解包契约**本应 resolve**（结构侧的 as-peel 字符类同样不跨 `{}`）。收益一侧同样是实测：cebreo 11→2（那 9 条全是 Angular `constructor(private http: HttpClient) {` 跨到下方方法）。**裁定保留收窄**——Angular 构造函数族常见、内联对象类型断言在 client 接收者上罕见——但代价已写进前提 3 的例子里。**教训**：在一条以「可辩护记档」为全部卖点的产品线里，一条「代价：零」的失实记录本身就是本片要消灭的缺陷类；「评审构造的 12 个形态全部仍通过」是真的，但那 12 个不含这一族，**没测到不等于没代价**。最终噪声：真实 target（wcp-ui，744 文件，真实 client 名单）**0 条**；cebreo 2、openmrs 1，均来自探针塞的过宽 client 名。字符串字面量里的示例代码仍会被报（本仓 tests 目录），是刻意保留的过度报警方向。
+
+**绊线自身的前提已列明（评审的元批评，已接受）**：第一版声称「makes silence impossible」而实际不成立——它共享了结构判定的相邻性前提。教训**同样施加于绊线自身**：前提必须逐条枚举，否则「独立」只是错觉。现已在 `unmatchedCallSites` 头部列出四条前提（client 标识符字面出现／verb 在 `MAX_TRIPWIRE_GAP` 内或走 destructure 形式／间隔不跨 `;{}`／非注释行），并把宣称改为「**在列明前提内不可能静默，前提外的盲区就是这四条，记档而非关闭**」。评审裁定 `client.withHeaders({h:"a;b"}).post(url)` 与 `client /* x; */ .post(url)` 两条对正则不可约，**记档不修**。
+
+**范围外记录**：`source` 请求 `end < start`（如 100..50）会静默矫正为 100..100 且无任何提示。既有行为、非本片引入。
+
+**评审确认无需动作的两条**：gold 地板 395/355 的检出力与重钉前边界相同（appRunnerApi=321、performanceReviewMainApi=70 消失必跳闸；mainApi=26 等小 client 在余量之下——57B-399 已记的已知边界）；`crossrepo-links.json` 只在 prepare 时写入，不追溯改写归档 run，且 `eval crossrepo` 不校验 reason 枚举，旧工件（411/365，reason 仅 `no-route`）过新 gold 10/10、无地板告警。
+
+## 批次 57B-401（阅读残差曝光）产生（2026-08-15）
+
+**`metrics.claims` 少算 5.8 倍（顺带查出的既有缺陷，范围外未修）**：真实 run 有 **472 条 claim**（12 个 section 文件），而 `metrics.claims` 记的是 **81**。根因在 `assurance-artifacts.ts` 的 `collectClaims`：它按 `claims.set(claim.id, claim)` 建 Map，而 **claim id 只在 section 内唯一**（`claim-1`…），跨 section 直接互相覆盖——实测 74 个 id 各出现 12 次。两个后果：① `metrics.claims` 是「最大单 section claim 数」而非总数，而 `eval compare` 正是拿这个数做跨 run 比较（`run-stats.ts` → `compare-runs.ts`），**用它判断切片好坏会被系统性误导**；② `auditTraces` 收到的是 `new Set(allClaims.keys())`（81 个 id），所以 trace 的 claimIds 校验**分不清是哪个 section 的同名 claim**——方向是变松而非误报。修法：Map 改按 `${documentId}#${sectionIndex}#${claim.id}` 键控，或让 claim id 全局唯一。**前置核查已完成（2026-08-16，影响面为零，可直接修）**：
+
+- `eval/compare-runs.ts:164` —— **assessment 只对时间类指标断言，计数类恒为 `neutral`**（:44 有明文注释「improvement/regression is asserted ONLY for lower-is-better time metrics」）。所以工具**从未**用 claims 数下过「改善/退化」判定。
+- 但 `:165` 的 `notable` 对计数类在 `|pct| ≥ 25%` 时仍会点亮——**存在被高亮误导的通道**，只是没被走到。
+- 历史记录逐条查过：**没有任何一条结论出自 `eval compare`**。文档里的 472 / 560 全部是直接遍历 section 文件数出来的（`run-stats` 的口径从未进过结论）。
+
+**口径修正**：上文「最大单 section claim 数」不够准确。实测 `metrics.claims` = **distinct claim id 数**（两个真实 run 分别 81 / 92），在 `claim-1..claim-N` 这种顺序命名下**恰好**等于最大 section 的 claim 数——两者相等是命名方案的巧合，不是定义。
+
+结论：57B-405 可以直接修键控，**不需要回溯重审任何已下的切片结论**。
+
+**从 `read-residual.json` 读 `kind` 会静默降级（测量纪律，已在代码里钉住）**：S1.5 为保住旧 run 字节恒等，让 `ReadCoverageItem.kind` **只在标注过的 run 上输出**。于是对未标注的 run，从残差读 `kind` 得到的 strong 分区是 anchor-only 的**降级读数**——实测同一个 run 上 84/24 vs 正确的 99/25。正确口径是**从冻结的 `read-obligations.json` 取 `kind`** 再按 id join（`read-residual-exposure.ts` 已按此实现并写明理由）。这与 57B-400 那次「临时脚本算出的数进了永久记录」是同型风险，故此处记档。
+
+**`excavator audit` 会改写归档 run 的 `coverage/read-residual.json`（行为记录，非缺陷）**：`run.ts` 的 full-run audit 会重算并落盘残差。对基线测量的影响：**先量后审**，否则量到的是审计重算后的版本。本片的归档基线因此按 findings 比对（29/29 逐字相同），不按文件字节比对（时间戳与 audit 自增的 `timelineEvents` 必然变）。
+
+**本片明确不做（规划层裁定，列为候选）**：
+
+- **补充闸文案与「引擎自指漏读」的预授权通道**：曝光前移之后，走补充通道的应当只剩真正的写作期发现，劝退文案对那种情形是恰当摩擦。等真实 run 显示确有正当补窗被劝退再议。
+- **任何对曝光消费的审计计数**（含「是否跑过 `reading`」）：审计它就是把曝光变义务，Goodhart 第二次上演。检测器已存在且正为此设计——`openedNotConsumed` 在曝光诱发刷窗时会涨。
+- unclassified 的**函数级**渲染（两个面都不做）；overview 文档曝光（strong 分区按构造是 feature 域的，overview 无 featureKey 可作用域）；跨 feature 汇总视图。
+- supplement 之后重新生成 packet（开窗命令本身回显内容，陈旧块可接受）；`runStatus` 加阅读维度（被 `reading` 取代，不做两个入口）。
+
+**规模观察（真实数据，留给下一次 run 判定）**：strong 分区头部文件 `notification.go` 的 28 条义务里，函数名高度重复（`handleSES`×5、`subject`×6、`BuildCpst`×6）——那是按通知类型复制的模板文件。console 侧不截断函数行（规划层裁定：冻结前盘上无 `read-residual.json` 可指，remainder 无处可指），所以这 28 行会照实列出。**重复本身是否构成信息**（读者据此判断该文件是模板、决策价值低）还是噪声，等第一次真实 run 的行为数据再定，不预先加规则。
+
+## 批次 57B-398（S2 跨仓链路）产生（2026-08-15）
+
+**57B-399 计数地板的诚实边界（评审构造并实测，本片明确不防）**：
+
+- **地板值未钉被测 target 的版本（待单独确认）**：calls/routes/linked 三个数绑死在对 `excavator-test-repos/wcp` 的一次测量上，而那个仓不由我们控制。不钉住被测版本，地板值就不可辩护、不可复现。**形态事实（评审实测）**：wcp workspace 根**不是 git 仓**，但五个模块各自是，HEAD 均可读（wcp-ui b86dfa27 / wcp-auth 76e958d / wcp-service 9df6897 / wcp-service-v2 7db2ee8d / wcp_review_service 272bbe7）——所以「钉 hash」的形态是**五枚而非一枚**。待确认：这五个仓有无远端、hash 是否稳定、五枚 hash 进 gold 是否值得（维护成本 vs 可辩护性）。
+
+- **余量以下的侵蚀**：实测砍掉 7 个非 gold 文件共 18 条链路，地板仍绿。所以「整个 client 消失会被抓住」这个说法对**链路数 ≤25 条的小 client 不成立**。后端侧无此问题——gold 恰好覆盖全部 4 个后端，任一后端路由表消失会先被对应 gold 条目抓住。缓解只能靠缩小余量（会换来误红）或给每个前端 client 各钉一条 gold。
+- **计数中性的精度塌方**：把 329 条非 gold 链路全部改指向同一条错误路由，计数不变、gold 完好、闸门 exit 0。地板按定义防不住这个（它数的是数量不是正确性）。现有缓解只有 `mustUnresolved`（1 条）与人工抽样 20 条。若要机检，需要另一类断言（例如「同一后端路由被 N 条以上前端调用指向」的异常检测），本片不做。
+
+**评审记账（Fable 最终评审，判可合前的 should-fix）**：
+
+- **handler 解析率没有做成 floor（本片明确的非目标，附理由）**：它是 freeze 时才算出的数、且**按 feature 计**（实测 leave 特征下为 13），不同 feature 请求会让它剧烈变化，做成固定 floor 会脆到没人敢信。scan 层的三个数（calls/routes/linked）与 feature 无关，才适合当 floor。若要给 handler 解析率设 floor，正确修法是**把 handler 解析移进 scan 阶段**（它本就是链路的属性而非 feature 的属性），让工件自带 `handlersResolved/handlersTotal`——那是一次跨 prepare/freeze 的重构，单独一片。
+- **三处残余的访问/脱敏面（评审穷尽后列出，均低危不阻塞）**：① `crossrepo-scan.ts:90` 的 `readSource(join(moduleRoot, relative))`，`relative` 来自 codegraph db 而 db 可由 `--codegraph` 外部供给，路径无收口（同款前缀校验一行可修）；② `run.ts` 的 `readFile(join(target, aliasKey))`，`aliasKey` 来自 links 工件，而该工件在 prepare 与 freeze 之间尚未被 digest 钉住，篡改可导向任意读（仅进 alias 解析、不外泄内容）；③ `context/crossrepo-links.json` 与 CLI 输出工件仍带**原文** `expression`/`handlerExpression`——给 evidence 做脱敏的理由（持久产物 + URL 可携 token）对这两个文件同样成立。**口径应统一**：要么在 scan/artifact 边界统一脱敏，要么把「context/ 与 snapshot 同信任域」记为明示假设。
+
+- **freeze 时硬猜 CodeGraph db 路径且静默**：`routeHandlerDenominator` 按 `join(target, moduleId, ".codegraph", "codegraph.db")` 拼路径，catch 后静默。db 若建在 workdir 缓存（`resolveCodeGraphDatabase` 支持这种形态）或 `dir !== id` 的 target 上，**第三义务来源会无警告地归零**——方向诚实（少算义务）但违背本模块自己的 never-silent 纪律。修法：把 prepare 已有的 `codegraphModules` 路径穿透到 freeze，或至少 openIndex 失败时 push warning。
+- **闸门无计数地板**：`eval/crossrepo.ts` 只验 gold 10 条与 mustUnresolved。若 `discoverClients` 回归丢掉整个 client、或 `handler-resolve` 回归到 0，`summary.calls`/`routes`/handler 解析率塌方而 gold 幸存时闸门**仍绿**。修法：gold 文件里加 target 专属 floor（如 calls ≥ 380、routes ≥ 480、handler 解析率 ≥ 85%）。
+- **`linkId` 可碰撞**：只含 from 侧 `module:path:line:method`。同一行两个同方法不同 URL 的调用（如签入的 bundle）会撞 id → 重复 evidence id → audit error。修法：id 掺入 expression 摘要。
+- **`parseHandlerTarget` 的 inline 判定过宽**：对整个 handler 实参串判 `{`/`;`，导致「具名 handler 跟在带 options 对象的中间件之后」（`passport.authenticate('jwt', { session: false }), ctrl.create`）被误判 inline 而漏配。方向诚实（漏不是错）。修法：按顶层逗号拆参，只看最后一个实参。
+- **`searchNodes` 的 LIKE 子串搜索 + cap 60**：短名可被 route/component 占满 60 条把真函数截断；叠加两个同名目录 + 同名函数可构造「唯一但错」。实测不唯一 0，风险低。修法：换 exact-name 查询或提高 cap。
+- **`eval/knowledge.ts:123` 按 `S-` 前缀收窗口而非按 kind**（既有代码，与其自身注释不符）：`XR-` 证据天然被排除，行为正确但理由是巧合。
+
+
+- **测试套件存在间歇性失败（本轮观察到两次，未定位）**：`npm test` 偶发 1 条失败，紧接着重跑两次均 698/698 全绿，且失败输出未捕获到具体用例名。两次发生在不同批次改动之后，故不像是某次改动引入。**这类抖动比稳定失败更危险**——它会训练人忽略红灯。修法：在 CI 里保留失败时的完整 TAP 输出、或给 `node:test` 加 `--test-reporter=spec` 落盘，先把是哪条测试抓出来再谈修。**先量再定**，不要盲改。
+- **Go 内联 handler 无具名函数可指（诚实边界，非缺陷）**：express 的 25 个注册点用内联闭包做 handler，`parseHandlerTarget` 如实返回 null。此前的启发式会从闭包体里抓出 `res.json` 当 handler——**错配比漏配糟**，已改为遇到 `=>`/`function`/`{` 即判定内联。这 25 个注册点因此不进阅读义务，计数可见。
+
+## 批次 57B-396（S1 义务分母第二来源）产生（2026-08-15，Fable 评审）
+
+- **`boundary-functions.json` 无 digest（下一片一行活）**：fact pack 有 `factPackDigests`，这个工件没有任何 digest 记录。**闸门本身无洞**——`knowledge.readObligationsDigest` 覆盖的是合并**之后**的分母，audit 对账冻结的 `read-obligations.json`（`src/core/run.ts:709-711`），所以篡改边界工件不会让分母悄悄变。但两个后果真实存在：冻结后篡改该工件**无法事后取证**；`eval read-denominator` 会从被篡改的工件重算出与冻结分母不同的数**而不报警**。修法：`buildKnowledge` 加 `boundaryFunctionsDigest`，audit 端镜像核验（缺文件/改文件两个方向都 error），与 `readObligationsDigest` 同款。
+- **JSX `cond && <X/>` 盲区已量化（评审实测，规模小但真实）**：决策探针认 if/三元/switch/循环节点，只用 `&&` 短路渲染的组件会被判 `no-decision`。真实 run 上 4 个 `no-decision` 的 `.tsx/.jsx` 候选里**恰好 1 个是真规则载体**——`wcp-ui/src/pages/PersonalOutlet.tsx:26-81`（`accessible && <Route/>` 权限路由门控，3 处）；ApplyLeave/LeaveDetail 这类规则密集组件因兼有 if/三元而正确判 `decision`。故「前端组件已覆盖」的说法需收窄为「**if/三元/switch 承载的组件已覆盖，`&&`-only 组件在候选中可数**」。修法：把 JSX 逻辑与表达式纳入决策 kind 集合，但需先量误报（`a && b` 在普通表达式里极常见，不是所有 `&&` 都是渲染分支）。
+- **`gapsClosed` 是「被穿透」而非「已闭合」**：读数已改为同时报实际覆盖行数与百分比（实测前四大空洞覆盖 89%–98%），口径不再依赖命名。
+
+## 批次 57B-395（V1.3 条件提取换 AST）产生（2026-08-15）
+
+上一条"候选下一片（V1.3）"的三项已落地：① 字符串字面量比较（AST 路径产出，正则永不产字符串）② Perl 走 tree-sitter（`eq/ne/lt/gt/le/ge` 与哈希元素左值）③ 降噪过滤器补字符串侧（空串守卫、`typeof`）。实测：WCP 24→78 site（22 数值 + 56 字符串）、30 个枚举族、`regexOnlySites` 0；provital 5(全 regex)→11 site + 5 族，37/37 个 `.pm` 窗口走 AST。剩余记账：
+
+- **枚举成员比较未捕获（已知边界，未排期）**：`categoryStyle === CategoryStyle.Continuous` 这类右值是**标识符而非字面量**的比较，按"只认字面量"的定义被拒。它在 TS/Go/C# 的枚举密集代码里是主流写法，可能是当前字符串枚举族的主要遗漏源。修法需要符号解析（把枚举成员解析回其字面值），跨出了当前纯语法层的边界；也可退而求其次记为"值集未知的枚举族"。**先量再定**：应先在真实 run 上数一数这类 site 的数量级，再决定是否值得引入解析。
+- **`switch` / `case` 字面量分派完全不可见（评审实测，可能比枚举成员那条更严重）**：8 个算符模式对 Go 的 `case "open":` 全部无命中——`case` 不是比较表达式。**Go 是 WCP 主后端，而 switch 正是 Go 惯用的枚举分派写法**，所以这个洞对"枚举族"的杀伤面可能大于上一条。修法与上一条不同：不需要符号解析，只需要按 `switch` 语句聚合其 `case` 字面量成一个族（`expression_switch_statement` + `expression_case` 已在 AST 里）。**先量**：数一数真实 run 里 switch 分派的规模，再决定是否本片外单开。
+- **非 C 家族算符仍漏（收窄但未消除）**：Perl 已补；SQL `=`/`<>`、shell `-ne`/`-gt`（provital `.sh` 实测存在）、Erlang `=:=`、Lisp 前缀式仍不覆盖。策略同上：按目标语言的真实占比决定是否加后端，不预先铺开。
+- **`AST_LANGUAGES` 是能力清单而非当次事实**：Perl 只有在 `warmExtractors()` 跑过之后才是结构化路径，未预热则诚实降级为 `via: "regex"`。调用方（`run.ts` 的 freeze 与 audit 两处）已各自预热；将来新增调用点若忘记预热，会静默退回正则——这正是 V1.3 早期 ESM `require` 事故的同型风险，靠每 site 的 `via` 字段可见。
+
+## 批次 57B-393（条件清单）评审产生（Fable 复核，2026-08-14；判定通过，无 must-fix）
+
+四条 should-fix 全部在本片修复（`mentionsLiteral` 小数/分数假绿、STRUCTURAL_LHS camelCase 锚定放行 `discount`/`priceIndex`、magnitude 阈值 1e5→1e8 保住金额上限、去重 consumedBy 取并集），nit 中的测试 fixture 空断言与模块头偏差说明亦已修。剩余记账：
+
+- **字面量保真的"跨窗口错配"收窄变体（未评估候选，Fable 提出）**：原字面量保真被校准否决（误报 5.6%~56%，含行号引用/自算计数/常量名vs值/redaction 冲突等结构性合法缺失）。但有一个子类未被测过：**字面量不在任何被引窗口、却逐字节出现在另一个已打开窗口**——即"结论对但 grounding 错"。它在结构上躲开大部分合法缺失类（那些值在任何窗口都不存在，故不触发）。已知坑：文件名可能出现在 `window.path`/`title` 元数据而非 content，需把 path/title 纳入搜索面。**待评估，未排期。**
+- **提取率指标的语义边界（汇报纪律，非代码）**：`condition-inventory` 的 unaccounted 同时含"从未提取"与"陈述了但回引了别的窗口"，故其比率是 **P(提取∧正确回引|打开) 的下界**，不是干净的提取率。用"任何 claim 是否提到该字面量"来拆分**已实测不可行**（3896 条 claim 里小序数必然巧合命中）。若要干净拆分，需限定到同 feature/同文件的 claim，或给单位数字面量单列 weak-mention——待议。
+- **分母欠计（已写入模块头，不另行修）**：`switch`/`case 3:` 形式的规则、配置文件里的阈值、以及**声明式规则对象**（前端 `Form.Item rules={[{required:true}]}`、schema 字面量、常量目录）都不是比较表达式，不进条件清单。声明式规则那条与上文"前端表单规则"条目是同一件事，是下一片的输入。
+
+## 批次 57B-392 评审产生（Fable 复核，2026-08-14；判定通过，无 must-fix）
+
+四条 should-fix 中三条已在本片修复（scoped audit 不再改写 residual、freeze 阶段抑制必然为真的消费侧 advisory、audit 校验冻结分母 digest）、两条 nit 已修（contained 义务仍受硬门约束、partial 措辞）。剩余记账：
+
+- **`mergeWorkItems` 不保护 `material` 字段（既有面，非本片引入）**：`src/assurance/assurance.ts` 的 `...update` 未钉 `material`，作者把 origin-default 的 logic 项改 `material:false` 即可绕过读问责硬门（处置本身仍被强制、timeline 记账，故非静默跳过）。候选：硬门对 `origin: "default"` 的 logic 项无视 material 标志，或 `auditWorkItems` 比对 default 项的 material 漂移。与 57B-375 已记的同类残差合并处理。
+- **`factPackDigests` 同样不复核磁盘 fact pack**（57B-375 已记）：本片给 `readObligationsDigest` 补了 audit 侧比对，fact pack 侧仍缺；两者口径统一时一并做。
+
+## 外部项目调研裁定 · Graphify（2026-08-16，规划层裁定；**已裁定归档**）
+
+> **框架更正（2026-08-16，用户裁定）：只参考这些开源项目的架构与实现方式，不引入它们。**
+> 本节以下内容成文于旧框架（把 Graphify 当候选**工具**评估，故有 C 臂与准入路径）。
+> **预注册与实测数字按原样保留**——那是「判据跑前钉死、禁止事后挑选」的证据，删掉即丢失可辩护性；
+> 但凡读起来像「我们仍在考虑引入它」的表述已就地更正。架构参照的蒸馏结论见 `docs/external-architecture-review.md`。
+
+用户提供 Graphify（github.com/Graphify-Labs/graphify，v8）+ 另一位开发者的分析，要求评估是否改方向。**裁定：不改序列。Graphify 是一面好镜子和一个便宜的对照臂，不是方向变更的理由。**
+
+### 一、事实核查（分析里四条未证实/矛盾，两条我自己也错了）
+
+官方材料**实有**：Leiden 社区检测、`--exclude-hubs 99`（p99 度数排除出 partitioning）、`--resolution` 可调、tree-sitter 本地抽取 37 语法、`--code-only` 完全离线无需 API key、Apache-2.0 + MIT 双许可、扁平节点 schema、`merge-graphs`/`check-update`/`update`/`query`/`path`/`explain`/`prs --conflicts`。
+
+分析里**未证实或与官方矛盾**：① `affected`/`graph_diff` **不在命令表中**（分析把它列为四大可借之一）；② 25% 再拆分 / cohesion 再拆 / super-hub majority-vote **均未文档化**；③ tsconfig paths / baseUrl / package exports / pnpm workspace **官方完全没提**（分析列为「非常值得研究」第二项）；④ 「每文件 SHA256 cache」无据——**但我说的 mtime 同样无据**，官方只写「re-extract only changed files」，机制根本没写。**这条是我把未证实的说法当事实转述，记为测量纪律的反例。**
+
+分析对我们的**硬错误**：称「Excavator 是 Node 22 + no runtime npm dependencies」——2026-08-13 起「零依赖绝对约束」已被**审计白名单**取代（现有四个运行时依赖）。它用这条过时前提论证「不要 embed、只做外部索引器」，**结论对但理由是死的**。
+
+### 二、核心裁定
+
+1. **不改序列**。三个实测桶（strong read-miss 48 / openedNotConsumed 34 / 未进账的 719 行分母洞）**没有一个是图拓扑问题**。用社区检测去「发现」`filesWithoutCandidates` 已经点名的文件是荒谬的。
+2. **真正有价值的只有一条架构洞察**：「Community 是长期结构、Feature Scope 是临时查询」。但它**没有开新问题**——`docs/investigation-engine.md` §九-4 早已预注册重启条件（「模块树在 ≥2 个真实目标上作为分母来源的 gold 漏报率实测低于 feature scope」）。Graphify 只是给同一槽位添了第二个候选。
+3. **一条我没想到的不对称性（规划层补充）**：**分母的确定性是硬门，召回只是比较项**——「你没碰模块 X」可执行，「你没碰 Community 7」不可执行。即使聚类赢了召回，若分区不能确定复现，也只配「用确定性手段复刻其拓扑思想」，不配接入工具。
+4. **不采纳 Semantic Graph**（§九-1 重启条件未触及）。且分析**内在矛盾**：一边把「Graphify 的图太扁平、没有语义层」列为不要照搬的第一条，一边拿它的存在提议我们建本体。**一个自身没有语义层的工具，不能构成「实测需要语义层」的任何证据。** 新信息可以重开已裁定问题，但必须与该问题相关。
+5. ~~**只做 optional external index builder**，走**外部工具阶梯**（Benchmark Candidate → Experimental → Supported）~~ **——本条已被用户裁定取代（2026-08-16：只参考架构，不引入工具），不再有「引入路径」这回事。** 以下论证与 Graphify 无关、对将来任何外部工具的准入都通用，故保留：它是 Python 工具，npm 白名单五条管不到。真正会疼的一条：**Python 传递依赖树比 CodeGraph 重得多**，而这份依赖会随引擎进入操作者指定的任何代码库——**部署形态不固定**（本机跑与部署为服务都成立），所以既不能用「跑的是他人机密代码」把它说死，也不能用「反正是本地」把它抹掉；按准入阶梯逐条审，别用任一侧的假设代替审计。永不消费 LLM 社区标签（零模型调用），永不消费其内部增量/缓存路径作审计输入（故 mtime 之争与任何决定无关）。
+
+### 三、三臂对照实验（预注册，离线零模型零 token，跑前钉死）
+
+> **C 臂后经用户裁定取消**（只参考架构、不引入工具），其拓扑思想改由 §三之三 的 E1 承接并已实测拒绝。
+> 预注册正文按跑前原样保留，**因为「判据先于结果」本身就是这份记录的价值**——见 §三之二。
+
+**问题**：作为 S3 模块级分母来源，拓扑社区是否在边界召回上优于确定性模块树与现役 pruned-FG。
+
+**尺**：57B-370 的 boundary gold —— `eval/fixtures/wcp-leave/boundary-gold.json`（28 项 / 13 mustFind）+ `boundary-gold-frontend.json`（31 项 / 16 mustFind），**合计 59 项 / 29 mustFind**，测 FG 节点集边界。
+
+> **测量纪律（我这次混过一次，记档防再犯）**：57B-320 的 **84 项**是 **claim 层召回 gold**，与上面这把尺**不是一回事**，不可混用。
+
+**三臂**：A = 现役 pruned-FG（fixture 现成）；B = 确定性模块树近似（含种子文件的 module 下全部文件）；C = Graphify 社区（`--code-only --no-label`）。
+
+**社区选取规则（跑前钉死，禁止事后挑）**：取包含三个种子文件（`wcp-service-v2/internal/handlers/leave/service.go`、`wcp-ui/src/pages/leave/ApplyLeave.tsx`、v1 `routes/leave.js`）中至少一个的社区之并集；另记「仅含 service.go 的单社区」作对照变体。仅此两种。
+
+**指标**：mustFind 召回（主）+ **nodeCount/fileCount（同等重要——靠把边界吹大 3 倍换来的召回不是赢）** + T3「neither」桶 12 个已知难例的捕获（诊断）+ 双跑字节一致（硬门）。
+
+**判据**：**C 更好** = C 的 mustFind 比 A、B 都多 ≥3 项（约 10pp）且 fileCount ≤ 1.5×B 且分区确定性过关 → 开 Benchmark Candidate 线 + 启动第二目标（provital）；**B 更好或打平** = B ≥ C 或 C 确定性失格 → S3 照原案，Graphify 关闭归档；**问题不重要** = 三臂互差 ≤1 项 → S3 分母来源按最便宜的确定性方案定案。
+
+**前置终止条件**：先跑两遍 diff 产物，分区不确定且不可 seed → 实验直接终止，记「分母角色失格」。
+
+**排期**：**队列之外的 bench 测量，不占切片位**。零 token、读 fixture，与 403/404/405 零冲突可并行。硬约束只有一条：**S3 方案落笔前必须有结果**（它决定 S3 分母来源）。
+
+### 四、值得单独学的（分析没提到）
+
+- **`--exclude-hubs`（p99 度数预排除）**：我们的剪枝有桥信号方向性排 hub（57B-371），但**没有池级度数预过滤**。可在 `eval/prune-replay.ts` 离线试，churn 门照旧。诚实边界：治不了 application 别名污染（那是词项问题不是度数问题）。**（已试完，见 §三之三：15/16 劣于基线，不采纳——p99 只排除 22 个节点却丢掉 `T2-leave-export`，因为该 feature 的导出处理器本身就是 hub。）**
+- **Aider RepoMap 的 PageRank + token-budget 排序**：与上一条同批离线试，共用 churn 门（我补充的候选）。**（已试完，见 §三之三：全局 PageRank 0/16、加种子 9/16，不采纳。但其「标识符普遍度降权」标量仍是候选，见 `external-architecture-review.md` §四荣誉提名。）**
+- 反面教材两条（分析说对了）：watch/hook 的常青更新与我们的不可变 run + freeze 正面冲突；其 `path.split("/")[0]` 式 cross-repo 印证 SnapshotRoot 层不应退化。
+
+### 三之二、实测结果（2026-08-16 跑完，判据按 §三 跑前钉死的执行）
+
+**用户裁定（跑前）：Graphify 只参考架构，不引入工具。** 故 C 臂不作为工具运行——这与 §二-3 预先写下的不对称性一致：分区不能确定复现的东西「只配用确定性手段复刻其拓扑思想，不配接入工具」。C 的**思想**改由 E1 承接（见下）。
+
+**先修一个尺子的错，错在预注册里**：§三 写的「合计 59 项 / 29 mustFind」是**重复计数**。`boundary-gold-frontend.json` 是 `boundary-gold.json` 的**超集**——28 条 backend id 全在其中，另加 3 条前端项。真实尺是 **31 项 / 16 mustFind**。这是本文档已记过一次的同型错误（把 57B-320 的 84 项与边界 gold 混用）的第二例：**两个 gold 文件不一定是并列关系，合并前必须查交集**。
+
+**读数**（同一把尺 31/16，全部双跑字节一致 ✓）：
+
+| 臂 | mustFind | nodes | files | wcp-ui 节点 |
+| -- | -- | -- | -- | -- |
+| **A** 现役 pruned-FG（demo run 冻结节点集） | **10/16** | 250 | 45 | **0** |
+| **A′** 现役剪枝，候选池含前端仓 | **16/16** | 251 | 73 | 67 |
+| **B** 确定性模块树（三个种子所在 module 全量） | **16/16** | 20216 | 1484 | — |
+
+**核心结论：缺口从来不在边界算法，而在「前端仓根本没进候选池」。** A 漏的 6 条 mustFind 分解为两类——3 条前端项是**同一个事实**（A 的节点集里 wcp-ui 节点数为 0，整仓缺席），3 条是 backend T1 难例。把前端仓放进池子，现役剪枝就是 **16/16，73 个文件**；模块树同样 16/16 却要 **1484 个文件（20 倍）**。
+
+按 §三 判据：**B 更好或打平 → S3 照原案，Graphify 归档。** 且 B 的 16/16 是**退化读数**——「模块下全部文件」按构造就包含答案，它测的只是「gold 项是否落在种子模块内」（是），不构成对分母来源的支持。**S3 的模块级义务价值不在召回，而在它能指出 A 的那一类失败：「整个 wcp-ui 没被碰过」是可执行的，而函数级义务对整仓缺席无话可说**——这正是 S3 立项时写的理由，本实验把它量化了。
+
+### 三之三、两条借来的想法：都输给现役实现（离线、零新依赖、双跑一致）
+
+同一候选池（含前端）、同一把尺、同一 250 节点预算：
+
+| 做法 | mustFind | files | 判断 |
+| -- | -- | -- | -- |
+| 现役剪枝（基线） | **16/16** | 73 | — |
+| **E1** 借 Graphify 的 `--exclude-hubs`：p99 度数预排除 | 15/16 | 73 | **不采纳** |
+| E1 变体：p95 | 15/16 | 73 | 不采纳 |
+| **E2** 借 Aider RepoMap：全局 PageRank 取 top-250 | **0/16** | 125 | **不采纳** |
+| E2′ 种子钉入 + PageRank 补足 | 9/16 | 101 | 不采纳 |
+
+**E1 为什么不转移**：p99 只排除了 22 个节点，却丢掉 `T2-leave-export`——**请假导出处理器本身就是 hub**。度数预排除假设「hub 不属于任何 feature」，在我们的图里不成立：一个 feature 的中心处理器恰恰是高度数的。我们既有的做法（57B-371 按桥信号**方向性**排 hub）比按度数一刀切更贴合这个事实。
+
+**E2 为什么不转移**：无种子的全局 PageRank 是 **0/16**——它按全局中心性排序，而 feature 成员不是全局中心的。加了种子也只有 9/16。PageRank 与 `maxFeatureNodes` 占同一槽位，但它回答的是「谁重要」，我们要的是「谁属于这个 feature」，是两个问题。
+
+**记账**：三条负面结论都是有价值的读数，不是「没做」。Graphify 与 Aider RepoMap 这两条线到此**关闭归档**；重开需要新的实测理由，不是新的分析文章。
+
+### 四之二、Semantic Graph 重开判据的精化（2026-08-16，由 408 调研推出）
+
+`docs/investigation-engine.md:149` 的原重开条件是两条任一：**(a)** ≥2 类 resolver 落地 **且** payload 形状开始重复/冲突；**(b)** 出现需要跨 resolver 查询的第二个真实消费者。
+
+**现状核查**：
+- (a) 前半 **已满足**——HTTP 路由、框架约定（Catalyst）、native-graph、条件清单，四类 resolver 已落地。
+- (a) 后半 **刚露头但未满足**：4 类读义务实际是 **2 个语义类型 × 2 条推导路径**（`route-handler`/`recovered-route-handler` 是同一种东西走两条路；`decision-function`/`boundary-decision-function` 同理）。这是形状开始重复的第一个信号，但目前被单个封闭枚举在**一个工件内**装得下，无冲突。
+- (b) **未满足**：今天的消费者只有 authoring packet 一个。
+
+**裁定不变：不建。** 但补两条更可操作的判据，取代「payload 开始重复」这个偏模糊的表述：
+
+1. **枚举笛卡尔积化才是信号，不是 resolver 数量。** 若义务/事实的 kind 枚举继续按「同一语义类型 × 新推导路径」增长（即 N 个语义类型 × M 条推导路径都要各占一个枚举值），那时本体层才真的赚到了；在那之前，一个封闭枚举 + 一列 `derivedFrom` 更便宜。
+2. **(b) 的触发形态很可能是「范围层成为第二个消费者」，而不是新工具。** 规划层刚裁定的 ①③ 片（scan 级产物回流作种子）是**第一条「派生事实回流范围决策」的反向边**。若这类反向边多起来（路由回流种子、条件清单回流种子、跨仓链接回流种子），范围层就会需要跨 resolver 地查事实——**那才是 (b) 说的第二个消费者**。所以盯的对象是**反向边的条数**，不是消费者的名字。
+
+**记这一条的理由**：原判据要人去判断「payload 是否开始重复」，这是个主观判断；上面两条都是可数的（枚举是否笛卡尔积化、反向边有几条），符合「判据要能被机器或至少被计数验证」的既有纪律。
+
+### 五、明确不做
+
+不改序列；不建语义层/本体；不 embed Python；**不建 GraphifyProvider（用户裁定：只参考架构，不引入工具——无条件，不再挂 bench 数据或消费者条件）**；不消费 LLM 标签；不依赖未文档化的 affected/graph_diff（Impact 线自建）；不做常青/watch 形态。
