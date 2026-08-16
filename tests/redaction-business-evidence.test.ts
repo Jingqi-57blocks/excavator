@@ -14,8 +14,9 @@ import { redactSecrets } from "../src/core/util.ts";
 // had to write around them. For an engine whose whole claim is defensibility, that is worse than a miss: the
 // reader cannot tell that something is missing.
 //
-// Narrowing the assignment rule is NOT a loosening of the secret surface, and the second half of this file
-// is what holds that claim to account: every excluded form still passes through the literal-level fallback.
+// Narrowing is NOT a loosening of the secret surface, and the second half of this file is what holds that
+// claim to account. An earlier attempt narrowed by OPERATOR and did leak — see the regression test below;
+// the rule now splits by meaning (comparisons out, every assignment in) and narrows on the VALUE instead.
 
 test("business arithmetic on a *Token field survives", () => {
   for (const line of [
@@ -33,13 +34,15 @@ test("business arithmetic on a *Token field survives", () => {
 test("a comparison is never cut through its own operator", () => {
   const line = "\tif apiToken == other {";
   assert.equal(redactSecrets(line), line);
-  assert.doesNotMatch(redactSecrets("\tif apiToken == \"sk-live-abc123\" {"), /=<redacted>/,
-    "the value goes, the operator stays");
+  const redacted = redactSecrets("\tif apiToken == \"sk-live-abc123\" {");
+  assert.doesNotMatch(redacted, /[!<>=]<redacted>/, "the value goes, the operator stays whole");
+  assert.doesNotMatch(redacted, /sk-live-abc123/, "and the value really goes");
 });
 
 test("a Go short declaration keeps its operator", () => {
   const redacted = redactSecrets("\tapiToken := \"sk-live-abc123\"");
-  assert.match(redacted, /:= "<redacted>"/, "the secret goes and `:=` survives intact");
+  assert.match(redacted, /:= <redacted>/, "the secret goes and `:=` survives intact");
+  assert.doesNotMatch(redacted, /:<redacted>/, "the `=` is not eaten as a mapping colon");
 });
 
 // The other half of the contract. If any of these stopped being redacted, the narrowing above would have
@@ -86,13 +89,33 @@ test("a call expression is not a credential", () => {
   assert.match(redactSecrets("\tconst t = login(\"sk-live-abc123\") // apiKey"), /<redacted>/);
 });
 
-// The cost of keeping `API_KEY=abcd1234` safe, stated rather than discovered: a bare identifier assigned to
-// a sensitive-looking name is still redacted, so in code `holiday.PtoToken = hours` loses `hours`. The
-// compound form — which is what the real target actually writes — is fixed above; separating these two by
-// text alone is not possible, so this is recorded as the remaining edge.
-test("a bare identifier assigned to a sensitive name is still redacted, and that cost is known", () => {
-  assert.match(redactSecrets("\tholiday.PtoToken = hours"), /<redacted>/);
-  assert.equal(redactSecrets("\tholiday.PtoToken += hours"), "\tholiday.PtoToken += hours", "the measured form is fixed");
+// THE REGRESSION THIS FILE'S OWN PROBE CAUGHT, and the reason the rule is drawn by operator MEANING.
+//
+// A first attempt excluded compound assignments and `:=` from the assignment path outright, reasoning that
+// the literal-level fallback would still cover them. It does — for QUOTED values. Unquoted ones leaked:
+// `API_TOKEN := sk-live-abc123` (a Makefile) and `apiKey += sk-live-abc123` both stopped being redacted,
+// which is the one trade this change may not make. Every assigning operator is therefore in; what separates
+// business arithmetic from a credential is the VALUE, not the operator.
+test("an unquoted credential is redacted whichever operator assigns it", () => {
+  for (const line of [
+    "API_TOKEN := sk-live-abc123",
+    "\tapiKey += sk-live-abc123",
+    "API_KEY=abcd1234efgh",
+    "\tapi.secret = sk-live-abc123",
+  ]) {
+    const redacted = redactSecrets(line);
+    assert.match(redacted, /<redacted>/, line);
+    assert.doesNotMatch(redacted, /sk-live-abc123|abcd1234efgh/, `${line} leaked`);
+  }
+});
+
+// The value-side distinction that lets both halves hold at once: a digit-free identifier names other code,
+// while credential material almost always mixes digits in — the same test `isNameLikeLiteral` already
+// applies to quoted names.
+test("a digit-free identifier is a code reference; one with digits is not", () => {
+  assert.equal(redactSecrets("\tholiday.PtoToken = hours"), "\tholiday.PtoToken = hours");
+  assert.equal(redactSecrets("\tholiday.PtoToken += consumption"), "\tholiday.PtoToken += consumption");
+  assert.match(redactSecrets("\tapiToken = abcd1234"), /<redacted>/, "digits revoke the exemption");
 });
 
 // A KNOWN LIMITATION, pinned rather than papered over. Redaction judges one line at a time, so whether a

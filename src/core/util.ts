@@ -124,6 +124,8 @@ const IDENTIFIER_PATTERN = /[A-Za-z_][A-Za-z0-9_.-]*/g;
 const STRING_LITERAL_PATTERN = /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g;
 const QUOTED_VALUE_PATTERN = /^"((?:[^"\\]|\\.)*)"$|^'((?:[^'\\]|\\.)*)'$/;
 const MEMBER_EXPRESSION_PATTERN = /^[A-Za-z_$][A-Za-z0-9_$]*(\.[A-Za-z_$][A-Za-z0-9_$]*)+$/;
+/** An identifier with no digit — a name in the code, not key material (`hours`, `nil`, `consumption`). */
+const BARE_REFERENCE_PATTERN = /^[A-Za-z_$][A-Za-z_$]*$/;
 /** `fn(...)`, `a.b.fn(...)`, `await fn(...)`, `new Thing(...)` — a call, not a credential. */
 const CALL_EXPRESSION_PATTERN = /^(?:await\s+|new\s+)?[A-Za-z_$][A-Za-z0-9_$]*(?:\.[A-Za-z_$][A-Za-z0-9_$]*)*\s*\(/;
 
@@ -134,7 +136,7 @@ export function redactSecrets(text: string): string {
 
 function redactSecretLine(line: string): string {
   const sensitive = (identifier: string): boolean => isSensitiveIdentifier(identifier);
-  const equals = simpleAssignmentIndex(line);
+  const equals = assignmentIndex(line);
   if (equals >= 0) {
     const prefix = line.slice(0, equals);
     const value = line.slice(equals + 1);
@@ -154,27 +156,32 @@ function redactSecretLine(line: string): string {
 }
 
 /**
- * Where a line assigns with a plain `=`, or -1.
+ * Where a line ASSIGNS, or -1. Comparisons are not assignments; compound assignments are.
  *
- * `indexOf("=")` was measured destroying evidence rather than protecting it: it treats `==`, `!=`, `>=`,
- * `+=`, `=>` and `:=` as assignments, so on a codebase where `*Token` names an ordinary business quantity
- * (hours already consumed) the arithmetic became unreadable — `holiday.PtoToken += <redacted>` for all ten
- * branches of the consumption function, and `err != nil` rewritten to `err != <redacted>` merely because
- * the line mentioned `FuneralToken`. A comparison was even split through the middle: `if x == "…"` came out
- * as `if x =<redacted>`, losing the operator itself.
+ * `indexOf("=")` was measured destroying evidence rather than protecting it: it treats `==`, `!=`, `>=` and
+ * `=>` as assignments, so on a codebase where `*Token` names an ordinary business quantity (hours already
+ * consumed) `err != nil` was rewritten to `err != <redacted>` merely because the line mentioned
+ * `FuneralToken`, and `if x == "…"` came out as `if x =<redacted>` — split through its own operator.
  *
- * Narrowing this is NOT a loosening of the secret surface. Every form excluded here still passes through
- * `redactSensitiveStringLiterals` below, which judges each quoted literal on the line on its own — so
- * `apiKey += "sk-live-…"`, `token := "sk-live-…"` and `if token == "sk-live-…"` all still lose the literal.
- * What stops disappearing is what was never a secret: a bare identifier, a call, a comparison operand.
+ * The split is by MEANING, not by convenience. Every assigning operator stays in (`=`, `:=`, `+=`, `-=`,
+ * `??=`, …) because a secret can be assigned by any of them, and an earlier attempt to exclude compound
+ * forms wholesale leaked real material: `API_TOKEN := sk-live-abc123` in a Makefile and
+ * `apiKey += sk-live-abc123` both stopped being redacted. What separates the business arithmetic from a
+ * credential is the VALUE, and that judgement belongs to `shouldRedactValue` below.
+ *
+ * Comparisons stay out entirely. Their operand is a reference or a literal — a quoted literal is still
+ * judged by `redactSensitiveStringLiterals`; an unquoted one is a variable name, not key material.
  */
-function simpleAssignmentIndex(line: string): number {
+function assignmentIndex(line: string): number {
   for (let index = 0; index < line.length; index += 1) {
     if (line[index] !== "=") continue;
-    // `==`, `===`, `=>` — not an assignment.
+    // `==`, `===`, `=>` — comparison or arrow, never assignment.
     if (line[index + 1] === "=" || line[index + 1] === ">") continue;
-    // `!=`, `<=`, `>=`, `+=`, `-=`, `*=`, `/=`, `%=`, `&=`, `|=`, `^=`, `:=`, and the tails of `??=`/`||=`/`&&=`.
-    if (index > 0 && "!<>+-*/%&|^?:=".includes(line[index - 1])) continue;
+    // `!=`, `<=`, `>=`, and the SECOND `=` of `==`/`===`/`!==` — comparison. Omitting `=` here was measured
+    // splitting `if x == "…"` at its own second character, which redacted the rest of the line including the
+    // brace that closes the condition.
+    if (index > 0 && "!<>=".includes(line[index - 1])) continue;
+    // `+=`, `:=`, `??=`, … all assign; `==`'s second character is caught by the rule above.
     return index;
   }
   return -1;
@@ -221,6 +228,11 @@ function shouldRedactValue(raw: string): boolean {
   // Redacting one destroys an import or the arithmetic a report needs, and protects nothing — a literal
   // passed INSIDE the call is still judged on its own by `redactSensitiveStringLiterals`.
   if (CALL_EXPRESSION_PATTERN.test(value)) return false;
+  // A digit-free identifier is a reference to other code (`hours`, `consumption`, `nil`), not key material.
+  // The digit is what carries the distinction, and it is the same test `isNameLikeLiteral` already applies to
+  // quoted names: credential material almost always mixes digits in, so `abcd1234` stays redacted while
+  // `holiday.PtoToken += hours` keeps the operand a report needs in order to state the arithmetic.
+  if (BARE_REFERENCE_PATTERN.test(value)) return false;
   const quoted = value.match(QUOTED_VALUE_PATTERN);
   if (quoted && isNameLikeLiteral(quoted[1] ?? quoted[2] ?? "")) return false;
   return true;
