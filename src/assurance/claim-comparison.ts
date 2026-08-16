@@ -59,13 +59,18 @@ export function validateComparisonSides(claim: SectionClaim): string[] {
  * (one shared thing, not two things being compared), the noun `一致性` ("consistency" as a quality —
  * hence the `保持一致(?!性)` negative lookahead), and bare `both`. Fine-tuning the list is allowed as
  * long as the positive/negative controls keep passing.
+ *
+ * `等价` and `镜像` were BARE patterns and had to stop being so: in Chinese `镜像` is simply a container
+ * image, and `等价` is ordinary for semantic equivalence. A real run produced three false positives on
+ * sentences like 「上层镜像把时区固定为 Europe/Vienna」, and the author rewrote 镜像 as 容器层 — trading
+ * terminology accuracy for a green audit, which is the wrong thing to make an author do. Both now require
+ * the same connective context the other patterns require, so a cross-source equivalence claim still trips
+ * while a container image does not.
  */
 const COMPARATIVE_PATTERNS: RegExp[] = [
   /共享同一/,
-  /与[^，。；\n]{1,24}(?:相同|一致|等价|共享|同样)/,
-  /两者[^，。；\n]{0,12}(?:相同|一致|等价)/,
-  /等价/,
-  /镜像/,
+  /与[^，。；\n]{1,24}(?:相同|一致|等价|共享|同样|镜像)/,
+  /两者[^，。；\n]{0,12}(?:相同|一致|等价|镜像)/,
   /保持一致(?!性)/,
   /\bequivalent\b/i,
   /\bidentical\b/i,
