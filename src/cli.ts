@@ -383,9 +383,11 @@ Examples:
   excavator report --request request.json
 
 Secret redaction:
-  --redact            Blank secret-looking values in recorded source. Off by default: a local run reads code
-                      the operator already has. Turn it on when the run directory or its HTML export will
-                      leave this machine. \`excavator status\` reports which mode a run used.
+  --redact            Blank secret-looking values in recorded source. Off by default, because redaction has a
+                      measured cost in destroyed evidence while its benefit depends on who receives the
+                      artifacts. Turn it on whenever the run directory or its HTML export will reach anyone
+                      who should not read the source verbatim. \`excavator status\` and each report's front
+                      matter state which mode a run used.
 
 Report detail:
   --detail detailed   Default. Requires a chapter inventory, fine-grained material work-item coverage and minimum report density.
