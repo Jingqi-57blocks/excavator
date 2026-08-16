@@ -16,7 +16,9 @@ Every material statement uses one of four semantic levels:
 - **verified** — a hypothesis was searched and the searched scope is recorded;
 - **unavailable** — static source review cannot answer it.
 
-Render these semantic markers naturally and consistently in the requested output language. Do not copy the English marker words into a report when they would be unnatural in that language.
+Render these semantic markers consistently in the requested output language, choosing from the vocabulary the audit recognises: `references/evidence-markers.json` lists the accepted token for every level in every supported language. Do not copy the English marker words into a report when they would be unnatural in that language, and do not invent a synonym — that file is the contract, and a marker outside it leaves its chapter reported as having no evidence level at all.
+
+The audit reads a marker as a WHOLE backticked token. A component name that merely contains a marker word is therefore not a marker.
 
 Place each marker by these rules:
 

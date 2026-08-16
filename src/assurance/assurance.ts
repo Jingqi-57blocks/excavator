@@ -939,12 +939,42 @@ function visibleText(section: string): string {
     .replace(/<!--([\s\S]*?)-->/g, " ");
 }
 
+/**
+ * The localized marker vocabulary, as whole backticked tokens.
+ *
+ * `writing-rules.md` tells authors to "render these semantic markers naturally … in the requested output
+ * language", while this function accepted exactly four Chinese strings — so an author following the contract
+ * wrote `` `已验证` `` or `` `不可用` `` and the chapter was reported as having no marker at all. Measured on a
+ * real Chinese run: `` `不可得` `` was the only accepted way to say "unavailable", which reads badly, and the
+ * accepted set appeared in no document.
+ *
+ * Matched as COMPLETE tokens rather than substrings: `` `验证服务` `` is a component name, not a marker, and a
+ * substring rule would read it as one. Adding a synonym means adding it here AND to `writing-rules.md`,
+ * which is the honest state — the deeper fix is one vocabulary both the doc and the code read, recorded in
+ * `docs/pending-decisions.md`.
+ */
+const MARKER_TOKENS: Record<string, EvidenceMarker> = {
+  "事实": "fact",
+  "验证": "verified",
+  "已验证": "verified",
+  "推断": "inferred",
+  "已推断": "inferred",
+  "不可得": "unavailable",
+  "不可用": "unavailable",
+  "无法获得": "unavailable",
+};
+
 export function markersIn(text: string): Set<EvidenceMarker> {
   const markers = new Set<EvidenceMarker>();
-  if (/(?:`事实`|\bfact\b)/i.test(text)) markers.add("fact");
-  if (/(?:`验证`|\bverified\b)/i.test(text)) markers.add("verified");
-  if (/(?:`推断`|\binferred\b)/i.test(text)) markers.add("inferred");
-  if (/(?:`不可得`|\bunavailable\b)/i.test(text)) markers.add("unavailable");
+  for (const match of text.matchAll(/`([^`]+)`/g)) {
+    const level = MARKER_TOKENS[match[1].trim()];
+    if (level) markers.add(level);
+  }
+  // English markers stay bare words, as they always were — changing that would move existing runs.
+  if (/\bfact\b/i.test(text)) markers.add("fact");
+  if (/\bverified\b/i.test(text)) markers.add("verified");
+  if (/\binferred\b/i.test(text)) markers.add("inferred");
+  if (/\bunavailable\b/i.test(text)) markers.add("unavailable");
   return markers;
 }
 

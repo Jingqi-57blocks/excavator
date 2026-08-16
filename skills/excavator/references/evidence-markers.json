@@ -1,0 +1,10 @@
+{
+  "_comment": "The evidence-level marker vocabulary the audit recognises, per output language. DATA, not prose: `assurance.ts` reads the same set, so a synonym added here and nowhere else is a bug rather than a difference of opinion. A marker is matched as a WHOLE backticked token, so a component name that merely contains a marker word is not a marker.",
+  "_why": "writing-rules once promised free natural rendering while the audit accepted four exact Chinese strings. A real zh-CN run wrote the natural synonyms in good faith and had whole chapters reported as having no evidence level.",
+  "levels": {
+    "fact": { "en-US": ["fact"], "zh-CN": ["\u4e8b\u5b9e"] },
+    "verified": { "en-US": ["verified"], "zh-CN": ["\u9a8c\u8bc1", "\u5df2\u9a8c\u8bc1"] },
+    "inferred": { "en-US": ["inferred"], "zh-CN": ["\u63a8\u65ad", "\u5df2\u63a8\u65ad"] },
+    "unavailable": { "en-US": ["unavailable"], "zh-CN": ["\u4e0d\u53ef\u5f97", "\u4e0d\u53ef\u7528", "\u65e0\u6cd5\u83b7\u5f97"] }
+  }
+}

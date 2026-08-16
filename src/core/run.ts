@@ -18,6 +18,7 @@ import { readingExposure, renderReadingCheck, type ReadingExposure } from "../as
 import type { BoundaryFunctionsArtifact } from "../context/boundary-functions.ts";
 import { scanCrossRepoLinks } from "../crossrepo/crossrepo-scan.ts";
 import { featureAnchorTerms, tokenize } from "../context/context.ts";
+import { unnegatedAdvice } from "../assurance/recommendation-language.ts";
 import { scopeCensusResidual, scopeCensusUnavailable, type ScopeCensus } from "../context/scope-census.ts";
 import { buildCrossRepoArtifact, mintCrossRepoEvidence, recoveredRouteObligations, routeHandlerObligations, type CrossRepoArtifact } from "../crossrepo/crossrepo-artifact.ts";
 import { goImportAliases, parseHandlerTarget, resolveHandler } from "../crossrepo/handler-resolve.ts";
@@ -960,8 +961,11 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
       const headings = [...text.matchAll(/^##\s+/gm)].length;
       if (headings !== document.sections.length) findings.push({ level: "error", document: document.id, message: `expected ${document.sections.length} sections, found ${headings}` });
       if (!/<details>/i.test(text)) findings.push({ level: "warning", document: document.id, message: "no collapsed evidence block was found" });
-      const forbidden = [/修复建议/g, /改进建议/g, /解决方案/g, /推荐采用/g, /recommendation/gi, /should fix/gi, /we recommend/gi];
-      for (const pattern of forbidden) if (pattern.test(text)) findings.push({ level: "error", document: document.id, message: `recommendation language is not allowed: ${pattern}` });
+      // Advice the report does not disclaim. A bare word list reported the §9 lead-in that ANNOUNCES the
+      // absence of advice as the violation itself — see recommendation-language.ts.
+      for (const advice of unnegatedAdvice(text)) {
+        findings.push({ level: "error", document: document.id, message: `recommendation language is not allowed: ${advice.pattern} — ${advice.excerpt}` });
+      }
       if (!hasEvidenceMarkers(text)) findings.push({ level: "warning", document: document.id, message: "no evidence-level marker was found in the report prose" });
     } else if (!singleDocument) {
       // A single-document audit runs mid-authoring, before assembly, so a missing report is expected there.
