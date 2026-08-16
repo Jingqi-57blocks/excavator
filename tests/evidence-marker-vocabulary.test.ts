@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { markersIn } from "../src/assurance/assurance.ts";
+import { markersIn, MARKER_TOKENS } from "../src/assurance/assurance.ts";
 
 // ONE VOCABULARY, TWO READERS — and a test that fails if they drift.
 //
@@ -13,8 +13,12 @@ import { markersIn } from "../src/assurance/assurance.ts";
 // The vocabulary is now data (`references/evidence-markers.json`) that the contract points at, and this test
 // is what keeps `assurance.ts` honest about it: adding a synonym to one side alone goes red.
 
+// Repo-relative, like `language.test.ts` and `skill-contract.test.ts`. An absolute home-directory path
+// passed here only because this machine symlinks the installed skill back into the repo — on any other
+// machine it is ENOENT, and if the install form were a COPY the test would bind to a stale mirror and stay
+// green while the repo drifted. Green against the wrong file is worse than red.
 const VOCABULARY = JSON.parse(readFileSync(
-  "/Users/57block/.claude/skills/excavator/references/evidence-markers.json", "utf8",
+  new URL("../skills/excavator/references/evidence-markers.json", import.meta.url), "utf8",
 )) as { levels: Record<string, Record<string, string[]>> };
 
 test("every token the contract lists is recognised by the audit", () => {
@@ -29,6 +33,20 @@ test("every token the contract lists is recognised by the audit", () => {
       }
     }
   }
+});
+
+// BOTH DIRECTIONS. The first version of this file only checked contract → code, so a synonym added to
+// `MARKER_TOKENS` alone would have stayed green — the header claimed a bidirectional guard it did not have.
+test("the code recognises exactly the tokens the contract lists, and no others", () => {
+  const fromContract = new Map<string, string>();
+  for (const [level, byLanguage] of Object.entries(VOCABULARY.levels)) {
+    for (const token of byLanguage["zh-CN"] ?? []) fromContract.set(token, level);
+  }
+  assert.deepEqual(
+    Object.fromEntries([...Object.entries(MARKER_TOKENS)].sort(([a], [b]) => a.localeCompare(b))),
+    Object.fromEntries([...fromContract].sort(([a], [b]) => a.localeCompare(b))),
+    "the code's token table and the contract's zh-CN vocabulary must be the same set, mapped the same way",
+  );
 });
 
 // The two natural synonyms the real run tried, named explicitly so a regression is legible without decoding

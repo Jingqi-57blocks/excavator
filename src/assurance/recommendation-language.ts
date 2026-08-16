@@ -36,17 +36,23 @@ const ADVICE_PATTERNS: RegExp[] = [
  * between it and the advice word. `不给出修复建议` and `does not include recommendations` qualify;
  * `不属于本次范围。修复建议见附录` does not, because the full stop ends the negator's reach.
  */
-const NEGATOR = /(?:[不未无勿非]|\bnot\b|\bno\b|\bwithout\b|\bnever\b)/gi;
+const NEGATOR = /(?:[不未无勿]|非(?!常)|\bnot\b|\bno\b|\bwithout\b|\bnever\b)/gi;
 
 /**
- * Where a negator stops governing. Sentence punctuation is not enough — my first version used only that, and
- * probing it found three ways real advice walked through: a bullet list (`- 不涉及改动\n- 修复建议见附录`),
- * a table row (`| 不适用 | 修复建议见附录 |`), and an English subordinate clause
- * (`There is no doubt that we recommend …`). A newline, a cell boundary and a subordinator each start a new
- * assertion, so each ends the reach. Enumerating verb forms failed the same way earlier in this file; the
- * lesson repeated is that the boundary has to be STRUCTURAL, not a list of shapes.
+ * Where a negator stops governing: at any boundary that starts a NEW assertion.
+ *
+ * This rule was too loose twice before landing, both times because the boundary set was assembled from
+ * examples instead of from structure. First it was sentence punctuation only, which leaked across a bullet
+ * (`- 不涉及改动\n- 修复建议见附录`), a table cell (`| 不适用 | 修复建议见附录 |`) and an English
+ * subordinate clause. Then, with those added, it still leaked across **the comma — the main clause boundary
+ * in Chinese**: `服务无法自动恢复，解决方案是重启守护进程。` and six more natural sentences passed silently,
+ * every one of which the old bare word list caught. A gate that stops working fails GREEN, so each miss was
+ * invisible.
+ *
+ * `、` is deliberately NOT a boundary: it separates items inside one clause, so
+ * `不涉及改动、修复建议与迁移步骤` stays governed by its negator.
  */
-const REACH_END = /[。！？；.!?;\n|]|\bthat\b|\bbut\b|\bhowever\b/i;
+const REACH_END = /[。！？；.!?;\n|，,：:]|——|\bthat\b|\bbut\b|\bhowever\b|\band\b|\bso\b/i;
 
 /** How far left of a match a negator may sit and still govern it. */
 const NEGATION_WINDOW = 24;

@@ -953,7 +953,7 @@ function visibleText(section: string): string {
  * which is the honest state — the deeper fix is one vocabulary both the doc and the code read, recorded in
  * `docs/pending-decisions.md`.
  */
-const MARKER_TOKENS: Record<string, EvidenceMarker> = {
+export const MARKER_TOKENS: Record<string, EvidenceMarker> = {
   "事实": "fact",
   "验证": "verified",
   "已验证": "verified",

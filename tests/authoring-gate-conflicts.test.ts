@@ -43,6 +43,25 @@ test("a negator does not reach across a structural boundary", () => {
     "`that` starts a new clause, so the subordinate `no` does not license the main clause");
 });
 
+// THE COMMA — the main clause boundary in Chinese, and the one the boundary set still missed after the two
+// fixes above. Review probed it and found seven NATURAL sentences (not adversarial constructions) that
+// silently passed, every one of which the old bare word list had caught. Twice in this file the boundary set
+// was assembled from examples instead of from structure; these are the examples that finally forced the
+// structural reading.
+test("a negator does not reach across a clause boundary", () => {
+  for (const real of [
+    "服务无法自动恢复，解决方案是重启守护进程。",
+    "不过，修复建议是下调超时。",
+    "无论如何，解决方案概览在第 12 章。",
+    "不含业务逻辑——解决方案是引入网关。",
+    "There is no rate limit, so we recommend adding one.",
+    "The cache is not shared and we recommend enabling it.",
+    "非常推荐采用队列化改造。",
+  ]) {
+    assert.equal(unnegatedAdvice(real).length, 1, real);
+  }
+});
+
 // And the boundaries must not be so eager that a single disclaiming sentence stops working: an enumeration
 // inside one clause is still governed by its negator.
 test("a negator still governs an enumeration inside its own clause", () => {
