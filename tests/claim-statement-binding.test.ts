@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { auditSectionClaims } from "../src/assurance/assurance.ts";
+import { auditSectionClaims, substantiveSegments } from "../src/assurance/assurance.ts";
 import { scaffoldSectionClaims } from "../src/assurance/claims-scaffold.ts";
 import type { SectionClaim } from "../src/core/types.ts";
 
@@ -167,4 +167,30 @@ test("a statement only the legacy folding binds is still accepted", () => {
   const legacyOnly = "产品名为 CMS3000 ，其源码自述为内容管理系统";
   assert.deepEqual(bindingErrors(section, [claim(legacyOnly)]), [],
     "the injected space exists only in the legacy folding of the prose");
+});
+
+// THE SAFETY PROPERTY BEHIND "pick the generation with fewest folding errors": a generation cannot win by
+// producing FEWER segments, because the segment count is the same under both.
+//
+// Why it holds structurally rather than by luck: `substantiveSegments` strips the marker token and unwraps
+// `**bold**` BEFORE splitting, unconditionally — those steps are not part of the folding. The folding then
+// only removes or spaces punctuation-class characters, while the `semanticLength >= 8` filter counts letters
+// and digits. Neither generation changes how many letters a part has, so both keep or drop exactly the same
+// parts. Without this, "fewest errors" could be gamed by a folding that merged two sentences into one and
+// hid a paragraph nobody claimed.
+test("the segment set does not depend on the folding generation", () => {
+  const sections = [
+    "## 1\n\n第一句足够长以形成独立段落 `事实`。第二句也足够长以形成独立段落 `事实`。\n",
+    "## 2\n\n| 组件 | 职责 |\n| --- | --- |\n| **缓存层** | 保存对象与实例数据以降低查询 |\n",
+    "## 3\n\n以 `-` 分隔的项：alpha-beta-gamma 与 delta-epsilon 两组各自独立声明 `事实`。\n",
+    "## 4\n\n带下划线的标识：zms_user 与 zms_object 两表各自声明主键约束 `事实`。\n",
+    "## 5\n\n**加粗引导**：其后跟随足够长的说明文字以形成一个独立段落 `验证`。\n",
+  ];
+  const legacyFold = (value: string) => value.replace(/[`*_>#-]/g, " ").replace(/\s+/g, " ").trim();
+  for (const section of sections) {
+    const current = substantiveSegments(section);
+    const legacy = substantiveSegments(section, legacyFold);
+    assert.equal(current.length, legacy.length,
+      `a generation must not change how many segments a section has: ${JSON.stringify(section.slice(0, 40))}`);
+  }
 });
