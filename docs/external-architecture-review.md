@@ -80,6 +80,28 @@ troubleshooting 有一节标题就叫 "Only certain folders are being documented
 
 **所以 `read-obligations.ts` 那套东西在这批 SOTA 里没有对手；缺的只是粗粒度（仓/模块级）那一层。这是差异化，不是追赶。**
 
+### 三之二、换个领域找类比：覆盖率工具「有概念但输出层压平」，in-toto 才有真范式
+
+代码索引/文档/agent 三个领域都没有，所以第五簇去别的领域找。结论分三层：
+
+**（a）覆盖率工具：内部有三态，输出层一律压平成 0%。**
+- `coverage.py`：触发项是 `source`/`source_pkgs`（**不是** `include`——只设 include 时 `find_possibly_unexecuted_files()` yield 空）。机制在 `control.py::_post_save_work` 的 `touch_files()`，注释原文 "Touch all the files that could have executed, so that we can mark completely un-executed files as 0% covered."。**但 touch 之后与「加载了但 0 行执行」完全同形，JSON 报告无任何区分标记。**
+- JaCoCo：`Analyzer.createAnalyzingVisitor` 内部**有三态**（data 有=正常 / data 无但类名在=`noMatch` / data 无且类名不在=从未加载），但 `XMLCoverageWriter` **不输出 `isNoMatch()`**——两态在 XML 里同形。
+- nyc `all: true`：语义是「未被测试触及的文件也进报告」，同样全零、无缺席标记。
+- **唯一有真范式的是 lcov `--initial`**：从 .gcno 造一份「零覆盖的全集」基线制品，再与观测合并。man page 原话是这样才能 "ensure that the percentage of total lines covered is correct **even when not all source code files were loaded**"。数据结构上「零覆盖」= 正常 `SF:` 记录 + `DA:n,0`，**「根本没跑到」= 没有 `SF:` 记录**——两态可区分，但靠的是**全集先作为独立零基线制品存在**。
+
+**（b）变异测试：两个独立状态 + 双分母，值得直接抄报告口径。**
+Stryker 状态全枚举 `Killed / Survived / NoCoverage / Timeout / RuntimeError / CompileError / Ignored`，`NoCoverage` 官方定义「The mutant isn't covered by one of your tests and survived as a result.」，与 `Survived`（「all tests passed … You're missing a test for it.」）**明确分开**。PIT 的 `NO_COVERAGE` 同理。
+**最值得抄的是指标定义**：`undetected = survived + noCoverage`；`mutationScore = detected / valid`；`mutationScoreBasedOnCoveredCode = detected / covered`——**同一份报告并列「对全集的分」与「对可达集的分」，缺席不被稀释掉。**
+
+**（c）SLSA 不能用，in-toto 可以。**
+- SLSA v1.0 的 `resolvedDependencies` 自陈 **"Completeness is best effort, at least through SLSA Build L3."** → **不构成输入全集的可验证声明，拿它当全集会给出假的可辩护性。**（对照 `externalParameters` 才有完整性义务：「MUST be complete at SLSA Build L3」。）
+- **in-toto layout artifact rules 才是要的东西**：规则按序作用于 materials/products 队列，「if an artifact is successfully consumed by a rule, it is removed from the queue」，显式以 `["DISALLOW", "*"]` 收尾 → **任何未被前序规则解释的产物直接令验证失败**。verbs：`MATCH / ALLOW / DISALLOW / REQUIRE / CREATE / DELETE / MODIFY`。
+
+**（d）文档—代码绑定：通行做法是软失败，等于没有绑定。**
+Sphinx `literalinclude` 的 `LiteralInclude.run()` 有个兜底 `except Exception as exc: return [...warning(exc)]`，把所有断链（`start-after pattern not found`、`Object named %r not found`、文件不存在）全部降级为 warning——**只有 `-W` 才红**。rustdoc 的 `broken_intra_doc_links` 等全部 warn-by-default。
+**教训是负面的：默认软失败等于没有绑定；只有绑到编译器或显式 deny 才真的红。**
+
 ## 四、值得复刻的机制（按能治哪个缺口排序）
 
 ### 第 1 名 · 节点先于边 + 全员兜底（治「整模块清零」）
@@ -118,6 +140,14 @@ LocAgent 对无 `.py` 目录 `graph.remove_node` **物理删除**；gitingest �
 
 **落法**：把 `context.ts:398` 的 `scopeNodesCapped: boolean` 升级成一张表——
 `模块 → (候选池节点数, 保留节点数, 预算占比, 排除原因)`，进 freeze 产物与审计。**某模块 0 就是可见告警。**
+
+**三条来自别的领域的形态约束（§三之二 的收敛结论，直接进 ② 的设计）**：
+
+1. **全集必须先作为独立的零基线制品存在**（lcov `--initial`）。没有被减数就没有残差可言——这与规划层给 ② 定的验收门（行集取自**过滤前视图**、构造「某模块 0 命中」fixture 断言其以零计数行出现）是同一件事，两边独立收敛到同一个要求。
+2. **「被显式豁免」与「无人解释」必须是两个状态**（in-toto 队列消费 + 末尾 `DISALLOW *`；Stryker 的 `NoCoverage` vs `Survived`）。覆盖率工具全部把这两者压成同一个 0%，**这正是它们的输出层失效之处**。我们的排除清单必须携带「谁按哪条规则豁免的」，与「压根没人碰过」分开计。
+3. **报告层用双分母**（Stryker：`mutationScore = detected/valid` 与 `mutationScoreBasedOnCoveredCode = detected/covered` 并列）。凡出 coverage 百分比，必须同时给「对全集的分」与「对可达集的分」，**否则缺席会被稀释**。这与规划层裁定的「凡出百分比必带 census 模块 N / 入账模块 M 一行」同构。
+
+**远期方向（不进 ② 本片）**：in-toto 的 `DISALLOW *` 把「残差非空」做成**验证失败条件**而不是报告里的一个数字。这是本轮约 40 个对象里唯一做到这一点的机制。我们的路径应是：② 先让残差可见（advisory）→ 攒够读数后按世代闸硬化为门。**先量后硬化，与既有纪律一致。**
 
 ### 第 3 名 · 约定即种子、失败退化为超集（治框架驱动系统）
 
