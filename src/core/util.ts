@@ -178,8 +178,8 @@ function classifyOperator(line: string): LineOperator | null {
     if (line[index] !== "=") continue;
     const before = index > 0 ? line[index - 1] : "";
     const after = line[index + 1] ?? "";
-    // `=>` is an arrow, neither side of this split.
-    if (after === ">") continue;
+    // `=>` is an arrow and `=~` is Perl's binding operator; neither assigns.
+    if (after === ">" || after === "~") continue;
     // `==`, `===`, `!==` — the comparison starts at the FIRST `=`, or one character earlier for `!==`.
     if (after === "=") {
       const start = before === "!" ? index - 1 : index;
@@ -232,8 +232,12 @@ function isSensitiveIdentifier(identifier: string): boolean {
 function shouldRedactValue(raw: string, bareReferenceAllowed = false): boolean {
   // A comparison's right operand carries the syntax that closes the condition — `nil {`, `requested {`,
   // `s3cr3tpass99 ]; then`. That tail is not part of the value, and judging it as one made every comparison
-  // look like credential material. The value is what stands before it.
-  const value = raw.trim().replace(/[,;]$/, "").replace(/\s*(?:\{|\]\s*;?.*|\)\s*\{?.*)$/, "").trim();
+  // look like credential material.
+  //
+  // The trim requires WHITESPACE before the closer, because without it the closer cannot be told from the
+  // value: `!= abc]` would otherwise be read as an empty value and pass through, which is a leak. Attached
+  // punctuation therefore stays part of the value and is judged with it — the conservative direction.
+  const value = raw.trim().replace(/[,;]$/, "").replace(/\s+(?:\{|\}|\]\s*;?.*|\)\s*\{?.*)$/, "").trim();
   if (!value || value.startsWith("${") || value === "null" || value === "true" || value === "false" || /^-?\d+(?:\.\d+)?$/.test(value)) return false;
   if (value.startsWith("{") || value.startsWith("[")) return false;
   if (MEMBER_EXPRESSION_PATTERN.test(value)) return false;

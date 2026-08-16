@@ -150,6 +150,27 @@ test("an unquoted credential compared in a shell script is redacted, and a code 
   assert.equal(redactSecrets("\tif leftToken >= requested {"), "\tif leftToken >= requested {");
 });
 
+// Two surfaces this rework introduced, attacked before review saw them.
+//
+// `=~` is Perl's binding operator. Reading it as an assignment destroyed `$token =~ s/a/b/` into
+// `$token =<redacted>` — the same class of damage this whole slice exists to remove, on one of the target
+// languages the engine explicitly supports.
+test("Perl's binding operator is not an assignment", () => {
+  assert.equal(redactSecrets("$token =~ s/a/b/"), "$token =~ s/a/b/");
+  assert.equal(redactSecrets("\tif ($password =~ /^abc/) {"), "\tif ($password =~ /^abc/) {");
+});
+
+// Trimming a condition's closing syntax must require whitespace before it. Without that, `!= abc]` reads as
+// an empty value and passes through — a leak created by the very code that fixed the comparison path.
+test("condition-closing syntax is trimmed only when it is separate from the value", () => {
+  for (const line of ["if [ $PASSWORD != abc]", "if(token==\"x\"){", "if [ $TOKEN != a]b ]; then"]) {
+    assert.match(redactSecrets(line), /<redacted>/, line);
+  }
+  // And a real tail is still trimmed, so ordinary comparisons stay readable.
+  assert.equal(redactSecrets("\tif leftToken >= requested {"), "\tif leftToken >= requested {");
+  assert.equal(redactSecrets("if password != foo(bar) {"), "if password != foo(bar) {");
+});
+
 // The `:=` guard on the mapping branch had no test: a mutation disabling it left all nine green while
 // `apiToken := hours` came out as `apiToken :<redacted>`, losing the `=`.
 test("a Go short declaration is not read as a key: value mapping", () => {
