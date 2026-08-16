@@ -171,14 +171,10 @@ test("a statement only the legacy folding binds is still accepted", () => {
 
 // THE SAFETY PROPERTY BEHIND "pick the generation with fewest folding errors" — stated correctly this time.
 //
-// My first version of this test claimed the SEGMENT COUNT is generation-independent and called the argument
-// structural. It is not: `substantiveSegments` de-duplicates with `new Set` AFTER folding, so a folding that
-// makes two sentences identical merges them. Review produced the counterexample —
-// `配置项 on\`off\`切换 生效于启动流程。配置项 on off 切换 生效于启动流程。` yields 2 segments under the
-// current folding and 1 under legacy — and my test had passed only because its fixtures happened to avoid a
-// collision. Asserting a false property as a proof is worse than asserting nothing.
+// The count is NOT generation-independent: `substantiveSegments` de-duplicates with `new Set` AFTER folding,
+// so a folding that makes two sentences identical merges them (pinned separately below).
 //
-// What IS generation-independent is the set of parts BEFORE de-duplication: the marker token and `**bold**`
+// What IS generation-independent is which parts survive the length filter: the marker token and `**bold**`
 // are stripped before splitting, the folding then only touches punctuation-class characters, and the
 // `semanticLength >= 8` filter counts letters and digits. So no generation can drop a part the other keeps.
 test("which parts survive the length filter does not depend on the folding generation", () => {
@@ -190,10 +186,12 @@ test("which parts survive the length filter does not depend on the folding gener
     "## 4\n\n带下划线的标识：zms_user 与 zms_object 两表各自声明主键约束 `事实`。\n",
     "## 5\n\n**加粗引导**：其后跟随足够长的说明文字以形成一个独立段落 `验证`。\n",
   ];
-  for (const section of sections) {
-    // No collisions in these fixtures, so de-duplication is a no-op and the counts coincide — which is the
-    // only reason a count comparison is meaningful here at all.
-    assert.equal(substantiveSegments(section).length, substantiveSegments(section, legacyFold).length, section.slice(0, 40));
+  // Absolute counts, not parity. Parity stays green if BOTH generations lose a part — the regression this
+  // is meant to catch — so each fixture pins the number it must produce, under both foldings.
+  const expected = [2, 1, 1, 1, 1];
+  for (const [index, section] of sections.entries()) {
+    assert.equal(substantiveSegments(section).length, expected[index], `current folding, fixture ${index}`);
+    assert.equal(substantiveSegments(section, legacyFold).length, expected[index], `legacy folding, fixture ${index}`);
   }
 });
 
@@ -218,10 +216,10 @@ test("folding can merge twin sentences on de-duplication, as it always could", (
 // decides the length: decoration ADJACENT to text is removed by the current folding and spaced by the legacy
 // one, so `` `abc`de `` is 5 characters now and 6 before — below and above the binding threshold.
 //
-// Review found this by construction and I first tried to pin it with `` `事实` 共5项 ``, which does NOT prove
-// it: segments strip the marker token under BOTH generations, so a marker-bearing claim can never satisfy
-// coverage under legacy either, and both generations cost 1. A test that fails for a different reason than
-// the one it names is worse than no test.
+// The construction matters: a marker-bearing statement like `` `事实` 共5项 `` does NOT demonstrate this,
+// because segments strip the marker token under BOTH generations, so such a claim fails coverage under
+// legacy too and both generations cost the same. Decoration ADJACENT to text is the only shape that moves
+// the length alone.
 test("a statement only one generation makes long enough is not reported as too short", () => {
   const section = "## 1. 项\n\n配置项 `abc`de 与其余项各自独立声明于主配置文件 `事实`。\n";
   const findings = auditSectionClaims({
