@@ -124,8 +124,20 @@ const IDENTIFIER_PATTERN = /[A-Za-z_][A-Za-z0-9_.-]*/g;
 const STRING_LITERAL_PATTERN = /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g;
 const QUOTED_VALUE_PATTERN = /^"((?:[^"\\]|\\.)*)"$|^'((?:[^'\\]|\\.)*)'$/;
 const MEMBER_EXPRESSION_PATTERN = /^[A-Za-z_$][A-Za-z0-9_$]*(\.[A-Za-z_$][A-Za-z0-9_$]*)+$/;
-/** A left-hand side written in configuration case (`SECRET`, `API_TOKEN`) rather than code case. */
-const ALL_CAPS_TARGET = /(^|[^A-Za-z0-9_])[A-Z][A-Z0-9_]*\s*$/;
+/** A plain shell variable read — `$NAME`, `"$NAME"`, `${NAME}` — as opposed to `$(cmd)` or `$1`. */
+const SHELL_VARIABLE_READ = /^"?\$\{?[A-Za-z_][A-Za-z0-9_]*\}?"?$/;
+
+/**
+ * Whether the accumulation target reads as CODE rather than as a configuration slot.
+ *
+ * The exemption is granted to the target being camelCase or dotted-member — `holiday.PtoToken`, `leftToken`
+ * — because that is what the business arithmetic looks like. Everything else, including `SECRET`, `A` and
+ * `MY_secret`, keeps the redaction: probing this rule found `MY_secret += changeme` and `A += changeme`
+ * leaking when it was written the other way round (as "all-caps means config"), which is the same
+ * grant-by-shape mistake in miniature — a shape test says what a name LOOKS like, and only the complement
+ * is safe to trust.
+ */
+const CODE_CASED_TARGET = /(?:^|[^A-Za-z0-9_$])[a-z_$][A-Za-z0-9_$]*(?:\.[A-Za-z_$][A-Za-z0-9_$]*)*\s*$/;
 /** An identifier with no digit — a name in the code, not key material (`hours`, `nil`, `consumption`). */
 const BARE_REFERENCE_PATTERN = /^[A-Za-z_$][A-Za-z_$]*$/;
 /** `fn(...)`, `a.b.fn(...)`, `await fn(...)`, `new Thing(...)` — a call, not a credential. */
@@ -209,11 +221,11 @@ function classifyOperator(line: string): LineOperator | null {
     // quantity, which is what the business arithmetic looks like and what a config file never uses to carry
     // a secret. That distinction is the only place a bare identifier may be spared.
     // `+=` ACCUMULATES a running quantity — but only in code. `SECRET += changeme` is a config file
-    // appending to a value, and an ALL-CAPS left-hand side is exactly how configuration spells that, while
-    // the business arithmetic this slice exists to protect is written `holiday.PtoToken += consumption`.
-    // So the exemption is spent on the operator AND the casing together, not on the operator alone.
+    // appending to a value. The exemption is therefore spent on the operator AND the target reading as code
+    // (camelCase or a dotted member), not on the operator alone: stated as its complement ("all-caps means
+    // config") it leaked `MY_secret += changeme` and `A += changeme`.
     const compound = "+-*/%".includes(before);
-    const arithmetic = compound && !ALL_CAPS_TARGET.test(line.slice(0, index - 1));
+    const arithmetic = compound && CODE_CASED_TARGET.test(line.slice(0, index - 1));
     return { index: compound ? index - 1 : index, length: compound ? 2 : 1, kind: "assign", arithmetic };
   }
   return null;
@@ -279,7 +291,10 @@ function shouldRedactValue(raw: string, bareReferenceAllowed = false, bound = fa
   const shellTest = /\]\s*;?\s*(?:then\b.*)?$/.test(raw.trimEnd()) || /^\s*[^\s]+\s*\]\]/.test(raw);
   if (shellTest) {
     const operand = raw.trim().replace(/\s*\]\]?.*$/, "").trim();
-    return Boolean(operand) && !operand.startsWith("$") && !operand.startsWith("\"$") && !/^\$/.test(operand);
+    // Only a plain variable read is a reference. `$(cat /etc/pw)` runs a command and `$1` is a positional
+    // argument — both were measured leaking when any `$` prefix was enough, so the exemption names the
+    // shape it actually means: `$NAME` or `"${NAME}"`, nothing else.
+    return Boolean(operand) && !SHELL_VARIABLE_READ.test(operand);
   }
   // A comparison's right operand carries the syntax that closes the condition — `nil {`, `requested {`,
   // `s3cr3tpass99 ]; then`. That tail is not part of the value, and judging it as one made every comparison

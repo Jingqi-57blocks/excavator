@@ -268,3 +268,29 @@ const MUST_STAY_READABLE = [
 test("every construction a report needs stays readable", () => {
   for (const line of MUST_STAY_READABLE) assert.equal(redactSecrets(line), line, line);
 });
+
+// INTENDED RELAXATIONS, listed because a differential against the previous redactor cannot tell an
+// improvement from a leak — only intent can, and intent has to be written down to be checkable.
+//
+// Each line below IS redacted by the old redactor and is deliberately not by this one. The test that makes
+// the list safe is the one above it: everything not on this list and once leaked must still be redacted.
+// A future relaxation belongs here with its reason, or it does not ship.
+const INTENDED_RELAXATIONS: Array<[string, string]> = [
+  ["\tholiday.PtoToken += hours", "business arithmetic: the operand is a quantity, and the report states the rule"],
+  ["\toldHoursTem, token, err := calcHours(a, b)", "a call is code, never key material"],
+  ["\tconst tokenService = require(\"./tokenService\")", "an import destroyed by the old rule"],
+  ["\tif holiday.FuneralToken > 0 && err != nil {", "a comparison operand, not an assignment"],
+  ["if [ \"$PASSWORD\" == \"$STORED_PASSWORD\" ]", "comparing two variables reveals neither value"],
+  ["if [ $PASSWORD == $EXPECTED ]", "same, unquoted"],
+  ["$token =~ s/a/b/", "a substitution is code"],
+];
+
+test("each intended relaxation reveals no literal secret", () => {
+  for (const [line, reason] of INTENDED_RELAXATIONS) {
+    assert.equal(redactSecrets(line), line, `${line} — relaxed because: ${reason}`);
+    // The safety condition for relaxing at all: what stays visible is a name or a quantity, never a literal
+    // that could BE a credential. A quoted literal or a bare word with digits would fail this.
+    const operand = line.split(/[=!<>~]+/).pop()?.trim() ?? "";
+    assert.doesNotMatch(operand, /^["'][^"']*[0-9][^"']*["']$/, `${line} exposes a digit-bearing literal`);
+  }
+});
