@@ -209,7 +209,7 @@ test("source search supports regex and case sensitivity without matching identif
     { absolutePath: todo, relativePath: "src/todo.ts", size: todoStat.size, extension: ".ts", rootName: "root" },
     { absolutePath: list, relativePath: "src/TodoList.ts", size: listStat.size, extension: ".ts", rootName: "root" }
   ];
-  const matches = await sourceSearch(files, ["\\bTODO\\b"], { regex: true, caseSensitive: true, maxResults: 10 });
+  const matches = await sourceSearch(files, ["\\bTODO\\b"], { regex: true, caseSensitive: true, maxResults: 10, redact: false });
   assert.deepEqual(matches.map((match) => match.file.relativePath), ["src/todo.ts"]);
 });
 
@@ -228,7 +228,7 @@ test("source search ranks subject source ahead of unrelated test and generated m
     const info = await stat(absolutePath);
     files.push({ absolutePath, relativePath, size: info.size, extension: relativePath.slice(relativePath.lastIndexOf(".")), rootName: "root" });
   }
-  const matches = await sourceSearch(files, ["leave"], { maxResults: 10 });
+  const matches = await sourceSearch(files, ["leave"], { maxResults: 10, redact: false });
   assert.equal(matches[0].file.relativePath, "src/leave/service.ts");
   assert.ok(matches[0].score > matches.find((match) => match.file.relativePath === "tests/cache.test.ts")!.score);
 });

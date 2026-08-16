@@ -34,7 +34,7 @@ const LINK: CrossRepoScan["links"][number] = {
 // somebody opened. Minting link ends as source would mark each resolved handler span as read without any
 // reading having happened — the resolver would quietly forge the metric it was built to support.
 test("link evidence is derived, so resolving a route never counts as reading it", () => {
-  const { evidence } = mintCrossRepoEvidence(scanWith([LINK]), "snap-1");
+  const { evidence } = mintCrossRepoEvidence(scanWith([LINK]), "snap-1", false);
   assert.equal(evidence.length, 2);
   assert.deepEqual([...new Set(evidence.map((item) => item.kind))], ["derived"]);
 
@@ -57,7 +57,7 @@ test("link evidence is derived, so resolving a route never counts as reading it"
 });
 
 test("each link binds exactly two evidence records, naming the file and line at both ends", () => {
-  const { evidence, byLink } = mintCrossRepoEvidence(scanWith([LINK]), "snap-1");
+  const { evidence, byLink } = mintCrossRepoEvidence(scanWith([LINK]), "snap-1", false);
   const artifact = buildCrossRepoArtifact(scanWith([LINK]), "snap-1", { evidence, byLink });
   const [fromId, toId] = artifact.links[0].evidenceIds;
   const from = evidence.find((item) => item.id === fromId);
@@ -71,35 +71,40 @@ test("each link binds exactly two evidence records, naming the file and line at 
 });
 
 test("minting is deterministic: the same scan yields byte-identical evidence and ids", () => {
-  const first = mintCrossRepoEvidence(scanWith([LINK]), "snap-1");
-  const second = mintCrossRepoEvidence(scanWith([LINK]), "snap-1");
+  const first = mintCrossRepoEvidence(scanWith([LINK]), "snap-1", false);
+  const second = mintCrossRepoEvidence(scanWith([LINK]), "snap-1", false);
   assert.equal(JSON.stringify(first.evidence), JSON.stringify(second.evidence));
   assert.deepEqual([...first.byLink.entries()], [...second.byLink.entries()]);
 });
 
 test("two calls to the same handler resolve one handler, not two", () => {
   const second: CrossRepoScan["links"][number] = { ...LINK, from: { ...LINK.from, line: 300, path: "src/pages/Apply.tsx" } };
-  const artifact = buildCrossRepoArtifact(scanWith([LINK, second]), "snap-1", mintCrossRepoEvidence(scanWith([LINK, second]), "snap-1"));
+  const artifact = buildCrossRepoArtifact(scanWith([LINK, second]), "snap-1", mintCrossRepoEvidence(scanWith([LINK, second]), "snap-1", false));
   assert.equal(artifact.links.length, 2);
   assert.deepEqual(resolvedHandlers(artifact).map((handler) => `${handler.path}:${handler.line}`), ["internal/handlers/handlers.go:98"]);
 });
 
 // evidence.json is a durable artifact, and a URL literal can carry a token. Copying source text into it
 // verbatim would route around the redaction pipeline every other evidence path goes through.
-test("source text minted into evidence goes through redaction", () => {
+test("source text minted into evidence goes through redaction when the run asked for it", () => {
   const withSecret: CrossRepoScan["links"][number] = {
     ...LINK,
     from: { ...LINK.from, expression: "`${api}/v2/leaves?token=ghp_aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789`" },
   };
-  const { evidence } = mintCrossRepoEvidence(scanWith([withSecret]), "snap-1");
+  const { evidence } = mintCrossRepoEvidence(scanWith([withSecret]), "snap-1", true);
   const call = evidence.find((item) => item.id.startsWith("XR-call-"));
   const expression = String((call?.data as { expression?: string })?.expression ?? "");
   assert.ok(!expression.includes("ghp_aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789"), `the token must not survive into evidence: ${expression}`);
   assert.ok(expression.includes("/v2/leaves"), "the path itself is still legible");
+
+  // And with redaction off — the default, since a local run records a workspace the operator already has —
+  // the URL is recorded as written. The two modes must be distinguishable, never silently the same.
+  const plain = mintCrossRepoEvidence(scanWith([withSecret]), "snap-1", false).evidence.find((item) => item.id.startsWith("XR-call-"));
+  assert.match(String((plain?.data as { expression?: string })?.expression ?? ""), /ghp_aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789/);
 });
 
 test("an empty scan produces an artifact with no links and no evidence, not a crash", () => {
-  const binding = mintCrossRepoEvidence(scanWith([]), "snap-1");
+  const binding = mintCrossRepoEvidence(scanWith([]), "snap-1", false);
   const artifact = buildCrossRepoArtifact(scanWith([]), "snap-1", binding);
   assert.deepEqual(artifact.links, []);
   assert.deepEqual(binding.evidence, []);

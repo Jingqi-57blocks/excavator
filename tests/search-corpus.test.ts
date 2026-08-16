@@ -43,7 +43,7 @@ test("source search reaches proto, graphql and terraform bodies that the snapsho
     const info = await stat(absolutePath);
     files.push({ absolutePath, relativePath, size: info.size, extension, rootName: "root" });
   }
-  const matches = await sourceSearch(files, ["leave_balance", "leaveBalance"], { maxResults: 10 });
+  const matches = await sourceSearch(files, ["leave_balance", "leaveBalance"], { maxResults: 10, redact: false });
   const hitPaths = new Set(matches.map((match) => match.file.relativePath));
   assert.ok(hitPaths.has("api/user.proto"), "a .proto body must be searchable");
   assert.ok(hitPaths.has("api/schema.graphql"), "a .graphql body must be searchable");

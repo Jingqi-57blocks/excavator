@@ -6,7 +6,7 @@ import { CodeGraphSet } from "../codegraph/codegraph-set.ts";
 import { pruneFeatureGraphWithModuleFloor } from "./prune-module-floor.ts";
 import { createSnapshot, isLikelySource, type ScannedFile } from "../snapshot/snapshot.ts";
 import { SourceReader, evidenceFromWindow, manifestSummary, selectProjectDocuments, sourceSearch } from "../snapshot/source.ts";
-import { Deadline, ensureDir, exists, projectWorkspace, readJson, sha256, slugify, stableJson, truncate, writeJson } from "../core/util.ts";
+import { Deadline, ensureDir, exists, projectWorkspace, readJson, redactionCacheTag, sha256, slugify, stableJson, truncate, writeJson } from "../core/util.ts";
 import { createProviderRegistry, resolveCodeGraphDatabase } from "../snapshot/providers.ts";
 import { buildFactPack, factPackEvidence, renderFactPackSection } from "./factpack.ts";
 import { BOUNDARY_FUNCTIONS_VERSION, BOUNDARY_FUNCTION_KINDS, enumerateBoundaryFunctions, type BoundaryFunctionsArtifact, type FeatureBoundaryFunctions } from "./boundary-functions.ts";
@@ -83,7 +83,8 @@ export async function buildContexts(request: ReportRequest): Promise<ContextBuil
     snapshotId: snapshot.id,
     cacheDir: cacheRoot,
     maxWindows: request.budgets.maxSourceWindows,
-    maxCharacters: request.budgets.maxSourceCharacters
+    maxCharacters: request.budgets.maxSourceCharacters,
+    redact: request.redactSecrets === true
   });
 
   let graph: GraphReader | null = null;
@@ -108,7 +109,9 @@ export async function buildContexts(request: ReportRequest): Promise<ContextBuil
   if (request.codegraph && codegraphResolution.source === "unavailable") warnings.push(`The requested CodeGraph database is unavailable: ${request.codegraph}`);
 
   const cache: Record<string, "hit" | "miss" | "unused"> = { shared: "miss" };
-  const sharedCachePath = join(cacheRoot, "contexts", snapshot.id, `${BUILDER_VERSION}-shared.json`);
+  // The prepared context embeds recorded source text, so it is a redaction-mode artifact like any window.
+  const builderVersion = `${BUILDER_VERSION}${redactionCacheTag(sourceReader.redacts)}`;
+  const sharedCachePath = join(cacheRoot, "contexts", snapshot.id, `${builderVersion}-shared.json`);
   let shared: CachedShared;
   if (await exists(sharedCachePath)) {
     shared = await readJson<CachedShared>(sharedCachePath);
@@ -139,7 +142,7 @@ export async function buildContexts(request: ReportRequest): Promise<ContextBuil
   for (const feature of request.features) {
     deadline.check(`preparing feature ${feature.subject}`);
     const key = featureCacheKey(feature);
-    const cachePath = join(cacheRoot, "features", snapshot.id, `${BUILDER_VERSION}-${key}.json`);
+    const cachePath = join(cacheRoot, "features", snapshot.id, `${builderVersion}-${key}.json`);
     let cached: CachedFeature;
     if (await exists(cachePath)) {
       cached = await readJson<CachedFeature>(cachePath);
@@ -269,7 +272,7 @@ async function buildSharedContext(snapshot: Snapshot, files: ScannedFile[], grap
       const item = evidenceFromWindow(window, kind);
       item.title = file.relativePath;
       evidence.push(item);
-      docSummaries.push({ path: file.relativePath, root: file.rootName, kind, summary: kind === "manifest" ? manifestSummary(file.relativePath, window.content) : truncate(window.content, 2_000) });
+      docSummaries.push({ path: file.relativePath, root: file.rootName, kind, summary: kind === "manifest" ? manifestSummary(file.relativePath, window.content, sourceReader.redacts) : truncate(window.content, 2_000) });
     } catch (error) {
       warnings.push(`Could not read ${file.relativePath}: ${(error as Error).message}`);
     }
@@ -286,7 +289,7 @@ async function buildSharedContext(snapshot: Snapshot, files: ScannedFile[], grap
 
   const unindexed = files.filter((file) => isLikelySource(file) && !graphPaths.has(file.relativePath));
   if (unindexed.length) {
-    const matches = await sourceSearch(unindexed, ["router", "route", "controller", "handler", "schedule", "cron", "permission", "role", "migration", "schema"], { maxResults: 24 });
+    const matches = await sourceSearch(unindexed, ["router", "route", "controller", "handler", "schedule", "cron", "permission", "role", "migration", "schema"], { maxResults: 24, redact: sourceReader.redacts });
     const specs = mergeWindows(matches.map((match) => ({
       path: match.file.relativePath,
       start: Math.max(1, match.line - 8),
@@ -350,7 +353,7 @@ async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], fea
   }
 
   const needBroadFallback = !graph || nodes.length < 5 || unresolved.length > Math.max(5, nodes.length / 3);
-  const searchResults = await sourceSearch(files, terms, { graphPaths, onlyUnindexed: !needBroadFallback, maxResults: 80 });
+  const searchResults = await sourceSearch(files, terms, { graphPaths, onlyUnindexed: !needBroadFallback, maxResults: 80, redact: sourceReader.redacts });
   const fallbackReason = needBroadFallback
     ? "feature source fallback because graph coverage was insufficient"
     : "feature source fallback for an unindexed file";
@@ -369,7 +372,7 @@ async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], fea
   const scopeCandidates = files.filter((file) => graphFileSet.has(file.relativePath) || terms.some((term) => file.relativePath.toLowerCase().includes(term.toLowerCase())));
   const semanticSpecs: Array<{ path: string; start: number; end: number; reason: string }> = [];
   for (const category of FEATURE_AUTHORING_CATEGORIES.filter((item) => item.searchTerms.length)) {
-    const matches = await sourceSearch(scopeCandidates.length ? scopeCandidates : files, category.searchTerms, { maxResults: 16 });
+    const matches = await sourceSearch(scopeCandidates.length ? scopeCandidates : files, category.searchTerms, { maxResults: 16, redact: sourceReader.redacts });
     for (const match of matches.slice(0, 2)) semanticSpecs.push({
       path: match.file.relativePath,
       start: Math.max(1, match.line - 12),

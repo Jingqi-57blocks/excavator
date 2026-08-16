@@ -281,7 +281,7 @@ export async function buildFactPack(input: FactPackInput): Promise<FeatureFactPa
     }
 
     if (strategy.scan) {
-      const scanned = await scanCategory(strategy, input.files, maxItems, notes);
+      const scanned = await scanCategory(strategy, input.files, maxItems, notes, input.sourceReader.redacts);
       collected.push(...scanned);
     }
 
@@ -401,10 +401,10 @@ Fact pack warnings: ${pack.warnings.length ? pack.warnings.map((warning) => cell
 ${blocks.join("\n\n")}`;
 }
 
-async function scanCategory(strategy: CategoryStrategy, files: ScannedFile[], maxItems: number, notes: string[]): Promise<FactPackItem[]> {
+async function scanCategory(strategy: CategoryStrategy, files: ScannedFile[], maxItems: number, notes: string[], redact: boolean): Promise<FactPackItem[]> {
   const scan = strategy.scan!;
   if (!files.length) return [];
-  const matches = await sourceSearch(files, scan.patterns, { regex: true, caseSensitive: scan.caseSensitive, maxResults: maxItems });
+  const matches = await sourceSearch(files, scan.patterns, { regex: true, caseSensitive: scan.caseSensitive, maxResults: maxItems, redact });
   if (matches.length >= maxItems) notes.push(`source scan returned the maximum ${maxItems} matches`);
   const perFile = new Map<string, number>();
   for (const match of matches) perFile.set(match.file.relativePath, (perFile.get(match.file.relativePath) ?? 0) + 1);

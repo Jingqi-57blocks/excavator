@@ -32,6 +32,17 @@ export interface ReportRequest {
   overviewAudiences: Audience[];
   features: FeatureRequest[];
   budgets: BudgetConfig;
+  /**
+   * Whether recorded source is scanned for secrets and their values blanked. OFF by default: Excavator runs
+   * on a workspace the operator already has, so redacting it protects nothing the operator cannot read
+   * anyway, while it demonstrably destroys evidence — a real run had ten branches of a leave-balance
+   * calculation recorded as `<redacted>` because the domain names an hours field `*Token`.
+   *
+   * Turn it ON for a run whose artifacts leave the machine: the run directory holds verbatim source, and the
+   * HTML export republishes it. The choice is recorded here, so a reader of the artifacts can always tell
+   * which of the two they are holding.
+   */
+  redactSecrets?: boolean;
 }
 
 export interface BudgetConfig {

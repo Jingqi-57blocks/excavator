@@ -120,6 +120,18 @@ async function readTargetMarker(path: string): Promise<string | null> {
  */
 export const REDACTION_VERSION = "redaction-v7";
 
+/**
+ * Cache-key suffix separating the two redaction modes. EVERY cache holding recorded source text needs it.
+ *
+ * Three caches already did — source windows, search receipts, and the prepared contexts — and each was found
+ * separately, the last one only because an end-to-end test flipped the mode against a warm cache and watched
+ * plain text come back. They share this function so that a fourth cache is a call away from correct, and so
+ * that grepping it lists every cache that has considered the question.
+ */
+export function redactionCacheTag(redact: boolean): string {
+  return redact ? "" : "-plain";
+}
+
 const IDENTIFIER_PATTERN = /[A-Za-z_][A-Za-z0-9_.-]*/g;
 const STRING_LITERAL_PATTERN = /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g;
 const TEMPLATE_LITERAL_PATTERN = /`(?:[^`\\]|\\.)*`/g;

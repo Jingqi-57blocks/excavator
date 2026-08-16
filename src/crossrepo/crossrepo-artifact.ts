@@ -37,7 +37,7 @@ export function linkId(link: CrossRepoScan["links"][number]): string {
  * Mint the two derived evidence records each link is bound to. Deterministic: ids and digests derive from
  * the link's own coordinates, so the same snapshot yields byte-identical evidence.
  */
-export function mintCrossRepoEvidence(scan: CrossRepoScan, snapshotId: string): CrossRepoEvidence {
+export function mintCrossRepoEvidence(scan: CrossRepoScan, snapshotId: string, redact: boolean): CrossRepoEvidence {
   const evidence: EvidenceItem[] = [];
   const byLink = new Map<string, [string, string]>();
 
@@ -53,14 +53,14 @@ export function mintCrossRepoEvidence(scan: CrossRepoScan, snapshotId: string): 
       routePath: link.from.routePath,
       // Source text verbatim would route around the redaction pipeline: a URL literal can carry a
       // token (`?key=…`), and evidence.json is a durable artifact.
-      expression: redactSecrets(link.from.expression),
+      expression: redact ? redactSecrets(link.from.expression) : link.from.expression,
     };
     const toRecord = {
       module: link.to.module,
       path: link.to.path,
       line: link.to.line,
       route: link.to.route,
-      handlerExpression: redactSecrets(link.to.handlerExpression),
+      handlerExpression: redact ? redactSecrets(link.to.handlerExpression) : link.to.handlerExpression,
     };
     evidence.push({
       id: fromId,

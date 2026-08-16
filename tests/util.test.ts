@@ -60,11 +60,33 @@ test("source window cache ignores legacy unversioned excerpts", async () => {
     digest: sha256('AESKey string = "real-value"'),
     reason: "legacy"
   }));
-  const reader = new SourceReader({ target: root, snapshotId: "snapshot", cacheDir, maxWindows: 2, maxCharacters: 1000 });
+  const reader = new SourceReader({ target: root, snapshotId: "snapshot", cacheDir, maxWindows: 2, maxCharacters: 1000, redact: true });
   const window = await reader.window("src/config.go", 1, 1, "fresh read");
   assert.equal(reader.stats.hits, 0);
   assert.match(window.content, /<redacted>/);
   assert.doesNotMatch(window.content, /real-value/);
+});
+
+// The two modes must not share a cached window. A run that asked for redaction would otherwise be served an
+// excerpt recorded without it, and audit — which re-derives from the run's own mode — would then report a
+// stale digest on a window nobody touched.
+test("a window cached in one redaction mode is not served to the other", async () => {
+  const { mkdtemp, mkdir, writeFile } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const { SourceReader } = await import("../src/snapshot/source.ts");
+  const root = await mkdtemp(join(tmpdir(), "excavator-cache-mode-"));
+  await mkdir(join(root, "src"), { recursive: true });
+  await writeFile(join(root, "src", "config.go"), 'AESKey string = "real-value"\n');
+  const cacheDir = join(root, "cache");
+  const options = { target: root, snapshotId: "snapshot", cacheDir, maxWindows: 4, maxCharacters: 4000, redact: false };
+
+  const plain = await new SourceReader({ ...options }).window("src/config.go", 1, 1, "plain");
+  assert.match(plain.content, /real-value/, "off by default: a local workspace is recorded as written");
+
+  const redacted = await new SourceReader({ ...options, redact: true }).window("src/config.go", 1, 1, "redacted");
+  assert.match(redacted.content, /<redacted>/, "and the redacted read is not served the plain cache entry");
+  assert.notEqual(plain.id, redacted.id, "different modes are different windows, with different ids");
 });
 
 

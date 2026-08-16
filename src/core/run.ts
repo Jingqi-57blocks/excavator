@@ -11,7 +11,7 @@ import { createSnapshot } from "../snapshot/snapshot.ts";
 import { ASSURANCE_VERSION, assuranceGenerationAtLeast, auditChecklist, auditDetailedFeatureSection, auditEvidenceCatalog, auditEvidenceMarkerPlacement, auditReadabilityTables, auditRescuedLogicCoverage, auditSectionClaims, auditSectionEvidenceMarkers, auditTargetProblemAttribution, auditTraces, auditWorkItemClaimCoverage, auditWorkItems, checklistUpdatesToWorkItems, createInvestigationChecklist, createInvestigationPlan, hasEvidenceMarkers, mergeChecklist, mergeWorkItems, runUsesCurrentAssurance, type AuditFinding, validateClaimsInput, workItemsToChecklist } from "../assurance/assurance.ts";
 import { auditComparativeClaims } from "../assurance/claim-comparison.ts";
 import { auditFreezeOrder, auditFrozenKnowledge, buildKnowledge, freezePreconditions, knowledgeDigest, normalizeSupplement, recordSupplement } from "../assurance/freeze.ts";
-import { atomicWrite, Deadline, ensureDir, exists, nowIso, readJson, REDACTION_VERSION, runIdTimestamp, sha256, slugify, stableJson, writeJson } from "./util.ts";
+import { atomicWrite, Deadline, ensureDir, exists, nowIso, readJson, redactionCacheTag, REDACTION_VERSION, runIdTimestamp, sha256, slugify, stableJson, writeJson } from "./util.ts";
 import { logicWorkItems, LOGIC_DISPOSITION_ASSURANCE_GENERATION } from "../assurance/logic-workitems.ts";
 import { readObligations, BOUNDARY_DENOMINATOR_ASSURANCE_GENERATION, CROSSREPO_DENOMINATOR_ASSURANCE_GENERATION, READ_ACCOUNTABILITY_ASSURANCE_GENERATION, RECOVERED_ROUTE_DENOMINATOR_ASSURANCE_GENERATION, type ReadObligationsArtifact, type RouteHandlerObligation } from "../assurance/read-obligations.ts";
 import { readingExposure, renderReadingCheck, type ReadingExposure } from "../assurance/read-residual-exposure.ts";
@@ -32,6 +32,17 @@ import { runScopeSlug } from "./run-label.ts";
 import { auditPendingDrafts } from "../assurance/parallel-authoring.ts";
 
 export const SOURCE_SEARCH_VERSION = `source-search-v4-ranking-v1-${REDACTION_VERSION}`;
+
+/**
+ * Cache identity for one redaction mode, exactly as `windowCacheVersion` is for windows.
+ *
+ * Search receipts live in the PROJECT cache, shared across runs of the same snapshot, so without the mode
+ * in the key a plain receipt recorded by one run is served verbatim to a run that asked for redaction —
+ * silently, and with the receipt's own digest self-consistent, so no audit can see it.
+ */
+export function searchCacheVersion(redact: boolean): string {
+  return `${SOURCE_SEARCH_VERSION}${redactionCacheTag(redact)}`;
+}
 
 const PROJECT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const REFERENCES = join(PROJECT_ROOT, "skills", "excavator", "references");
@@ -92,12 +103,13 @@ async function resolveCrossRepoLinks(
   modules: Array<{ id: string; dir: string; path: string }> | undefined,
   snapshotId: string,
   warnings: string[],
+  redact: boolean,
 ): Promise<{ artifact: CrossRepoArtifact; evidence: EvidenceItem[] } | null> {
   if (!modules?.length) return null;
   try {
     const scan = await scanCrossRepoLinks(target, modules.map((module) => ({ id: module.id, dir: module.dir, databasePath: module.path })));
     warnings.push(...scan.warnings.slice(0, 20));
-    const binding = mintCrossRepoEvidence(scan, snapshotId);
+    const binding = mintCrossRepoEvidence(scan, snapshotId, redact);
     return { artifact: buildCrossRepoArtifact(scan, snapshotId, binding), evidence: binding.evidence };
   } catch (error) {
     warnings.push(`cross-repo link resolution skipped: ${(error as Error).message}`);
@@ -312,7 +324,10 @@ export async function prepareRun(request: ReportRequest): Promise<{ runDir: stri
   if (request.overviewAudiences.includes("prd")) throw new Error("prd audience is feature-only; no prd-overview template exists");
   const preparedStarted = Date.now();
   const result = await buildContexts(request);
-  const effectiveRequest: ReportRequest = { ...request, detailLevel: request.detailLevel ?? "detailed", codegraph: result.stats.codegraphPath, codegraphModules: result.stats.codegraphModulePaths };
+  // `redactSecrets` is normalised to an explicit boolean here, never left absent. Everything downstream —
+  // the audit's re-derivation, the cache keys, the operator-facing notice — reads the run's own mode, and a
+  // missing field would force each of them to assume one, which is how the same run gets read two ways.
+  const effectiveRequest: ReportRequest = { ...request, redactSecrets: request.redactSecrets === true, detailLevel: request.detailLevel ?? "detailed", codegraph: result.stats.codegraphPath, codegraphModules: result.stats.codegraphModulePaths };
   const timestamp = runIdTimestamp();
   const requestDigest = sha256(stableJson({ overview: request.overviewAudiences, features: request.features, language: request.language, detailLevel: effectiveRequest.detailLevel })).slice(0, 8);
   const runId = `run-${timestamp}-${runScopeSlug(request)}-${result.prepared.snapshot.id.slice(0, 8)}-${requestDigest}-${randomUUID().slice(0, 8)}`;
@@ -361,7 +376,7 @@ export async function prepareRun(request: ReportRequest): Promise<{ runDir: stri
   // Resolved BEFORE the evidence catalog is assembled: link evidence has to be IN the catalog, or a claim
   // citing it would fail audit for citing an evidence id that does not exist. Its kind is `derived`, never
   // `source` — resolving a route is not reading it (see crossrepo-artifact.ts).
-  const crossRepo = await resolveCrossRepoLinks(request.target, result.stats.codegraphModules, result.prepared.snapshot.id, result.stats.warnings);
+  const crossRepo = await resolveCrossRepoLinks(request.target, result.stats.codegraphModules, result.prepared.snapshot.id, result.stats.warnings, Boolean(request.redactSecrets));
   const evidence: EvidenceItem[] = [
     ...result.prepared.evidence,
     ...(crossRepo?.evidence ?? []),
@@ -636,7 +651,8 @@ export async function addSourceEvidence(runDirInput: string, relativePath: strin
     snapshotId: manifest.snapshot.id,
     cacheDir: projectCacheDir(runDir),
     maxWindows: remainingWindows,
-    maxCharacters: remainingCharacters
+    maxCharacters: remainingCharacters,
+    redact: Boolean(manifest.request.redactSecrets)
   });
   const window = await reader.window(relativePath, startLine, endLine, reason);
   const evidencePath = join(runDir, "evidence.json");
@@ -705,19 +721,20 @@ export async function searchSourceEvidence(runDirInput: string, termsInput: stri
   const scopedFiles = pathPrefixes.length
     ? current.files.filter((file) => pathPrefixes.some((prefix) => file.relativePath === prefix || file.relativePath.startsWith(`${prefix}/`)))
     : current.files;
-  const key = sha256(stableJson({ searchVersion: SOURCE_SEARCH_VERSION, snapshotId: manifest.snapshot.id, terms: [...terms].sort(), pathPrefixes: [...pathPrefixes].sort(), maxResults, regex: Boolean(options.regex), caseSensitive: Boolean(options.caseSensitive) }));
+  const searchVersion = searchCacheVersion(manifest.request.redactSecrets === true);
+  const key = sha256(stableJson({ searchVersion, snapshotId: manifest.snapshot.id, terms: [...terms].sort(), pathPrefixes: [...pathPrefixes].sort(), maxResults, regex: Boolean(options.regex), caseSensitive: Boolean(options.caseSensitive) }));
   const cachePath = join(projectCacheDir(runDir), "searches", manifest.snapshot.id, `${key}.json`);
   const cached = await exists(cachePath) ? await readJson<SearchReceipt>(cachePath) : null;
   let data: SearchReceipt;
   let cacheHit = false;
-  if (cached && cached.searchVersion === SOURCE_SEARCH_VERSION) {
+  if (cached && cached.searchVersion === searchVersion) {
     data = cached;
     cacheHit = true;
   } else {
     const stats: SourceSearchStats = { total: 0, returned: 0, truncated: false };
-    const matches = await sourceSearch(scopedFiles, terms, { maxResults, regex: options.regex, caseSensitive: options.caseSensitive }, stats);
+    const matches = await sourceSearch(scopedFiles, terms, { maxResults, regex: options.regex, caseSensitive: options.caseSensitive, redact: manifest.request.redactSecrets === true }, stats);
     data = {
-      searchVersion: SOURCE_SEARCH_VERSION,
+      searchVersion,
       terms,
       pathPrefixes,
       candidateFiles: scopedFiles.length,
@@ -1180,6 +1197,10 @@ export async function runStatus(runDirInput: string): Promise<Record<string, unk
     id: manifest.id,
     state: manifest.state,
     snapshot: manifest.snapshot?.id,
+    // Stated on every status read, because with redaction defaulting OFF the run directory holds source
+    // text verbatim, and an operator deciding whether these artifacts may leave the machine has no other
+    // way to tell. A property of the run, so it is reported whether or not anyone thought to ask.
+    sourceText: manifest.request.redactSecrets === true ? "redacted" : "verbatim",
     documents: manifest.documents.map((document) => ({
       id: document.id,
       complete: document.sections.filter((section) => section.complete).length,
