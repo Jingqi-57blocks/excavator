@@ -33,14 +33,18 @@ export interface ReportRequest {
   features: FeatureRequest[];
   budgets: BudgetConfig;
   /**
-   * Whether recorded source is scanned for secrets and their values blanked. OFF by default: Excavator runs
-   * on a workspace the operator already has, so redacting it protects nothing the operator cannot read
-   * anyway, while it demonstrably destroys evidence — a real run had ten branches of a leave-balance
-   * calculation recorded as `<redacted>` because the domain names an hours field `*Token`.
+   * Whether recorded source is scanned for secrets and their values blanked.
    *
-   * Turn it ON for a run whose artifacts leave the machine: the run directory holds verbatim source, and the
-   * HTML export republishes it. The choice is recorded here, so a reader of the artifacts can always tell
-   * which of the two they are holding.
+   * OFF by default, and the reason is an asymmetry rather than a claim about where Excavator runs. The cost
+   * of ON is measured and certain: a real run recorded ten branches of a leave-balance calculation as
+   * `<redacted>` because the domain names an hours field `*Token`. The benefit of ON depends on who ends up
+   * holding the artifacts — which this process cannot know, since the same engine serves a workspace on the
+   * operator's own machine and a deployment that hands results to someone else.
+   *
+   * So the engine does not guess. It defaults to preserving evidence, records the choice here, and reports
+   * it in `excavator status` and in every report's front matter, so whoever receives the artifacts can tell
+   * which of the two they are holding. Turn it ON whenever the run directory or its HTML export will reach
+   * anyone who should not read the source verbatim.
    */
   redactSecrets?: boolean;
 }

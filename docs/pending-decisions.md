@@ -469,7 +469,7 @@ if holiday.FuneralToken > 0 && err != nil {   → if holiday.FuneralToken > 0 &&
 2. **真正有价值的只有一条架构洞察**：「Community 是长期结构、Feature Scope 是临时查询」。但它**没有开新问题**——`docs/investigation-engine.md` §九-4 早已预注册重启条件（「模块树在 ≥2 个真实目标上作为分母来源的 gold 漏报率实测低于 feature scope」）。Graphify 只是给同一槽位添了第二个候选。
 3. **一条我没想到的不对称性（规划层补充）**：**分母的确定性是硬门，召回只是比较项**——「你没碰模块 X」可执行，「你没碰 Community 7」不可执行。即使聚类赢了召回，若分区不能确定复现，也只配「用确定性手段复刻其拓扑思想」，不配接入工具。
 4. **不采纳 Semantic Graph**（§九-1 重启条件未触及）。且分析**内在矛盾**：一边把「Graphify 的图太扁平、没有语义层」列为不要照搬的第一条，一边拿它的存在提议我们建本体。**一个自身没有语义层的工具，不能构成「实测需要语义层」的任何证据。** 新信息可以重开已裁定问题，但必须与该问题相关。
-5. **只做 optional external index builder**，走**外部工具阶梯**（Benchmark Candidate → Experimental → Supported）而非 npm 白名单五条——它是 Python 工具，白名单管不到。真正会疼的一条：**Python 传递依赖树比 CodeGraph 重得多，而 Excavator 跑在他人机密代码上**。永不消费 LLM 社区标签（零模型调用），永不消费其内部增量/缓存路径作审计输入（故 mtime 之争与任何决定无关）。
+5. **只做 optional external index builder**，走**外部工具阶梯**（Benchmark Candidate → Experimental → Supported）而非 npm 白名单五条——它是 Python 工具，白名单管不到。真正会疼的一条：**Python 传递依赖树比 CodeGraph 重得多**，而这份依赖会随引擎进入操作者指定的任何代码库——**部署形态不固定**（本机跑与部署为服务都成立），所以既不能用「跑的是他人机密代码」把它说死，也不能用「反正是本地」把它抹掉；按准入阶梯逐条审，别用任一侧的假设代替审计。永不消费 LLM 社区标签（零模型调用），永不消费其内部增量/缓存路径作审计输入（故 mtime 之争与任何决定无关）。
 
 ### 三、三臂对照实验（预注册，离线零模型零 token，跑前钉死）
 
