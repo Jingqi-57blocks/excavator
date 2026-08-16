@@ -265,6 +265,81 @@ S1 声称枚举「边界文件内全部决策函数」，在这个文件形状�
 
 `derived` 纪律被遵守：凡陈述 handler 行为处（`leave.Approve` 的 16/40 阈值、`Export` 的角色闸）都另开了 `S-*` 源码窗口，XR 只用于「谁调了谁」。
 
+## provital 真跑（Perl/Catalyst，两份中文 overview）暴露的引擎问题（2026-08-16，全部已复核）
+
+首次在 Perl/Catalyst 目标上跑完整 authoring（product 10 章 + engineering 13 章，audit **0 error / 2 warning**，
+1102 claim / 141 证据 / 3 trace / 12 次 supplement）。以下每条我都独立复核过，不是转述。
+
+### 一、`claims scaffold` 的产出会被 `audit` 判红——引擎自相矛盾（最严重）
+
+两侧用了**两种不同的规范化**：`substantiveSegments`（scaffold 用）把 `*` **删掉**，
+`normalizeText`（`assurance.ts:949`，audit 用）把 `*` **替换成空格**。实测：
+
+```
+scaffold statement:  本项目产品名为 CMS3000，其源码自述为内容管理系统
+audit 规范化可见文本: … CMS3000 ，其源码 …          ← 逗号前多一个空格
+includes() → false → "claim claim-N statement is not present in section N"（error）
+```
+
+**只要正文含 `**加粗**` 就复现**，而 `writing-rules.md` 要求「Each chapter uses clear bold lead-ins」——
+**两条引擎规则直接冲突**。`claims-scaffold.ts:5-6` 的文档承诺「a scaffold can never drift from
+`auditSectionClaims`」对段落覆盖检查成立，对 statement-present 检查**不成立**。
+撰写方实测约 30 条同因 error，只能把正文的 `**` 全删掉换绿。
+
+同源第二形态：**marker 后跟非终止标点**。`…写在代码里 \`事实\`：` 规范化后成 `…写在代码里 事实 ：`，
+同样失配；marker 后跟 `。`/`；` 才安全。撰写方踩出的纪律「marker 只允许出现在句末且紧跟 `。`」
+**不在 SKILL 也不在 writing-rules 里**。
+
+**修法方向**：两处共用同一个规范化函数（这与 §外部调研里「canonicalize 应是一道闸而非各处的便利函数」同型）。
+
+### 二、中文 marker 词表是 4 个精确字面串，且未文档化
+
+`assurance.ts:911-918` 只认 `` `事实` `` / `` `验证` `` / `` `推断` `` / `` `不可得` ``。实测
+`` `已验证` `` **不认**（`验证` 前一个字符是「已」不是反引号）、`` `不可用` `` **不认**。
+而 writing-rules 说「render naturally in the requested language」——自然本地化会写出 `已验证`/`不可用`，
+结果整章被判「has substantive statements but no evidence-level marker」（error）。
+`不可得` 中文读起来别扭，但它是唯一被接受的串。**词表须进 SKILL/writing-rules，或放宽为「反引号内含该词」**。
+
+### 三、比较词表里的裸 `/镜像/` 与 `/等价/` 在中文里几乎全是假阳性
+
+`claim-comparison.ts:67-68` 是**裸模式**（同文件 65-66 行那两条要求连接词，这两条不要求）。
+`镜像` 在中文里就是 container image，`等价` 常用于语义等价。实测三条假阳性
+（「上层镜像把时区固定为 Europe/Vienna」「生产镜像把实例目录做成挂载点」等），
+撰写方只能把「镜像」改写成「容器层/容器定义」**牺牲术语准确性换绿**。
+**修法**：这两条要求连接词上下文（与 65-66 行一致），或按语言分表。
+
+### 四、「不给出修复建议」这句免责声明本身被 recommendation 闸拦成 error
+
+契约要求 §9「Do not include remediation」，作者自然会写一句声明，而检测器只做正则匹配、
+不看否定语境：`recommendation language is not allowed: /修复建议/g`。改写后又因成了新的实质段落
+而触发「unclaimed substantive statement」。**修法**：加否定前瞻，或允许章节导语白名单。
+
+### 五、导航层产物不进 evidence catalog → 12 次 supplement 里大半的成因
+
+`native-graph`（1606 Perl 文件 / 6769 subs / 动态派发 37295）与 `framework`（controller 60 /
+actions 639 / schema 209）**不在 run 的 evidence catalog 里**，任何引用其数字的断言无法绑定 claim。
+撰写方最初写进正文的计数全部要么删掉、要么用 `excavator search` 回执重新取数
+（且数字会变：56 而非 70——回执按 `^## Script (Python)` 头计）。
+**候选**：prepare 阶段把这两个子命令的产物折叠进 catalog，标 navigation-only、只允许 `推断` 级。
+
+### 六、`reading` 对纯 overview run 无信息量（与 57B-411 同一缺口）
+
+`reading` 返回 `No feature-associated read residual`——overview run 无 feature scope，读义务分母为空。
+**这与 57B-411 的 census 只按 feature 建是同一个缺口**：overview 恰恰最该有全局模块视图。
+下一片（①③）应把 overview 路径纳入。
+
+### 七、本次形态记录（非缺陷）
+
+CodeGraph 在此目标上**等于零**：11.5% 覆盖、语言只有 JS/Python/YAML/XML、routes 候选空集、
+97977 条未解析引用。所有「谁调用谁 / 是否可达」结论靠 source window + 零截断 search 回执建立并标 `验证`。
+两份报告的覆盖章已如实写明。**这印证了 native-graph/framework 两个子命令的必要性，不是缺陷。**
+
+### 八、剩余 2 条 advisory 的措辞偏向问题
+
+`condition residual: 20 of 28 …` 逐条看多是「已在角色表整体陈述过的成员判定」与「值已在正文、
+但 claim 绑在整句而非单个条件」。当前措辞容易被读成「漏了 20 个业务条件」。措辞应区分
+「投资提示」与「覆盖缺口」。
+
 ## census 分母继承 snapshot 准入（2026-08-16，57B-411 实测，范围外记账）
 
 模块级范围记账的 census 查询 join `allowed_files`，而该表由 snapshot 的文件集一次性固定。
