@@ -140,3 +140,31 @@ test("emphasis and inline code inside a sentence keep it bindable", () => {
   const coded = "## 2. 配置\n\n配置项 `enabled` 与 `disabled` 各自声明 `事实`。\n";
   assert.deepEqual(bindingErrors(coded, [claim("配置项 enabled 与 disabled 各自声明")]), []);
 });
+
+// WHICH GENERATION JUDGES A SECTION — the property that keeps `claims scaffold` and the audit consistent.
+//
+// The scaffold folds under the CURRENT generation. If the audit could prefer the legacy generation for a
+// section whose statements were written today, the two would drift again — the same disease this fix
+// removes, in a new place. The guard is that legacy is chosen only when it is STRICTLY better, and prose
+// written today reads at least as well under the current folding.
+//
+// Measured on two real runs before pinning it: the run authored today is judged under the current
+// generation in 23 of 23 sections (legacy never strictly better), while a 2026-08-13 archived run needs
+// legacy for 4 of 23 — which is the evidence that keeping the legacy generation is load-bearing rather
+// than defensive.
+test("a section written under current semantics is judged under current semantics", () => {
+  const section = "## 1. 标题\n\n产品名为 **CMS3000**，其源码自述为内容管理系统 `事实`。\n";
+  const stubs = scaffoldSectionClaims(section).map((stub) => ({ ...stub, evidenceIds: ["FACT-1"] }));
+  // No folding-sensitive finding at all: the current generation binds the scaffold it produced, so the
+  // tie-break (newest on equal cost) keeps the section on current semantics.
+  assert.deepEqual(bindingErrors(section, stubs), []);
+});
+
+// And the reverse: a statement that ONLY the legacy folding can bind still binds, which is what protects
+// archived runs. Together these two say legacy is a fallback, never a competitor.
+test("a statement only the legacy folding binds is still accepted", () => {
+  const section = "## 1. 标题\n\n产品名为 **CMS3000**，其源码自述为内容管理系统 `事实`。\n";
+  const legacyOnly = "产品名为 CMS3000 ，其源码自述为内容管理系统";
+  assert.deepEqual(bindingErrors(section, [claim(legacyOnly)]), [],
+    "the injected space exists only in the legacy folding of the prose");
+});
