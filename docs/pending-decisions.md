@@ -367,6 +367,26 @@ if holiday.FuneralToken > 0 && err != nil {   → if holiday.FuneralToken > 0 &&
 - **负向发现难记录**：`searched-not-found` 需零命中且未截断的回执，首次补充检索 50 条截断不可用。
 - **真正兑现价值的（原话）**：「absence claims need a receipt」的压力**抓出了作者自己草稿里的一个真错**——他原写 `wcp_review_service` 不含请假代码，补充检索证明它直接 join `wcp_leave`/`wcp_leave_detail` 并带自己的状态过滤，「without the gate I'd have shipped a wrong boundary」。
 
+## 批次 57B-409（脱敏器修复）产生（2026-08-16）
+
+**根因**：`redactSecrets` 用 `line.indexOf("=")` 找赋值，把 `==`/`!=`/`>=`/`+=`/`=>`/`:=` 全当成赋值。改为 `simpleAssignmentIndex`（只认前后都不是运算符字符的裸 `=`）。
+
+**为什么这不是安全面放松（关键性质，实证过）**：被排除出赋值路径的每一种形态，**仍然经过行末的 `redactSensitiveStringLiterals` 兜底**，它逐个判断行内的引号字面量。实测 `apiKey += "sk-live-…"`、`token := "sk-live-…"`、`if token == "sk-live-…"` 三种形态**字面量照样被遮**。消失的只是从来不是机密的东西：裸标识符、调用、比较操作数。测试文件后半段专门守这条契约。
+
+**顺带修的两处（第一处是我的测试首跑抓到的）**：
+
+- **调用表达式豁免**：`const tokenService = require("./tokenService")` 原本被遮成 `= <redacted>`，**毁掉一条 import**——与额度算术同类的损坏，但走的是普通赋值路径，算符修复够不着。加 `CALL_EXPRESSION_PATTERN` 否决（`fn(...)`/`a.b.fn(...)`/`await`/`new`）。调用**内部**的字面量仍由兜底判断，实测 `login("sk-live-…")` 照样遮。
+- **Go `:=` 被 mapping 分支吃掉**：输出成 `apiToken :<redacted>`，值遮了但 `=` 丢了。mapping 分支现在排除 `:=`。
+
+**记档不修的两条已知代价（钉成测试，不是发现时才知道）**：
+
+1. **裸标识符仍被遮**：`holiday.PtoToken = hours` 会丢 `hours`，因为 `API_KEY=abcd1234` 与它在一行文本内不可区分。**真实 target 写的是 `+=`，已修**；纯 `=` 形态留作已知边界。
+2. **行级判定使格式影响结果**：同一个调用单行写时 `'pto'` 被遮、多行写时幸存——因为脱敏逐行判断，而字面量所在行是否提到敏感名由格式决定。**修它需要看表达式而非看行的脱敏器，是另一种设计，不是微调。**
+
+**运营代价（必然，写下来免得有人踩）**：升 `REDACTION_VERSION` → 进 `ASSURANCE_VERSION` → **所有既有 run 立刻掉出「当前世代」**，包括刚跑完的 run#2（戳 `assurance-v8-redaction-v4`）。归档 run 因此 28/29 逐字相同（唯一差异是 404 那条已有 advisory，与脱敏无关）——严格检查被 grandfather 跳过，这正是世代闸的设计意图。**要让 run#2 吃到严格检查必须重新 prepare。**
+
+**真实 target 复验**：`brdg_impl.go` 整文件 `<redacted>` 出现次数 **0**（修复前 `consumeByYear`/`withdrawHours` 各 10 个分支全遮）；`holiday.PtoToken += consumption` 等六条额度累加全部可读。
+
 ## 批次 57B-405（对账诚实化）产生（2026-08-16）
 
 **`collectClaims` 改键控暴露了一处测试盲区（我改完才发现，记为教训）**：把 Map 键从 `claim.id` 改成 `${documentId}#${section}#${claim.id}` 后，**812 个测试全绿**——而 `auditTraces` 拿的正是 `new Set(allClaims.keys())`，去和 trace 里的**裸 claim id**（`claim-3`）比对。若不特判，每条合法的 trace 引用都会被报成 "references missing claim id"。**全绿本身就是证据：这条路径没有任何测试覆盖。** 已在调用点转换为裸 id 集，并补测试把这个洞钉住（同时断言「传复合键会破」）。
