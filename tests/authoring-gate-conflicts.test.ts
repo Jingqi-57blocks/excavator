@@ -68,6 +68,29 @@ test("a negator still governs an enumeration inside its own clause", () => {
   assert.deepEqual(unnegatedAdvice("本节不涉及改动、修复建议与迁移步骤。"), []);
 });
 
+// THE COLON IS DOUBLE-SIDED, and a regex cannot tell its two uses apart. Pinned to leave the ruling
+// visible rather than to celebrate the behaviour.
+//
+// An object-list disclaimer puts the advice words AFTER the colon while the negation stays before it, so
+// treating the colon as a boundary reports a genuine disclaimer. An explanatory colon starts a new
+// assertion and must still be caught. Separating them needs to know whether a complete clause precedes the
+// colon — beyond what this check can see. The colon stays a boundary because the failure direction is
+// visible (a false positive prints its excerpt and can be argued) and the shape does not occur anywhere in
+// 658 archived report sections; the honest fix is tokenizer-level negation, recorded for ruling.
+test("the colon boundary reports an object-list disclaimer — known cost, not an endorsement", () => {
+  assert.equal(unnegatedAdvice("报告不包含以下内容：修复建议、迁移步骤与优先级。").length, 1,
+    "false positive, accepted: visible, arguable, and absent from the corpus");
+  assert.equal(unnegatedAdvice("问题不在配置：解决方案是升级内核。").length, 1,
+    "and the explanatory colon must keep being caught — the same boundary earns its place here");
+});
+
+// English negation scope conventionally coordinates with `or`, which stays inside the negation.
+test("an English disclaimer coordinating with or is not reported", () => {
+  assert.deepEqual(unnegatedAdvice("This report does not include fixes or recommendations."), []);
+  assert.equal(unnegatedAdvice("This report does not include analysis and recommendations.").length, 1,
+    "`and` is a boundary — known cost, and the pinned `not shared and we recommend` case depends on it");
+});
+
 // `镜像` is a container image in Chinese and `等价` is ordinary for semantic equivalence. Both were BARE
 // patterns in the comparative-wording list, so three sentences from a real engineering overview were flagged
 // as cross-source equivalence claims and the author rewrote 镜像 as 容器层 — trading terminology accuracy for
