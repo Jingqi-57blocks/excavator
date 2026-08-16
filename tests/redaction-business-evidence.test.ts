@@ -279,6 +279,11 @@ const LEAKED_ONCE: Array<[string, string]> = [
   // Round 8 — the comparison's bare-word exemption, spent where the sensitive name is not code.
   ["PASSWORD==changeme", "changeme"],
   ["test $PASSWORD == changeme", "changeme"],
+  // Round 10 — command position is not only line start: a shell test reached by `if`/`while` is the same
+  // context, and only the bare-word spelling with a code-cased name slipped through.
+  ["if test $apiToken == changeme; then", "changeme"],
+  ["while [ $apiToken == changeme ]", "changeme"],
+  ["if [[ $apiToken == changeme", "changeme"],
 ];
 
 test("every construction that ever leaked stays redacted", () => {

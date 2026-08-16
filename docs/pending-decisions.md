@@ -423,6 +423,12 @@ if holiday.FuneralToken > 0 && err != nil {   → if holiday.FuneralToken > 0 &&
 
 **记档不修（词表边界，与基线同）**：`isSensitiveIdentifier` 按**分段**匹配（`_` 分隔或 camelCase 拆分），所以 `x-password`、`db.password`、`PASSWORD_2`、`myPassword` 都识别，但**无边界的连写** `mypassword=changeme` 与**未列词** `pass=changeme` 两版都漏。改法各有代价：改成子串匹配会让 `passwordless`/`passwordPolicy` 变敏感（方向安全但噪声未测），把 `pass` 入表会命中 `passed`/`passing`/`bypass`。**这是词表设计问题，不是判定路径问题**，与本片的算符/字面量修复正交，单独评估。
 
+**记档不修（第 8–10 轮评审穷尽后剩下的三类，均已双向实测）**：
+
+- **新增误遮：C# 可选参数签名**（cebreo 21 条全属此族）。`CancellationToken cancellationToken = default(...)`、`string provisionKey = null` 被遮掉行尾默认值——逐算符循环判到了基线只判首算符时够不着的那个 `=`，而 `CancellationToken` 按分段命中词表。方向安全，丢的是 API 签名的默认值部分，与已记的 `PtoToken` 同类代价。
+- **继承相等（两版同放，非本片引入）**：① URL userinfo 形 `user:s3cret@host`——凭据由 `:` 绑定，而 `LITERAL_PAIR` 只认 `=`；② 模板串内的散文式机密 `` `the password is changeme` ``；③ 字面量内 `!` 开头且不含数字的值 `"password=!changeme"`——`!` 豁免是为 Vue 开关买的，这是它的已知代价面。
+- **`isSensitiveIdentifier` 词表边界**（详见上条）：连写 `mypassword=` 与未列词 `pass=` 两版同漏。
+
 **净安全面口径（评审判据，留给下次改脱敏的人）**：不看单条构造，看**相对基线的双向漂移**——真实仓逐行跑两版并分类为「新增遮盖 / 新增放行」。wcp（1714 文件、30 万行）实测新增遮盖 1、新增放行 113，放行抽样全为调用豁免。**差分工具无法区分"改进"与"泄漏"，只有记录下来的意图能**，所以放行侧必须逐类给出有意放宽的理由，否则视同泄漏。
 
 ## 批次 57B-405（对账诚实化）产生（2026-08-16）

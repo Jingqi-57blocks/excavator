@@ -185,7 +185,7 @@ function redactSecretLine(line: string): string {
     // rules already treat as literal-bearing — but that one is recognised by its closing `]`, so the
     // bracket-less spelling kept the comparison's bare-word exemption and leaked. Command position only:
     // `if (test === changeme)` in JavaScript is not a shell test.
-    const shellTestCommand = /(?:^|[;&|])\s*(?:test|\[\[?)\s/.test(line.slice(0, operator.index));
+    const shellTestCommand = /(?:^|[;&|]|\b(?:if|elif|while|until)\s+)\s*(?:test|\[\[?)\s/.test(line.slice(0, operator.index));
     // A comparison spares a bare word because `if apiToken == other` compares two pieces of CODE. Spending
     // it on a config-cased name instead let `PASSWORD==changeme` through.
     //
