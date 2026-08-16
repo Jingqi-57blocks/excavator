@@ -460,3 +460,24 @@ test("a localized level-one report title becomes front matter metadata", async (
   assert.match(report, /title: "项目概览（非技术）"/);
   assert.match(report, /navTitle: "项目概览（非技术）"/);
 });
+
+// The report is what leaves the machine. With redaction off by default an evidence excerpt may be verbatim
+// source, and `excavator status` only helps someone standing in front of the run directory — so the mode
+// travels in the front matter, where the HTML export and any reader of the Markdown can see it.
+test("the report front matter records the run's source-text mode", async () => {
+  for (const [redactSecrets, expected] of [[false, "verbatim"], [true, "redacted"]] as const) {
+    const request = await makeRequest();
+    request.overviewAudiences = ["product"];
+    request.features = [];
+    request.redactSecrets = redactSecrets;
+    const { runDir, manifest } = await prepareRun(request);
+    const id = await evidenceId(runDir);
+    const document = manifest.documents[0];
+    for (const section of document.sections) {
+      await checkpointSection(runDir, document.id, section.index, sectionText(section.title, section.index, id), sectionClaims(section.index, id));
+    }
+    await assembleRun(runDir);
+    const report = await readFile(join(runDir, "reports", "product-overview.md"), "utf8");
+    assert.match(report, new RegExp(`^sourceText: ${expected}$`, "m"), `redactSecrets=${redactSecrets}`);
+  }
+});

@@ -1235,7 +1235,11 @@ function outputFrontMatter(document: DocumentPlan, manifest: RunManifest, body: 
   const title = localizedTitle || fallbackTitle;
   const navTitle = localizedTitle || (document.kind === "overview" ? `${document.audience} overview` : document.subject ?? "Feature");
   const order = manifest.documents.findIndex((item) => item.id === document.id) + 1;
-  return `---\ntitle: ${yamlScalar(title)}\nnavTitle: ${yamlScalar(navTitle)}\nkind: ${document.kind}\naudience: ${document.audience}\nlanguage: ${manifest.request.language}\norder: ${order}\nrun: ${manifest.id}\nsnapshot: ${manifest.snapshot?.id ?? "unknown"}\n---`;
+  // `sourceText` travels with the report because the report is the artifact that LEAVES the machine. With
+  // redaction defaulting off, a quoted evidence excerpt may be verbatim source, and a reader who received
+  // the HTML export has no other way to know which of the two things they are holding.
+  const sourceText = manifest.request.redactSecrets === true ? "redacted" : "verbatim";
+  return `---\ntitle: ${yamlScalar(title)}\nnavTitle: ${yamlScalar(navTitle)}\nkind: ${document.kind}\naudience: ${document.audience}\nlanguage: ${manifest.request.language}\norder: ${order}\nrun: ${manifest.id}\nsnapshot: ${manifest.snapshot?.id ?? "unknown"}\nsourceText: ${sourceText}\n---`;
 }
 
 function yamlScalar(value: string): string { return JSON.stringify(value); }
