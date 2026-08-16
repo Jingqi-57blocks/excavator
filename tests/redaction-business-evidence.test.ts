@@ -250,6 +250,15 @@ const LEAKED_ONCE: Array<[string, string]> = [
   ["if ($password !~ /^changeme$/) {", "changeme"],
   ["password+=changeme", "changeme"],
   ["AESKey string = \"real-value\"", "real-value"],
+  // Round 7 — self-probe against main: an alternation is a SET of literals, and a step cap is a bypass
+  ["if ($password =~ /^(changeme|letmein)$/) {", "letmein"],
+  ["if ($password =~ /^changeme|letmein$/) {", "letmein"],
+  ["if ($secret !~ qr/^(s3cret|hunter2)$/) {", "hunter2"],
+  [`${"a=1 && ".repeat(70)}PASSWORD=changeme`, "changeme"],
+  // The edge of that round's RELAXATION: dropping a second target that sits inside a literal must not drop
+  // the adjacent one, or every quoted config key stops naming what it assigns.
+  ["\"password\" = \"changeme\"", "changeme"],
+  ["'db_password' = 'letmein'", "letmein"],
 ];
 
 test("every construction that ever leaked stays redacted", () => {
@@ -276,6 +285,12 @@ const MUST_STAY_READABLE = [
   "if [ \"$PASSWORD\" == \"$STORED_PASSWORD\" ]",
   "if [ $PASSWORD == $EXPECTED ]",
   "apiKey >>= 2",
+  // Round 7 — the per-operator loop stepped INTO things that are one token, and reached across a string
+  // for its second target. Each of these is a line a security report is written to quote.
+  "$line =~ s/password=\\w+/password=***/;",
+  "$out =~ s{token=\\w+}{token=***}g;",
+  "if err := db.DBConn(c).Where(\"token = ?\", token).First(&obj).Error; err != nil {",
+  "if ($password =~ /^[a-z]{3}$/) {",
 ];
 
 // Pathological input must not be able to stop a run: `redactSecrets` sits on the evidence-recording path,

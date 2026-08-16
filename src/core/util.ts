@@ -155,29 +155,78 @@ function redactSecretLine(line: string): string {
   // the credential after something else, and judging only the first operator left every one of them intact.
   // Iterative rather than recursive: a line of 5000 chained comparisons overflowed the stack, and this
   // function sits on the evidence-recording path where a crafted file must not be able to stop a run.
-  let head = "";
-  let rest = line;
-  for (let guard = 0; guard < 64; guard += 1) {
-    const operator = classifyOperator(rest);
+  //
+  // The cursor is an OFFSET, not a re-sliced remainder. Re-slicing made each step rescan the whole tail —
+  // O(n²) — which forced a 64-step cap, and a cap on a security scan is a documented bypass: 70 `a=1 &&`
+  // segments before `PASSWORD=changeme` walked straight through it. Scanning from the offset is linear in
+  // the line, so the cap is gone rather than raised, and no crafted prefix length reaches an unjudged tail.
+  let cursor = 0;
+  const quoted = stringLiteralSpans(line);
+  while (cursor < line.length) {
+    const operator = classifyOperator(line, cursor);
     if (!operator) break;
-    const upTo = rest.slice(0, operator.index + operator.length);
-    const value = rest.slice(operator.index + operator.length);
+    // An operator INSIDE a quoted string binds nothing: `Where("token = ?", token)` is a SQL fragment and
+    // `<input name="password" type="password">` is markup, and reading either as an assignment redacted a
+    // query and a form. Secrets written inside strings are not lost by skipping — `redactSensitiveStringLiterals`
+    // judges every literal on a line that mentions a sensitive name, which is the path that already covers
+    // `const c = "PASSWORD=changeme"`.
+    const span = quoted.find((entry) => operator.index >= entry.start && operator.index < entry.end);
+    if (span) { cursor = span.end; continue; }
+    const upTo = line.slice(cursor, operator.index + operator.length);
+    const value = line.slice(operator.index + operator.length);
     // The TARGET of the operator, not any word earlier in the segment. Scanning the whole prefix was
     // measured redacting `where year = ?` inside a SQL template, only because `${type}_token` appeared
     // earlier in the same string — and it is the same rule that made `err != nil` sensitive because
     // `FuneralToken` sat earlier on the line. What a name says about secrecy, it says about the thing it
     // names.
-    const targets = operatorTargets(rest.slice(0, operator.index));
+    const targets = operatorTargets(line, cursor, operator.index, quoted);
     const bareAllowed = operator.arithmetic || operator.kind === "compare";
     if (targets.some((target) => sensitive(target)) && shouldRedactValue(value, bareAllowed, operator.bound)) {
-      return `${head}${upTo}${value.match(/^\s*/)?.[0] ?? " "}<redacted>${trailingPunctuation(value)}`;
+      return `${line.slice(0, cursor)}${upTo}${value.match(/^\s*/)?.[0] ?? " "}<redacted>${trailingPunctuation(value)}`;
     }
-    head += upTo;
-    rest = value;
+    // A bound pattern is ONE token. Stepping into it made the `=` inside `s/password=\w+/password=***/`
+    // read as an assignment whose target is `password`, redacting a sanitizing substitution — a line a
+    // security report exists to quote, and one main leaves readable. Judged as a whole above, skipped whole
+    // here; anything after the closing delimiter is still judged, so `=~ /x/ && PASSWORD=changeme` is caught.
+    cursor = operator.bound ? patternEnd(line, operator.index + operator.length) : operator.index + operator.length;
   }
-  const mapped = redactMapping(head + rest, head.length);
+  const mapped = redactMapping(line, cursor);
   if (mapped !== null) return mapped;
   return redactSensitiveStringLiterals(line);
+}
+
+/** The `[start, end)` spans of every quoted literal on the line, left to right and non-overlapping. */
+function stringLiteralSpans(line: string): Array<{ start: number; end: number }> {
+  const spans: Array<{ start: number; end: number }> = [];
+  const pattern = new RegExp(STRING_LITERAL_PATTERN.source, "g");
+  for (let match = pattern.exec(line); match !== null; match = pattern.exec(line)) {
+    spans.push({ start: match.index, end: match.index + match[0].length });
+  }
+  return spans;
+}
+
+/** Delimiters that close with a different character than they open with. */
+const PATTERN_CLOSERS: Record<string, string> = { "{": "}", "(": ")", "[": "]", "<": ">" };
+
+/**
+ * The index just past a delimited pattern at `from`, or `from` when there is no well-formed one.
+ *
+ * `s`, `tr` and `y` take two parts (pattern and replacement); `m`, `qr` and the bare `/…/` take one.
+ * An unterminated delimiter returns `from`, which resumes ordinary judging — the conservative direction,
+ * since a skip that overshoots would step past a real assignment.
+ */
+function patternEnd(line: string, from: number): number {
+  const head = /^\s*(?:(s|tr|y)|m|qr)?([/{|#,])/.exec(line.slice(from));
+  if (!head) return from;
+  const close = PATTERN_CLOSERS[head[2]] ?? head[2];
+  let remaining = head[1] ? 2 : 1;
+  let index = from + head[0].length;
+  while (remaining > 0 && index < line.length) {
+    if (line[index] === "\\") index += 2;
+    else if (line[index] === close) { remaining -= 1; index += 1; }
+    else index += 1;
+  }
+  return remaining === 0 ? index : from;
 }
 
 /**
@@ -187,10 +236,24 @@ function redactSecretLine(line: string): string {
  * — and one alone would read `string` as the target. Two, not all, because scanning the whole prefix reaches
  * words that name nothing here: it redacted `where year = ?` inside a SQL template only because
  * `${type}_token` appeared earlier in the same string.
+ *
+ * The second one is dropped when it sits INSIDE a quoted literal, because a declaration's type never does:
+ * in `<input id="password" name="…">` the word before `name` is the previous attribute's VALUE, and taking
+ * it redacted the form field. The adjacent target is kept either way, so a quoted key — TOML's
+ * `"password" = "changeme"` — still names what it assigns.
  */
-function operatorTargets(prefix: string): string[] {
-  const matches = prefix.match(IDENTIFIER_PATTERN) ?? [];
-  return matches.slice(-2);
+function operatorTargets(line: string, from: number, end: number, quoted: Array<{ start: number; end: number }>): string[] {
+  const pattern = new RegExp(IDENTIFIER_PATTERN.source, "g");
+  pattern.lastIndex = from;
+  const found: Array<{ text: string; start: number }> = [];
+  for (let match = pattern.exec(line); match !== null && match.index < end; match = pattern.exec(line)) {
+    found.push({ text: match[0], start: match.index });
+  }
+  const last = found[found.length - 1];
+  if (!last) return [];
+  const second = found[found.length - 2];
+  const insideLiteral = second !== undefined && quoted.some((span) => second.start >= span.start && second.start < span.end);
+  return second && !insideLiteral ? [second.text, last.text] : [last.text];
 }
 
 /** The `key: value` shape, or null. Split out so the operator loop above stays one job. */
@@ -219,12 +282,14 @@ function redactMapping(line: string, _offset: number): string | null {
  */
 type LineOperator = { index: number; length: number; kind: "assign" | "compare"; arithmetic: boolean; bound?: boolean };
 
-function classifyOperator(line: string): LineOperator | null {
-  for (let index = 0; index < line.length; index += 1) {
+function classifyOperator(line: string, from = 0): LineOperator | null {
+  for (let index = from; index < line.length; index += 1) {
     // `!~` is `=~` negated — `unless ($p =~ /x/)` and `if ($p !~ /x/)` check the same literal.
-    if (line[index] === "~" && line[index - 1] === "!") return { index: index - 1, length: 2, kind: "compare", arithmetic: false, bound: true };
+    if (line[index] === "~" && index > from && line[index - 1] === "!") return { index: index - 1, length: 2, kind: "compare", arithmetic: false, bound: true };
     if (line[index] !== "=") continue;
-    const before = index > 0 ? line[index - 1] : "";
+    // Lookbehind stops at `from`: the caller has already consumed everything before it, so a character
+    // there is the tail of the previous operator, not context for this one.
+    const before = index > from ? line[index - 1] : "";
     const after = line[index + 1] ?? "";
     // `=>` is an arrow: neither side of this split.
     if (after === ">") continue;
@@ -305,6 +370,11 @@ function shouldRedactValue(raw: string, bareReferenceAllowed = false, bound = fa
   if (bound) {
     const value = raw.trim().replace(/\s*[)\]].*$/, "").trim();
     if (/^s[\/{|#]/.test(value)) return false;
+    // An ALTERNATION of word-form branches is a set of literals, not an expression: `/^(changeme|letmein)$/`
+    // checks two passwords exactly the way `/^changeme$/` checks one, and reading the single-word form as
+    // literal while reading the two-word form as code is a distinction the attacker chooses. Measured as a
+    // leak against main, which redacts it. Metacharacters anywhere else still mean a real pattern.
+    if (/^(?:m|qr)?[\/{#]?\^?(?:\((?:\?:)?)?[A-Za-z0-9_-]+(?:\|[A-Za-z0-9_-]+)+\)?\$?[\/}#]?[a-z]*$/.test(value)) return true;
     // `//` is shorthand; `m//`, `m{}`, `qr//` are the same match written out.
     return /^(?:m|qr)?[\/{|#]?\^?[A-Za-z0-9_-]+\$?[\/}|#]?[a-z]*$/.test(value);
   }
