@@ -109,3 +109,34 @@ test("a statement carrying the old injected space still binds", () => {
   assert.deepEqual(bindingErrors(REAL_SECTION, [claim(legacyStatement)]), [],
     "an archived run that worked around the defect must not be broken by fixing it");
 });
+
+// KNOWN COST OF THE LEGACY FALLBACK, recorded rather than left silent.
+//
+// Under the new folding alone this would fail: the marker token is removed from the prose, so `事实` is not
+// there to match. The legacy folding keeps it as a bare word, and "either folding binds" therefore accepts a
+// statement that swallowed the marker. Untidy, not a false binding — every word of the statement really is
+// in the prose, in that order — and it is the price of not breaking runs authored against the old behaviour.
+// If the legacy path is ever removed, this test is the record of what changes.
+test("the legacy fallback accepts a statement that swallowed the marker token", () => {
+  const section = "## 1. 范围\n\n该检查不属于本次范围 `事实`。另有三处独立声明。\n";
+  assert.deepEqual(bindingErrors(section, [claim("该检查不属于本次范围 事实")]), [],
+    "accepted via the legacy folding only — the new folding removes the marker token");
+});
+
+// The loosening must not extend to meaning. Dropping a negation is the cheapest way to check that.
+test("folding does not let a negated sentence bind to its opposite", () => {
+  const section = "## 1. 范围\n\n该检查不属于本次范围 `事实`。另有三处独立声明。\n";
+  const errors = bindingErrors(section, [claim("该检查属于本次范围")]);
+  assert.equal(errors.length, 1, "removing 不 must still fail to bind");
+});
+
+// Two shapes a real report uses that the old folding broke and the new one must keep working.
+test("emphasis and inline code inside a sentence keep it bindable", () => {
+  const emphasised = "## 3. 取值\n\n值为 **on**/**off** 两态 `事实`。\n";
+  assert.deepEqual(bindingErrors(emphasised, [claim("值为 on/off 两态")]), []);
+  assert.equal(bindingErrors(emphasised, [claim("值为 onoff 两态")]).length, 1,
+    "and removing the asterisks must not weld the words together");
+
+  const coded = "## 2. 配置\n\n配置项 `enabled` 与 `disabled` 各自声明 `事实`。\n";
+  assert.deepEqual(bindingErrors(coded, [claim("配置项 enabled 与 disabled 各自声明")]), []);
+});
