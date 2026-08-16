@@ -118,7 +118,7 @@ async function readTargetMarker(path: string): Promise<string | null> {
  * the assurance version embed this marker so a change to redaction invalidates stale caches and
  * flags runs prepared under an older redaction. Bump it whenever `redactSecrets` behavior changes.
  */
-export const REDACTION_VERSION = "redaction-v6";
+export const REDACTION_VERSION = "redaction-v7";
 
 const IDENTIFIER_PATTERN = /[A-Za-z_][A-Za-z0-9_.-]*/g;
 const STRING_LITERAL_PATTERN = /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g;
@@ -137,7 +137,7 @@ const SHELL_VARIABLE_READ = /^"?\$\{?[A-Za-z_][A-Za-z0-9_]*\}?"?$/;
  * grant-by-shape mistake in miniature — a shape test says what a name LOOKS like, and only the complement
  * is safe to trust.
  */
-const CODE_CASED_TARGET = /(?:^|[^A-Za-z0-9_$])[a-z_$][A-Za-z0-9_$]*(?:\.[A-Za-z_$][A-Za-z0-9_$]*)*\s*$/;
+const CODE_CASED_TARGET = /(?:^|[^A-Za-z0-9_$])[a-z_$][A-Za-z0-9_$]*(?:\.[A-Za-z_$][A-Za-z0-9_$]*)+\s*$|(?:^|[^A-Za-z0-9_$])[a-z_$][a-z0-9_$]*[A-Z][A-Za-z0-9_$]*\s*$/;
 /** An identifier with no digit — a name in the code, not key material (`hours`, `nil`, `consumption`). */
 const BARE_REFERENCE_PATTERN = /^[A-Za-z_$][A-Za-z_$]*$/;
 /** `fn(...)`, `a.b.fn(...)`, `await fn(...)`, `new Thing(...)` — a call, not a credential. */
@@ -150,34 +150,59 @@ export function redactSecrets(text: string): string {
 
 function redactSecretLine(line: string): string {
   const sensitive = (identifier: string): boolean => isSensitiveIdentifier(identifier);
-  const operator = classifyOperator(line);
-  if (operator) {
-    const head = line.slice(0, operator.index + operator.length);
-    const value = line.slice(operator.index + operator.length);
-    const identifiers = line.slice(0, operator.index).match(IDENTIFIER_PATTERN) ?? [];
-    // A bare identifier is only spared where the operator itself says "quantity", i.e. arithmetic
-    // accumulation, or on the right of a comparison where an unquoted operand is a reference. Everywhere
-    // else it stays redacted, because `PASSWORD=changeme` and `holiday.PtoToken = hours` are the same text.
+  // EVERY operator on the line, left to right — the first one does not own it. `A=1 && PASSWORD=changeme`,
+  // `DEBUG=1 ADMIN_PASSWORD=changeme ./run.sh` and `[ "$PASSWORD" == old ] && PASSWORD=news3cr3t99` all put
+  // the credential after something else, and judging only the first operator left every one of them intact.
+  // Iterative rather than recursive: a line of 5000 chained comparisons overflowed the stack, and this
+  // function sits on the evidence-recording path where a crafted file must not be able to stop a run.
+  let head = "";
+  let rest = line;
+  for (let guard = 0; guard < 64; guard += 1) {
+    const operator = classifyOperator(rest);
+    if (!operator) break;
+    const upTo = rest.slice(0, operator.index + operator.length);
+    const value = rest.slice(operator.index + operator.length);
+    // The TARGET of the operator, not any word earlier in the segment. Scanning the whole prefix was
+    // measured redacting `where year = ?` inside a SQL template, only because `${type}_token` appeared
+    // earlier in the same string — and it is the same rule that made `err != nil` sensitive because
+    // `FuneralToken` sat earlier on the line. What a name says about secrecy, it says about the thing it
+    // names.
+    const targets = operatorTargets(rest.slice(0, operator.index));
     const bareAllowed = operator.arithmetic || operator.kind === "compare";
-    if (identifiers.some((identifier) => sensitive(identifier)) && shouldRedactValue(value, bareAllowed, operator.bound)) {
-      return `${head}${value.match(/^\s*/)?.[0] ?? " "}<redacted>${trailingPunctuation(value)}`;
+    if (targets.some((target) => sensitive(target)) && shouldRedactValue(value, bareAllowed, operator.bound)) {
+      return `${head}${upTo}${value.match(/^\s*/)?.[0] ?? " "}<redacted>${trailingPunctuation(value)}`;
     }
-    // The FIRST operator does not own the line. `[ "$PASSWORD" == old ] && PASSWORD=news3cr3t99` passes the
-    // comparison and then assigns the real secret; judging only the first operator left that assignment
-    // unexamined. Re-scan what follows, so a later operator gets the same judgement as a first one.
-    if (operator.kind === "compare") {
-      const rest = redactSecretLine(value);
-      if (rest !== value) return `${head}${rest}`;
-    }
+    head += upTo;
+    rest = value;
   }
-  // A `key: value` mapping — but NOT Go's `:=`, where the colon belongs to the assignment operator.
-  // Matching it there cut the line at the colon and emitted `apiToken :<redacted>`, losing the `=`; the
-  // literal-level fallback covers that form correctly instead.
-  const mapping = /^\s*["']?[A-Za-z_][A-Za-z0-9_.-]*["']?\s*:=/.test(line)
-    ? null
-    : line.match(/^(\s*["']?([A-Za-z_][A-Za-z0-9_.-]*)["']?\s*:\s*)(.*)$/);
-  if (mapping && sensitive(mapping[2]) && shouldRedactValue(mapping[3])) return `${mapping[1]}<redacted>${trailingPunctuation(mapping[3])}`;
+  const mapped = redactMapping(head + rest, head.length);
+  if (mapped !== null) return mapped;
   return redactSensitiveStringLiterals(line);
+}
+
+/**
+ * The identifiers an operator applies to: the last two before it.
+ *
+ * Two, not one, because a declaration puts the type between the name and the operator — `AESKey string =`
+ * — and one alone would read `string` as the target. Two, not all, because scanning the whole prefix reaches
+ * words that name nothing here: it redacted `where year = ?` inside a SQL template only because
+ * `${type}_token` appeared earlier in the same string.
+ */
+function operatorTargets(prefix: string): string[] {
+  const matches = prefix.match(IDENTIFIER_PATTERN) ?? [];
+  return matches.slice(-2);
+}
+
+/** The `key: value` shape, or null. Split out so the operator loop above stays one job. */
+function redactMapping(line: string, _offset: number): string | null {
+  // Not Go's `:=`, where the colon belongs to the assignment operator: matching it there cut the line at the
+  // colon and emitted `apiToken :<redacted>`, losing the `=`.
+  if (/^\s*["']?[A-Za-z_][A-Za-z0-9_.-]*["']?\s*:=/.test(line)) return null;
+  const mapping = line.match(/^(\s*["']?([A-Za-z_][A-Za-z0-9_.-]*)["']?\s*:\s*)(.*)$/);
+  if (mapping && isSensitiveIdentifier(mapping[2]) && shouldRedactValue(mapping[3])) {
+    return `${mapping[1]}<redacted>${trailingPunctuation(mapping[3])}`;
+  }
+  return null;
 }
 
 /**
@@ -196,6 +221,8 @@ type LineOperator = { index: number; length: number; kind: "assign" | "compare";
 
 function classifyOperator(line: string): LineOperator | null {
   for (let index = 0; index < line.length; index += 1) {
+    // `!~` is `=~` negated — `unless ($p =~ /x/)` and `if ($p !~ /x/)` check the same literal.
+    if (line[index] === "~" && line[index - 1] === "!") return { index: index - 1, length: 2, kind: "compare", arithmetic: false, bound: true };
     if (line[index] !== "=") continue;
     const before = index > 0 ? line[index - 1] : "";
     const after = line[index + 1] ?? "";
@@ -277,8 +304,9 @@ function shouldRedactValue(raw: string, bareReferenceAllowed = false, bound = fa
   // same shape-not-context mistake this file has now made four times.
   if (bound) {
     const value = raw.trim().replace(/\s*[)\]].*$/, "").trim();
-    if (/^s\//.test(value)) return false;
-    return /^\/?\^?[A-Za-z0-9_-]+\$?\/?[a-z]*$/.test(value);
+    if (/^s[\/{|#]/.test(value)) return false;
+    // `//` is shorthand; `m//`, `m{}`, `qr//` are the same match written out.
+    return /^(?:m|qr)?[\/{|#]?\^?[A-Za-z0-9_-]+\$?[\/}|#]?[a-z]*$/.test(value);
   }
   // A shell test — the operand sits before `]` — is the one context where an unquoted word IS the literal
   // rather than a reference: `if [ "$PASSWORD" != letmein ]`. Every value-shaped exemption is therefore

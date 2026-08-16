@@ -237,6 +237,19 @@ const LEAKED_ONCE: Array<[string, string]> = [
   ["SECRET+=changeme", "changeme"],
   ["API_TOKEN += letmein", "letmein"],
   ["[ \"$PASSWORD\" == old ] && PASSWORD=news3cr3t99", "news3cr3t99"],
+  // Round 5 — self-probe: any `$` prefix treated as a variable read; all-caps as a shape test
+  ["if [ $PASSWORD != $(cat /etc/pw) ]", "cat /etc/pw"],
+  ["if [ $PASSWORD != $1 ]", "$1"],
+  ["MY_secret += changeme", "changeme"],
+  // Round 6 — security review: first operator does not own the line; Perl spellings; lowercase target
+  ["A=1 && PASSWORD=changeme", "changeme"],
+  ["RETRIES=3; PASSWORD=changeme", "changeme"],
+  ["DEBUG=1 ADMIN_PASSWORD=changeme ./run.sh", "changeme"],
+  ["PASSWORD_FILE=$(get_path) && PASSWORD=changeme", "changeme"],
+  ["if ($password =~ m/^changeme$/) {", "changeme"],
+  ["if ($password !~ /^changeme$/) {", "changeme"],
+  ["password+=changeme", "changeme"],
+  ["AESKey string = \"real-value\"", "real-value"],
 ];
 
 test("every construction that ever leaked stays redacted", () => {
@@ -264,6 +277,25 @@ const MUST_STAY_READABLE = [
   "if [ $PASSWORD == $EXPECTED ]",
   "apiKey >>= 2",
 ];
+
+// Pathological input must not be able to stop a run: `redactSecrets` sits on the evidence-recording path,
+// so a crafted file that crashes it crashes prepare. A recursive rescan overflowed the stack at 5000 chained
+// comparisons; the loop that replaced it also fixed the leak the rescan was added for.
+test("a line of chained operators is handled without recursion", () => {
+  const chained = `x ${"== a ".repeat(5000)}`;
+  const started = Date.now();
+  assert.doesNotThrow(() => redactSecrets(chained));
+  assert.doesNotThrow(() => redactSecrets("=".repeat(30000)));
+  assert.ok(Date.now() - started < 5000, "and in linear time");
+});
+
+// A sensitive word inside a string is not the name of what an operator assigns. This SQL was measured being
+// redacted at `where year = ?` only because `${type}_token` appeared earlier in the same template — the
+// balance arithmetic this whole slice exists to keep readable.
+test("a sensitive word earlier in a template does not make the rest of the line secret", () => {
+  const sql = "  const sql = `update wcp_holiday_hour set ${type}_token = ${type}_token + ? where user_id = ?;`;";
+  assert.equal(redactSecrets(sql), sql);
+});
 
 test("every construction a report needs stays readable", () => {
   for (const line of MUST_STAY_READABLE) assert.equal(redactSecrets(line), line, line);
