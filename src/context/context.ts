@@ -1,9 +1,10 @@
 import { basename, join } from "node:path";
 import { readFile } from "node:fs/promises";
 import type { Audience, EvidenceItem, FeatureFactPack, FeatureRequest, PreparedContext, ProviderRegistry, ReportRequest, Snapshot } from "../core/types.ts";
-import { CodeGraphIndex, type GraphReader } from "../codegraph/codegraph.ts";
+import { CodeGraphIndex, type GraphReader, type GraphSummary } from "../codegraph/codegraph.ts";
 import { CodeGraphSet } from "../codegraph/codegraph-set.ts";
 import { pruneFeatureGraphWithModuleFloor } from "./prune-module-floor.ts";
+import { buildScopeCensus, type ScopeCensus } from "./scope-census.ts";
 import { createSnapshot, isLikelySource, type ScannedFile } from "../snapshot/snapshot.ts";
 import { SourceReader, evidenceFromWindow, manifestSummary, selectProjectDocuments, sourceSearch } from "../snapshot/source.ts";
 import { Deadline, ensureDir, exists, projectWorkspace, readJson, redactionCacheTag, sha256, slugify, stableJson, truncate, writeJson } from "../core/util.ts";
@@ -16,13 +17,20 @@ import { legacyWorkspaceWarning } from "../snapshot/workspace-residue.ts";
 // v20: CachedFeature carries the boundary-function enumeration (57B-396). v19 introduced it; v20 adds the
 // `truncated` flag and per-feature warnings to that record, and a v19 hit would serve them as `undefined`
 // — a truncated enumeration that claims it was complete. Any change to a cached shape bumps this (57B-375).
-const BUILDER_VERSION = "excavator-context-v20-boundary-truncation";
+const BUILDER_VERSION = "excavator-context-v21-scope-census";
 
 interface CachedShared {
   snapshotId: string;
   evidence: EvidenceItem[];
   markdown: string;
   graphFilePaths: string[];
+  /**
+   * The per-module census, carried on the shared context because `buildSharedContext` already computes the
+   * graph summary. Taking it here costs nothing on either path: cold runs reuse the summary that was just
+   * computed, and warm runs read it from the cached shared context instead of re-querying — which the
+   * "cached contexts must not repeat graph reads" invariant requires.
+   */
+  censusRoots: GraphSummary["roots"];
   metrics: { coverage?: { indexed: number; eligible: number; ratio: number }; warnings: string[] };
 }
 
@@ -38,6 +46,10 @@ interface CachedFeature {
   factPack: FeatureFactPack;
   /** Second source for the read-obligation denominator; absent on a source-only run (57B-396). */
   boundaryFunctions?: FeatureBoundaryFunctions;
+  /** Per-module scope accounting; absent when no census could be built. */
+  scopeCensus?: ScopeCensus;
+  /** Which cause, when `scopeCensus` is absent. */
+  censusUnavailableReason?: "no-graph" | "empty-vocabulary";
   warnings: string[];
 }
 
@@ -130,6 +142,8 @@ export async function buildContexts(request: ReportRequest): Promise<ContextBuil
   const allEvidence = [...shared.evidence];
   const documentContexts = new Map<string, string>();
   const featureScopes = new Map<string, { nodes: any[]; files: string[]; evidenceIds: string[] }>();
+  const scopeCensusByFeature = new Map<string, ScopeCensus>();
+  const censusUnavailableByFeature = new Map<string, "no-graph" | "empty-vocabulary">();
   const featureMarkdowns = new Map<string, string>();
   const featureFactPacks = new Map<string, FeatureFactPack>();
   const boundaryFeatures: FeatureBoundaryFunctions[] = [];
@@ -150,13 +164,15 @@ export async function buildContexts(request: ReportRequest): Promise<ContextBuil
     } else {
       cache[`feature:${key}`] = "miss";
       const started = Date.now();
-      cached = await buildFeatureContext(snapshot, files, feature, graph, new Set(shared.graphFilePaths), sourceReader, deadline, request.budgets.maxFeatureNodes, request.budgets.maxExpansionDepth);
+      cached = await buildFeatureContext(snapshot, files, feature, graph, new Set(shared.graphFilePaths), sourceReader, deadline, request.budgets.maxFeatureNodes, request.budgets.maxExpansionDepth, shared.censusRoots ?? []);
       timing[`feature:${key}Ms`] = Date.now() - started;
       await writeJson(cachePath, cached);
     }
     warnings.push(...(cached.warnings ?? []));
     allEvidence.push(...cached.evidence.filter((item) => !allEvidence.some((existing) => existing.id === item.id)));
     featureScopes.set(key, { nodes: cached.nodes as any[], files: cached.files, evidenceIds: cached.evidence.map((item) => item.id) });
+    if (cached.scopeCensus) scopeCensusByFeature.set(key, cached.scopeCensus);
+    else censusUnavailableByFeature.set(key, cached.censusUnavailableReason ?? "no-graph");
     if (cached.boundaryFunctions) boundaryFeatures.push(cached.boundaryFunctions);
     featureMarkdowns.set(key, cached.markdown);
     featureFactPacks.set(key, cached.factPack);
@@ -198,7 +214,7 @@ export async function buildContexts(request: ReportRequest): Promise<ContextBuil
 
   timing.totalPrepareMs = Date.now() - t0;
   return {
-    prepared: { snapshot, evidence: dedupeEvidence(allEvidence), sharedMarkdown, documentContexts, featureMarkdowns, featureFactPacks, featureScopes, crossFeature, boundaryFunctions },
+    prepared: { snapshot, evidence: dedupeEvidence(allEvidence), sharedMarkdown, documentContexts, featureMarkdowns, featureFactPacks, featureScopes, crossFeature, boundaryFunctions, scopeCensus: scopeCensusByFeature, censusUnavailable: censusUnavailableByFeature },
     projectDir,
     stats: {
       graphQueries: graph?.stats.queries ?? 0,
@@ -227,7 +243,7 @@ async function buildSharedContext(snapshot: Snapshot, files: ScannedFile[], grap
   const warnings: string[] = [];
   let graphPaths = new Set<string>();
   let coverage: { indexed: number; eligible: number; ratio: number } | undefined;
-  let graphSummary: unknown = null;
+  let graphSummary: GraphSummary | null = null;
   let representativeNodes: unknown[] = [];
   let routes: unknown[] = [];
 
@@ -303,10 +319,10 @@ async function buildSharedContext(snapshot: Snapshot, files: ScannedFile[], grap
   }
 
   const markdown = renderSharedMarkdown(snapshot, graphSummary, coverage, docSummaries, representativeNodes, routes, evidence, warnings);
-  return { snapshotId: snapshot.id, evidence: dedupeEvidence(evidence), markdown, graphFilePaths: [...graphPaths], metrics: { coverage, warnings } };
+  return { snapshotId: snapshot.id, evidence: dedupeEvidence(evidence), markdown, graphFilePaths: [...graphPaths], censusRoots: graphSummary?.roots ?? [], metrics: { coverage, warnings } };
 }
 
-async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], feature: FeatureRequest, graph: GraphReader | null, graphPaths: Set<string>, sourceReader: SourceReader, deadline: Deadline, maxNodes: number, depth: number): Promise<CachedFeature> {
+async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], feature: FeatureRequest, graph: GraphReader | null, graphPaths: Set<string>, sourceReader: SourceReader, deadline: Deadline, maxNodes: number, depth: number, censusRoots: GraphSummary["roots"]): Promise<CachedFeature> {
   const terms = [...new Set([feature.subject, ...feature.aliases].flatMap(tokenize))].filter(Boolean);
   const evidence: EvidenceItem[] = [];
   const warnings: string[] = [];
@@ -317,7 +333,15 @@ async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], fea
   let edges: any[] = [];
   let seeds: any[] = [];
   let unresolved: any[] = [];
+  /**
+   * Per-module scope accounting. Null when no census could be built — either no graph, or a subject whose
+   * vocabulary tokenised to nothing so no graph search ran. `censusUnavailableReason` says which; the two
+   * are recorded separately because a reason naming the wrong cause is one someone will act on wrongly.
+   */
+  let scopeCensus: ScopeCensus | null = null;
+  let censusUnavailableReason: "no-graph" | "empty-vocabulary" = "no-graph";
 
+  if (graph && !terms.length) censusUnavailableReason = "empty-vocabulary";
   if (graph && terms.length) {
     const anchorTerms = featureAnchorTerms(terms);
     const actionTerms = terms.filter((term) => !anchorTerms.includes(term));
@@ -335,6 +359,14 @@ async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], fea
     nodes = pruned.nodes;
     edges = pruned.edges;
     unresolved = graph.unresolvedForNodeIds(nodes.map((node) => node.id), 150);
+    // The row set comes from the CENSUS (`summary().roots` enumerates every indexed module, including ones
+    // this feature never touched), not from the pool — a pool-derived table cannot express the one fact
+    // worth reporting. See scope-census.ts for why that distinction is the whole point.
+    scopeCensus = buildScopeCensus({
+      roots: censusRoots,
+      pool: expanded.nodes.map((node) => ({ filePath: String(node.filePath) })),
+      retained: nodes.map((node) => ({ filePath: String(node.filePath) })),
+    });
     evidence.push({ id: `FG-${featureCacheKey(feature)}-${snapshot.id}`, snapshotId: snapshot.id, kind: "graph", title: `CodeGraph scope for ${feature.subject}`, data: { terms, anchorTerms, actionTerms, seeds, nodes, edges, unresolved }, reason: "locate the feature from specific anchors before applying generic action vocabulary", digest: sha256(stableJson({ terms, anchorTerms, actionTerms, seeds, nodes, edges, unresolved })) });
   }
 
@@ -412,7 +444,7 @@ async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], fea
   }, warnings);
   const inventory = buildFeatureInventory(nodes, scopeFiles);
   const markdown = renderFeatureMarkdown(feature, terms, nodes, edges, unresolved, scopeFiles, evidence, needBroadFallback, inventory, warnings, factPack);
-  return { snapshotId: snapshot.id, key, subject: feature.subject, aliases: feature.aliases, nodes, files: scopeFiles, evidence: dedupeEvidence(evidence), markdown, factPack, boundaryFunctions, warnings: [...warnings, ...factPack.warnings] };
+  return { snapshotId: snapshot.id, key, subject: feature.subject, aliases: feature.aliases, nodes, files: scopeFiles, evidence: dedupeEvidence(evidence), markdown, factPack, boundaryFunctions, scopeCensus: scopeCensus ?? undefined, censusUnavailableReason, warnings: [...warnings, ...factPack.warnings] };
 }
 
 function renderSharedMarkdown(snapshot: Snapshot, graphSummary: unknown, coverage: { indexed: number; eligible: number; ratio: number }, docs: Array<Record<string, unknown>>, representativeNodes: any[], routes: any[], evidence: EvidenceItem[], warnings: string[]): string {

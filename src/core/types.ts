@@ -1,4 +1,5 @@
 import type { CrossFeatureRelationships } from "../context/cross-feature.ts";
+import type { ScopeCensus } from "../context/scope-census.ts";
 import type { BoundaryFunctionsArtifact } from "../context/boundary-functions.ts";
 
 export type Audience = "product" | "engineering" | "prd";
@@ -493,4 +494,12 @@ export interface PreparedContext {
   crossFeature: CrossFeatureRelationships;
   /** Second source for the read-obligation denominator (57B-396); frozen as a run artifact at prepare. */
   boundaryFunctions: BoundaryFunctionsArtifact;
+  /**
+   * Per-module scope accounting, keyed by feature. Its row set comes from the graph census rather than the
+   * candidate pool, so a module that contributed nothing still gets a row — which is the only way "an entire
+   * module was never looked at" can be stated at all. Absent for features analysed without a graph.
+   */
+  scopeCensus: Map<string, ScopeCensus>;
+  /** Why a feature has no census, keyed by feature — so "no table" always states its cause. */
+  censusUnavailable: Map<string, "no-graph" | "empty-vocabulary">;
 }
