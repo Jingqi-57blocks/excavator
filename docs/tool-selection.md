@@ -171,7 +171,7 @@ SQLite 只能保存：Session 查询索引；搜索倒排；Finding 派生视图
 
 ### MCP Server（M1 完成后）
 
-MCP 是可选集成面，不进入 Core（官方 TypeScript SDK 依赖 Zod peer dependency，会破坏 Core 零依赖）。
+MCP 是可选集成面，不进入 Core。理由随 ⑥ 更新：零依赖绝对约束已被审计白名单取代，所以「引入 Zod peer dependency」本身不再是拒绝理由；拒绝的是**准入未过**——官方 TypeScript SDK 的传递依赖面尚未逐条过 §一 五条，而 MCP 的价值在集成面而非调查内核，放在 `packages/excavator-mcp` 即可取得，Core 无须承担这份审计。
 
 ```text
 packages/
