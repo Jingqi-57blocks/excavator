@@ -122,6 +122,7 @@ export const REDACTION_VERSION = "redaction-v7";
 
 const IDENTIFIER_PATTERN = /[A-Za-z_][A-Za-z0-9_.-]*/g;
 const STRING_LITERAL_PATTERN = /"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g;
+const TEMPLATE_LITERAL_PATTERN = /`(?:[^`\\]|\\.)*`/g;
 const QUOTED_VALUE_PATTERN = /^"((?:[^"\\]|\\.)*)"$|^'((?:[^'\\]|\\.)*)'$/;
 const MEMBER_EXPRESSION_PATTERN = /^[A-Za-z_$][A-Za-z0-9_$]*(\.[A-Za-z_$][A-Za-z0-9_$]*)+$/;
 /** A plain shell variable read — `$NAME`, `"$NAME"`, `${NAME}` — as opposed to `$(cmd)` or `$1`. */
@@ -180,8 +181,21 @@ function redactSecretLine(line: string): string {
     // `FuneralToken` sat earlier on the line. What a name says about secrecy, it says about the thing it
     // names.
     const targets = operatorTargets(line, cursor, operator.index, quoted);
-    const bareAllowed = operator.arithmetic || operator.kind === "compare";
-    if (targets.some((target) => sensitive(target)) && shouldRedactValue(value, bareAllowed, operator.bound)) {
+    // `test $PASSWORD == changeme` is the same context as `[ "$PASSWORD" == changeme ]`, which the value
+    // rules already treat as literal-bearing — but that one is recognised by its closing `]`, so the
+    // bracket-less spelling kept the comparison's bare-word exemption and leaked. Command position only:
+    // `if (test === changeme)` in JavaScript is not a shell test.
+    const shellTestCommand = /(?:^|[;&|])\s*(?:test|\[\[?)\s/.test(line.slice(0, operator.index));
+    // A comparison spares a bare word because `if apiToken == other` compares two pieces of CODE. Spending
+    // it on a config-cased name instead let `PASSWORD==changeme` through.
+    //
+    // The test is applied to the SENSITIVE name, not to whichever identifier sits closest to the operator:
+    // in `if holiday.FuneralToken > 0 && err != nil` the neighbour is `err` and the sensitive name is the
+    // dotted business field, and testing the neighbour redacted `nil`.
+    const sensitiveTargets = targets.filter((target) => sensitive(target));
+    const comparesCode = operator.kind === "compare" && sensitiveTargets.some((target) => CODE_CASED_TARGET.test(target));
+    const bareAllowed = (operator.arithmetic || comparesCode) && !shellTestCommand;
+    if (sensitiveTargets.length > 0 && shouldRedactValue(value, bareAllowed, operator.bound)) {
       return `${line.slice(0, cursor)}${upTo}${value.match(/^\s*/)?.[0] ?? " "}<redacted>${trailingPunctuation(value)}`;
     }
     // A bound pattern is ONE token. Stepping into it made the `=` inside `s/password=\w+/password=***/`
@@ -195,10 +209,17 @@ function redactSecretLine(line: string): string {
   return redactSensitiveStringLiterals(line);
 }
 
-/** The `[start, end)` spans of every quoted literal on the line, left to right and non-overlapping. */
+/**
+ * The `[start, end)` spans of every quoted literal on the line, left to right and non-overlapping.
+ *
+ * Template literals count. A URL built as `` `…/ws/?token=${token}&action=getCartV2` `` was measured losing
+ * its action name, because judging the `=` inside it put `token` two identifiers away from `action` — and
+ * those URLs are the cross-repo call sites the engine exists to recover. What a template literal may still
+ * carry is a written-out credential, so the fallback judges it as a whole; see `redactSensitiveStringLiterals`.
+ */
 function stringLiteralSpans(line: string): Array<{ start: number; end: number }> {
   const spans: Array<{ start: number; end: number }> = [];
-  const pattern = new RegExp(STRING_LITERAL_PATTERN.source, "g");
+  const pattern = new RegExp(`${STRING_LITERAL_PATTERN.source}|${TEMPLATE_LITERAL_PATTERN.source}`, "g");
   for (let match = pattern.exec(line); match !== null; match = pattern.exec(line)) {
     spans.push({ start: match.index, end: match.index + match[0].length });
   }
@@ -254,6 +275,23 @@ function operatorTargets(line: string, from: number, end: number, quoted: Array<
   const second = found[found.length - 2];
   const insideLiteral = second !== undefined && quoted.some((span) => second.start >= span.start && second.start < span.end);
   return second && !insideLiteral ? [second.text, last.text] : [last.text];
+}
+
+/**
+ * Drop trailing `)` that this value never opened — they close the expression AROUND it.
+ *
+ * `password.value === confirm.value)` sits inside a `computed(…)`, and carrying the caller's paren made the
+ * operand stop reading as a member expression, redacting a Vue comparison. Counted rather than trimmed by
+ * whitespace, because `!= abc]` taught that a closer cannot be told from a value by position alone —
+ * a paren the value did not open is unambiguous, and stripping it can only shorten a bare word that stays
+ * redacted anyway.
+ */
+function dropUnopenedParens(value: string): string {
+  let text = value;
+  while (text.endsWith(")") && (text.match(/\)/g) ?? []).length > (text.match(/\(/g) ?? []).length) {
+    text = text.slice(0, -1);
+  }
+  return text;
 }
 
 /** The `key: value` shape, or null. Split out so the operator loop above stays one job. */
@@ -331,9 +369,14 @@ function classifyOperator(line: string, from = 0): LineOperator | null {
  * is the value beside the name, not the name itself.
  */
 function redactSensitiveStringLiterals(line: string): string {
+  // A template literal is judged on the ONE thing that is unambiguous inside it: a sensitive key bound to a
+  // written-out value. The "mentions a sensitive word" test that governs quoted strings cannot be used here,
+  // because a URL mentions `token` whenever it carries one by reference — and redacting those whole was the
+  // measured evidence loss this span exists to stop.
+  const withTemplates = line.replace(TEMPLATE_LITERAL_PATTERN, (literal) => redactCredentialPairs(literal));
   const identifiers = line.match(IDENTIFIER_PATTERN) ?? [];
-  if (!identifiers.some((identifier) => isSensitiveIdentifier(identifier))) return line;
-  return line.replace(STRING_LITERAL_PATTERN, (literal) => (shouldRedactValue(literal) ? `${literal[0]}<redacted>${literal[0]}` : literal));
+  if (!identifiers.some((identifier) => isSensitiveIdentifier(identifier))) return withTemplates;
+  return withTemplates.replace(STRING_LITERAL_PATTERN, (literal) => (shouldRedactValue(literal) ? `${literal[0]}<redacted>${literal[0]}` : literal));
 }
 
 function isSensitiveIdentifier(identifier: string): boolean {
@@ -401,7 +444,7 @@ function shouldRedactValue(raw: string, bareReferenceAllowed = false, bound = fa
   // The trim requires WHITESPACE before the closer, because without it the closer cannot be told from the
   // value: `!= abc]` would otherwise be read as an empty value and pass through, which is a leak. Attached
   // punctuation therefore stays part of the value and is judged with it — the conservative direction.
-  const value = raw.trim().replace(/[,;]$/, "").replace(/\s+(?:\{|\}|\]\s*;?.*|\)\s*\{?.*)$/, "").trim();
+  const value = dropUnopenedParens(raw.trim().replace(/[,;]$/, "").replace(/\s+(?:\{|\}|\]\s*;?.*|\)\s*\{?.*)$/, "").trim());
   if (!value || value.startsWith("${") || value === "null" || value === "true" || value === "false" || /^-?\d+(?:\.\d+)?$/.test(value)) return false;
   if (value.startsWith("{") || value.startsWith("[")) return false;
 
@@ -442,14 +485,46 @@ function shouldRedactValue(raw: string, bareReferenceAllowed = false, bound = fa
 // and `<changeme>` is only a placeholder by convention — both were measured walking out through this list,
 // so the brace form is narrowed to a bare variable and the angle form is gone. Redacting a README's
 // `<your-password>` costs nothing; keeping a default value readable costs the whole exemption.
-const PLACEHOLDER_VALUE = /^(?:\?|\$\d+|:[A-Za-z_]\w*|%[a-z]|\$\{[A-Za-z_][A-Za-z0-9_]*\})$/;
-const LITERAL_PAIR = /([A-Za-z_][A-Za-z0-9_.-]*)\s*=\s*([^;&\s]*)/g;
+// Every dialect's way of saying "the value lives elsewhere": positional, named, bind, interpolation,
+// printf, template. A parameterised query is the case that decides the list — `password=@password` is the
+// SECURE way to write it, and redacting it eats the evidence that the code is safe. `${VAR:-changeme}` is
+// deliberately absent: a default value carries the literal with it.
+const PLACEHOLDER_VALUE = /^(?:\?|\$\d+|:[A-Za-z_]\w*|@[A-Za-z_]\w*|%[a-z]|%\([A-Za-z_]\w*\)[a-z]|\$\{[A-Za-z_][A-Za-z0-9_]*\}|\{\{[^{}]*\}\}|#\{[^{}]*\})$/;
+// The `=` must be an assignment, not one character of a comparison: `password.value === confirm.value`
+// inside a Vue attribute was read as `password.value = "=="` and redacted the whole handler.
+const LITERAL_PAIR = /([A-Za-z_][A-Za-z0-9_.-]*)\s*(?<![=!<>])=(?!=)\s*([^;&\s]*)/g;
+
+/**
+ * A value that names something ELSEWHERE: a placeholder, or text whose interpolations are bare variables.
+ *
+ * `${type}_token` names a column; `${DEFAULT:-changeme}` carries the literal inside the braces, so an
+ * interpolation holding a fallback operator binds a value like any other literal does.
+ */
+function bindsNoLiteral(value: string): boolean {
+  if (!value || PLACEHOLDER_VALUE.test(value)) return true;
+  // An expression is not key material. `@click="showPassword = !showPassword"` is a UI toggle, and it is
+  // only reachable here — inside a literal — so `PASSWORD=!s3cret` on a bare line is judged as before.
+  if (value.startsWith("!") || MEMBER_EXPRESSION_PATTERN.test(value)) return true;
+  return value.includes("${") && !/\$\{[^}]*[-+?=][^}]*\}/.test(value);
+}
 
 function carriesCredentialPair(content: string): boolean {
   for (const pair of content.matchAll(LITERAL_PAIR)) {
-    if (isSensitiveIdentifier(pair[1]) && pair[2] && !PLACEHOLDER_VALUE.test(pair[2])) return true;
+    if (isSensitiveIdentifier(pair[1]) && !bindsNoLiteral(pair[2])) return true;
   }
   return false;
+}
+
+/**
+ * Blank only the VALUE of each credential pair, leaving the rest of the text intact.
+ *
+ * Used for template literals, where redacting the whole literal destroys the URL that the pair sits in —
+ * `` `${api}/v2/leaves?token=ghp_…` `` must lose the token and keep `/v2/leaves`, because that path is the
+ * cross-repo call site.
+ */
+function redactCredentialPairs(content: string): string {
+  return content.replace(LITERAL_PAIR, (whole, key: string, value: string) =>
+    (isSensitiveIdentifier(key) && !bindsNoLiteral(value) ? `${whole.slice(0, whole.length - value.length)}<redacted>` : whole));
 }
 
 function isNameLikeLiteral(content: string): boolean {

@@ -269,6 +269,16 @@ const LEAKED_ONCE: Array<[string, string]> = [
   ["c = \"password=${DEFAULT:-changeme}\"", "changeme"],
   ["c = \"password=<changeme>\"", "changeme"],
   ["c = \"password=${PW:=letmein}\"", "letmein"],
+  // Round 8 — security review, measured against the baseline redactor. The first two are the operator-inside-
+  // a-string skip overreaching into command strings; the third is an apostrophe forming a pseudo-span that
+  // wrapped a real assignment; the fourth hid the credential in a concatenated fragment.
+  ["run(\"export PASSWORD=changeme\")", "changeme"],
+  ["sh(\"mysql -u root --password=changeme\")", "changeme"],
+  ["# don't commit PASSWORD=changeme, it's temporary", "changeme"],
+  ["a = 'x' + b + '; PASSWORD=changeme; ' + c", "changeme"],
+  // Round 8 — the comparison's bare-word exemption, spent where the sensitive name is not code.
+  ["PASSWORD==changeme", "changeme"],
+  ["test $PASSWORD == changeme", "changeme"],
 ];
 
 test("every construction that ever leaked stays redacted", () => {
@@ -305,7 +315,31 @@ const MUST_STAY_READABLE = [
   "q = \"where password = :pwd\"",
   "q = \"set token = ${v}\"",
   "grant_type = \"client_credentials\"",
+  // Round 8 — a parameterised query is the SECURE spelling; redacting it eats the evidence that the code
+  // is safe. Every dialect's placeholder counts, not just the one this codebase happens to use.
+  "sql = \"UPDATE users SET password=@password WHERE id=@id\"",
+  "tpl = \"password={{password}}\"",
+  "rb = \"password=#{pwd}\"",
+  "py = \"password=%(password)s\"",
+  "if (test === changeme) {",
+  // Round 9 — a URL built in a template literal is a cross-repo call site, and the action name is the part
+  // that identifies it. Measured lost on a real Vue target before template literals became spans.
+  "socket = new WebSocket(`wss://api.example.com/ws/?token=${token}&action=getCartV2`)",
+  // Round 9 — inside a literal, an expression is not key material: a `===` comparison is not an assignment,
+  // and a negation is a toggle. Both were measured on a real Vue target as whole-attribute redactions.
+  "@click=\"showPassword = !showPassword\"",
+  "const samePass = computed(() => password.value && password.value === confirm.value)",
 ];
+
+// The template literal is judged pair by pair, so a written-out credential goes and the URL around it stays.
+// Redacting the literal whole was measured taking `/v2/leaves` — the very thing a cross-repo link needs.
+test("a credential inside a template literal loses its value, not its context", () => {
+  const url = "const u = `${api}/v2/leaves?token=ghp_aBcDeFgH0123456789`";
+  const redacted = redactSecrets(url);
+  assert.doesNotMatch(redacted, /ghp_aBcDeFgH0123456789/, "the token goes");
+  assert.match(redacted, /\/v2\/leaves\?token=/, "the path and the parameter name stay");
+  assert.match(redactSecrets("const c = `PASSWORD=changeme`"), /PASSWORD=<redacted>/, "and a written-out credential is still caught");
+});
 
 // Skipping a delimited pattern whole is what keeps a substitution readable — but a skip that overshoots
 // walks past a real assignment, turning an evidence fix into a leak. Every closing form is checked with a
