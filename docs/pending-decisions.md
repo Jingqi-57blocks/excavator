@@ -421,6 +421,8 @@ if holiday.FuneralToken > 0 && err != nil {   → if holiday.FuneralToken > 0 &&
 
 **记档不修（本轮新增）**：JSX 里 `<Form.Item className={styles.passwordFormItem} label="Password:">` 仍被兜底整串遮——`passwordFormItem` 使整行敏感，于是**同行的 UI 文案被当值遮掉**。与上面「行级判定使格式影响结果」是同一个根：兜底看行不看表达式。方向安全（误遮），真实 target 上仅此 1 处，故不为它再动兜底。
 
+**记档不修（词表边界，与基线同）**：`isSensitiveIdentifier` 按**分段**匹配（`_` 分隔或 camelCase 拆分），所以 `x-password`、`db.password`、`PASSWORD_2`、`myPassword` 都识别，但**无边界的连写** `mypassword=changeme` 与**未列词** `pass=changeme` 两版都漏。改法各有代价：改成子串匹配会让 `passwordless`/`passwordPolicy` 变敏感（方向安全但噪声未测），把 `pass` 入表会命中 `passed`/`passing`/`bypass`。**这是词表设计问题，不是判定路径问题**，与本片的算符/字面量修复正交，单独评估。
+
 **净安全面口径（评审判据，留给下次改脱敏的人）**：不看单条构造，看**相对基线的双向漂移**——真实仓逐行跑两版并分类为「新增遮盖 / 新增放行」。wcp（1714 文件、30 万行）实测新增遮盖 1、新增放行 113，放行抽样全为调用豁免。**差分工具无法区分"改进"与"泄漏"，只有记录下来的意图能**，所以放行侧必须逐类给出有意放宽的理由，否则视同泄漏。
 
 ## 批次 57B-405（对账诚实化）产生（2026-08-16）
