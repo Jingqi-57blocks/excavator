@@ -424,7 +424,9 @@ function auditClaim(documentId: string, sectionIndex: number, visible: string, c
   if (!claim.id.trim()) findings.push(error(documentId, `section ${sectionIndex} has a claim with no id`));
   const statement = normalizeText(claim.statement);
   if (statement.length < 6) findings.push(error(documentId, `claim ${claim.id || "<missing>"} statement is too short to bind to report prose`));
-  else if (!normalizeText(visible).includes(statement)) findings.push(error(documentId, `claim ${claim.id} statement is not present in section ${sectionIndex}`));
+  else if (!normalizeText(visible).includes(statement) && !normalizeTextLegacy(visible).includes(normalizeTextLegacy(claim.statement))) {
+    findings.push(error(documentId, `claim ${claim.id} statement is not present in section ${sectionIndex}`));
+  }
   if (claim.marker === "unavailable") {
     if (claim.evidenceIds?.length) findings.push(error(documentId, `unavailable claim ${claim.id} must not cite evidence ids`));
     if (!claim.reason?.trim()) findings.push(error(documentId, `unavailable claim ${claim.id} requires a reason`));
@@ -887,7 +889,7 @@ export function substantiveSegments(section: string): string[] {
       .replace(/^[-*+]\s+/, "")
       .replace(/^\d+[.)]\s+/, "")
       .replace(/\*\*([^*]+)\*\*/g, "$1")
-      .replace(/`(?:事实|验证|推断|不可得|fact|verified|inferred|unavailable)`/gi, "")
+      .replace(EVIDENCE_MARKER_TOKEN, "")
       .trim();
     if (line.startsWith("|") && line.endsWith("|")) {
       line = line.slice(1, -1).split("|").map((cell) => cell.trim()).filter(Boolean).join("；");
@@ -946,7 +948,53 @@ export function auditSectionEvidenceMarkers(options: {
   return [error(documentId, `section ${sectionIndex} has substantive statements but no evidence-level marker`)];
 }
 
-function normalizeText(value: string): string { return value.replace(/[`*_>#-]/g, " ").replace(/\s+/g, " ").trim(); }
+/**
+ * The evidence-level marker token, as prose carries it. One definition: the segmenter strips it and the
+ * audit's folding must strip it identically, or a segment stops being a substring of the text it came from.
+ */
+export const EVIDENCE_MARKER_TOKEN = /`(?:事实|验证|推断|不可得|fact|verified|inferred|unavailable)`/gi;
+
+/**
+ * Remove what is decoration rather than content: the marker token, and the backticks and asterisks that sit
+ * BETWEEN characters a reader sees as adjacent.
+ *
+ * Shared by `substantiveSegments` and `normalizeText` because they had drifted twice in the same way, and
+ * each drift made a segment fail to be found in the very section that produced it — once on `**bold**`
+ * (asterisks became a space on one side and vanished on the other) and once on the marker token (removed
+ * entirely by the segmenter, left as a bare word by the audit). One function, so a third drift needs a
+ * deliberate edit rather than an oversight.
+ */
+function foldInlineDecoration(value: string): string {
+  return value.replace(EVIDENCE_MARKER_TOKEN, "").replace(/[`*]/g, "");
+}
+
+/**
+ * Fold report prose and a claim statement into one comparable form.
+ *
+ * INLINE DECORATION IS REMOVED, NOT SPACED. Backticks and emphasis asterisks sit BETWEEN characters that
+ * the reader sees as adjacent, so turning them into whitespace injects a separator that exists in no
+ * rendering of the text: `产品名为 **CMS3000**，其源码` folded to `… CMS3000 ，其源码` — a space before the
+ * comma. Nothing an author writes contains that space, so every claim binding a bold lead-in failed as
+ * "statement is not present in section", including the stubs `claims scaffold` emits itself. Two engine
+ * rules contradicted each other: `writing-rules.md` asks every chapter for bold lead-ins, and this
+ * function made them unbindable. Found by a real authoring run on a Perl target, ~30 errors in one report.
+ *
+ * The rest stay spaced. `-` and `_` occur INSIDE identifiers (`read-obligations`, `snake_case`), where
+ * removal would weld words together and change which statements match.
+ */
+function normalizeText(value: string): string {
+  return foldInlineDecoration(value).replace(/[_>#-]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+/**
+ * How this function folded text before inline decoration stopped being spaced. Kept ONLY so a run authored
+ * against the old behaviour — where a statement may carry the injected space to match — still binds. A
+ * statement is present if EITHER folding finds it: both are faithful renderings of the same prose, so
+ * accepting either keeps the guarantee ("this sentence is in the section") while removing the trap.
+ */
+function normalizeTextLegacy(value: string): string {
+  return value.replace(/[`*_>#-]/g, " ").replace(/\s+/g, " ").trim();
+}
 function featureScopeKey(subject: string, aliases: string[]): string { return sha256(stableJson({ subject: subject.trim().toLowerCase(), aliases: [...aliases].sort() })).slice(0, 10); }
 function error(document: string, message: string): AuditFinding { return { level: "error", document, message }; }
 function warning(document: string, message: string): AuditFinding { return { level: "warning", document, message }; }
