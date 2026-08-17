@@ -10,7 +10,7 @@ AI-first 可辩护代码调查引擎。Node >= 22.5，TypeScript 直跑（type s
 
 ## 必读
 
-任何开发工作开始前，读 `docs/development.md`——开发流程状态转移表、模型分工（Fable 决策 / Opus 执行）、Git/PR 约定都在那里。方向与任务以 Linear 看板为准。
+任何开发工作开始前，读 `docs/development.md`——开发流程状态转移表、模型分工（Fable 决策 / Opus 执行）、Git/PR 约定都在那里。code → knowledge 的分层契约见 `docs/layering.md`：每层的输入、输出、失败输出与**禁止输入**，改这一段的代码前必读。方向与任务以 Linear 看板为准。
 
 ## 硬约束
 
