@@ -1,0 +1,139 @@
+import type { Audience, BudgetConfig, DocumentKind, ReportRequest } from "../core/types.ts";
+import { sha256, stableJson } from "../core/util.ts";
+
+/**
+ * The bound run contract: two of the three external inputs that exist BEFORE any layer runs.
+ *
+ * `run-intent.json` is what the operator asked for; `requirements.json` is what the report side needs
+ * answered, translated into rows at the boundary. Both are read-only for the rest of the run, and neither is
+ * derived from anything a producer computed — that is the property that lets layer 8 verify a run against
+ * the contract it recorded instead of against whatever the current code happens to expect.
+ *
+ * The third input, `contract-manifest.json`, is derived from the base registry plus these two; see
+ * `contract-manifest.ts`.
+ *
+ * Query aliases are SORTED and de-duplicated here. The same intent written in a different order used to be a
+ * different byte sequence, so the contract digest — and anything keyed on it — drifted for no reason.
+ */
+
+export interface RunIntentFeature {
+  /** The feature's cache key, minted by the caller; the contract records it, never re-derives it. */
+  key: string;
+  subject: string;
+  /** Query aliases, sorted and de-duplicated. */
+  aliases: string[];
+}
+
+export interface RunIntent {
+  version: "run-intent-v1";
+  target: string;
+  outputLanguage: string;
+  features: RunIntentFeature[];
+  /** Requested document ids, sorted. */
+  documents: string[];
+  budgets: BudgetConfig;
+  digest: string;
+}
+
+export interface RequirementRow {
+  /** `REQ-<nn>`, assigned by position in the deterministic row order. */
+  id: string;
+  scope: "run" | "feature";
+  /** The feature key this requirement belongs to, or null for a run-level requirement. */
+  featureKey: string | null;
+  documentId: string | null;
+  audience: Audience | null;
+  statement: string;
+  /** Where the requirement came from: a report template, or the run itself. */
+  source: string;
+}
+
+export interface Requirements {
+  version: "requirements-v1";
+  rows: RequirementRow[];
+  digest: string;
+}
+
+export interface BoundRunContract {
+  runIntent: RunIntent;
+  requirements: Requirements;
+}
+
+/** One requested document, as the orchestrator plans it before any producer runs. */
+export interface PlannedDocument {
+  id: string;
+  kind: DocumentKind;
+  audience: Audience;
+  featureKey: string | null;
+}
+
+export interface BoundRunContractInput {
+  request: ReportRequest;
+  features: RunIntentFeature[];
+  documents: PlannedDocument[];
+}
+
+/**
+ * The run-level requirements every run carries, features or not.
+ *
+ * They exist because accounting used to be keyed by feature: an overview-only run asked for nothing, so it
+ * could go silent about the whole target and no row anywhere said a question had gone unanswered.
+ */
+const RUN_LEVEL_REQUIREMENTS: Array<{ statement: string; source: string }> = [
+  { statement: "The scanned source boundary is stated with its completeness: which candidates were counted, which were excluded and under which rule.", source: "run" },
+  { statement: "Every recorded artifact this run produced carries a written result, including the ones that could not be produced.", source: "run" }
+];
+
+export function materializeBoundRunContract(input: BoundRunContractInput): BoundRunContract {
+  const runIntent = materializeRunIntent(input);
+  return { runIntent, requirements: materializeRequirements(input) };
+}
+
+function materializeRunIntent(input: BoundRunContractInput): RunIntent {
+  const features = [...input.features]
+    .map((feature) => ({ key: feature.key, subject: feature.subject, aliases: [...new Set(feature.aliases)].sort((a, b) => a.localeCompare(b)) }))
+    .sort((a, b) => a.key.localeCompare(b.key));
+  const unsigned = {
+    version: "run-intent-v1" as const,
+    target: input.request.target,
+    outputLanguage: input.request.language,
+    features,
+    documents: input.documents.map((document) => document.id).sort((a, b) => a.localeCompare(b)),
+    budgets: input.request.budgets
+  };
+  return { ...unsigned, digest: sha256(stableJson(unsigned)) };
+}
+
+/**
+ * The minimal requirement row set: the run-level rows plus one row per requested document.
+ *
+ * A template is a PRODUCER of requirements, not the requirement itself, so the row names the audience and
+ * kind it came from rather than a template path — a machine-specific absolute path would make the contract
+ * digest differ between two machines running the same request.
+ */
+function materializeRequirements(input: BoundRunContractInput): Requirements {
+  const rows: Array<Omit<RequirementRow, "id">> = RUN_LEVEL_REQUIREMENTS.map((requirement) => ({
+    scope: "run" as const,
+    featureKey: null,
+    documentId: null,
+    audience: null,
+    statement: requirement.statement,
+    source: requirement.source
+  }));
+  const subjects = new Map(input.features.map((feature) => [feature.key, feature.subject]));
+  for (const document of [...input.documents].sort((a, b) => a.id.localeCompare(b.id))) {
+    const subject = document.featureKey === null ? null : subjects.get(document.featureKey) ?? document.featureKey;
+    rows.push({
+      scope: document.featureKey === null ? "run" : "feature",
+      featureKey: document.featureKey,
+      documentId: document.id,
+      audience: document.audience,
+      statement: subject === null
+        ? `The ${document.audience} ${document.kind} report is answerable from this run's recorded knowledge.`
+        : `The ${document.audience} ${document.kind} report on "${subject}" is answerable from this run's recorded knowledge.`,
+      source: `template:${document.kind}/${document.audience}`
+    });
+  }
+  const numbered: RequirementRow[] = rows.map((row, index) => ({ id: `REQ-${String(index + 1).padStart(2, "0")}`, ...row }));
+  return { version: "requirements-v1", rows: numbered, digest: sha256(stableJson(numbered)) };
+}
