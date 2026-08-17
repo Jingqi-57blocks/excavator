@@ -452,6 +452,18 @@ export interface GraphFile {
   errors: string[];
 }
 
+/**
+ * One audit finding. It lives with the shared types rather than inside any auditor: every side that can audit
+ * produces them — the knowledge-side work-item audits, the layer-8 contract audit, the report-side section
+ * audits — and a finding type owned by one of them would make the others import across the dependency order
+ * just to say what they found.
+ */
+export interface AuditFinding {
+  level: "error" | "warning";
+  document: string;
+  message: string;
+}
+
 export interface GraphNode {
   id: string;
   kind: string;

@@ -1,8 +1,8 @@
 import { rm, readdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import type { DocumentPlan, DraftReceipt, RunManifest, SectionClaim } from "../core/types.ts";
-import type { AuditFinding } from "./assurance.ts";
-import { runUsesCurrentAssurance, validateClaimsInput } from "./assurance.ts";
+import type { AuditFinding, DocumentPlan, DraftReceipt, RunManifest, SectionClaim } from "../core/types.ts";
+import { runUsesCurrentAssurance } from "../base/assurance-version.ts";
+import { validateClaimsInput } from "./section-audit.ts";
 import { collectClaims } from "./assurance-artifacts.ts";
 import { archiveCheckpoint, normalizeSection } from "../core/run.ts";
 import { appendTimeline } from "./timeline.ts";

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { join } from "node:path";
 import { readFile, writeFile } from "node:fs/promises";
 import type { DocumentPlan, EvidenceItem, ReportRequest, RunManifest, SectionClaim } from "../src/core/types.ts";
-import { auditReadabilityTables } from "../src/assurance/assurance.ts";
+import { auditReadabilityTables } from "../src/assurance/section-audit.ts";
 import { assembleRun, auditRun, checkpointSection, freezeRun, prepareRun, searchSourceEvidence, updateChecklist } from "../src/core/run.ts";
 import { copyFixture, createCodeGraphFixture, tempDir } from "./helpers.ts";
 

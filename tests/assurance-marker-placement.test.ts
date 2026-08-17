@@ -1,11 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {
-  auditEvidenceMarkerPlacement,
-  auditSectionClaims,
-  auditSectionEvidenceMarkers,
-  substantiveSegments
-} from "../src/assurance/assurance.ts";
+import { auditEvidenceMarkerPlacement, auditSectionClaims, auditSectionEvidenceMarkers, substantiveSegments } from "../src/assurance/section-audit.ts";
 import type { Audience, DocumentKind, DocumentPlan, SectionClaimsFile } from "../src/core/types.ts";
 
 function doc(kind: DocumentKind = "feature", audience: Audience = "product"): DocumentPlan {

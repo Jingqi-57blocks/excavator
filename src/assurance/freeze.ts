@@ -1,7 +1,7 @@
 import { join } from "node:path";
-import type { AuditFinding } from "./assurance.ts";
-import { auditEvidenceCatalog, auditTraces, auditWorkItems, runUsesCurrentAssurance } from "./assurance.ts";
-import type { EvidenceItem, InvestigationPlan, KnowledgeArtifact, KnowledgeCompleteness, RunManifest, TraceCatalog } from "../core/types.ts";
+import { auditEvidenceCatalog, auditTraces, auditWorkItems } from "./assurance.ts";
+import { runUsesCurrentAssurance } from "../base/assurance-version.ts";
+import type { AuditFinding, EvidenceItem, InvestigationPlan, KnowledgeArtifact, KnowledgeCompleteness, RunManifest, TraceCatalog } from "../core/types.ts";
 import { readTimeline } from "./timeline.ts";
 import { exists, nowIso, readJson, sha256, stableJson, writeJson } from "../core/util.ts";
 

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { logicItems, logicClaimKey, LOGIC_LOCATION_SEP, type LogicFeatureGraph, type LogicSelection } from "../src/context/factpack-logic.ts";
 import { buildFactPack } from "../src/context/factpack.ts";
-import { auditRescuedLogicCoverage } from "../src/assurance/assurance.ts";
+import { auditRescuedLogicCoverage } from "../src/assurance/section-audit.ts";
 import { stableJson } from "../src/core/util.ts";
 import type { SourceReader } from "../src/snapshot/source.ts";
 import type { EvidenceItem } from "../src/core/types.ts";

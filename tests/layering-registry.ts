@@ -46,6 +46,7 @@ export const LAYERING_REGISTRY: readonly RegistryEntry[] = [
   { file: "src/assurance/condition-inventory.ts", layer: "L7" },
   { file: "src/assurance/read-coverage.ts", layer: "L7" },
   { file: "src/assurance/read-residual-exposure.ts", layer: "L7" },
+  { file: "src/assurance/investigation-artifacts.ts", layer: "L7" },
   { file: "src/assurance/contract-instance-audit.ts", layer: "L8" },
   { file: "src/assurance/freeze.ts", layer: "L8" },
   { file: "src/assurance/mechanism-ledger-audit.ts", layer: "L8" },
@@ -55,6 +56,7 @@ export const LAYERING_REGISTRY: readonly RegistryEntry[] = [
   { file: "src/assurance/claims-scaffold.ts", layer: "report" },
   { file: "src/assurance/parallel-authoring.ts", layer: "report" },
   { file: "src/assurance/recommendation-language.ts", layer: "report" },
+  { file: "src/assurance/section-audit.ts", layer: "report" },
   { file: "src/assurance/section-slug.ts", layer: "report" },
 
   // --- orchestration -------------------------------------------------------------------------------------

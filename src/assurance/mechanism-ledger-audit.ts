@@ -1,5 +1,5 @@
 import { join } from "node:path";
-import type { AuditFinding } from "./assurance.ts";
+import type { AuditFinding } from "../core/types.ts";
 import { assertNever, type ArtifactResult } from "../base/artifact-result.ts";
 import type { ContractManifest } from "../contract/contract-manifest.ts";
 import type { FileLedger } from "../snapshot/file-ledger.ts";

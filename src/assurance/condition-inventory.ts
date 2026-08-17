@@ -36,8 +36,7 @@
 //
 // Pure: zero I/O, zero model call, byte-stable ordering.
 
-import type { EvidenceItem } from "../core/types.ts";
-import type { AuditFinding } from "./assurance.ts";
+import type { AuditFinding, EvidenceItem } from "../core/types.ts";
 import { extractComparisons, type RawComparison } from "../facts/probe/condition-extract.ts";
 import { normalizeObligationPath } from "./read-obligations.ts";
 
