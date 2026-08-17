@@ -8,7 +8,7 @@ import { auditMechanismLedger } from "../src/assurance/mechanism-ledger-audit.ts
 import type { ContractManifest } from "../src/contract/contract-manifest.ts";
 import type { ArtifactResult } from "../src/base/artifact-result.ts";
 import type { FileLedger } from "../src/snapshot/file-ledger.ts";
-import type { MechanismLedger } from "../src/mechanism/mechanism-ledger.ts";
+import type { MechanismDeclaration, MechanismLedger } from "../src/mechanism/mechanism-ledger.ts";
 import { unavailable } from "../src/base/artifact-result.ts";
 import { writeJson } from "../src/base/util.ts";
 import { copyFixture, createCodeGraphFixture, tempDir } from "./helpers.ts";
@@ -45,6 +45,18 @@ async function prepared(): Promise<Prepared> {
   assert.equal(envelope.status, "built", "a prepared run records a built layer-2 ledger");
   if (envelope.status !== "built") throw new Error("unreachable");
   return { runDir, contract, files, ledger: envelope.value };
+}
+
+/**
+ * Rewrite a ledger as the previous schema version would have written it.
+ *
+ * An archived run is verified under the schema it recorded, so the v1 fixtures below are built by REMOVING what
+ * v2 added rather than by hand: a hand-written v1 could differ from a real one in a way that made the "old
+ * checks still run" claim vacuous.
+ */
+function downgradeToV1(ledger: MechanismLedger): void {
+  (ledger as { version: string }).version = "mechanisms-ledger-v1";
+  for (const mechanism of ledger.mechanisms) delete (mechanism as Partial<MechanismDeclaration>).takesMatrixRows;
 }
 
 /** Write a mutated ledger back and audit it, so each finding is asserted on one deliberate lie. */
@@ -174,6 +186,75 @@ test("a matrix row for a non-file domain is an error, and a missing declaration 
   });
   assert.ok(undeclared.some((message) => /which the ledger never declares/.test(message)),
     `cells without a declaration have no domain, unit kind or availability: ${JSON.stringify(undeclared, null, 2)}`);
+});
+
+test("deleting a whole matrix row is an error, because the declaration says the row should be there", async () => {
+  const run = await prepared();
+  // Before `takesMatrixRows`, this edit was undetectable: the row's conservation obligation, its availability
+  // agreement and its per-language census all went with it, and the audit only ever walked the rows present.
+  const victim = "search";
+  assert.ok(run.ledger.fileMatrix.some((row) => row.mechanismId === victim), "the fixture really has a search row");
+  const messages = await auditWith(run, (ledger) => {
+    ledger.fileMatrix = ledger.fileMatrix.filter((row) => row.mechanismId !== victim);
+    ledger.byLanguage = ledger.byLanguage.filter((row) => row.mechanismId !== victim);
+  });
+  assert.ok(messages.some((message) => message.includes(victim) && /declare they take \(file x mechanism\) rows and have none/.test(message)),
+    `a removed row must be named as missing: ${JSON.stringify(messages, null, 2)}`);
+});
+
+test("the declared row expectation matches the grid in both directions", async () => {
+  const run = await prepared();
+  const declared = new Set(run.ledger.mechanisms.filter((mechanism) => mechanism.takesMatrixRows).map((mechanism) => mechanism.id));
+  assert.deepEqual([...declared].sort(), run.ledger.fileMatrix.map((row) => row.mechanismId).sort(),
+    "a freshly prepared ledger declares exactly the rows it carries");
+  assert.ok(run.ledger.mechanisms.some((mechanism) => !mechanism.takesMatrixRows),
+    "and some mechanisms legitimately take none (crossrepo, ctags-census, codegraph), which is the case the field disambiguates");
+
+  const disowned = await auditWith(run, (ledger) => {
+    const declaration = ledger.mechanisms.find((entry) => entry.id === ledger.fileMatrix[0].mechanismId);
+    if (declaration) declaration.takesMatrixRows = false;
+  });
+  assert.ok(disowned.some((message) => /carry \(file x mechanism\) rows without declaring they take any/.test(message)),
+    `flipping the flag rather than removing the row must not be a way out: ${JSON.stringify(disowned, null, 2)}`);
+});
+
+test("one mechanism id, one declaration and one matrix row — duplicates are an error under every version", async () => {
+  const run = await prepared();
+  const twiceDeclared = await auditWith(run, (ledger) => { ledger.mechanisms.push({ ...ledger.mechanisms[0] }); });
+  assert.ok(twiceDeclared.some((message) => /declares \S+ more than once/.test(message)),
+    `a second declaration silently wins the map lookup: ${JSON.stringify(twiceDeclared, null, 2)}`);
+
+  const twiceRowed = await auditWith(run, (ledger) => { ledger.fileMatrix.push(JSON.parse(JSON.stringify(ledger.fileMatrix[0])) as typeof ledger.fileMatrix[0]); });
+  assert.ok(twiceRowed.some((message) => /carries matrix rows for \S+ more than once/.test(message)),
+    `two grids for one mechanism make its cells ambiguous: ${JSON.stringify(twiceRowed, null, 2)}`);
+
+  // Uniqueness needs nothing v2 added, so an archived v1 run is held to it as well.
+  const v1Duplicate = await auditWith(run, (ledger) => {
+    downgradeToV1(ledger);
+    ledger.mechanisms.push({ ...ledger.mechanisms[0] });
+  });
+  assert.ok(v1Duplicate.some((message) => /declares \S+ more than once/.test(message)),
+    `v1 bytes support this check, so it runs: ${JSON.stringify(v1Duplicate, null, 2)}`);
+});
+
+test("an archived v1 ledger keeps its old checks and is not failed by the new one", async () => {
+  const run = await prepared();
+  // Skipped, not failed: v1 declarations never carried `takesMatrixRows`, so there is no expectation to compare
+  // against, and inventing one from today's registry is the retroactive-failure shape the contract forbids.
+  const v1MissingRow = await auditWith(run, (ledger) => {
+    downgradeToV1(ledger);
+    ledger.fileMatrix = ledger.fileMatrix.filter((row) => row.mechanismId !== "search");
+    ledger.byLanguage = ledger.byLanguage.filter((row) => row.mechanismId !== "search");
+  });
+  assert.deepEqual(v1MissingRow, [], `a v1 run must not acquire a new obligation retroactively: ${JSON.stringify(v1MissingRow, null, 2)}`);
+
+  // And every check its own bytes support still runs.
+  const v1Unbalanced = await auditWith(run, (ledger) => {
+    downgradeToV1(ledger);
+    ledger.fileMatrix[0].totals.covered += 1;
+  });
+  assert.ok(v1Unbalanced.some((message) => /does not account for every counted row/.test(message)),
+    `conservation is checkable from v1 bytes and stays checked: ${JSON.stringify(v1Unbalanced, null, 2)}`);
 });
 
 test("a recorded 'we could not find out' is read as a state, not skipped as an absence", async () => {

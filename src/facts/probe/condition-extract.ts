@@ -71,6 +71,24 @@ export async function warmExtractors(): Promise<void> {
   if (perlParser === undefined) perlParser = await loadPerlParser();
 }
 
+/**
+ * Whether the Perl backend will really be taken by `extractComparisons` IN THIS PROCESS.
+ *
+ * This exists so there is exactly ONE predicate for "structural Perl extraction is live", and it reads the same
+ * variable the extraction branch reads. The layer-2 availability collector used to call `loadPerlParser()`
+ * itself, which warms the module-level cache in `condition-extract-perl.ts` — a DIFFERENT slot from the
+ * `perlParser` above. The two could therefore disagree: the ledger could record `condition-ast-perl` as
+ * available while every window in the same run fell through to the numeric regex, and nothing in the artifact
+ * would say so. Reading the branch's own state is the only version of this predicate that cannot drift.
+ *
+ * It is per-PROCESS by design, not per-run. `prepare` and `freeze` are two processes, so each one must call
+ * `warmExtractors()` before believing the answer; an unwarmed process honestly reports not-ready, which is what
+ * the ledger should record for it, because that is what its extraction would have done.
+ */
+export function perlStructuralReady(): boolean {
+  return perlParser !== null && perlParser !== undefined;
+}
+
 /** Numeric-only fallback, byte-identical in behaviour to the regex this module replaces. */
 const REGEX_COMPARISON = /([A-Za-z_][\w.[\]()]{0,40})\s*(===?|!==?|>=|<=|>|<)\s*(\d+(?:\.\d+)?)\b/g;
 

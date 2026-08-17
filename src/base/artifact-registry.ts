@@ -77,8 +77,8 @@ const SLOTS: RegistryEntry[] = [
     title: "Mechanism ledger: (row x mechanism) coverage with declared CoverageDomain and UnitKind",
     pathTemplate: "ledger/mechanisms.json",
     cardinality: "run",
-    schemaId: "mechanisms-ledger-v1",
-    validatorVersion: "mechanisms-ledger-validator-v1",
+    schemaId: "mechanisms-ledger-v2",
+    validatorVersion: "mechanisms-ledger-validator-v2",
     enforced: true,
     enforcementNote: "Written by every prepare from the layer-1 counted rows plus the base language/mechanism registries; without it, which mechanism could look at which language is invisible again."
   },

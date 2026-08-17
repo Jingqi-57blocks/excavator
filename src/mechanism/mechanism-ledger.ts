@@ -34,7 +34,16 @@ import { stableJson } from "../base/util.ts";
  * `crossrepo` accounts for module pairs and `search` for files, so their numbers are not addable.
  */
 
-export const MECHANISM_LEDGER_VERSION = "mechanisms-ledger-v1";
+/**
+ * v2 serializes `takesMatrixRows` on every declaration.
+ *
+ * v1 declarations said nothing about whether a mechanism was SUPPOSED to have matrix rows, and the audit only
+ * walked the rows that were present. So "the `search` row was deleted" and "`codegraph` legitimately has no
+ * rows" were indistinguishable in the artifact's bytes: deleting a whole mechanism's grid removed its cells,
+ * its conservation obligation and its per-language census all at once, and every remaining check still passed.
+ * With the expectation written down, the audit can compare two sets instead of iterating one.
+ */
+export const MECHANISM_LEDGER_VERSION = "mechanisms-ledger-v2";
 
 /**
  * A cell plus the reason it is not `covered`. Modelled as a union rather than an optional `cause`, so a
@@ -55,6 +64,16 @@ export interface MechanismDeclaration {
   unitKind: MechanismUnitKind;
   version: string;
   availability: MechanismAvailability;
+  /**
+   * Whether this mechanism is expected to carry (file x mechanism) rows.
+   *
+   * Computed from the SAME predicate that decides which mechanisms get rows (`fileMatrixMechanisms`), not
+   * restated here — a second reading of "file domain with a declared extension set" would be a second answer,
+   * and the whole point of the field is that the audit can trust it. It exists because without it the matrix is
+   * only checkable against itself: deleting an entire row took its conservation obligation and its census with
+   * it, and the artifact could not say a row was missing.
+   */
+  takesMatrixRows: boolean;
 }
 
 /** One (mechanism x extension group) default. `files` is the whole group; exceptions override part of it. */
@@ -132,8 +151,12 @@ export function buildMechanismLedger(input: MechanismLedgerInput): MechanismLedg
   const rows = input.counted.map((row) => toCorpusRow(row, corpus));
   const matrix: FileMatrixRow[] = [];
   const census = new Map<string, LanguageCensusRow>();
+  // Resolved ONCE, and both the loop below and the `takesMatrixRows` field read this one answer. Asking the
+  // predicate twice would let the declaration and the grid drift, which is the drift the field exists to catch.
+  const matrixMechanisms = fileMatrixMechanisms(mechanisms);
+  const takesMatrixRows = new Set(matrixMechanisms.map((mechanism) => mechanism.id));
 
-  for (const mechanism of fileMatrixMechanisms(mechanisms)) {
+  for (const mechanism of matrixMechanisms) {
     const availability = input.availability[mechanism.id];
     const verdicts = rows.map((row) => verdictFor(mechanism, row, availability));
     matrix.push({
@@ -164,7 +187,8 @@ export function buildMechanismLedger(input: MechanismLedgerInput): MechanismLedg
       coverageDomain: entry.coverageDomain,
       unitKind: entry.unitKind,
       version: entry.version,
-      availability: input.availability[entry.id]
+      availability: input.availability[entry.id],
+      takesMatrixRows: takesMatrixRows.has(entry.id)
     })).sort((a, b) => compare(a.id, b.id)),
     fileMatrix: matrix.sort((a, b) => compare(a.mechanismId, b.mechanismId)),
     byLanguage: [...census.values()].sort((a, b) => compare(a.language, b.language) || compare(a.mechanismId, b.mechanismId))
