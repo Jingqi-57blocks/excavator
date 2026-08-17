@@ -10,7 +10,8 @@ import { CONTRACT_MANIFEST_ASSURANCE_GENERATION } from "../src/assurance/assuran
 import type { ContractManifest } from "../src/contract/contract-manifest.ts";
 import { ledgerContentIdentity, type FileLedger } from "../src/snapshot/file-ledger.ts";
 import type { ArtifactResult } from "../src/base/artifact-result.ts";
-import { exists, writeJson } from "../src/core/util.ts";
+import { exists, sha256, stableJson, writeJson } from "../src/core/util.ts";
+import type { MechanismLedger } from "../src/mechanism/mechanism-ledger.ts";
 import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, tempDir } from "./helpers.ts";
 
 /**
@@ -87,6 +88,51 @@ test("a missing layer-1 ledger fails the contract instance audit and freeze", as
   assert.ok(frozen.findings.some((finding) => /ledger\/files\.json/.test(finding.message)));
 });
 
+test("a missing layer-2 mechanism ledger fails the contract instance audit and freeze", async () => {
+  // The registry slot is `enforced: true` as of this slice. Flipping the flag without producing the artifact
+  // was checked first and turned three existing assertions red with exactly this message, which is what makes
+  // the flag a claim rather than decoration.
+  const { runDir } = await prepareRun(await overviewRequest());
+  await disposeAllWorkItems(runDir);
+  assert.ok(await exists(join(runDir, "ledger", "mechanisms.json")), "every prepare writes the layer-2 ledger");
+  await rm(join(runDir, "ledger", "mechanisms.json"));
+  const manifest = await readManifest(runDir);
+  const findings = await auditContractInstances(runDir, manifest);
+  assert.ok(findings.some((finding) => finding.level === "error" && /ledger\/mechanisms\.json/.test(finding.message)), JSON.stringify(findings, null, 2));
+  const frozen = await freezeRun(runDir);
+  assert.equal(frozen.frozen, false, "a run missing a required contract instance cannot be frozen");
+  assert.ok(frozen.findings.some((finding) => /ledger\/mechanisms\.json/.test(finding.message)));
+});
+
+test("two prepares of the same request produce byte-identical layer-2 ledgers", async () => {
+  // Through the real `prepareRun`, so the production wiring is what is pinned: availability is probed the way a
+  // run probes it and nothing records a wall clock. Same machine only — availability is a per-machine
+  // observation, and requiring byte equality across machines would mean not recording it honestly.
+  const request = await overviewRequest();
+  const first = await prepareRun(request);
+  const second = await prepareRun(request);
+  assert.notEqual(first.runDir, second.runDir);
+  const bytes = async (runDir: string): Promise<string> => readFile(join(runDir, "ledger", "mechanisms.json"), "utf8");
+  assert.equal(await bytes(first.runDir), await bytes(second.runDir));
+  const envelope = JSON.parse(await bytes(first.runDir)) as ArtifactResult<MechanismLedger>;
+  assert.equal(envelope.status, "built");
+  if (envelope.status !== "built") return;
+  const manifest = await readManifest(first.runDir);
+  assert.equal(envelope.value.identity.filesContentManifestDigest, manifest.snapshot?.contentManifestDigest,
+    "layer 2 is bound to the same corpus identity the run recorded");
+  assert.ok(envelope.value.mechanisms.length >= 8, "every registered mechanism is declared, matrix or not");
+});
+
+test("freeze pins the layer-2 ledger digest in the knowledge record", async () => {
+  const { runDir } = await prepareRun(await overviewRequest());
+  await disposeAllWorkItems(runDir);
+  const frozen = await freezeRun(runDir);
+  assert.equal(frozen.frozen, true, JSON.stringify(frozen.findings, null, 2));
+  const ledger = JSON.parse(await readFile(join(runDir, "ledger", "mechanisms.json"), "utf8")) as unknown;
+  assert.equal(frozen.knowledge?.mechanismsLedgerDigest, sha256(stableJson(ledger)),
+    "the frozen record pins WHICH coverage declarations this run applied, so a later registry change cannot move retroactively");
+});
+
 test("deleting one feature's working set is an error naming that instance, even when the other feature still has one", async () => {
   const { runDir } = await prepareRun(await twoFeatureRequest());
   const manifest = await readManifest(runDir);
@@ -150,11 +196,18 @@ test("a counted row with no content identity is an audit error, not a quiet abse
   manifest.snapshot.contentManifestDigest = envelope.value.contentManifestDigest;
 
   const findings = await auditContractInstances(runDir, manifest);
-  assert.equal(findings.length, 1, `exactly the counted-row finding: ${JSON.stringify(findings, null, 2)}`);
-  assert.equal(findings[0].level, "error");
-  assert.match(findings[0].message, /counted row/);
-  assert.ok(findings[0].message.includes(victim.relativePath), `the finding names the row: ${findings[0].message}`);
-  assert.ok(findings[0].message.includes("read-failed"), "and the reason it carries");
+  const boundary = findings.filter((finding) => finding.message.startsWith("ledger/files.json"));
+  assert.equal(boundary.length, 1, `exactly the counted-row finding: ${JSON.stringify(findings, null, 2)}`);
+  assert.equal(boundary[0].level, "error");
+  assert.match(boundary[0].message, /counted row/);
+  assert.ok(boundary[0].message.includes(victim.relativePath), `the finding names the row: ${boundary[0].message}`);
+  assert.ok(boundary[0].message.includes("read-failed"), "and the reason it carries");
+  // Editing the corpus digest also breaks what layer 2 is bound to, and that is a SECOND real finding: every
+  // cell in the mechanism ledger counts the rows of one corpus, and this run no longer has that corpus.
+  const mechanism = findings.filter((finding) => finding.message.startsWith("ledger/mechanisms.json"));
+  assert.equal(mechanism.length, 1, JSON.stringify(findings, null, 2));
+  assert.match(mechanism[0].message, /bound to a different layer-1 corpus/);
+  assert.equal(findings.length, 2, `and nothing else: ${JSON.stringify(findings, null, 2)}`);
 });
 
 test("a truncated contract manifest fails its own digest instead of silently expecting nothing", async () => {
@@ -200,6 +253,14 @@ test("a prepare failure AFTER the boundary was read records the ledger as built,
   if (envelope.status !== "built") return;
   assert.ok(envelope.value.counted.length > 0, "and it holds the rows it read");
 
+  // Layer 2 follows the same phase: the corpus WAS read, so its mechanism declarations are built too.
+  const mechanisms = JSON.parse(await readFile(join(runDir, "ledger", "mechanisms.json"), "utf8")) as ArtifactResult<MechanismLedger>;
+  assert.equal(mechanisms.status, "built", "the corpus was read, so what could look at it is knowable");
+  if (mechanisms.status === "built") {
+    assert.equal(mechanisms.value.counted, envelope.value.summary.counted);
+    assert.equal(mechanisms.value.identity.filesContentManifestDigest, envelope.value.contentManifestDigest);
+  }
+
   const manifest = await readManifest(runDir);
   assert.equal(manifest.state, "failed");
   assert.equal(manifest.error?.stage, "prepare");
@@ -227,6 +288,12 @@ test("an unreadable target leaves a failed run directory whose layer-1 ledger re
     assert.match(ledger.cause, /does-not-exist/);
     assert.equal(typeof ledger.retryable, "boolean");
   }
+  // No corpus means nothing to declare mechanisms over, and that is WRITTEN — not a missing file, and not a
+  // ledger full of zeroes that would read as "we looked and found no mechanisms".
+  const mechanisms = JSON.parse(await readFile(join(runDir, "ledger", "mechanisms.json"), "utf8")) as ArtifactResult<MechanismLedger>;
+  assert.equal(mechanisms.status, "unavailable");
+  if (mechanisms.status === "unavailable") assert.match(mechanisms.cause, /does-not-exist/);
+
   const manifest = await readManifest(runDir);
   assert.equal(manifest.state, "failed");
   assert.equal(manifest.snapshot, null);

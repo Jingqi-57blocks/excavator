@@ -97,6 +97,9 @@ export interface BuildKnowledgeInput {
   boundaryFunctions?: unknown | null;
   /** The resolved cross-repo links, pinned for the same reason (57B-398). */
   crossRepoLinks?: unknown | null;
+  /** The layer-2 mechanism ledger, pinned so the coverage declarations this run applied cannot be restated
+   *  after the fact. Optional and absent-when-null, so archived runs need no migration. */
+  mechanismsLedger?: unknown | null;
   /**
    * Where each append-until-freeze stream stood at this seal: the cutoff and the tail digest. Computed by the
    * caller because the timeline is read from disk. Registered, not enforced — the epoch machinery it prepares
@@ -107,7 +110,7 @@ export interface BuildKnowledgeInput {
 
 /** Build the knowledge-v1 record: frozen fingerprints of the run's artifacts plus a completeness report. */
 export function buildKnowledge(input: BuildKnowledgeInput): KnowledgeArtifact {
-  const { manifest, plan, evidence, traces, factPacks, crossFeature, frozenAt, readObligations, boundaryFunctions, crossRepoLinks, appendStreams } = input;
+  const { manifest, plan, evidence, traces, factPacks, crossFeature, frozenAt, readObligations, boundaryFunctions, crossRepoLinks, mechanismsLedger, appendStreams } = input;
   const evidenceIds = evidence.map((item) => item.id).sort((a, b) => a.localeCompare(b));
   const workitems = plan.items.map((item) => ({ id: item.id, status: item.status })).sort((a, b) => a.id.localeCompare(b.id));
   const traceIds = traces.traces.map((trace) => trace.id).sort((a, b) => a.localeCompare(b));
@@ -130,6 +133,7 @@ export function buildKnowledge(input: BuildKnowledgeInput): KnowledgeArtifact {
     ...(readObligations != null ? { readObligationsDigest: sha256(stableJson(readObligations)) } : {}),
     ...(boundaryFunctions != null ? { boundaryFunctionsDigest: sha256(stableJson(boundaryFunctions)) } : {}),
     ...(crossRepoLinks != null ? { crossRepoLinksDigest: sha256(stableJson(crossRepoLinks)) } : {}),
+    ...(mechanismsLedger != null ? { mechanismsLedgerDigest: sha256(stableJson(mechanismsLedger)) } : {}),
     completeness: buildCompleteness(plan),
     // Epoch 0 is this first seal. Recorded now so the append-only supplement ledger that already exists can
     // later grow a second epoch without any archived record needing to change shape.

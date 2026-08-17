@@ -8,8 +8,12 @@ import { buildContextsFromBoundary, featureCacheKey, readSourceBoundary, type Co
 import { FACT_PACK_CATEGORIES, factPackEvidenceId } from "../context/factpack.ts";
 import { MAX_WINDOW_LINES, SourceReader, evidenceFromWindow, sourceSearch, type SourceSearchStats } from "../snapshot/source.ts";
 import { SCANNER_VERSION, createSnapshot } from "../snapshot/snapshot.ts";
-import { serializeLedgerArtifact } from "../snapshot/file-ledger.ts";
-import { built, unavailable } from "../base/artifact-result.ts";
+import { serializeLedgerArtifact, type FileLedger } from "../snapshot/file-ledger.ts";
+import { built, unavailable, type ArtifactResult } from "../base/artifact-result.ts";
+import { buildMechanismLedger, serializeMechanismLedger, type MechanismLedger } from "../mechanism/mechanism-ledger.ts";
+import { LANGUAGE_REGISTRY } from "../base/language-registry.ts";
+import { MECHANISM_REGISTRY, type MechanismAvailabilityMap } from "../base/mechanism-registry.ts";
+import { collectMechanismAvailability } from "./mechanism-availability.ts";
 import { ARTIFACT_REGISTRY } from "../base/artifact-registry.ts";
 import { materializeBoundRunContract, type BoundRunContract, type PlannedDocument } from "../contract/bound-run-contract.ts";
 import { deriveContractManifest, type ContractManifest } from "../contract/contract-manifest.ts";
@@ -385,6 +389,10 @@ async function writePrepareFailureRecord(request: ReportRequest, contract: Bound
     : `the source boundary was read; preparation failed afterwards: ${cause.message}`;
   const ledgerResult = boundary === null ? unavailable(reason, retryable) : built(boundary.ledger);
   await atomicWrite(join(runDir, "ledger", "files.json"), serializeLedgerArtifact(ledgerResult));
+  // Layer 2 follows the phase the same way layer 1 does: with no corpus there is nothing to declare mechanisms
+  // over, and that is written down rather than omitted.
+  await atomicWrite(join(runDir, "ledger", "mechanisms.json"), serializeMechanismLedger(
+    boundary === null ? unavailable(reason, retryable) : await mechanismLedgerArtifact(boundary.ledger)));
   const now = nowIso();
   const manifest: RunManifest = {
     version: 3,
@@ -417,6 +425,34 @@ async function writePrepareFailureRecord(request: ReportRequest, contract: Bound
   };
   await writeJson(join(runDir, "run.json"), manifest);
   await writeJson(join(runDir, "metrics.json"), manifest.metrics);
+}
+
+/**
+ * The layer-2 ledger for a corpus layer 1 did read.
+ *
+ * Availability is probed HERE, in the orchestrator, because layer 2 is forbidden from reaching up into the
+ * mechanisms to ask how they are doing — it receives the observation as a contract input. A probe that throws
+ * is recorded as `Unavailable`, never left as a missing file: "we never found out what could look at this
+ * corpus" is a state layer 8 must be able to read. There is no third outcome and no absent artifact.
+ */
+async function mechanismLedgerArtifact(ledger: FileLedger): Promise<ArtifactResult<MechanismLedger>> {
+  let availability: MechanismAvailabilityMap;
+  try {
+    availability = await collectMechanismAvailability();
+  } catch (error) {
+    // Retryable: every probe is a module load or a PATH lookup that a re-run can plausibly win. Only the PROBE
+    // is caught here — a throw out of the pure builder is a defect in this engine, and recording our own bug as
+    // `Unavailable` would file it under "blind spot", which is the one bucket it must never hide in.
+    return unavailable(`availability probing failed: ${(error as Error).message}`, true);
+  }
+  return built(buildMechanismLedger({
+    counted: ledger.counted,
+    filesContentManifestDigest: ledger.contentManifestDigest,
+    scannerVersion: ledger.scannerVersion,
+    availability,
+    languages: LANGUAGE_REGISTRY,
+    mechanisms: MECHANISM_REGISTRY
+  }));
 }
 
 async function writeContractArtifacts(runDir: string, contract: BoundRunContract, contractManifest: ContractManifest): Promise<void> {
@@ -567,6 +603,7 @@ export async function prepareRun(request: ReportRequest): Promise<{ runDir: stri
   // layering runs in, so a partially written run directory is readable from the bottom up.
   await writeContractArtifacts(runDir, contract, contractManifest);
   await atomicWrite(join(runDir, "ledger", "files.json"), serializeLedgerArtifact(built(result.ledger)));
+  await atomicWrite(join(runDir, "ledger", "mechanisms.json"), serializeMechanismLedger(await mechanismLedgerArtifact(result.ledger)));
   await writeJson(join(runDir, "request.json"), effectiveRequest);
   await writeJson(join(runDir, "snapshot.json"), result.prepared.snapshot);
   await writeJson(join(runDir, "evidence.json"), { evidence });
@@ -798,7 +835,11 @@ export async function freezeRun(runDirInput: string): Promise<{ manifest: RunMan
     { id: "evidence.json", frozenThroughSequence: evidenceCatalog.evidence.length, tailDigest: manifest.evidenceDigest },
     { id: "timeline.jsonl", frozenThroughSequence: timelineTail?.sequence ?? 0, tailDigest: timelineTail?.digest ?? "" }
   ];
-  const knowledge = buildKnowledge({ manifest, plan, evidence: evidenceCatalog.evidence, traces, factPacks, crossFeature, frozenAt, readObligations: obligations, boundaryFunctions, crossRepoLinks, appendStreams });
+  // Read from disk, not rebuilt: the frozen record must pin the declarations THIS run applied, so a later
+  // registry change cannot move retroactively.
+  const mechanismsPath = join(runDir, "ledger", "mechanisms.json");
+  const mechanismsLedger = await exists(mechanismsPath) ? await readJson<unknown>(mechanismsPath) : null;
+  const knowledge = buildKnowledge({ manifest, plan, evidence: evidenceCatalog.evidence, traces, factPacks, crossFeature, frozenAt, readObligations: obligations, boundaryFunctions, crossRepoLinks, mechanismsLedger, appendStreams });
   await writeJson(join(runDir, "knowledge.json"), knowledge);
   // Render the per-document authoring packets from the just-frozen knowledge: a deterministic, model-free
   // view organized by report section that the author reads before writing each section. Regenerable view,

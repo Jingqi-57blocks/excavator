@@ -6,6 +6,7 @@ import { contractManifestDigest, type ContractManifest } from "../contract/contr
 import { requirementsDigest, runIntentDigest, type Requirements, type RunIntent } from "../contract/bound-run-contract.ts";
 import { assertNever, type ArtifactResult } from "../base/artifact-result.ts";
 import { ledgerContentIdentity, type FileLedger } from "../snapshot/file-ledger.ts";
+import { auditMechanismLedger } from "./mechanism-ledger-audit.ts";
 import { exists, readJson } from "../core/util.ts";
 
 /**
@@ -39,7 +40,11 @@ export async function auditContractInstances(runDir: string, manifest: RunManife
       findings.push(error(`${instance.slotId} instance "${instance.instanceKey}" is missing: ${instance.path} (schema ${instance.schemaId}, validator ${instance.validatorVersion})`));
     }
   }
-  findings.push(...await auditBoundaryLedger(runDir, manifest, contract));
+  // Layer 1 is read ONCE and handed down: layer 2's audit checks its own rows against the very envelope this
+  // run recorded, rather than re-reading a file that could have changed between the two reads.
+  const boundary = await auditBoundaryLedger(runDir, manifest, contract);
+  findings.push(...boundary.findings);
+  findings.push(...await auditMechanismLedger(runDir, contract, boundary.envelope));
   return findings;
 }
 
@@ -83,24 +88,24 @@ async function auditContractInput<T extends { digest: string }>(runDir: string, 
  * `NotApplicable` is not a legal state here and says so: layer 1 either read the boundary or could not, and a
  * "provably not applicable" boundary would mean the run has no denominator while claiming it checked.
  */
-async function auditBoundaryLedger(runDir: string, manifest: RunManifest, contract: ContractManifest): Promise<AuditFinding[]> {
+async function auditBoundaryLedger(runDir: string, manifest: RunManifest, contract: ContractManifest): Promise<{ findings: AuditFinding[]; envelope: ArtifactResult<FileLedger> | null }> {
   const slot = contract.expected.find((instance) => instance.slotId === "boundary.files-ledger");
-  if (!slot?.enforced) return [];
+  if (!slot?.enforced) return { findings: [], envelope: null };
   const path = join(runDir, slot.path);
-  if (!await exists(path)) return [];  // already reported as a missing instance above
+  if (!await exists(path)) return { findings: [], envelope: null };  // already reported as a missing instance above
   let envelope: ArtifactResult<FileLedger>;
   try {
     envelope = await readJson<ArtifactResult<FileLedger>>(path);
   } catch (readError) {
-    return [error(`${slot.path} could not be read: ${(readError as Error).message}`)];
+    return { findings: [error(`${slot.path} could not be read: ${(readError as Error).message}`)], envelope: null };
   }
   switch (envelope.status) {
     case "built":
-      return auditLedgerContent(slot.path, envelope.value, manifest);
+      return { findings: auditLedgerContent(slot.path, envelope.value, manifest), envelope };
     case "not-applicable":
-      return [error(`${slot.path} records the file ledger as not-applicable ("${envelope.determination}"); the source boundary is either read or unavailable, never inapplicable`)];
+      return { findings: [error(`${slot.path} records the file ledger as not-applicable ("${envelope.determination}"); the source boundary is either read or unavailable, never inapplicable`)], envelope };
     case "unavailable":
-      return [error(`${slot.path} records the source boundary as unreadable: ${envelope.cause}`)];
+      return { findings: [error(`${slot.path} records the source boundary as unreadable: ${envelope.cause}`)], envelope };
     default:
       return assertNever(envelope, "file ledger artifact result");
   }
