@@ -5,6 +5,7 @@ import { CodeGraphIndex, type GraphReader, type GraphSummary } from "../codegrap
 import { CodeGraphSet } from "../codegraph/codegraph-set.ts";
 import { pruneFeatureGraphWithModuleFloor } from "./prune-module-floor.ts";
 import { buildScopeCensus, type ScopeCensus } from "./scope-census.ts";
+import { buildOverviewCensus, type OverviewCensus } from "./overview-census.ts";
 import { createSnapshot, isLikelySource, type ScannedFile } from "../snapshot/snapshot.ts";
 import { SourceReader, evidenceFromWindow, manifestSummary, selectProjectDocuments, sourceSearch } from "../snapshot/source.ts";
 import { Deadline, ensureDir, exists, projectWorkspace, readJson, redactionCacheTag, sha256, slugify, stableJson, truncate, writeJson } from "../core/util.ts";
@@ -17,7 +18,7 @@ import { legacyWorkspaceWarning } from "../snapshot/workspace-residue.ts";
 // v20: CachedFeature carries the boundary-function enumeration (57B-396). v19 introduced it; v20 adds the
 // `truncated` flag and per-feature warnings to that record, and a v19 hit would serve them as `undefined`
 // — a truncated enumeration that claims it was complete. Any change to a cached shape bumps this (57B-375).
-const BUILDER_VERSION = "excavator-context-v21-scope-census";
+const BUILDER_VERSION = "excavator-context-v22-overview-census";
 
 interface CachedShared {
   snapshotId: string;
@@ -31,6 +32,13 @@ interface CachedShared {
    * "cached contexts must not repeat graph reads" invariant requires.
    */
   censusRoots: GraphSummary["roots"];
+  /**
+   * Per-module accounting for the overview. Carried on the shared context for the same reason `censusRoots`
+   * is: warm runs must read it from cache rather than re-deriving it, or the "cached contexts must not repeat
+   * graph reads" invariant breaks. Always present — unlike the feature census it needs no graph, so there is
+   * no unavailable state to represent.
+   */
+  overviewCensus: OverviewCensus;
   metrics: { coverage?: { indexed: number; eligible: number; ratio: number }; warnings: string[] };
 }
 
@@ -214,7 +222,7 @@ export async function buildContexts(request: ReportRequest): Promise<ContextBuil
 
   timing.totalPrepareMs = Date.now() - t0;
   return {
-    prepared: { snapshot, evidence: dedupeEvidence(allEvidence), sharedMarkdown, documentContexts, featureMarkdowns, featureFactPacks, featureScopes, crossFeature, boundaryFunctions, scopeCensus: scopeCensusByFeature, censusUnavailable: censusUnavailableByFeature },
+    prepared: { snapshot, evidence: dedupeEvidence(allEvidence), sharedMarkdown, documentContexts, featureMarkdowns, featureFactPacks, featureScopes, crossFeature, boundaryFunctions, scopeCensus: scopeCensusByFeature, censusUnavailable: censusUnavailableByFeature, overviewCensus: shared.overviewCensus },
     projectDir,
     stats: {
       graphQueries: graph?.stats.queries ?? 0,
@@ -319,7 +327,17 @@ async function buildSharedContext(snapshot: Snapshot, files: ScannedFile[], grap
   }
 
   const markdown = renderSharedMarkdown(snapshot, graphSummary, coverage, docSummaries, representativeNodes, routes, evidence, warnings);
-  return { snapshotId: snapshot.id, evidence: dedupeEvidence(evidence), markdown, graphFilePaths: [...graphPaths], censusRoots: graphSummary?.roots ?? [], metrics: { coverage, warnings } };
+  // Per-module accounting for the overview, taken here because this is the only place that holds all four
+  // inputs at once. Its denominator is the SNAPSHOT, not `graphSummary.roots`: an overview claims something
+  // about the whole project, and the graph is a filtered view of it — see `overview-census.ts`.
+  const named = [...representativeNodes, ...routes] as Array<{ filePath?: string }>;
+  const overviewCensus = buildOverviewCensus({
+    sourcePaths: files.filter(isLikelySource).map((file) => file.relativePath),
+    indexedPaths: graphPaths,
+    namedPaths: named.map((node) => node.filePath ?? "").filter(Boolean),
+    readPaths: evidence.map((item) => item.path ?? "").filter(Boolean)
+  });
+  return { snapshotId: snapshot.id, evidence: dedupeEvidence(evidence), markdown, graphFilePaths: [...graphPaths], censusRoots: graphSummary?.roots ?? [], overviewCensus, metrics: { coverage, warnings } };
 }
 
 async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], feature: FeatureRequest, graph: GraphReader | null, graphPaths: Set<string>, sourceReader: SourceReader, deadline: Deadline, maxNodes: number, depth: number, censusRoots: GraphSummary["roots"]): Promise<CachedFeature> {

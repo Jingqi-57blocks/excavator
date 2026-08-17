@@ -20,6 +20,7 @@ import { scanCrossRepoLinks } from "../crossrepo/crossrepo-scan.ts";
 import { featureAnchorTerms, tokenize } from "../context/context.ts";
 import { unnegatedAdvice } from "../assurance/recommendation-language.ts";
 import { scopeCensusResidual, scopeCensusUnavailable, type ScopeCensus } from "../context/scope-census.ts";
+import { OVERVIEW_CENSUS_ASSURANCE_GENERATION, overviewCensusResidual, untouchedExtensions, type OverviewCensus } from "../context/overview-census.ts";
 import { buildCrossRepoArtifact, mintCrossRepoEvidence, recoveredRouteObligations, routeHandlerObligations, type CrossRepoArtifact } from "../crossrepo/crossrepo-artifact.ts";
 import { goImportAliases, parseHandlerTarget, resolveHandler } from "../crossrepo/handler-resolve.ts";
 import { CodeGraphIndex } from "../codegraph/codegraph.ts";
@@ -463,6 +464,12 @@ export async function prepareRun(request: ReportRequest): Promise<{ runDir: stri
     const census = result.prepared.scopeCensus.get(featureKey);
     await writeJson(join(runDir, "context", `${featureKey}.scope-census.json`), census ?? scopeCensusUnavailable(result.prepared.censusUnavailable.get(featureKey)));
   }
+  // The overview's own accounting, written unconditionally — including on overview-only runs, which have no
+  // feature keys and therefore produced no accounting at all before this. The filename stays outside the
+  // `.scope-census.json` suffix that audit reads the feature artifacts by; collision is already impossible
+  // because every feature key carries a content hash, but keeping the two namespaces apart means a future
+  // change to key derivation cannot silently make one artifact overwrite the other.
+  await writeJson(join(runDir, "context", "overview-census.json"), result.prepared.overviewCensus);
   if (crossRepo) await writeJson(join(runDir, "context", "crossrepo-links.json"), crossRepo.artifact);
 
   // Cross-feature relationships need at least two features to have any pair to relate; single-feature
@@ -936,6 +943,27 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
     if (residual.unexplained.length > 0) {
       findings.push({ level: "warning", document: "read-coverage", message: `${file}: ${residual.unexplained.length} of ${census.summary.censusModules} indexed module(s) contributed no scope and no rule explains it (${residual.unexplained.join(", ")}). Every per-module coverage figure in this run is a conditional reading: census ${census.summary.censusModules} / accounted ${census.summary.countedModules + census.summary.excludedModules}.` });
     }
+  }
+  // The overview's module accounting. Read separately from the feature censuses because its denominator is a
+  // different set — the snapshot rather than the graph census — so the two must not be summed or compared.
+  const overviewCensusRaw = assuranceGenerationAtLeast(manifest, OVERVIEW_CENSUS_ASSURANCE_GENERATION)
+    ? await readJson<OverviewCensus>(join(runDir, "context", "overview-census.json")).catch(() => null)
+    : null;
+  if (overviewCensusRaw !== null) {
+    const summary = overviewCensusRaw.summary;
+    const residual = overviewCensusResidual(overviewCensusRaw);
+    if (!residual.balanced) findings.push({ level: "error", document: "read-coverage", message: `overview-census.json: the module accounting does not balance (census ${summary.censusModules} != counted ${summary.countedModules} + excluded ${summary.excludedModules} + zero-hit ${summary.zeroHitModules})` });
+    // Index coverage is carried INSIDE this message rather than raised on its own. On its own it fires on
+    // essentially every real target — source fallback exists precisely so that unindexed files are still
+    // readable — and `buildSharedContext` already warns on the coverage ratio. A warning that always fires is
+    // how the ones that matter get ignored. Here the same number is the likeliest cause of the gap, so it
+    // earns its place.
+    if (residual.unexplained.length > 0) findings.push({ level: "warning", document: "read-coverage", message: `overview-census.json: ${residual.unexplained.length} of ${summary.censusModules} module(s) in the snapshot were neither named nor read by the overview and no rule explains it (${residual.unexplained.join(", ")}). An overview describes the whole project, so these modules are outside what it examined. CodeGraph indexed ${summary.indexedFiles}/${summary.snapshotFiles} snapshot source files; the overview named ${summary.namedFiles} and read ${summary.readFiles}.` });
+    // Reported as ONE finding over all extensions rather than one each: the point is the list, and N findings
+    // for N languages would bury it. Module rows cannot express this on a target that keeps its whole
+    // codebase under one top-level directory, which is the common shape for the legacy targets that need it.
+    const untouched = untouchedExtensions(overviewCensusRaw);
+    if (untouched.length > 0) findings.push({ level: "warning", document: "read-coverage", message: `overview-census.json: the overview neither named nor read any file of ${untouched.length} file type(s) the snapshot scanned (${untouched.map((row) => `${row.extension || "(no extension)"} ${row.snapshotFiles} file(s), ${row.indexedFiles} indexed`).join("; ")}). Statements about those parts of the project rest on no evidence from them.` });
   }
   if (manifest.evidenceDigest !== sha256(stableJson(evidenceCatalog.evidence))) findings.push({ level: "error", document: "evidence", message: "evidence catalog changed outside the recorded source-evidence workflow" });
   const providerUnsigned = { ...providerRegistry }; delete providerUnsigned.digest;

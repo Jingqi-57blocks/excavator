@@ -139,8 +139,12 @@ interface BuildScopeCensusInput {
  * any target with top-level source files — `index.js`, `main.go`, entirely ordinary — the table would grow a
  * false `.` row reading as an unexplained module plus one bogus zero-census row per top-level file. Aligning
  * with the SQL convention is what keeps the join honest.
+ *
+ * Exported so `overview-census.ts` derives module identity from this rule rather than its own copy. Two
+ * copies of a canonicalization drift, and a drifted module key would silently split one module across two
+ * rows in one artifact and not the other.
  */
-function moduleOfPath(filePath: string): string {
+export function moduleOfPath(filePath: string): string {
   const normalized = filePath.replaceAll("\\", "/").replace(/^\.\//, "");
   const cut = normalized.indexOf("/");
   return cut === -1 ? "." : normalized.slice(0, cut);

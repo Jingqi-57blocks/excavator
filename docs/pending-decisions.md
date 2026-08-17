@@ -423,5 +423,20 @@ claims scaffold 文本；覆盖判定是双向子串，故无硬误报；placeme
 修法候选：① 把绝对墙钟阈值换成「相对同一次运行内的基线倍数」；② 标记为串行执行；
 ③ 用注入的时钟替代真实计时。**不在本片顺手改**（CLAUDE.md：范围外不顺手修改），记此备后续。
 
+## feature 级 census 的行集仍取自图普查，同一盲区未修（2026-08-17，overview census 切片范围外记账）
+
+`buildScopeCensus` 的行集来自 `GraphSummary.roots`，而图普查本身就是快照的一个**过滤视图**：
+provital 实测 CodeGraph 有 12399 个节点（javascript/python/xml）、**Perl 零节点**，而快照扫到
+1422 个 Perl 文件。这些文件在 feature census 里**连一个零行都拿不到**——正是该产物存在要治的病，
+只是发生在上一层。overview census（本切片）已改成以**快照**为分母，feature 侧没动。
+
+**为什么不顺手改**：改分母会扩大 `censusModules`、进而增加 `zeroHitModules` 与告警，直接
+撞上 goal 里那条硬提醒（分母变更必须与漏斗读数一起读，单看一个数无效），也会破掉归档等价性。
+应作为独立切片、连同一次重新取数一起做。
+
+附带一处不对称：feature census 的审计劝告**没有世代闸**，overview 的有
+（`OVERVIEW_CENSUS_ASSURANCE_GENERATION`）。今天咬不到（57B-411 之前的归档 run 压根没有该产物），
+但属于潜在的「旧 run 被新规则判定」，同一切片一并对齐。
+
 ## 删章必扫交叉引用（教训，2026-08-13）
 从报告删除某章（如 provital 删 §13 DB）后，正文里对该章的**交叉引用会悬挂**（provital §7 残留 "see section 13 for the pointer"，指向已删章）。删章不是只切那一段——**必须 grep 全文 `section N`/`§N`/`chapter N`/章名 交叉引用并一并修**。将来做 57B-382 收尾（从 engineering-overview 模板移除 §13）时，模板/写作规则里若有对 DB 章的交叉引用也要同步清；自动化删章逻辑应内建"扫并修交叉引用"。
