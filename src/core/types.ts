@@ -24,8 +24,8 @@ export interface FeatureRequest {
 export interface ReportRequest {
   target: string;
   codegraph?: string;
-  /** Resolved per-module database paths (multi-module targets). Persisted so the snapshot identity — its
-   * `codegraphDigest` — is reproducible when `source`/`audit` rebuild the snapshot after preparation. */
+  /** Resolved per-module database paths (multi-module targets). Persisted so the CodeGraph identity is
+   * reproducible when `source`/`audit` re-derive it after preparation. */
   codegraphModules?: string[];
   codegraphMode?: CodeGraphMode;
   language: string;
@@ -76,10 +76,14 @@ export interface Snapshot {
   target: string;
   createdAt: string;
   roots: SnapshotRoot[];
+  /** Which identity generation derived `id`. Two ids are comparable only when this field matches. */
   scannerVersion: string;
   ignoreRulesDigest: string;
+  /** tier1: the (path, size, mtime) shape. Recorded, advisory on mismatch, and NOT part of `id` — it cannot
+   *  see a same-size rewrite that preserves the mtime, which is how stale bytes were served with a valid digest. */
   sourceManifestDigest: string;
-  codegraphDigest: string | null;
+  /** tier2: the content digest of the whole counted set. This is what `id` anchors on; a mismatch is an error. */
+  contentManifestDigest: string;
 }
 
 export interface ProviderCapability {
@@ -338,6 +342,18 @@ export interface KnowledgeArtifact {
   /** Digest of `context/crossrepo-links.json` — the resolved cross-repo HTTP links (57B-398). */
   crossRepoLinksDigest?: string;
   completeness: KnowledgeCompleteness;
+  /**
+   * Which sealing epoch this record is. Registered, not yet machinery: freeze produces epoch 0, and the
+   * supplement channel that already exists is what a later epoch would be built from. Absent on runs frozen
+   * before the field existed, so no archived record needs migrating.
+   */
+  epoch?: number;
+  /**
+   * Where each append-until-freeze stream stood when this record was sealed: the stream, the last sequence or
+   * item count it covers, and the digest of its tail. Without it, "appended after freeze" could only be judged
+   * against the manifest's single evidence digest, and the timeline had no cutoff recorded at all.
+   */
+  appendStreams?: Array<{ id: string; frozenThroughSequence: number; tailDigest: string }>;
   supplements: KnowledgeSupplement[];
 }
 
@@ -389,6 +405,16 @@ export interface RunManifest {
   analysisScopeDigest?: string;
   /** Strict-assurance/redaction version this run was prepared under; audit gates re-derivation on it. Absent on runs prepared before the field existed. */
   assuranceVersion?: string;
+  /**
+   * The identity of the CodeGraph databases this run navigated with, or null when it had none.
+   *
+   * It sits on the MANIFEST, not on the snapshot: an optional navigation index is not part of the source
+   * boundary's identity, and having it there meant building `.codegraph` moved the snapshot id of a target
+   * whose source had not changed. Its eventual home is the layer-3 CodeGraph producer envelope; the manifest
+   * holds it until that envelope exists. Absent on runs prepared before the field existed — those carry it
+   * under `snapshot.codegraphDigest`, and the drift check reads either, so no archived run needs migrating.
+   */
+  codegraphDigest?: string | null;
   /** ISO timestamp stamped by `excavator freeze` when the investigation knowledge is frozen; absent on unfrozen or legacy runs. */
   frozenAt?: string;
   /** Digest of the frozen knowledge core (knowledge.json minus its append-only supplements ledger); set together with `frozenAt`. */

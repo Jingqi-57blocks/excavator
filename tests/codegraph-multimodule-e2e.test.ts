@@ -8,10 +8,12 @@ import { createCodeGraphSchema, insertGraphFile, insertGraphNode, tempDir } from
 
 /**
  * A multi-module target whose per-module databases already exist on disk, so `prepare` resolves it
- * to a per-module map and stamps its snapshot identity from the module database paths. The snapshot
- * identity must round-trip: `source` and `audit` rebuild the snapshot after preparation and must
- * reproduce the exact same `codegraphDigest`, or the whole assurance chain breaks for multi-repo
- * targets. Regression guard for 57B-349 defect 1.
+ * to a per-module map and records their combined identity. That identity must round-trip: `source` and
+ * `audit` re-derive it after preparation and must reproduce the exact same digest, or the whole assurance
+ * chain breaks for multi-repo targets. Regression guard for 57B-349 defect 1.
+ *
+ * It now lives on the run MANIFEST rather than inside the snapshot: an optional navigation index is not part
+ * of the source boundary's identity (57B-418). The round-trip requirement is unchanged.
  */
 async function multiModuleTarget(): Promise<string> {
   const target = await tempDir();
@@ -46,13 +48,15 @@ function request(target: string, workdir: string): ReportRequest {
   };
 }
 
-test("a multi-module run resolves per-module graphs and stamps a non-null snapshot identity", async () => {
+test("a multi-module run resolves per-module graphs and records a non-null CodeGraph identity", async () => {
   const target = await multiModuleTarget();
   const workdir = await tempDir();
   const { manifest } = await prepareRun(request(target, workdir));
   assert.equal(manifest.request.codegraph, undefined, "a multi-module run has no single database path");
   assert.equal(manifest.request.codegraphModules?.length, 2, "the resolved per-module database paths are persisted for reproduction");
-  assert.ok(manifest.snapshot?.codegraphDigest, "the multi-module snapshot carries a CodeGraph identity");
+  assert.ok(manifest.codegraphDigest, "the multi-module run records the combined CodeGraph identity");
+  assert.equal((manifest.snapshot as Record<string, unknown> | null)?.codegraphDigest, undefined,
+    "and it is not inside the source snapshot, whose identity takes no input from any index");
 });
 
 test("a multi-module run's snapshot identity round-trips through source and audit", async () => {

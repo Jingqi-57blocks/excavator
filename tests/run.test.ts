@@ -216,7 +216,15 @@ test("a timed-out checkpoint keeps the section it was given and resumes from the
   const resumed = await resumeRun(runDir);
   assert.equal(resumed.manifest.state, "authoring");
   assert.equal(resumed.next[0].section, 3);
-  await checkpointSection(runDir, document.id, 3, sectionText(document.sections[2].title, 3, id), sectionClaims(3, id));
+  // The budget is 5ms on purpose, so a resumed run re-trips it as soon as a checkpoint's own writes take
+  // longer than that — which is correct behaviour, and on a loaded machine it is what happens (observed:
+  // "6ms > 5ms"). What this test is about is that the section handed over survives either way: the manifest
+  // and the section files are written BEFORE the timeout throws (run.ts:968-977). Asserting no-throw here
+  // would be asserting the machine is idle.
+  await checkpointSection(runDir, document.id, 3, sectionText(document.sections[2].title, 3, id), sectionClaims(3, id))
+    .catch((error: unknown) => {
+      assert.match(String(error), /Authoring timeout for .* after saving section 3/, "the only tolerated failure is the tiny budget re-tripping");
+    });
   const afterResume = JSON.parse(await readFile(join(runDir, "run.json"), "utf8")) as RunManifest;
   assert.equal(afterResume.documents[0].sections[2].complete, true);
 });

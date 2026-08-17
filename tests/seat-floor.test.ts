@@ -43,7 +43,7 @@ async function graphSet(modules: Array<{ id: string; hits: number; kind?: string
     db.close();
     members.push({ module: { id: spec.id, dir: spec.id } as never, path });
   }
-  return { set: new CodeGraphSet(members, allowed, 500, new Deadline(30_000)), allowed };
+  return { set: new CodeGraphSet(members, allowed, 500, new Deadline(30_000, "seat-floor-test")), allowed };
 }
 
 function seatsByModule(nodes: Array<{ filePath: string }>): Record<string, number> {

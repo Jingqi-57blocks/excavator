@@ -7,6 +7,8 @@ import { pruneFeatureGraphWithModuleFloor } from "./prune-module-floor.ts";
 import { buildScopeCensus, type ScopeCensus } from "./scope-census.ts";
 import { buildOverviewCensus, type OverviewCensus } from "./overview-census.ts";
 import { createSnapshot, isLikelySource, type ScannedFile } from "../snapshot/snapshot.ts";
+import type { FileLedger } from "../snapshot/file-ledger.ts";
+import { codegraphIdentity } from "../codegraph/codegraph-identity.ts";
 import { SourceReader, evidenceFromWindow, manifestSummary, selectProjectDocuments, sourceSearch } from "../snapshot/source.ts";
 import { Deadline, ensureDir, exists, projectWorkspace, readJson, redactionCacheTag, sha256, slugify, stableJson, truncate, writeJson } from "../core/util.ts";
 import { createProviderRegistry, resolveCodeGraphDatabase } from "../snapshot/providers.ts";
@@ -18,7 +20,7 @@ import { legacyWorkspaceWarning } from "../snapshot/workspace-residue.ts";
 // v20: CachedFeature carries the boundary-function enumeration (57B-396). v19 introduced it; v20 adds the
 // `truncated` flag and per-feature warnings to that record, and a v19 hit would serve them as `undefined`
 // — a truncated enumeration that claims it was complete. Any change to a cached shape bumps this (57B-375).
-const BUILDER_VERSION = "excavator-context-v22-overview-census";
+const BUILDER_VERSION = "excavator-context-v23-content-identity";
 
 interface CachedShared {
   snapshotId: string;
@@ -63,6 +65,14 @@ interface CachedFeature {
 
 export interface ContextBuildResult {
   prepared: PreparedContext;
+  /**
+   * The layer-1 file ledger, passed straight through to the orchestrator that writes it.
+   *
+   * It sits beside `prepared` rather than inside it because `PreparedContext` is declared in the base type
+   * module: putting a layer-1 type there would make the base import upward, which is the dependency direction
+   * the layering contract forbids. The ledger is layer 1's own artifact and only travels through here.
+   */
+  ledger: FileLedger;
   projectDir: string;
   stats: {
     graphQueries: number;
@@ -76,6 +86,8 @@ export interface ContextBuildResult {
     codegraphModulePaths?: string[];
     codegraphModules?: Array<{ id: string; dir: string; path: string }>;
     codegraphSource: "explicit" | "auto" | "disabled" | "unavailable";
+    /** The CodeGraph identity for this run, recorded on the manifest rather than inside the snapshot. */
+    codegraphDigest: string | null;
     providerRegistry: ProviderRegistry;
     cache: Record<string, "hit" | "miss" | "unused">;
     warnings: string[];
@@ -83,21 +95,65 @@ export interface ContextBuildResult {
   };
 }
 
-export async function buildContexts(request: ReportRequest): Promise<ContextBuildResult> {
+/**
+ * Everything layer 1 produces, and the phase that produces it.
+ *
+ * It is a separate function from `buildContexts` for one reason: only a failure INSIDE this function means the
+ * source boundary could not be read. Every later failure — a prepare-budget timeout while a feature is being
+ * assembled, a graph blowing up — happens with the ledger already in memory, and the orchestrator used to write
+ * all of them into `ledger/files.json` as `Unavailable{"the source boundary could not be read"}`. That record
+ * then read as "we are blind to the target" when the target had in fact been read completely, and layer 8
+ * amplified it into an error. The phase split is what makes the distinction structural instead of remembered.
+ */
+export interface SourceBoundary {
+  deadline: Deadline;
+  timing: Record<string, number>;
+  startedAt: number;
+  snapshot: Snapshot;
+  files: ScannedFile[];
+  ledger: FileLedger;
+  projectDir: string;
+  cacheRoot: string;
+  legacyResidue: string | null;
+  codegraphResolution: Awaited<ReturnType<typeof resolveCodeGraphDatabase>>;
+  codegraphDigest: string | null;
+}
+
+export async function readSourceBoundary(request: ReportRequest): Promise<SourceBoundary> {
   const deadline = new Deadline(request.budgets.prepareMs, "Context preparation");
   const timing: Record<string, number> = {};
-  const t0 = Date.now();
+  const startedAt = Date.now();
   const codegraphResolution = await resolveCodeGraphDatabase(request.target, request.codegraph, request.codegraphMode ?? "auto");
   const moduleDatabases = codegraphResolution.modules;
-  const effectiveCodegraph = codegraphResolution.path;
-  const { snapshot, files } = await createSnapshot(request.target, moduleDatabases ? moduleDatabases.map((module) => module.path) : effectiveCodegraph, request.budgets.maxFiles);
-  timing.snapshotMs = Date.now() - t0;
-  deadline.check("creating source snapshot");
-
+  // The CodeGraph identity is computed here, ALONGSIDE the snapshot rather than inside it: layer 1 takes no
+  // input from any index, so the source boundary cannot carry an index digest in its identity.
+  const codegraphDigest = await codegraphIdentity(moduleDatabases ? moduleDatabases.map((module) => module.path) : codegraphResolution.path);
+  // Resolved before the snapshot because the content-digest cache lives under it; it depends only on the
+  // workdir and the target path, never on anything the scan produces.
   const projectDir = await projectWorkspace(request.workdir, request.target);
   const legacyResidue = await legacyWorkspaceWarning(request.workdir, request.target, projectDir);
   const cacheRoot = join(projectDir, "cache");
   await ensureDir(cacheRoot);
+
+  const snapshotStarted = Date.now();
+  const { snapshot, files, ledger } = await createSnapshot(request.target, request.budgets.maxFiles, { cacheDir: cacheRoot });
+  timing.snapshotMs = Date.now() - snapshotStarted;
+  return { deadline, timing, startedAt, snapshot, files, ledger, projectDir, cacheRoot, legacyResidue, codegraphResolution, codegraphDigest };
+}
+
+/** Prepare a run's contexts, reading the source boundary first. See `buildContextsFromBoundary`. */
+export async function buildContexts(request: ReportRequest): Promise<ContextBuildResult> {
+  return buildContextsFromBoundary(request, await readSourceBoundary(request));
+}
+
+export async function buildContextsFromBoundary(request: ReportRequest, boundary: SourceBoundary): Promise<ContextBuildResult> {
+  const { deadline, timing, snapshot, files, ledger, projectDir, cacheRoot, legacyResidue, codegraphResolution, codegraphDigest } = boundary;
+  const t0 = boundary.startedAt;
+  const moduleDatabases = codegraphResolution.modules;
+  const effectiveCodegraph = codegraphResolution.path;
+  // The FIRST deadline check of the run, and deliberately on this side of the phase split: the boundary read
+  // has already happened, so a budget exhausted here must not be recorded as an unreadable boundary.
+  deadline.check("creating source snapshot");
   const sourceReader = new SourceReader({
     target: request.target,
     snapshotId: snapshot.id,
@@ -145,7 +201,7 @@ export async function buildContexts(request: ReportRequest): Promise<ContextBuil
     warnings.push(...shared.metrics.warnings);
   }
 
-  const providerRegistry = await createProviderRegistry({ snapshot, codegraphResolution, codegraphSelected: Boolean(graph), codegraphOpenError });
+  const providerRegistry = await createProviderRegistry({ snapshot, codegraphResolution, codegraphSelected: Boolean(graph), codegraphDigest, codegraphOpenError });
 
   const allEvidence = [...shared.evidence];
   const documentContexts = new Map<string, string>();
@@ -223,6 +279,7 @@ export async function buildContexts(request: ReportRequest): Promise<ContextBuil
   timing.totalPrepareMs = Date.now() - t0;
   return {
     prepared: { snapshot, evidence: dedupeEvidence(allEvidence), sharedMarkdown, documentContexts, featureMarkdowns, featureFactPacks, featureScopes, crossFeature, boundaryFunctions, scopeCensus: scopeCensusByFeature, censusUnavailable: censusUnavailableByFeature, overviewCensus: shared.overviewCensus },
+    ledger,
     projectDir,
     stats: {
       graphQueries: graph?.stats.queries ?? 0,
@@ -237,6 +294,7 @@ export async function buildContexts(request: ReportRequest): Promise<ContextBuil
       // Full module identity (not just the db path) so cross-repo resolution can name the module a link
       // ends in — a link that cannot say WHICH repo serves it is not a cross-repo fact.
       codegraphModules: moduleDatabases?.map((module) => ({ id: module.id, dir: module.dir, path: module.path })),
+      codegraphDigest,
       codegraphSource: codegraphResolution.source,
       providerRegistry,
       cache,
@@ -474,7 +532,7 @@ function renderSharedMarkdown(snapshot: Snapshot, graphSummary: unknown, coverag
 ## Snapshot
 
 \`\`\`json
-${stableJson({ id: snapshot.id, roots: snapshot.roots, scannerVersion: snapshot.scannerVersion, ignoreRulesDigest: snapshot.ignoreRulesDigest, sourceManifestDigest: snapshot.sourceManifestDigest, codegraphDigest: snapshot.codegraphDigest })}
+${stableJson({ id: snapshot.id, roots: snapshot.roots, scannerVersion: snapshot.scannerVersion, ignoreRulesDigest: snapshot.ignoreRulesDigest, sourceManifestDigest: snapshot.sourceManifestDigest, contentManifestDigest: snapshot.contentManifestDigest })}
 \`\`\`
 
 ## Coverage

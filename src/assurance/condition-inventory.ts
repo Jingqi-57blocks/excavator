@@ -298,7 +298,7 @@ function enumFamilies(items: ConditionCoverageItem[]): EnumFamily[] {
   const byKey = new Map<string, { path: string; field: string; values: Set<string>; lines: Set<number>; consumed: number; total: number }>();
   for (const item of items) {
     if (item.literalKind !== "string" || item.excluded) continue;
-    const key = `${item.path}${item.field}`;
+    const key = `${item.path}\x01${item.field}`;
     const entry = byKey.get(key) ?? { path: item.path, field: item.field, values: new Set<string>(), lines: new Set<number>(), consumed: 0, total: 0 };
     entry.values.add(item.literal);
     entry.lines.add(item.line);
