@@ -282,7 +282,7 @@ async function resolveIdentity(row: LedgerDraftRow, cache: ContentIdentityCache)
 function groupExcluded(excluded: ExcludedRow[]): LedgerGroupRow[] {
   const groups = new Map<string, { rule: ExcludeRule; extension: string; count: number; shapes: Set<string> }>();
   for (const row of excluded) {
-    const key = `${row.rule} ${row.extension}`;
+    const key = `${row.rule}\0${row.extension}`;
     const group = groups.get(key) ?? { rule: row.rule, extension: row.extension, count: 0, shapes: new Set<string>() };
     group.count += 1;
     group.shapes.add(row.tier1.status === "sampled" ? row.tier1.shape : "unsampled");

@@ -240,7 +240,7 @@ function supplement(
   boundary: BoundaryFunctionsArtifact,
   primary: ReadObligation[],
 ): { added: ReadObligation[]; stats: NonNullable<ReadObligationsArtifact["summary"]["secondSource"]> } {
-  const known = new Set(primary.map((obligation) => `${obligation.featureKey}${obligation.path}${obligation.startLine}`));
+  const known = new Set(primary.map((obligation) => `${obligation.featureKey}\x01${obligation.path}\x01${obligation.startLine}`));
   const added: ReadObligation[] = [];
   let candidates = 0;
   let decisionBearing = 0;
@@ -257,7 +257,7 @@ function supplement(
       if (fn.probe !== "decision") continue;
       decisionBearing++;
       const path = normalizeObligationPath(fn.path);
-      if (known.has(`${featureKey}${path}${fn.startLine}`)) { duplicate++; continue; }
+      if (known.has(`${featureKey}\x01${path}\x01${fn.startLine}`)) { duplicate++; continue; }
       added.push({
         id: `feature:${featureKey}:boundary-fn:${fn.name}@${fn.path}:${fn.startLine}`,
         kind: "boundary-decision-function",
