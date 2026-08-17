@@ -423,6 +423,135 @@ claims scaffold 文本；覆盖判定是双向子串，故无硬误报；placeme
 修法候选：① 把绝对墙钟阈值换成「相对同一次运行内的基线倍数」；② 标记为串行执行；
 ③ 用注入的时钟替代真实计时。**不在本片顺手改**（CLAUDE.md：范围外不顺手修改），记此备后续。
 
+## `claims scaffold` 吃掉标识符里的下划线，条件检查器却要求逐字匹配（2026-08-17，provital 真跑暴露）
+
+第三处 scaffold↔audit 规范化漂移（前两处是 57B-412）。受控探针：
+
+```
+输入行                              scaffold 存下的 statement
+`unread_message` 与 `messages_archive`   →  unread message 与 messages archive
+unread_message 与 messages_archive       →  unread message 与 messages archive
+`snake_case_id`                          →  snake case id
+```
+
+下划线被无条件替换为空格，加不加反引号都一样。而
+`src/assurance/condition-inventory.ts:334` 的 `mentionsLiteral` 用
+`(?<![\w-])<literal>(?![\w-])` **逐字**匹配：
+
+**于是任何含下划线的条件字面量，只要 claim 是从 scaffold 产出的，就永远无法被判定为「已陈述」。**
+真实代码里的字面量绝大多数含下划线。实跑证据：我在一条 claim 里同时写出
+`invoice`、`unread_message`、`messages_archive` 三个值，引擎只认下 `invoice`（唯一不含下划线的），
+于是 `$c->action->name ∈ {…}` 这个值集残差**无法被满足**——不是作者没写，是两个组件对同一个字符串
+有两套规范化。
+
+这条比另外两处更隐蔽，因为它**只在字面量含下划线时发作**，而 57B-412 的等价性检查用的是归档 run，
+未必覆盖这种输入。修法：scaffold 的规范化不得改动反引号内的内容（或至少不得改动标识符字符），
+并补一条以 `snake_case` 字面量为输入的双向绑定测试。**不在本片顺手改。**
+
+## 工作项的 `reportSection` 把「至少一章」判成「只能一章」，惩罚交叉引用（2026-08-17，provital 真跑暴露）
+
+`writing-rules.md`（detailed 模式）：「Every material work item names the chapter where it must appear.
+**At least one** visible claim in that chapter lists the work-item ID…」——**至少一条**。
+
+`src/assurance/assurance.ts:790`：
+
+```ts
+if (document.audience !== "prd" && item.reportSection && item.reportSection !== section)
+  findings.push(error(document.id, `claim ${claim.id} links work item ${id} to section ${section}, expected section ${item.reportSection}`));
+```
+
+任何**其他**章节的 claim 引用该工作项 → **error**。实跑一次产生 **12 条 error**：第 4 章（权限边界）
+与第 9 章（问题清单）描述同一批授权事实，自然写法是两处都链到 `project:guard-polarity`。
+
+**比前几条更糟的一点**：它惩罚的是**更完整**的报告。少链的作者过，交叉引用的作者红；而且
+「不设 `reportSection`」也能规避——于是引擎奖励的恰好是可追溯性更弱的两种写法。
+
+**更严重的第二半（同跑后续发现）**：`reportSection` 是**单个数字**，而 product 与 engineering
+的章节布局**不同**——产品版 10 章、工程版 13 章，「当前问题」在产品版是 §9、在工程版是 §11；
+「共享存储」产品版 §6、工程版 §7；「覆盖」产品版 §10、工程版 §12。于是同一个工作项
+不可能同时对两份文档正确，**工程版里每一条放在正确章节的 claim 都被判成 error**（实跑 20 条）。
+
+而 `assurance.ts:786-789` 的注释写的是：
+
+> The exact section-link check assumes the canonical 1..12 feature chapter numbering. A prd feature
+> report has its own (fewer) chapters … skip only this check for prd (product/engineering paths are
+> byte-unchanged).
+
+即：作者已经意识到"章号随文档种类而变"这个问题，但只为 prd 开了豁免，**误以为 product 与
+engineering 共用一套编号**。overview 的两份契约摆在
+`references/product-overview.md`（10 章）与 `references/engineering-overview.md`（13 章）里，
+一看便知不同。
+
+修法候选：① 按契约放宽为「至少一章必须有，其他章节允许」（一并解决两半）；
+② 或把 `reportSection` 改成按文档种类的映射，并删掉 prd 的特例；
+③ 顺带对齐 `reportSection` 未设时的覆盖检查，别让"不设"成为规避手段。**不在本片顺手改**；
+本跑的处理是把无法同时满足的 `workItemIds` 去掉（证据引用保留，保证链不受影响）。
+
+## `claims scaffold` 有句子一侧、没有证据块一侧（2026-08-17，provital 真跑暴露）
+
+审计要求：claim 引用的每个证据 ID **必须同时出现在该节的 `<details>` 证据块里**。引擎为「把散文切成
+待绑定的陈述」提供了 `claims scaffold`，**但没有任何命令帮作者把证据块与 claims 对齐**，那一侧全靠手工。
+
+实测代价：provital 第 1 章我手写的证据块列了约 18 个 ID，而 claims 实际引用 **44** 个。手工维护
+必然漂移，而漂移的表现是**整节审计失败**——一次成功的撰写和一次因记账疏漏而失败的撰写，作者要靠
+读错误信息来区分。
+
+真跑中我写了个 20 行脚本从 claims 反推证据块，于是这一类失败在本次 run 里**结构上不可能发生**。
+这要如实计入读数的限定：本跑「审计通过」不能用来说明无辅助作者的出错率，
+也不能用来给 write-miss 桶记账——同 [[verify-the-instrument-first]]，装置让事情变绿。
+
+修法候选：① 加 `excavator claims sync-evidence`（从 claims 生成/校正 `<details>` 块，标签取自
+`evidence.json` 已记录的 reason，与 scaffold 对称）；② 或让 `checkpoint` 在不匹配时给出可直接套用的
+差集而不只是报错。**不在本片顺手改。**
+
+## SKILL 的撰写流程里没有 `freeze`，而引擎在 freeze 后给该流程的第 5 步设了闸（2026-08-17，provital 真跑暴露）
+
+`skills/excavator/SKILL.md` 的 "Authoring workflow" 顺序是：读 prompt → `begin` → 写一节 →
+`search` → **`source`（"If more source is required, record the bounded excerpt before using it"）**
+→ `checkpoint` → `workitem` → `trace` → `assemble` → `audit`。**`freeze` 不在这个列表里。**
+但 prepare 生成的 document prompt 写着 "The investigation is frozen before authoring"，
+而 `enforceFreezeGate` 在 freeze 之后拒绝无 supplement 的 `source`：
+
+```
+Run is frozen; `source` after freeze requires a supplement: pass --supplement-reason … --supplement-workitem …
+```
+
+于是照 SKILL 的顺序做的作者，在写第 1 节时按第 5 步取证会被拒；而 SKILL 从未告诉他要在此之前 freeze。
+
+**同一跑暴露的第二半，更重要**：12 个默认工作项**全是缺陷假设**
+（literal-secrets / guard-polarity / discarded-errors …），**没有任何一项代表「第 3 章的能力地图
+需要证据」**。所以一个把全部工作项处置完再 freeze 的作者，手上的证据只覆盖第 9 章，
+第 1–8 章要写什么都没有——只能对每一章开 supplement。实跑中我正是这样：处置完 12 项、freeze 通过、
+零 finding，然后发现能力地图的每一项都无据可引。
+
+**这不是作者的顺序错误，是计划的形状问题**：投资建议（`reading` 子命令）也只按 feature 边界给残差，
+overview-only 的 run 得到 "No feature-associated read residual"，同样不提示任何取证方向。
+
+修法候选：① 让 prepare 产出「章节证据需求」类工作项（每章至少一项，overview 也有）；
+② SKILL 的撰写流程显式加入 freeze 并说明它之后 `source` 需要 supplement；
+③ 二者都做——①解决"取什么证"，②解决"何时冻结"。**不在本片顺手改。**
+
+## 撰写包把 `searchScope` 的内容标成 `reason`，且 `settledBy` 压根不渲染（2026-08-17，provital 真跑暴露）
+
+`src/assurance/authoring-packet.ts:266-267`：
+
+```ts
+const detail = item.searchScope?.trim() || item.reason?.trim();
+if (detail) lines.push(`  - ${item.status === "searched-not-found" ? "search scope" : "reason"}: ${detail}`);
+```
+
+**值优先取 `searchScope`，标签却按 status 选** —— 一件事两个规则。`cannot-determine` 的条目同时有
+两个字段时，渲染出的是 `reason: <searchScope 的内容>`。实跑撞到：
+`project:uncalled-entrypoints` 在包里印成「reason: All Catalyst controllers under …」，
+而那是搜索范围、不是「为什么定不了」。作者照包写就会把搜索范围当成结论理由。
+
+更重的一条：`cannot-determine` 被 audit 强制要求 `settledBy`（`assurance.ts:839`），
+但**撰写包完全不渲染它**。「什么才能定谳这个问题」是该状态下最该到达作者的字段，却到不了。
+
+修法：标签与值取自同一字段（分别渲染 `search scope` 与 `reason`，各自存在才印），
+并为 `cannot-determine` 补印 `settledBy`。**不在本片顺手改**——改 src 会搅乱这跑正在回答的
+「412/413 是否真修好」。
+
 ## feature 级 census 的行集仍取自图普查，同一盲区未修（2026-08-17，overview census 切片范围外记账）
 
 `buildScopeCensus` 的行集来自 `GraphSummary.roots`，而图普查本身就是快照的一个**过滤视图**：
