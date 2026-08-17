@@ -43,8 +43,8 @@ export function deriveContractManifest(registry: ArtifactRegistry, runIntent: Ru
     expected.push(instance(producer, producer.id, producer.pathTemplate.replaceAll("{producer}", producer.id)));
   }
   expected.sort((a, b) => a.layer - b.layer || a.slotId.localeCompare(b.slotId) || a.instanceKey.localeCompare(b.instanceKey));
-  const unsigned = {
-    version: "contract-manifest-v1" as const,
+  const unsigned: Omit<ContractManifest, "digest"> = {
+    version: "contract-manifest-v1",
     registryVersion: registry.version,
     registryDigest: registryDigest(registry),
     runIntentDigest: runIntent.digest,
@@ -52,7 +52,18 @@ export function deriveContractManifest(registry: ArtifactRegistry, runIntent: Ru
     expected,
     checks: [...registry.checks].sort((a, b) => a.family.localeCompare(b.family))
   };
-  return { ...unsigned, digest: sha256(stableJson(unsigned)) };
+  return { ...unsigned, digest: contractManifestDigest(unsigned) };
+}
+
+/**
+ * The manifest's self-digest, from its own recorded fields. Exported because layer 8 must RECOMPUTE it: the
+ * instance audit reads `expected` out of the run and short-circuits on an empty or all-unenforced list, so a
+ * truncated `contract-manifest.json` would silently turn the whole check into a pass. Signing the record is
+ * only useful if someone verifies the signature, and this is the one formula both sides use.
+ */
+export function contractManifestDigest(manifest: Omit<ContractManifest, "digest">): string {
+  const { digest: _recorded, ...unsigned } = manifest as ContractManifest;
+  return sha256(stableJson(unsigned));
 }
 
 function expandSlot(slot: RegistryEntry, runIntent: RunIntent, registry: ArtifactRegistry): ExpectedInstance[] {

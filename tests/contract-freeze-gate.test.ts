@@ -8,7 +8,7 @@ import { ARTIFACT_REGISTRY } from "../src/base/artifact-registry.ts";
 import { auditContractInstances } from "../src/assurance/contract-instance-audit.ts";
 import { CONTRACT_MANIFEST_ASSURANCE_GENERATION } from "../src/assurance/assurance.ts";
 import type { ContractManifest } from "../src/contract/contract-manifest.ts";
-import type { FileLedger } from "../src/snapshot/file-ledger.ts";
+import { ledgerContentIdentity, type FileLedger } from "../src/snapshot/file-ledger.ts";
 import type { ArtifactResult } from "../src/base/artifact-result.ts";
 import { exists, writeJson } from "../src/core/util.ts";
 import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, tempDir } from "./helpers.ts";
@@ -129,6 +129,89 @@ test("audit reports a scanner generation change as a warning rather than a false
     `a re-derivation the scanner cannot perform is a stated limit: ${JSON.stringify(drift, null, 2)}`);
   assert.deepEqual(drift.filter((finding) => finding.level === "error" && /source snapshot changed/.test(finding.message)), [],
     "an incomparable identity must not be reported as a changed source tree");
+});
+
+test("a counted row with no content identity is an audit error, not a quiet absence", async () => {
+  const { runDir } = await prepareRun(await overviewRequest());
+  const manifest = await readManifest(runDir);
+  const ledgerPath = join(runDir, "ledger", "files.json");
+  const envelope = JSON.parse(await readFile(ledgerPath, "utf8")) as ArtifactResult<FileLedger>;
+  assert.equal(envelope.status, "built");
+  if (envelope.status !== "built") return;
+
+  // The shape a lost race between `lstat` and `readFile` leaves behind. It used to be spelled `excluded`, which
+  // made a failed read indistinguishable from a policy decision — and neither spelling was ever checked.
+  const victim = envelope.value.counted[0];
+  victim.content = { status: "absent", reason: "read-failed" };
+  envelope.value.contentManifestDigest = ledgerContentIdentity(envelope.value);
+  await writeJson(ledgerPath, envelope);
+  assert.ok(manifest.snapshot);
+  // Rebound so the snapshot/ledger digest check stays quiet and this assertion is about the one finding.
+  manifest.snapshot.contentManifestDigest = envelope.value.contentManifestDigest;
+
+  const findings = await auditContractInstances(runDir, manifest);
+  assert.equal(findings.length, 1, `exactly the counted-row finding: ${JSON.stringify(findings, null, 2)}`);
+  assert.equal(findings[0].level, "error");
+  assert.match(findings[0].message, /counted row/);
+  assert.ok(findings[0].message.includes(victim.relativePath), `the finding names the row: ${findings[0].message}`);
+  assert.ok(findings[0].message.includes("read-failed"), "and the reason it carries");
+});
+
+test("a truncated contract manifest fails its own digest instead of silently expecting nothing", async () => {
+  const { runDir } = await prepareRun(await overviewRequest());
+  const manifest = await readManifest(runDir);
+  const manifestPath = join(runDir, "contract", "contract-manifest.json");
+  const contract = JSON.parse(await readFile(manifestPath, "utf8")) as ContractManifest;
+  assert.ok(contract.expected.some((instance) => instance.enforced), "the run really does expect enforced instances");
+
+  // Emptying `expected` used to turn the whole instance audit into a pass: every check iterates that list.
+  contract.expected = [];
+  await writeJson(manifestPath, contract);
+  const findings = await auditContractInstances(runDir, manifest);
+  assert.ok(findings.some((finding) => finding.level === "error" && /does not match its own digest/.test(finding.message)),
+    `a contract record nobody verifies is decoration: ${JSON.stringify(findings, null, 2)}`);
+
+  // And the two contract inputs are checked against the digests the manifest recorded for them.
+  const restored = JSON.parse(await readFile(manifestPath, "utf8")) as ContractManifest;
+  restored.expected = contract.expected;
+  const intentPath = join(runDir, "contract", "run-intent.json");
+  const runIntent = JSON.parse(await readFile(intentPath, "utf8")) as { target: string; digest: string };
+  runIntent.target = `${runIntent.target}-elsewhere`;
+  await writeJson(intentPath, runIntent);
+  const swapped = await auditContractInstances(runDir, manifest);
+  assert.ok(swapped.some((finding) => /run-intent\.json does not match its own digest/.test(finding.message)),
+    `an edited contract input is caught by its own digest: ${JSON.stringify(swapped, null, 2)}`);
+});
+
+test("a prepare failure AFTER the boundary was read records the ledger as built, not as an unreadable boundary", async () => {
+  // The budget is exhausted before the first check on the post-boundary side of the phase split, so this is
+  // deterministic rather than a wall-clock bet: `readSourceBoundary` performs no deadline check at all, and
+  // every later check — the feature loop, the project documents, the source windows — throws the same
+  // `ExcavatorTimeoutError` through the same catch. Before the split, all of them were recorded as
+  // `Unavailable{"the source boundary could not be read"}` while the ledger sat complete in memory, and the
+  // instance audit then amplified that into an error against a run that had read the boundary fine.
+  const request = await twoFeatureRequest();
+  const starved: ReportRequest = { ...request, budgets: { ...BUDGETS, prepareMs: 1 } };
+  await assert.rejects(() => prepareRun(starved), /exceeded 1ms/);
+
+  const { runDir } = await findFailedRun(starved.workdir);
+  const envelope = JSON.parse(await readFile(join(runDir, "ledger", "files.json"), "utf8")) as ArtifactResult<FileLedger>;
+  assert.equal(envelope.status, "built", "the boundary WAS read; the ledger must not claim otherwise");
+  if (envelope.status !== "built") return;
+  assert.ok(envelope.value.counted.length > 0, "and it holds the rows it read");
+
+  const manifest = await readManifest(runDir);
+  assert.equal(manifest.state, "failed");
+  assert.equal(manifest.error?.stage, "prepare");
+  assert.ok(manifest.snapshot, "a run that read its boundary records the snapshot it read");
+  assert.equal(manifest.snapshot?.contentManifestDigest, envelope.value.contentManifestDigest, "and it is bound to the ledger");
+  assert.deepEqual(manifest.metrics.warnings.filter((warning) => /boundary could not be read/.test(warning)), [],
+    `no warning may assert a blindness the run did not have: ${JSON.stringify(manifest.metrics.warnings)}`);
+  // A failed prepare really is missing the artifacts it never got to write, and the audit says so. What it must
+  // NOT say is anything about layer 1: that layer finished its job.
+  const findings = await auditContractInstances(runDir, manifest);
+  assert.deepEqual(findings.filter((finding) => /ledger\/files\.json|source boundary/.test(finding.message)), [],
+    `layer 8 has nothing to report about a boundary that was read completely: ${JSON.stringify(findings, null, 2)}`);
 });
 
 test("an unreadable target leaves a failed run directory whose layer-1 ledger records the cause", async () => {

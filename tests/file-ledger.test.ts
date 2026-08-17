@@ -4,8 +4,9 @@ import { join } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdir, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import { createSnapshot, scanFiles } from "../src/snapshot/snapshot.ts";
-import { ledgerContentIdentity, serializeLedgerArtifact, type FileLedger } from "../src/snapshot/file-ledger.ts";
+import { FileLedgerDraft, buildFileLedger, ledgerContentIdentity, serializeLedgerArtifact, type FileLedger } from "../src/snapshot/file-ledger.ts";
 import { built } from "../src/base/artifact-result.ts";
 import { tempDir } from "./helpers.ts";
 
@@ -136,6 +137,59 @@ test("the ledger is byte-identical across reruns and across a cold and warm cont
   assert.equal(first.snapshot.id, cold.snapshot.id);
   assert.equal(first.snapshot.id, uncached.snapshot.id);
   assert.ok(!serializeLedgerArtifact(built(first.ledger)).includes("createdAt"), "the canonical ledger carries no wall-clock field");
+});
+
+test("a sensitive file is a stat-only row: nothing about it is read, and no byte of it reaches the artifact", async () => {
+  const target = await tempDir();
+  const marker = "MARKER-b7f2-PRIVATE-KEY-MATERIAL-b7f2";
+  const secret = `-----BEGIN PRIVATE KEY-----\n${marker}\n-----END PRIVATE KEY-----\n`;
+  await writeFile(join(target, "server.pem"), secret);
+  await writeFile(join(target, ".env"), `DATABASE_URL=postgres://user:${marker}@db/app\n`);
+  await writeFile(join(target, ".env.example"), "DATABASE_URL=\n");
+  await writeFile(join(target, "main.ts"), "export const value = 1;\n");
+
+  const { ledger } = await createSnapshot(target);
+  assertBalanced(ledger);
+  for (const path of ["server.pem", ".env"]) {
+    const row = excludedFor(ledger, path);
+    assert.equal(row?.rule, "sensitive-file", `${path} is still a visible row`);
+    // The whole point of the rule is not doing work on these bytes, and an 8 KiB shape sample read exactly the
+    // leading bytes of the private key. `stat-only` is what "we looked at the inode and stopped" looks like.
+    assert.equal(row?.tier1.status, "stat-only", `${path} must not report a sampled shape`);
+    assert.equal(row?.tier1.status === "stat-only" ? row.tier1.reason : null, "sensitive");
+    assert.deepEqual(Object.keys(row!.tier1).sort(), ["mtimeMs", "reason", "size", "status"],
+      "the row carries the inode facts and nothing derived from the bytes — no shape, and no maxLineLength metadata leak");
+    assert.deepEqual(row?.content, { status: "absent", reason: "excluded" }, "not reading it is policy, not a failure");
+  }
+  assert.equal(excludedFor(ledger, ".env.example")?.rule, undefined, "a checked-in sample env file is counted, not sensitive");
+
+  const artifact = serializeLedgerArtifact(built(ledger));
+  assert.equal(artifact.includes(marker), false, "no content of a sensitive file appears in the artifact");
+  assert.equal(artifact.includes(createHash("sha256").update(secret).digest("hex")), false, "and neither does a digest of it");
+  assert.equal(groupFor(ledger, "sensitive-file", ".pem")?.shape, "unsampled", "the group reports the row as unsampled rather than inventing a shape");
+});
+
+test("a counted row whose bytes vanish between the stat and the read says read-failed, not excluded", async () => {
+  // The real race — a file present at `lstat` and gone at `readFile` — reproduced by handing the ledger a
+  // counted draft row whose stat is plausible and whose path does not exist. `excluded` is the bucket this used
+  // to borrow, which read as "we chose not to hash it" for a row the contract requires a digest on.
+  const target = await tempDir();
+  await writeFile(join(target, "present.ts"), "export const value = 1;\n");
+  const draft = new FileLedgerDraft();
+  draft.candidate({ relativePath: "present.ts", absolutePath: join(target, "present.ts"), rootName: ".", extension: ".ts", rule: null, stat: { size: 24, mtimeMs: 1_600_000_000_000, ctimeMs: 1_600_000_000_000 }, unsampled: null });
+  draft.candidate({ relativePath: "vanished.ts", absolutePath: join(target, "vanished.ts"), rootName: ".", extension: ".ts", rule: null, stat: { size: 24, mtimeMs: 1_600_000_000_000, ctimeMs: 1_600_000_000_000 }, unsampled: null });
+  draft.root({ name: ".", candidateSource: "filesystem-walk", candidates: 2, counted: 2, dropped: false });
+
+  const ledger = await buildFileLedger({ draft, target, scannerVersion: "test", maxFiles: 100 });
+  assertBalanced(ledger);
+  const vanished = ledger.counted.find((row) => row.relativePath === "vanished.ts");
+  assert.ok(vanished, "the row is still counted: the scan selected it, and pretending otherwise moves a denominator");
+  assert.deepEqual(vanished.content, { status: "absent", reason: "read-failed" }, "a counted row must not borrow the excluded row's reason");
+  assert.equal(vanished.tier1.status, "stat-only", "stat succeeded, so this is stat-only rather than unsampled");
+  assert.equal(vanished.tier1.status === "stat-only" ? vanished.tier1.reason : null, "read-failed");
+  const present = ledger.counted.find((row) => row.relativePath === "present.ts");
+  assert.equal(present?.content.status, "present", "the readable row in the same scan is unaffected");
+  assert.equal(ledger.contentManifestDigest, ledgerContentIdentity(ledger), "the whole-table digest stays re-derivable across a failed read");
 });
 
 test("a root the cap never reached is recorded as dropped rather than silently missing", async () => {

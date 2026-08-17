@@ -95,16 +95,39 @@ export interface ContextBuildResult {
   };
 }
 
-export async function buildContexts(request: ReportRequest): Promise<ContextBuildResult> {
+/**
+ * Everything layer 1 produces, and the phase that produces it.
+ *
+ * It is a separate function from `buildContexts` for one reason: only a failure INSIDE this function means the
+ * source boundary could not be read. Every later failure — a prepare-budget timeout while a feature is being
+ * assembled, a graph blowing up — happens with the ledger already in memory, and the orchestrator used to write
+ * all of them into `ledger/files.json` as `Unavailable{"the source boundary could not be read"}`. That record
+ * then read as "we are blind to the target" when the target had in fact been read completely, and layer 8
+ * amplified it into an error. The phase split is what makes the distinction structural instead of remembered.
+ */
+export interface SourceBoundary {
+  deadline: Deadline;
+  timing: Record<string, number>;
+  startedAt: number;
+  snapshot: Snapshot;
+  files: ScannedFile[];
+  ledger: FileLedger;
+  projectDir: string;
+  cacheRoot: string;
+  legacyResidue: string | null;
+  codegraphResolution: Awaited<ReturnType<typeof resolveCodeGraphDatabase>>;
+  codegraphDigest: string | null;
+}
+
+export async function readSourceBoundary(request: ReportRequest): Promise<SourceBoundary> {
   const deadline = new Deadline(request.budgets.prepareMs, "Context preparation");
   const timing: Record<string, number> = {};
-  const t0 = Date.now();
+  const startedAt = Date.now();
   const codegraphResolution = await resolveCodeGraphDatabase(request.target, request.codegraph, request.codegraphMode ?? "auto");
   const moduleDatabases = codegraphResolution.modules;
-  const effectiveCodegraph = codegraphResolution.path;
   // The CodeGraph identity is computed here, ALONGSIDE the snapshot rather than inside it: layer 1 takes no
   // input from any index, so the source boundary cannot carry an index digest in its identity.
-  const codegraphDigest = await codegraphIdentity(moduleDatabases ? moduleDatabases.map((module) => module.path) : effectiveCodegraph);
+  const codegraphDigest = await codegraphIdentity(moduleDatabases ? moduleDatabases.map((module) => module.path) : codegraphResolution.path);
   // Resolved before the snapshot because the content-digest cache lives under it; it depends only on the
   // workdir and the target path, never on anything the scan produces.
   const projectDir = await projectWorkspace(request.workdir, request.target);
@@ -115,6 +138,21 @@ export async function buildContexts(request: ReportRequest): Promise<ContextBuil
   const snapshotStarted = Date.now();
   const { snapshot, files, ledger } = await createSnapshot(request.target, request.budgets.maxFiles, { cacheDir: cacheRoot });
   timing.snapshotMs = Date.now() - snapshotStarted;
+  return { deadline, timing, startedAt, snapshot, files, ledger, projectDir, cacheRoot, legacyResidue, codegraphResolution, codegraphDigest };
+}
+
+/** Prepare a run's contexts, reading the source boundary first. See `buildContextsFromBoundary`. */
+export async function buildContexts(request: ReportRequest): Promise<ContextBuildResult> {
+  return buildContextsFromBoundary(request, await readSourceBoundary(request));
+}
+
+export async function buildContextsFromBoundary(request: ReportRequest, boundary: SourceBoundary): Promise<ContextBuildResult> {
+  const { deadline, timing, snapshot, files, ledger, projectDir, cacheRoot, legacyResidue, codegraphResolution, codegraphDigest } = boundary;
+  const t0 = boundary.startedAt;
+  const moduleDatabases = codegraphResolution.modules;
+  const effectiveCodegraph = codegraphResolution.path;
+  // The FIRST deadline check of the run, and deliberately on this side of the phase split: the boundary read
+  // has already happened, so a budget exhausted here must not be recorded as an unreadable boundary.
   deadline.check("creating source snapshot");
   const sourceReader = new SourceReader({
     target: request.target,

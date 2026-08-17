@@ -2,7 +2,8 @@ import { join } from "node:path";
 import type { AuditFinding } from "./assurance.ts";
 import { CONTRACT_MANIFEST_ASSURANCE_GENERATION, assuranceGenerationAtLeast } from "./assurance.ts";
 import type { RunManifest } from "../core/types.ts";
-import type { ContractManifest } from "../contract/contract-manifest.ts";
+import { contractManifestDigest, type ContractManifest } from "../contract/contract-manifest.ts";
+import { requirementsDigest, runIntentDigest, type Requirements, type RunIntent } from "../contract/bound-run-contract.ts";
 import { assertNever, type ArtifactResult } from "../base/artifact-result.ts";
 import { ledgerContentIdentity, type FileLedger } from "../snapshot/file-ledger.ts";
 import { exists, readJson } from "../core/util.ts";
@@ -31,7 +32,7 @@ export async function auditContractInstances(runDir: string, manifest: RunManife
     return [error(`contract/contract-manifest.json is missing; a run prepared under assurance generation ${CONTRACT_MANIFEST_ASSURANCE_GENERATION} or later records its contract before any producer runs`)];
   }
   const contract = await readJson<ContractManifest>(manifestPath);
-  const findings: AuditFinding[] = [];
+  const findings: AuditFinding[] = [...await auditContractDigests(runDir, contract)];
   for (const instance of contract.expected) {
     if (!instance.enforced) continue;
     if (!await exists(join(runDir, instance.path))) {
@@ -39,6 +40,40 @@ export async function auditContractInstances(runDir: string, manifest: RunManife
     }
   }
   findings.push(...await auditBoundaryLedger(runDir, manifest, contract));
+  return findings;
+}
+
+/**
+ * Verify the contract record against ITSELF before anything is checked against it.
+ *
+ * Every check below reads `contract.expected` and skips whatever it does not find there, so a manifest
+ * truncated to `expected: []` — or one with every `enforced` flipped to false — turns the entire instance audit
+ * into a silent pass. The recorded digests are what make that detectable, and they only work if someone
+ * recomputes them. The two input digests are checked against the contract files sitting next to the manifest as
+ * well, so the three records cannot be verified in isolation and still disagree with each other.
+ */
+async function auditContractDigests(runDir: string, contract: ContractManifest): Promise<AuditFinding[]> {
+  const findings: AuditFinding[] = [];
+  const recomputed = contractManifestDigest(contract);
+  if (recomputed !== contract.digest) {
+    findings.push(error(`contract/contract-manifest.json does not match its own digest (recorded ${contract.digest}, re-derived ${recomputed}); the expected-instance set it declares cannot be trusted`));
+  }
+  findings.push(...await auditContractInput<RunIntent>(runDir, "run-intent.json", contract.runIntentDigest, runIntentDigest));
+  findings.push(...await auditContractInput<Requirements>(runDir, "requirements.json", contract.requirementsDigest, requirementsDigest));
+  return findings;
+}
+
+/** One contract input, checked against its own digest and against the digest the manifest recorded for it. */
+async function auditContractInput<T extends { digest: string }>(runDir: string, file: string, recorded: string, rederive: (value: T) => string): Promise<AuditFinding[]> {
+  const path = join(runDir, "contract", file);
+  if (!await exists(path)) {
+    return [error(`contract/${file} is missing; the contract manifest records its digest ${recorded}, so the input the contract was derived from is gone`)];
+  }
+  const value = await readJson<T>(path);
+  const findings: AuditFinding[] = [];
+  const rederived = rederive(value);
+  if (rederived !== value.digest) findings.push(error(`contract/${file} does not match its own digest (recorded ${value.digest}, re-derived ${rederived})`));
+  if (value.digest !== recorded) findings.push(error(`contract/${file} is not the input the contract manifest was derived from (the manifest records ${recorded}, the file carries ${value.digest})`));
   return findings;
 }
 
@@ -79,6 +114,14 @@ function auditLedgerContent(path: string, ledger: FileLedger, manifest: RunManif
   }
   if (unexplained > 0) {
     findings.push(error(`${path}: ${unexplained} candidate(s) fell into no bucket; every denominator derived from this ledger is short by that much`));
+  }
+  // The contract makes the tier2 digest a MANDATORY ATTRIBUTE of a counted row, so an absent one is a finding
+  // here rather than a shrug in the ledger. It means the file lost the race between `lstat` and the read, and
+  // every downstream consumer keyed on content identity is one row short without saying so.
+  const unread = ledger.counted.filter((row) => row.content.status === "absent");
+  if (unread.length) {
+    const named = unread.slice(0, 5).map((row) => `${row.relativePath} (${row.content.status === "absent" ? row.content.reason : ""})`).join(", ");
+    findings.push(error(`${path}: ${unread.length} counted row(s) carry no content identity: ${named}${unread.length > 5 ? ", …" : ""}; a counted row's tier2 digest is a required attribute, so the boundary was read incompletely`));
   }
   // tier2 is an error and tier1 is advice, per the freeze rules: a content-digest mismatch means the identity
   // the whole run is bound to cannot be re-derived from the ledger it was derived from.

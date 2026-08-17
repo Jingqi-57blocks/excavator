@@ -101,7 +101,24 @@ function materializeRunIntent(input: BoundRunContractInput): RunIntent {
     documents: input.documents.map((document) => document.id).sort((a, b) => a.localeCompare(b)),
     budgets: input.request.budgets
   };
-  return { ...unsigned, digest: sha256(stableJson(unsigned)) };
+  return { ...unsigned, digest: runIntentDigest(unsigned) };
+}
+
+/**
+ * The two contract inputs' self-digests, from their own recorded fields.
+ *
+ * They are exported for the same reason `contractManifestDigest` is: layer 8 verifies the record it reads out
+ * of an archived run against itself, and a digest nobody recomputes is decoration. Each formula lives here
+ * only — the requirements digest deliberately covers the ROWS alone, which is only safe while one function
+ * spells it out for both the producer and the verifier.
+ */
+export function runIntentDigest(runIntent: Omit<RunIntent, "digest">): string {
+  const { digest: _recorded, ...unsigned } = runIntent as RunIntent;
+  return sha256(stableJson(unsigned));
+}
+
+export function requirementsDigest(requirements: Pick<Requirements, "rows">): string {
+  return sha256(stableJson(requirements.rows));
 }
 
 /**
@@ -135,5 +152,5 @@ function materializeRequirements(input: BoundRunContractInput): Requirements {
     });
   }
   const numbered: RequirementRow[] = rows.map((row, index) => ({ id: `REQ-${String(index + 1).padStart(2, "0")}`, ...row }));
-  return { version: "requirements-v1", rows: numbered, digest: sha256(stableJson(numbered)) };
+  return { version: "requirements-v1", rows: numbered, digest: requirementsDigest({ rows: numbered }) };
 }

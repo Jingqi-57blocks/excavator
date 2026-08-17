@@ -51,28 +51,46 @@ async function writeDatabase(path: string, bytes: string): Promise<void> {
   await writeFile(path, bytes);
 }
 
-test("a same-size, same-mtime content rewrite changes the snapshot identity", async () => {
+/**
+ * The P10 rewrite acceptance, run in BOTH cache configurations.
+ *
+ * It used to run only without a `cacheDir`, and that omission hid a full recurrence of the same defect: the
+ * content cache was keyed on (size, mtimeMs), so with a cache — which is EVERY production path, since
+ * `readSourceBoundary` always passes one — the rewrite hit the cache, the "content" digest served the old bytes
+ * and the snapshot id did not move. The uncached configuration alone is not the configuration that ships, so
+ * both are pinned here and neither may be deleted.
+ */
+async function assertRewriteMovesIdentity(label: string, cacheDir: string | undefined): Promise<void> {
   // Deliberately NOT a git target: rewriting a committed file would also flip the root's `dirty` flag, and
   // that alone would move the identity — the test would then pass without the content digest existing.
   const target = await tempDir();
   await mkdir(join(target, "src"), { recursive: true });
   const file = join(target, "src", "main.ts");
+  const options = cacheDir ? { cacheDir } : {};
   await writeFile(file, "export const value = 1;\n");
   await utimes(file, FIXED_MTIME_SECONDS, FIXED_MTIME_SECONDS);
   const before = await stat(file);
-  const first = await createSnapshot(target);
+  const first = await createSnapshot(target, 100, options);
 
   await writeFile(file, "export const value = 2;\n");
   await utimes(file, FIXED_MTIME_SECONDS, FIXED_MTIME_SECONDS);
   const after = await stat(file);
-  assert.equal(after.size, before.size, "the fixture rewrite must keep the size identical");
-  assert.equal(Math.trunc(after.mtimeMs), Math.trunc(before.mtimeMs), "the fixture rewrite must keep the mtime identical");
+  assert.equal(after.size, before.size, `${label}: the fixture rewrite must keep the size identical`);
+  assert.equal(Math.trunc(after.mtimeMs), Math.trunc(before.mtimeMs), `${label}: the fixture rewrite must keep the mtime identical`);
 
-  const second = await createSnapshot(target);
+  const second = await createSnapshot(target, 100, options);
   assert.equal(first.snapshot.sourceManifestDigest, second.snapshot.sourceManifestDigest,
-    "the tier1 (path, size, mtime) digest is blind to this rewrite — which is exactly why it cannot be the identity");
-  assert.notEqual(first.snapshot.contentManifestDigest, second.snapshot.contentManifestDigest, "the tier2 content digest sees the rewrite");
-  assert.notEqual(first.snapshot.id, second.snapshot.id, "the snapshot identity anchors on content, not on mtime");
+    `${label}: the tier1 (path, size, mtime) digest is blind to this rewrite — which is exactly why it cannot be the identity`);
+  assert.notEqual(first.snapshot.contentManifestDigest, second.snapshot.contentManifestDigest, `${label}: the tier2 content digest sees the rewrite`);
+  assert.notEqual(first.snapshot.id, second.snapshot.id, `${label}: the snapshot identity anchors on content, not on mtime`);
+}
+
+test("a same-size, same-mtime content rewrite changes the snapshot identity — with no cache", async () => {
+  await assertRewriteMovesIdentity("uncached", undefined);
+});
+
+test("a same-size, same-mtime content rewrite changes the snapshot identity — with the content cache every run uses", async () => {
+  await assertRewriteMovesIdentity("cached", await tempDir());
 });
 
 test("building, rebuilding and removing a CodeGraph database leaves the source snapshot identity and ledger untouched", async () => {

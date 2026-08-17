@@ -15,8 +15,17 @@ import { atomicWrite, exists, readJson, sha256 } from "../core/util.ts";
  * served stale bytes with a self-consistent digest and nothing could detect it.
  *
  * `createSnapshot` runs on every search, freeze and audit, so tier2 over the whole counted set has to be
- * cheap on the second call. The cache is keyed by (path, size, mtimeMs) — a changed file misses — and the
- * cold/warm equivalence is pinned by test, so the cache can never become a source of different bytes.
+ * cheap on the second call. The cache is keyed by (path, size, mtimeMs, ctimeMs) and the cold/warm equivalence
+ * is pinned by test, so the cache can never become a source of different bytes.
+ *
+ * `ctimeMs` IS LOAD-BEARING AND MUST NOT BE DROPPED. Keyed on (size, mtimeMs) alone, the cache reproduced the
+ * exact P10 defect one layer down: a same-size rewrite that restores the mtime hit the cache, so the "content"
+ * digest served the OLD bytes and the snapshot id came out byte-identical across the rewrite — measured, on the
+ * same fixture that the uncached path saw the rewrite in. `ctimeMs` is the inode's own change time: `utimes`
+ * cannot forge it, so a rewrite always misses. Every configuration the production path uses passes a
+ * `cacheDir`, so a key that can be fooled here is a key that is fooled in production; the rewrite acceptance is
+ * pinned in BOTH configurations for that reason. A false MISS only costs one recompute, which is why this key
+ * errs toward missing.
  */
 
 export type RowShape = "textual" | "binary" | "empty";
@@ -24,7 +33,10 @@ export type RowShape = "textual" | "binary" | "empty";
 /** How many leading bytes the tier1 shape is read from. Fixed: it is part of what the shape MEANS. */
 export const SAMPLE_BYTES = 8192;
 
-const CACHE_VERSION = "content-identity-v1";
+// v2 adds `ctimeMs` to the key. A v1 file is dropped wholesale rather than read with the field absent: an
+// entry with no `ctimeMs` would compare `undefined === number` and miss anyway, and keeping it would leave a
+// half-keyed cache on disk that nothing distinguishes from a fully keyed one.
+const CACHE_VERSION = "content-identity-v2";
 
 export interface ContentIdentity {
   shape: RowShape;
@@ -34,10 +46,15 @@ export interface ContentIdentity {
   digest: string | null;
 }
 
-interface CacheEntry extends ContentIdentity {
+/** The stat fields the cache key is made of. Passed as one value so no call site can supply two of three. */
+export interface ContentStat {
   size: number;
   mtimeMs: number;
+  /** The inode change time. See the module comment: without it the cache cannot see a same-size rewrite. */
+  ctimeMs: number;
 }
+
+interface CacheEntry extends ContentIdentity, ContentStat {}
 
 /**
  * Shape signals from a byte sample. NUL-byte detection is the primary test (the same one git uses) rather
@@ -103,17 +120,17 @@ export class ContentIdentityCache {
   }
 
   /**
-   * The identity of one file, from cache when the (size, mtime) key still matches. A cached shape-only entry
-   * does not satisfy a request that needs the content digest.
+   * The identity of one file, from cache when the (size, mtime, ctime) key still matches. A cached shape-only
+   * entry does not satisfy a request that needs the content digest.
    */
-  async resolve(absolutePath: string, size: number, mtimeMs: number, wantDigest: boolean): Promise<ContentIdentity> {
+  async resolve(absolutePath: string, stat: ContentStat, wantDigest: boolean): Promise<ContentIdentity> {
     const cached = this.loaded.get(absolutePath);
-    if (cached && cached.size === size && cached.mtimeMs === mtimeMs && (!wantDigest || cached.digest !== null)) {
+    if (cached && cached.size === stat.size && cached.mtimeMs === stat.mtimeMs && cached.ctimeMs === stat.ctimeMs && (!wantDigest || cached.digest !== null)) {
       this.observed.set(absolutePath, cached);
       return { shape: cached.shape, sampledBytes: cached.sampledBytes, maxLineLength: cached.maxLineLength, digest: cached.digest };
     }
-    const identity = await compute(absolutePath, size, wantDigest);
-    const entry: CacheEntry = { ...identity, size, mtimeMs };
+    const identity = await compute(absolutePath, stat.size, wantDigest);
+    const entry: CacheEntry = { ...identity, ...stat };
     this.observed.set(absolutePath, entry);
     // Also visible to this run's later lookups, so asking twice about one file reads it once.
     this.loaded.set(absolutePath, entry);

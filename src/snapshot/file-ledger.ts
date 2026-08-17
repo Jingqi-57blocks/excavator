@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { ArtifactResult } from "../base/artifact-result.ts";
 import { stableJson } from "../core/util.ts";
-import { ContentIdentityCache, type RowShape } from "./content-identity.ts";
+import { ContentIdentityCache, type ContentStat, type RowShape } from "./content-identity.ts";
 
 /**
  * Layer 1's artifact: the file ledger.
@@ -58,15 +58,27 @@ export const EXCLUDE_RULES: ExcludeRule[] = [
  */
 export type Tier1Shape =
   | { status: "sampled"; size: number; mtimeMs: number; shape: RowShape; sampledBytes: number; maxLineLength: number }
-  /** Stat succeeded but the bytes were deliberately not read: the cap already refused the candidate. */
-  | { status: "stat-only"; size: number; mtimeMs: number; reason: "cap-reached" }
+  /**
+   * Stat succeeded and the bytes were NOT read. Three causes, and the distinction matters to a reader:
+   * `cap-reached` (the candidate was already refused), `sensitive` (reading it is the thing we refuse to do —
+   * see `SENSITIVE_FILES`), and `read-failed` (the read was attempted and lost the race with a change).
+   */
+  | { status: "stat-only"; size: number; mtimeMs: number; reason: "cap-reached" | "sensitive" | "read-failed" }
   /** No stat and no bytes: the path escaped the root, is not a regular file, or `lstat` failed. */
   | { status: "unsampled"; reason: "path-escape" | "irregular-file" | "symlink" | "stat-failed" };
 
+/**
+ * A row's tier2 content identity. The absent reasons are a CLOSED pair and they are not interchangeable:
+ * `excluded` is policy (an excluded row's bytes are deliberately never hashed) and `read-failed` is a defect in
+ * the observation (a counted row lost the race between `lstat` and `readFile`). Counted rows may only carry
+ * `read-failed` and excluded rows only `excluded`; `resolveIdentity` is the single place that mints either, so
+ * the pairing is structural rather than remembered. Before this split, a counted row whose read failed borrowed
+ * the `excluded` shell and the ledger read as "we chose not to hash it" — the bucket said the opposite of what
+ * happened, and the audit had nothing to catch.
+ */
 export type ContentIdentityRecord =
   | { status: "present"; algorithm: "sha256"; digest: string }
-  /** An excluded row records no content digest; the reason is written, so there is no fourth state. */
-  | { status: "absent"; reason: "excluded" };
+  | { status: "absent"; reason: "excluded" | "read-failed" };
 
 export interface CountedRow {
   relativePath: string;
@@ -142,7 +154,9 @@ export interface LedgerDraftRow {
   extension: string;
   /** Null when the candidate is counted. */
   rule: ExcludeRule | null;
-  stat: { size: number; mtimeMs: number } | null;
+  /** Null when `lstat` produced nothing. `ctimeMs` is carried for the content cache key only — it is never
+   *  written into the ledger, because a chmod would then move the artifact's bytes without any content change. */
+  stat: ContentStat | null;
   /** Why no sample can be taken; null when the bytes are readable. */
   unsampled: "path-escape" | "irregular-file" | "symlink" | "stat-failed" | null;
 }
@@ -187,7 +201,8 @@ export class FileLedgerDraft {
 /**
  * Resolve every row's identity tiers and assemble the ledger. Counted rows get tier1 and tier2; excluded rows
  * get tier1 only and record their content as `absent{excluded}` — reading the bytes of an excluded candidate
- * to hash them would be work no consumer can use, and for a `.pem` row it would be work on a private key.
+ * to hash them would be work no consumer can use. For a `sensitive-file` row nothing is read AT ALL, not even
+ * the tier1 sample: that rule's whole purpose is not doing work on a private key or a live `.env`.
  */
 export async function buildFileLedger(input: {
   draft: FileLedgerDraft;
@@ -204,25 +219,12 @@ export async function buildFileLedger(input: {
   for (const row of draft.rows) {
     // ONE pass per row: the digest needs every byte and the shape is read from the first 8 KiB of the same
     // read. Resolving them separately doubled the I/O on every counted file of every cold scan.
-    const { tier1, digest } = await resolveIdentity(row, cache);
+    const { tier1, content } = await resolveIdentity(row, cache);
     if (row.rule === null) {
-      counted.push({
-        relativePath: row.relativePath,
-        rootName: row.rootName,
-        extension: row.extension,
-        tier1,
-        content: digest === null ? { status: "absent", reason: "excluded" } : { status: "present", algorithm: "sha256", digest }
-      });
+      counted.push({ relativePath: row.relativePath, rootName: row.rootName, extension: row.extension, tier1, content });
       continue;
     }
-    excluded.push({
-      relativePath: row.relativePath,
-      rootName: row.rootName,
-      extension: row.extension,
-      rule: row.rule,
-      tier1,
-      content: { status: "absent", reason: "excluded" }
-    });
+    excluded.push({ relativePath: row.relativePath, rootName: row.rootName, extension: row.extension, rule: row.rule, tier1, content });
   }
   await cache.flush();
 
@@ -258,24 +260,45 @@ export async function buildFileLedger(input: {
   return ledger;
 }
 
-/** Both identity tiers of one row, from one read. The tier2 digest is requested only for counted rows. */
-async function resolveIdentity(row: LedgerDraftRow, cache: ContentIdentityCache): Promise<{ tier1: Tier1Shape; digest: string | null }> {
-  if (row.unsampled !== null) return { tier1: { status: "unsampled", reason: row.unsampled }, digest: null };
-  if (row.stat === null) return { tier1: { status: "unsampled", reason: "stat-failed" }, digest: null };
+/**
+ * Both identity tiers of one row, from one read, and the ONLY place a `ContentIdentityRecord` is minted — which
+ * is what keeps "counted rows carry `read-failed`, excluded rows carry `excluded`" a property of the code rather
+ * than of whoever writes the next call site. The tier2 digest is requested only for counted rows.
+ */
+async function resolveIdentity(row: LedgerDraftRow, cache: ContentIdentityCache): Promise<{ tier1: Tier1Shape; content: ContentIdentityRecord }> {
+  const excludedContent: ContentIdentityRecord = { status: "absent", reason: "excluded" };
+  if (row.unsampled !== null) return { tier1: { status: "unsampled", reason: row.unsampled }, content: excludedContent };
+  if (row.stat === null) return { tier1: { status: "unsampled", reason: "stat-failed" }, content: excludedContent };
+  const { size, mtimeMs } = row.stat;
   // The cap already refused this candidate; reading 8 KiB of every file beyond a small cap would turn the cap
   // itself into the expensive path, which is the opposite of what a cap is for.
-  if (row.rule === "cap-reached") {
-    return { tier1: { status: "stat-only", size: row.stat.size, mtimeMs: row.stat.mtimeMs, reason: "cap-reached" }, digest: null };
-  }
+  if (row.rule === "cap-reached") return { tier1: { status: "stat-only", size, mtimeMs, reason: "cap-reached" }, content: excludedContent };
+  // A sensitive file is stat-only BY POLICY. The rule exists because reading these bytes is the thing we refuse
+  // to do, and an 8 KiB shape sample read exactly the leading bytes of a private key and published a
+  // `maxLineLength` derived from them. Nothing about the row now comes from its content.
+  if (row.rule === "sensitive-file") return { tier1: { status: "stat-only", size, mtimeMs, reason: "sensitive" }, content: excludedContent };
   try {
-    const identity = await cache.resolve(row.absolutePath, row.stat.size, row.stat.mtimeMs, row.rule === null);
+    const identity = await cache.resolve(row.absolutePath, row.stat, row.rule === null);
+    // An excluded row never asked for a digest, so its absence is policy. A counted row did ask, so a null
+    // digest is a failure to obtain the content — `read-failed`, not `excluded`. There is no third reading.
+    const content: ContentIdentityRecord = row.rule !== null
+      ? excludedContent
+      : identity.digest !== null
+        ? { status: "present", algorithm: "sha256", digest: identity.digest }
+        : { status: "absent", reason: "read-failed" };
     return {
-      tier1: { status: "sampled", size: row.stat.size, mtimeMs: row.stat.mtimeMs, shape: identity.shape, sampledBytes: identity.sampledBytes, maxLineLength: identity.maxLineLength },
-      digest: row.rule === null ? identity.digest : null
+      tier1: { status: "sampled", size, mtimeMs, shape: identity.shape, sampledBytes: identity.sampledBytes, maxLineLength: identity.maxLineLength },
+      content
     };
   } catch {
-    // The file changed or became unreadable between the scan and the sample. Recorded, not swallowed.
-    return { tier1: { status: "unsampled", reason: "stat-failed" }, digest: null };
+    // The file changed or became unreadable between `lstat` and the read. Stat succeeded, so this is stat-only
+    // rather than unsampled — and a COUNTED row records `read-failed`, never `excluded`: the contract makes the
+    // content digest a mandatory attribute of a counted row, so its absence is a finding at layer 8, not a
+    // policy decision this layer took.
+    return {
+      tier1: { status: "stat-only", size, mtimeMs, reason: "read-failed" },
+      content: row.rule === null ? { status: "absent", reason: "read-failed" } : excludedContent
+    };
   }
 }
 

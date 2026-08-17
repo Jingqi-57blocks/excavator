@@ -6,6 +6,7 @@ import { promisify } from "node:util";
 import type { Snapshot, SnapshotRoot } from "../core/types.ts";
 import { exists, nowIso, sha256, stableJson } from "../core/util.ts";
 import { FileLedgerDraft, buildFileLedger, type ExcludeRule, type FileLedger, type LedgerRootRecord } from "./file-ledger.ts";
+import type { ContentStat } from "./content-identity.ts";
 
 const execFileAsync = promisify(execFile);
 
@@ -260,13 +261,15 @@ async function scanRoot(root: string, target: string, maxFiles: number, draft: F
       continue;
     }
 
-    let stat: { size: number; mtimeMs: number } | null = null;
+    let stat: ContentStat | null = null;
     let unsampled: "irregular-file" | "symlink" | "stat-failed" | null = null;
     try {
       const info = await lstat(absolutePath);
       if (info.isSymbolicLink()) unsampled = "symlink";
       else if (!info.isFile()) unsampled = "irregular-file";
-      else stat = { size: info.size, mtimeMs: Math.trunc(info.mtimeMs) };
+      // `mtimeMs` is truncated because the ledger publishes it; `ctimeMs` keeps full precision because it only
+      // ever keys the content cache, where finer is strictly safer — see content-identity.ts.
+      else stat = { size: info.size, mtimeMs: Math.trunc(info.mtimeMs), ctimeMs: info.ctimeMs };
     } catch {
       unsampled = "stat-failed";
     }
@@ -286,7 +289,7 @@ async function scanRoot(root: string, target: string, maxFiles: number, draft: F
 
 function classify(
   name: string,
-  stat: { size: number; mtimeMs: number } | null,
+  stat: ContentStat | null,
   unsampled: "irregular-file" | "symlink" | "stat-failed" | null,
   counted: number,
   maxFiles: number

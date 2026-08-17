@@ -4,7 +4,7 @@ import { basename, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Audience, ChecklistItem, DocumentPlan, EvidenceItem, FeatureFactPack, InvestigationChecklist, InvestigationPlan, InvestigationWorkItem, KnowledgeArtifact, ReportRequest, RunManifest, SearchReceipt, SectionClaim, SectionClaimsFile, TraceCatalog, TraceRecord } from "./types.ts";
 import { auditAuthoringPacketConsumption, buildAuthoringPacket } from "../assurance/authoring-packet.ts";
-import { buildContexts, featureCacheKey, type ContextBuildResult } from "../context/context.ts";
+import { buildContextsFromBoundary, featureCacheKey, readSourceBoundary, type ContextBuildResult, type SourceBoundary } from "../context/context.ts";
 import { FACT_PACK_CATEGORIES, factPackEvidenceId } from "../context/factpack.ts";
 import { MAX_WINDOW_LINES, SourceReader, evidenceFromWindow, sourceSearch, type SourceSearchStats } from "../snapshot/source.ts";
 import { SCANNER_VERSION, createSnapshot } from "../snapshot/snapshot.ts";
@@ -344,22 +344,47 @@ function plannedDocuments(request: ReportRequest): PlannedDocument[] {
 }
 
 /**
- * Record a run whose SOURCE BOUNDARY could not be read.
+ * Record a run whose PREPARATION failed, under the layer-1 record the phase it reached actually supports.
  *
  * Before this, an unreadable target threw out of prepare and left nothing behind: no run directory, no record,
- * nothing to audit — the failure existed only in the operator's terminal. Now the contract that was materialized
- * before the boundary was touched is written, and `ledger/files.json` holds an `Unavailable` envelope naming the
- * cause. The original error is still raised: this records the failure, it does not absorb it.
+ * nothing to audit — the failure existed only in the operator's terminal. Recording it fixed that and then
+ * over-reached: EVERY prepare failure was written as `Unavailable{"the source boundary could not be read"}`,
+ * including a prepare-budget timeout hit halfway through the features, with the ledger sitting complete in
+ * memory. That record asserted blindness the run did not have, and layer 8 amplified it into an error.
+ *
+ * So the envelope follows the phase. `boundary === null` means layer 1 produced nothing and the cause is the
+ * one the contract allows there (an unreadable target, a failed root discovery). Otherwise the boundary WAS
+ * read: the ledger is written `built`, the snapshot is recorded, and the failure lives on the manifest's error
+ * and warnings where a later-stage failure belongs. `retryable` is derived from the cause rather than pinned to
+ * false — an exhausted budget is the textbook retryable failure. The original error is still raised: this
+ * records the failure, it does not absorb it.
  */
-async function recordUnavailableBoundary(request: ReportRequest, contract: BoundRunContract, contractManifest: ContractManifest, cause: Error): Promise<void> {
-  const projectDir = await projectWorkspace(request.workdir, request.target);
+async function recordPrepareFailure(request: ReportRequest, contract: BoundRunContract, contractManifest: ContractManifest, cause: Error, boundary: SourceBoundary | null): Promise<void> {
+  // The prepare failure is what the caller must see, so it is re-raised by the caller unchanged. A failure to
+  // RECORD it is appended to that error rather than swallowed: a silent catch here hid a missing import for one
+  // whole test cycle, which is precisely the shape this slice exists to remove from the scanner.
+  try {
+    await writePrepareFailureRecord(request, contract, contractManifest, cause, boundary);
+  } catch (recordError) {
+    cause.message = `${cause.message} (the failure record could not be written: ${(recordError as Error).message})`;
+  }
+}
+
+async function writePrepareFailureRecord(request: ReportRequest, contract: BoundRunContract, contractManifest: ContractManifest, cause: Error, boundary: SourceBoundary | null): Promise<void> {
+  const projectDir = boundary?.projectDir ?? await projectWorkspace(request.workdir, request.target);
   const requestDigest = sha256(stableJson({ overview: request.overviewAudiences, features: request.features, language: request.language })).slice(0, 8);
-  const runId = `run-${runIdTimestamp()}-${runScopeSlug(request)}-unavailable-${requestDigest}-${randomUUID().slice(0, 8)}`;
+  const stage = boundary === null ? "unavailable" : "prepare-failed";
+  const runId = `run-${runIdTimestamp()}-${runScopeSlug(request)}-${stage}-${requestDigest}-${randomUUID().slice(0, 8)}`;
   const runDir = join(projectDir, "runs", runId);
   await ensureDir(runDir);
   await writeContractArtifacts(runDir, contract, contractManifest);
-  const reason = `the source boundary could not be read: ${cause.message}`;
-  await atomicWrite(join(runDir, "ledger", "files.json"), serializeLedgerArtifact(unavailable(reason, false)));
+  // A timeout is `ExcavatorTimeoutError` (see `Deadline`), and re-running it with a larger budget can succeed.
+  const retryable = cause.name === "ExcavatorTimeoutError";
+  const reason = boundary === null
+    ? `the source boundary could not be read: ${cause.message}`
+    : `the source boundary was read; preparation failed afterwards: ${cause.message}`;
+  const ledgerResult = boundary === null ? unavailable(reason, retryable) : built(boundary.ledger);
+  await atomicWrite(join(runDir, "ledger", "files.json"), serializeLedgerArtifact(ledgerResult));
   const now = nowIso();
   const manifest: RunManifest = {
     version: 3,
@@ -368,14 +393,14 @@ async function recordUnavailableBoundary(request: ReportRequest, contract: Bound
     createdAt: now,
     updatedAt: now,
     request: { ...request, redactSecrets: request.redactSecrets === true },
-    snapshot: null,
+    snapshot: boundary?.snapshot ?? null,
     documents: [],
     evidenceDigest: sha256(stableJson([])),
     assuranceVersion: ASSURANCE_VERSION,
     metrics: {
       startedAt: now,
       finishedAt: now,
-      timing: {},
+      timing: boundary?.timing ?? {},
       graphQueries: 0,
       graphQueryCacheHits: 0,
       sourceWindows: 0,
@@ -384,7 +409,7 @@ async function recordUnavailableBoundary(request: ReportRequest, contract: Bound
       sourceSearches: 0,
       sourceSearchCacheHits: 0,
       sourceFilesSearched: 0,
-      filesConsidered: 0,
+      filesConsidered: boundary?.files.length ?? 0,
       cache: {},
       warnings: [reason]
     },
@@ -416,18 +441,21 @@ export async function prepareRun(request: ReportRequest): Promise<{ runDir: stri
     documents: planned
   });
   const contractManifest = deriveContractManifest(ARTIFACT_REGISTRY, contract.runIntent, contract.requirements);
+  // The two phases are separate CALLS, not one call with a catch that guesses how far it got. Only a failure in
+  // the first one means the source boundary could not be read; a failure in the second happens with the ledger
+  // already built, and recording that as an unreadable boundary is the run asserting a blindness it never had.
+  let boundary: SourceBoundary;
+  try {
+    boundary = await readSourceBoundary(request);
+  } catch (error) {
+    await recordPrepareFailure(request, contract, contractManifest, error as Error, null);
+    throw error;
+  }
   let result: ContextBuildResult;
   try {
-    result = await buildContexts(request);
+    result = await buildContextsFromBoundary(request, boundary);
   } catch (error) {
-    // The boundary failure is what the caller must see, so it is re-raised unchanged. A failure to RECORD it is
-    // appended rather than swallowed: a silent catch here hid a missing import for one whole test cycle, which
-    // is precisely the shape this slice exists to remove from the scanner.
-    try {
-      await recordUnavailableBoundary(request, contract, contractManifest, error as Error);
-    } catch (recordError) {
-      (error as Error).message = `${(error as Error).message} (the failure record could not be written: ${(recordError as Error).message})`;
-    }
+    await recordPrepareFailure(request, contract, contractManifest, error as Error, boundary);
     throw error;
   }
   // `redactSecrets` is normalised to an explicit boolean here, never left absent. Everything downstream —
