@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 import type { ArtifactResult } from "../base/artifact-result.ts";
+import { summarizeCoverage, type CoverageConservation } from "../base/conservation.ts";
+import { RowSet } from "../base/row-set.ts";
 import { stableJson } from "../base/util.ts";
 import { ContentIdentityCache, type ContentStat, type RowShape } from "./content-identity.ts";
 
@@ -127,13 +129,12 @@ export interface FileLedger {
   target: string;
   /** The row identity contract, stated in the artifact so no consumer re-derives it. */
   rowIdentity: { components: string[]; contentDigestIsAttribute: true };
-  summary: {
-    total: number;
-    counted: number;
-    excluded: number;
-    unexplained: number;
-    byRule: Record<string, number>;
-  };
+  /**
+   * The coverage axis of the three-state law, minted by the one constructor that can produce it
+   * (`summarizeCoverage`) plus this artifact's own extra column. The four numbers are byte-identical to the
+   * four this field always held; what changed is that they can no longer be written by hand here.
+   */
+  summary: CoverageConservation & { byRule: Record<string, number> };
   completeness: LedgerCompleteness;
   counted: CountedRow[];
   excluded: ExcludedRow[];
@@ -241,7 +242,9 @@ export async function buildFileLedger(input: {
     scannerVersion,
     target,
     rowIdentity: { components: ["snapshot-identity", "target-relative-path"], contentDigestIsAttribute: true },
-    summary: { total, counted: counted.length, excluded: excluded.length, unexplained: total - counted.length - excluded.length, byRule },
+    // `Object.assign` rather than a spread so the intersection — and with it the brand — survives: a spread of
+    // a branded record produces a plain object type, and the point of the brand is that it cannot be dropped.
+    summary: Object.assign(summarizeCoverage({ total, counted: counted.length, excluded: excluded.length }), { byRule }),
     completeness: {
       maxFiles,
       capReached: skippedByCap > 0 || droppedRoots.length > 0,
@@ -338,6 +341,28 @@ export function ledgerContentIdentity(ledger: FileLedger): string {
     hash.update(row.relativePath).update("\0").update(row.content.status === "present" ? row.content.digest : "absent").update("\n");
   }
   return hash.digest("hex");
+}
+
+/**
+ * This ledger's counted rows as a denominator.
+ *
+ * The denominator law names `files.json` as a legal RowSet source, and this is that door — the only one, so a
+ * consumer downstream cannot assemble a `string[]` of paths and call it a denominator. The direction is the
+ * point: the base declares the shape and the factory, layer 1 feeds it here, and the base never learns what a
+ * `CountedRow` is. The ledger's content digest and completeness block travel with the rows, so a consumer
+ * embeds what this denominator is accountable to instead of looking it up later (or not at all).
+ */
+export function countedRowSet(ledger: FileLedger): RowSet {
+  return RowSet.fromLedgerCounted(ledger.counted, {
+    artifact: "ledger/files.json",
+    contentDigest: ledger.contentManifestDigest,
+    producerVersion: ledger.scannerVersion,
+    completeness: {
+      capReached: ledger.completeness.capReached,
+      skippedByCap: ledger.completeness.skippedByCap,
+      droppedRoots: ledger.completeness.droppedRoots
+    }
+  });
 }
 
 /**
