@@ -950,8 +950,7 @@ function visibleText(section: string): string {
  *
  * Matched as COMPLETE tokens rather than substrings: `` `验证服务` `` is a component name, not a marker, and a
  * substring rule would read it as one. Adding a synonym means adding it here AND to `writing-rules.md`,
- * which is the honest state — the deeper fix is one vocabulary both the doc and the code read, recorded in
- * `docs/pending-decisions.md`.
+ * which is the honest state — the deeper fix is one vocabulary both the doc and the code read.
  */
 export const MARKER_TOKENS: Record<string, EvidenceMarker> = {
   "事实": "fact",

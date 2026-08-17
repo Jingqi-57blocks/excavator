@@ -50,9 +50,6 @@ excavator-work/
 **/runs/
 **/cache/
 
-# Ad-hoc report output directory.
-reports/generated/*
-!reports/generated/.gitkeep
 
 # Local request files (`request.example.json` is the tracked template).
 /request.json
@@ -73,4 +70,3 @@ coverage/
 tmp/
 .tmp/
 *.log
-!reports/**/*.log

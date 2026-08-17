@@ -1,5 +1,6 @@
 import type { CrossFeatureRelationships } from "../context/cross-feature.ts";
 import type { ScopeCensus } from "../context/scope-census.ts";
+import type { OverviewCensus } from "../context/overview-census.ts";
 import type { BoundaryFunctionsArtifact } from "../context/boundary-functions.ts";
 
 export type Audience = "product" | "engineering" | "prd";
@@ -502,4 +503,10 @@ export interface PreparedContext {
   scopeCensus: Map<string, ScopeCensus>;
   /** Why a feature has no census, keyed by feature — so "no table" always states its cause. */
   censusUnavailable: Map<string, "no-graph" | "empty-vocabulary">;
+  /**
+   * Per-module accounting for the overview documents. Not keyed by feature, and its denominator is the
+   * snapshot rather than the graph census: an overview-only run has no features at all, which is exactly the
+   * shape that left the module accounting silent about a target whose entire Perl half CodeGraph never indexed.
+   */
+  overviewCensus: OverviewCensus;
 }

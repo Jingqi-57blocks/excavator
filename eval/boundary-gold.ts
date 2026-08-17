@@ -1,7 +1,7 @@
 // Loader + hand-written structural validation for boundary-gold-v1 files.
 // Mirrors expected.ts in spirit: an eval-internal, per-fixture data format (NOT a
 // public contract, NOT in schemas/), validated by hand rather than pulling in a
-// schema dependency (Core stays zero-dependency; this eval layer follows suit).
+// schema dependency; this eval layer follows Core's dependency-whitelist discipline.
 //
 // A boundary gold pins which material feature nodes MUST land inside the feature
 // graph node set (the output of pruneFeatureGraph). Each item's anchors are OR:

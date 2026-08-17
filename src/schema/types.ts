@@ -2,8 +2,8 @@
  * Framework-neutral data model for the deterministic DB-schema extractor.
  *
  * One shape describes schemas recovered from any source format (Go/gorm structs, Sequelize
- * migrations and models, raw SQL dumps). Recovery is text/structural only — zero model calls,
- * zero runtime npm deps — so every field here must be derivable from source verbatim.
+ * migrations and models, raw SQL dumps). Recovery is text/structural only — zero model calls —
+ * so every field here must be derivable from source verbatim.
  *
  * KEY INVARIANT — vocabularies do not mix.
  * A column's `type` is recorded together with the `typeVocabulary` it was written in: a Go field

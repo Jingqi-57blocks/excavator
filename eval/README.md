@@ -143,7 +143,7 @@ invisible latency as raw fact rather than smoothing it away. The view runs **no 
   none).
 - **Graph queries** — reported as **counts only** (`graphQueries` / `graphQueryCacheHits`). There are
   no graph-query timeline events, so a per-query narrative is impossible without a Core change to the
-  hash-chain event stream (out of scope — see `docs/decision-archive.md`, batch 57B-360).
+  hash-chain event stream (out of scope).
 
 ## `compare` — cross-run A→B delta
 
