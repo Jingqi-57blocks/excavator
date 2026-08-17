@@ -4,7 +4,7 @@ import type { AuditFinding, DocumentPlan, DraftReceipt, RunManifest, SectionClai
 import { runUsesCurrentAssurance } from "../base/assurance-version.ts";
 import { validateClaimsInput } from "./section-audit.ts";
 import { collectClaims } from "./assurance-artifacts.ts";
-import { archiveCheckpoint, normalizeSection } from "../core/run.ts";
+import { archiveCheckpoint, normalizeSection } from "./checkpoint.ts";
 import { appendTimeline } from "./timeline.ts";
 import { atomicWrite, exists, listDirectories, nowIso, readJson, writeJson } from "../core/util.ts";
 

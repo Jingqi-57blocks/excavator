@@ -53,6 +53,7 @@ export const LAYERING_REGISTRY: readonly RegistryEntry[] = [
   { file: "src/assurance/assurance-artifacts.ts", layer: "report" },
   { file: "src/assurance/authoring-packet.ts", layer: "report" },
   { file: "src/assurance/claim-comparison.ts", layer: "report" },
+  { file: "src/assurance/checkpoint.ts", layer: "report" },
   { file: "src/assurance/claims-scaffold.ts", layer: "report" },
   { file: "src/assurance/parallel-authoring.ts", layer: "report" },
   { file: "src/assurance/recommendation-language.ts", layer: "report" },

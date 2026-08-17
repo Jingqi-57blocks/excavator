@@ -42,6 +42,7 @@ import { auditReadAccountability, reconcileReadCoverage, type ClaimCitation, typ
 import { auditConditionCoverage, inventoryConditions, type ClaimStatement } from "../assurance/condition-inventory.ts";
 import { warmExtractors } from "../facts/probe/condition-extract.ts";
 import { collectClaims, writeReportCompanions } from "../assurance/assurance-artifacts.ts";
+import { archiveCheckpoint, normalizeSection } from "../assurance/checkpoint.ts";
 import { createAnalysisScope, emptyTraceCatalog, mergeTraces } from "../assurance/investigation-artifacts.ts";
 import { scaffoldSectionClaims } from "../assurance/claims-scaffold.ts";
 import { sectionFileStem } from "../assurance/section-slug.ts";
@@ -1512,13 +1513,6 @@ function referencePath(kind: "overview" | "feature", audience: Audience): string
   return join(REFERENCES, `${audience}-${kind}.md`);
 }
 
-export function normalizeSection(content: string, expectedTitle: string): string {
-  const trimmed = content.trim();
-  if (!trimmed) throw new Error("Section content is empty");
-  if (/^##\s+/m.test(trimmed)) return `${trimmed}\n`;
-  return `## ${expectedTitle}\n\n${trimmed}\n`;
-}
-
 function outputFrontMatter(document: DocumentPlan, manifest: RunManifest, body: string): string {
   const localizedTitle = body.match(/^#\s+(.+)$/m)?.[1]?.trim();
   const fallbackTitle = document.kind === "overview"
@@ -1582,24 +1576,6 @@ function factPackInstructions(document: DocumentPlan, detailLevel: "standard" | 
   return `
 The feature scope file carries a \`## Fact pack\` section, and the same enumeration is machine-readable in \`context/features/${key}.factpack.json\`: the categories \`entrypoints\`, \`entities\`, \`states\`, \`config-keys\`, \`jobs\`, \`external-calls\` and \`logic\` (the business and decision functions inside the boundary that the structural categories do not already name). The enumerating chapters — entry points, rules and states, data, configuration and integrations — must cover every fact pack item of the matching category: each item either appears in that chapter, or is folded into an explicitly counted group such as "N further items of kind X". Cite the category's \`FACT-*\` evidence id in the chapter that covers it. The \`logic\` items belong to the flow, decision and authorization chapters; a logic item carrying a \`signal\` (rescued into the boundary by structural analysis) must be dispositioned individually — named and placed where its behavior belongs — never folded into an aggregate count. Each rescued \`logic\` function is also a \`logic-disposition\` work item in \`workitems.json\` (id \`feature:<key>:logic:<name>@<path>:<line>\`, no pinned section): dispose it before freeze, then satisfy it with at least one visible claim that DESCRIBES THE BUSINESS BEHAVIOR and cites the deciding source window, listing the work-item id in the claim's \`workItemIds\`. The prose need not repeat the symbol name — identifiers stay in the collapsed evidence block or coverage chapter, and covering the behavior counts because the ledger binds through the cited evidence, not the name. A genuinely boundary-noise item is disposed \`not-applicable\` with a reason; one claim may batch-dispose several such n/a items by listing them all in \`workItemIds\`. When source reading contradicts a fact pack item, say so explicitly and state which reading the source supports; a fact pack category marked truncated must be reported as incomplete rather than presented as a full inventory. Silently omitting an item is a defect.
 `;
-}
-
-export async function archiveCheckpoint(runDir: string, documentId: string, sectionFile: string, claimsFile: string): Promise<boolean> {
-  let archived = false;
-  const stamp = nowIso().replace(/[:.]/g, "-");
-  // Name each archive after the file it captures, so history mirrors the `NN-<slug>` section stem (and,
-  // for grandfathered `NN.md` runs, still the bare `NN`) with a per-revision stamp and content digest.
-  if (await exists(sectionFile)) {
-    const content = await readFile(sectionFile, "utf8");
-    await atomicWrite(join(runDir, "history", documentId, `${basename(sectionFile, ".md")}-${stamp}-${sha256(content).slice(0, 8)}.md`), content);
-    archived = true;
-  }
-  if (await exists(claimsFile)) {
-    const content = await readFile(claimsFile, "utf8");
-    await atomicWrite(join(runDir, "history", documentId, `${basename(claimsFile, ".json")}-${stamp}-${sha256(content).slice(0, 8)}.claims.json`), content);
-    archived = true;
-  }
-  return archived;
 }
 
 async function countClaims(runDir: string, documents: DocumentPlan[]): Promise<number> {
