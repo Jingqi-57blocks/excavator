@@ -23,6 +23,7 @@
 import type {
   ColumnSchema,
   Declaration,
+  ParserResult,
   RelationshipSchema,
   SchemaExtraction,
   SchemaSource,
@@ -30,7 +31,6 @@ import type {
   TableSchema,
   UniqueKey,
 } from "./types.ts";
-import type { ParserResult } from "./parsers/parser.ts";
 
 /** One source's parser output plus the SchemaSource that identifies it. */
 export interface MergeInput {

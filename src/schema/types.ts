@@ -14,6 +14,28 @@
  * the source did not state one. The extractor reports what the source says, nothing more.
  */
 
+/**
+ * The pluggable-parser contract. It sits here, beside the schema shapes it is written in terms of, rather
+ * than in `parsers/parser.ts` next to the registry: the registry imports every parser, and every parser needs
+ * this contract, so declaring it there made the registry and its parsers one cyclic unit — a cycle whose
+ * reverse edges are all `import type` and therefore invisible to the eye.
+ */
+/** What a parser produces from the files it owns. Assembly into a full `SchemaExtraction` is the caller's job. */
+export interface ParserResult {
+  tables: TableSchema[];
+  relationships: RelationshipSchema[];
+  warnings: SchemaWarning[];
+}
+
+/** Reads a file's UTF-8 contents by path. Injected so parsers stay pure and testable with in-memory fixtures. */
+export type ReadFile = (path: string) => string;
+
+/** One source format's parser. */
+export interface SchemaParser {
+  format: SchemaFormat;
+  parse(files: string[], readFile: ReadFile): ParserResult;
+}
+
 export type SchemaFormat = "gorm" | "sequelize-migration" | "sequelize-model" | "sql-dump";
 
 export type TypeVocabulary = "sql" | "sequelize" | "go";

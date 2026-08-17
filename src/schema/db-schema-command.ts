@@ -25,7 +25,7 @@ import { injectDescriptions } from "./descriptions.ts";
 import { mergeSchemas } from "./merge.ts";
 import type { MergeInput } from "./merge.ts";
 import { PARSERS } from "./parsers/parser.ts";
-import type { ReadFile } from "./parsers/parser.ts";
+import type { ReadFile } from "./types.ts";
 import { renderSchema } from "./render.ts";
 import type { SchemaExtraction } from "./types.ts";
 

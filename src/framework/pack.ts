@@ -7,24 +7,8 @@
  * given (no disk access), so they are deterministic and unit-testable with synthetic fixtures.
  */
 
-import type { DetectedFramework, FrameworkComponent, FrameworkWarning, RouteAction, SourceText } from "./types.ts";
+import type { FrameworkPack } from "./types.ts";
 import { catalystPack } from "./catalyst.ts";
-
-export interface PackResult {
-  components: FrameworkComponent[];
-  routes: RouteAction[];
-  warnings: FrameworkWarning[];
-}
-
-export interface FrameworkPack {
-  name: string;
-  /** File extensions this pack cares about (lowercase, with dot), used to pre-filter the scan. */
-  extensions: string[];
-  /** Detect whether this framework is present; return null when it is not. Pure over `files`. */
-  detect(files: SourceText[]): DetectedFramework | null;
-  /** Recover components + routes by this framework's conventions. Called only when `detect` matched. */
-  extract(files: SourceText[]): PackResult;
-}
 
 /** The registry. One line per framework. */
 export const PACKS: FrameworkPack[] = [catalystPack];

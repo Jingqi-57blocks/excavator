@@ -20,8 +20,9 @@
  * fabricated. Pure and deterministic: files read in sorted order through the injected `readFile`.
  */
 
-import type { ColumnSchema, Declaration, SchemaWarning, TableSchema, UniqueKey } from "../types.ts";
-import type { ParserResult, ReadFile, SchemaParser } from "./parser.ts";
+import type {
+  ColumnSchema, Declaration, ParserResult, ReadFile, SchemaParser, SchemaWarning, TableSchema, UniqueKey
+} from "../types.ts";
 import { LineMap } from "./source-position.ts";
 import { findCalls, findFunctionBody, joinedStringLiteral, parseObjectLiteral, splitArgs } from "./js-scan.ts";
 import { parseSequelizeField } from "./sequelize-field.ts";

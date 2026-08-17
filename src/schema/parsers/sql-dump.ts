@@ -21,8 +21,9 @@
  * exported so the raw-DDL whitelist in the sequelize-migration parser reuses one SQL grammar, not two.
  */
 
-import type { ColumnSchema, RelationshipSchema, SchemaWarning, TableSchema, UniqueKey } from "../types.ts";
-import type { ParserResult, ReadFile, SchemaParser } from "./parser.ts";
+import type {
+  ColumnSchema, ParserResult, ReadFile, RelationshipSchema, SchemaParser, SchemaWarning, TableSchema, UniqueKey
+} from "../types.ts";
 import { LineMap } from "./source-position.ts";
 
 const SOURCE_ID = "sql-dump";
