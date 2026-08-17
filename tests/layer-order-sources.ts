@@ -3,7 +3,7 @@ import { join, resolve } from "node:path";
 
 // The only impure half of the layer-order instrument: read `src/**.ts` off disk. Kept out of
 // `layer-order-check.ts` so the checks themselves stay pure functions that negative fixtures can feed
-// synthetic file sets. Paths are repo-relative ("src/core/util.ts") so a violation message names the file the
+// synthetic file sets. Paths are repo-relative ("src/base/util.ts") so a violation message names the file the
 // way a human greps for it.
 
 const REPO_ROOT = resolve(import.meta.dirname, "..");

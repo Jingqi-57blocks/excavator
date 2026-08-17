@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { DEFAULT_WORKDIR } from "../src/core/defaults.ts";
+import { DEFAULT_WORKDIR } from "../src/base/defaults.ts";
 
 test("the default workdir constant is .work", () => {
   assert.equal(DEFAULT_WORKDIR, ".work");

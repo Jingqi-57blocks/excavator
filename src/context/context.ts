@@ -1,6 +1,6 @@
 import { basename, join } from "node:path";
 import { readFile } from "node:fs/promises";
-import type { Audience, EvidenceItem, FeatureFactPack, FeatureRequest, GraphNode, ProviderRegistry, ReportRequest, Snapshot } from "../core/types.ts";
+import type { Audience, EvidenceItem, FeatureFactPack, FeatureRequest, GraphNode, ProviderRegistry, ReportRequest, Snapshot } from "../base/types.ts";
 import { CodeGraphIndex, type GraphReader, type GraphSummary } from "../codegraph/codegraph.ts";
 import { CodeGraphSet } from "../codegraph/codegraph-set.ts";
 import { pruneFeatureGraphWithModuleFloor } from "./prune-module-floor.ts";
@@ -10,7 +10,7 @@ import { createSnapshot, isLikelySource, type ScannedFile } from "../snapshot/sn
 import type { FileLedger } from "../snapshot/file-ledger.ts";
 import { codegraphIdentity } from "../codegraph/codegraph-identity.ts";
 import { SourceReader, evidenceFromWindow, manifestSummary, selectProjectDocuments, sourceSearch } from "../snapshot/source.ts";
-import { Deadline, ensureDir, exists, projectWorkspace, readJson, redactionCacheTag, sha256, slugify, stableJson, truncate, writeJson } from "../core/util.ts";
+import { Deadline, ensureDir, exists, projectWorkspace, readJson, redactionCacheTag, sha256, slugify, stableJson, truncate, writeJson } from "../base/util.ts";
 import { createProviderRegistry, resolveCodeGraphDatabase } from "../snapshot/providers.ts";
 import { buildFactPack, factPackEvidence, renderFactPackSection } from "./factpack.ts";
 import { BOUNDARY_FUNCTIONS_VERSION, BOUNDARY_FUNCTION_KINDS, enumerateBoundaryFunctions, type BoundaryFunctionsArtifact, type FeatureBoundaryFunctions } from "./boundary-functions.ts";

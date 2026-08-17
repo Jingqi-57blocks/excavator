@@ -1,4 +1,4 @@
-import type { AuditFinding, EvidenceItem, SectionClaim } from "../core/types.ts";
+import type { AuditFinding, EvidenceItem, SectionClaim } from "../base/types.ts";
 
 /**
  * Faithfulness hardening for cross-source comparison claims. The audit gate proves each cited

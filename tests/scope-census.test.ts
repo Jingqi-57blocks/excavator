@@ -122,7 +122,7 @@ test("rows are ordered deterministically, so the artifact is byte-stable", () =>
 // green — that has happened four slices in a row on this project, so the artifact path gets its own test:
 // prepare must write the table, and audit must report an unexplained module as an advisory.
 test("prepare writes the table and audit reports an unexplained module", async () => {
-  const { prepareRun, auditRun } = await import("../src/core/run.ts");
+  const { prepareRun, auditRun } = await import("../src/run/run.ts");
   const { copyFixture, createCodeGraphFixture, tempDir } = await import("./helpers.ts");
   const { readdir, readFile } = await import("node:fs/promises");
   const { join } = await import("node:path");
@@ -189,7 +189,7 @@ test("prepare writes the table and audit reports an unexplained module", async (
 // version of this slice wrote nothing on source-fallback runs, which is exactly the flattening the module
 // argues against — review caught it, and this pins the correction.
 test("a run with no graph writes an explicit unavailable record, and audit reports it", async () => {
-  const { prepareRun, auditRun } = await import("../src/core/run.ts");
+  const { prepareRun, auditRun } = await import("../src/run/run.ts");
   const { copyFixture, tempDir } = await import("./helpers.ts");
   const { readdir, readFile } = await import("node:fs/promises");
   const { join } = await import("node:path");

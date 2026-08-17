@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { basename, join } from "node:path";
-import { atomicWrite, exists, nowIso, sha256 } from "../core/util.ts";
+import { atomicWrite, exists, nowIso, sha256 } from "../base/util.ts";
 
 /**
  * The checkpoint machine: normalise one authored section, and archive the revision it replaces.

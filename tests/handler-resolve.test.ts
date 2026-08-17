@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { goImportAliases, parseHandlerTarget, resolveHandler } from "../src/crossrepo/handler-resolve.ts";
-import type { GraphNode } from "../src/core/types.ts";
+import type { GraphNode } from "../src/base/types.ts";
 
 // A handler attributed to the wrong function puts a reading obligation — and later a claim — on code that
 // has nothing to do with the route. So every rule here exists to make the answer unique or absent.

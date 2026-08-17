@@ -1,4 +1,4 @@
-import type { SectionClaim } from "../core/types.ts";
+import type { SectionClaim } from "../base/types.ts";
 import { substantiveSegments } from "./section-audit.ts";
 
 /**

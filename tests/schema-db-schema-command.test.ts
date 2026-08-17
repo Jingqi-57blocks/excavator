@@ -5,7 +5,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { tempDir } from "./helpers.ts";
 import { runDbSchema } from "../src/schema/db-schema-command.ts";
-import { exists } from "../src/core/util.ts";
+import { exists } from "../src/base/util.ts";
 
 async function cli(args: string[]): Promise<{ code: number | null; stdout: string; stderr: string }> {
   const child = spawn(process.execPath, ["--experimental-strip-types", "--no-warnings", "src/cli.ts", ...args], {

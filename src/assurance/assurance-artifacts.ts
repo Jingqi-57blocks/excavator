@@ -2,8 +2,8 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type {
   DocumentPlan, InvestigationPlan, SectionClaim, SectionClaimsFile, TraceCatalog
-} from "../core/types.ts";
-import { exists, writeJson } from "../core/util.ts";
+} from "../base/types.ts";
+import { exists, writeJson } from "../base/util.ts";
 
 /**
  * Every claim in the run, keyed by document + section + claim id.

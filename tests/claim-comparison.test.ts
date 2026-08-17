@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { auditComparativeClaims, comparativeWording, validateComparisonSides } from "../src/assurance/claim-comparison.ts";
 import { validateClaimsInput } from "../src/assurance/section-audit.ts";
-import type { EvidenceItem, SectionClaim } from "../src/core/types.ts";
+import type { EvidenceItem, SectionClaim } from "../src/base/types.ts";
 
 // Synthetic-only identifiers throughout: never a real target repo/route/table name.
 const MULTI_ROOTS = ["service-a", "service-b"];

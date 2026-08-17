@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import { join } from "node:path";
 import { loadFactpackFixture, fixtureLogicItems } from "../factpack-fixture.ts";
 import { logicWorkItems, LOGIC_WORKITEM_CAP, LOGIC_WORKITEM_DIMENSION } from "../../src/assurance/logic-workitems.ts";
-import { stableJson } from "../../src/core/util.ts";
-import type { DocumentPlan, FeatureFactPack } from "../../src/core/types.ts";
+import { stableJson } from "../../src/base/util.ts";
+import type { DocumentPlan, FeatureFactPack } from "../../src/base/types.ts";
 
 // The 57B-375 forcing function, derived from the SAME frozen wcp-leave fact-pack fixture the 57B-372 replay
 // uses: `logicWorkItems` promotes every rescued (signal-carrying) logic function into a disposable work item.

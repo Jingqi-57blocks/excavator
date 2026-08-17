@@ -5,8 +5,8 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { auditEvidenceCatalog } from "../src/assurance/assurance.ts";
 import { ASSURANCE_VERSION, assuranceGeneration, assuranceGenerationAtLeast } from "../src/base/assurance-version.ts";
 import { LOGIC_DISPOSITION_ASSURANCE_GENERATION } from "../src/assurance/logic-workitems.ts";
-import { sha256 } from "../src/core/util.ts";
-import type { EvidenceItem, RunManifest } from "../src/core/types.ts";
+import { sha256 } from "../src/base/util.ts";
+import type { EvidenceItem, RunManifest } from "../src/base/types.ts";
 import { tempDir } from "./helpers.ts";
 
 const SNAPSHOT_ID = "snap-version-gate";

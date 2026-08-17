@@ -23,7 +23,7 @@
 // Pure: zero I/O, zero model call, byte-stable ordering — freeze, audit and eval all derive the same
 // denominator from the same frozen fact packs.
 
-import type { FactPackItem, FeatureFactPack, InvestigationWorkItem } from "../core/types.ts";
+import type { FactPackItem, FeatureFactPack, InvestigationWorkItem } from "../base/types.ts";
 import type { BoundaryFunctionsArtifact } from "../context/boundary-functions.ts";
 import { anchorHitFor, type AnchorHit } from "./relevance-annotation.ts";
 import { LOGIC_WORKITEM_DIMENSION } from "./logic-workitems.ts";

@@ -2,8 +2,8 @@ import { DatabaseSync } from "node:sqlite";
 
 /** node:sqlite bind-parameter value type (not exported by the module, mirrored here for the cast). */
 type SqlBindValue = null | number | bigint | string | Uint8Array;
-import type { GraphEdge, GraphFile, GraphNode } from "../core/types.ts";
-import { Deadline, sha256, stableJson } from "../core/util.ts";
+import type { GraphEdge, GraphFile, GraphNode } from "../base/types.ts";
+import { Deadline, sha256, stableJson } from "../base/util.ts";
 
 export interface QueryStats {
   queries: number;

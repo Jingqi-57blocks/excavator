@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readObligations } from "../src/assurance/read-obligations.ts";
 import type { BoundaryFunctionsArtifact } from "../src/context/boundary-functions.ts";
-import type { FeatureFactPack } from "../src/core/types.ts";
+import type { FeatureFactPack } from "../src/base/types.ts";
 
 // The second source widens the denominator, which is the point — but widening a frozen artifact is exactly
 // where a regression hides. These tests pin the three properties that make the widening safe: without a

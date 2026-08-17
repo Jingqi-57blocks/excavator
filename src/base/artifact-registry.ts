@@ -1,4 +1,4 @@
-import { sha256, stableJson } from "../core/util.ts";
+import { sha256, stableJson } from "./util.ts";
 
 /**
  * The static registry of layer artifacts and layer-3 producers.

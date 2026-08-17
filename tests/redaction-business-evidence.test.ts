@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { redactSecrets } from "../src/core/util.ts";
+import { redactSecrets } from "../src/base/util.ts";
 
 // REDACTION MUST NOT DESTROY THE EVIDENCE IT IS PROTECTING.
 //

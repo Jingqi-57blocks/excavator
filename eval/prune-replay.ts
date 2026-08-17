@@ -21,7 +21,7 @@ import { join, dirname, basename } from "node:path";
 import { CodeGraphIndex } from "../src/codegraph/codegraph.ts";
 import { CodeGraphSet } from "../src/codegraph/codegraph-set.ts";
 import { pruneFeatureGraphWithModuleFloor } from "../src/context/prune-module-floor.ts";
-import { Deadline } from "../src/core/util.ts";
+import { Deadline } from "../src/base/util.ts";
 import type { BoundaryNode } from "./boundary.ts";
 
 /** A frozen candidate pool: everything `pruneFeatureGraph` needs, and nothing model-derived. */

@@ -1,5 +1,5 @@
-import type { RunManifest } from "../core/types.ts";
-import { REDACTION_VERSION } from "../core/util.ts";
+import type { RunManifest } from "./types.ts";
+import { REDACTION_VERSION } from "./util.ts";
 
 /**
  * The assurance-generation gate: which contract generation a run was prepared under, and what may therefore be

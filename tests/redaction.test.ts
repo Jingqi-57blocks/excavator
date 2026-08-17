@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { redactSecrets } from "../src/core/util.ts";
+import { redactSecrets } from "../src/base/util.ts";
 
 test("redaction reaches secrets that no assignment shape exposes", () => {
   const line = 'var p = new Dictionary<string,string> { { "client_secret", "0Cxq9-secretvalue-33" } };';

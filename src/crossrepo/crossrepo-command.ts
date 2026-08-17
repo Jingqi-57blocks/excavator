@@ -10,8 +10,8 @@
  */
 
 import { join, resolve } from "node:path";
-import { atomicWrite, ensureDir, writeJson } from "../core/util.ts";
-import { DEFAULT_WORKDIR } from "../core/defaults.ts";
+import { atomicWrite, ensureDir, writeJson } from "../base/util.ts";
+import { DEFAULT_WORKDIR } from "../base/defaults.ts";
 import { resolveCodeGraphDatabase } from "../snapshot/providers.ts";
 import { scanCrossRepoLinks, type CrossRepoScan, type ScanModule } from "./crossrepo-scan.ts";
 

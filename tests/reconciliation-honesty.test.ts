@@ -5,7 +5,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { auditTraces } from "../src/assurance/assurance.ts";
 import { auditRescuedLogicCoverage } from "../src/assurance/section-audit.ts";
 import { collectClaims } from "../src/assurance/assurance-artifacts.ts";
-import type { DocumentPlan, EvidenceItem, SectionClaim, TraceCatalog } from "../src/core/types.ts";
+import type { DocumentPlan, EvidenceItem, SectionClaim, TraceCatalog } from "../src/base/types.ts";
 import { tempDir } from "./helpers.ts";
 
 // TWO CHECKS THAT WERE MEASURING SOMETHING OTHER THAN WHAT THEY PROMISED.

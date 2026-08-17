@@ -19,8 +19,8 @@ import type {
   ReportRequest,
   RunManifest,
   TraceCatalog
-} from "../core/types.ts";
-import { exists, nowIso, redactSecrets, safeRelative, sha256, stableJson } from "../core/util.ts";
+} from "../base/types.ts";
+import { exists, nowIso, redactSecrets, safeRelative, sha256, stableJson } from "../base/util.ts";
 import { recordedUnderRedaction, runUsesCurrentAssurance } from "../base/assurance-version.ts";
 
 const PROJECT_HYPOTHESES: Array<[string, string]> = [

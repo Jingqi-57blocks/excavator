@@ -174,3 +174,13 @@ test("every source file is registered to exactly one layer, and no entry is stal
   assert.deepEqual(audit.registryViolations, []);
   assert.equal(audit.layerOf.size, files.size);
 });
+
+test("no import points upward, and no import cycle exists", async () => {
+  // There is no exception list and no debt allowlist by design: an upward edge or a cycle is a fact about the
+  // code, so the only way to make this green is to move the code. It went red on 10 upward edges and 5 cycles
+  // when it was first pointed at `src/**` (57B-419), and every one of them was removed rather than declared.
+  const files = await loadSourceFiles();
+  const audit = auditLayerOrder(files, LAYERING_REGISTRY);
+  assert.deepEqual(audit.upwardEdges, [], "these imports point at a higher layer");
+  assert.deepEqual(audit.cycles, [], "these files import each other and therefore cannot be layered");
+});

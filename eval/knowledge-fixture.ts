@@ -8,7 +8,7 @@
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { gzipSync, gunzipSync } from "node:zlib";
-import { stableJson } from "../src/core/util.ts";
+import { stableJson } from "../src/base/util.ts";
 import { extractKnowledge, type Knowledge } from "./knowledge.ts";
 
 /** Freeze a Knowledge object to a gzipped, stable-JSON file (byte-stable across regenerations). */

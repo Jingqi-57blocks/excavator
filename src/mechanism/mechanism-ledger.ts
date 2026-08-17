@@ -6,7 +6,7 @@ import {
   type MechanismRegistry, type CoverageDomain, type MechanismUnitKind
 } from "../base/mechanism-registry.ts";
 import type { CountedRow } from "../snapshot/file-ledger.ts";
-import { stableJson } from "../core/util.ts";
+import { stableJson } from "../base/util.ts";
 
 /**
  * Layer 2's artifact: what could look at each row of layer 1's corpus.

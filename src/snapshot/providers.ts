@@ -1,8 +1,8 @@
 import { access } from "node:fs/promises";
 import { constants } from "node:fs";
 import { join, resolve } from "node:path";
-import type { ProviderRegistry, Snapshot } from "../core/types.ts";
-import { nowIso, sha256, stableJson } from "../core/util.ts";
+import type { ProviderRegistry, Snapshot } from "../base/types.ts";
+import { nowIso, sha256, stableJson } from "../base/util.ts";
 import { executableAvailable } from "../base/executable.ts";
 import { discoverModules } from "./module-detection.ts";
 

@@ -15,7 +15,7 @@
 // A handler attributed to the wrong function would put a reading obligation — and later a claim — on code
 // that has nothing to do with the route.
 
-import type { GraphNode } from "../core/types.ts";
+import type { GraphNode } from "../base/types.ts";
 
 /** Node kinds that can be a package-level handler. Methods are excluded on purpose (see the header). */
 const HANDLER_KINDS = new Set(["function"]);

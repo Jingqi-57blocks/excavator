@@ -9,7 +9,8 @@ import type { RegistryEntry } from "./layer-order-check.ts";
 // silently adopt every new file, which is the blind spot the "unregistered file fails" rule closes. A
 // directory entry is therefore only legal when the directory is entirely one layer; a mixed directory — and
 // `src/assurance/` is the known one — must list its files. The end state is that real directories match real
-// layers and this table degenerates into a directory list; the file entries below are the transition.
+// layers and this table degenerates into a directory list; the file entries below are the transition —
+// today only `src/assurance/`, whose report half and knowledge half still share a folder.
 export const LAYERING_REGISTRY: readonly RegistryEntry[] = [
   // --- beneath every layer -------------------------------------------------------------------------------
   { dir: "src/base", layer: "base" },
@@ -25,17 +26,6 @@ export const LAYERING_REGISTRY: readonly RegistryEntry[] = [
   { dir: "src/crossrepo", layer: "L3" },
   { dir: "src/facts/probe", layer: "L3" },
   { dir: "src/context", layer: "L5" },
-
-  // --- src/core/: a false layer holding both ends of the order (shared base types + the orchestrator) ----
-  { file: "src/core/types.ts", layer: "base" },
-  { file: "src/core/util.ts", layer: "base" },
-  { file: "src/core/defaults.ts", layer: "base" },
-  { file: "src/core/budgets.ts", layer: "base" },
-  { file: "src/core/run.ts", layer: "orch" },
-  { file: "src/core/run-label.ts", layer: "orch" },
-  // Its own file header states it is orchestration: it observes each mechanism's runtime dependency once per
-  // run so layer 2 never has to reach up into the mechanisms to ask.
-  { file: "src/core/mechanism-availability.ts", layer: "orch" },
 
   // --- src/assurance/: the known mixed directory, knowledge side and report side in one folder -----------
   { file: "src/assurance/timeline.ts", layer: "base" },
@@ -61,5 +51,9 @@ export const LAYERING_REGISTRY: readonly RegistryEntry[] = [
   { file: "src/assurance/section-slug.ts", layer: "report" },
 
   // --- orchestration -------------------------------------------------------------------------------------
+  // `src/run/` holds run.ts, run-label.ts and mechanism-availability.ts. The last one states in its own
+  // header that it is orchestration: it observes each mechanism's runtime dependency once per run so
+  // layer 2 never has to reach up into the mechanisms to ask.
+  { dir: "src/run", layer: "orch" },
   { file: "src/cli.ts", layer: "orch" }
 ];

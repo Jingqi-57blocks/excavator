@@ -1,9 +1,9 @@
 import { join } from "node:path";
 import { auditEvidenceCatalog, auditTraces, auditWorkItems } from "./assurance.ts";
 import { runUsesCurrentAssurance } from "../base/assurance-version.ts";
-import type { AuditFinding, EvidenceItem, InvestigationPlan, KnowledgeArtifact, KnowledgeCompleteness, RunManifest, TraceCatalog } from "../core/types.ts";
+import type { AuditFinding, EvidenceItem, InvestigationPlan, KnowledgeArtifact, KnowledgeCompleteness, RunManifest, TraceCatalog } from "../base/types.ts";
 import { readTimeline } from "./timeline.ts";
-import { exists, nowIso, readJson, sha256, stableJson, writeJson } from "../core/util.ts";
+import { exists, nowIso, readJson, sha256, stableJson, writeJson } from "../base/util.ts";
 
 /**
  * "First freeze, then write." This module owns the deterministic, model-free machinery that turns a

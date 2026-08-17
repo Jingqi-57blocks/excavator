@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { auditConditionCoverage, CONDITION_INVENTORY_VERSION, inventoryConditions, type ClaimStatement } from "../src/assurance/condition-inventory.ts";
-import type { EvidenceItem } from "../src/core/types.ts";
+import type { EvidenceItem } from "../src/base/types.ts";
 
 const PATH = "svc/internal/handlers/leave/service.go";
 

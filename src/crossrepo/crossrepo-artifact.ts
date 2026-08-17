@@ -13,8 +13,8 @@
 // it" cites two records that name a file, a line and the expression found there, so the statement is
 // checkable rather than asserted.
 
-import type { EvidenceItem } from "../core/types.ts";
-import { redactSecrets, sha256, stableJson } from "../core/util.ts";
+import type { EvidenceItem } from "../base/types.ts";
+import { redactSecrets, sha256, stableJson } from "../base/util.ts";
 import type { CrossRepoScan } from "./crossrepo-scan.ts";
 
 export const CROSSREPO_ARTIFACT_VERSION = "crossrepo-links-v1";

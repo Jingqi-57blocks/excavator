@@ -1,7 +1,7 @@
 import type {
   AnalysisScope, DocumentPlan, ProviderRegistry, ReportRequest, Snapshot, TraceCatalog, TraceRecord
-} from "../core/types.ts";
-import { nowIso, sha256, stableJson } from "../core/util.ts";
+} from "../base/types.ts";
+import { nowIso, sha256, stableJson } from "../base/util.ts";
 
 /**
  * The investigation's own artifacts: the frozen analysis scope and the trace catalogue.

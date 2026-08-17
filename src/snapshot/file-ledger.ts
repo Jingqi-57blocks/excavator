@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import type { ArtifactResult } from "../base/artifact-result.ts";
-import { stableJson } from "../core/util.ts";
+import { stableJson } from "../base/util.ts";
 import { ContentIdentityCache, type ContentStat, type RowShape } from "./content-identity.ts";
 
 /**

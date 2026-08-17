@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import { join } from "node:path";
 import { readFile } from "node:fs/promises";
 import { computeCrossFeatureRelationships, renderCrossFeatureSection, type CrossFeatureInput, type CrossFeatureRelationships } from "../src/context/cross-feature.ts";
-import { prepareRun } from "../src/core/run.ts";
-import type { FactPackCategory, FactPackItem, FeatureFactPack } from "../src/core/types.ts";
+import { prepareRun } from "../src/run/run.ts";
+import type { FactPackCategory, FactPackItem, FeatureFactPack } from "../src/base/types.ts";
 import { copyFixture, tempDir } from "./helpers.ts";
 
 type ItemSeed = Partial<FactPackItem> & { category: FactPackCategory; name: string };

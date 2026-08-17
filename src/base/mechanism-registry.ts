@@ -1,4 +1,4 @@
-import { sha256, stableJson } from "../core/util.ts";
+import { sha256, stableJson } from "./util.ts";
 import { LANGUAGE_REGISTRY, isRegisteredExtension, nameClassIds, textualExtensions, type LanguageRegistry } from "./language-registry.ts";
 
 /**

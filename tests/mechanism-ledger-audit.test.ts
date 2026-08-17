@@ -2,15 +2,15 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
 import { readFile } from "node:fs/promises";
-import type { ReportRequest } from "../src/core/types.ts";
-import { prepareRun } from "../src/core/run.ts";
+import type { ReportRequest } from "../src/base/types.ts";
+import { prepareRun } from "../src/run/run.ts";
 import { auditMechanismLedger } from "../src/assurance/mechanism-ledger-audit.ts";
 import type { ContractManifest } from "../src/contract/contract-manifest.ts";
 import type { ArtifactResult } from "../src/base/artifact-result.ts";
 import type { FileLedger } from "../src/snapshot/file-ledger.ts";
 import type { MechanismLedger } from "../src/mechanism/mechanism-ledger.ts";
 import { unavailable } from "../src/base/artifact-result.ts";
-import { writeJson } from "../src/core/util.ts";
+import { writeJson } from "../src/base/util.ts";
 import { copyFixture, createCodeGraphFixture, tempDir } from "./helpers.ts";
 
 /**

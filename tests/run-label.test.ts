@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { runScopeSlug } from "../src/core/run-label.ts";
-import type { Audience, FeatureRequest, ReportRequest } from "../src/core/types.ts";
+import { runScopeSlug } from "../src/run/run-label.ts";
+import type { Audience, FeatureRequest, ReportRequest } from "../src/base/types.ts";
 
 function feature(subject: string): FeatureRequest {
   return { subject, aliases: [], audiences: ["product"] };

@@ -4,9 +4,9 @@ import { logicClaimKey, logicItems, type LogicFeatureGraph } from "./factpack-lo
 import type { ScannedFile } from "../snapshot/snapshot.ts";
 import type { SourceReader } from "../snapshot/source.ts";
 import { sourceSearch } from "../snapshot/source.ts";
-import type { EvidenceItem, FactPackCategory, FactPackCoverage, FactPackItem, FactPackMethod, FeatureFactPack, GraphNode } from "../core/types.ts";
-import type { Deadline } from "../core/util.ts";
-import { sha256, stableJson } from "../core/util.ts";
+import type { EvidenceItem, FactPackCategory, FactPackCoverage, FactPackItem, FactPackMethod, FeatureFactPack, GraphNode } from "../base/types.ts";
+import type { Deadline } from "../base/util.ts";
+import { sha256, stableJson } from "../base/util.ts";
 
 const DETAIL_LIMIT = 200;
 const NAME_LIMIT = 120;

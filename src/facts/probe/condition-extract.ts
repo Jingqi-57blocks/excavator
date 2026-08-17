@@ -28,7 +28,7 @@
 // regex honestly rather than pretending.
 
 import { createRequire } from "node:module";
-import type { EvidenceItem } from "../../core/types.ts";
+import type { EvidenceItem } from "../../base/types.ts";
 import { extractPerlComparisons, loadPerlParser, type PerlParser } from "./condition-extract-perl.ts";
 import type { ExtractionResult, RawComparison } from "./types.ts";
 

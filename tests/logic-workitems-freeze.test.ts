@@ -2,12 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
 import { readdir, readFile } from "node:fs/promises";
-import type { DocumentPlan, FactPackItem, FeatureFactPack, InvestigationPlan, InvestigationWorkItem, KnowledgeArtifact, ReportRequest, RunManifest, SectionClaim } from "../src/core/types.ts";
-import { auditRun, freezeRun, prepareRun, updateWorkItems } from "../src/core/run.ts";
+import type { DocumentPlan, FactPackItem, FeatureFactPack, InvestigationPlan, InvestigationWorkItem, KnowledgeArtifact, ReportRequest, RunManifest, SectionClaim } from "../src/base/types.ts";
+import { auditRun, freezeRun, prepareRun, updateWorkItems } from "../src/run/run.ts";
 import { workItemsToChecklist } from "../src/assurance/assurance.ts";
 import { auditWorkItemClaimCoverage } from "../src/assurance/section-audit.ts";
 import { logicWorkItems } from "../src/assurance/logic-workitems.ts";
-import { readJson, writeJson } from "../src/core/util.ts";
+import { readJson, writeJson } from "../src/base/util.ts";
 import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, tempDir } from "./helpers.ts";
 
 // 57B-375 wiring proof, WITHOUT any authoring run. The sample-target rescues no logic function, so these

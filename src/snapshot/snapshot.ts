@@ -3,8 +3,8 @@ import { basename, extname, isAbsolute, join, relative, resolve, sep } from "nod
 import { tmpdir } from "node:os";
 import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
-import type { Snapshot, SnapshotRoot } from "../core/types.ts";
-import { exists, nowIso, sha256, stableJson } from "../core/util.ts";
+import type { Snapshot, SnapshotRoot } from "../base/types.ts";
+import { exists, nowIso, sha256, stableJson } from "../base/util.ts";
 import { FileLedgerDraft, buildFileLedger, type ExcludeRule, type FileLedger, type LedgerRootRecord } from "./file-ledger.ts";
 import type { ContentStat } from "./content-identity.ts";
 import { isRegisteredCorpusMember, patternOfClass, scannedExtensions } from "../base/language-registry.ts";

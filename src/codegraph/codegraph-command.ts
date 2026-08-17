@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { join, resolve } from "node:path";
-import { exists } from "../core/util.ts";
+import { exists } from "../base/util.ts";
 import { executableAvailable } from "../base/executable.ts";
 import { discoverModules } from "../snapshot/module-detection.ts";
 

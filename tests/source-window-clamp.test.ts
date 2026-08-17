@@ -2,9 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
 import { writeFile } from "node:fs/promises";
-import { addSourceEvidence, prepareRun } from "../src/core/run.ts";
+import { addSourceEvidence, prepareRun } from "../src/run/run.ts";
 import { MAX_WINDOW_LINES } from "../src/snapshot/source.ts";
-import type { ReportRequest } from "../src/core/types.ts";
+import type { ReportRequest } from "../src/base/types.ts";
 import { copyFixture, tempDir } from "./helpers.ts";
 
 // A window holds at most 240 lines. The ARTIFACT was always honest about that — `endLine` records what was

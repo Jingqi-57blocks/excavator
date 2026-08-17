@@ -15,7 +15,7 @@
 // Pure: zero I/O, zero npm dependency, no model call. Directly unit-testable — the caller derives the
 // kind sets from CATEGORY_STRATEGIES and passes them in, so a future category auto-shrinks the complement.
 
-import type { FactPackItem } from "../core/types.ts";
+import type { FactPackItem } from "../base/types.ts";
 
 const NAME_LIMIT = 120;
 const DETAIL_LIMIT = 200;

@@ -1,5 +1,5 @@
-import type { GraphEdge, GraphFile, GraphNode } from "../core/types.ts";
-import type { Deadline } from "../core/util.ts";
+import type { GraphEdge, GraphFile, GraphNode } from "../base/types.ts";
+import type { Deadline } from "../base/util.ts";
 import { CodeGraphIndex, QueryBudget, type GraphReader, type GraphSummary, type QueryStats } from "./codegraph.ts";
 import { moduleForFile, type DetectedModule } from "../snapshot/module-detection.ts";
 

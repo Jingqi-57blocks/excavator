@@ -18,7 +18,7 @@
 
 import { readFile, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { safeRelative } from "../core/util.ts";
+import { safeRelative } from "../base/util.ts";
 import { scanFiles } from "../snapshot/snapshot.ts";
 import { PARSERS } from "./parsers/parser.ts";
 import type { Discovery, DiscoveredSource } from "./discover.ts";

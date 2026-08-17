@@ -1,12 +1,12 @@
 import { join } from "node:path";
-import type { AuditFinding } from "../core/types.ts";
+import type { AuditFinding } from "../base/types.ts";
 import { assertNever, type ArtifactResult } from "../base/artifact-result.ts";
 import type { ContractManifest } from "../contract/contract-manifest.ts";
 import type { FileLedger } from "../snapshot/file-ledger.ts";
 import {
   expandMatrixRow, verdictKey, type FileMatrixRow, type MatrixTotals, type MechanismLedger
 } from "../mechanism/mechanism-ledger.ts";
-import { exists, readJson } from "../core/util.ts";
+import { exists, readJson } from "../base/util.ts";
 
 /**
  * Verify the layer-2 ledger the run recorded — against ITSELF and against the layer-1 rows it claims to

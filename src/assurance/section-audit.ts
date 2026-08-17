@@ -15,7 +15,7 @@ import type {
   InvestigationPlan,
   SectionClaim,
   SectionClaimsFile
-} from "../core/types.ts";
+} from "../base/types.ts";
 import { validateComparisonSides } from "./claim-comparison.ts";
 
 export function auditSectionClaims(options: {
