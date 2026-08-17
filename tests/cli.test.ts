@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { join, resolve } from "node:path";
 import { readFile, writeFile } from "node:fs/promises";
-import type { EvidenceItem, ReportRequest, SectionClaim } from "../src/core/types.ts";
-import { assembleRun, checkpointSection, prepareRun, updateChecklist } from "../src/core/run.ts";
+import type { EvidenceItem, ReportRequest, SectionClaim } from "../src/base/types.ts";
+import { assembleRun, checkpointSection, prepareRun, updateChecklist } from "../src/run/run.ts";
 import { copyFixture, createCodeGraphFixture, tempDir } from "./helpers.ts";
 
 async function cli(args: string[]): Promise<{ code: number | null; stdout: string; stderr: string }> {

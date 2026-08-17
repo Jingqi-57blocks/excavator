@@ -14,9 +14,9 @@
  */
 
 import type {
-  ComponentRole, DetectedFramework, FrameworkComponent, FrameworkWarning, RouteAction, SourceText,
+  ComponentRole, DetectedFramework, FrameworkComponent, FrameworkPack, FrameworkWarning, PackResult,
+  RouteAction, SourceText,
 } from "./types.ts";
-import type { FrameworkPack, PackResult } from "./pack.ts";
 
 const PACKAGE = /^[ \t]*package[ \t]+([\w:]+)[ \t]*;/m;
 const BASE_CLASS = /\b(?:use[ \t]+(?:base|parent)[ \t]+(?:-norequire[ \t]+)?|extends[ \t]+)['"]([\w:]+)['"]/;

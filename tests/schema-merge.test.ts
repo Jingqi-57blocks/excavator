@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mergeSchemas } from "../src/schema/merge.ts";
 import type { MergeInput } from "../src/schema/merge.ts";
 import type { ColumnSchema, RelationshipSchema, SchemaFormat, TableSchema } from "../src/schema/types.ts";
-import type { ParserResult } from "../src/schema/parsers/parser.ts";
+import type { ParserResult } from "../src/schema/types.ts";
 
 function input(format: SchemaFormat, tables: TableSchema[], relationships: RelationshipSchema[] = []): MergeInput {
   const result: ParserResult = { tables, relationships, warnings: [] };

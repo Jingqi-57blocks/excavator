@@ -15,7 +15,7 @@
 // The grammar excludes comments and string bodies for free, exactly as the ast-grep path does: `# $x > 99`
 // and `'text $q > 88 here'` produce no comparison node.
 
-import type { RawComparison } from "./condition-extract.ts";
+import type { RawComparison } from "./types.ts";
 
 /** The minimal slice of the tree-sitter node API this module reads. */
 interface PerlNode {

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readObligations, type RouteHandlerObligation } from "../src/assurance/read-obligations.ts";
 import { routeHandlerObligations } from "../src/crossrepo/crossrepo-artifact.ts";
 import type { CrossRepoArtifact } from "../src/crossrepo/crossrepo-artifact.ts";
-import type { FeatureFactPack } from "../src/core/types.ts";
+import type { FeatureFactPack } from "../src/base/types.ts";
 
 // A backend handler normally lives in a different repository, so no boundary can reach it and no
 // denominator can hold it — the frontend calls it and nothing accounts for reading it. That gap is what

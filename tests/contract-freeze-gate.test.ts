@@ -2,15 +2,15 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
 import { readFile, rm, writeFile } from "node:fs/promises";
-import type { ReportRequest, RunManifest } from "../src/core/types.ts";
-import { auditRun, freezeRun, prepareRun } from "../src/core/run.ts";
+import type { ReportRequest, RunManifest } from "../src/base/types.ts";
+import { auditRun, freezeRun, prepareRun } from "../src/run/run.ts";
 import { ARTIFACT_REGISTRY } from "../src/base/artifact-registry.ts";
 import { auditContractInstances } from "../src/assurance/contract-instance-audit.ts";
-import { CONTRACT_MANIFEST_ASSURANCE_GENERATION } from "../src/assurance/assurance.ts";
+import { CONTRACT_MANIFEST_ASSURANCE_GENERATION } from "../src/base/assurance-version.ts";
 import type { ContractManifest } from "../src/contract/contract-manifest.ts";
 import { ledgerContentIdentity, type FileLedger } from "../src/snapshot/file-ledger.ts";
 import type { ArtifactResult } from "../src/base/artifact-result.ts";
-import { exists, sha256, stableJson, writeJson } from "../src/core/util.ts";
+import { exists, sha256, stableJson, writeJson } from "../src/base/util.ts";
 import type { MechanismLedger } from "../src/mechanism/mechanism-ledger.ts";
 import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, tempDir } from "./helpers.ts";
 
@@ -302,7 +302,7 @@ test("an unreadable target leaves a failed run directory whose layer-1 ledger re
 
 /** Locate the single run directory a failed prepare left under a fresh workdir. */
 async function findFailedRun(workdir: string): Promise<{ runDir: string }> {
-  const { listDirectories } = await import("../src/core/util.ts");
+  const { listDirectories } = await import("../src/base/util.ts");
   const projects = await listDirectories(workdir);
   assert.equal(projects.length, 1, `exactly one project directory: ${JSON.stringify(projects)}`);
   const runs = await listDirectories(join(projects[0], "runs"));

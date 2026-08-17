@@ -1,17 +1,17 @@
 #!/usr/bin/env -S node --experimental-strip-types --no-warnings
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import type { Audience, BudgetConfig, ChecklistItem, FeatureRequest, InvestigationWorkItem, ReportRequest, SectionClaim, TraceRecord } from "./core/types.ts";
-import { addSourceEvidence, assembleRun, auditRun, beginDocument, checkpointSection, freezeRun, prepareRun, readingCheck, resumeRun, runStatus, scaffoldClaims, searchSourceEvidence, updateChecklist, updateTraces, updateWorkItems, type SupplementInput } from "./core/run.ts";
+import type { Audience, BudgetConfig, ChecklistItem, FeatureRequest, InvestigationWorkItem, ReportRequest, SectionClaim, TraceRecord } from "./base/types.ts";
+import { addSourceEvidence, assembleRun, auditRun, beginDocument, checkpointSection, freezeRun, prepareRun, readingCheck, resumeRun, runStatus, scaffoldClaims, searchSourceEvidence, updateChecklist, updateTraces, updateWorkItems, type SupplementInput } from "./run/run.ts";
 import { collectDrafts, draftSection } from "./assurance/parallel-authoring.ts";
-import { stableJson } from "./core/util.ts";
+import { stableJson } from "./base/util.ts";
 import { buildCodeGraph, codeGraphStatus } from "./codegraph/codegraph-command.ts";
 import { runDbSchema } from "./schema/db-schema-command.ts";
 import { runNativeGraph } from "./nativegraph/native-graph-command.ts";
 import { runFramework } from "./framework/framework-command.ts";
 import { runCrossRepo } from "./crossrepo/crossrepo-command.ts";
-import { deriveDefaultBudgets, plannedDocumentCount } from "./core/budgets.ts";
-import { DEFAULT_WORKDIR } from "./core/defaults.ts";
+import { deriveDefaultBudgets, plannedDocumentCount } from "./base/budgets.ts";
+import { DEFAULT_WORKDIR } from "./base/defaults.ts";
 
 async function main(): Promise<void> {
   const [command = "help", ...argv] = process.argv.slice(2);

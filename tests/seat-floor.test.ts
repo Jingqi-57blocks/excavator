@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { join } from "node:path";
 import { CodeGraphSet } from "../src/codegraph/codegraph-set.ts";
-import { Deadline } from "../src/core/util.ts";
+import { Deadline } from "../src/base/util.ts";
 import { tempDir } from "./helpers.ts";
 
 // A MODULE THAT MATCHED SOMETHING CANNOT LOSE EVERY SEAT.

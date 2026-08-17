@@ -68,6 +68,27 @@ export interface FrameworkWarning {
 }
 
 /** The full framework-convention model for one target. Deterministic: all lists sorted before landing. */
+/**
+ * The pluggable framework-pack contract — here rather than beside the `PACKS` registry for the same reason the
+ * schema parser contract is: the registry imports every pack and every pack needs the contract, which made the
+ * two one cyclic unit joined only by `import type` edges.
+ */
+export interface PackResult {
+  components: FrameworkComponent[];
+  routes: RouteAction[];
+  warnings: FrameworkWarning[];
+}
+
+export interface FrameworkPack {
+  name: string;
+  /** File extensions this pack cares about (lowercase, with dot), used to pre-filter the scan. */
+  extensions: string[];
+  /** Detect whether this framework is present; return null when it is not. Pure over `files`. */
+  detect(files: SourceText[]): DetectedFramework | null;
+  /** Recover components + routes by this framework's conventions. Called only when `detect` matched. */
+  extract(files: SourceText[]): PackResult;
+}
+
 export interface FrameworkModel {
   target: string;
   gitHead?: string;

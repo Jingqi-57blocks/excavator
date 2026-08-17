@@ -7,10 +7,10 @@ import { DatabaseSync } from "node:sqlite";
 import { mkdir, stat, writeFile } from "node:fs/promises";
 import { buildContexts } from "../src/context/context.ts";
 import { CodeGraphIndex } from "../src/codegraph/codegraph.ts";
-import { Deadline } from "../src/core/util.ts";
+import { Deadline } from "../src/base/util.ts";
 import { createSnapshot, scanFiles } from "../src/snapshot/snapshot.ts";
 import { selectProjectDocuments, sourceSearch } from "../src/snapshot/source.ts";
-import type { ReportRequest } from "../src/core/types.ts";
+import type { ReportRequest } from "../src/base/types.ts";
 import { copyFixture, createCodeGraphFixture, tempDir } from "./helpers.ts";
 
 const execFileAsync = promisify(execFile);

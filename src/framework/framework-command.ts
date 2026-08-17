@@ -9,8 +9,8 @@
 import { execFile } from "node:child_process";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
-import { atomicWrite, ensureDir, writeJson } from "../core/util.ts";
-import { DEFAULT_WORKDIR } from "../core/defaults.ts";
+import { atomicWrite, ensureDir, writeJson } from "../base/util.ts";
+import { DEFAULT_WORKDIR } from "../base/defaults.ts";
 import { buildFrameworkModel } from "./build.ts";
 import { renderFrameworkSummary } from "./render.ts";
 import type { FrameworkModel } from "./types.ts";

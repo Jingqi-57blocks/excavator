@@ -1,6 +1,6 @@
 import { basename, join } from "node:path";
 import { readFile } from "node:fs/promises";
-import type { Audience, EvidenceItem, FeatureFactPack, FeatureRequest, PreparedContext, ProviderRegistry, ReportRequest, Snapshot } from "../core/types.ts";
+import type { Audience, EvidenceItem, FeatureFactPack, FeatureRequest, GraphNode, ProviderRegistry, ReportRequest, Snapshot } from "../base/types.ts";
 import { CodeGraphIndex, type GraphReader, type GraphSummary } from "../codegraph/codegraph.ts";
 import { CodeGraphSet } from "../codegraph/codegraph-set.ts";
 import { pruneFeatureGraphWithModuleFloor } from "./prune-module-floor.ts";
@@ -10,11 +10,11 @@ import { createSnapshot, isLikelySource, type ScannedFile } from "../snapshot/sn
 import type { FileLedger } from "../snapshot/file-ledger.ts";
 import { codegraphIdentity } from "../codegraph/codegraph-identity.ts";
 import { SourceReader, evidenceFromWindow, manifestSummary, selectProjectDocuments, sourceSearch } from "../snapshot/source.ts";
-import { Deadline, ensureDir, exists, projectWorkspace, readJson, redactionCacheTag, sha256, slugify, stableJson, truncate, writeJson } from "../core/util.ts";
+import { Deadline, ensureDir, exists, projectWorkspace, readJson, redactionCacheTag, sha256, slugify, stableJson, truncate, writeJson } from "../base/util.ts";
 import { createProviderRegistry, resolveCodeGraphDatabase } from "../snapshot/providers.ts";
 import { buildFactPack, factPackEvidence, renderFactPackSection } from "./factpack.ts";
 import { BOUNDARY_FUNCTIONS_VERSION, BOUNDARY_FUNCTION_KINDS, enumerateBoundaryFunctions, type BoundaryFunctionsArtifact, type FeatureBoundaryFunctions } from "./boundary-functions.ts";
-import { computeCrossFeatureRelationships, renderCrossFeatureSection } from "./cross-feature.ts";
+import { computeCrossFeatureRelationships, renderCrossFeatureSection, type CrossFeatureRelationships } from "./cross-feature.ts";
 import { legacyWorkspaceWarning } from "../snapshot/workspace-residue.ts";
 
 // v20: CachedFeature carries the boundary-function enumeration (57B-396). v19 introduced it; v20 adds the
@@ -63,14 +63,45 @@ interface CachedFeature {
   warnings: string[];
 }
 
+/**
+ * Everything `prepare` produced, for the orchestrator to write and the later layers to read.
+ *
+ * It is declared HERE, beside its producer, and not in the shared base type module. Four of its fields are
+ * this layer's own artifact types, so a base-module declaration made the base import upward — the one
+ * dependency direction the layering contract forbids, and the only reason those four imports existed.
+ */
+export interface PreparedContext {
+  snapshot: Snapshot;
+  evidence: EvidenceItem[];
+  sharedMarkdown: string;
+  documentContexts: Map<string, string>;
+  featureMarkdowns: Map<string, string>;
+  featureFactPacks: Map<string, FeatureFactPack>;
+  featureScopes: Map<string, { nodes: GraphNode[]; files: string[]; evidenceIds: string[] }>;
+  crossFeature: CrossFeatureRelationships;
+  /** Second source for the read-obligation denominator (57B-396); frozen as a run artifact at prepare. */
+  boundaryFunctions: BoundaryFunctionsArtifact;
+  /**
+   * Per-module scope accounting, keyed by feature. Its row set comes from the graph census rather than the
+   * candidate pool, so a module that contributed nothing still gets a row — which is the only way "an entire
+   * module was never looked at" can be stated at all. Absent for features analysed without a graph.
+   */
+  scopeCensus: Map<string, ScopeCensus>;
+  /** Why a feature has no census, keyed by feature — so "no table" always states its cause. */
+  censusUnavailable: Map<string, "no-graph" | "empty-vocabulary">;
+  /**
+   * Per-module accounting for the overview documents. Not keyed by feature, and its denominator is the
+   * snapshot rather than the graph census: an overview-only run has no features at all, which is exactly the
+   * shape that left the module accounting silent about a target whose entire Perl half CodeGraph never indexed.
+   */
+  overviewCensus: OverviewCensus;
+}
+
 export interface ContextBuildResult {
   prepared: PreparedContext;
   /**
-   * The layer-1 file ledger, passed straight through to the orchestrator that writes it.
-   *
-   * It sits beside `prepared` rather than inside it because `PreparedContext` is declared in the base type
-   * module: putting a layer-1 type there would make the base import upward, which is the dependency direction
-   * the layering contract forbids. The ledger is layer 1's own artifact and only travels through here.
+   * The layer-1 file ledger, passed straight through to the orchestrator that writes it. It is layer 1's own
+   * artifact and only travels through here, so it stays beside `prepared` rather than inside it.
    */
   ledger: FileLedger;
   projectDir: string;

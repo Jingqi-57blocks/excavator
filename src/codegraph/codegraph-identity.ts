@@ -1,6 +1,6 @@
 import { stat } from "node:fs/promises";
 import { resolve } from "node:path";
-import { exists, sha256 } from "../core/util.ts";
+import { exists, sha256 } from "../base/util.ts";
 
 /**
  * The identity of the CodeGraph databases a run navigated with.

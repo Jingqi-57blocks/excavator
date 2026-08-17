@@ -1,4 +1,4 @@
-import { sha256, stableJson } from "../core/util.ts";
+import { sha256, stableJson } from "./util.ts";
 
 /**
  * The one place that says what the corpus IS: which file types the scanner admits, and what each one is.

@@ -2,11 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
 import { readFile } from "node:fs/promises";
-import type { DocumentPlan, EvidenceItem, FeatureFactPack, InvestigationPlan, InvestigationWorkItem, SectionClaim, TraceCatalog, TraceRecord } from "../src/core/types.ts";
+import type { DocumentPlan, EvidenceItem, FeatureFactPack, InvestigationPlan, InvestigationWorkItem, SectionClaim, TraceCatalog, TraceRecord } from "../src/base/types.ts";
 import { auditAuthoringPacketConsumption, buildAuthoringPacket, DIMENSION_FACT_CATEGORY, packetEvidenceForDocument } from "../src/assurance/authoring-packet.ts";
 import { FACT_PACK_CATEGORIES } from "../src/context/factpack.ts";
-import { freezeRun, prepareRun } from "../src/core/run.ts";
-import { atomicWrite, exists } from "../src/core/util.ts";
+import { freezeRun, prepareRun } from "../src/run/run.ts";
+import { atomicWrite, exists } from "../src/base/util.ts";
 import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, tempDir } from "./helpers.ts";
 
 const DOC_ID = "feature-abc-engineering";

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { auditChecklist, workItemsToChecklist } from "../src/assurance/assurance.ts";
-import type { ChecklistItem, EvidenceItem, InvestigationChecklist, InvestigationPlan, InvestigationWorkItem } from "../src/core/types.ts";
+import type { ChecklistItem, EvidenceItem, InvestigationChecklist, InvestigationPlan, InvestigationWorkItem } from "../src/base/types.ts";
 
 // 57B-354 #6a: a `not-applicable` disposition is valid with only a reason, and must not be projected
 // through the strict `cannot-determine` contract (reason + settledBy + limitation evidence). Synthetic

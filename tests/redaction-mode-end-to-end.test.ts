@@ -2,9 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
 import { readFile, readdir, writeFile } from "node:fs/promises";
-import type { ReportRequest } from "../src/core/types.ts";
-import { auditRun, prepareRun, runStatus, searchSourceEvidence } from "../src/core/run.ts";
-import { recordedUnderRedaction, REDACTION_MODE_ASSURANCE_GENERATION } from "../src/assurance/assurance.ts";
+import type { ReportRequest } from "../src/base/types.ts";
+import { auditRun, prepareRun, runStatus, searchSourceEvidence } from "../src/run/run.ts";
+import { recordedUnderRedaction, REDACTION_MODE_ASSURANCE_GENERATION } from "../src/base/assurance-version.ts";
 import { copyFixture, tempDir } from "./helpers.ts";
 
 // REDACTION MODE, TESTED AS A PROPERTY OF THE RUN RATHER THAN OF ONE FUNCTION.

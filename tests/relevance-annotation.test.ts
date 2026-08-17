@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { anchorHitFor, anchorVocabulary } from "../src/assurance/relevance-annotation.ts";
 import { readObligations } from "../src/assurance/read-obligations.ts";
-import type { FeatureFactPack } from "../src/core/types.ts";
+import type { FeatureFactPack } from "../src/base/types.ts";
 
 // This label decides nothing — it groups a reading. The tests below pin that character: the denominator
 // never changes, absence of a hit never means "irrelevant", and there is no threshold anywhere to tune.

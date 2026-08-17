@@ -22,8 +22,8 @@
 
 import { readFile } from "node:fs/promises";
 import type { GraphReader } from "../codegraph/codegraph.ts";
-import type { GraphNode } from "../core/types.ts";
-import { probeDecision, type ProbeResult } from "../assurance/decision-probe.ts";
+import type { GraphNode } from "../base/types.ts";
+import { probeDecision, type ProbeResult } from "../facts/probe/decision-probe.ts";
 
 export const BOUNDARY_FUNCTIONS_VERSION = "boundary-functions-v1";
 

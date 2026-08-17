@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { projectWorkspace } from "../src/core/util.ts";
+import { projectWorkspace } from "../src/base/util.ts";
 import { legacyWorkspaceWarning } from "../src/snapshot/workspace-residue.ts";
 import { tempDir } from "./helpers.ts";
 

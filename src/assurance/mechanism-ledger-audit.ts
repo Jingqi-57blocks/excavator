@@ -1,12 +1,13 @@
 import { join } from "node:path";
-import type { AuditFinding } from "./assurance.ts";
+import type { AuditFinding } from "../base/types.ts";
 import { assertNever, type ArtifactResult } from "../base/artifact-result.ts";
 import type { ContractManifest } from "../contract/contract-manifest.ts";
 import type { FileLedger } from "../snapshot/file-ledger.ts";
 import {
-  expandMatrixRow, verdictKey, type FileMatrixRow, type MatrixTotals, type MechanismLedger
+  MECHANISM_LEDGER_VERSION, expandMatrixRow, verdictKey,
+  type FileMatrixRow, type MatrixTotals, type MechanismLedger
 } from "../mechanism/mechanism-ledger.ts";
-import { exists, readJson } from "../core/util.ts";
+import { exists, readJson } from "../base/util.ts";
 
 /**
  * Verify the layer-2 ledger the run recorded — against ITSELF and against the layer-1 rows it claims to
@@ -28,6 +29,18 @@ import { exists, readJson } from "../core/util.ts";
  *    `mechanism-unavailable` cell, and one recorded `unavailable` may not have a single `covered` cell. Without
  *    this the three cells could be minted independently of what the run observed, and "the binding was missing"
  *    would once again be indistinguishable from "this language has no mechanism".
+ *  - THE EXPECTED ROW SET (`mechanisms-ledger-v2` and later). Everything above walks the rows that are present,
+ *    so deleting a whole matrix row deleted its conservation obligation, its availability agreement and its
+ *    per-language census in one edit, and the ledger's remaining bytes could not tell "the `search` row was
+ *    removed" from "`codegraph` legitimately has none". v2 declarations serialize `takesMatrixRows`, so the
+ *    check becomes a set comparison: the ids that say they take rows must be exactly the ids that have them.
+ *  - MECHANISM ID UNIQUENESS, in both places, and for v1 too. Two declarations or two matrix rows under one id
+ *    make every finding about that id ambiguous — and make the set comparison above satisfiable by a duplicate.
+ *
+ * The version gate is the ledger's OWN `version` field, never the current constant: an archived v1 run keeps
+ * being verified by the checks its bytes can support, and the new ones are skipped rather than failed. That is
+ * the same rule as the assurance generation gate, and the reason no generation bump is needed here — nothing
+ * about an older run's obligations changed.
  */
 
 function error(message: string): AuditFinding { return { level: "error", document: "contract", message }; }
@@ -61,6 +74,11 @@ function auditLedgerContent(path: string, ledger: MechanismLedger, files: Artifa
   const findings: AuditFinding[] = [];
   const boundary = files?.status === "built" ? files.value : null;
   const declared = new Map(ledger.mechanisms.map((mechanism) => [mechanism.id, mechanism]));
+
+  findings.push(...auditIdentityUniqueness(path, ledger));
+  // Read from the artifact, never from the current constant: an archived run is verified under the schema it
+  // recorded, and a check its bytes cannot support is skipped rather than failed.
+  if (ledger.version === MECHANISM_LEDGER_VERSION) findings.push(...auditExpectedRowSet(path, ledger));
 
   if (boundary) {
     if (ledger.identity.filesContentManifestDigest !== boundary.contentManifestDigest) {
@@ -110,6 +128,55 @@ function auditLedgerContent(path: string, ledger: MechanismLedger, files: Artifa
     }
     findings.push(...auditMatrixRow(path, row, ledger.counted, boundary === null ? null : { pathsByExtension, extensionOfPath }));
     findings.push(...auditLanguageCensus(path, ledger, row));
+  }
+  return findings;
+}
+
+/**
+ * One id, one declaration, one matrix row.
+ *
+ * Applies to every schema version, because it needs nothing the artifact did not always carry. A duplicate id is
+ * not merely untidy: `declared` is a map, so a second declaration silently wins, and the expected-row-set
+ * comparison below would count one id twice and accept a ledger that is short a real row.
+ */
+function auditIdentityUniqueness(path: string, ledger: MechanismLedger): AuditFinding[] {
+  const findings: AuditFinding[] = [];
+  for (const [what, ids] of [
+    ["declares", ledger.mechanisms.map((mechanism) => mechanism.id)],
+    ["carries matrix rows for", ledger.fileMatrix.map((row) => row.mechanismId)]
+  ] as const) {
+    const seen = new Set<string>();
+    const duplicated = new Set<string>();
+    for (const id of ids) {
+      if (seen.has(id)) duplicated.add(id);
+      seen.add(id);
+    }
+    for (const id of [...duplicated].sort()) {
+      findings.push(error(`${path}: the ledger ${what} ${id} more than once, so every finding about that mechanism is ambiguous and one of the two records is unreachable`));
+    }
+  }
+  return findings;
+}
+
+/**
+ * The set of ids that DECLARE they take (file x mechanism) rows must equal the set that HAS them.
+ *
+ * Both directions matter and they fail differently. A declared id with no rows is a row that was removed —
+ * together with its conservation obligation, its availability agreement and its census, which is why no other
+ * check noticed. An undeclared id with rows is caught elsewhere too (the per-row declaration lookup), but naming
+ * it here keeps the set comparison honest rather than one-sided.
+ */
+function auditExpectedRowSet(path: string, ledger: MechanismLedger): AuditFinding[] {
+  const expected = ledger.mechanisms.filter((mechanism) => mechanism.takesMatrixRows).map((mechanism) => mechanism.id);
+  const present = new Set(ledger.fileMatrix.map((row) => row.mechanismId));
+  const missing = expected.filter((id) => !present.has(id)).sort();
+  const unexpected = [...present].filter((id) => !expected.includes(id)).sort();
+  const findings: AuditFinding[] = [];
+  if (missing.length) {
+    findings.push(error(`${path}: ${missing.length} mechanism(s) declare they take (file x mechanism) rows and have none: ${missing.join(", ")}. A removed row takes its conservation obligation and its per-language census with it, so every other check still passes`));
+  }
+  if (unexpected.length) {
+    findings.push(error(`${path}: ${unexpected.length} mechanism(s) carry (file x mechanism) rows without declaring they take any: ${unexpected.join(", ")}`));
   }
   return findings;
 }

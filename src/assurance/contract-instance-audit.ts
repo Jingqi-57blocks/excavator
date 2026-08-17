@@ -1,13 +1,12 @@
 import { join } from "node:path";
-import type { AuditFinding } from "./assurance.ts";
-import { CONTRACT_MANIFEST_ASSURANCE_GENERATION, assuranceGenerationAtLeast } from "./assurance.ts";
-import type { RunManifest } from "../core/types.ts";
+import { CONTRACT_MANIFEST_ASSURANCE_GENERATION, assuranceGenerationAtLeast } from "../base/assurance-version.ts";
+import type { AuditFinding, RunManifest } from "../base/types.ts";
 import { contractManifestDigest, type ContractManifest } from "../contract/contract-manifest.ts";
 import { requirementsDigest, runIntentDigest, type Requirements, type RunIntent } from "../contract/bound-run-contract.ts";
 import { assertNever, type ArtifactResult } from "../base/artifact-result.ts";
 import { ledgerContentIdentity, type FileLedger } from "../snapshot/file-ledger.ts";
 import { auditMechanismLedger } from "./mechanism-ledger-audit.ts";
-import { exists, readJson } from "../core/util.ts";
+import { exists, readJson } from "../base/util.ts";
 
 /**
  * Verify a run against the contract IT recorded, instance by instance.

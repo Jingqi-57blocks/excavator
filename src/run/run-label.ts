@@ -1,5 +1,5 @@
-import type { ReportRequest } from "./types.ts";
-import { slugify } from "./util.ts";
+import type { ReportRequest } from "../base/types.ts";
+import { slugify } from "../base/util.ts";
 
 /** Longest a single feature slug may grow before it is truncated. */
 const FEATURE_SLUG_MAX = 16;

@@ -1,5 +1,5 @@
-import type { SectionClaim } from "../core/types.ts";
-import { substantiveSegments } from "./assurance.ts";
+import type { SectionClaim } from "../base/types.ts";
+import { substantiveSegments } from "./section-audit.ts";
 
 /**
  * Emit one claim stub per substantive segment of a section, reusing the exact segmentation the audit

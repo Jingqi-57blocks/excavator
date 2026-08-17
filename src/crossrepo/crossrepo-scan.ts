@@ -15,7 +15,7 @@
 import { readFile, readdir } from "node:fs/promises";
 import { dirname, extname, join, resolve } from "node:path";
 import { CodeGraphIndex } from "../codegraph/codegraph.ts";
-import { Deadline } from "../core/util.ts";
+import { Deadline } from "../base/util.ts";
 import { extractFrontendCalls, type FrontendCall } from "./frontend-calls.ts";
 import { expressMounts, recoverExpressRoutes, recoverGinRoutes, type RecoveredRoute } from "./route-table.ts";
 import { matchCall, type MatchedLink, type NearMiss, type RouteCandidate } from "./link-match.ts";

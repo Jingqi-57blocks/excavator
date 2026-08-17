@@ -15,8 +15,7 @@
 // Pure: zero I/O, zero model call, byte-stable. One module owns interval algebra and path identity, so
 // the freeze gate, the audit and the eval funnel can never disagree about "does this window cover it".
 
-import type { EvidenceItem, InvestigationWorkItem } from "../core/types.ts";
-import type { AuditFinding } from "./assurance.ts";
+import type { AuditFinding, EvidenceItem, InvestigationWorkItem } from "../base/types.ts";
 import { LOGIC_WORKITEM_DIMENSION } from "./logic-workitems.ts";
 import { normalizeObligationPath, type ReadObligation } from "./read-obligations.ts";
 

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { auditReadAccountability, reconcileReadCoverage } from "../src/assurance/read-coverage.ts";
 import type { ReadObligation } from "../src/assurance/read-obligations.ts";
-import type { EvidenceItem } from "../src/core/types.ts";
+import type { EvidenceItem } from "../src/base/types.ts";
 
 // The split exists because ONE number misdirected: measured on a real run, 225 not-opened obligations
 // ranked by unread lines put three noise-dominated files in the top five, so the funnel would have spent

@@ -28,30 +28,17 @@
 // regex honestly rather than pretending.
 
 import { createRequire } from "node:module";
-import type { EvidenceItem } from "../core/types.ts";
+import type { EvidenceItem } from "../../base/types.ts";
 import { extractPerlComparisons, loadPerlParser, type PerlParser } from "./condition-extract-perl.ts";
+import type { ExtractionResult, RawComparison } from "./types.ts";
+
+// Re-exported so the shapes stay reachable from the extractor that produces them; `types.ts` owns them.
+export type { ExtractionResult, RawComparison } from "./types.ts";
 
 // The grammars are native CommonJS addons, and this module is ESM: `require` does not exist here, so it is
 // constructed explicitly. Getting this wrong fails silently into the regex path — which is exactly what the
 // per-site `via` field is for, and how the mistake was caught on a real run.
 const requireNative = createRequire(import.meta.url);
-
-/** A comparison against a literal, as found in source. Purely syntactic — no judgement applied yet. */
-export interface RawComparison {
-  field: string;
-  operator: string;
-  /** Literal as written, without quotes for strings (`16`, `approved`). */
-  literal: string;
-  literalKind: "number" | "string";
-  /** Absolute line in the file. */
-  line: number;
-}
-
-export interface ExtractionResult {
-  sites: RawComparison[];
-  /** Which path produced this window's sites — recorded so degraded coverage is visible, not implied. */
-  via: "ast" | "regex";
-}
 
 const OPERATORS = [">=", "<=", "===", "!==", "==", "!=", ">", "<"] as const;
 
@@ -82,6 +69,24 @@ let perlParser: PerlParser | null | undefined;
 /** Load the parsers that cannot be loaded synchronously. Idempotent; call once before extraction. */
 export async function warmExtractors(): Promise<void> {
   if (perlParser === undefined) perlParser = await loadPerlParser();
+}
+
+/**
+ * Whether the Perl backend will really be taken by `extractComparisons` IN THIS PROCESS.
+ *
+ * This exists so there is exactly ONE predicate for "structural Perl extraction is live", and it reads the same
+ * variable the extraction branch reads. The layer-2 availability collector used to call `loadPerlParser()`
+ * itself, which warms the module-level cache in `condition-extract-perl.ts` — a DIFFERENT slot from the
+ * `perlParser` above. The two could therefore disagree: the ledger could record `condition-ast-perl` as
+ * available while every window in the same run fell through to the numeric regex, and nothing in the artifact
+ * would say so. Reading the branch's own state is the only version of this predicate that cannot drift.
+ *
+ * It is per-PROCESS by design, not per-run. `prepare` and `freeze` are two processes, so each one must call
+ * `warmExtractors()` before believing the answer; an unwarmed process honestly reports not-ready, which is what
+ * the ledger should record for it, because that is what its extraction would have done.
+ */
+export function perlStructuralReady(): boolean {
+  return perlParser !== null && perlParser !== undefined;
 }
 
 /** Numeric-only fallback, byte-identical in behaviour to the regex this module replaces. */

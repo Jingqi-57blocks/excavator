@@ -2,11 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
 import { readFile, rm, writeFile } from "node:fs/promises";
-import type { EvidenceItem, ReportRequest, RunManifest, SectionClaim, TimelineEvent } from "../src/core/types.ts";
-import { assembleRun, auditRun, beginDocument, checkpointSection, freezeRun, prepareRun, resumeRun, runStatus } from "../src/core/run.ts";
+import type { EvidenceItem, ReportRequest, RunManifest, SectionClaim, TimelineEvent } from "../src/base/types.ts";
+import { assembleRun, auditRun, beginDocument, checkpointSection, freezeRun, prepareRun, resumeRun, runStatus } from "../src/run/run.ts";
 import { collectDrafts, draftSection } from "../src/assurance/parallel-authoring.ts";
 import { auditTimeline, readTimeline } from "../src/assurance/timeline.ts";
-import { exists } from "../src/core/util.ts";
+import { exists } from "../src/base/util.ts";
 import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, tempDir } from "./helpers.ts";
 
 // 57B-367 parallel section authoring — "write in parallel, account serially". These tests validate the

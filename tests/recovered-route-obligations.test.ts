@@ -6,7 +6,7 @@ import { dirname, join } from "node:path";
 import { readObligations, RECOVERED_ROUTE_DENOMINATOR_ASSURANCE_GENERATION } from "../src/assurance/read-obligations.ts";
 import { recoveredRouteObligations } from "../src/crossrepo/crossrepo-artifact.ts";
 import { reconcileReadCoverage } from "../src/assurance/read-coverage.ts";
-import type { EvidenceItem, FeatureFactPack } from "../src/core/types.ts";
+import type { EvidenceItem, FeatureFactPack } from "../src/base/types.ts";
 
 // THE FOURTH DENOMINATOR SOURCE, judged by replaying a real run rather than by waiting for the next one.
 //
@@ -140,8 +140,8 @@ test("a registration with no end line contributes nothing rather than a span-les
 // fourth source from freeze entirely, both left the whole suite green. So this asserts the path from a
 // frozen artifact to a frozen denominator — the thing a user actually gets.
 test("freeze turns an artifact's registrations into obligations end to end", async () => {
-  const { writeJson } = await import("../src/core/util.ts");
-  const { freezeRun, prepareRun } = await import("../src/core/run.ts");
+  const { writeJson } = await import("../src/base/util.ts");
+  const { freezeRun, prepareRun } = await import("../src/run/run.ts");
   const { copyFixture, disposeAllWorkItems, tempDir } = await import("./helpers.ts");
   const { readFile } = await import("node:fs/promises");
 

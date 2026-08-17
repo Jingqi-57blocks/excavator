@@ -1,10 +1,10 @@
 import { join } from "node:path";
-import type { AuditFinding } from "./assurance.ts";
 import type { ConditionInventory } from "./condition-inventory.ts";
 import type { ReadCoverageItem } from "./read-coverage.ts";
 import type { ReadObligation } from "./read-obligations.ts";
 import { readingExposure, renderReadingBoundary } from "./read-residual-exposure.ts";
 import type {
+  AuditFinding,
   DocumentPlan,
   EvidenceItem,
   FactPackCategory,
@@ -17,8 +17,8 @@ import type {
   SectionClaim,
   TraceCatalog,
   TraceRecord
-} from "../core/types.ts";
-import { exists } from "../core/util.ts";
+} from "../base/types.ts";
+import { exists } from "../base/util.ts";
 
 /**
  * The authoring packet: a deterministic, model-free per-document rendering of the frozen investigation

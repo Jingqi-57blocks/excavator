@@ -1,6 +1,6 @@
 import { open, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { atomicWrite, exists, readJson, sha256 } from "../core/util.ts";
+import { atomicWrite, exists, readJson, sha256 } from "../base/util.ts";
 
 /**
  * The two identity tiers of one file's bytes, and the persistent cache that makes computing them affordable.

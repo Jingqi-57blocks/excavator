@@ -4,9 +4,9 @@ import { join } from "node:path";
 import { readdir, readFile } from "node:fs/promises";
 import { buildOverviewCensus, overviewCensusResidual, untouchedExtensions, OVERVIEW_CENSUS_VERSION } from "../src/context/overview-census.ts";
 import type { OverviewCensus } from "../src/context/overview-census.ts";
-import type { ReportRequest } from "../src/core/types.ts";
-import { prepareRun } from "../src/core/run.ts";
-import { exists, stableJson } from "../src/core/util.ts";
+import type { ReportRequest } from "../src/base/types.ts";
+import { prepareRun } from "../src/run/run.ts";
+import { exists, stableJson } from "../src/base/util.ts";
 import { copyFixture, createCodeGraphFixture, tempDir } from "./helpers.ts";
 
 // THE PROPERTY THIS ARTIFACT EXISTS FOR, ONE LAYER UP FROM `scope-census.test.ts`: the denominator is the

@@ -1,8 +1,8 @@
 import { spawn } from "node:child_process";
 import { join, resolve } from "node:path";
-import { exists } from "../core/util.ts";
-import { executableAvailable } from "../snapshot/providers.ts";
-import { discoverModules } from "./module-detection.ts";
+import { exists } from "../base/util.ts";
+import { executableAvailable } from "../base/executable.ts";
+import { discoverModules } from "../snapshot/module-detection.ts";
 
 export interface ModuleBuildResult {
   dir: string;

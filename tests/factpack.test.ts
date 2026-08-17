@@ -8,9 +8,9 @@ import { CodeGraphIndex } from "../src/codegraph/codegraph.ts";
 import { SourceReader } from "../src/snapshot/source.ts";
 import { scanFiles } from "../src/snapshot/snapshot.ts";
 import { buildContexts } from "../src/context/context.ts";
-import { prepareRun } from "../src/core/run.ts";
-import { Deadline, stableJson } from "../src/core/util.ts";
-import type { EvidenceItem, FactPackCategory, FeatureFactPack, ReportRequest } from "../src/core/types.ts";
+import { prepareRun } from "../src/run/run.ts";
+import { Deadline, stableJson } from "../src/base/util.ts";
+import type { EvidenceItem, FactPackCategory, FeatureFactPack, ReportRequest } from "../src/base/types.ts";
 import { copyFixture, createCodeGraphFixture, createCodeGraphSchema, insertGraphFile, insertGraphNode, tempDir } from "./helpers.ts";
 
 const BOUNDARY_SOURCES: Record<string, string> = {

@@ -1,76 +1,9 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type {
-  AnalysisScope,
-  DocumentPlan,
-  InvestigationPlan,
-  ProviderRegistry,
-  ReportRequest,
-  SectionClaim,
-  SectionClaimsFile,
-  Snapshot,
-  TraceCatalog,
-  TraceRecord
-} from "../core/types.ts";
-import { exists, nowIso, sha256, stableJson, writeJson } from "../core/util.ts";
-
-export function createAnalysisScope(options: {
-  runId: string;
-  request: ReportRequest;
-  snapshot: Snapshot;
-  documents: DocumentPlan[];
-  providerRegistry: ProviderRegistry;
-}): AnalysisScope {
-  const unsigned = {
-    version: 1 as const,
-    runId: options.runId,
-    snapshotId: options.snapshot.id,
-    createdAt: nowIso(),
-    target: options.snapshot.target,
-    repositories: options.snapshot.roots.map((root) => ({
-      name: root.name,
-      path: root.path,
-      gitHead: root.gitHead,
-      dirty: root.dirty,
-      fileCount: root.fileCount
-    })),
-    sourcePolicy: {
-      gitAware: true as const,
-      includeTracked: true as const,
-      includeUntrackedNotIgnored: true as const,
-      excludeIgnoredUntracked: true as const,
-      scannerVersion: options.snapshot.scannerVersion,
-      ignoreRulesDigest: options.snapshot.ignoreRulesDigest,
-      sourceManifestDigest: options.snapshot.sourceManifestDigest
-    },
-    providerMode: options.request.codegraphMode ?? "auto",
-    providerRegistryDigest: options.providerRegistry.digest,
-    outputLanguage: options.request.language,
-    requestedDocuments: options.documents.map((document) => document.id),
-    budgets: options.request.budgets,
-    runtimeExecution: false as const
-  };
-  return { ...unsigned, digest: sha256(stableJson(unsigned)) };
-}
-
-export function emptyTraceCatalog(runId: string): TraceCatalog {
-  return { version: 1, runId, traces: [] };
-}
-
-export function mergeTraces(existing: TraceCatalog, updates: TraceRecord[]): TraceCatalog {
-  const byId = new Map(existing.traces.map((trace) => [trace.id, trace]));
-  for (const trace of updates) {
-    if (!trace.id?.trim()) throw new Error("Trace update is missing id");
-    if (!trace.title?.trim()) throw new Error(`Trace ${trace.id} is missing title`);
-    byId.set(trace.id, {
-      ...trace,
-      documentIds: [...new Set(trace.documentIds ?? [])],
-      steps: (trace.steps ?? []).map((step, index) => ({ ...step, index: index + 1, evidenceIds: [...new Set(step.evidenceIds ?? [])], claimIds: [...new Set(step.claimIds ?? [])] })),
-      createdAt: trace.createdAt || nowIso()
-    });
-  }
-  return { ...existing, traces: [...byId.values()] };
-}
+  DocumentPlan, InvestigationPlan, SectionClaim, SectionClaimsFile, TraceCatalog
+} from "../base/types.ts";
+import { exists, writeJson } from "../base/util.ts";
 
 /**
  * Every claim in the run, keyed by document + section + claim id.

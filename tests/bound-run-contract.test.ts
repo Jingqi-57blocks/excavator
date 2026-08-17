@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 import { ARTIFACT_REGISTRY, registryDigest, type ArtifactRegistry } from "../src/base/artifact-registry.ts";
 import { materializeBoundRunContract, type BoundRunContractInput } from "../src/contract/bound-run-contract.ts";
 import { deriveContractManifest } from "../src/contract/contract-manifest.ts";
-import type { BudgetConfig, ReportRequest } from "../src/core/types.ts";
-import { stableJson } from "../src/core/util.ts";
+import type { BudgetConfig, ReportRequest } from "../src/base/types.ts";
+import { stableJson } from "../src/base/util.ts";
 
 /**
  * The bound contract is materialized from three external inputs BEFORE any producer runs, and the expected

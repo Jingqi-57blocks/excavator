@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { DECISION_NODE_KINDS, probeDecision } from "../src/assurance/decision-probe.ts";
+import { DECISION_NODE_KINDS, probeDecision } from "../src/facts/probe/decision-probe.ts";
 
 // This probe decides which boundary functions become read obligations, so its two failure directions cost
 // different things: a false "decision" inflates the denominator with spans nobody needs to read, a false

@@ -16,7 +16,7 @@
  * first declaration of a given name wins (duplicate names with the same value are harmless).
  */
 
-import type { ReadFile } from "./parser.ts";
+import type { ReadFile } from "../types.ts";
 
 /** One resolved `const NAME = "value"` declaration, with a back-pointer to where it was declared. */
 export interface ConstEntry {

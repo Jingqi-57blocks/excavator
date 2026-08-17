@@ -9,23 +9,7 @@
  * is deterministic — identical inputs yield byte-identical output.
  */
 
-import type { RelationshipSchema, SchemaFormat, SchemaWarning, TableSchema } from "../types.ts";
-
-/** What a parser produces from the files it owns. Assembly into a full `SchemaExtraction` is the caller's job. */
-export interface ParserResult {
-  tables: TableSchema[];
-  relationships: RelationshipSchema[];
-  warnings: SchemaWarning[];
-}
-
-/** Reads a file's UTF-8 contents by path. Injected so parsers stay pure and testable with in-memory fixtures. */
-export type ReadFile = (path: string) => string;
-
-/** One source format's parser. */
-export interface SchemaParser {
-  format: SchemaFormat;
-  parse(files: string[], readFile: ReadFile): ParserResult;
-}
+import type { SchemaFormat, SchemaParser } from "../types.ts";
 
 import { gormParser } from "./gorm.ts";
 import { sequelizeMigrationParser } from "./sequelize-migration.ts";

@@ -18,7 +18,7 @@
 // wraps fetch and exposes the HTTP verbs. Hard-coding `httpClient`/`authRequest` would tie the engine to
 // one codebase's vocabulary, which the vertical-neutrality guardrail forbids.
 
-import { loadAstGrep, type AstNode } from "../assurance/condition-extract.ts";
+import { loadAstGrep, type AstNode } from "../facts/probe/condition-extract.ts";
 
 export const FRONTEND_CALLS_VERSION = "frontend-calls-v1";
 

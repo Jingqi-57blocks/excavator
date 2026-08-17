@@ -17,7 +17,7 @@ import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { readObligations, type ReadObligation, type ReadObligationsArtifact } from "../src/assurance/read-obligations.ts";
 import type { BoundaryFunctionsArtifact } from "../src/context/boundary-functions.ts";
-import type { FeatureFactPack, InvestigationPlan } from "../src/core/types.ts";
+import type { FeatureFactPack, InvestigationPlan } from "../src/base/types.ts";
 
 export interface MustTarget {
   path: string;

@@ -2,9 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
 import { readFile } from "node:fs/promises";
-import type { DocumentPlan, EvidenceItem, InvestigationPlan, InvestigationWorkItem, ReportRequest, SectionClaim } from "../src/core/types.ts";
-import { auditWorkItemClaimCoverage } from "../src/assurance/assurance.ts";
-import { assembleRun, auditRun, checkpointSection, freezeRun, prepareRun, searchSourceEvidence, updateWorkItems } from "../src/core/run.ts";
+import type { DocumentPlan, EvidenceItem, InvestigationPlan, InvestigationWorkItem, ReportRequest, SectionClaim } from "../src/base/types.ts";
+import { auditWorkItemClaimCoverage } from "../src/assurance/section-audit.ts";
+import { assembleRun, auditRun, checkpointSection, freezeRun, prepareRun, searchSourceEvidence, updateWorkItems } from "../src/run/run.ts";
 import { copyFixture, createCodeGraphFixture, tempDir } from "./helpers.ts";
 
 // --- 1. the ONE substantive prd relaxation: the section-link check, with a hard negative control ---

@@ -1,5 +1,5 @@
-import type { Audience, BudgetConfig, DocumentKind, ReportRequest } from "../core/types.ts";
-import { sha256, stableJson } from "../core/util.ts";
+import type { Audience, BudgetConfig, DocumentKind, ReportRequest } from "../base/types.ts";
+import { sha256, stableJson } from "../base/util.ts";
 
 /**
  * The bound run contract: two of the three external inputs that exist BEFORE any layer runs.

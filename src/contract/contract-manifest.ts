@@ -1,6 +1,6 @@
 import type { ArtifactRegistry, InstanceCardinality, RegistryEntry } from "../base/artifact-registry.ts";
 import { registryDigest } from "../base/artifact-registry.ts";
-import { sha256, stableJson } from "../core/util.ts";
+import { sha256, stableJson } from "../base/util.ts";
 import type { Requirements, RunIntent } from "./bound-run-contract.ts";
 
 /**
