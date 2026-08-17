@@ -1,5 +1,9 @@
 import { assertNever, built, notApplicable, unavailable, type ArtifactResult } from "../src/base/artifact-result.ts";
 import { summarizeCoverage, summarizeSelection, type CoverageConservation, type SelectionConservation } from "../src/base/conservation.ts";
+import {
+  CORPUS_MEMBERSHIP, moduleMembership, relationMembership, spanSetMembership, unitMembership,
+  type Membership
+} from "../src/base/fact-kind-registry.ts";
 import { RowSet } from "../src/base/row-set.ts";
 
 /**
@@ -11,11 +15,12 @@ import { RowSet } from "../src/base/row-set.ts";
  * suppressed error disappears, TypeScript reports the now-unnecessary `@ts-expect-error`, and typecheck goes red.
  * A compile-time rule with no failing fixture is a comment.
  *
- * Three laws, three fixtures:
+ * Four laws, four fixtures:
  *
  *  1. The envelope is exhaustively consumed. A consumer that forgets a branch cannot reach `assertNever`.
  *  2. A denominator is a `RowSet` from a lower ledger, never a hand-assembled array and never a direct `new`.
  *  3. A conservation record can only come from its one constructor, never from a literal with the right numbers.
+ *  4. Membership is a closed union with no empty-set arm, consumed exhaustively and built only by constructors.
  */
 
 // --- 1. the output law: three states, consumed exhaustively -----------------------------------------------
@@ -96,3 +101,50 @@ export const forgedSelection: SelectionConservation = { counted: 7, seated: 2, z
  */
 // @ts-expect-error `unexplained` is a subtraction the constructor performs, never an input a caller supplies
 export const suppliedResidual = summarizeCoverage({ total: 10, counted: 7, excluded: 3, unexplained: 0 });
+
+// --- 4. membership: a closed union, exhaustively consumed ---------------------------------------------------
+
+/** The shape every membership consumer must have: all five arms, and `assertNever` reachable only with them. */
+export function describeMembership(membership: Membership): string {
+  switch (membership.kind) {
+    case "unit": return `unit:${membership.unitId}`;
+    case "span-set": return `span-set:${membership.unitIds.length}`;
+    case "relation": return `relation:${membership.endpoints.length}`;
+    case "module": return `module:${membership.moduleId}`;
+    case "corpus": return "corpus";
+    default: return assertNever(membership, "membership");
+  }
+}
+
+/**
+ * The same consumer with the `corpus` arm left out — the arm that is easiest to forget, because it is the one
+ * with no ids in it, and the one whose seat verdict is `NotApplicable` rather than a cell.
+ */
+export function forgetsCorpus(membership: Membership): string {
+  switch (membership.kind) {
+    case "unit": return `unit:${membership.unitId}`;
+    case "span-set": return `span-set:${membership.unitIds.length}`;
+    case "relation": return `relation:${membership.endpoints.length}`;
+    case "module": return `module:${membership.moduleId}`;
+    // @ts-expect-error a switch that does not handle `corpus` may not reach the exhaustiveness sink
+    default: return assertNever(membership, "membership");
+  }
+}
+
+/** Positive control: the constructors are the only door, and every arm goes through one. */
+export const memberships: Membership[] = [
+  unitMembership("cell:structure:0-40:src/app.ts"),
+  spanSetMembership(["cell:structure:0-40:src/app.ts", "cell:residual:40-60:src/app.ts"]),
+  relationMembership(["cell:structure:0-40:src/app.ts", "cell:structure:0-90:web/page.tsx"]),
+  moduleMembership("api"),
+  CORPUS_MEMBERSHIP
+];
+
+/**
+ * And the empty set is refused at RUNTIME rather than at compile time, on purpose: `readonly string[]` cannot
+ * express non-emptiness without a tuple type that would reject a producer's ordinary array. The compile-time half
+ * is that no other arm exists to slip an empty collection through — every arm is built by a constructor above,
+ * and `tests/fact-kind-registry.test.ts` holds the throwing fixtures.
+ */
+// @ts-expect-error an object literal with the right fields is still a Membership, but a NEW arm is not
+export const invented: Membership = { kind: "file", relativePath: "src/app.ts" };

@@ -59,6 +59,7 @@ export const MECHANISM_IDS = [
   "decision-probe",
   "framework",
   "native-graph",
+  "partition-ast",
   "search"
 ] as const;
 
@@ -130,6 +131,24 @@ const MECHANISMS: MechanismEntry[] = [
     support: { kind: "extensions", extensions: [...AST_GREP_EXTENSIONS] },
     nameClasses: [],
     maxFileBytes: null
+  },
+  {
+    // The DESIGNATED PARTITION BUILDER for typescript / javascript / go (`base/partition-designation.ts`), and
+    // therefore not an ordinary mechanism: when it is unavailable for a run that has files in those languages,
+    // layer 3's `units.json` is `Unavailable` rather than a coarser partition. Its support set is the same
+    // `AST_GREP_EXTENSIONS` constant the two ast-grep probes declare — a second copy would let the builder and
+    // the probes disagree about which files ast-grep can see.
+    id: "partition-ast",
+    title: "Canonical partition builder: top-level structure spans via ast-grep",
+    version: "partition-ast-v1",
+    coverageDomain: "file",
+    unitKind: "node",
+    support: { kind: "extensions", extensions: [...AST_GREP_EXTENSIONS] },
+    nameClasses: [],
+    // A whole file's bytes must be decoded and walked to partition it. The bound is content search's, for the
+    // same reason: past it the work stops being worth its cost, and the refusal is a `no-mechanism` row rather
+    // than an invisible skip — the file still gets a partition, as one residual cell with `size-cap` recorded.
+    maxFileBytes: 500_000
   },
   {
     id: "condition-ast",

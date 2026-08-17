@@ -56,6 +56,10 @@ export async function collectMechanismAvailability(): Promise<MechanismAvailabil
     "condition-ast-perl": treeSitterPerl,
     "condition-regex-numeric": builtIn,
     "native-graph": treeSitterPerl,
+    // The designated partition builder shares ast-grep with the two probes, so it shares their probe: if the
+    // binding is missing, the builder is missing, and layer 3 must say `Unavailable` instead of publishing a
+    // partition it could not build.
+    "partition-ast": astGrep,
     "framework": builtIn,
     "db-schema": builtIn,
     "crossrepo": astGrep,
