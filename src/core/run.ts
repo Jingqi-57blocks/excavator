@@ -37,7 +37,7 @@ import { goImportAliases, parseHandlerTarget, resolveHandler } from "../crossrep
 import { CodeGraphIndex } from "../codegraph/codegraph.ts";
 import { auditReadAccountability, reconcileReadCoverage, type ClaimCitation, type ReadCoverageReport } from "../assurance/read-coverage.ts";
 import { auditConditionCoverage, inventoryConditions, type ClaimStatement } from "../assurance/condition-inventory.ts";
-import { warmExtractors } from "../assurance/condition-extract.ts";
+import { warmExtractors } from "../facts/probe/condition-extract.ts";
 import { collectClaims, createAnalysisScope, emptyTraceCatalog, mergeTraces, writeReportCompanions } from "../assurance/assurance-artifacts.ts";
 import { scaffoldSectionClaims } from "../assurance/claims-scaffold.ts";
 import { sectionFileStem } from "../assurance/section-slug.ts";

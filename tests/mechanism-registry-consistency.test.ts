@@ -13,7 +13,7 @@ import {
   MECHANISM_IDS, MECHANISM_REGISTRY, declaredExtensions, mechanismById, validateMechanismRegistry,
   type MechanismEntry, type MechanismRegistry
 } from "../src/base/mechanism-registry.ts";
-import { AST_LANGUAGE_BY_EXTENSION, PERL_EXTENSIONS } from "../src/assurance/condition-extract.ts";
+import { AST_LANGUAGE_BY_EXTENSION, PERL_EXTENSIONS } from "../src/facts/probe/condition-extract.ts";
 import { NATIVE_GRAPH_EXTENSIONS } from "../src/nativegraph/build.ts";
 import { CTAGS_LANGUAGES } from "../src/nativegraph/ctags.ts";
 import { PACKS } from "../src/framework/pack.ts";

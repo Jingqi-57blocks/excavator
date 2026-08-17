@@ -1,9 +1,10 @@
 import { access } from "node:fs/promises";
 import { constants } from "node:fs";
-import { delimiter, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import type { ProviderRegistry, Snapshot } from "../core/types.ts";
 import { nowIso, sha256, stableJson } from "../core/util.ts";
-import { discoverModules } from "../codegraph/module-detection.ts";
+import { executableAvailable } from "../base/executable.ts";
+import { discoverModules } from "./module-detection.ts";
 
 export type CodeGraphMode = "auto" | "off";
 
@@ -89,16 +90,6 @@ export async function createProviderRegistry(options: {
   ];
   const unsigned = { version: 1 as const, snapshotId: options.snapshot.id, createdAt: nowIso(), providers };
   return { ...unsigned, digest: sha256(stableJson(unsigned)) };
-}
-
-export async function executableAvailable(binary: string): Promise<boolean> {
-  if (binary.includes("/") || binary.includes("\\")) {
-    try { await access(resolve(binary), constants.X_OK); return true; } catch { return false; }
-  }
-  for (const directory of (process.env.PATH ?? "").split(delimiter).filter(Boolean)) {
-    try { await access(join(directory, binary), constants.X_OK); return true; } catch { /* continue */ }
-  }
-  return false;
 }
 
 function providerReason(source: CodeGraphResolution["source"], selected: boolean, openError?: string, moduleCount?: number): string {

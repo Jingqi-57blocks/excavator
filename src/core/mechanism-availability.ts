@@ -1,5 +1,5 @@
-import { loadAstGrep } from "../assurance/condition-extract.ts";
-import { loadPerlParser } from "../assurance/condition-extract-perl.ts";
+import { loadAstGrep } from "../facts/probe/condition-extract.ts";
+import { loadPerlParser } from "../facts/probe/condition-extract-perl.ts";
 import { findUniversalCtags } from "../nativegraph/ctags.ts";
 import type { MechanismAvailability, MechanismAvailabilityMap } from "../base/mechanism-registry.ts";
 

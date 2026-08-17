@@ -5,7 +5,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { createSnapshot } from "../src/snapshot/snapshot.ts";
 import { sourceSearch } from "../src/snapshot/source.ts";
 import type { CountedRow, FileLedger } from "../src/snapshot/file-ledger.ts";
-import { probeDecision } from "../src/assurance/decision-probe.ts";
+import { probeDecision } from "../src/facts/probe/decision-probe.ts";
 import { LANGUAGE_REGISTRY, type LanguageRegistry } from "../src/base/language-registry.ts";
 import {
   MECHANISM_IDS, MECHANISM_REGISTRY, fileMatrixMechanisms,

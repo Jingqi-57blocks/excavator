@@ -28,30 +28,17 @@
 // regex honestly rather than pretending.
 
 import { createRequire } from "node:module";
-import type { EvidenceItem } from "../core/types.ts";
+import type { EvidenceItem } from "../../core/types.ts";
 import { extractPerlComparisons, loadPerlParser, type PerlParser } from "./condition-extract-perl.ts";
+import type { ExtractionResult, RawComparison } from "./types.ts";
+
+// Re-exported so the shapes stay reachable from the extractor that produces them; `types.ts` owns them.
+export type { ExtractionResult, RawComparison } from "./types.ts";
 
 // The grammars are native CommonJS addons, and this module is ESM: `require` does not exist here, so it is
 // constructed explicitly. Getting this wrong fails silently into the regex path — which is exactly what the
 // per-site `via` field is for, and how the mistake was caught on a real run.
 const requireNative = createRequire(import.meta.url);
-
-/** A comparison against a literal, as found in source. Purely syntactic — no judgement applied yet. */
-export interface RawComparison {
-  field: string;
-  operator: string;
-  /** Literal as written, without quotes for strings (`16`, `approved`). */
-  literal: string;
-  literalKind: "number" | "string";
-  /** Absolute line in the file. */
-  line: number;
-}
-
-export interface ExtractionResult {
-  sites: RawComparison[];
-  /** Which path produced this window's sites — recorded so degraded coverage is visible, not implied. */
-  via: "ast" | "regex";
-}
 
 const OPERATORS = [">=", "<=", "===", "!==", "==", "!=", ">", "<"] as const;
 

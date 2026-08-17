@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { AST_LANGUAGES, extractComparisons, warmExtractors } from "../src/assurance/condition-extract.ts";
+import { AST_LANGUAGES, extractComparisons, warmExtractors } from "../src/facts/probe/condition-extract.ts";
 import { inventoryConditions } from "../src/assurance/condition-inventory.ts";
 import type { EvidenceItem } from "../src/core/types.ts";
 
@@ -95,7 +95,7 @@ test("Perl goes through tree-sitter once warmed: sigils, arrows and string compa
 // already shipped once in this slice and was only visible through `via`.
 test("without warm-up a Perl window degrades to regex, labelled and not crashing", () => {
   const script = `
-    const { extractComparisons } = await import(${JSON.stringify(new URL("../src/assurance/condition-extract.ts", import.meta.url).href)});
+    const { extractComparisons } = await import(${JSON.stringify(new URL("../src/facts/probe/condition-extract.ts", import.meta.url).href)});
     const result = extractComparisons({ id: "S", snapshotId: "s", kind: "source", title: "t", reason: "r", digest: "d",
       path: "lib/ZMS/Leave.pm", startLine: 1, endLine: 1, content: "  if ($lv->{hours} > 16) { return 1; }" });
     console.log(JSON.stringify({ via: result.via, sites: result.sites.length }));

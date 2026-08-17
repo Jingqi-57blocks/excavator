@@ -22,7 +22,7 @@
 // as unrecovered rather than guessed. The caller reconciles the recovered table against the graph's own
 // route nodes, so a gap in either direction is visible instead of assumed away.
 
-import { loadAstGrep, type AstNode } from "../assurance/condition-extract.ts";
+import { loadAstGrep, type AstNode } from "../facts/probe/condition-extract.ts";
 
 export const ROUTE_TABLE_VERSION = "route-table-v1";
 

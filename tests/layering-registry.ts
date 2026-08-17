@@ -23,6 +23,7 @@ export const LAYERING_REGISTRY: readonly RegistryEntry[] = [
   { dir: "src/framework", layer: "L3" },
   { dir: "src/schema", layer: "L3" },
   { dir: "src/crossrepo", layer: "L3" },
+  { dir: "src/facts/probe", layer: "L3" },
   { dir: "src/context", layer: "L5" },
 
   // --- src/core/: a false layer holding both ends of the order (shared base types + the orchestrator) ----
@@ -38,9 +39,6 @@ export const LAYERING_REGISTRY: readonly RegistryEntry[] = [
 
   // --- src/assurance/: the known mixed directory, knowledge side and report side in one folder -----------
   { file: "src/assurance/timeline.ts", layer: "base" },
-  { file: "src/assurance/decision-probe.ts", layer: "L7" },
-  { file: "src/assurance/condition-extract.ts", layer: "L7" },
-  { file: "src/assurance/condition-extract-perl.ts", layer: "L7" },
   { file: "src/assurance/logic-workitems.ts", layer: "L6" },
   { file: "src/assurance/read-obligations.ts", layer: "L6" },
   { file: "src/assurance/relevance-annotation.ts", layer: "L6" },
