@@ -54,9 +54,12 @@
 
 1. main 只能通过 feat 分支合并进入，禁止直接 push main。
 2. 一个大 feature 用一条长期 feat 分支；过程中的 PR 先合并到 feat 分支，最后 feat → main。
-3. commit message 与 PR title 固定格式：`<Linear ID>: <描述>`。commit 含 Linear ID 即自动关联，状态自动流转，不手动更新 Linear。
-4. PR 粒度按工作量裁定：重 issue 可拆多个 PR（关联同一 ID）；编码类 issue 至少一个 PR；纯决策类可以没有 PR。
-5. 实现与测试同一批提交；新逻辑开新文件、单一职责；注释只加关键处。
+3. **Linear ID 是一句完成声明，不是格式要求。** 合并进 main 的 PR，只要 title、分支名或 commit message 里出现 `57B-xxx`，Linear 就自动关联并把该 issue 置 **Done**。所以只在「合并这个 PR 就等于这个 issue 做完了」时才带 ID，格式 `<Linear ID>: <描述>`。
+4. **不交付任何 issue 的 PR 一律不带 ID**——文档、流程、工具、契约修订、清理都属此类。用 `docs:` / `chore:` / `meta:` 前缀，**分支名同样不得含 ID**（分支名也触发关联）。要指代某个 issue 就用它的标题或「步 4」这类说法，不写 ID。
+5. 一个 issue 需要多个 PR 进 main 时，只有最后一个带 ID，前面的用非 ID 前缀；或按第 2 条走长期 feat 分支——合进 feat 不触发流转，只有 feat → main 那个 PR 带 ID。
+6. **每次合并进 main 后复验受影响 issue 的状态。** 复位被误关的 issue（连同它被顺带设上的 assignee 与 PR 附件）是唯一允许手动改 Linear 状态的情形。
+7. PR 粒度按工作量裁定：编码类 issue 至少有一个带 ID 的 PR；纯决策类可以没有 PR。
+8. 实现与测试同一批提交；新逻辑开新文件、单一职责；注释只加关键处。
 
 ## 自动化时机
 

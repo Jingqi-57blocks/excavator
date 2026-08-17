@@ -14,7 +14,7 @@ AI-first 可辩护代码调查引擎。Node >= 22.5，TypeScript 直跑（type s
 
 ## 硬约束
 
-- main 只收 feat 分支的 PR，禁止直推；commit 与 PR title 格式：`<Linear ID>: <描述>`。
+- main 只收 feat 分支的 PR，禁止直推。**Linear ID 是完成声明**：只有「合并即完成该 issue」时，PR title 与分支名才带 `57B-xxx`（格式 `<Linear ID>: <描述>`）；不交付 issue 的 PR（文档、流程、工具、清理）用 `docs:` / `chore:` 前缀，分支名也不含 ID——带上就会把 issue 误置 Done。
 - 实现与测试同批提交；不许删除或跳过既有测试保绿；测试失败如实报告。
 - Core（`src/`）不得调用模型 API。
 - 新逻辑开新文件、单一职责；注释只加关键处。
