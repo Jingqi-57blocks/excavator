@@ -4,12 +4,24 @@ import type { EvidenceItem, SourceWindow } from "../core/types.ts";
 import type { ScannedFile } from "./snapshot.ts";
 import { CONTRACT_CATEGORIES, primaryCategory, projectDocumentGroup, scoreProjectDocument } from "./document-scoring.ts";
 import { atomicWrite, ensureDir, exists, readJson, redactSecrets, redactionCacheTag, REDACTION_VERSION, sha256, truncate, writeJson } from "../core/util.ts";
+import { nameClassesMatching, textualExtensions } from "../base/language-registry.ts";
+import { declaredExtensions, mechanismById } from "../base/mechanism-registry.ts";
 
-// The content-search corpus. It MUST cover every text extension the snapshot scans (`SOURCE_EXTENSIONS`
-// in snapshot.ts); otherwise a `searched-not-found` verdict silently omits files that were scanned but
-// never searchable. The scanned-implies-searchable invariant is enforced by tests/search-corpus.test.ts.
-// Order mirrors SOURCE_EXTENSIONS so the two sets are easy to diff. See 57B-347.
-export const TEXTUAL_EXTENSIONS = new Set([".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs", ".go", ".py", ".java", ".kt", ".kts", ".rb", ".php", ".cs", ".fs", ".rs", ".c", ".h", ".cc", ".cpp", ".hpp", ".swift", ".scala", ".vue", ".svelte", ".sql", ".yaml", ".yml", ".json", ".toml", ".xml", ".html", ".css", ".scss", ".md", ".sh", ".proto", ".graphql", ".gql", ".tf", ".hcl", ".astro", ".pm", ".pl", ".t", ".cgi", ".psgi", ".zpt", ".dtml"]);
+// The content-search corpus: every scanned extension the registry marks as text. It used to be a literal
+// that had to be kept in step with `SOURCE_EXTENSIONS` by hand (57B-347 added the test that catches a
+// divergence); now the two are projections of one declaration and cannot diverge at all.
+export const TEXTUAL_EXTENSIONS: ReadonlySet<string> = textualExtensions();
+
+/**
+ * The search mechanism's own declaration, read from the registry instead of restated here.
+ *
+ * This is the tie that makes the layer-2 ledger's `search` row checkable against reality: the corpus, the
+ * `README` name class and the 500 KB bound the ledger publishes are the same three values this filter applies.
+ * Restating them would let the ledger record a bound the search does not honour, or honour one it never
+ * recorded — and a size bound nobody accounts for is exactly how large files became invisibly unsearchable.
+ */
+const SEARCH_MECHANISM = mechanismById("search");
+const SEARCH_CORPUS = declaredExtensions("search");
 export const SOURCE_WINDOW_CACHE_VERSION = `source-window-v3-${REDACTION_VERSION}`;
 
 /** Cache identity for one redaction mode: a window recorded with redaction off must never satisfy a run
@@ -250,8 +262,10 @@ export function sourceSearch(files: ScannedFile[], terms: string[], options: Sou
   });
   const union = new RegExp(expressions.map((expression) => `(?:${expression.source})`).join("|"), flags);
   const candidates = files.filter((file) => {
-    if (!TEXTUAL_EXTENSIONS.has(file.extension) && !/^README/i.test(basename(file.relativePath))) return false;
-    if (file.size > 500_000) return false;
+    const supported = SEARCH_CORPUS.has(file.extension)
+      || nameClassesMatching(basename(file.relativePath)).some((entry) => SEARCH_MECHANISM.nameClasses.includes(entry.id));
+    if (!supported) return false;
+    if (SEARCH_MECHANISM.maxFileBytes !== null && file.size > SEARCH_MECHANISM.maxFileBytes) return false;
     if (options.onlyUnindexed && options.graphPaths?.has(file.relativePath)) return false;
     return true;
   });

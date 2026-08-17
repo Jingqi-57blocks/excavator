@@ -11,6 +11,7 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { scanFiles } from "../snapshot/snapshot.ts";
+import { extensionsOfLanguage } from "../base/language-registry.ts";
 import { extractPerlFile } from "./perl.ts";
 import { scanTemplates } from "./templates.ts";
 import type { TemplateEntry } from "./templates.ts";
@@ -19,9 +20,18 @@ import type {
   CallEdge, CallKind, NativeGraph, NativeGraphWarning, PackageEdge, PerlPackage, PerlSub,
 } from "./types.ts";
 
-const PERL_EXT = new Set([".pm", ".pl", ".t", ".cgi", ".psgi", ".pod"]);
-const ZPT_EXT = new Set([".zpt", ".pt"]);
-const DTML_EXT = new Set([".dtml"]);
+/**
+ * Projections of the base language registry, so this builder cannot claim a file type the scanner never
+ * yields. It had two: `.pod` and `.pt` were consumed here and absent from `SOURCE_EXTENSIONS`, which means
+ * `scanFiles` could not once have handed either of them over. Both are gone with the projection, and no
+ * behaviour changes — the branches were unreachable.
+ */
+const PERL_EXT = extensionsOfLanguage("perl");
+const ZPT_EXT = extensionsOfLanguage("zope-page-template");
+const DTML_EXT = extensionsOfLanguage("dtml");
+/** Every extension this builder consumes. Exported so the mechanism registry's `native-graph` support set is
+ *  proven equal to it, and so re-introducing a literal the scanner never yields fails a test. */
+export const NATIVE_GRAPH_EXTENSIONS: ReadonlySet<string> = new Set([...PERL_EXT, ...ZPT_EXT, ...DTML_EXT]);
 
 export interface BuildOptions {
   target: string;

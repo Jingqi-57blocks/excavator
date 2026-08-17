@@ -67,8 +67,9 @@ export const AST_LANGUAGE_BY_EXTENSION: Record<string, string> = {
   ".go": "go",
 };
 
-/** Extensions handled by the tree-sitter Perl backend rather than ast-grep. */
-const PERL_EXTENSIONS = new Set([".pm", ".pl", ".t", ".cgi", ".psgi"]);
+/** Extensions handled by the tree-sitter Perl backend rather than ast-grep. Exported so the mechanism
+ *  registry's `condition-ast-perl` support set is proven equal to what this module actually branches on. */
+export const PERL_EXTENSIONS = new Set([".pm", ".pl", ".t", ".cgi", ".psgi"]);
 
 /** The languages this extractor understands structurally — an enumerable fact, not a guess. Perl is
  *  structural only once `warmExtractors` has run; every site records the path that produced it. */

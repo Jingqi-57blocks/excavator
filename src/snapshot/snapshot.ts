@@ -7,6 +7,7 @@ import type { Snapshot, SnapshotRoot } from "../core/types.ts";
 import { exists, nowIso, sha256, stableJson } from "../core/util.ts";
 import { FileLedgerDraft, buildFileLedger, type ExcludeRule, type FileLedger, type LedgerRootRecord } from "./file-ledger.ts";
 import type { ContentStat } from "./content-identity.ts";
+import { isRegisteredCorpusMember, patternOfClass, scannedExtensions } from "../base/language-registry.ts";
 
 const execFileAsync = promisify(execFile);
 
@@ -56,17 +57,17 @@ const OS_ARTIFACT_FILES = [
   /^Icon\r$/i, /^\._/, /^\.LSOverride$/i, /\.sw[op]$/i, /~$/
 ];
 const EXCLUDED_FILES = [...SENSITIVE_FILES, ...OS_ARTIFACT_FILES];
-const SAFE_ENV_SAMPLE = /^\.env\.(sample|example|template|defaults?)$/i;
-export const SOURCE_EXTENSIONS = new Set([
-  ".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs", ".go", ".py", ".java", ".kt", ".kts", ".rb", ".php",
-  ".cs", ".fs", ".rs", ".c", ".h", ".cc", ".cpp", ".hpp", ".swift", ".scala", ".vue", ".svelte", ".sql",
-  ".yaml", ".yml", ".json", ".toml", ".xml", ".html", ".css", ".scss", ".md", ".sh", ".proto", ".graphql", ".gql", ".tf", ".hcl", ".astro",
-  ".pm", ".pl", ".t", ".cgi", ".psgi", ".zpt", ".dtml"
-]);
-const PROJECT_FILE_NAMES = new Set([
-  "package.json", "go.mod", "Cargo.toml", "pyproject.toml", "requirements.txt", "pom.xml",
-  "build.gradle", "build.gradle.kts", "Gemfile", "composer.json", "docker-compose.yml", "docker-compose.yaml"
-]);
+/**
+ * Which file types the scanner admits is now a PROJECTION of the base language registry, not a literal here.
+ *
+ * The names and the membership are unchanged (pinned element by element against the pre-move literals in
+ * tests/mechanism-registry-consistency.test.ts, and `SCANNER_VERSION` is deliberately NOT bumped: the
+ * selection set does not move by one byte). What changes is that a mechanism can no longer claim to read a
+ * file type this scanner never yields — `nativegraph/build.ts` had been consuming `.pod` and `.pt` for
+ * exactly that long.
+ */
+const SAFE_ENV_SAMPLE = patternOfClass("env-sample");
+export const SOURCE_EXTENSIONS: ReadonlySet<string> = scannedExtensions();
 
 /** The largest file the scanner counts. Beyond it the file becomes an `oversize` ledger row, not a silent skip. */
 const MAX_COUNTED_FILE_BYTES = 2_000_000;
@@ -146,12 +147,13 @@ function isFixedExcludedPath(relativePath: string): boolean {
   return fileExclusionRule(pathSegments(relativePath).at(-1) ?? "") !== null;
 }
 
+/**
+ * Admission by extension OR by name class — the project manifests, the env samples and the
+ * README/LICENSE/Dockerfile/Makefile/Procfile family all live in the registry now, each as its own class.
+ * Splitting them there is what lets one mechanism declare `README` without also claiming `Makefile`.
+ */
 function isSupportedFileName(name: string): boolean {
-  const extension = extname(name).toLowerCase();
-  return SOURCE_EXTENSIONS.has(extension)
-    || PROJECT_FILE_NAMES.has(name)
-    || SAFE_ENV_SAMPLE.test(name)
-    || /^(README(?:\.|$)|LICENSE(?:\.|$)|Dockerfile(?:\.|$)|Makefile(?:\.|$)|Procfile(?:\.|$))/i.test(name);
+  return isRegisteredCorpusMember(name, extname(name).toLowerCase());
 }
 
 async function collectIgnoreRuleFiles(root: string): Promise<string[]> {

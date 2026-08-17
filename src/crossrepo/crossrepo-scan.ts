@@ -27,6 +27,13 @@ export const CROSSREPO_SCAN_VERSION = "crossrepo-links-v1";
  *  that are imported without a recognisable construction site in the scanned set. */
 const FALLBACK_CLIENTS = ["httpClient", "authRequest", "request", "apiClient"];
 
+/** Extensions the frontend-call walk reads. */
+const FRONTEND_EXTENSIONS = [".ts", ".tsx", ".js"];
+/** Every extension this scanner reads: the frontend walk plus the two route dialects it recognises on the
+ *  registration side (`.go` for gin, `.js`/`.ts` for express). Exported so the mechanism registry's
+ *  `crossrepo` support set is proven equal to what the code actually opens. */
+export const CROSSREPO_EXTENSIONS: ReadonlySet<string> = new Set([...FRONTEND_EXTENSIONS, ".go", ".js", ".ts"]);
+
 /** Files this scanner will not read regardless of extension — build output is not source. */
 /** Route-node query cap; reaching it truncates discovery, which is warned rather than hidden. */
 const ROUTE_NODE_CAP = 5000;
@@ -348,7 +355,7 @@ async function collectSources(root: string, moduleId: string, out: Array<{ modul
         if (!SKIP_DIRECTORIES.has(entry.name) && !entry.name.startsWith(".")) stack.push(full);
         continue;
       }
-      if (![".ts", ".tsx", ".js"].includes(extname(entry.name))) continue;
+      if (!FRONTEND_EXTENSIONS.includes(extname(entry.name))) continue;
       if (/\.(test|spec|d)\.tsx?$/.test(entry.name)) continue;
       const source = await readSource(full, warnings);
       if (source !== null) out.push({ module: moduleId, path: full.slice(root.length + 1), source });

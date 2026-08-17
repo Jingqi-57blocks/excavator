@@ -18,11 +18,19 @@ import type { CtagsCensus } from "./types.ts";
 const execFileAsync = promisify(execFile);
 const CANDIDATES = ["/opt/homebrew/bin/ctags", "/usr/local/bin/ctags", "/usr/bin/ctags", "ctags"];
 const EXCLUDES = ["node_modules", ".git", ".hg", ".svn", "vendor", ".codegraph", ".excavator", ".work"];
-const LANGUAGES = "Perl,Python,JavaScript,SQL,HTML";
+/** Exported so the mechanism registry's declared tool languages are proven identical to what ctags is asked
+ *  for; these are ctags' own language NAMES, which is why they stay here and not in the base registry. */
+export const CTAGS_LANGUAGES = "Perl,Python,JavaScript,SQL,HTML";
 const MAX_BUFFER = 256 * 1024 * 1024;
 
-/** Locate a Universal Ctags binary, or return null if none is installed. */
-async function findUniversalCtags(): Promise<string | null> {
+/**
+ * Locate a Universal Ctags binary, or return null if none is installed.
+ *
+ * Exported because it is the ONLY honest availability probe for this mechanism: a PATH lookup for `ctags`
+ * finds the BSD binary macOS ships at /usr/bin/ctags, which this census rejects, so the cheap check would
+ * report the mechanism as available on machines where it can never run.
+ */
+export async function findUniversalCtags(): Promise<string | null> {
   for (const bin of CANDIDATES) {
     try {
       const { stdout } = await execFileAsync(bin, ["--version"], { timeout: 5000 });
@@ -43,7 +51,7 @@ export async function runCtagsCensus(target: string): Promise<CtagsCensus> {
   }
 
   const args = [
-    "-R", "--output-format=json", "--fields=+Kl", `--languages=${LANGUAGES}`,
+    "-R", "--output-format=json", "--fields=+Kl", `--languages=${CTAGS_LANGUAGES}`,
     ...EXCLUDES.map((dir) => `--exclude=${dir}`),
     "-f", "-", target,
   ];

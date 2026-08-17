@@ -38,6 +38,10 @@ export interface Discovery {
 
 const JS_EXT = new Set([".js", ".cjs", ".mjs"]);
 const TS_EXT = new Set([".ts", ".tsx", ".mts", ".cts"]);
+/** Every extension the discovery loop below branches on. Exported so the mechanism registry's `db-schema`
+ *  support set is proven equal to it, and so a new branch that forgets the registry fails a test rather than
+ *  quietly reading a language the layer-2 ledger reports as uncovered. */
+export const SCHEMA_EXTENSIONS: ReadonlySet<string> = new Set([".go", ...JS_EXT, ".sql", ...TS_EXT, ".py", ".rb"]);
 
 // Format fingerprints. Each is a structural marker of the format, not of any particular repository.
 const GORM_TAG = /gorm:"/;
