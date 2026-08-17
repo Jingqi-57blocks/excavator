@@ -120,7 +120,7 @@ export function buildPoolFromRun(runDir: string, dbPaths: string[], maxNodes = D
   }
 }
 
-/** Freeze a pool to a gzipped JSON fixture (node:zlib, zero dependency). */
+/** Freeze a pool to a gzipped JSON fixture (node:zlib, no added dependency). */
 export function writePrunePool(file: string, pool: PrunePool): void {
   writeFileSync(file, gzipSync(Buffer.from(JSON.stringify(pool), "utf8")));
 }

@@ -1,6 +1,6 @@
 // Deterministic projector: read a real run dir and freeze BOTH layers 57B-372 measures into one gzipped
 // fixture, so the pinned-red tests can run against real artifacts without committing the (git-ignored) run
-// dirs. Mirrors prune-replay.ts's gz-fixture pattern (node:zlib, zero dependency), and reuses the FG reader
+// dirs. Mirrors prune-replay.ts's gz-fixture pattern (node:zlib, no added dependency), and reuses the FG reader
 // and fact-pack mapping in boundary.ts rather than re-deriving them.
 //
 //   * `nodes`       = the run's FG node set (with each node's `rescued` reason, so 57B-371's rescues stay

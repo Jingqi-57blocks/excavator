@@ -1,6 +1,6 @@
 // Freeze a run's extracted Knowledge into one gzipped fixture, so the claims-layer pinned-red tests
 // (57B-374) can diff against real authoring output without committing the (git-ignored) run dirs.
-// Mirrors factpack-fixture.ts's gz-fixture pattern (node:zlib, zero dependency) and reuses
+// Mirrors factpack-fixture.ts's gz-fixture pattern (node:zlib, no added dependency) and reuses
 // extractKnowledge as-is — this is a pure projector, it changes no eval semantics.
 //
 // Regenerate:  node --experimental-strip-types eval/knowledge-fixture.ts <runDir> <outFile.json.gz>

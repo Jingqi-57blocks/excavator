@@ -217,7 +217,7 @@ test("a nested destructure is still a destructure", () => {
 // called, so this module's own contract says they should RESOLVE — but the structural as-peel does not cross
 // braces either, so neither net sees them. Kept because the family it buys silence from (an Angular
 // `constructor(private http: HttpClient) {`, 11 reports across 405 files) is far more common. If a later
-// change makes these visible, this test fails — update the premise list and pending-decisions with it.
+// change makes these visible, this test fails — update the premise list with it.
 test("inline object-type receivers are a recorded blind spot, not a silent one", () => {
   const url = "`${config.appRunnerApi}/v2/leaves`";
   for (const source of [
