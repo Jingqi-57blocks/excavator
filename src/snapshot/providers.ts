@@ -48,6 +48,11 @@ export async function createProviderRegistry(options: {
   snapshot: Snapshot;
   codegraphResolution: CodeGraphResolution;
   codegraphSelected: boolean;
+  /**
+   * The CodeGraph identity, computed by the caller with `codegraphIdentity()`. Passed in rather than read off
+   * the snapshot: the snapshot is the SOURCE boundary and no longer carries an index digest at all.
+   */
+  codegraphDigest: string | null;
   codegraphOpenError?: string;
   binary?: string;
 }): Promise<ProviderRegistry> {
@@ -75,7 +80,7 @@ export async function createProviderRegistry(options: {
       capabilities: ["symbol-search", "relationship-expansion", "route-census", "cross-file-navigation"],
       metadata: {
         databaseSource: options.codegraphResolution.source,
-        databaseDigest: options.snapshot.codegraphDigest,
+        databaseDigest: options.codegraphDigest,
         moduleDatabases: options.codegraphResolution.modules,
         cli: { binary, available: await executableAvailable(binary) },
         openError: options.codegraphOpenError

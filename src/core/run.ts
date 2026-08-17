@@ -4,14 +4,21 @@ import { basename, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Audience, ChecklistItem, DocumentPlan, EvidenceItem, FeatureFactPack, InvestigationChecklist, InvestigationPlan, InvestigationWorkItem, KnowledgeArtifact, ReportRequest, RunManifest, SearchReceipt, SectionClaim, SectionClaimsFile, TraceCatalog, TraceRecord } from "./types.ts";
 import { auditAuthoringPacketConsumption, buildAuthoringPacket } from "../assurance/authoring-packet.ts";
-import { buildContexts, featureCacheKey } from "../context/context.ts";
+import { buildContexts, featureCacheKey, type ContextBuildResult } from "../context/context.ts";
 import { FACT_PACK_CATEGORIES, factPackEvidenceId } from "../context/factpack.ts";
 import { MAX_WINDOW_LINES, SourceReader, evidenceFromWindow, sourceSearch, type SourceSearchStats } from "../snapshot/source.ts";
-import { createSnapshot } from "../snapshot/snapshot.ts";
+import { SCANNER_VERSION, createSnapshot } from "../snapshot/snapshot.ts";
+import { serializeLedgerArtifact } from "../snapshot/file-ledger.ts";
+import { built, unavailable } from "../base/artifact-result.ts";
+import { ARTIFACT_REGISTRY } from "../base/artifact-registry.ts";
+import { materializeBoundRunContract, type BoundRunContract, type PlannedDocument } from "../contract/bound-run-contract.ts";
+import { deriveContractManifest, type ContractManifest } from "../contract/contract-manifest.ts";
+import { codegraphIdentity } from "../codegraph/codegraph-identity.ts";
+import { auditContractInstances } from "../assurance/contract-instance-audit.ts";
 import { ASSURANCE_VERSION, assuranceGenerationAtLeast, auditChecklist, auditDetailedFeatureSection, auditEvidenceCatalog, auditEvidenceMarkerPlacement, auditReadabilityTables, auditRescuedLogicCoverage, auditSectionClaims, auditSectionEvidenceMarkers, auditTargetProblemAttribution, auditTraces, auditWorkItemClaimCoverage, auditWorkItems, checklistUpdatesToWorkItems, createInvestigationChecklist, createInvestigationPlan, hasEvidenceMarkers, mergeChecklist, mergeWorkItems, runUsesCurrentAssurance, type AuditFinding, validateClaimsInput, workItemsToChecklist } from "../assurance/assurance.ts";
 import { auditComparativeClaims } from "../assurance/claim-comparison.ts";
-import { auditFreezeOrder, auditFrozenKnowledge, buildKnowledge, freezePreconditions, knowledgeDigest, normalizeSupplement, recordSupplement } from "../assurance/freeze.ts";
-import { atomicWrite, Deadline, ensureDir, exists, nowIso, readJson, redactionCacheTag, REDACTION_VERSION, runIdTimestamp, sha256, slugify, stableJson, writeJson } from "./util.ts";
+import { auditFreezeOrder, auditFrozenKnowledge, buildKnowledge, freezePreconditions, knowledgeDigest, normalizeSupplement, recordSupplement, type SnapshotDrift } from "../assurance/freeze.ts";
+import { atomicWrite, Deadline, ensureDir, exists, nowIso, projectWorkspace, readJson, redactionCacheTag, REDACTION_VERSION, runIdTimestamp, sha256, slugify, stableJson, writeJson } from "./util.ts";
 import { logicWorkItems, LOGIC_DISPOSITION_ASSURANCE_GENERATION } from "../assurance/logic-workitems.ts";
 import { readObligations, BOUNDARY_DENOMINATOR_ASSURANCE_GENERATION, CROSSREPO_DENOMINATOR_ASSURANCE_GENERATION, READ_ACCOUNTABILITY_ASSURANCE_GENERATION, RECOVERED_ROUTE_DENOMINATOR_ASSURANCE_GENERATION, type ReadObligationsArtifact, type RouteHandlerObligation } from "../assurance/read-obligations.ts";
 import { readingExposure, renderReadingCheck, type ReadingExposure } from "../assurance/read-residual-exposure.ts";
@@ -320,13 +327,109 @@ function anchorTermsFor(manifest: RunManifest): Record<string, string[]> {
   return byFeature;
 }
 
+/**
+ * The documents this request asks for, derived from the request alone.
+ *
+ * Computed here rather than inside the document loop because the bound contract needs the document set BEFORE
+ * any producer runs, and having two places construct the same ids is how they drift apart.
+ */
+function plannedDocuments(request: ReportRequest): PlannedDocument[] {
+  const planned: PlannedDocument[] = [];
+  for (const audience of request.overviewAudiences) planned.push({ id: `overview-${audience}`, kind: "overview", audience, featureKey: null });
+  for (const feature of request.features) {
+    const key = featureCacheKey(feature);
+    for (const audience of feature.audiences) planned.push({ id: `feature-${key}-${audience}`, kind: "feature", audience, featureKey: key });
+  }
+  return planned;
+}
+
+/**
+ * Record a run whose SOURCE BOUNDARY could not be read.
+ *
+ * Before this, an unreadable target threw out of prepare and left nothing behind: no run directory, no record,
+ * nothing to audit — the failure existed only in the operator's terminal. Now the contract that was materialized
+ * before the boundary was touched is written, and `ledger/files.json` holds an `Unavailable` envelope naming the
+ * cause. The original error is still raised: this records the failure, it does not absorb it.
+ */
+async function recordUnavailableBoundary(request: ReportRequest, contract: BoundRunContract, contractManifest: ContractManifest, cause: Error): Promise<void> {
+  const projectDir = await projectWorkspace(request.workdir, request.target);
+  const requestDigest = sha256(stableJson({ overview: request.overviewAudiences, features: request.features, language: request.language })).slice(0, 8);
+  const runId = `run-${runIdTimestamp()}-${runScopeSlug(request)}-unavailable-${requestDigest}-${randomUUID().slice(0, 8)}`;
+  const runDir = join(projectDir, "runs", runId);
+  await ensureDir(runDir);
+  await writeContractArtifacts(runDir, contract, contractManifest);
+  const reason = `the source boundary could not be read: ${cause.message}`;
+  await atomicWrite(join(runDir, "ledger", "files.json"), serializeLedgerArtifact(unavailable(reason, false)));
+  const now = nowIso();
+  const manifest: RunManifest = {
+    version: 3,
+    id: runId,
+    state: "failed",
+    createdAt: now,
+    updatedAt: now,
+    request: { ...request, redactSecrets: request.redactSecrets === true },
+    snapshot: null,
+    documents: [],
+    evidenceDigest: sha256(stableJson([])),
+    assuranceVersion: ASSURANCE_VERSION,
+    metrics: {
+      startedAt: now,
+      finishedAt: now,
+      timing: {},
+      graphQueries: 0,
+      graphQueryCacheHits: 0,
+      sourceWindows: 0,
+      sourceWindowCacheHits: 0,
+      sourceCharacters: 0,
+      sourceSearches: 0,
+      sourceSearchCacheHits: 0,
+      sourceFilesSearched: 0,
+      filesConsidered: 0,
+      cache: {},
+      warnings: [reason]
+    },
+    error: { stage: "prepare", message: cause.message, stack: cause.stack }
+  };
+  await writeJson(join(runDir, "run.json"), manifest);
+  await writeJson(join(runDir, "metrics.json"), manifest.metrics);
+}
+
+async function writeContractArtifacts(runDir: string, contract: BoundRunContract, contractManifest: ContractManifest): Promise<void> {
+  await writeJson(join(runDir, "contract", "run-intent.json"), contract.runIntent);
+  await writeJson(join(runDir, "contract", "requirements.json"), contract.requirements);
+  await writeJson(join(runDir, "contract", "contract-manifest.json"), contractManifest);
+}
+
 export async function prepareRun(request: ReportRequest): Promise<{ runDir: string; manifest: RunManifest }> {
   // prd is a feature-only audience: no prd-overview template exists. This single Core guard covers the CLI
   // overview command, the report --overview arg and request.json, so the overview branch (buildContexts →
   // renderOverviewContext, and the referencePath("overview", "prd") document build below) never sees prd.
   if (request.overviewAudiences.includes("prd")) throw new Error("prd audience is feature-only; no prd-overview template exists");
   const preparedStarted = Date.now();
-  const result = await buildContexts(request);
+  // The bound contract is materialized BEFORE any producer is called, and the expected artifact set is derived
+  // from the base registry — never from what the run turns out to have produced. That ordering is the whole
+  // reason "a required artifact is missing" can be a real check rather than a restatement of the results.
+  const planned = plannedDocuments(request);
+  const contract = materializeBoundRunContract({
+    request,
+    features: request.features.map((feature) => ({ key: featureCacheKey(feature), subject: feature.subject, aliases: feature.aliases })),
+    documents: planned
+  });
+  const contractManifest = deriveContractManifest(ARTIFACT_REGISTRY, contract.runIntent, contract.requirements);
+  let result: ContextBuildResult;
+  try {
+    result = await buildContexts(request);
+  } catch (error) {
+    // The boundary failure is what the caller must see, so it is re-raised unchanged. A failure to RECORD it is
+    // appended rather than swallowed: a silent catch here hid a missing import for one whole test cycle, which
+    // is precisely the shape this slice exists to remove from the scanner.
+    try {
+      await recordUnavailableBoundary(request, contract, contractManifest, error as Error);
+    } catch (recordError) {
+      (error as Error).message = `${(error as Error).message} (the failure record could not be written: ${(recordError as Error).message})`;
+    }
+    throw error;
+  }
   // `redactSecrets` is normalised to an explicit boolean here, never left absent. Everything downstream —
   // the audit's re-derivation, the cache keys, the operator-facing notice — reads the run's own mode, and a
   // missing field would force each of them to assume one, which is how the same run gets read two ways.
@@ -344,26 +447,19 @@ export async function prepareRun(request: ReportRequest): Promise<{ runDir: stri
   await ensureDir(join(runDir, "audit"));
   await ensureDir(join(runDir, "prompts"));
 
+  // Built from the SAME planned set the contract was materialized from, so the run's documents and its
+  // requirement rows can never name different documents.
   const documents: DocumentPlan[] = [];
   let order = 0;
-  for (const audience of request.overviewAudiences) {
+  for (const document of planned) {
     order += 1;
-    const id = `overview-${audience}`;
-    const templatePath = referencePath("overview", audience);
-    const contextPath = join(runDir, "context", `${id}.md`);
-    await atomicWrite(contextPath, result.prepared.documentContexts.get(id) ?? "");
-    documents.push(await makeDocumentPlan(runDir, id, "overview", audience, templatePath, contextPath, undefined, order));
-  }
-  for (const feature of request.features) {
-    const key = featureCacheKey(feature);
-    for (const audience of feature.audiences) {
-      order += 1;
-      const id = `feature-${key}-${audience}`;
-      const templatePath = referencePath("feature", audience);
-      const contextPath = join(runDir, "context", `${id}.md`);
-      await atomicWrite(contextPath, result.prepared.documentContexts.get(id) ?? "");
-      documents.push(await makeDocumentPlan(runDir, id, "feature", audience, templatePath, contextPath, feature.subject, order));
-    }
+    const templatePath = referencePath(document.kind, document.audience);
+    const contextPath = join(runDir, "context", `${document.id}.md`);
+    await atomicWrite(contextPath, result.prepared.documentContexts.get(document.id) ?? "");
+    const subject = document.featureKey === null
+      ? undefined
+      : request.features.find((feature) => featureCacheKey(feature) === document.featureKey)?.subject;
+    documents.push(await makeDocumentPlan(runDir, document.id, document.kind, document.audience, templatePath, contextPath, subject, order));
   }
 
   const providerRegistry = result.stats.providerRegistry;
@@ -416,6 +512,7 @@ export async function prepareRun(request: ReportRequest): Promise<{ runDir: stri
     providerRegistryDigest: providerRegistry.digest,
     analysisScopeDigest: analysisScope.digest,
     assuranceVersion: ASSURANCE_VERSION,
+    codegraphDigest: result.stats.codegraphDigest,
     metrics: {
       startedAt: new Date(preparedStarted).toISOString(),
       timing: result.stats.timing,
@@ -438,6 +535,10 @@ export async function prepareRun(request: ReportRequest): Promise<{ runDir: stri
     }
   };
 
+  // The contract first, then the boundary ledger, then everything derived from them — the same order the
+  // layering runs in, so a partially written run directory is readable from the bottom up.
+  await writeContractArtifacts(runDir, contract, contractManifest);
+  await atomicWrite(join(runDir, "ledger", "files.json"), serializeLedgerArtifact(built(result.ledger)));
   await writeJson(join(runDir, "request.json"), effectiveRequest);
   await writeJson(join(runDir, "snapshot.json"), result.prepared.snapshot);
   await writeJson(join(runDir, "evidence.json"), { evidence });
@@ -543,6 +644,37 @@ export async function beginDocument(runDirInput: string, documentId: string): Pr
   return manifest;
 }
 
+/**
+ * Re-derive a run's two identities and say what can be concluded from the comparison.
+ *
+ * One function for all three callers (freeze, search, audit) so they cannot drift into three readings of the
+ * same facts. Two things it settles that the previous inline comparisons could not:
+ *
+ *  - COMPARABILITY. A snapshot id is only comparable to another id derived by the same scanner generation.
+ *    Comparing across a generation change reports "the source tree changed" about a target nobody touched,
+ *    which would false-fail every archived run the moment the scanner is versioned.
+ *  - WHERE THE INDEX IDENTITY LIVES. New runs record it on the manifest; runs prepared before that recorded it
+ *    inside the snapshot. Reading either means no archived run needs migrating, and the formula itself is
+ *    unchanged, so the recorded value still re-derives byte for byte.
+ */
+async function reDeriveIdentities(runDir: string, manifest: RunManifest): Promise<{ current: Awaited<ReturnType<typeof createSnapshot>>; drift: SnapshotDrift } | null> {
+  if (!manifest.snapshot) return null;
+  const current = await createSnapshot(manifest.request.target, manifest.request.budgets.maxFiles, { cacheDir: projectCacheDir(runDir) });
+  const comparable = manifest.snapshot.scannerVersion === SCANNER_VERSION;
+  const recordedCodegraph = manifest.codegraphDigest ?? (manifest.snapshot as { codegraphDigest?: string | null }).codegraphDigest ?? null;
+  const currentCodegraph = await codegraphIdentity(manifest.request.codegraphModules ?? manifest.request.codegraph);
+  return {
+    current,
+    drift: {
+      comparable,
+      recordedScannerVersion: manifest.snapshot.scannerVersion,
+      currentScannerVersion: SCANNER_VERSION,
+      snapshotChanged: comparable && current.snapshot.id !== manifest.snapshot.id,
+      codegraphChanged: currentCodegraph !== recordedCodegraph
+    }
+  };
+}
+
 /** The supplement flag pair a runtime mutator may carry, threaded from the CLI. */
 export type SupplementInput = { reason?: string; workItemId?: string } | undefined;
 
@@ -605,12 +737,9 @@ export async function freezeRun(runDirInput: string): Promise<{ manifest: RunMan
   // redaction/assurance bump. Older (pre-4) runs never baked them and are grandfathered.
   if (assuranceGenerationAtLeast(manifest, LOGIC_DISPOSITION_ASSURANCE_GENERATION)) expectedPlan.items.push(...logicWorkItems(Object.values(factPacks), manifest.documents).items);
   const documentIds = new Set(manifest.documents.map((document) => document.id));
-  let snapshotDrift: { snapshotChanged: boolean; codegraphChanged: boolean } | null = null;
-  if (manifest.snapshot) {
-    const current = await createSnapshot(manifest.request.target, manifest.request.codegraphModules ?? manifest.request.codegraph, manifest.request.budgets.maxFiles);
-    snapshotDrift = { snapshotChanged: current.snapshot.id !== manifest.snapshot.id, codegraphChanged: current.snapshot.codegraphDigest !== manifest.snapshot.codegraphDigest };
-  }
-  const findings = await freezePreconditions({ manifest, plan, expectedPlan, evidence: evidenceCatalog.evidence, evidenceById, traces, documentIds, snapshotDrift });
+  const snapshotDrift = (await reDeriveIdentities(runDir, manifest))?.drift ?? null;
+  const contractFindings = await auditContractInstances(runDir, manifest);
+  const findings = await freezePreconditions({ manifest, plan, expectedPlan, evidence: evidenceCatalog.evidence, evidenceById, traces, documentIds, snapshotDrift, contractFindings });
   // The reading gate runs at freeze because that is where a false ledger entry is cheapest to fix: the
   // author simply records the window. Claims do not exist yet, so only the read side is reconciled here.
   if (obligations && readResidual) {
@@ -633,7 +762,15 @@ export async function freezeRun(runDirInput: string): Promise<{ manifest: RunMan
   const crossFeaturePath = join(runDir, "context", "cross-feature.json");
   const crossFeature = await exists(crossFeaturePath) ? await readJson<unknown>(crossFeaturePath) : null;
   const frozenAt = nowIso();
-  const knowledge = buildKnowledge({ manifest, plan, evidence: evidenceCatalog.evidence, traces, factPacks, crossFeature, frozenAt, readObligations: obligations, boundaryFunctions, crossRepoLinks });
+  // Where the append-until-freeze streams stand at this seal. Read BEFORE the `investigation.frozen` event is
+  // appended, so the cutoff is the last pre-freeze sequence rather than the freeze event itself.
+  const timelineAtFreeze = await readTimeline(runDir);
+  const timelineTail = timelineAtFreeze.at(-1);
+  const appendStreams = [
+    { id: "evidence.json", frozenThroughSequence: evidenceCatalog.evidence.length, tailDigest: manifest.evidenceDigest },
+    { id: "timeline.jsonl", frozenThroughSequence: timelineTail?.sequence ?? 0, tailDigest: timelineTail?.digest ?? "" }
+  ];
+  const knowledge = buildKnowledge({ manifest, plan, evidence: evidenceCatalog.evidence, traces, factPacks, crossFeature, frozenAt, readObligations: obligations, boundaryFunctions, crossRepoLinks, appendStreams });
   await writeJson(join(runDir, "knowledge.json"), knowledge);
   // Render the per-document authoring packets from the just-frozen knowledge: a deterministic, model-free
   // view organized by report section that the author reads before writing each section. Regenerable view,
@@ -732,10 +869,15 @@ export async function searchSourceEvidence(runDirInput: string, termsInput: stri
   const pathPrefixes = [...new Set((options.pathPrefixes ?? []).map((prefix) => prefix.replaceAll("\\", "/").replace(/^\.\//, "").replace(/\/+$/, "")).filter(Boolean))];
   if (pathPrefixes.some((prefix) => prefix === ".." || prefix.startsWith("../") || prefix.includes("/../"))) throw new Error("Source search path prefix escapes the target");
 
-  const current = await createSnapshot(manifest.request.target, manifest.request.codegraphModules ?? manifest.request.codegraph, manifest.request.budgets.maxFiles);
-  if (current.snapshot.id !== manifest.snapshot.id) {
+  const identities = await reDeriveIdentities(runDir, manifest);
+  if (!identities) throw new Error("Run has no source snapshot");
+  if (!identities.drift.comparable) {
+    throw new Error(`Source snapshot identity cannot be re-derived: this run was prepared by scanner ${identities.drift.recordedScannerVersion} and the current scanner is ${identities.drift.currentScannerVersion}. Re-prepare the run before recording more evidence against it.`);
+  }
+  if (identities.drift.snapshotChanged) {
     throw new Error("Source snapshot changed after context preparation");
   }
+  const current = identities.current;
   const scopedFiles = pathPrefixes.length
     ? current.files.filter((file) => pathPrefixes.some((prefix) => file.relativePath === prefix || file.relativePath.startsWith(`${prefix}/`)))
     : current.files;
@@ -972,11 +1114,20 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
   if (sha256(stableJson(scopeUnsigned)) !== analysisScope.digest || manifest.analysisScopeDigest !== analysisScope.digest || analysisScope.snapshotId !== manifest.snapshot?.id) findings.push({ level: "error", document: "scope", message: "analysis scope digest is invalid or does not match the run" });
 
   findings.push(...await auditEvidenceCatalog(manifest, evidenceCatalog.evidence));
-  if (manifest.snapshot) {
-    const current = await createSnapshot(manifest.request.target, manifest.request.codegraphModules ?? manifest.request.codegraph, manifest.request.budgets.maxFiles);
-    if (current.snapshot.id !== manifest.snapshot.id) findings.push({ level: "error", document: "snapshot", message: "source snapshot changed after context preparation" });
-    if (current.snapshot.codegraphDigest !== manifest.snapshot.codegraphDigest) findings.push({ level: "error", document: "snapshot", message: "CodeGraph identity changed after context preparation" });
+  const identities = await reDeriveIdentities(runDir, manifest);
+  if (identities) {
+    // A generation change is a stated LIMIT, not a finding about the target: the check could not run. Reporting
+    // it as "the source changed" would be a false alarm on every archived run, and false alarms are how true
+    // ones stop being read.
+    if (!identities.drift.comparable) {
+      findings.push({ level: "warning", document: "snapshot", message: `source drift could not be checked: this run was prepared by scanner ${identities.drift.recordedScannerVersion} and the current scanner is ${identities.drift.currentScannerVersion}, so the two snapshot identities are not comparable. Everything derived from the snapshot in this run stands as recorded; re-prepare to check it against the current scanner.` });
+    } else if (identities.drift.snapshotChanged) {
+      findings.push({ level: "error", document: "snapshot", message: "source snapshot changed after context preparation" });
+    }
+    // The CodeGraph formula is unchanged across scanner generations, so this comparison holds either way.
+    if (identities.drift.codegraphChanged) findings.push({ level: "error", document: "snapshot", message: "CodeGraph identity changed after context preparation" });
   }
+  findings.push(...await auditContractInstances(runDir, manifest));
 
   const incompleteDocuments: DocumentPlan[] = [];
   for (const document of scopedDocuments) {

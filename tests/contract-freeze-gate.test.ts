@@ -1,0 +1,161 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { join } from "node:path";
+import { readFile, rm, writeFile } from "node:fs/promises";
+import type { ReportRequest, RunManifest } from "../src/core/types.ts";
+import { auditRun, freezeRun, prepareRun } from "../src/core/run.ts";
+import { ARTIFACT_REGISTRY } from "../src/base/artifact-registry.ts";
+import { auditContractInstances } from "../src/assurance/contract-instance-audit.ts";
+import { CONTRACT_MANIFEST_ASSURANCE_GENERATION } from "../src/assurance/assurance.ts";
+import type { ContractManifest } from "../src/contract/contract-manifest.ts";
+import type { FileLedger } from "../src/snapshot/file-ledger.ts";
+import type { ArtifactResult } from "../src/base/artifact-result.ts";
+import { exists, writeJson } from "../src/core/util.ts";
+import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, tempDir } from "./helpers.ts";
+
+/**
+ * Freeze verifies the run against the contract that was materialized before any producer ran — per INSTANCE,
+ * not per artifact family. A slot satisfied by feature A used to cover feature B, which is how a run with two
+ * features could lose one feature's whole working set and still pass.
+ */
+
+const BUDGETS = { prepareMs: 60_000, authorMs: 30_000, maxGraphQueries: 40, maxSourceWindows: 50, maxSourceCharacters: 120_000, maxFiles: 10_000, maxFeatureNodes: 80, maxExpansionDepth: 2 };
+
+async function twoFeatureRequest(): Promise<ReportRequest> {
+  const target = await copyFixture();
+  const workdir = await tempDir();
+  const codegraph = join(workdir, "codegraph.db");
+  createCodeGraphFixture(codegraph);
+  return {
+    target, codegraph, workdir, language: "zh-CN", detailLevel: "standard", overviewAudiences: [],
+    features: [
+      { subject: "Leave management", aliases: ["leave", "holiday"], audiences: ["product"] },
+      { subject: "Order processing", aliases: ["order", "checkout"], audiences: ["product"] }
+    ],
+    budgets: BUDGETS
+  };
+}
+
+async function overviewRequest(): Promise<ReportRequest> {
+  const target = await copyFixture();
+  const workdir = await tempDir();
+  const codegraph = join(workdir, "codegraph.db");
+  createCodeGraphFixture(codegraph);
+  return { target, codegraph, workdir, language: "zh-CN", detailLevel: "standard", overviewAudiences: ["product"], features: [], budgets: BUDGETS };
+}
+
+async function readManifest(runDir: string): Promise<RunManifest> {
+  return JSON.parse(await readFile(join(runDir, "run.json"), "utf8")) as RunManifest;
+}
+
+test("the registry covers all eight layer slots and every layer-3 producer", () => {
+  const layers = [...new Set(ARTIFACT_REGISTRY.slots.map((slot) => slot.layer))].sort((a, b) => a - b);
+  assert.deepEqual(layers, [1, 2, 3, 4, 5, 6, 7, 8], "a layer with no registered slot has no expected artifact and therefore cannot fail");
+  assert.deepEqual(ARTIFACT_REGISTRY.producers.map((producer) => producer.id).sort(),
+    ["codegraph", "crossrepo", "db-schema", "framework", "native-graph", "probe", "vocabulary"]);
+  for (const entry of [...ARTIFACT_REGISTRY.slots, ...ARTIFACT_REGISTRY.producers]) {
+    assert.ok(entry.schemaId.length > 0, `${entry.id} declares a schema id`);
+    assert.ok(entry.validatorVersion.length > 0, `${entry.id} declares a validator version`);
+    assert.equal(typeof entry.enforced, "boolean", `${entry.id} states explicitly whether it is enforced today`);
+    assert.ok(entry.enforcementNote.length > 0, `${entry.id} states why it is or is not enforced`);
+  }
+  assert.ok(ARTIFACT_REGISTRY.producers.every((producer) => producer.layer === 3));
+});
+
+test("a prepared run carries its bound contract and its layer-1 ledger on disk", async () => {
+  const { runDir } = await prepareRun(await overviewRequest());
+  for (const name of ["run-intent.json", "requirements.json", "contract-manifest.json"]) {
+    assert.ok(await exists(join(runDir, "contract", name)), `contract/${name} is materialized at prepare`);
+  }
+  const ledger = JSON.parse(await readFile(join(runDir, "ledger", "files.json"), "utf8")) as ArtifactResult<FileLedger>;
+  assert.equal(ledger.status, "built");
+  const manifest = await readManifest(runDir);
+  assert.equal(ledger.status === "built" ? ledger.value.contentManifestDigest : null, manifest.snapshot?.contentManifestDigest,
+    "the ledger and the snapshot are bound by the tier2 whole-table digest");
+  assert.deepEqual(await auditContractInstances(runDir, manifest), [], "a freshly prepared run satisfies its own contract");
+});
+
+test("a missing layer-1 ledger fails the contract instance audit and freeze", async () => {
+  const { runDir } = await prepareRun(await overviewRequest());
+  await disposeAllWorkItems(runDir);
+  await rm(join(runDir, "ledger", "files.json"));
+  const manifest = await readManifest(runDir);
+  const findings = await auditContractInstances(runDir, manifest);
+  assert.ok(findings.some((finding) => finding.level === "error" && /ledger\/files\.json/.test(finding.message)), JSON.stringify(findings, null, 2));
+  const frozen = await freezeRun(runDir);
+  assert.equal(frozen.frozen, false, "a run missing a required contract instance cannot be frozen");
+  assert.ok(frozen.findings.some((finding) => /ledger\/files\.json/.test(finding.message)));
+});
+
+test("deleting one feature's working set is an error naming that instance, even when the other feature still has one", async () => {
+  const { runDir } = await prepareRun(await twoFeatureRequest());
+  const manifest = await readManifest(runDir);
+  const contractManifest = JSON.parse(await readFile(join(runDir, "contract", "contract-manifest.json"), "utf8")) as ContractManifest;
+  const factPacks = contractManifest.expected.filter((instance) => instance.slotId === "workset.fact-pack");
+  assert.equal(factPacks.length, 2, "two features expect two fact-pack instances");
+  assert.deepEqual(await auditContractInstances(runDir, manifest), []);
+
+  const victim = factPacks[1];
+  await rm(join(runDir, victim.path));
+  const findings = await auditContractInstances(runDir, manifest);
+  assert.ok(findings.some((finding) => finding.level === "error" && finding.message.includes(victim.instanceKey)),
+    `the finding must name the missing instance: ${JSON.stringify(findings, null, 2)}`);
+});
+
+test("a run prepared before the contract existed is grandfathered, and one prepared after is not", async () => {
+  const { runDir } = await prepareRun(await overviewRequest());
+  const manifest = await readManifest(runDir);
+  assert.ok((manifest.assuranceVersion ?? "").startsWith(`assurance-v${CONTRACT_MANIFEST_ASSURANCE_GENERATION}-`),
+    `a fresh run is prepared under generation ${CONTRACT_MANIFEST_ASSURANCE_GENERATION}: ${manifest.assuranceVersion}`);
+  await rm(join(runDir, "contract"), { recursive: true });
+  const current = await auditContractInstances(runDir, manifest);
+  assert.ok(current.some((finding) => finding.level === "error" && /contract-manifest\.json/.test(finding.message)),
+    "a generation-10 run with no contract on disk lost a required record");
+
+  const legacy: RunManifest = { ...manifest, assuranceVersion: "assurance-v9-mode-redaction-v7" };
+  assert.deepEqual(await auditContractInstances(runDir, legacy), [], "an archived pre-contract run verifies with no migration");
+});
+
+test("audit reports a scanner generation change as a warning rather than a false source-drift error", async () => {
+  const { runDir } = await prepareRun(await overviewRequest());
+  const runPath = join(runDir, "run.json");
+  const manifest = await readManifest(runDir);
+  assert.ok(manifest.snapshot);
+  manifest.snapshot.scannerVersion = "git-aware-source-boundary-v1";
+  await writeJson(runPath, manifest);
+  const audit = await auditRun(runDir);
+  const drift = audit.findings.filter((finding) => finding.document === "snapshot");
+  assert.ok(drift.some((finding) => finding.level === "warning" && /scanner/i.test(finding.message)),
+    `a re-derivation the scanner cannot perform is a stated limit: ${JSON.stringify(drift, null, 2)}`);
+  assert.deepEqual(drift.filter((finding) => finding.level === "error" && /source snapshot changed/.test(finding.message)), [],
+    "an incomparable identity must not be reported as a changed source tree");
+});
+
+test("an unreadable target leaves a failed run directory whose layer-1 ledger records the cause", async () => {
+  const workdir = await tempDir();
+  const target = join(await tempDir(), "does-not-exist");
+  const request: ReportRequest = { target, workdir, language: "zh-CN", detailLevel: "standard", overviewAudiences: ["product"], features: [], budgets: BUDGETS };
+  await assert.rejects(() => prepareRun(request), /does-not-exist/);
+
+  const { runDir } = await findFailedRun(workdir);
+  const ledger = JSON.parse(await readFile(join(runDir, "ledger", "files.json"), "utf8")) as ArtifactResult<FileLedger>;
+  assert.equal(ledger.status, "unavailable", "'the boundary could not be read' is a written record, not a missing file");
+  if (ledger.status === "unavailable") {
+    assert.match(ledger.cause, /does-not-exist/);
+    assert.equal(typeof ledger.retryable, "boolean");
+  }
+  const manifest = await readManifest(runDir);
+  assert.equal(manifest.state, "failed");
+  assert.equal(manifest.snapshot, null);
+  assert.ok(await exists(join(runDir, "contract", "contract-manifest.json")), "the contract is materialized before the boundary is read, so it survives the failure");
+});
+
+/** Locate the single run directory a failed prepare left under a fresh workdir. */
+async function findFailedRun(workdir: string): Promise<{ runDir: string }> {
+  const { listDirectories } = await import("../src/core/util.ts");
+  const projects = await listDirectories(workdir);
+  assert.equal(projects.length, 1, `exactly one project directory: ${JSON.stringify(projects)}`);
+  const runs = await listDirectories(join(projects[0], "runs"));
+  assert.equal(runs.length, 1, `exactly one run directory: ${JSON.stringify(runs)}`);
+  return { runDir: runs[0] };
+}

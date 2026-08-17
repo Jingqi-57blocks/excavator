@@ -76,7 +76,14 @@ export function recordedUnderRedaction(manifest: RunManifest): boolean {
 /** The generation from which a run STATES its redaction mode, so the field may be believed. */
 export const REDACTION_MODE_ASSURANCE_GENERATION = 9;
 
-export const ASSURANCE_VERSION = `assurance-v9-mode-${REDACTION_VERSION}`;
+/**
+ * The generation from which a run materializes a `contract/` directory before any producer runs, and can
+ * therefore be verified against the contract it recorded. An older archived run has no contract on disk; it is
+ * grandfathered and keeps being verified by the generation gate alone, with no migration.
+ */
+export const CONTRACT_MANIFEST_ASSURANCE_GENERATION = 10;
+
+export const ASSURANCE_VERSION = `assurance-v10-contract-${REDACTION_VERSION}`;
 
 /** Strict re-derivation checks apply only to runs prepared under exactly the current version. */
 export function runUsesCurrentAssurance(manifest: RunManifest): boolean {

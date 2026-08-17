@@ -26,6 +26,22 @@ export function knowledgeDigest(knowledge: KnowledgeArtifact): string {
   return sha256(stableJson(core));
 }
 
+/**
+ * The snapshot re-derivation result, computed by the caller (`createSnapshot` lives in the orchestrator).
+ *
+ * `comparable` is the field that had to be added. Two snapshot ids can only be compared when they were derived
+ * by the same scanner generation; when the generation changed, the recorded id is not "different", it is
+ * INCOMPARABLE — and reporting that as a changed source tree would false-fail every archived run at once. Which
+ * side is which is named, because a message that cannot say what changed cannot be acted on.
+ */
+export interface SnapshotDrift {
+  comparable: boolean;
+  recordedScannerVersion: string;
+  currentScannerVersion: string;
+  snapshotChanged: boolean;
+  codegraphChanged: boolean;
+}
+
 export interface FreezePreconditionInput {
   manifest: RunManifest;
   plan: InvestigationPlan;
@@ -34,8 +50,9 @@ export interface FreezePreconditionInput {
   evidenceById: Map<string, EvidenceItem>;
   traces: TraceCatalog;
   documentIds: Set<string>;
-  /** Snapshot re-derivation result computed by the caller (createSnapshot lives in the orchestrator). */
-  snapshotDrift: { snapshotChanged: boolean; codegraphChanged: boolean } | null;
+  snapshotDrift: SnapshotDrift | null;
+  /** Contract-instance findings, computed by the caller against the run's own `contract-manifest.json`. */
+  contractFindings: AuditFinding[];
 }
 
 /**
@@ -44,8 +61,8 @@ export interface FreezePreconditionInput {
  * was audit-clean at freeze time. Returns findings; an empty error set means the run may be frozen.
  */
 export async function freezePreconditions(input: FreezePreconditionInput): Promise<AuditFinding[]> {
-  const { manifest, plan, expectedPlan, evidence, evidenceById, traces, documentIds, snapshotDrift } = input;
-  const findings: AuditFinding[] = [];
+  const { manifest, plan, expectedPlan, evidence, evidenceById, traces, documentIds, snapshotDrift, contractFindings } = input;
+  const findings: AuditFinding[] = [...contractFindings];
   const evidenceIds = new Set(evidence.map((item) => item.id));
   const traceIds = new Set(traces.traces.map((trace) => trace.id));
   if (manifest.evidenceDigest !== sha256(stableJson(evidence))) findings.push(error("evidence", "evidence catalog changed outside the recorded source-evidence workflow"));
@@ -53,6 +70,11 @@ export async function freezePreconditions(input: FreezePreconditionInput): Promi
   findings.push(...auditWorkItems(plan, expectedPlan, evidenceById, traceIds));
   // Claims do not exist yet at freeze time, so no trace step can legitimately cite one: pass an empty set.
   findings.push(...auditTraces(traces, documentIds, evidenceIds, new Set<string>()));
+  if (snapshotDrift && !snapshotDrift.comparable) {
+    // Freezing is a claim that the run's inputs are pinned. If the identity cannot even be re-derived, that
+    // claim cannot be made — so this is an error at freeze, while audit reports the same fact as a limit.
+    findings.push(error("snapshot", `the source snapshot identity cannot be re-derived: this run was prepared by scanner ${snapshotDrift.recordedScannerVersion} and the current scanner is ${snapshotDrift.currentScannerVersion}. Re-prepare the run to freeze it under the current scanner.`));
+  }
   if (snapshotDrift?.snapshotChanged) findings.push(error("snapshot", "source snapshot changed after context preparation"));
   if (snapshotDrift?.codegraphChanged) findings.push(error("snapshot", "CodeGraph identity changed after context preparation"));
   return findings;
@@ -75,11 +97,17 @@ export interface BuildKnowledgeInput {
   boundaryFunctions?: unknown | null;
   /** The resolved cross-repo links, pinned for the same reason (57B-398). */
   crossRepoLinks?: unknown | null;
+  /**
+   * Where each append-until-freeze stream stood at this seal: the cutoff and the tail digest. Computed by the
+   * caller because the timeline is read from disk. Registered, not enforced — the epoch machinery it prepares
+   * for does not exist yet, and recording the cutoff is what makes building it possible without a migration.
+   */
+  appendStreams?: Array<{ id: string; frozenThroughSequence: number; tailDigest: string }>;
 }
 
 /** Build the knowledge-v1 record: frozen fingerprints of the run's artifacts plus a completeness report. */
 export function buildKnowledge(input: BuildKnowledgeInput): KnowledgeArtifact {
-  const { manifest, plan, evidence, traces, factPacks, crossFeature, frozenAt, readObligations, boundaryFunctions, crossRepoLinks } = input;
+  const { manifest, plan, evidence, traces, factPacks, crossFeature, frozenAt, readObligations, boundaryFunctions, crossRepoLinks, appendStreams } = input;
   const evidenceIds = evidence.map((item) => item.id).sort((a, b) => a.localeCompare(b));
   const workitems = plan.items.map((item) => ({ id: item.id, status: item.status })).sort((a, b) => a.id.localeCompare(b.id));
   const traceIds = traces.traces.map((trace) => trace.id).sort((a, b) => a.localeCompare(b));
@@ -103,6 +131,10 @@ export function buildKnowledge(input: BuildKnowledgeInput): KnowledgeArtifact {
     ...(boundaryFunctions != null ? { boundaryFunctionsDigest: sha256(stableJson(boundaryFunctions)) } : {}),
     ...(crossRepoLinks != null ? { crossRepoLinksDigest: sha256(stableJson(crossRepoLinks)) } : {}),
     completeness: buildCompleteness(plan),
+    // Epoch 0 is this first seal. Recorded now so the append-only supplement ledger that already exists can
+    // later grow a second epoch without any archived record needing to change shape.
+    epoch: 0,
+    ...(appendStreams ? { appendStreams } : {}),
     supplements: []
   };
 }
