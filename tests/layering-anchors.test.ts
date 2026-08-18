@@ -100,7 +100,7 @@ const ANCHORS: Record<string, Classification> = {
   "src/obligation/declarations.ts:93": { kind: "current", expect: "export function buildObligationDeclarations" },
   "src/attribution/allocator.ts": { kind: "current-file" },
   "eval/fixtures/allocator/preregistration-v1.json": { kind: "current-file" },
-  "src/context/factpack.ts:229": { kind: "current", expect: "export async function buildFactPack" },
+  "src/context/factpack.ts:230": { kind: "current", expect: "export async function buildFactPack" },
   "src/workset/factpack-annotate.ts:38-58": { kind: "current", expect: "export function annotateFactPack" },
   "src/workset/factpack-view.ts:6-22": { kind: "current", expect: "consumableFactPackItems" },
 

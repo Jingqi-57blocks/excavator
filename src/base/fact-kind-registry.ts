@@ -74,6 +74,7 @@ export const FACT_KIND_IDS = [
   "frontend-call",
   "http-link",
   "indexed-function",
+  "indexed-route",
   "recovered-route",
   "term-df"
 ] as const;
@@ -111,6 +112,14 @@ const KINDS: readonly FactKindEntry[] = [
     membershipKind: "unit",
     seatRule: "anchor-cell",
     structuralDeclaration: true
+  },
+  {
+    id: "indexed-route",
+    title: "An indexed route, filed at its source-verified handler or visibly at the registration line",
+    producer: "codegraph",
+    membershipKind: "unit",
+    seatRule: "anchor-cell",
+    structuralDeclaration: false
   },
   {
     id: "recovered-route",

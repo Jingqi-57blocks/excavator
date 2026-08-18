@@ -21,6 +21,15 @@ export interface GraphSummary {
   roots: Array<{ root: string; files: number; nodes: number }>;
 }
 
+/** One indexed `references` edge whose source is a route, with both endpoint rows attached. */
+export interface GraphRouteReference {
+  readonly route: GraphNode;
+  readonly target: GraphNode;
+  readonly edge: GraphEdge;
+  /** Zero-based database column when the provider has one; used only as a deterministic final tie-break. */
+  readonly column: number | null;
+}
+
 /**
  * The read surface every graph provider exposes. `CodeGraphIndex` is the single-database provider;
  * `CodeGraphSet` fans the same surface across per-module databases. Consumers depend on this
@@ -35,6 +44,7 @@ export interface GraphReader {
   searchNodes(terms: string[], limit?: number): GraphNode[];
   searchNodesInFiles(terms: string[], filePaths: string[], limit?: number): GraphNode[];
   nodesByKindInFiles(kinds: string[], filePaths: string[], limit?: number): GraphNode[];
+  routeReferencesInFiles(filePaths: string[], limit?: number): GraphRouteReference[];
   expand(seedIds: string[], depth: number, maxNodes: number): { nodes: GraphNode[]; edges: GraphEdge[] };
   edgesAmong(nodeIds: string[]): GraphEdge[];
   unresolvedForNodeIds(nodeIds: string[], limit?: number): Array<Record<string, unknown>>;
@@ -258,6 +268,42 @@ export class CodeGraphIndex implements GraphReader {
     return results.slice(0, limit);
   }
 
+  /** Enumerate route `references` edges over a caller-owned file denominator. */
+  routeReferencesInFiles(filePaths: string[], limit = 50_000): GraphRouteReference[] {
+    const files = [...new Set(filePaths.map(normalizePath).filter(Boolean))].sort();
+    if (!files.length || limit <= 0) return [];
+    const results: GraphRouteReference[] = [];
+    for (let offset = 0; offset < files.length && results.length < limit; offset += 300) {
+      const batch = files.slice(offset, offset + 300);
+      const placeholders = batch.map(() => "?").join(",");
+      const rows = this.query<Record<string, unknown>>(`
+        SELECT
+          r.id route_id, r.kind route_kind, r.name route_name, r.qualified_name route_qualified_name,
+          r.file_path route_file_path, r.language route_language, r.start_line route_start_line,
+          r.end_line route_end_line, r.docstring route_docstring, r.signature route_signature,
+          t.id target_id, t.kind target_kind, t.name target_name, t.qualified_name target_qualified_name,
+          t.file_path target_file_path, t.language target_language, t.start_line target_start_line,
+          t.end_line target_end_line, t.docstring target_docstring, t.signature target_signature,
+          e.source, e.target, e.kind, e.line, e.col, e.metadata
+        FROM edges e
+        JOIN nodes r ON r.id = e.source
+        JOIN allowed_files ra ON ra.path = r.file_path
+        JOIN nodes t ON t.id = e.target
+        JOIN allowed_files ta ON ta.path = t.file_path
+        WHERE r.kind = 'route' AND e.kind = 'references' AND r.file_path IN (${placeholders})
+        ORDER BY r.file_path, r.start_line, r.id, COALESCE(e.line, -1), COALESCE(e.col, -1), t.file_path, t.start_line, t.id
+        LIMIT ?
+      `, [...batch, limit - results.length]);
+      results.push(...rows.map((row) => ({
+        route: toPrefixedNode(row, "route"),
+        target: toPrefixedNode(row, "target"),
+        edge: toEdge(row),
+        column: row.col == null ? null : Number(row.col)
+      })));
+    }
+    return results.slice(0, limit);
+  }
+
   expand(seedIds: string[], depth: number, maxNodes: number): { nodes: GraphNode[]; edges: GraphEdge[] } {
     const seen = new Set(seedIds);
     let frontier = [...seedIds];
@@ -382,6 +428,15 @@ function toNode(row: Record<string, unknown>): GraphNode {
     filePath: String(row.file_path), language: String(row.language), startLine: Number(row.start_line), endLine: Number(row.end_line),
     docstring: row.docstring == null ? null : String(row.docstring), signature: row.signature == null ? null : String(row.signature)
   };
+}
+
+function toPrefixedNode(row: Record<string, unknown>, prefix: "route" | "target"): GraphNode {
+  return toNode({
+    id: row[`${prefix}_id`], kind: row[`${prefix}_kind`], name: row[`${prefix}_name`],
+    qualified_name: row[`${prefix}_qualified_name`], file_path: row[`${prefix}_file_path`],
+    language: row[`${prefix}_language`], start_line: row[`${prefix}_start_line`], end_line: row[`${prefix}_end_line`],
+    docstring: row[`${prefix}_docstring`], signature: row[`${prefix}_signature`]
+  });
 }
 
 function toEdge(row: Record<string, unknown>): GraphEdge {

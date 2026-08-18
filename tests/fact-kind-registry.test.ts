@@ -36,6 +36,7 @@ test("the production registry loads, and every declared kind id has an entry", (
 test("the first batch's seat rules are the ones the contract names, kind by kind", () => {
   const expected: Array<[string, string, string, boolean]> = [
     ["indexed-function", "unit", "anchor-cell", true],
+    ["indexed-route", "unit", "anchor-cell", false],
     ["recovered-route", "unit", "anchor-cell", true],
     ["frontend-call", "unit", "anchor-cell", false],
     ["http-link", "relation", "any-endpoint", false],

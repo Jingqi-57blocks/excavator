@@ -352,6 +352,60 @@ test("a cell whose only observation is a NESTED structure reads as not-in-pool, 
     `the cell is observed and this feature never pooled it, which is a scope answer: ${JSON.stringify(selection.zeroScore)}`);
 });
 
+test("adding indexed-route facts cannot perturb allocation; only the observed zero-score label may move", async () => {
+  const layer = await layer3(ALL_NODES);
+  const neverIndexed = layer.units.partition
+    .filter((cell) => cell.relativePath === "src/app.ts" && cell.partitionKind === "structure")
+    .sort((a, b) => a.span.startByte - b.span.startByte).at(-1);
+  assert.ok(neverIndexed, "the fixture must expose the unobserved neverIndexed structure cell");
+  const routeFact = {
+    factId: "route:src/routes.ts:1-1:GET /access",
+    kind: "indexed-route" as const,
+    membership: { kind: "unit" as const, unitId: neverIndexed.unitId },
+    detail: { name: "GET /access", handlerResolved: true, handlerFactId: "function:src/app.ts:7-9:neverIndexed" }
+  };
+  const enrichedEnvelope = {
+    ...layer.envelope,
+    facts: [...layer.envelope.facts, routeFact].sort((a, b) => a.kind.localeCompare(b.kind) || a.factId.localeCompare(b.factId))
+  };
+  const selections = [{ featureKey: "f1", trace: ranTrace([traced(GRANT, "seed", 1000)]) }];
+  const before = assemble(layer, selections);
+  const after = assemble(layer, selections, { codegraph: built(enrichedEnvelope) });
+  const beforeSelection = before.selections[0]!;
+  const afterSelection = after.selections[0]!;
+
+  assert.deepEqual({
+    seats: afterSelection.seats,
+    displacements: afterSelection.displacements,
+    conservation: afterSelection.conservation,
+    projection: afterSelection.projection,
+    modules: afterSelection.modules,
+    channels: afterSelection.channels
+  }, {
+    seats: beforeSelection.seats,
+    displacements: beforeSelection.displacements,
+    conservation: beforeSelection.conservation,
+    projection: beforeSelection.projection,
+    modules: beforeSelection.modules,
+    channels: beforeSelection.channels
+  }, "the same selection trace produces the same allocation when route facts are added");
+
+  const byReason = (artifact: AttributionArtifact): Map<ZeroScoreReason, number> => {
+    const counts = new Map<ZeroScoreReason, number>();
+    for (const group of artifact.selections[0]!.zeroScore) counts.set(group.reason, (counts.get(group.reason) ?? 0) + group.cells);
+    return counts;
+  };
+  const beforeReasons = byReason(before);
+  const afterReasons = byReason(after);
+  for (const reason of ZERO_SCORE_REASONS.filter((value) => value !== "structure-unobserved" && value !== "structure-not-in-pool")) {
+    assert.equal(afterReasons.get(reason) ?? 0, beforeReasons.get(reason) ?? 0, reason);
+  }
+  assert.equal((beforeReasons.get("structure-unobserved") ?? 0) - (afterReasons.get("structure-unobserved") ?? 0), 1);
+  assert.equal((afterReasons.get("structure-not-in-pool") ?? 0) - (beforeReasons.get("structure-not-in-pool") ?? 0), 1);
+  assert.notEqual(after.identity.channelInputs.codegraphEnvelopeDigest, before.identity.channelInputs.codegraphEnvelopeDigest,
+    "the identity records the changed envelope even though the allocation is non-perturbed");
+});
+
 test("two index nodes at one coordinate join by base fact id and seat ONE cell", async () => {
   const layer = await layer3(ALL_NODES);
   const suffixed = layer.envelope.facts.filter((fact) => fact.factId.includes("#"));

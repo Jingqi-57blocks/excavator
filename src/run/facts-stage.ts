@@ -10,6 +10,10 @@ import { CodeGraphIndex, type GraphReader } from "../codegraph/codegraph.ts";
 import { CodeGraphSet } from "../codegraph/codegraph-set.ts";
 import { FUNCTION_INVENTORY_LIMIT, FUNCTION_INVENTORY_VERSION, functionInventory, INVENTORY_NODE_KINDS, inventoryObservations } from "../codegraph/function-inventory.ts";
 import {
+  ROUTE_HANDLER_RESOLUTIONS, ROUTE_INVENTORY_LIMIT, ROUTE_INVENTORY_VERSION, ROUTE_REFERENCE_LIMIT,
+  routeInventory, routeObservations
+} from "../codegraph/route-inventory.ts";
+import {
   CROSSREPO_FACTS_VERSION, crossRepoCompleteness, crossRepoConfigDigest, crossRepoDetermination, crossRepoObservations,
   type CrossRepoModule
 } from "../crossrepo/crossrepo-facts.ts";
@@ -59,6 +63,7 @@ const PRODUCER_IDS: readonly string[] = ARTIFACT_REGISTRY.producers.map((produce
  * a layer whose identity may not contain a feature key.
  */
 const INVENTORY_QUERY_BUDGET = 400;
+const CODEGRAPH_PRODUCER_VERSION = "codegraph-producer-v2-function-and-route";
 
 export interface FactsStageResult {
   readonly units: ArtifactResult<UnitsArtifact>;
@@ -136,7 +141,7 @@ export async function buildFactsStage(input: FactsStageInput): Promise<FactsStag
 
   // --- the observers, each contributing observations and its own plan ---------------------------------------
   const facts: ObservedFact[] = [];
-  const codegraph = collectCodegraph(input, facts, warnings);
+  const codegraph = await collectCodegraph(input, facts, warnings);
   const modules: CrossRepoModule[] = (input.codegraphModules ?? []).map((module) => ({ id: module.id, dir: module.dir }));
   const crossrepo = collectCrossRepo(input, modules, facts, inheritedCompleteness);
 
@@ -193,25 +198,33 @@ function envelopeFor(
   }));
 }
 
-/** Enumerate the index's structural declarations, or record why this run has none. */
-function collectCodegraph(input: FactsStageInput, facts: ObservedFact[], warnings: string[]): ProducerPlan {
+/** Enumerate the index's structural declarations and routes, or record why this run has neither. */
+async function collectCodegraph(input: FactsStageInput, facts: ObservedFact[], warnings: string[]): Promise<ProducerPlan> {
   const graph = openGraph(input, warnings);
   if (graph === null) {
-    return { status: "absent", envelope: unavailable("index-not-present: this run resolved no readable CodeGraph database, so no indexed function could be enumerated", true) };
+    return { status: "absent", envelope: unavailable("index-not-present: this run resolved no readable CodeGraph database, so no indexed function or route could be enumerated", true) };
   }
   try {
-    const inventory = functionInventory(graph.reader, input.ledger.counted.map((row) => row.relativePath));
-    if (inventory.completeness.truncated) {
-      warnings.push(`the CodeGraph function inventory hit its ${inventory.completeness.limit}-node ceiling; nodes past it are unknown rather than absent`);
+    const paths = input.ledger.counted.map((row) => row.relativePath);
+    const functions = functionInventory(graph.reader, paths);
+    const routes = await routeInventory(graph.reader, paths, input.target);
+    if (functions.completeness.truncated) {
+      warnings.push(`the CodeGraph function inventory hit its ${functions.completeness.limit}-node ceiling; nodes past it are unknown rather than absent`);
     }
-    facts.push(...inventoryObservations(inventory));
+    if (routes.completeness.routesTruncated || routes.completeness.referencesTruncated) {
+      warnings.push(`the CodeGraph route inventory hit a declared ceiling (routes ${routes.completeness.routesReturned}/${routes.completeness.routeLimit}, references ${routes.completeness.referencesReturned}/${routes.completeness.referenceLimit}); later routes or handler edges are unknown rather than absent`);
+    }
+    facts.push(...inventoryObservations(functions), ...routeObservations(routes));
+    const routeResolutionCounts = Object.fromEntries(ROUTE_HANDLER_RESOLUTIONS.map((reason) => [
+      `routeResolution:${reason}`,
+      routes.completeness.byResolution[reason]
+    ]));
     return {
       status: "observed",
-      producerVersion: FUNCTION_INVENTORY_VERSION,
+      producerVersion: CODEGRAPH_PRODUCER_VERSION,
       configDigest: sha256(stableJson({
-        inventoryVersion: FUNCTION_INVENTORY_VERSION,
-        nodeKinds: INVENTORY_NODE_KINDS,
-        limit: FUNCTION_INVENTORY_LIMIT,
+        functionInventory: { version: FUNCTION_INVENTORY_VERSION, nodeKinds: INVENTORY_NODE_KINDS, limit: FUNCTION_INVENTORY_LIMIT },
+        routeInventory: { version: ROUTE_INVENTORY_VERSION, routeLimit: ROUTE_INVENTORY_LIMIT, referenceLimit: ROUTE_REFERENCE_LIMIT },
         index: graph.identity,
         // The index's content is an INPUT to these facts, so it belongs in the producer's identity: the same
         // corpus indexed twice can yield two different fact sets, and a digest that cannot tell them apart is
@@ -219,15 +232,25 @@ function collectCodegraph(input: FactsStageInput, facts: ObservedFact[], warning
         indexDigest: input.codegraphDigest ?? null
       })),
       completeness: {
-        filesQueried: inventory.completeness.filesQueried,
-        limit: inventory.completeness.limit,
-        returned: inventory.completeness.returned,
-        truncated: inventory.completeness.truncated,
-        withoutLineRange: inventory.completeness.withoutLineRange
+        functionFilesQueried: functions.completeness.filesQueried,
+        functionLimit: functions.completeness.limit,
+        functionReturned: functions.completeness.returned,
+        functionTruncated: functions.completeness.truncated,
+        functionWithoutLineRange: functions.completeness.withoutLineRange,
+        routeFilesQueried: routes.completeness.filesQueried,
+        routeLimit: routes.completeness.routeLimit,
+        routesReturned: routes.completeness.routesReturned,
+        routesTruncated: routes.completeness.routesTruncated,
+        routeReferenceLimit: routes.completeness.referenceLimit,
+        routeReferencesReturned: routes.completeness.referencesReturned,
+        routeReferencesTruncated: routes.completeness.referencesTruncated,
+        routeHandlersResolved: routes.completeness.handlerResolved,
+        routeHandlersFallback: routes.completeness.handlerFallback,
+        ...routeResolutionCounts
       }
     };
   } catch (error) {
-    return { status: "absent", envelope: unavailable(`the CodeGraph function inventory failed: ${(error as Error).message}`, true) };
+    return { status: "absent", envelope: unavailable(`the CodeGraph function and route inventory failed: ${(error as Error).message}`, true) };
   } finally {
     graph.reader.close();
   }
@@ -308,7 +331,7 @@ interface OpenedGraph {
  * feature-shaped input to a layer whose identity may not contain a feature key.
  */
 function openGraph(input: FactsStageInput, warnings: string[]): OpenedGraph | null {
-  const deadline = new Deadline(60_000, "layer-3 function inventory");
+  const deadline = new Deadline(60_000, "layer-3 CodeGraph inventory");
   const allowed = input.ledger.counted.map((row) => row.relativePath);
   if (input.codegraphModules?.length) {
     try {
@@ -318,7 +341,7 @@ function openGraph(input: FactsStageInput, warnings: string[]): OpenedGraph | nu
       );
       return { reader, identity: { kind: "module-set", modules: input.codegraphModules.map((module) => module.id).sort() } };
     } catch (error) {
-      warnings.push(`the layer-3 function inventory could not open the per-module CodeGraph databases: ${(error as Error).message}`);
+      warnings.push(`the layer-3 CodeGraph inventory could not open the per-module databases: ${(error as Error).message}`);
       return null;
     }
   }
@@ -329,7 +352,7 @@ function openGraph(input: FactsStageInput, warnings: string[]): OpenedGraph | nu
       identity: { kind: "single", path: input.codegraphPath }
     };
   } catch (error) {
-    warnings.push(`the layer-3 function inventory could not open the CodeGraph database: ${(error as Error).message}`);
+    warnings.push(`the layer-3 CodeGraph inventory could not open the database: ${(error as Error).message}`);
     return null;
   }
 }
