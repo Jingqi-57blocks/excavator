@@ -12,6 +12,8 @@
 // of the run's own anchor terms, derived at runtime (leave -> lv), never hardcoded; the scheduler
 // signal is a generic word list, not a per-target path check. Zero npm dependency, zero model.
 
+import { WEIGHTS, type RanSelectionTrace, type SelectionChannel, type TraceNode } from "./selection-trace.ts";
+
 /** Field separator for de-dupe keys (SOH escape, never a literal NUL byte, never present in ids/paths). */
 const KEY_SEP = "\u0001";
 
@@ -20,19 +22,21 @@ const RESCUE_EXCLUDED_KINDS = new Set(["import", "file"]);
 /** Generic scheduler/background-work path vocabulary (framework-agnostic, mirrors the configuration category). */
 const SCHEDULER_PATH = /crons?|tasks?|jobs?|schedules?|workers?/i;
 
-export const NAME_TOKEN_EXACT = 220; // an anchor term is an exact camel/snake token of the name
-const NAME_SUBSTRING = 160; // an anchor term is a substring of the name but not a whole token
-const ABBREV_TOKEN_EXACT = 220; // an anchor term's consonant skeleton is an exact token of the name
-const NAME_SIGNAL_CAP = 440; // ceiling on the name-intrinsic part before bridge/scheduler add on
-const BRIDGE_PER_NEIGHBOR = 60; // weight per distinct name-matched neighbor reached by an out-edge
+// Every weight below is READ from the frozen `WEIGHTS` table rather than written here, so the channel
+// configuration has exactly one owner and one digest. The values are unchanged by that move.
+export const NAME_TOKEN_EXACT = WEIGHTS.nameTokenExact; // an anchor term is an exact camel/snake token of the name
+const NAME_SUBSTRING = WEIGHTS.nameSubstring; // an anchor term is a substring of the name but not a whole token
+const ABBREV_TOKEN_EXACT = WEIGHTS.abbrevTokenExact; // an anchor term's consonant skeleton is an exact token of the name
+const NAME_SIGNAL_CAP = WEIGHTS.nameSignalCap; // ceiling on the name-intrinsic part before bridge/scheduler add on
+const BRIDGE_PER_NEIGHBOR = WEIGHTS.bridgePerNeighbor; // weight per distinct name-matched neighbor reached by an out-edge
 /** Multiplicity per neighbor is capped so one hub cannot dominate. Shared with the fact-pack logic
  *  category's in-degree cap so both agree on how much one caller may weigh. */
-export const BRIDGE_MAX_MULTIPLICITY = 3;
-const SCHEDULER_BONUS = 80;
+export const BRIDGE_MAX_MULTIPLICITY = WEIGHTS.bridgeMaxMultiplicity;
+const SCHEDULER_BONUS = WEIGHTS.schedulerBonus;
 
-const RESCUE_QUOTA_MIN = 8;
-const RESCUE_QUOTA_MAX = 24;
-const RESCUE_QUOTA_FRACTION = 0.08;
+const RESCUE_QUOTA_MIN = WEIGHTS.rescueQuotaMin;
+const RESCUE_QUOTA_MAX = WEIGHTS.rescueQuotaMax;
+const RESCUE_QUOTA_FRACTION = WEIGHTS.rescueQuotaFraction;
 
 interface Signal {
   value: number;
@@ -199,13 +203,22 @@ export function rescueSignalsFor(nodes: any[], edges: any[], anchorTerms: string
 }
 
 /**
- * Pick up to `quota` rescue nodes from the pool (excluding seeds and Stage-1 survivors, and
- * import/file kinds). Returned nodes are shallow copies carrying a deterministic `rescued`
- * explanation string; the pool's own node objects are never mutated.
+ * Pick up to `quota` rescue nodes from the pool (excluding seeds and Stage-1 survivors, and import/file kinds).
+ *
+ * Returns the ELIGIBLE CANDIDATE SET beside the chosen nodes, because that set is what makes a displacement
+ * nameable: a node the quota rejected lost the rescue quota, and a node that was never a candidate lost the
+ * Stage-1 cap. Without the distinction every non-retained node would carry the same nameless "budget", which is
+ * the P15 shape — a mechanism whose losses are recorded as one undifferentiated number.
+ *
+ * Chosen nodes are shallow copies carrying a deterministic `rescued` explanation string; the pool's own node
+ * objects are never mutated.
  */
-function rescueNodes(nodes: any[], edges: any[], seedIds: Set<string>, stage1Ids: Set<string>, anchorTerms: string[], quota: number): any[] {
-  if (quota <= 0) return [];
-  const signals = rescueSignalsFor(nodes, edges, anchorTerms);
+function rescueNodes(nodes: any[], signals: Map<string, RescueSignal>, seedIds: Set<string>, stage1Ids: Set<string>, quota: number): {
+  chosen: any[];
+  candidateIds: Set<string>;
+} {
+  const candidateIds = new Set<string>();
+  if (quota <= 0) return { chosen: [], candidateIds };
 
   const candidates: Array<{ node: any; score: number; reason: string }> = [];
   for (const node of nodes) {
@@ -214,24 +227,37 @@ function rescueNodes(nodes: any[], edges: any[], seedIds: Set<string>, stage1Ids
     if (RESCUE_EXCLUDED_KINDS.has(String(node.kind))) continue;
     const sig = signals.get(id);
     if (!sig || sig.total <= 0) continue;
+    candidateIds.add(id);
     candidates.push({ node, score: sig.total, reason: sig.reason });
   }
   candidates.sort((a, b) => b.score - a.score
     || compareStr(String(a.node.filePath ?? ""), String(b.node.filePath ?? ""))
     || compareStr(String(a.node.name ?? ""), String(b.node.name ?? ""))
     || compareStr(String(a.node.id), String(b.node.id)));
-  return candidates.slice(0, quota).map((candidate) => ({ ...candidate.node, rescued: candidate.reason }));
+  return { chosen: candidates.slice(0, quota).map((candidate) => ({ ...candidate.node, rescued: candidate.reason })), candidateIds };
+}
+
+/** A prune and the record of how it decided. The `{ nodes, edges }` half is byte-identical to the shell's. */
+export interface RecordedPrune {
+  nodes: any[];
+  edges: any[];
+  trace: RanSelectionTrace;
 }
 
 /**
- * Reduce an expanded feature graph to at most `maxNodes` nodes.
+ * Reduce an expanded feature graph to at most `maxNodes` nodes, AND record how every candidate fared.
  *
- * Stage 1 (verbatim intrinsic ranking) fills `maxNodes - R` seats; Stage 2 spends the R-seat quota
- * on structural rescues; any unfilled seats backfill from the intrinsic ranking so the set fills to
- * the cap when the pool is large enough. The returned node set is ALWAYS <= maxNodes, and edges are
- * de-duplicated and restricted to the retained nodes.
+ * Stage 1 (verbatim intrinsic ranking) fills `maxNodes - R` seats; Stage 2 spends the R-seat quota on
+ * structural rescues; any unfilled seats backfill from the intrinsic ranking so the set fills to the cap when
+ * the pool is large enough. The returned node set is ALWAYS <= maxNodes, and edges are de-duplicated and
+ * restricted to the retained nodes.
+ *
+ * This is the KERNEL: `pruneFeatureGraph` is a shell over it that drops the trace. The selection arithmetic is
+ * unchanged in every respect — the rescue signals are computed once here and handed down rather than computed
+ * inside `rescueNodes`, which is the same pure function of the same deduped edges (the quota is >= 8 for every
+ * budget, so the old early return could never skip that call).
  */
-export function pruneFeatureGraph(nodes: any[], edges: any[], seeds: any[], anchorTerms: string[], maxNodes: number): { nodes: any[]; edges: any[] } {
+export function pruneFeatureGraphRecorded(nodes: any[], edges: any[], seeds: any[], anchorTerms: string[], maxNodes: number): RecordedPrune {
   const seedIds = new Set(seeds.map((node) => String(node.id)));
   const directlyConnected = new Set<string>();
   for (const edge of edges) if (seedIds.has(String(edge.source)) || seedIds.has(String(edge.target))) {
@@ -242,15 +268,15 @@ export function pruneFeatureGraph(nodes: any[], edges: any[], seeds: any[], anch
     const path = String(node.filePath ?? "").toLowerCase();
     const name = String(node.name ?? "").toLowerCase();
     const signature = String(node.signature ?? "").toLowerCase();
-    let value = seedIds.has(String(node.id)) ? 1000 : directlyConnected.has(String(node.id)) ? 120 : 0;
+    let value = seedIds.has(String(node.id)) ? WEIGHTS.stage1Seed : directlyConnected.has(String(node.id)) ? WEIGHTS.stage1DirectlyConnected : 0;
     for (const term of anchorTerms) {
       const lower = term.toLowerCase();
-      if (path.includes(lower)) value += 220;
-      if (name.includes(lower)) value += 160;
-      if (signature.includes(lower)) value += 80;
+      if (path.includes(lower)) value += WEIGHTS.stage1PathTerm;
+      if (name.includes(lower)) value += WEIGHTS.stage1NameTerm;
+      if (signature.includes(lower)) value += WEIGHTS.stage1SignatureTerm;
     }
-    if (/common\/components|common\/use|vendor|bootstrap|min\.js/i.test(path)) value -= 180;
-    if (/(^|\/)(tests?|__tests__)(\/|$)|\.(test|spec)\./i.test(path)) value += 20;
+    if (/common\/components|common\/use|vendor|bootstrap|min\.js/i.test(path)) value += WEIGHTS.stage1CommonPenalty;
+    if (/(^|\/)(tests?|__tests__)(\/|$)|\.(test|spec)\./i.test(path)) value += WEIGHTS.stage1TestBonus;
     return value;
   };
   // --- end Stage 1 scoring (moved verbatim from the original context.ts pruneFeatureGraph) ---
@@ -262,11 +288,13 @@ export function pruneFeatureGraph(nodes: any[], edges: any[], seeds: any[], anch
   const stage1Ids = new Set(stage1.map((node) => String(node.id)));
 
   const dedupedEdges = dedupeEdges(edges);
-  const rescued = rescueNodes(nodes, dedupedEdges, seedIds, stage1Ids, anchorTerms, quota);
+  const signals = rescueSignalsFor(nodes, dedupedEdges, anchorTerms);
+  const rescue = rescueNodes(nodes, signals, seedIds, stage1Ids, quota);
+  const rescuedIds = new Set(rescue.chosen.map((node) => String(node.id)));
 
   const chosen = new Set<string>(stage1Ids);
   const retained: any[] = [...stage1];
-  for (const node of rescued) { chosen.add(String(node.id)); retained.push(node); }
+  for (const node of rescue.chosen) { chosen.add(String(node.id)); retained.push(node); }
   // Backfill from the intrinsic ranking when rescue found fewer than its quota, so the node set
   // reaches the cap exactly whenever the pool allows (matching the pre-change count) — never over.
   if (retained.length < cap) {
@@ -280,5 +308,62 @@ export function pruneFeatureGraph(nodes: any[], edges: any[], seeds: any[], anch
   }
   const finalNodes = retained.slice(0, cap); // hard upper bound: retained is ALWAYS <= maxNodes
   const ids = new Set(finalNodes.map((node) => String(node.id)));
-  return { nodes: finalNodes, edges: dedupedEdges.filter((edge) => ids.has(String(edge.source)) && ids.has(String(edge.target))) };
+  return {
+    nodes: finalNodes,
+    edges: dedupedEdges.filter((edge) => ids.has(String(edge.source)) && ids.has(String(edge.target))),
+    trace: {
+      status: "ran",
+      // The pool is the INPUT set, not the retained one: a channel census whose denominator is the seats it
+      // awarded cannot state a displacement, which is the whole record P15 asks for.
+      pool: nodes.map((node) => traceNode(node, ids, stage1Ids, rescuedIds, rescue.candidateIds, signals)),
+      seedCount: seedIds.size,
+      budgets: { maxNodes: cap, rescueQuota: quota },
+      stage1CutScore: stage1.length ? score(stage1[stage1.length - 1]) : null,
+      // The floor is a different mechanism and records its own decisions; a kernel run alone made none.
+      floorDecisions: []
+    }
+  };
+}
+
+/** One pool node's outcome, derived from the id sets the prune already built. Total: every node lands. */
+function traceNode(
+  node: any,
+  retainedIds: Set<string>,
+  stage1Ids: Set<string>,
+  rescuedIds: Set<string>,
+  rescueCandidateIds: Set<string>,
+  signals: Map<string, RescueSignal>
+): TraceNode {
+  const id = String(node.id);
+  const signal = signals.get(id);
+  const outcome: SelectionChannel = !retainedIds.has(id) ? "displaced"
+    : stage1Ids.has(id) ? "stage1"
+    : rescuedIds.has(id) ? "rescue"
+    : "backfill";
+  return {
+    nodeId: id,
+    nodeKind: String(node.kind ?? ""),
+    name: String(node.name ?? ""),
+    relativePath: String(node.filePath ?? ""),
+    startLine: Number.isInteger(node.startLine) ? Number(node.startLine) : null,
+    endLine: Number.isInteger(node.endLine) ? Number(node.endLine) : null,
+    outcome,
+    score: signal?.total ?? 0,
+    // A rescue states the signal that saved it and a displaced candidate states the signal that was not
+    // enough; the two intrinsic channels have nothing of their own to say and say nothing.
+    reason: outcome === "rescue" || (outcome === "displaced" && rescueCandidateIds.has(id)) ? (signal?.reason ?? "") : "",
+    displacedBy: outcome !== "displaced" ? null : rescueCandidateIds.has(id) ? "rescue-quota" : "stage1-cut"
+  };
+}
+
+/**
+ * The trace-free prune: `pruneFeatureGraphRecorded` with the record dropped.
+ *
+ * A shell with no logic of its own, which is what makes the byte-equality claim checkable rather than argued —
+ * the frozen real-pool gates in `tests/feature-prune.test.ts` and `eval/tests/module-floor.test.ts` call this
+ * and therefore exercise the recorded kernel directly.
+ */
+export function pruneFeatureGraph(nodes: any[], edges: any[], seeds: any[], anchorTerms: string[], maxNodes: number): { nodes: any[]; edges: any[] } {
+  const { nodes: retained, edges: retainedEdges } = pruneFeatureGraphRecorded(nodes, edges, seeds, anchorTerms, maxNodes);
+  return { nodes: retained, edges: retainedEdges };
 }
