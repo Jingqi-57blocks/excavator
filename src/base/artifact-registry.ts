@@ -229,7 +229,7 @@ const PRODUCERS: ProducerEntry[] = ([
   ["db-schema", "Database schema discovery",
     "Written by every prepare as Unavailable{policy: not-run-scoped}: schema discovery runs as its own command and writes outside the run directory."],
   ["crossrepo", "Cross-repository HTTP link resolution: call sites, recovered routes and the links between them",
-    "Written by every prepare. Built for a multi-module target; NotApplicable{single-module} when there is provably no cross-repo edge — and Unavailable instead when layer 1's scan was capped, because a dropped root may hold the second module."],
+    "Written by every prepare. NotApplicable{single-module} only when the complete layer-1 ledger census has exactly one target root. Multiple roots proceed only when the resolver inputs and scan are available; a cap, dropped root, read failure or missing resolver input is Unavailable."],
   ["probe", "Decision probes and condition extraction",
     "Written by every prepare as Unavailable{policy: feature-scoped-today}: probes run per feature inside context preparation, and a layer-3 fact set may not be keyed by a feature."],
   ["vocabulary", "In-repository term frequency",

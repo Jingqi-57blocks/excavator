@@ -246,10 +246,10 @@ function collectCrossRepo(
   };
   const verdict = crossRepoDetermination({
     modules: input.codegraphModules ? modules : null,
+    ledgerRoots: input.ledger.completeness.roots,
     resolverAvailable: input.availability.crossrepo.status === "available",
     scan: input.crossRepoScan,
     ledgerCompleteness: determinationCompleteness,
-    moduleSources: input.codegraphModules?.map((module) => module.path),
     mechanismCoverage: mechanismCoverageValue(input.mechanismLedger, "crossrepo")
   });
   if (verdict !== null) return { status: "absent", envelope: verdict };
