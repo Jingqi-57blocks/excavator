@@ -7,6 +7,7 @@ import { sourceSearch } from "../snapshot/source.ts";
 import type { CollectedFactPackItem, CollectedFeatureFactPack, FactPackCategory, FactPackCoverage, FactPackJoinHint, FactPackMethod, GraphNode } from "../base/types.ts";
 import type { Deadline } from "../base/util.ts";
 import { inventoryFactIdFor, inventoryUnitKind } from "../codegraph/function-inventory.ts";
+import { routeFactIdFor } from "../codegraph/route-inventory.ts";
 
 const DETAIL_LIMIT = 200;
 const NAME_LIMIT = 120;
@@ -484,6 +485,18 @@ function collapse(value: string): string { return value.replace(/\s+/g, " ").tri
 function clip(value: string, max: number): string { return value.length <= max ? value : `${value.slice(0, max - 1)}…`; }
 
 function graphJoin(node: GraphNode): FactPackJoinHint {
+  if (String(node.kind) === "route") {
+    const routeFactId = routeFactIdFor({
+      kind: String(node.kind),
+      filePath: normalizePath(String(node.filePath)),
+      startLine: Number(node.startLine),
+      endLine: Number(node.endLine),
+      name: String(node.name ?? node.qualifiedName ?? node.id)
+    });
+    return routeFactId === null
+      ? { kind: "unjoined", reason: "no-matching-fact" }
+      : { kind: "fact", producer: "codegraph", factId: routeFactId };
+  }
   if (inventoryUnitKind(String(node.kind)) === null) return { kind: "unjoined", reason: "kind-not-inventoried" };
   const factId = inventoryFactIdFor({
     kind: String(node.kind),

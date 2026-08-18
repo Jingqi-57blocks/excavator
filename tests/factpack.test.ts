@@ -136,6 +136,11 @@ test("a fact pack enumerates every category inside the boundary and prefers the 
     { name: "app.post /leave/:id/approve", location: "src/api/leave-routes.ts:5", source: "scan" },
     { name: "router.delete /leave/:id", location: "src/api/leave-routes.ts:6", source: "scan" }
   ]);
+  assert.deepEqual(factPack.items.find((item) => item.name === "GET /leave")?.join, {
+    kind: "fact",
+    producer: "codegraph",
+    factId: "route:src/api/leave-routes.ts:4-4:GET /leave"
+  }, "an indexed route joins directly to the route fact instead of borrowing a handler item");
   assert.equal(coverage(factPack, "entrypoints").method, "graph+scan");
 
   const entity = factPack.items.find((item) => item.category === "entities");

@@ -121,6 +121,30 @@ test("the same layer-3 and layer-4 inputs produce byte-identical v2 packs", () =
   assert.equal(annotateFactPack(input).items[0]!.membership.joined?.factId, "function:x#2", "the CodeGraph base-id join preserves the producer's published fact id");
 });
 
+test("an indexed route is retained through its own fact and the handler cell it belongs to", () => {
+  const unitsValue = units("handler-cell");
+  const route = graphItem("POST /v2/leaves", "codegraph", "route:routes.go:12-12:POST /v2/leaves");
+  const result = annotateFactPack({
+    pack: pack([route]),
+    units: built(unitsValue),
+    attribution: attribution(unitsValue, ["handler-cell"]),
+    producers: {
+      codegraph: producer(unitsValue, "codegraph", [
+        fact("route:routes.go:12-12:POST /v2/leaves", "indexed-route", { kind: "unit", unitId: "handler-cell" })
+      ])
+    },
+    seedCells: new Set()
+  });
+  assert.deepEqual(result.items[0]!.membership, {
+    joined: {
+      factId: "route:routes.go:12-12:POST /v2/leaves",
+      kind: "indexed-route",
+      membership: { kind: "unit", unitId: "handler-cell" }
+    }
+  });
+  assert.deepEqual(result.items[0]!.relation, { kind: "retained", basis: "membership-seated" });
+});
+
 test("a join miss is written as co-located instead of dropping the row", () => {
   const unitsValue = units("cell-a");
   const result = annotateFactPack({

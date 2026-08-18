@@ -17,7 +17,9 @@ async function moduleDatabase(name: string, extraFile?: string): Promise<string>
   insertGraphFile(db, "handler.ts", 2);
   insertGraphNode(db, { id: "n1", kind: "function", name: "createOrder", filePath: "handler.ts", startLine: 1, endLine: 3 });
   insertGraphNode(db, { id: "n2", kind: "function", name: `${name}Repo`, filePath: "handler.ts", startLine: 5, endLine: 7 });
+  insertGraphNode(db, { id: "n3", kind: "route", name: "POST /orders", filePath: "handler.ts", startLine: 9, endLine: 9 });
   db.prepare("INSERT INTO edges (source,target,kind,metadata,line,col) VALUES (?,?,?,?,?,?)").run("n1", "n2", "references", JSON.stringify({ refName: `${name}Repo` }), 2, 4);
+  db.prepare("INSERT INTO edges (source,target,kind,metadata,line,col) VALUES (?,?,?,?,?,?)").run("n3", "n1", "references", JSON.stringify({ refName: "createOrder" }), 9, 18);
   if (extraFile) {
     // A file the module's database indexed but that the source manifest does not own — e.g. a merged
     // build that reached past the module boundary. It must be clipped by the per-module allow-list.
@@ -63,6 +65,23 @@ test("file-scoped queries route to the owning module only", async () => {
   const inA = set.nodesByKindInFiles(["function"], ["service-a/handler.ts"]);
   assert.ok(inA.length > 0);
   assert.ok(inA.every((node) => node.filePath.startsWith("service-a/")), "a module-A file query must not reach module B");
+  set.close();
+});
+
+test("route-reference enumeration preserves both endpoints and namespaces colliding module-local ids", async () => {
+  const set = await buildSet();
+  const references = set.routeReferencesInFiles(["service-a/handler.ts", "service-b/handler.ts"]);
+  assert.equal(references.length, 2);
+  assert.deepEqual(references.map((entry) => entry.route.filePath), ["service-a/handler.ts", "service-b/handler.ts"]);
+  assert.deepEqual(references.map((entry) => entry.target.filePath), ["service-a/handler.ts", "service-b/handler.ts"]);
+  assert.equal(new Set(references.map((entry) => entry.route.id)).size, 2, "equal local route ids are namespaced");
+  assert.equal(new Set(references.map((entry) => entry.target.id)).size, 2, "equal local handler ids are namespaced");
+  for (const entry of references) {
+    assert.equal(entry.edge.source, entry.route.id);
+    assert.equal(entry.edge.target, entry.target.id);
+    assert.equal(entry.edge.metadata.refName, "createOrder");
+    assert.equal(entry.column, 18);
+  }
   set.close();
 });
 

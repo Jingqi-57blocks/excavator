@@ -220,7 +220,7 @@ const SLOTS: RegistryEntry[] = [
  * worse than one that says nothing, because freeze reports a clean envelope set over it.
  */
 const PRODUCERS: ProducerEntry[] = ([
-  ["codegraph", "CodeGraph index queries: the whole-corpus function, method and class inventory",
+  ["codegraph", "CodeGraph index queries: the whole-corpus callable and route inventory",
     "Written by every prepare. Built when the run resolved a readable index, otherwise Unavailable{index-not-present} — the index is optional by design, and which of the two happened is now a record instead of a missing file."],
   ["native-graph", "Native tree-sitter graph for languages the index misses",
     "Written by every prepare as Unavailable{policy: not-run-scoped}: the builder runs as its own command and writes outside the run directory, so this run has no fact set from it."],

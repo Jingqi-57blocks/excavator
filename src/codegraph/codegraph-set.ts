@@ -1,6 +1,8 @@
 import type { GraphEdge, GraphFile, GraphNode } from "../base/types.ts";
 import type { Deadline } from "../base/util.ts";
-import { CodeGraphIndex, QueryBudget, type GraphReader, type GraphSummary, type QueryStats } from "./codegraph.ts";
+import {
+  CodeGraphIndex, QueryBudget, type GraphReader, type GraphRouteReference, type GraphSummary, type QueryStats
+} from "./codegraph.ts";
 import { moduleForFile, type DetectedModule } from "../snapshot/module-detection.ts";
 
 /**
@@ -177,6 +179,30 @@ export class CodeGraphSet implements GraphReader {
     return merged
       .sort((a, b) => compare(a.filePath, b.filePath) || a.startLine - b.startLine || compare(a.name, b.name))
       .slice(0, limit);
+  }
+
+  routeReferencesInFiles(filePaths: string[], limit = 50_000): GraphRouteReference[] {
+    const grouped = this.groupFiles(filePaths);
+    const merged: GraphRouteReference[] = [];
+    for (const member of this.members) {
+      const local = grouped.get(member.module.id);
+      if (!local?.length) continue;
+      merged.push(...member.index.routeReferencesInFiles(local, limit).map((reference) => ({
+        route: this.globalNode(member, reference.route),
+        target: this.globalNode(member, reference.target),
+        edge: this.globalEdge(member, reference.edge),
+        column: reference.column
+      })));
+    }
+    return merged.sort((a, b) =>
+      compare(a.route.filePath, b.route.filePath)
+      || a.route.startLine - b.route.startLine
+      || compare(a.route.id, b.route.id)
+      || (a.edge.line ?? -1) - (b.edge.line ?? -1)
+      || (a.column ?? -1) - (b.column ?? -1)
+      || compare(a.target.filePath, b.target.filePath)
+      || a.target.startLine - b.target.startLine
+      || compare(a.target.id, b.target.id)).slice(0, limit);
   }
 
   expand(seedIds: string[], depth: number, maxNodes: number): { nodes: GraphNode[]; edges: GraphEdge[] } {
