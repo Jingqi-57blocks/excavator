@@ -36,7 +36,6 @@ export interface DbSchemaOptions {
   out?: string;
   manifest?: string;
   descriptions?: string;
-  language?: string;
 }
 
 export interface DbSchemaResult {
