@@ -429,11 +429,14 @@ test("a prepare failure AFTER the boundary was read records the ledger as built,
   assert.equal(manifest.snapshot?.contentManifestDigest, envelope.value.contentManifestDigest, "and it is bound to the ledger");
   assert.deepEqual(manifest.metrics.warnings.filter((warning) => /boundary could not be read/.test(warning)), [],
     `no warning may assert a blindness the run did not have: ${JSON.stringify(manifest.metrics.warnings)}`);
-  // A failed prepare really is missing the artifacts it never got to write, and the audit says so. What it must
-  // NOT say is anything about layer 1: that layer finished its job.
+  const investigation = JSON.parse(await readFile(join(runDir, "investigation", "results.json"), "utf8")) as ArtifactResult<unknown>;
+  assert.equal(investigation.status, "unavailable", "the enforced L7 slot records the phase failure instead of disappearing");
+  // What the instance audit must NOT say is anything about layer 1 or a missing L7 envelope: both layers wrote
+  // the result they actually reached.
   const findings = await auditContractInstances(runDir, manifest);
   assert.deepEqual(findings.filter((finding) => /ledger\/files\.json|source boundary/.test(finding.message)), [],
     `layer 8 has nothing to report about a boundary that was read completely: ${JSON.stringify(findings, null, 2)}`);
+  assert.deepEqual(findings.filter((finding) => /investigation\.read-results.*missing/.test(finding.message)), []);
 });
 
 test("an unreadable target leaves a failed run directory whose layer-1 ledger records the cause", async () => {

@@ -5,7 +5,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import type { EvidenceItem, InvestigationPlan, KnowledgeArtifact, ReportRequest, RunManifest, SectionClaim, TraceRecord } from "../src/base/types.ts";
 import { addSourceEvidence, assembleRun, auditRun, checkpointSection, freezeRun, prepareRun, searchSourceEvidence, updateChecklist, updateTraces, updateWorkItems } from "../src/run/run.ts";
 import { knowledgeDigest } from "../src/freeze/freeze.ts";
-import { exists } from "../src/base/util.ts";
+import { exists, sha256, stableJson } from "../src/base/util.ts";
 import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, tempDir } from "./helpers.ts";
 
 const BUDGETS = { prepareMs: 30_000, authorMs: 30_000, maxGraphQueries: 40, maxSourceWindows: 50, maxSourceCharacters: 120_000, maxFiles: 10_000, maxFeatureNodes: 80, maxExpansionDepth: 2 };
@@ -100,6 +100,8 @@ test("freeze writes a knowledge-v1 record, stamps the manifest, appends a timeli
   assert.equal(knowledge.completeness.requiredItems, knowledge.completeness.disposed);
   assert.equal(knowledge.completeness.materialFlowsWithTraces, 0);
   assert.ok(Object.keys(knowledge.factPackDigests).length >= 1, "a feature run records at least one fact-pack digest");
+  const investigationResults = JSON.parse(await readFile(join(runDir, "investigation", "results.json"), "utf8"));
+  assert.equal(knowledge.investigationResultsDigest, sha256(stableJson(investigationResults.value)), "the same L7 execution/disposition set is sealed with knowledge");
   assert.deepEqual(knowledge.supplements, []);
 
   const persisted = await readManifest(runDir);

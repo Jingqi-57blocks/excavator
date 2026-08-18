@@ -2,14 +2,15 @@ import type { FeatureFactPack } from "../base/types.ts";
 import { canonicalJson, sha256, stableJson } from "../base/util.ts";
 import type { BoundaryFunctionsArtifact } from "../facts/probe/boundary-functions.ts";
 import { unitsContentDigest, type UnitsArtifact } from "../facts/units/units-artifact.ts";
+import { MAX_WINDOW_LINES } from "../snapshot/source.ts";
 import { consumableFactPackItems } from "./factpack-view.ts";
 
 export const READ_SPECS_VERSION = "read-specs-v1";
 
 export interface ReadBudgetAuthorization {
-  /** One later layer-7 source-window operation; layer 5 authorises it but never performs it. */
-  readonly windows: 1;
-  /** The exact requested span cost. System-wide scalar/record ceilings are deliberately left to step 8. */
+  /** Exact number of bounded source-window operations layer 7 needs to cover this span. */
+  readonly windows: number;
+  /** The exact requested span cost. */
   readonly requestedLines: number;
 }
 
@@ -137,7 +138,10 @@ export function buildReadSpecs(input: BuildReadSpecsInput): ReadSpecsArtifact {
       path: row.path,
       span: { startLine: row.startLine, endLine: row.endLine },
       reason: [...row.reasons].sort().join("; "),
-      budget: { windows: 1, requestedLines: row.endLine - row.startLine + 1 }
+      budget: {
+        windows: Math.ceil((row.endLine - row.startLine + 1) / MAX_WINDOW_LINES),
+        requestedLines: row.endLine - row.startLine + 1
+      }
     }));
   const idByKey = new Map([...specs.entries()].map(([key, row]) => [key, row.id]));
   const candidates: DecisionCandidate[] = candidateDrafts.map(({ readSpecKey, ...candidate }) => ({
@@ -183,7 +187,8 @@ export function requireReadSpecs(value: unknown, source = "ReadSpec artifact"): 
     if (specIds.has(spec.id)) throw new Error(`${source} repeats ReadSpec id ${spec.id}`);
     specIds.add(spec.id);
     if (!Number.isInteger(spec.span?.startLine) || !Number.isInteger(spec.span?.endLine) || spec.span.startLine < 1 || spec.span.endLine < spec.span.startLine) throw new Error(`${source} spec ${spec.id} has an invalid span`);
-    if (spec.budget?.windows !== 1 || spec.budget.requestedLines !== spec.span.endLine - spec.span.startLine + 1) throw new Error(`${source} spec ${spec.id} has a budget that does not authorise exactly its span`);
+    const expectedWindows = Math.ceil((spec.span.endLine - spec.span.startLine + 1) / MAX_WINDOW_LINES);
+    if (spec.budget?.windows !== expectedWindows || spec.budget.requestedLines !== spec.span.endLine - spec.span.startLine + 1) throw new Error(`${source} spec ${spec.id} has a budget that does not authorise exactly its span`);
   }
   for (const candidate of artifact.candidates) {
     if (!candidate.id?.trim() || !candidate.featureKey?.trim() || !candidate.path?.trim() || !candidate.name?.trim()) throw new Error(`${source} contains a candidate without identity`);

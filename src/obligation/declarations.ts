@@ -31,7 +31,19 @@ export interface DecisionObligation {
   readonly readSpecId: string;
 }
 
-export type ObligationDeclaration = KnowledgeRequirementObligation | DecisionObligation;
+/** One declaration per layer-5 authorization. It is what lets layer 7 execute every ReadSpec without
+ * inventing an obligation after source bytes have already been read. */
+export interface SourceReadingObligation {
+  readonly id: string;
+  readonly kind: "source-reading";
+  readonly readSpecId: string;
+  readonly featureKey: string;
+  readonly path: string;
+  readonly span: { readonly startLine: number; readonly endLine: number };
+  readonly reason: string;
+}
+
+export type ObligationDeclaration = KnowledgeRequirementObligation | SourceReadingObligation | DecisionObligation;
 
 export interface ObligationResidual {
   readonly id: string;
@@ -71,6 +83,7 @@ export interface ObligationDeclarations {
   readonly candidateAccounting: CoverageConservation;
   readonly summary: {
     readonly requirements: number;
+    readonly sourceReadings: number;
     readonly decisionObligations: number;
     readonly residuals: number;
     readonly excludedNoDecision: number;
@@ -92,7 +105,18 @@ export function buildObligationDeclarations(input: {
     throw new Error("Obligation declarations received mechanisms and units over different file ledgers");
   }
 
-  const declarations: ObligationDeclaration[] = input.requirements.rows.map(requirementObligation);
+  const declarations: ObligationDeclaration[] = [
+    ...input.requirements.rows.map(requirementObligation),
+    ...input.workset.specs.map((spec): SourceReadingObligation => ({
+      id: `OBL-READ-${spec.id.slice(5)}`,
+      kind: "source-reading",
+      readSpecId: spec.id,
+      featureKey: spec.featureKey,
+      path: spec.path,
+      span: spec.span,
+      reason: spec.reason
+    }))
+  ];
   const residuals: ObligationResidual[] = [];
   const exclusions: ObligationExclusion[] = [];
   for (const candidate of input.workset.candidates) {
@@ -133,6 +157,7 @@ export function buildObligationDeclarations(input: {
     candidateAccounting,
     summary: {
       requirements: declarations.filter((row) => row.kind === "knowledge-requirement").length,
+      sourceReadings: declarations.filter((row) => row.kind === "source-reading").length,
       decisionObligations: declarations.filter((row) => row.kind === "decision-reading").length,
       residuals: residuals.length,
       excludedNoDecision: exclusions.length
@@ -156,6 +181,13 @@ export function requireObligationDeclarations(value: unknown, requirements?: Req
     if (stableJson(actual) !== stableJson(expected)) throw new Error(`${source} does not declare every requirements.json row exactly once`);
   }
   const candidates = new Set<string>();
+  const readingIds = new Set<string>();
+  for (const row of artifact.declarations) {
+    if (row.kind !== "source-reading") continue;
+    if (!row.readSpecId?.trim() || !row.path?.trim() || !row.reason?.trim()) throw new Error(`${source} has a source-reading obligation without authorization, path or reason`);
+    if (readingIds.has(row.readSpecId)) throw new Error(`${source} declares ReadSpec ${row.readSpecId} more than once`);
+    readingIds.add(row.readSpecId);
+  }
   for (const row of artifact.declarations) {
     if (row.kind !== "decision-reading") continue;
     if (!row.readSpecId?.trim() || !row.candidateId?.trim()) throw new Error(`${source} has a decision obligation without candidate or ReadSpec identity`);
@@ -177,6 +209,11 @@ export function requireObligationDeclarations(value: unknown, requirements?: Req
     || totals.excluded !== artifact.summary.excludedNoDecision
     || totals.unexplained !== artifact.summary.residuals) {
     throw new Error(`${source} candidate buckets do not conserve their input rows`);
+  }
+  if (artifact.summary.requirements !== requirementRows.length
+    || artifact.summary.sourceReadings !== readingIds.size
+    || artifact.summary.decisionObligations !== artifact.declarations.filter((row) => row.kind === "decision-reading").length) {
+    throw new Error(`${source} summary does not reconcile with its declarations`);
   }
 }
 

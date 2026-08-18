@@ -349,6 +349,8 @@ export interface KnowledgeArtifact {
   crossRepoLinksDigest?: string;
   /** Digest of `ledger/mechanisms.json` — which mechanisms could look at which of this run's rows (57B-420). */
   mechanismsLedgerDigest?: string;
+  /** Digest of L7 ReadSpec executions, decision dispositions and retained probe residuals (57B-433). */
+  investigationResultsDigest?: string;
   completeness: KnowledgeCompleteness;
   /**
    * Which sealing epoch this record is. Registered, not yet machinery: freeze produces epoch 0, and the

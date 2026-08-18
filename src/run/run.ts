@@ -18,7 +18,7 @@ import { deriveContractManifest, type ContractManifest } from "../contract/contr
 import { auditContractInstances } from "../freeze/contract-instance-audit.ts";
 import { auditChecklist, auditEvidenceCatalog, auditTraces, auditWorkItems, createInvestigationChecklist, createInvestigationPlan, workItemsToChecklist } from "../investigation/assurance.ts";
 import { auditDetailedFeatureSection, auditEvidenceMarkerPlacement, auditReadabilityTables, auditRescuedLogicCoverage, auditSectionClaims, auditSectionEvidenceMarkers, auditTargetProblemAttribution, auditWorkItemClaimCoverage, hasEvidenceMarkers } from "../report/section-audit.ts";
-import { ASSURANCE_VERSION, WORKSET_OBLIGATION_ASSURANCE_GENERATION, assuranceGenerationAtLeast, runUsesCurrentAssurance } from "../base/assurance-version.ts";
+import { ASSURANCE_VERSION, READ_EXECUTION_ASSURANCE_GENERATION, WORKSET_OBLIGATION_ASSURANCE_GENERATION, assuranceGenerationAtLeast, runUsesCurrentAssurance } from "../base/assurance-version.ts";
 import type { AuditFinding } from "../base/types.ts";
 import { auditComparativeClaims } from "../report/claim-comparison.ts";
 import { auditFreezeOrder, auditFrozenKnowledge } from "../freeze/freeze.ts";
@@ -29,6 +29,7 @@ import { buildAttributionStage, unavailableAttributionStage, writeAttributionSta
 import { buildFactsStage, unavailableFactsStage, writeFactsStage } from "./facts-stage.ts";
 import { buildWorksetStage, writeUnavailableWorksetStage, writeWorksetStage } from "./workset-stage.ts";
 import { buildObligationStage, declarationWorkItems, writeObligationStage, writeUnavailableObligationStage } from "./obligation-stage.ts";
+import { applyInvestigationDispositions, buildInvestigationStage, writeInvestigationStage } from "./investigation-stage.ts";
 import type { ObligationDeclarations } from "../obligation/declarations.ts";
 import { unnegatedAdvice } from "../report/recommendation-language.ts";
 import { overviewCensusResidual, scopeCensusResidual, type OverviewCensusV2, type ScopeCensusV2 } from "../workset/census.ts";
@@ -43,7 +44,7 @@ import { runScopeSlug } from "./run-label.ts";
 import { auditPendingDrafts } from "../report/parallel-authoring.ts";
 import { authorPrompt, makeDocumentPlan, referencePath, reportFileName } from "../report/authoring-plan.ts";
 import { projectCacheDir, reDeriveIdentities } from "./stages/runtime-identity.ts";
-import { readFrozenFactPacks, readRequiredObligationDeclarations } from "./stages/investigation-read-model.ts";
+import { readFrozenFactPacks, readRequiredInvestigationResults, readRequiredObligationDeclarations } from "./stages/investigation-read-model.ts";
 import { resolveCrossRepoLinks } from "./stages/crossrepo-stage.ts";
 import { auditEvidenceStorage, evidenceStreamDigest, readEvidenceCatalog, writeEvidenceCatalog } from "../investigation/evidence-store.ts";
 
@@ -66,6 +67,22 @@ function factPackEvidenceForDocument(document: DocumentPlan, manifest: RunManife
   return FACT_PACK_CATEGORIES
     .map((category) => evidenceById.get(factPackEvidenceId(key, category, manifest.snapshot!.id)))
     .filter((item): item is EvidenceItem => Boolean(item));
+}
+
+/** A source window can satisfy context preparation and a later ReadSpec. Its id names bytes/path/span rather
+ * than the reason it was requested, so initialization coalesces that one legitimate duplicate shape while
+ * still rejecting any id collision over different evidence. */
+function coalesceInitialEvidence(items: readonly EvidenceItem[]): EvidenceItem[] {
+  const byId = new Map<string, EvidenceItem>();
+  for (const item of items) {
+    const prior = byId.get(item.id);
+    if (!prior) { byId.set(item.id, item); continue; }
+    const { reason: priorReason, ...priorIdentity } = prior;
+    const { reason: itemReason, ...itemIdentity } = item;
+    if (stableJson(priorIdentity) !== stableJson(itemIdentity)) throw new Error(`Evidence id ${item.id} was produced with conflicting content during prepare`);
+    byId.set(item.id, { ...prior, reason: [...new Set([priorReason, itemReason].filter((value): value is string => Boolean(value)))].sort().join("; ") });
+  }
+  return [...byId.values()];
 }
 
 /**
@@ -154,6 +171,7 @@ async function writePrepareFailureRecord(request: ReportRequest, contract: Bound
   await writeAttributionStage(runDir, unavailableAttributionStage(reason, retryable));
   await writeUnavailableWorksetStage(runDir, contract.runIntent.features.map((feature) => feature.key), reason, retryable);
   await writeUnavailableObligationStage(runDir, reason, retryable);
+  await writeInvestigationStage(runDir, unavailable(reason, retryable));
   const now = nowIso();
   const manifest: RunManifest = {
     version: 3,
@@ -307,7 +325,7 @@ export async function prepareRun(request: ReportRequest): Promise<{ runDir: stri
 
   const providerRegistry = result.stats.providerRegistry;
   const analysisScope = createAnalysisScope({ runId, request: effectiveRequest, snapshot: result.prepared.snapshot, documents, providerRegistry });
-  const plan = createInvestigationPlan(runId, effectiveRequest, documents);
+  let plan = createInvestigationPlan(runId, effectiveRequest, documents);
   const traces = emptyTraceCatalog(runId);
   // Resolved BEFORE the evidence catalog is assembled: link evidence has to be IN the catalog, or a claim
   // citing it would fail audit for citing an evidence id that does not exist. Its kind is `derived`, never
@@ -413,6 +431,23 @@ export async function prepareRun(request: ReportRequest): Promise<{ runDir: stri
   if (obligations.status === "built") {
     plan.items.push(...declarationWorkItems(obligations.value, documents, new Set(plan.items.map((item) => item.id))));
   }
+  const investigation = await buildInvestigationStage({
+    target: request.target,
+    snapshotId: result.prepared.snapshot.id,
+    filesContentManifestDigest: result.ledger.contentManifestDigest,
+    cacheDir: projectCacheDir(runDir),
+    maxWindows: Math.max(0, effectiveRequest.budgets.maxSourceWindows - result.stats.sourceWindows),
+    maxCharacters: Math.max(0, effectiveRequest.budgets.maxSourceCharacters - result.stats.sourceCharacters),
+    redact: effectiveRequest.redactSecrets === true,
+    workset: workset.readSpecs,
+    obligations
+  });
+  await writeInvestigationStage(runDir, investigation.results);
+  evidence.push(...investigation.evidence);
+  result.stats.sourceWindows += investigation.stats.windows;
+  result.stats.sourceWindowCacheHits += investigation.stats.hits;
+  result.stats.sourceCharacters += investigation.stats.characters;
+  plan = applyInvestigationDispositions(plan, investigation.results, obligations);
   result.stats.warnings.push(...logic.warnings);
   const manifest: RunManifest = {
     version: 3,
@@ -453,7 +488,7 @@ export async function prepareRun(request: ReportRequest): Promise<{ runDir: stri
   };
   await writeJson(join(runDir, "request.json"), effectiveRequest);
   await writeJson(join(runDir, "snapshot.json"), result.prepared.snapshot);
-  const evidenceCatalog = await writeEvidenceCatalog(runDir, evidence, effectiveRequest.redactSecrets === true);
+  const evidenceCatalog = await writeEvidenceCatalog(runDir, coalesceInitialEvidence(evidence), effectiveRequest.redactSecrets === true);
   manifest.evidenceDigest = evidenceCatalog.checkpoint.tailDigest;
   await writeJson(join(runDir, "provider-status.json"), providerRegistry);
   await writeJson(join(runDir, "analysis-scope.json"), analysisScope);
@@ -539,6 +574,7 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
   const claimsByDocument = new Map<string, Array<{ section: number; claim: SectionClaim }>>();
   const traceIds = new Set(traces.traces.map((trace) => trace.id));
   let auditedDeclarations: ObligationDeclarations | null = null;
+  let auditedInvestigationResults: Awaited<ReturnType<typeof readRequiredInvestigationResults>> | null = null;
   // Generation 12 reads the two census laws from their ArtifactResult envelopes. File coverage and partition
   // selection are checked independently: adding their counts would mix different unit kinds.
   if (assuranceGenerationAtLeast(manifest, WORKSET_OBLIGATION_ASSURANCE_GENERATION)) {
@@ -574,6 +610,13 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
       auditedDeclarations = await readRequiredObligationDeclarations(runDir);
     } catch (error) {
       findings.push({ level: "error", document: "contract", message: `obligations/declarations.json violates its declaration contract: ${(error as Error).message}` });
+    }
+  }
+  if (assuranceGenerationAtLeast(manifest, READ_EXECUTION_ASSURANCE_GENERATION)) {
+    try {
+      auditedInvestigationResults = await readRequiredInvestigationResults(runDir, manifest, evidenceCatalog.evidence);
+    } catch (error) {
+      findings.push({ level: "error", document: "contract", message: `investigation/results.json violates its execution contract: ${(error as Error).message}` });
     }
   }
   if (manifest.evidenceDigest !== evidenceStreamDigest(evidenceCatalog.evidence)) findings.push({ level: "error", document: "evidence", message: "evidence catalog changed outside the recorded source-evidence workflow" });
@@ -784,6 +827,13 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
 
   // Frozen-knowledge consistency: run-level assertions, self-gated on knowledge.json existing, so an
   // unfrozen or legacy run is untouched. A scoped audit keeps them advisory like the other run-wide checks.
+  const knowledgePath = join(runDir, "knowledge.json");
+  if (auditedInvestigationResults && await exists(knowledgePath)) {
+    const frozenKnowledge = await readJson<KnowledgeArtifact>(knowledgePath);
+    if (frozenKnowledge.investigationResultsDigest !== sha256(stableJson(auditedInvestigationResults))) {
+      findings.push(...runWide([{ level: "error" as const, document: "knowledge", message: "investigation/results.json does not match the L7 execution digest recorded at freeze" }]));
+    }
+  }
   findings.push(...runWide(await auditFrozenKnowledge(runDir, manifest, evidenceCatalog.evidence, plan, traces)));
   // Freeze-before-authoring order gate: a run-wide assertion (needs the whole timeline), so a scoped
   // audit downgrades it to advisory exactly like the other run-wide checks above.
