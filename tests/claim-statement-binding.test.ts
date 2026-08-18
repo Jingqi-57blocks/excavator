@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { auditSectionClaims, substantiveSegments } from "../src/assurance/section-audit.ts";
-import { scaffoldSectionClaims } from "../src/assurance/claims-scaffold.ts";
+import { auditSectionClaims, substantiveSegments } from "../src/report/section-audit.ts";
+import { scaffoldSectionClaims } from "../src/report/claims-scaffold.ts";
 import type { SectionClaim } from "../src/base/types.ts";
 
 // THE ENGINE REJECTING ITS OWN OUTPUT.

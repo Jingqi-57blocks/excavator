@@ -5,7 +5,7 @@ import { runUsesCurrentAssurance } from "../base/assurance-version.ts";
 import { validateClaimsInput } from "./section-audit.ts";
 import { collectClaims } from "./assurance-artifacts.ts";
 import { archiveCheckpoint, normalizeSection } from "./checkpoint.ts";
-import { appendTimeline } from "./timeline.ts";
+import { appendTimeline } from "../base/timeline.ts";
 import { atomicWrite, exists, listDirectories, nowIso, readJson, writeJson } from "../base/util.ts";
 
 /**

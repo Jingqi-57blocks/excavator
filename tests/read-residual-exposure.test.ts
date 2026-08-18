@@ -3,10 +3,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { readingExposure, renderReadingBoundary, renderReadingCheck, type ReadingExposureInput } from "../src/assurance/read-residual-exposure.ts";
-import { anchorHitFor } from "../src/assurance/relevance-annotation.ts";
-import type { ReadCoverageItem } from "../src/assurance/read-coverage.ts";
-import type { ReadObligation } from "../src/assurance/read-obligations.ts";
+import { readingExposure, renderReadingBoundary, renderReadingCheck, type ReadingExposureInput } from "../src/investigation/read-residual-exposure.ts";
+import { anchorHitFor } from "../src/obligation/relevance-annotation.ts";
+import type { ReadCoverageItem } from "../src/investigation/read-coverage.ts";
+import type { ReadObligation } from "../src/obligation/read-obligations.ts";
 
 // This block reaches an author who cannot cheaply act on it (every post-freeze window costs a supplement)
 // and a pre-freeze investigator who can. Both readings come from one grouping, so these tests pin the

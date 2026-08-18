@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { anchorHitFor, anchorVocabulary } from "../src/assurance/relevance-annotation.ts";
-import { readObligations } from "../src/assurance/read-obligations.ts";
+import { anchorHitFor, anchorVocabulary } from "../src/obligation/relevance-annotation.ts";
+import { readObligations } from "../src/obligation/read-obligations.ts";
 import type { FeatureFactPack } from "../src/base/types.ts";
 import { v2Pack } from "./factpack-v2-fixture.ts";
 

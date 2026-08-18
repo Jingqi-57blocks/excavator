@@ -19,7 +19,7 @@
 //      first half and terribly on the second, which is why both halves are required.
 
 import { readFileSync } from "node:fs";
-import { anchorHitFor } from "../src/assurance/relevance-annotation.ts";
+import { anchorHitFor } from "../src/obligation/relevance-annotation.ts";
 
 export interface AttributionGolden {
   version: string;

@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readObligations, READ_OBLIGATIONS_VERSION, normalizeObligationPath, type ReadObligation } from "../src/assurance/read-obligations.ts";
-import { auditReadAccountability, citesOverlappingWindow, reconcileReadCoverage } from "../src/assurance/read-coverage.ts";
-import { LOGIC_WORKITEM_DIMENSION } from "../src/assurance/logic-workitems.ts";
+import { readObligations, READ_OBLIGATIONS_VERSION, normalizeObligationPath, type ReadObligation } from "../src/obligation/read-obligations.ts";
+import { auditReadAccountability, citesOverlappingWindow, reconcileReadCoverage } from "../src/investigation/read-coverage.ts";
+import { LOGIC_WORKITEM_DIMENSION } from "../src/obligation/logic-workitems.ts";
 import type { EvidenceItem, FactPackItem, FeatureFactPack, InvestigationWorkItem } from "../src/base/types.ts";
 import { v2Item, v2Pack } from "./factpack-v2-fixture.ts";
 

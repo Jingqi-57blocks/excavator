@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { readFile } from "node:fs/promises";
 import type { ReportRequest } from "../src/base/types.ts";
 import { prepareRun } from "../src/run/run.ts";
-import { auditMechanismLedger } from "../src/assurance/mechanism-ledger-audit.ts";
+import { auditMechanismLedger } from "../src/freeze/mechanism-ledger-audit.ts";
 import type { ContractManifest } from "../src/contract/contract-manifest.ts";
 import type { ArtifactResult } from "../src/base/artifact-result.ts";
 import type { FileLedger } from "../src/snapshot/file-ledger.ts";

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildAuthoringPacket } from "../src/assurance/authoring-packet.ts";
-import { inventoryConditions } from "../src/assurance/condition-inventory.ts";
+import { buildAuthoringPacket } from "../src/report/authoring-packet.ts";
+import { inventoryConditions } from "../src/investigation/condition-inventory.ts";
 import type { DocumentPlan, EvidenceItem, InvestigationPlan, InvestigationWorkItem, TraceCatalog } from "../src/base/types.ts";
 
 // The packet is where a condition can still change the report: measured extraction of literal conditions was

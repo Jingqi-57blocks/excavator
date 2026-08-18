@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { sectionFileStem, sectionTitleSlug } from "../src/assurance/section-slug.ts";
+import { sectionFileStem, sectionTitleSlug } from "../src/report/section-slug.ts";
 
 test("sectionTitleSlug strips a leading ordinal and slugifies the remainder", () => {
   assert.equal(sectionTitleSlug("4. Business rules, states, and consistency"), "business-rules-states-and-consistency");

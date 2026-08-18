@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { join } from "node:path";
 import { readFile } from "node:fs/promises";
 import type { DocumentPlan, EvidenceItem, InvestigationPlan, InvestigationWorkItem, ReportRequest, SectionClaim } from "../src/base/types.ts";
-import { auditWorkItemClaimCoverage } from "../src/assurance/section-audit.ts";
+import { auditWorkItemClaimCoverage } from "../src/report/section-audit.ts";
 import { assembleRun, auditRun, checkpointSection, freezeRun, prepareRun, searchSourceEvidence, updateWorkItems } from "../src/run/run.ts";
 import { copyFixture, createCodeGraphFixture, tempDir } from "./helpers.ts";
 

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { auditReadabilityTables } from "../src/assurance/section-audit.ts";
+import { auditReadabilityTables } from "../src/report/section-audit.ts";
 import type { Audience, DocumentKind, DocumentPlan } from "../src/base/types.ts";
 
 function doc(kind: DocumentKind, audience: Audience): DocumentPlan {

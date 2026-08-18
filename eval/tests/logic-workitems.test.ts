@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
 import { loadFactpackFixture, fixtureLogicItems } from "../factpack-fixture.ts";
-import { logicWorkItems, LOGIC_WORKITEM_CAP, LOGIC_WORKITEM_DIMENSION } from "../../src/assurance/logic-workitems.ts";
+import { logicWorkItems, LOGIC_WORKITEM_CAP, LOGIC_WORKITEM_DIMENSION } from "../../src/obligation/logic-workitems.ts";
 import { stableJson } from "../../src/base/util.ts";
 import type { DocumentPlan, FeatureFactPack } from "../../src/base/types.ts";
 import { v2Pack } from "../../tests/factpack-v2-fixture.ts";

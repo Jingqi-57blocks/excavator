@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { auditChecklist, workItemsToChecklist } from "../src/assurance/assurance.ts";
+import { auditChecklist, workItemsToChecklist } from "../src/investigation/assurance.ts";
 import type { ChecklistItem, EvidenceItem, InvestigationChecklist, InvestigationPlan, InvestigationWorkItem } from "../src/base/types.ts";
 
 // 57B-354 #6a: a `not-applicable` disposition is valid with only a reason, and must not be projected

@@ -5,7 +5,7 @@ import { readdir, readFile, rm, writeFile } from "node:fs/promises";
 import type { ReportRequest, RunManifest } from "../src/base/types.ts";
 import { auditRun, freezeRun, prepareRun } from "../src/run/run.ts";
 import { ARTIFACT_REGISTRY } from "../src/base/artifact-registry.ts";
-import { auditContractInstances } from "../src/assurance/contract-instance-audit.ts";
+import { auditContractInstances } from "../src/freeze/contract-instance-audit.ts";
 import { assuranceGenerationAtLeast, CONTRACT_MANIFEST_ASSURANCE_GENERATION } from "../src/base/assurance-version.ts";
 import type { ContractManifest } from "../src/contract/contract-manifest.ts";
 import { ledgerContentIdentity, type FileLedger } from "../src/snapshot/file-ledger.ts";

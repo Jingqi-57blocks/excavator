@@ -1,4 +1,4 @@
-import { auditSectionClaims, auditTargetProblemAttribution } from "../src/assurance/section-audit.ts";
+import { auditSectionClaims, auditTargetProblemAttribution } from "../src/report/section-audit.ts";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";

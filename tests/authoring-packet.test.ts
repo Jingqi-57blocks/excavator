@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { join } from "node:path";
 import { readFile } from "node:fs/promises";
 import type { DocumentPlan, EvidenceItem, FeatureFactPack, InvestigationPlan, InvestigationWorkItem, SectionClaim, TraceCatalog, TraceRecord } from "../src/base/types.ts";
-import { auditAuthoringPacketConsumption, buildAuthoringPacket, DIMENSION_FACT_CATEGORY, packetEvidenceForDocument } from "../src/assurance/authoring-packet.ts";
+import { auditAuthoringPacketConsumption, buildAuthoringPacket, DIMENSION_FACT_CATEGORY, packetEvidenceForDocument } from "../src/report/authoring-packet.ts";
 import { FACT_PACK_CATEGORIES } from "../src/context/factpack.ts";
 import { freezeRun, prepareRun } from "../src/run/run.ts";
 import { atomicWrite, exists } from "../src/base/util.ts";

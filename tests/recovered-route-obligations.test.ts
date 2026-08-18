@@ -3,9 +3,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { readObligations, RECOVERED_ROUTE_DENOMINATOR_ASSURANCE_GENERATION } from "../src/assurance/read-obligations.ts";
+import { readObligations, RECOVERED_ROUTE_DENOMINATOR_ASSURANCE_GENERATION } from "../src/obligation/read-obligations.ts";
 import { recoveredRouteObligations } from "../src/crossrepo/crossrepo-artifact.ts";
-import { reconcileReadCoverage } from "../src/assurance/read-coverage.ts";
+import { reconcileReadCoverage } from "../src/investigation/read-coverage.ts";
 import type { EvidenceItem, FeatureFactPack } from "../src/base/types.ts";
 import { v2Pack } from "./factpack-v2-fixture.ts";
 

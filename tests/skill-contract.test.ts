@@ -5,7 +5,7 @@ import { readFile, readdir } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import type { ReportRequest } from "../src/base/types.ts";
 import { assembleRun, checkpointSection, freezeRun, prepareRun } from "../src/run/run.ts";
-import { collectDrafts, draftSection } from "../src/assurance/parallel-authoring.ts";
+import { collectDrafts, draftSection } from "../src/report/parallel-authoring.ts";
 import { slugify } from "../src/base/util.ts";
 import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, tempDir } from "./helpers.ts";
 
