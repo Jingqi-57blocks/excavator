@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { auditReadAccountability, reconcileReadCoverage } from "../src/assurance/read-coverage.ts";
-import type { ReadObligation } from "../src/assurance/read-obligations.ts";
+import { auditReadAccountability, reconcileReadCoverage } from "../src/investigation/read-coverage.ts";
+import type { ReadObligation } from "../src/obligation/read-obligations.ts";
 import type { EvidenceItem } from "../src/base/types.ts";
 
 // The split exists because ONE number misdirected: measured on a real run, 225 not-opened obligations

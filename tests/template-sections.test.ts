@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
-// Pins the canonical chapter order of the four report templates. Audits in src/assurance/assurance.ts key on a
+// Pins the canonical chapter order of the four report templates. Audits in src/investigation/assurance.ts key on a
 // section's 1-based POSITIONAL index (run.ts makeDocumentPlan assigns `index: index + 1` from heading
 // order, not from the number written in the title), so several audit constants encode fixed chapter
 // numbers: auditTargetProblemAttribution (feature problem chapter = §11, product overview = §9),

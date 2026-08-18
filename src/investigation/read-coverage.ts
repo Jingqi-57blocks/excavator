@@ -16,8 +16,8 @@
 // the freeze gate, the audit and the eval funnel can never disagree about "does this window cover it".
 
 import type { AuditFinding, EvidenceItem, InvestigationWorkItem } from "../base/types.ts";
-import { LOGIC_WORKITEM_DIMENSION } from "./logic-workitems.ts";
-import { normalizeObligationPath, type ReadObligation } from "./read-obligations.ts";
+import { LOGIC_WORKITEM_DIMENSION } from "../obligation/logic-workitems.ts";
+import { normalizeObligationPath, type ReadObligation } from "../obligation/read-obligations.ts";
 
 export const READ_COVERAGE_VERSION = "read-coverage-v1";
 

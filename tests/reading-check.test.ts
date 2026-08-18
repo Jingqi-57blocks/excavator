@@ -2,12 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
 import { readFile, rm, writeFile } from "node:fs/promises";
-import { buildAuthoringPacket } from "../src/assurance/authoring-packet.ts";
+import { buildAuthoringPacket } from "../src/report/authoring-packet.ts";
 import { freezeRun, prepareRun, readingCheck } from "../src/run/run.ts";
-import { readTimeline } from "../src/assurance/timeline.ts";
+import { readTimeline } from "../src/base/timeline.ts";
 import type { DocumentPlan, EvidenceItem, InvestigationPlan, ReportRequest, RunManifest, TraceCatalog } from "../src/base/types.ts";
-import type { ReadObligation } from "../src/assurance/read-obligations.ts";
-import type { ReadCoverageItem } from "../src/assurance/read-coverage.ts";
+import type { ReadObligation } from "../src/obligation/read-obligations.ts";
+import type { ReadCoverageItem } from "../src/investigation/read-coverage.ts";
 import { copyFixture, createCodeGraphSchema, disposeAllWorkItems, tempDir } from "./helpers.ts";
 
 // Wiring for the reading check. The rendering is unit-tested in read-residual-exposure.test.ts; what has to

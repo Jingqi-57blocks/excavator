@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import type { DocumentPlan, EvidenceItem, InvestigationPlan, SectionClaim, SectionClaimsFile } from "../src/base/types.ts";
-import { auditDetailedFeatureSection, auditWorkItemClaimCoverage } from "../src/assurance/section-audit.ts";
+import { auditDetailedFeatureSection, auditWorkItemClaimCoverage } from "../src/report/section-audit.ts";
 
 function featureDocument(): DocumentPlan {
   return {

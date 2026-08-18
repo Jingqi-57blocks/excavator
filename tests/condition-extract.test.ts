@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { AST_LANGUAGES, extractComparisons, warmExtractors } from "../src/facts/probe/condition-extract.ts";
-import { inventoryConditions } from "../src/assurance/condition-inventory.ts";
+import { inventoryConditions } from "../src/investigation/condition-inventory.ts";
 import type { EvidenceItem } from "../src/base/types.ts";
 
 // The extraction layer is the part an open-source parser does better than a regex. These tests pin the three

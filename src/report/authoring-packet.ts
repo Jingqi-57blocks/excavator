@@ -1,8 +1,8 @@
 import { join } from "node:path";
-import type { ConditionInventory } from "./condition-inventory.ts";
-import type { ReadCoverageItem } from "./read-coverage.ts";
-import type { ReadObligation } from "./read-obligations.ts";
-import { readingExposure, renderReadingBoundary } from "./read-residual-exposure.ts";
+import type { ConditionInventory } from "../investigation/condition-inventory.ts";
+import type { ReadCoverageItem } from "../investigation/read-coverage.ts";
+import type { ReadObligation } from "../obligation/read-obligations.ts";
+import { readingExposure, renderReadingBoundary } from "../investigation/read-residual-exposure.ts";
 import type {
   AuditFinding,
   DocumentPlan,

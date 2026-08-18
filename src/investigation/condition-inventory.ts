@@ -38,7 +38,7 @@
 
 import type { AuditFinding, EvidenceItem } from "../base/types.ts";
 import { extractComparisons, type RawComparison } from "../facts/probe/condition-extract.ts";
-import { normalizeObligationPath } from "./read-obligations.ts";
+import { normalizeObligationPath } from "../obligation/read-obligations.ts";
 
 export const CONDITION_INVENTORY_VERSION = "condition-inventory-v1";
 

@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { readFile, writeFile } from "node:fs/promises";
 import type { EvidenceItem, InvestigationPlan, KnowledgeArtifact, ReportRequest, RunManifest, SectionClaim, TraceRecord } from "../src/base/types.ts";
 import { addSourceEvidence, assembleRun, auditRun, checkpointSection, freezeRun, prepareRun, searchSourceEvidence, updateChecklist, updateTraces, updateWorkItems } from "../src/run/run.ts";
-import { knowledgeDigest } from "../src/assurance/freeze.ts";
+import { knowledgeDigest } from "../src/freeze/freeze.ts";
 import { exists } from "../src/base/util.ts";
 import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, tempDir } from "./helpers.ts";
 

@@ -89,9 +89,9 @@ test("production readers reject legacy v1 and malformed or unreconciled v2 packs
 
 test("every automatic fact-pack consumer imports the single consumable-row gate", async () => {
   for (const file of [
-    "src/assurance/authoring-packet.ts",
-    "src/assurance/logic-workitems.ts",
-    "src/assurance/read-obligations.ts",
+    "src/report/authoring-packet.ts",
+    "src/obligation/logic-workitems.ts",
+    "src/obligation/read-obligations.ts",
     "src/context/cross-feature.ts"
   ]) {
     const source = await readFile(file, "utf8");

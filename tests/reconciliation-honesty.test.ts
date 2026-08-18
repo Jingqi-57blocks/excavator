@@ -2,9 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
 import { mkdir, writeFile } from "node:fs/promises";
-import { auditTraces } from "../src/assurance/assurance.ts";
-import { auditRescuedLogicCoverage } from "../src/assurance/section-audit.ts";
-import { collectClaims } from "../src/assurance/assurance-artifacts.ts";
+import { auditTraces } from "../src/investigation/assurance.ts";
+import { auditRescuedLogicCoverage } from "../src/report/section-audit.ts";
+import { collectClaims } from "../src/report/assurance-artifacts.ts";
 import type { DocumentPlan, EvidenceItem, SectionClaim, TraceCatalog } from "../src/base/types.ts";
 import { tempDir } from "./helpers.ts";
 

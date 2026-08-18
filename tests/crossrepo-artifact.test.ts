@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { buildCrossRepoArtifact, mintCrossRepoEvidence, resolvedHandlers } from "../src/crossrepo/crossrepo-artifact.ts";
-import { reconcileReadCoverage } from "../src/assurance/read-coverage.ts";
+import { reconcileReadCoverage } from "../src/investigation/read-coverage.ts";
 import type { CrossRepoScan } from "../src/crossrepo/crossrepo-scan.ts";
-import type { ReadObligation } from "../src/assurance/read-obligations.ts";
+import type { ReadObligation } from "../src/obligation/read-obligations.ts";
 
 function scanWith(links: CrossRepoScan["links"]): CrossRepoScan {
   return {

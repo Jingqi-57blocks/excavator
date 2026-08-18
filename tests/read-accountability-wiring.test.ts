@@ -5,8 +5,8 @@ import { readFile, rm } from "node:fs/promises";
 import type { KnowledgeArtifact, ReportRequest, RunManifest } from "../src/base/types.ts";
 import { auditRun, freezeRun, prepareRun } from "../src/run/run.ts";
 import { exists, sha256, stableJson, writeJson } from "../src/base/util.ts";
-import { READ_OBLIGATIONS_VERSION } from "../src/assurance/read-obligations.ts";
-import { READ_COVERAGE_VERSION } from "../src/assurance/read-coverage.ts";
+import { READ_OBLIGATIONS_VERSION } from "../src/obligation/read-obligations.ts";
+import { READ_COVERAGE_VERSION } from "../src/investigation/read-coverage.ts";
 import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, tempDir } from "./helpers.ts";
 
 // Wiring-level regression for reading accountability. The RULES are unit-tested in

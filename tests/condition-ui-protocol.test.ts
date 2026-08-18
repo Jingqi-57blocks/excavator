@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { auditConditionCoverage, inventoryConditions } from "../src/assurance/condition-inventory.ts";
-import { buildAuthoringPacket } from "../src/assurance/authoring-packet.ts";
+import { auditConditionCoverage, inventoryConditions } from "../src/investigation/condition-inventory.ts";
+import { buildAuthoringPacket } from "../src/report/authoring-packet.ts";
 import type { DocumentPlan, EvidenceItem, InvestigationPlan, TraceCatalog } from "../src/base/types.ts";
 
 // THE ONE FILTER THAT EXISTS BECAUSE OF A MEASURED HARM, not measured noise.

@@ -31,7 +31,7 @@
 // console and the packet can never disagree about what the residual says.
 
 import type { ReadCoverageItem } from "./read-coverage.ts";
-import type { ReadObligation } from "./read-obligations.ts";
+import type { ReadObligation } from "../obligation/read-obligations.ts";
 
 /** Which partition put a function on this list. Mirrors `attributionPartitions` naming in read-coverage.ts. */
 export type ExposurePartition = "retained" | "named" | "in-directory";

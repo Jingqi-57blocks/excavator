@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readObligations, type RouteHandlerObligation } from "../src/assurance/read-obligations.ts";
+import { readObligations, type RouteHandlerObligation } from "../src/obligation/read-obligations.ts";
 import { routeHandlerObligations } from "../src/crossrepo/crossrepo-artifact.ts";
 import type { CrossRepoArtifact } from "../src/crossrepo/crossrepo-artifact.ts";
 import type { FeatureFactPack } from "../src/base/types.ts";
