@@ -115,7 +115,7 @@ src/mechanism/       ✓ 层 2：机制台账、CoverageDomain / UnitKind 声明
 src/facts/             层 3：units.ts（reference units + canonical partition + member mapping）+ 每生产者一个子目录
     probe/           ✓ —— 今天 src/facts/ 下只有这一个；另外六个生产者仍在自己的顶层目录里
     codegraph/  nativegraph/  framework/  schema/  crossrepo/  vocabulary/
-src/attribution/     ✓ 层 4：feature-prune、module-floor、选择痕迹与归属产物
+src/attribution/     ✓ 层 4：唯一分配器、选择贡献痕迹与归属产物
 src/workset/         ✓ 层 5：fact pack v2、ReadSpec、census 与唯一消费视图
 src/obligation/      ✓ 层 6：义务声明、requirements 展开、残差行
 src/investigation/   ✓ 层 7：ReadSpec 执行、证据目录、义务处置、截断策略
@@ -166,7 +166,7 @@ src/run/  src/cli.ts ✓ 编排
 | P12 | 静默出空（清点 42 处） | **全部接口的失败输出列**——这一类由「接口是全函数」整体化解，不属于单条边 |
 | P13 | 文件扫描静默截断 | 边界 → 一切下游：**已由 57B-418 落地**（以下行号是修之前的 `snapshot.ts`，留作出处）：`:211` 把 cap 与固定排除混在同一个条件里、`:238` 的 break 可丢整根，另有三处静默吞（`:215` 路径逃逸、`:218` 非常规文件/符号链接/>2MB、`:226` lstat 失败）；现在每个候选必落桶，完整度块必填，经分母法则被每个消费方继承；**并被 NotApplicable 的 `basedOn` 引用**——扫描不完整时 not-detected 不成立 |
 | P14 | 未探测函数被静默丢弃 | 机制 → 义务声明：`mechanisms.json` 声明（语言 × 机制）缺口；`src/obligation/declarations.ts:93` 让每个候选进入 decision / exclusion / unavailable 之一；`src/obligation/read-obligations.ts:258` 的 legacy skip 不再是第 6 层声明边界 |
-| P15 | 最新机制零问责 | 归属产物契约：无挤出 / 捞回记录的机制接不进分配器（`src/attribution/prune-module-floor.ts:51` 的地板是第一个补上记录的机制：每模块一条决策，含加零个的空操作） |
+| P15 | 最新机制零问责 | 分配器贡献契约：每个候选都携带来源通道、理由、锚点、传播路径及归一化贡献；唯一 `seat-cap` 的挤出逐项记录，零信号模块仍有 census 行但不强塞席位（`src/attribution/allocator.ts`、`eval/fixtures/allocator/preregistration-v1.json`） |
 | P16 | 旁路工具或层产物在流程里不可达 | 契约 → 冻结：八层产物槽位与第 3 层生产者未列入 `contract-manifest` = 无期望；列入而缺统一信封 = 冻结失败——不可达从文档问题变成会红的检查 |
 | P17 | 事实包按文件边界收录 | **归属 → 工作集**：席位 `UnitId` 集是成员资格唯一权威。`src/context/factpack.ts:229` 现在只产不带关系裁定的收集结果与 layer-3 join hint；`src/workset/factpack-annotate.ts:38-58` 在第 4 层之后逐条转录成员资格、保持分母不变并标 seeded / retained / co-located / not-applicable；`src/workset/factpack-view.ts:6-22` 是模型视图、FACT evidence、义务、work item 与 cross-feature 的同一消费闸，只放行 seeded / retained。全链禁止重新按 path/span 猜测，也禁止 co-located 自动产事实。旧实现实测 `handlers.go` 299 条 entrypoint 中 293 条与功能无关且全部可引用；换格式不能修这类成员资格错误 |
 | P18 | 无上界字段打穿产物与其每个消费者 | **调查结果 → 冻结**：一次真跑 `evidence.json` 2.5 MB，单条 SEARCH 记录 2.27 MB——一条 excerpt 439,321 字符，来自压缩过的 `tiny_mce.js`；现存历史 WCP run 还出现 8.56 MB / 596 条的目录，最大单条 graph evidence 约 266 KB，故风险既包含「一个巨型字段」也包含「许多中型记录累积」。第 7 层对所有 evidence kind 设四级上界，超界截断必带五字段；`contentRef` 必须是归档后仍可解析的不可变内容引用，freeze 后修改/删除 target 仍能重推导原字节。压缩判定走第 1 层行形状；append writer 的累计读写量必须线性，不能只把整写改成 JSONL 却保留每次整读 |

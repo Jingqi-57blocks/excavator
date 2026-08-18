@@ -5,7 +5,7 @@
 //
 //   * FIXTURE path (in `npm test`): `loadPrunePool` gunzips a frozen candidate pool — the exact
 //     nodes + closure edges + seeds + anchor terms the real pipeline fed the prune — and
-//     `prunePoolToNodes` runs the NEW `pruneFeatureGraph` over it. No database, no model, no network.
+//     `prunePoolToNodes` runs the current allocator over it. No database, no model, no network.
 //
 //   * REAL-DB path (manual / pre-merge smoke, `--run` + `--module`): `buildPoolFromRun` opens the
 //     actual per-module CodeGraph databases through the real `CodeGraphSet` (new ×6 expand cap +
@@ -20,11 +20,11 @@ import { gzipSync, gunzipSync } from "node:zlib";
 import { join, dirname, basename } from "node:path";
 import { CodeGraphIndex } from "../src/codegraph/codegraph.ts";
 import { CodeGraphSet } from "../src/codegraph/codegraph-set.ts";
-import { pruneFeatureGraphWithModuleFloor } from "../src/attribution/prune-module-floor.ts";
+import { allocateFeatureGraph } from "../src/attribution/allocator.ts";
 import { Deadline } from "../src/base/util.ts";
 import type { BoundaryNode } from "./boundary.ts";
 
-/** A frozen candidate pool: everything `pruneFeatureGraph` needs, and nothing model-derived. */
+/** A frozen candidate pool: everything the allocator needs, and nothing model-derived. */
 export interface PrunePool {
   target: string;
   anchorTerms: string[];
@@ -131,10 +131,9 @@ export function loadPrunePool(file: string): PrunePool {
   return JSON.parse(gunzipSync(readFileSync(file)).toString("utf8"));
 }
 
-/** Run the new prune (with the 57B-377 module-local rescue floor) over a pool, optionally overriding
- *  the node budget (for boundedness checks). Every fixture test thus exercises the floor path. */
+/** Run the allocator over a frozen candidate pool, optionally overriding the node budget. */
 export function prunePool(pool: PrunePool, maxNodes = pool.maxFeatureNodes): { nodes: any[]; edges: any[] } {
-  return pruneFeatureGraphWithModuleFloor(pool.nodes, pool.edges, pool.seeds, anchorTermsOf(pool), maxNodes);
+  return allocateFeatureGraph(pool.nodes, pool.edges, pool.seeds, anchorTermsOf(pool), maxNodes);
 }
 
 /** Project the pruned node set into boundary-recall nodes. */

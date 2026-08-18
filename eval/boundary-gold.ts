@@ -4,7 +4,7 @@
 // schema dependency; this eval layer follows Core's dependency-whitelist discipline.
 //
 // A boundary gold pins which material feature nodes MUST land inside the feature
-// graph node set (the output of pruneFeatureGraph). Each item's anchors are OR:
+// graph node set (the output of the allocator). Each item's anchors are OR:
 // a node satisfying any one anchor puts the item in-bounds. Anchor path matching
 // reuses diff.ts's three-form `pathMatches` so boundary and knowledge-diff share
 // exactly one anchor path semantics; name is an exact node-name match; lines fall

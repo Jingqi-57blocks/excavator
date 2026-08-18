@@ -1,0 +1,195 @@
+{
+  "version": "allocator-replacement-measurements-v1",
+  "metricVersion": "allocator-metrics-v1",
+  "preregistrationDigest": "5f2e1fba9ee4ba6627c6febb3b32e80020e230c388835040d674457d1cf95c5d",
+  "maxRelativeOverhead": 0.2,
+  "sequentialDiagnostic": {
+    "protocol": "Three fresh-workdir old runs were executed as one cohort, then three fresh-workdir replacement runs as another cohort. The WCP result crossed the threshold while the replacement kernel was faster, so this batch is retained as environment-drift evidence and is not substituted for the preregistered three-pair gate.",
+    "cases": [
+      {
+        "id": "wcp-leave",
+        "baseline": [
+          { "runDir": ".work/57b-426-baseline-repeat-2/wcp/runs/run-2026_08_18_20_07-请假管理-8abb4795-941834f4-09108dd9", "featureContextMs": 2528 },
+          { "runDir": ".work/57b-426-baseline-repeat-3/wcp/runs/run-2026_08_18_20_08-请假管理-8abb4795-941834f4-c442c87c", "featureContextMs": 2423 },
+          { "runDir": ".work/57b-426-baseline-repeat-4/wcp/runs/run-2026_08_18_20_13-请假管理-8abb4795-941834f4-5aa3e7d5", "featureContextMs": 1262 }
+        ],
+        "replacement": [
+          { "runDir": ".work/57b-426-replacement-repeat-1/wcp/runs/run-2026_08_18_20_09-请假管理-8abb4795-941834f4-020fd50f", "featureContextMs": 2399 },
+          { "runDir": ".work/57b-426-replacement-repeat-2/wcp/runs/run-2026_08_18_20_10-请假管理-8abb4795-941834f4-2cdddb06", "featureContextMs": 2424 },
+          { "runDir": ".work/57b-426-replacement-repeat-3/wcp/runs/run-2026_08_18_20_11-请假管理-8abb4795-941834f4-69c37f57", "featureContextMs": 2858 }
+        ],
+        "baselineMeanMs": 2071,
+        "replacementMeanMs": 2560.3333333333335,
+        "relativeOverhead": 0.23627877032029623,
+        "thresholdPass": false
+      },
+      {
+        "id": "angels-order",
+        "baseline": [
+          { "runDir": ".work/57b-426-baseline-repeat-2/angels-pizza/runs/run-2026_08_18_20_08-order-fulfillmen-fb61f1a2-4543dedd-4b2ca915", "featureContextMs": 1994 },
+          { "runDir": ".work/57b-426-baseline-repeat-3/angels-pizza/runs/run-2026_08_18_20_09-order-fulfillmen-fb61f1a2-4543dedd-355d5ee5", "featureContextMs": 1953 },
+          { "runDir": ".work/57b-426-baseline-repeat-4/angels-pizza/runs/run-2026_08_18_20_13-order-fulfillmen-fb61f1a2-4543dedd-6ca7d3ed", "featureContextMs": 869 }
+        ],
+        "replacement": [
+          { "runDir": ".work/57b-426-replacement-repeat-1/angels-pizza/runs/run-2026_08_18_20_10-order-fulfillmen-fb61f1a2-4543dedd-7baa579c", "featureContextMs": 1397 },
+          { "runDir": ".work/57b-426-replacement-repeat-2/angels-pizza/runs/run-2026_08_18_20_10-order-fulfillmen-fb61f1a2-4543dedd-2bea8cbb", "featureContextMs": 1901 },
+          { "runDir": ".work/57b-426-replacement-repeat-3/angels-pizza/runs/run-2026_08_18_20_11-order-fulfillmen-fb61f1a2-4543dedd-2ee94add", "featureContextMs": 2056 }
+        ],
+        "baselineMeanMs": 1605.3333333333333,
+        "replacementMeanMs": 1784.6666666666667,
+        "relativeOverhead": 0.1117109634551496,
+        "thresholdPass": true
+      },
+      {
+        "id": "angels-rider",
+        "baseline": [
+          { "runDir": ".work/57b-426-baseline-repeat-2/angels-pizza/runs/run-2026_08_18_20_08-rider-delivery-fb61f1a2-2ebafd9d-6a9f9c4d", "featureContextMs": 1919 },
+          { "runDir": ".work/57b-426-baseline-repeat-3/angels-pizza/runs/run-2026_08_18_20_09-rider-delivery-fb61f1a2-2ebafd9d-3047e00a", "featureContextMs": 1938 },
+          { "runDir": ".work/57b-426-baseline-repeat-4/angels-pizza/runs/run-2026_08_18_20_13-rider-delivery-fb61f1a2-2ebafd9d-8160e6e7", "featureContextMs": 834 }
+        ],
+        "replacement": [
+          { "runDir": ".work/57b-426-replacement-repeat-1/angels-pizza/runs/run-2026_08_18_20_10-rider-delivery-fb61f1a2-2ebafd9d-8a314eb8", "featureContextMs": 2055 },
+          { "runDir": ".work/57b-426-replacement-repeat-2/angels-pizza/runs/run-2026_08_18_20_11-rider-delivery-fb61f1a2-2ebafd9d-bf747db9", "featureContextMs": 1708 },
+          { "runDir": ".work/57b-426-replacement-repeat-3/angels-pizza/runs/run-2026_08_18_20_12-rider-delivery-fb61f1a2-2ebafd9d-d34b6fbb", "featureContextMs": 1780 }
+        ],
+        "baselineMeanMs": 1563.6666666666667,
+        "replacementMeanMs": 1847.6666666666667,
+        "relativeOverhead": 0.18162438712428053,
+        "thresholdPass": true
+      }
+    ]
+  },
+  "gateProtocol": "For each case, run three fresh-workdir old/replacement pairs with order old-new, new-old, old-new. Within each Angels side, order runs before rider so rider sees the same shared-context cache state. Compare the two three-run feature-context means against the preregistered 20 percent threshold.",
+  "cases": [
+    {
+      "id": "wcp-leave",
+      "pairs": [
+        {
+          "pair": 1,
+          "order": "old-new",
+          "baseline": { "runDir": ".work/57b-426-paired-1-old/wcp/runs/run-2026_08_18_20_15-请假管理-8abb4795-941834f4-a2c5ee29", "featureContextMs": 1251 },
+          "replacement": { "runDir": ".work/57b-426-paired-1-new/wcp/runs/run-2026_08_18_20_15-请假管理-8abb4795-941834f4-94958735", "featureContextMs": 1268 }
+        },
+        {
+          "pair": 2,
+          "order": "new-old",
+          "baseline": { "runDir": ".work/57b-426-paired-2-old/wcp/runs/run-2026_08_18_20_16-请假管理-8abb4795-941834f4-3a511438", "featureContextMs": 1221 },
+          "replacement": { "runDir": ".work/57b-426-paired-2-new/wcp/runs/run-2026_08_18_20_16-请假管理-8abb4795-941834f4-c759ab25", "featureContextMs": 1264 }
+        },
+        {
+          "pair": 3,
+          "order": "old-new",
+          "baseline": { "runDir": ".work/57b-426-paired-3-old/wcp/runs/run-2026_08_18_20_16-请假管理-8abb4795-941834f4-25b23bae", "featureContextMs": 1252 },
+          "replacement": { "runDir": ".work/57b-426-paired-3-new/wcp/runs/run-2026_08_18_20_16-请假管理-8abb4795-941834f4-1a9d1c02", "featureContextMs": 1270 }
+        }
+      ],
+      "baselineMeanMs": 1241.3333333333333,
+      "replacementMeanMs": 1267.3333333333333,
+      "relativeOverhead": 0.020945220193340497,
+      "thresholdPass": true
+    },
+    {
+      "id": "angels-order",
+      "pairs": [
+        {
+          "pair": 1,
+          "order": "old-new",
+          "baseline": { "runDir": ".work/57b-426-paired-angels-1-old/angels-pizza/runs/run-2026_08_18_20_18-order-fulfillmen-fb61f1a2-4543dedd-4e406d51", "featureContextMs": 879 },
+          "replacement": { "runDir": ".work/57b-426-paired-angels-1-new/angels-pizza/runs/run-2026_08_18_20_18-order-fulfillmen-fb61f1a2-4543dedd-d1327456", "featureContextMs": 898 }
+        },
+        {
+          "pair": 2,
+          "order": "new-old",
+          "baseline": { "runDir": ".work/57b-426-paired-angels-2-old/angels-pizza/runs/run-2026_08_18_20_18-order-fulfillmen-fb61f1a2-4543dedd-01a677cb", "featureContextMs": 858 },
+          "replacement": { "runDir": ".work/57b-426-paired-angels-2-new/angels-pizza/runs/run-2026_08_18_20_18-order-fulfillmen-fb61f1a2-4543dedd-800ddbc9", "featureContextMs": 868 }
+        },
+        {
+          "pair": 3,
+          "order": "old-new",
+          "baseline": { "runDir": ".work/57b-426-paired-angels-3-old/angels-pizza/runs/run-2026_08_18_20_19-order-fulfillmen-fb61f1a2-4543dedd-53d53d15", "featureContextMs": 855 },
+          "replacement": { "runDir": ".work/57b-426-paired-angels-3-new/angels-pizza/runs/run-2026_08_18_20_19-order-fulfillmen-fb61f1a2-4543dedd-f0137f4e", "featureContextMs": 864 }
+        }
+      ],
+      "baselineMeanMs": 864,
+      "replacementMeanMs": 876.6666666666666,
+      "relativeOverhead": 0.01466049382716045,
+      "thresholdPass": true
+    },
+    {
+      "id": "angels-rider",
+      "pairs": [
+        {
+          "pair": 1,
+          "order": "old-new",
+          "baseline": { "runDir": ".work/57b-426-paired-angels-1-old/angels-pizza/runs/run-2026_08_18_20_18-rider-delivery-fb61f1a2-2ebafd9d-491e575c", "featureContextMs": 835 },
+          "replacement": { "runDir": ".work/57b-426-paired-angels-1-new/angels-pizza/runs/run-2026_08_18_20_18-rider-delivery-fb61f1a2-2ebafd9d-198bdfbc", "featureContextMs": 806 }
+        },
+        {
+          "pair": 2,
+          "order": "new-old",
+          "baseline": { "runDir": ".work/57b-426-paired-angels-2-old/angels-pizza/runs/run-2026_08_18_20_19-rider-delivery-fb61f1a2-2ebafd9d-04b948a9", "featureContextMs": 835 },
+          "replacement": { "runDir": ".work/57b-426-paired-angels-2-new/angels-pizza/runs/run-2026_08_18_20_18-rider-delivery-fb61f1a2-2ebafd9d-5ecefa6e", "featureContextMs": 812 }
+        },
+        {
+          "pair": 3,
+          "order": "old-new",
+          "baseline": { "runDir": ".work/57b-426-paired-angels-3-old/angels-pizza/runs/run-2026_08_18_20_19-rider-delivery-fb61f1a2-2ebafd9d-8232695a", "featureContextMs": 843 },
+          "replacement": { "runDir": ".work/57b-426-paired-angels-3-new/angels-pizza/runs/run-2026_08_18_20_19-rider-delivery-fb61f1a2-2ebafd9d-4f6295b5", "featureContextMs": 816 }
+        }
+      ],
+      "baselineMeanMs": 837.6666666666666,
+      "replacementMeanMs": 811.3333333333334,
+      "relativeOverhead": -0.031436530043772296,
+      "thresholdPass": true
+    }
+  ],
+  "kernel": {
+    "poolFile": "eval/fixtures/wcp-leave/prune-pool.json.gz",
+    "poolDigest": "e9cc3b4a38eae421b812a8e104b6ba5a401aa63d247bfcfb418fec2536336548",
+    "warmupIterations": 5,
+    "measuredIterations": 100,
+    "baselineMeanMs": 116.91039042,
+    "replacementMeanMs": 25.70443583,
+    "relativeOverhead": -0.7801355744544438
+  },
+  "moduleCensus": {
+    "runs": [
+      {
+        "id": "wcp-leave",
+        "runDir": ".work/57b-426-replacement-repeat-1/wcp/runs/run-2026_08_18_20_09-请假管理-8abb4795-941834f4-020fd50f",
+        "attributionSha256": "871dae4ed0f9580f3f5d570899aa7989dc68c7fa3c464b4114ee120c61c067bc",
+        "rows": [
+          { "moduleId": "wcp_review_service", "denominatorCells": 1364, "poolNodes": 1, "seatedCells": 0, "status": "candidates-no-seat" },
+          { "moduleId": "wcp-auth", "denominatorCells": 297, "poolNodes": 0, "seatedCells": 0, "status": "zero-signal" },
+          { "moduleId": "wcp-service", "denominatorCells": 2609, "poolNodes": 253, "seatedCells": 17, "status": "seated" },
+          { "moduleId": "wcp-service-v2", "denominatorCells": 5905, "poolNodes": 1486, "seatedCells": 144, "status": "seated" },
+          { "moduleId": "wcp-ui", "denominatorCells": 4268, "poolNodes": 502, "seatedCells": 13, "status": "seated" }
+        ]
+      },
+      {
+        "id": "wcp-zero-signal",
+        "runDir": ".work/57b-426-m6-production/wcp/runs/run-2026_08_18_20_25-zzqvnonword-8abb4795-053a21e1-6e8939bb",
+        "attributionSha256": "7ba8c878a7b0440fda5f25d4ebca91d9f8da884d52c85a51b14d6f9d9d2532e3",
+        "rows": [
+          { "moduleId": "wcp_review_service", "denominatorCells": 1364, "poolNodes": 0, "seatedCells": 0, "status": "zero-signal" },
+          { "moduleId": "wcp-auth", "denominatorCells": 297, "poolNodes": 0, "seatedCells": 0, "status": "zero-signal" },
+          { "moduleId": "wcp-service", "denominatorCells": 2609, "poolNodes": 0, "seatedCells": 0, "status": "zero-signal" },
+          { "moduleId": "wcp-service-v2", "denominatorCells": 5905, "poolNodes": 0, "seatedCells": 0, "status": "zero-signal" },
+          { "moduleId": "wcp-ui", "denominatorCells": 4268, "poolNodes": 0, "seatedCells": 0, "status": "zero-signal" }
+        ]
+      },
+      {
+        "id": "angels-order-no-checkout",
+        "runDir": ".work/57b-426-m6-production/angels-pizza/runs/run-2026_08_18_20_26-order-fulfillmen-fb61f1a2-b6ad792e-8b6df047",
+        "attributionSha256": "868a9aadb074fe71d90c90399137c59fa8905d80c35957c326f42c8986c25de7",
+        "rows": [
+          { "moduleId": "admin-backend", "denominatorCells": 2212, "poolNodes": 664, "seatedCells": 140, "status": "seated" },
+          { "moduleId": "backend", "denominatorCells": 1395, "poolNodes": 53, "seatedCells": 6, "status": "seated" },
+          { "moduleId": "ionic-vue", "denominatorCells": 365, "poolNodes": 90, "seatedCells": 4, "status": "seated" },
+          { "moduleId": "web-vue", "denominatorCells": 246, "poolNodes": 54, "seatedCells": 2, "status": "seated" }
+        ]
+      }
+    ]
+  },
+  "allGatesPass": true
+}

@@ -388,6 +388,8 @@ export async function prepareRun(request: ReportRequest): Promise<{ runDir: stri
     units: facts.units,
     codegraph: facts.producers["codegraph"]!,
     ledger: result.ledger,
+    modules: result.stats.codegraphModules?.map((module) => ({ id: module.id, dir: module.dir }))
+      ?? (result.stats.codegraphPath ? [{ id: ".", dir: "" }] : []),
     mechanismsDigest: mechanisms.digest,
     selections: [...result.prepared.featureSelectionTraces].map(([featureKey, trace]) => ({ featureKey, trace })),
     identity: {
@@ -403,7 +405,7 @@ export async function prepareRun(request: ReportRequest): Promise<{ runDir: stri
   });
   await writeAttributionStage(runDir, attribution);
   // Layer 5 consumes layer 4's seats and layer 3's written memberships. Every production seed set is explicitly
-  // empty in attribution-v1: deriving seed identity from the feature graph here would create a second join.
+  // empty in attribution-v2: deriving seed identity from the feature graph here would create a second join.
   const workset = buildWorksetStage({
     collected: result.prepared.collectedFactPacks,
     attribution: attribution.attribution,

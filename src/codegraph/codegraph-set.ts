@@ -19,8 +19,8 @@ import { moduleForFile, type DetectedModule } from "../snapshot/module-detection
  */
 
 /** NUL separates a module id from a database-local node id; it never appears in a CodeGraph id.
- *  Exported as the single source of module identity: the prune module-floor (57B-377) groups nodes
- *  by the prefix before this separator, and must not hand-write the byte itself. */
+ *  Exported as the single source of module identity for selection traces and evaluation fixtures;
+ *  consumers must not hand-write the byte itself. */
 export const ID_SEPARATOR = "\u0000";
 
 const KIND_RANK: Record<string, number> = { route: 0, component: 1, function: 2, method: 3 };
@@ -28,8 +28,8 @@ const KIND_RANK: Record<string, number> = { route: 0, component: 1, function: 2,
 /**
  * Seats reserved per module that matched anything.
  *
- * Two, not one: a single seed rarely survives the downstream prune, and the prune's own module floor
- * (57B-377) only protects modules already IN the pool — it cannot rescue a module that never got a seed.
+ * Two, not one: a single seed can be a brittle starting point, and the downstream allocator can rank only
+ * modules already IN the expanded pool — it cannot recover a module that never got a seed.
  * Two, not more: the floor is a guarantee against silence, and every seat it takes is one the global
  * ranking does not get to decide.
  */
@@ -108,7 +108,7 @@ export class CodeGraphSet implements GraphReader {
   }
 
   /**
-   * Seeds for the feature scope, with a FLOOR so a module cannot be silently zeroed.
+   * Seeds for the feature scope, with a discovery floor so a module cannot be silently omitted from expansion.
    *
    * The old form merged every member's hits and took the global top `limit`. That is a single competition
    * across modules, and a module can lose it outright: simulated on the five-module real target with the
@@ -117,12 +117,13 @@ export class CodeGraphSet implements GraphReader {
    * A whole repository contributing nothing is the failure that function-level read obligations cannot even
    * express, because a module outside the boundary lands in no bucket at all.
    *
-   * So a module that matched anything is guaranteed a couple of seats, and the rest of the budget is decided
-   * by the same global order as before. Nx does the equivalent structurally — `normalizeProjectNodes` makes
+   * So a module that matched anything is guaranteed a couple of discovery seeds, and the rest of the budget is
+   * decided by the same global order as before. These are not final model-reading seats: the allocator owns the
+   * one final seat cap and may displace every candidate from a module. Nx does the equivalent structurally — `normalizeProjectNodes` makes
    * every project a node before any edge is considered — while Turborepo's `globalDependencies` only reaches
    * the task hash and never the package selection, which is exactly the shape of the bug being fixed here.
    *
-   * The OUTPUT stays globally sorted: the floor changes which nodes are included, never their order, so a
+   * The OUTPUT stays globally sorted: the discovery floor changes which seeds are included, never their order, so a
    * scope whose modules all placed anyway is byte-identical to before.
    */
   searchNodes(terms: string[], limit = 120): GraphNode[] {

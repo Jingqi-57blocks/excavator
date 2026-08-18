@@ -7,9 +7,11 @@ import { inventoryFactIdBaseOf, inventoryFactIdFor, inventoryUnitKind } from "..
 import type { ProducerFactSet } from "../facts/envelope.ts";
 import type { UnitsArtifact } from "../facts/units/units-artifact.ts";
 import { unitsContentDigest, unitsRowSet } from "../facts/units/units-artifact.ts";
+import { moduleForFile, type DetectedModule } from "../snapshot/module-detection.ts";
 import {
   channelConfigDigest, SELECTION_CHANNELS, SELECTION_TRACE_VERSION, WEIGHTS,
-  type FeatureSelectionTrace, type FloorDecision, type SelectionBudgets, type SelectionChannel, type TraceNode
+  type FeatureSelectionTrace, type SelectionBudgets, type SelectionChannel,
+  type SelectionContribution, type SelectionFusion, type TraceNode
 } from "./selection-trace.ts";
 
 /**
@@ -41,7 +43,7 @@ import {
  * layer deciding something no feature asked it to decide.
  */
 
-export const ATTRIBUTION_ARTIFACT_VERSION = "attribution-v1";
+export const ATTRIBUTION_ARTIFACT_VERSION = "attribution-v2";
 
 /** Where a retained node landed when it did NOT reach a cell. Closed: there is no fourth way to miss. */
 export const SEAT_PROJECTION_MISSES = ["envelope-unavailable", "file-not-counted", "kind-not-inventoried", "no-matching-fact"] as const;
@@ -78,6 +80,7 @@ export interface AttributionSeat {
   readonly factId: string;
   readonly score: number;
   readonly reason: string;
+  readonly contributions: readonly SelectionContribution[];
 }
 
 export interface AttributionDisplacement {
@@ -89,7 +92,8 @@ export interface AttributionDisplacement {
   readonly factId: string;
   readonly score: number;
   /** Which budget squeezed it out. A displacement that cannot name its budget is P15 unchanged. */
-  readonly budget: "rescue-quota" | "stage1-cut";
+  readonly budget: "seat-cap";
+  readonly contributions: readonly SelectionContribution[];
 }
 
 /** Zero-score cells, counted per (module x language x reason) instead of listed per cell. */
@@ -112,6 +116,25 @@ export interface SelectionConservationRow {
   readonly totals: SelectionConservation;
 }
 
+/**
+ * One CodeGraph module's complete participation in one allocation.
+ *
+ * The inventory, rather than the candidate pool, creates these rows. That distinction is the M6 output law:
+ * a module with no candidate still has a visible `zero-signal` row and never receives a fabricated seat.
+ */
+export interface AttributionModuleRow {
+  readonly moduleId: string;
+  readonly dir: string;
+  readonly denominatorCells: number;
+  readonly poolNodes: number;
+  readonly retainedNodes: number;
+  readonly displacedNodes: number;
+  readonly seatedCells: number;
+  readonly displacedCells: number;
+  readonly soleSourceSeats: number;
+  readonly status: "seated" | "candidates-no-seat" | "zero-signal" | "outside-denominator";
+}
+
 /** What the channels did, without the pool: the per-node record is republished as seats and displacements. */
 export type SelectionSummary =
   | {
@@ -120,8 +143,7 @@ export type SelectionSummary =
     readonly retainedNodes: number;
     readonly seedCount: number;
     readonly budgets: SelectionBudgets;
-    readonly stage1CutScore: number | null;
-    readonly floorDecisions: readonly FloorDecision[];
+    readonly fusion: SelectionFusion;
     /** Retained nodes per channel, so a channel that seated nobody is a zero and not an absence. */
     readonly byChannel: Readonly<Record<SelectionChannel, number>>;
   }
@@ -137,6 +159,8 @@ export interface AttributionSelection {
     readonly retained: SeatProjectionCensus;
     readonly displaced: SeatProjectionCensus;
   };
+  /** Total module census, including zero-signal modules that contributed no candidate and won no seat. */
+  readonly modules: readonly AttributionModuleRow[];
   /** One row per RowSet unit kind. The partition is one kind today, so today there is exactly one row. */
   readonly conservation: readonly SelectionConservationRow[];
 }
@@ -159,6 +183,8 @@ export interface AttributionIdentity {
   readonly channelInputs: {
     /** The envelope the seats were read through, `null` when there was none to read. */
     readonly codegraphEnvelopeDigest: string | null;
+    /** Exact module inventory that creates the total module rows; an empty inventory has a real digest. */
+    readonly moduleInventoryDigest: string;
   };
   readonly budgets: { readonly maxFeatureNodes: number; readonly maxExpansionDepth: number; readonly maxGraphQueries: number };
   readonly runIntentSummary: RunIntentSummary;
@@ -188,6 +214,8 @@ export interface AttributionAssemblyInput {
   readonly codegraph: ArtifactResult<ProducerFactSet>;
   /** Layer 1's counted paths, so "the node's file is outside the corpus" is a bucket and not a silent drop. */
   readonly countedPaths: readonly string[];
+  /** Complete CodeGraph module inventory. Rows are created from this list, never inferred from candidates. */
+  readonly modules: readonly { readonly id: string; readonly dir: string }[];
   readonly selections: readonly { readonly featureKey: string; readonly trace: FeatureSelectionTrace }[];
   readonly identity: {
     readonly filesContentManifestDigest: string;
@@ -313,7 +341,8 @@ function buildSelection(
   cells: ReadonlyMap<string, CellFacts>,
   index: SeatIndex,
   counted: ReadonlySet<string>,
-  unitKind: RowSetUnitKind
+  unitKind: RowSetUnitKind,
+  modules: readonly DetectedModule[]
 ): AttributionSelection {
   const seats: AttributionSeat[] = [];
   const displacements: AttributionDisplacement[] = [];
@@ -325,7 +354,7 @@ function buildSelection(
   let retainedSeated = 0;
   let displacedNodes = 0;
   let displacedProjected = 0;
-  const byChannel: Record<SelectionChannel, number> = { "stage1": 0, "rescue": 0, "backfill": 0, "module-floor": 0, "displaced": 0 };
+  const byChannel = Object.fromEntries(SELECTION_CHANNELS.map((channel) => [channel, 0])) as Record<SelectionChannel, number>;
 
   if (trace.status === "ran") {
     for (const node of trace.pool) {
@@ -345,7 +374,8 @@ function buildSelection(
           name: node.name,
           factId: projection.factId,
           score: node.score,
-          budget: node.displacedBy ?? "stage1-cut"
+          budget: node.displacedBy ?? "seat-cap",
+          contributions: [...node.contributions]
         });
         continue;
       }
@@ -363,7 +393,8 @@ function buildSelection(
         name: node.name,
         factId: projection.factId,
         score: node.score,
-        reason: node.reason
+        reason: node.reason,
+        contributions: [...node.contributions]
       });
     }
   }
@@ -375,6 +406,7 @@ function buildSelection(
 
   const zeroScore = groupZeroScore(cells, seatedCells, displacedCells, trace.status === "ran" ? null : "channels-unavailable", index);
   const zeroScoreCells = zeroScore.reduce((sum, group) => sum + group.cells, 0);
+  const moduleRows = buildModuleRows(modules, cells, trace, seats, seatedCells, displacedCells);
 
   return {
     featureKey,
@@ -385,8 +417,7 @@ function buildSelection(
         retainedNodes,
         seedCount: trace.seedCount,
         budgets: trace.budgets,
-        stage1CutScore: trace.stage1CutScore,
-        floorDecisions: [...trace.floorDecisions],
+        fusion: trace.fusion,
         byChannel
       }
       : { status: "channel-unavailable", cause: trace.cause },
@@ -397,6 +428,7 @@ function buildSelection(
       retained: census(retainedNodes, retainedSeated, retainedMiss),
       displaced: census(displacedNodes, displacedProjected, displacedMiss)
     },
+    modules: moduleRows,
     // The ONE constructor (`src/base/conservation.ts`). `zeroScore` arrives as the complement, so "a cell that
     // is in none of the three buckets" is not a state this arithmetic can express.
     conservation: [{
@@ -409,6 +441,88 @@ function buildSelection(
       })
     }]
   };
+}
+
+interface MutableModuleRow {
+  moduleId: string;
+  dir: string;
+  denominatorCells: number;
+  poolNodes: number;
+  retainedNodes: number;
+  displacedNodes: number;
+  seatedCells: Set<string>;
+  displacedCells: Set<string>;
+  soleSourceSeats: Set<string>;
+}
+
+function buildModuleRows(
+  modules: readonly DetectedModule[],
+  cells: ReadonlyMap<string, CellFacts>,
+  trace: FeatureSelectionTrace,
+  seats: readonly AttributionSeat[],
+  seatedCells: ReadonlySet<string>,
+  displacedCells: ReadonlySet<string>
+): AttributionModuleRow[] {
+  const inventory = modules.map((module) => ({ ...module }));
+  const rows = new Map<string, MutableModuleRow>(inventory.map((module) => [module.id, {
+    moduleId: module.id,
+    dir: module.dir,
+    denominatorCells: 0,
+    poolNodes: 0,
+    retainedNodes: 0,
+    displacedNodes: 0,
+    seatedCells: new Set<string>(),
+    displacedCells: new Set<string>(),
+    soleSourceSeats: new Set<string>()
+  }]));
+  const rowForPath = (relativePath: string): MutableModuleRow | undefined => {
+    const owner = moduleForFile(inventory, relativePath);
+    return owner === undefined ? undefined : rows.get(owner.id);
+  };
+
+  for (const cell of cells.values()) {
+    const row = rowForPath(cell.relativePath);
+    if (row) row.denominatorCells += 1;
+  }
+  if (trace.status === "ran") for (const node of trace.pool) {
+    const row = rowForPath(node.relativePath);
+    if (!row) continue;
+    row.poolNodes += 1;
+    if (node.outcome === "displaced") row.displacedNodes += 1;
+    else row.retainedNodes += 1;
+  }
+  for (const unitId of seatedCells) {
+    const cell = cells.get(unitId)!;
+    rowForPath(cell.relativePath)?.seatedCells.add(unitId);
+  }
+  for (const unitId of displacedCells) {
+    const cell = cells.get(unitId)!;
+    rowForPath(cell.relativePath)?.displacedCells.add(unitId);
+  }
+  for (const seat of seats) {
+    const nonFallback = seat.contributions.filter((item) => item.sourceChannel !== "fallback");
+    if (nonFallback.length === 1) rowForPath(seat.relativePath)?.soleSourceSeats.add(seat.unitId);
+  }
+
+  return [...rows.values()].map((row): AttributionModuleRow => {
+    const seated = row.seatedCells.size;
+    const status: AttributionModuleRow["status"] = seated > 0 ? "seated"
+      : row.poolNodes > 0 ? "candidates-no-seat"
+      : row.denominatorCells > 0 ? "zero-signal"
+      : "outside-denominator";
+    return {
+      moduleId: row.moduleId,
+      dir: row.dir,
+      denominatorCells: row.denominatorCells,
+      poolNodes: row.poolNodes,
+      retainedNodes: row.retainedNodes,
+      displacedNodes: row.displacedNodes,
+      seatedCells: seated,
+      displacedCells: row.displacedCells.size,
+      soleSourceSeats: row.soleSourceSeats.size,
+      status
+    };
+  });
 }
 
 /**
@@ -460,6 +574,8 @@ export function assembleAttributionArtifact(input: AttributionAssemblyInput): At
   const index = seatIndex(input.codegraph, unitsDigest);
   const rowSet = unitsRowSet(input.units);
   const counted = new Set(input.countedPaths);
+  const modules = canonicalModuleInventory(input.modules);
+  const moduleInventoryDigest = sha256(canonicalJson(modules));
 
   const languageByPath = new Map(input.units.files.map((file) => [file.relativePath, file.language] as const));
   const cells = new Map<string, CellFacts>();
@@ -485,7 +601,10 @@ export function assembleAttributionArtifact(input: AttributionAssemblyInput): At
       mechanismsDigest: input.identity.mechanismsDigest,
       channels: [...SELECTION_CHANNELS],
       channelConfigDigest: channelConfigDigest(WEIGHTS),
-      channelInputs: { codegraphEnvelopeDigest: index.status === "available" ? index.envelopeDigest : null },
+      channelInputs: {
+        codegraphEnvelopeDigest: index.status === "available" ? index.envelopeDigest : null,
+        moduleInventoryDigest
+      },
       budgets: input.identity.budgets,
       runIntentSummary: runIntentSummary(input.identity.runIntent.version, features),
       traceVersion: SELECTION_TRACE_VERSION
@@ -501,8 +620,22 @@ export function assembleAttributionArtifact(input: AttributionAssemblyInput): At
     featureCount: input.selections.length,
     selections: [...input.selections]
       .sort((a, b) => a.featureKey.localeCompare(b.featureKey))
-      .map((selection) => buildSelection(selection.featureKey, selection.trace, cells, index, counted, rowSet.unitKind))
+      .map((selection) => buildSelection(selection.featureKey, selection.trace, cells, index, counted, rowSet.unitKind, modules))
   };
+}
+
+function canonicalModuleInventory(input: AttributionAssemblyInput["modules"]): DetectedModule[] {
+  const modules = input.map((module) => ({ id: module.id, dir: module.dir.replaceAll("\\", "/").replace(/^\.\/+/, "").replace(/\/+$/, "") }))
+    .sort((a, b) => a.id.localeCompare(b.id) || a.dir.localeCompare(b.dir));
+  const ids = new Set<string>();
+  const dirs = new Set<string>();
+  for (const module of modules) {
+    if (ids.has(module.id)) throw new Error(`Duplicate CodeGraph module id ${JSON.stringify(module.id)} cannot create one total attribution row`);
+    if (dirs.has(module.dir)) throw new Error(`Two CodeGraph modules claim directory ${JSON.stringify(module.dir)}; module attribution would have no single owner`);
+    ids.add(module.id);
+    dirs.add(module.dir);
+  }
+  return modules;
 }
 
 /**

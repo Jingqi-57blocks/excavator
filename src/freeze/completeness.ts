@@ -15,7 +15,7 @@ import type { MechanismLedger } from "../mechanism/mechanism-ledger.ts";
 import { ledgerContentIdentity, type FileLedger } from "../snapshot/file-ledger.ts";
 import { unitsContentDigest, type UnitsArtifact } from "../facts/units/units-artifact.ts";
 import type { OverviewCensusV2, ScopeCensusRow, ScopeCensusV2 } from "../workset/census.ts";
-import { exists, readJson, sha256, stableJson } from "../base/util.ts";
+import { canonicalJson, exists, readJson, sha256, stableJson } from "../base/util.ts";
 import { DOMAIN_COMPLETENESS_ASSURANCE_GENERATION, assuranceGenerationAtLeast } from "../base/assurance-version.ts";
 
 const MATERIAL_FLOW_DIMENSIONS = new Set(["normal-flow", "decision-flow", "reversal-flow", "states-and-lifecycle", "notifications-and-exports"]);
@@ -210,6 +210,45 @@ function inspectAttribution(artifact: AttributionArtifact, units: UnitsArtifact 
     return;
   }
   for (const selection of artifact.selections) {
+    const moduleRows = Array.isArray(selection.modules) ? selection.modules : [];
+    if (!Array.isArray(selection.modules)) {
+      findings.push(error("completeness", `attribution ${selection.featureKey} has no module census`));
+    }
+    if (new Set(moduleRows.map((row) => row.moduleId)).size !== moduleRows.length) {
+      findings.push(error("completeness", `attribution ${selection.featureKey} contains duplicate module rows`));
+    }
+    const moduleInventory = moduleRows.map((row) => ({ id: row.moduleId, dir: row.dir }))
+      .sort((a, b) => a.id.localeCompare(b.id) || a.dir.localeCompare(b.dir));
+    if (sha256(canonicalJson(moduleInventory)) !== artifact.identity.channelInputs.moduleInventoryDigest) {
+      findings.push(error("completeness", `attribution ${selection.featureKey} module rows do not match the declared module inventory`));
+    }
+    for (const module of moduleRows) {
+      const values = [module.denominatorCells, module.poolNodes, module.retainedNodes, module.displacedNodes,
+        module.seatedCells, module.displacedCells, module.soleSourceSeats];
+      if (values.some((value) => !Number.isInteger(value) || value < 0)) {
+        findings.push(error("completeness", `attribution ${selection.featureKey}/${module.moduleId} has an invalid module count`));
+      }
+      if (module.poolNodes !== module.retainedNodes + module.displacedNodes) {
+        findings.push(error("completeness", `attribution ${selection.featureKey}/${module.moduleId} does not conserve allocator candidates`));
+      }
+      const expectedStatus = module.seatedCells > 0 ? "seated"
+        : module.poolNodes > 0 ? "candidates-no-seat"
+        : module.denominatorCells > 0 ? "zero-signal"
+        : "outside-denominator";
+      if (module.status !== expectedStatus) {
+        findings.push(error("completeness", `attribution ${selection.featureKey}/${module.moduleId} status ${module.status} contradicts its counts`));
+      }
+      if (module.soleSourceSeats > module.seatedCells) {
+        findings.push(error("completeness", `attribution ${selection.featureKey}/${module.moduleId} has more sole-source seats than seated cells`));
+      }
+    }
+    if (moduleRows.length && selection.channels.status === "ran") {
+      const poolNodes = moduleRows.reduce((sum, row) => sum + row.poolNodes, 0);
+      const retainedNodes = moduleRows.reduce((sum, row) => sum + row.retainedNodes, 0);
+      if (poolNodes !== selection.channels.poolNodes || retainedNodes !== selection.channels.retainedNodes) {
+        findings.push(error("completeness", `attribution ${selection.featureKey} module rows do not conserve the allocator trace`));
+      }
+    }
     if (selection.conservation.length !== 1 || selection.conservation[0]?.unitKind !== artifact.denominator.unitKind) {
       findings.push(error("completeness", `attribution ${selection.featureKey} does not publish exactly one conservation row for ${artifact.denominator.unitKind}`));
     }
@@ -217,7 +256,10 @@ function inspectAttribution(artifact: AttributionArtifact, units: UnitsArtifact 
       const { counted, seated, zeroScore, displaced } = row.totals;
       if (counted !== seated + zeroScore + displaced) findings.push(error("completeness", `attribution ${selection.featureKey} does not conserve ${row.unitKind}`));
       if (counted !== artifact.denominator.cells) findings.push(error("completeness", `attribution ${selection.featureKey} counts ${counted} cells but its denominator has ${artifact.denominator.cells}`));
-      const limitations = selection.channels.status === "channel-unavailable" ? [`selection channel unavailable: ${selection.channels.cause}`] : [];
+      const limitations = [
+        ...(selection.channels.status === "channel-unavailable" ? [`selection channel unavailable: ${selection.channels.cause}`] : []),
+        ...moduleRows.filter((module) => module.status === "zero-signal").map((module) => `zero-signal module: ${module.moduleId}`)
+      ];
       sources.push(source(`attribution:${selection.featureKey}`, "file", row.unitKind, "attribution/attribution.json", digest,
         artifact.version, counted, { counted, seated, zeroScore, displaced }, limitations));
     }
