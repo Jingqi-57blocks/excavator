@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { built, unavailable, type ArtifactResult, type NotApplicable, type Unavailable } from "../base/artifact-result.ts";
 import { ARTIFACT_REGISTRY } from "../base/artifact-registry.ts";
+import { mechanismCoverageValue } from "../base/coverage-basis.ts";
 import { LANGUAGE_REGISTRY } from "../base/language-registry.ts";
 import { MECHANISM_REGISTRY, type MechanismAvailabilityMap } from "../base/mechanism-registry.ts";
 import { PARTITION_DESIGNATION } from "../base/partition-designation.ts";
@@ -23,6 +24,7 @@ import {
   assembleUnitsArtifact, runObservationPass, serializeUnitsArtifact, unitsContentDigest, type UnitsArtifact
 } from "../facts/units/units-artifact.ts";
 import type { FileLedger } from "../snapshot/file-ledger.ts";
+import type { MechanismLedger } from "../mechanism/mechanism-ledger.ts";
 
 /**
  * Layer 3, wired into prepare: build `facts/units.json`, then one envelope per registered producer.
@@ -70,6 +72,8 @@ export interface FactsStageInput {
   readonly ledger: FileLedger;
   /** `ledger/mechanisms.json`'s content digest, so layer 3's identity names the layer-2 ledger it read (§一). */
   readonly mechanismsDigest: string;
+  /** The same layer-2 bytes named by mechanismsDigest, needed to bind NotApplicable premises. */
+  readonly mechanismLedger: MechanismLedger;
   readonly availability: MechanismAvailabilityMap;
   /** The single-database path this run resolved, if any. */
   readonly codegraphPath: string | undefined;
@@ -236,11 +240,17 @@ function collectCrossRepo(
   facts: ObservedFact[],
   ledgerCompleteness: { readonly capReached: boolean; readonly skippedByCap: number; readonly droppedRoots: readonly string[] }
 ): ProducerPlan {
+  const determinationCompleteness = {
+    ...ledgerCompleteness,
+    readFailures: input.ledger.counted.filter((row) => row.content.status === "absent").length
+  };
   const verdict = crossRepoDetermination({
     modules: input.codegraphModules ? modules : null,
     resolverAvailable: input.availability.crossrepo.status === "available",
     scan: input.crossRepoScan,
-    ledgerCompleteness
+    ledgerCompleteness: determinationCompleteness,
+    moduleSources: input.codegraphModules?.map((module) => module.path),
+    mechanismCoverage: mechanismCoverageValue(input.mechanismLedger, "crossrepo")
   });
   if (verdict !== null) return { status: "absent", envelope: verdict };
   const scan = input.crossRepoScan!;  // `crossRepoDetermination` returns Unavailable for a null scan

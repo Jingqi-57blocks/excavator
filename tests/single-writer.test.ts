@@ -20,7 +20,18 @@ function knowledge(): KnowledgeArtifact {
     traceIds: [],
     tracesDigest: "digest",
     factPackDigests: {},
-    completeness: { requiredItems: 0, disposed: 0, byStatus: {}, materialFlowsWithTraces: 0, warnings: [] },
+    completeness: {
+      version: "knowledge-completeness-v2",
+      domains: [],
+      closure: {
+        workItems: { positive: 0, negative: 0, pending: 0, byStatus: {} },
+        decisions: { positive: 0, negative: 0, pending: 0 },
+        probeResiduals: 0,
+        materialFlowsWithTraces: 0
+      },
+      checks: [],
+      warnings: []
+    },
     epoch: 0,
     supplements: []
   };

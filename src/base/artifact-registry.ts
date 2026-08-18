@@ -253,7 +253,9 @@ export const ARTIFACT_REGISTRY: ArtifactRegistry = {
   checks: [
     { family: "coverage-conservation", version: "v1" },
     { family: "contract-instances", version: "v1" },
-    { family: "boundary-identity", version: "v1" }
+    { family: "boundary-identity", version: "v1" },
+    { family: "not-applicable-premises", version: "v1" },
+    { family: "investigation-closure", version: "v1" }
   ]
 };
 

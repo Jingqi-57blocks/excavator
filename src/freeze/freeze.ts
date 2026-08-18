@@ -20,9 +20,6 @@ import {
  * `auditEvidenceCatalog`) so the freeze gate and the full audit can never drift into two rule sets.
  */
 
-/** The material-flow dimensions whose `found` work items require a verified trace; mirrors auditWorkItems. */
-const MATERIAL_FLOW_DIMENSIONS = new Set(["normal-flow", "decision-flow", "reversal-flow", "states-and-lifecycle", "notifications-and-exports"]);
-
 /** The investigation-stage timeline actions the escape hatch must mark as a supplement once a run is frozen. */
 const GATED_TIMELINE_ACTIONS = new Set(["source.search", "source.window", "workitems.updated", "traces.updated"]);
 
@@ -112,6 +109,8 @@ export interface BuildKnowledgeInput {
   mechanismsLedger?: unknown | null;
   /** Layer-7 ReadSpec executions and obligation dispositions, sealed with their evidence ids. */
   investigationResults?: unknown | null;
+  /** Layer-8's domain conjunction, closure split and executed check-family ledger. */
+  completeness: KnowledgeCompleteness;
   /**
    * Where each append-until-freeze stream stood at this seal: the cutoff and the tail digest. Computed by the
    * caller because the timeline is read from disk. Registered, not enforced — the epoch machinery it prepares
@@ -122,7 +121,7 @@ export interface BuildKnowledgeInput {
 
 /** Build the knowledge-v1 record: frozen fingerprints of the run's artifacts plus a completeness report. */
 export function buildKnowledge(input: BuildKnowledgeInput): KnowledgeArtifact {
-  const { manifest, plan, evidence, traces, factPacks, crossFeature, frozenAt, readObligations, boundaryFunctions, crossRepoLinks, mechanismsLedger, investigationResults, appendStreams } = input;
+  const { manifest, plan, evidence, traces, factPacks, crossFeature, frozenAt, readObligations, boundaryFunctions, crossRepoLinks, mechanismsLedger, investigationResults, completeness, appendStreams } = input;
   const evidenceIds = evidence.map((item) => item.id).sort((a, b) => a.localeCompare(b));
   const workitems = plan.items.map((item) => ({ id: item.id, status: item.status })).sort((a, b) => a.id.localeCompare(b.id));
   const traceIds = traces.traces.map((trace) => trace.id).sort((a, b) => a.localeCompare(b));
@@ -147,21 +146,13 @@ export function buildKnowledge(input: BuildKnowledgeInput): KnowledgeArtifact {
     ...(crossRepoLinks != null ? { crossRepoLinksDigest: sha256(stableJson(crossRepoLinks)) } : {}),
     ...(mechanismsLedger != null ? { mechanismsLedgerDigest: sha256(stableJson(mechanismsLedger)) } : {}),
     ...(investigationResults != null ? { investigationResultsDigest: sha256(stableJson(investigationResults)) } : {}),
-    completeness: buildCompleteness(plan),
+    completeness,
     // Epoch 0 is this first seal. Recorded now so the append-only supplement ledger that already exists can
     // later grow a second epoch without any archived record needing to change shape.
     epoch: 0,
     ...(appendStreams ? { appendStreams } : {}),
     supplements: []
   };
-}
-
-function buildCompleteness(plan: InvestigationPlan): KnowledgeCompleteness {
-  const disposed = plan.items.filter((item) => !["pending", "in_progress"].includes(item.status));
-  const byStatus: Record<string, number> = {};
-  for (const item of disposed) byStatus[item.status] = (byStatus[item.status] ?? 0) + 1;
-  const materialFlowsWithTraces = plan.items.filter((item) => item.material && item.status === "found" && MATERIAL_FLOW_DIMENSIONS.has(item.dimension) && item.traceIds.length > 0).length;
-  return { requiredItems: plan.items.length, disposed: disposed.length, byStatus, materialFlowsWithTraces, warnings: [] };
 }
 
 /**

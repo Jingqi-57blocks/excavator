@@ -97,8 +97,13 @@ test("freeze writes a knowledge-v1 record, stamps the manifest, appends a timeli
   assert.ok(knowledge.workitems.length > 0);
   assert.ok(knowledge.workitems.every((item) => item.status === "not-applicable"));
   assert.ok(knowledge.workitems.every((item, index) => index === 0 || knowledge.workitems[index - 1].id.localeCompare(item.id) <= 0), "work items are recorded sorted by id");
-  assert.equal(knowledge.completeness.requiredItems, knowledge.completeness.disposed);
-  assert.equal(knowledge.completeness.materialFlowsWithTraces, 0);
+  assert.equal(knowledge.completeness.version, "knowledge-completeness-v2");
+  assert.equal(knowledge.completeness.closure.workItems.negative, knowledge.workitems.length);
+  assert.equal(knowledge.completeness.closure.workItems.pending, 0);
+  assert.equal(knowledge.completeness.closure.materialFlowsWithTraces, 0);
+  assert.ok(knowledge.completeness.domains.some((row) => row.coverageDomain === "file" && row.unitKind === "file"));
+  assert.ok(knowledge.completeness.domains.some((row) => row.coverageDomain === "file" && row.unitKind === "partition-cell"));
+  assert.ok(knowledge.completeness.checks.every((row) => row.status === "passed"), JSON.stringify(knowledge.completeness.checks));
   assert.ok(Object.keys(knowledge.factPackDigests).length >= 1, "a feature run records at least one fact-pack digest");
   const investigationResults = JSON.parse(await readFile(join(runDir, "investigation", "results.json"), "utf8"));
   assert.equal(knowledge.investigationResultsDigest, sha256(stableJson(investigationResults.value)), "the same L7 execution/disposition set is sealed with knowledge");
