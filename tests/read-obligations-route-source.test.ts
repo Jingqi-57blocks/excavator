@@ -4,6 +4,7 @@ import { readObligations, type RouteHandlerObligation } from "../src/assurance/r
 import { routeHandlerObligations } from "../src/crossrepo/crossrepo-artifact.ts";
 import type { CrossRepoArtifact } from "../src/crossrepo/crossrepo-artifact.ts";
 import type { FeatureFactPack } from "../src/base/types.ts";
+import { v2Pack } from "./factpack-v2-fixture.ts";
 
 // A backend handler normally lives in a different repository, so no boundary can reach it and no
 // denominator can hold it — the frontend calls it and nothing accounts for reading it. That gap is what
@@ -12,14 +13,7 @@ import type { FeatureFactPack } from "../src/base/types.ts";
 // never calls it.
 
 function factPack(files: string[]): FeatureFactPack {
-  return {
-    version: "factpack-v1",
-    snapshotId: "s",
-    featureKey: "leave",
-    items: files.map((filePath, index) => ({ category: "logic", name: `f${index}`, filePath, line: 10, endLine: 40 })) as never,
-    coverage: [],
-    warnings: [],
-  };
+  return v2Pack(files.map((filePath, index) => ({ category: "logic", name: `f${index}`, filePath, line: 10, endLine: 40 })), { snapshotId: "s", featureKey: "leave" });
 }
 
 function handler(overrides: Partial<RouteHandlerObligation> = {}): RouteHandlerObligation {

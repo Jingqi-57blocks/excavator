@@ -6,18 +6,12 @@ import { computeCrossFeatureRelationships, renderCrossFeatureSection, type Cross
 import { prepareRun } from "../src/run/run.ts";
 import type { FactPackCategory, FactPackItem, FeatureFactPack } from "../src/base/types.ts";
 import { copyFixture, tempDir } from "./helpers.ts";
+import { v2Pack } from "./factpack-v2-fixture.ts";
 
 type ItemSeed = Partial<FactPackItem> & { category: FactPackCategory; name: string };
 
 function factPack(items: ItemSeed[]): FeatureFactPack {
-  return {
-    version: "factpack-v1",
-    snapshotId: "snap",
-    featureKey: "k",
-    items: items.map((item) => ({ filePath: "", line: 0, source: "scan", ...item })),
-    coverage: [],
-    warnings: []
-  };
+  return v2Pack(items.map((item) => ({ filePath: "", line: 0, source: "scan", granularity: "source-line", ...item })), { featureKey: "k" });
 }
 
 function feature(key: string, subject: string, files: string[], items: ItemSeed[]): CrossFeatureInput {

@@ -27,6 +27,7 @@ import type { FactPackItem, FeatureFactPack, InvestigationWorkItem } from "../ba
 import type { BoundaryFunctionsArtifact } from "../context/boundary-functions.ts";
 import { anchorHitFor, type AnchorHit } from "./relevance-annotation.ts";
 import { LOGIC_WORKITEM_DIMENSION } from "./logic-workitems.ts";
+import { consumableFactPackItems } from "../workset/factpack-view.ts";
 
 // v2 adds `anchorHit`: a LABEL saying where the feature's own vocabulary was found, never a judgement about
 // whether an obligation counts. The denominator is unchanged — see relevance-annotation.ts for why filtering
@@ -179,7 +180,7 @@ export function readObligations(
   for (const pack of factPacks) {
     const featureKey = String(pack.featureKey ?? "");
     if (!featureKey) continue;
-    for (const item of pack.items ?? []) {
+    for (const item of consumableFactPackItems(pack)) {
       if (item.category !== "logic") continue;
       primary.push(obligationFor(featureKey, item, gatedIds));
     }

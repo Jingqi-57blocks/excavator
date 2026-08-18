@@ -5,7 +5,8 @@ import { fileURLToPath } from "node:url";
 import type { Audience, ChecklistItem, DocumentPlan, EvidenceItem, FeatureFactPack, InvestigationChecklist, InvestigationPlan, InvestigationWorkItem, KnowledgeArtifact, ReportRequest, RunManifest, SearchReceipt, SectionClaim, SectionClaimsFile, TraceCatalog, TraceRecord } from "../base/types.ts";
 import { auditAuthoringPacketConsumption, buildAuthoringPacket } from "../assurance/authoring-packet.ts";
 import { buildContextsFromBoundary, featureCacheKey, readSourceBoundary, type ContextBuildResult, type SourceBoundary } from "../context/context.ts";
-import { FACT_PACK_CATEGORIES, factPackEvidenceId } from "../context/factpack.ts";
+import { FACT_PACK_CATEGORIES } from "../context/factpack.ts";
+import { factPackEvidenceId, requireFactPackV2 } from "../workset/factpack-view.ts";
 import { MAX_WINDOW_LINES, SourceReader, evidenceFromWindow, sourceSearch, type SourceSearchStats } from "../snapshot/source.ts";
 import { SCANNER_VERSION, createSnapshot } from "../snapshot/snapshot.ts";
 import { serializeLedgerArtifact, type FileLedger } from "../snapshot/file-ledger.ts";
@@ -33,6 +34,7 @@ import type { BoundaryFunctionsArtifact } from "../context/boundary-functions.ts
 import { scanCrossRepoLinks, type CrossRepoScan } from "../crossrepo/crossrepo-scan.ts";
 import { buildAttributionStage, unavailableAttributionStage, writeAttributionStage } from "./attribution-stage.ts";
 import { buildFactsStage, unavailableFactsStage, writeFactsStage } from "./facts-stage.ts";
+import { buildWorksetStage, writeWorksetStage } from "./workset-stage.ts";
 import { featureAnchorTerms, tokenize } from "../context/context.ts";
 import { unnegatedAdvice } from "../assurance/recommendation-language.ts";
 import { scopeCensusResidual, scopeCensusUnavailable, type ScopeCensus } from "../context/scope-census.ts";
@@ -99,7 +101,11 @@ async function readFrozenFactPacks(runDir: string, manifest: RunManifest): Promi
   for (const feature of manifest.request.features) {
     const key = featureCacheKey(feature);
     const packPath = join(runDir, "context", "features", `${key}.factpack.json`);
-    if (await exists(packPath)) factPacks[key] = await readJson<FeatureFactPack>(packPath);
+    if (await exists(packPath)) {
+      const value = await readJson<unknown>(packPath);
+      requireFactPackV2(value, packPath);
+      factPacks[key] = value;
+    }
   }
   return factPacks;
 }
@@ -566,12 +572,6 @@ export async function prepareRun(request: ReportRequest): Promise<{ runDir: stri
   const providerRegistry = result.stats.providerRegistry;
   const analysisScope = createAnalysisScope({ runId, request: effectiveRequest, snapshot: result.prepared.snapshot, documents, providerRegistry });
   const plan = createInvestigationPlan(runId, effectiveRequest, documents);
-  // Promote every rescued logic function into a DISPOSABLE work item (the forcing function): a freshly
-  // prepared run is always at the current assurance version, so these are added unconditionally here — the
-  // freeze/audit expected sets re-derive them from the on-disk fact pack (version-gated) so the three agree.
-  const logic = logicWorkItems([...result.prepared.featureFactPacks.values()], documents);
-  plan.items.push(...logic.items);
-  result.stats.warnings.push(...logic.warnings);
   const traces = emptyTraceCatalog(runId);
   // Resolved BEFORE the evidence catalog is assembled: link evidence has to be IN the catalog, or a claim
   // citing it would fail audit for citing an evidence id that does not exist. Its kind is `derived`, never
@@ -600,6 +600,72 @@ export async function prepareRun(request: ReportRequest): Promise<{ runDir: stri
     }
   ];
 
+  // The contract first, then the boundary ledger, then everything derived from them — the same order the
+  // layering runs in, so a partially written run directory is readable from the bottom up.
+  await writeContractArtifacts(runDir, contract, contractManifest);
+  await atomicWrite(join(runDir, "ledger", "files.json"), serializeLedgerArtifact(built(result.ledger)));
+  const mechanisms = await mechanismLedgerArtifact(result.ledger);
+  await atomicWrite(join(runDir, "ledger", "mechanisms.json"), mechanisms.serialized);
+  // Layer 3, from the two ledgers plus what this run resolved. It runs HERE — after layer 2, before anything
+  // else derived — because its identity contains `mechanisms.json`'s digest and every producer envelope's
+  // identity contains the units digest, so the order is a property of the identities, not a preference.
+  const facts = mechanisms.availability === null
+    ? unavailableFactsStage(`the mechanism availability probe failed, so no designated builder could be gated: ${mechanisms.artifact.status === "unavailable" ? mechanisms.artifact.cause : "unknown"}`, true)
+    : await buildFactsStage({
+      target: request.target,
+      ledger: result.ledger,
+      mechanismsDigest: mechanisms.digest,
+      availability: mechanisms.availability,
+      codegraphPath: result.stats.codegraphPath,
+      codegraphModules: result.stats.codegraphModules,
+      codegraphDigest: result.stats.codegraphDigest,
+      crossRepoScan: crossRepo?.scan ?? null,
+      // The same project cache the boundary's content identities live under. Passed explicitly, and by a required
+      // field, because the builder's cost is real: parsing wcp's 1,704 designated files takes 6.9 seconds.
+      cacheDir: projectCacheDir(runDir)
+    });
+  await writeFactsStage(runDir, facts);
+  result.stats.warnings.push(...facts.warnings);
+  // Layer 4, from layer 3's in-memory result plus what each feature's selector recorded. It runs HERE — after
+  // layer 3, before the fact packs are written — because the seats are joined against the layer-3 envelope's
+  // membership rows and the identity carries the units digest, so the order is a property of the identities.
+  const attribution = buildAttributionStage({
+    units: facts.units,
+    codegraph: facts.producers["codegraph"]!,
+    ledger: result.ledger,
+    mechanismsDigest: mechanisms.digest,
+    selections: [...result.prepared.featureSelectionTraces].map(([featureKey, trace]) => ({ featureKey, trace })),
+    identity: {
+      filesContentManifestDigest: result.ledger.contentManifestDigest,
+      mechanismsDigest: mechanisms.digest,
+      budgets: {
+        maxFeatureNodes: effectiveRequest.budgets.maxFeatureNodes,
+        maxExpansionDepth: effectiveRequest.budgets.maxExpansionDepth,
+        maxGraphQueries: effectiveRequest.budgets.maxGraphQueries
+      },
+      runIntent: { version: contract.runIntent.version, features: contract.runIntent.features }
+    }
+  });
+  await writeAttributionStage(runDir, attribution);
+  // Layer 5 consumes layer 4's seats and layer 3's written memberships. Every production seed set is explicitly
+  // empty in attribution-v1: deriving seed identity from the feature graph here would create a second join.
+  const workset = buildWorksetStage({
+    collected: result.prepared.collectedFactPacks,
+    attribution: attribution.attribution,
+    units: facts.units,
+    producers: facts.producers,
+    seedCellsByFeature: new Map([...result.prepared.collectedFactPacks.keys()].map((key) => [key, new Set<string>()])),
+    features: request.features.map((feature) => {
+      const key = featureCacheKey(feature);
+      return { key, subject: feature.subject, files: result.prepared.featureScopes.get(key)?.files ?? [] };
+    })
+  });
+  await writeWorksetStage(runDir, workset);
+  evidence.push(...workset.evidence);
+  // The forcing-function denominator is now the workset's seeded/retained view. It cannot see co-located rows.
+  const logic = logicWorkItems([...workset.factPacks.values()], documents);
+  plan.items.push(...logic.items);
+  result.stats.warnings.push(...logic.warnings);
   const manifest: RunManifest = {
     version: 3,
     id: runId,
@@ -635,53 +701,6 @@ export async function prepareRun(request: ReportRequest): Promise<{ runDir: stri
       warnings: result.stats.warnings
     }
   };
-
-  // The contract first, then the boundary ledger, then everything derived from them — the same order the
-  // layering runs in, so a partially written run directory is readable from the bottom up.
-  await writeContractArtifacts(runDir, contract, contractManifest);
-  await atomicWrite(join(runDir, "ledger", "files.json"), serializeLedgerArtifact(built(result.ledger)));
-  const mechanisms = await mechanismLedgerArtifact(result.ledger);
-  await atomicWrite(join(runDir, "ledger", "mechanisms.json"), mechanisms.serialized);
-  // Layer 3, from the two ledgers plus what this run resolved. It runs HERE — after layer 2, before anything
-  // else derived — because its identity contains `mechanisms.json`'s digest and every producer envelope's
-  // identity contains the units digest, so the order is a property of the identities, not a preference.
-  const facts = mechanisms.availability === null
-    ? unavailableFactsStage(`the mechanism availability probe failed, so no designated builder could be gated: ${mechanisms.artifact.status === "unavailable" ? mechanisms.artifact.cause : "unknown"}`, true)
-    : await buildFactsStage({
-      target: request.target,
-      ledger: result.ledger,
-      mechanismsDigest: mechanisms.digest,
-      availability: mechanisms.availability,
-      codegraphPath: result.stats.codegraphPath,
-      codegraphModules: result.stats.codegraphModules,
-      codegraphDigest: result.stats.codegraphDigest,
-      crossRepoScan: crossRepo?.scan ?? null,
-      // The same project cache the boundary's content identities live under. Passed explicitly, and by a required
-      // field, because the builder's cost is real: parsing wcp's 1,704 designated files takes 6.9 seconds.
-      cacheDir: projectCacheDir(runDir)
-    });
-  await writeFactsStage(runDir, facts);
-  result.stats.warnings.push(...facts.warnings);
-  // Layer 4, from layer 3's in-memory result plus what each feature's selector recorded. It runs HERE — after
-  // layer 3, before the fact packs are written — because the seats are joined against the layer-3 envelope's
-  // membership rows and the identity carries the units digest, so the order is a property of the identities.
-  await writeAttributionStage(runDir, buildAttributionStage({
-    units: facts.units,
-    codegraph: facts.producers["codegraph"]!,
-    ledger: result.ledger,
-    mechanismsDigest: mechanisms.digest,
-    selections: [...result.prepared.featureSelectionTraces].map(([featureKey, trace]) => ({ featureKey, trace })),
-    identity: {
-      filesContentManifestDigest: result.ledger.contentManifestDigest,
-      mechanismsDigest: mechanisms.digest,
-      budgets: {
-        maxFeatureNodes: effectiveRequest.budgets.maxFeatureNodes,
-        maxExpansionDepth: effectiveRequest.budgets.maxExpansionDepth,
-        maxGraphQueries: effectiveRequest.budgets.maxGraphQueries
-      },
-      runIntent: { version: contract.runIntent.version, features: contract.runIntent.features }
-    }
-  }));
   await writeJson(join(runDir, "request.json"), effectiveRequest);
   await writeJson(join(runDir, "snapshot.json"), result.prepared.snapshot);
   await writeJson(join(runDir, "evidence.json"), { evidence });
@@ -689,12 +708,13 @@ export async function prepareRun(request: ReportRequest): Promise<{ runDir: stri
   await writeJson(join(runDir, "analysis-scope.json"), analysisScope);
   await writeJson(join(runDir, "workitems.json"), plan);
   await writeJson(join(runDir, "traces.json"), traces);
-  await atomicWrite(join(runDir, "context", "shared.md"), result.prepared.sharedMarkdown);
+  await atomicWrite(join(runDir, "context", "shared.md"), workset.crossFeatureSection
+    ? `${result.prepared.sharedMarkdown}\n\n${workset.crossFeatureSection}`
+    : result.prepared.sharedMarkdown);
   for (const [key, markdown] of result.prepared.featureMarkdowns) {
-    await atomicWrite(join(runDir, "context", "features", `${key}.md`), markdown);
-  }
-  for (const [key, factPack] of result.prepared.featureFactPacks) {
-    await writeJson(join(runDir, "context", "features", `${key}.factpack.json`), factPack);
+    const factSection = workset.featureSections.get(key);
+    if (!factSection) throw new Error(`Layer 5 produced no deterministic view for feature ${JSON.stringify(key)}`);
+    await atomicWrite(join(runDir, "context", "features", `${key}.md`), `${markdown}\n\n${factSection}\n`);
   }
   // The second obligation source is frozen at prepare beside the fact packs, for the same reason they are:
   // freeze and audit must both derive the denominator from one recorded set of facts, never recompute it.
@@ -704,7 +724,7 @@ export async function prepareRun(request: ReportRequest): Promise<{ runDir: stri
   // that no rule explains means this run silently omitted a whole module.
   // Every feature gets a file — either the table or an explicit "no census could be built". A missing file
   // would make "no graph" and "nothing to report" indistinguishable on disk.
-  for (const featureKey of [...result.prepared.featureFactPacks.keys()].sort((a, b) => a.localeCompare(b))) {
+  for (const featureKey of [...result.prepared.collectedFactPacks.keys()].sort((a, b) => a.localeCompare(b))) {
     const census = result.prepared.scopeCensus.get(featureKey);
     await writeJson(join(runDir, "context", `${featureKey}.scope-census.json`), census ?? scopeCensusUnavailable(result.prepared.censusUnavailable.get(featureKey)));
   }
@@ -719,7 +739,7 @@ export async function prepareRun(request: ReportRequest): Promise<{ runDir: stri
   // Cross-feature relationships need at least two features to have any pair to relate; single-feature
   // and overview-only runs skip the artifact, matching the shared-context section's own condition.
   if (request.features.length >= 2) {
-    await writeJson(join(runDir, "context", "cross-feature.json"), result.prepared.crossFeature);
+    await writeJson(join(runDir, "context", "cross-feature.json"), workset.crossFeature);
   }
   await writeJson(join(runDir, "run.json"), manifest);
   await writeJson(join(runDir, "metrics.json"), manifest.metrics);
@@ -1640,14 +1660,14 @@ Describe current state and current problems only. Do not provide recommendations
 
 
 /**
- * Detailed feature chapters must account for the prepared fact pack item by item.
- * The pack is the enumeration floor: an item may be grouped and counted, but never dropped in silence.
+ * Detailed feature chapters must account for the prepared consumable fact-pack view item by item.
+ * The machine pack remains the audit denominator; co-located rows are not authoring claims.
  */
 function factPackInstructions(document: DocumentPlan, detailLevel: "standard" | "detailed"): string {
   if (document.kind !== "feature" || detailLevel !== "detailed") return "";
   const key = document.id.replace(/^feature-/, "").replace(new RegExp(`-${document.audience}$`), "");
   return `
-The feature scope file carries a \`## Fact pack\` section, and the same enumeration is machine-readable in \`context/features/${key}.factpack.json\`: the categories \`entrypoints\`, \`entities\`, \`states\`, \`config-keys\`, \`jobs\`, \`external-calls\` and \`logic\` (the business and decision functions inside the boundary that the structural categories do not already name). The enumerating chapters — entry points, rules and states, data, configuration and integrations — must cover every fact pack item of the matching category: each item either appears in that chapter, or is folded into an explicitly counted group such as "N further items of kind X". Cite the category's \`FACT-*\` evidence id in the chapter that covers it. The \`logic\` items belong to the flow, decision and authorization chapters; a logic item carrying a \`signal\` (rescued into the boundary by structural analysis) must be dispositioned individually — named and placed where its behavior belongs — never folded into an aggregate count. Each rescued \`logic\` function is also a \`logic-disposition\` work item in \`workitems.json\` (id \`feature:<key>:logic:<name>@<path>:<line>\`, no pinned section): dispose it before freeze, then satisfy it with at least one visible claim that DESCRIBES THE BUSINESS BEHAVIOR and cites the deciding source window, listing the work-item id in the claim's \`workItemIds\`. The prose need not repeat the symbol name — identifiers stay in the collapsed evidence block or coverage chapter, and covering the behavior counts because the ledger binds through the cited evidence, not the name. A genuinely boundary-noise item is disposed \`not-applicable\` with a reason; one claim may batch-dispose several such n/a items by listing them all in \`workItemIds\`. When source reading contradicts a fact pack item, say so explicitly and state which reading the source supports; a fact pack category marked truncated must be reported as incomplete rather than presented as a full inventory. Silently omitting an item is a defect.
+The feature scope file carries a \`## Fact pack\` section, while \`context/features/${key}.factpack.json\` keeps the complete machine denominator and each row's layer-5 relation. Authoring consumes only rows marked \`seeded\` or \`retained\`; \`co-located\` and \`not-applicable\` rows are audit context, not facts to repeat. The categories are \`entrypoints\`, \`entities\`, \`states\`, \`config-keys\`, \`jobs\`, \`external-calls\` and \`logic\` (the business and decision functions inside the boundary that the structural categories do not already name). The enumerating chapters — entry points, rules and states, data, configuration and integrations — must cover every consumable fact pack item of the matching category: each item either appears in that chapter, or is folded into an explicitly counted group such as "N further items of kind X". Cite the category's \`FACT-*\` evidence id in the chapter that covers it. The consumable \`logic\` items belong to the flow, decision and authorization chapters; a consumable logic item carrying a \`signal\` (rescued into the boundary by structural analysis) must be dispositioned individually — named and placed where its behavior belongs — never folded into an aggregate count. Each such rescued \`logic\` function is also a \`logic-disposition\` work item in \`workitems.json\` (id \`feature:<key>:logic:<name>@<path>:<line>\`, no pinned section): dispose it before freeze, then satisfy it with at least one visible claim that DESCRIBES THE BUSINESS BEHAVIOR and cites the deciding source window, listing the work-item id in the claim's \`workItemIds\`. The prose need not repeat the symbol name — identifiers stay in the collapsed evidence block or coverage chapter, and covering the behavior counts because the ledger binds through the cited evidence, not the name. A genuinely boundary-noise item is disposed \`not-applicable\` with a reason; one claim may batch-dispose several such n/a items by listing them all in \`workItemIds\`. When source reading contradicts a consumable fact pack item, say so explicitly and state which reading the source supports; a fact pack category marked truncated must be reported as incomplete rather than presented as a full inventory. Silently omitting a consumable item is a defect.
 `;
 }
 

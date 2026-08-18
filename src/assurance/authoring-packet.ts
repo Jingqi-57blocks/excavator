@@ -19,6 +19,7 @@ import type {
   TraceRecord
 } from "../base/types.ts";
 import { exists } from "../base/util.ts";
+import { consumableFactPackItems } from "../workset/factpack-view.ts";
 
 /**
  * The authoring packet: a deterministic, model-free per-document rendering of the frozen investigation
@@ -284,7 +285,7 @@ function renderFacts(items: InvestigationWorkItem[], factPack: FeatureFactPack |
   const key = featureKeyOf(document);
   for (const category of categories) {
     const coverage = factPack.coverage.find((entry) => entry.category === category);
-    const categoryItems = factPack.items.filter((item) => item.category === category);
+    const categoryItems = consumableFactPackItems(factPack).filter((item) => item.category === category);
     lines.push("", renderFactCategory(category, coverage, categoryItems, key));
   }
   return lines.join("\n");

@@ -7,6 +7,7 @@ import { readObligations, RECOVERED_ROUTE_DENOMINATOR_ASSURANCE_GENERATION } fro
 import { recoveredRouteObligations } from "../src/crossrepo/crossrepo-artifact.ts";
 import { reconcileReadCoverage } from "../src/assurance/read-coverage.ts";
 import type { EvidenceItem, FeatureFactPack } from "../src/base/types.ts";
+import { v2Pack } from "./factpack-v2-fixture.ts";
 
 // THE FOURTH DENOMINATOR SOURCE, judged by replaying a real run rather than by waiting for the next one.
 //
@@ -46,10 +47,10 @@ function recoveredSource(data: Replay, factPack: FeatureFactPack) {
 
 function pack(data: Replay): FeatureFactPack {
   const files = [...new Set(data.registrations.map((entry) => `${entry.module}/${entry.file}`))];
-  return {
-    version: "factpack-v1", snapshotId: "replay", featureKey: data.featureKey, coverage: [], warnings: [],
-    items: files.map((filePath, index) => ({ category: "logic", name: `anchor${index}`, filePath, line: 1, endLine: 1 })),
-  } as unknown as FeatureFactPack;
+  return v2Pack(files.map((filePath, index) => ({ category: "logic", name: `anchor${index}`, filePath, line: 1, endLine: 1 })), {
+    snapshotId: "replay",
+    featureKey: data.featureKey
+  });
 }
 
 test("the generation constant is the next one, so a run frozen under 7 keeps its denominator", () => {

@@ -5,6 +5,7 @@ import { loadFactpackFixture, fixtureLogicItems } from "../factpack-fixture.ts";
 import { logicWorkItems, LOGIC_WORKITEM_CAP, LOGIC_WORKITEM_DIMENSION } from "../../src/assurance/logic-workitems.ts";
 import { stableJson } from "../../src/base/util.ts";
 import type { DocumentPlan, FeatureFactPack } from "../../src/base/types.ts";
+import { v2Pack } from "../../tests/factpack-v2-fixture.ts";
 
 // The 57B-375 forcing function, derived from the SAME frozen wcp-leave fact-pack fixture the 57B-372 replay
 // uses: `logicWorkItems` promotes every rescued (signal-carrying) logic function into a disposable work item.
@@ -19,7 +20,7 @@ function leavePack(): FeatureFactPack {
   // The fixture's logic complement carries the rescued items with their signals and ranks — exactly the
   // production derivation. logicWorkItems only reads category `logic` items with a signal, so this pack is
   // a faithful stand-in for the run's on-disk fact pack.
-  return { version: "factpack-v1", snapshotId: "snap", featureKey: fx.featureKey, items: fixtureLogicItems(fx), coverage: [], warnings: [] };
+  return v2Pack(fixtureLogicItems(fx), { snapshotId: "snap", featureKey: fx.featureKey });
 }
 
 function docs(featureKey: string): DocumentPlan[] {

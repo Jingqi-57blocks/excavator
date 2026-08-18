@@ -1,6 +1,6 @@
 import { basename, join } from "node:path";
 import { readFile } from "node:fs/promises";
-import type { Audience, EvidenceItem, FeatureFactPack, FeatureRequest, GraphNode, ProviderRegistry, ReportRequest, Snapshot } from "../base/types.ts";
+import type { Audience, CollectedFeatureFactPack, EvidenceItem, FeatureRequest, GraphNode, ProviderRegistry, ReportRequest, Snapshot } from "../base/types.ts";
 import { CodeGraphIndex, type GraphReader, type GraphSummary } from "../codegraph/codegraph.ts";
 import { CodeGraphSet } from "../codegraph/codegraph-set.ts";
 import { pruneFeatureGraphWithModuleFloorRecorded } from "../attribution/prune-module-floor.ts";
@@ -13,16 +13,15 @@ import { codegraphIdentity } from "../codegraph/codegraph-identity.ts";
 import { SourceReader, evidenceFromWindow, manifestSummary, selectProjectDocuments, sourceSearch } from "../snapshot/source.ts";
 import { Deadline, ensureDir, exists, projectWorkspace, readJson, redactionCacheTag, sha256, slugify, stableJson, truncate, writeJson } from "../base/util.ts";
 import { createProviderRegistry, resolveCodeGraphDatabase } from "../snapshot/providers.ts";
-import { buildFactPack, factPackEvidence, renderFactPackSection } from "./factpack.ts";
+import { buildFactPack } from "./factpack.ts";
 import { BOUNDARY_FUNCTIONS_VERSION, BOUNDARY_FUNCTION_KINDS, enumerateBoundaryFunctions, type BoundaryFunctionsArtifact, type FeatureBoundaryFunctions } from "./boundary-functions.ts";
-import { computeCrossFeatureRelationships, renderCrossFeatureSection, type CrossFeatureRelationships } from "./cross-feature.ts";
 import { legacyWorkspaceWarning } from "../snapshot/workspace-residue.ts";
 
 // v21: CachedFeature carries the selection trace (57B-423) — the layer-4 attribution record is assembled from
 // it, so a v20 hit would serve `undefined` and the run would publish an attribution with no channels. v20 added
 // the boundary-function enumeration's `truncated` flag and per-feature warnings, for the same class of reason.
 // Any change to a cached shape bumps this (57B-375).
-const BUILDER_VERSION = "excavator-context-v24-selection-trace";
+const BUILDER_VERSION = "excavator-context-v25-factpack-join";
 
 interface CachedShared {
   snapshotId: string;
@@ -55,7 +54,7 @@ interface CachedFeature {
   files: string[];
   evidence: EvidenceItem[];
   markdown: string;
-  factPack: FeatureFactPack;
+  factPack: CollectedFeatureFactPack;
   /** Second source for the read-obligation denominator; absent on a source-only run (57B-396). */
   boundaryFunctions?: FeatureBoundaryFunctions;
   /** Per-module scope accounting; absent when no census could be built. */
@@ -85,9 +84,8 @@ export interface PreparedContext {
   sharedMarkdown: string;
   documentContexts: Map<string, string>;
   featureMarkdowns: Map<string, string>;
-  featureFactPacks: Map<string, FeatureFactPack>;
+  collectedFactPacks: Map<string, CollectedFeatureFactPack>;
   featureScopes: Map<string, { nodes: GraphNode[]; files: string[]; evidenceIds: string[] }>;
-  crossFeature: CrossFeatureRelationships;
   /** Second source for the read-obligation denominator (57B-396); frozen as a run artifact at prepare. */
   boundaryFunctions: BoundaryFunctionsArtifact;
   /**
@@ -255,7 +253,7 @@ export async function buildContextsFromBoundary(request: ReportRequest, boundary
   const censusUnavailableByFeature = new Map<string, "no-graph" | "empty-vocabulary">();
   const selectionTraceByFeature = new Map<string, FeatureSelectionTrace>();
   const featureMarkdowns = new Map<string, string>();
-  const featureFactPacks = new Map<string, FeatureFactPack>();
+  const collectedFactPacks = new Map<string, CollectedFeatureFactPack>();
   const boundaryFeatures: FeatureBoundaryFunctions[] = [];
 
   for (const audience of request.overviewAudiences) {
@@ -293,7 +291,7 @@ export async function buildContextsFromBoundary(request: ReportRequest, boundary
     selectionTraceByFeature.set(key, cached.selectionTrace);
     if (cached.boundaryFunctions) boundaryFeatures.push(cached.boundaryFunctions);
     featureMarkdowns.set(key, cached.markdown);
-    featureFactPacks.set(key, cached.factPack);
+    collectedFactPacks.set(key, cached.factPack);
     for (const audience of feature.audiences) {
       const id = `feature-${key}-${audience}`;
       documentContexts.set(id, renderFeatureContext(audience, request.language, feature.subject, key));
@@ -316,23 +314,9 @@ export async function buildContextsFromBoundary(request: ReportRequest, boundary
   graph?.close();
   const sourceStats = sourceReader.stats;
 
-  // Cross-feature relationships are computed after every feature is prepared, so they cannot live in
-  // the per-snapshot shared-context cache (which is feature-independent). The section is appended to
-  // this run's shared markdown only when the run carries at least two features; single-feature and
-  // overview-only runs have no pair to relate and skip both the section and the artifact.
-  const crossFeature = computeCrossFeatureRelationships(
-    request.features.map((feature) => {
-      const key = featureCacheKey(feature);
-      return { key, subject: feature.subject, files: featureScopes.get(key)?.files ?? [], factPack: featureFactPacks.get(key)! };
-    }).filter((entry) => entry.factPack)
-  );
-  const sharedMarkdown = request.features.length >= 2
-    ? `${shared.markdown}\n\n${renderCrossFeatureSection(crossFeature)}`
-    : shared.markdown;
-
   timing.totalPrepareMs = Date.now() - t0;
   return {
-    prepared: { snapshot, evidence: dedupeEvidence(allEvidence), sharedMarkdown, documentContexts, featureMarkdowns, featureFactPacks, featureScopes, crossFeature, boundaryFunctions, scopeCensus: scopeCensusByFeature, censusUnavailable: censusUnavailableByFeature, featureSelectionTraces: selectionTraceByFeature, overviewCensus: shared.overviewCensus },
+    prepared: { snapshot, evidence: dedupeEvidence(allEvidence), sharedMarkdown: shared.markdown, documentContexts, featureMarkdowns, collectedFactPacks, featureScopes, boundaryFunctions, scopeCensus: scopeCensusByFeature, censusUnavailable: censusUnavailableByFeature, featureSelectionTraces: selectionTraceByFeature, overviewCensus: shared.overviewCensus },
     ledger,
     projectDir,
     stats: {
@@ -570,7 +554,6 @@ async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], fea
     // its retained set holds that the six structural categories did not already claim.
     featureGraph: { nodes, edges, seeds }
   });
-  evidence.push(...factPackEvidence(factPack));
   // The second obligation source (57B-396). The fact pack above enumerates what the prune RETAINED; this
   // enumerates every decision-bearing function in the same boundary FILES, which is where the retained
   // set's recall ceiling shows up as unread rules.
@@ -581,7 +564,7 @@ async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], fea
     absolutePathFor: (path) => absoluteByPath.get(path),
   }, warnings);
   const inventory = buildFeatureInventory(nodes, scopeFiles);
-  const markdown = renderFeatureMarkdown(feature, terms, nodes, edges, unresolved, scopeFiles, evidence, needBroadFallback, inventory, warnings, factPack);
+  const markdown = renderFeatureMarkdown(feature, terms, nodes, edges, unresolved, scopeFiles, evidence, needBroadFallback, inventory, warnings);
   return { snapshotId: snapshot.id, key, subject: feature.subject, aliases: feature.aliases, nodes, files: scopeFiles, evidence: dedupeEvidence(evidence), markdown, factPack, boundaryFunctions, scopeCensus: scopeCensus ?? undefined, censusUnavailableReason, selectionTrace, warnings: [...warnings, ...factPack.warnings] };
 }
 
@@ -685,7 +668,7 @@ ${role}
 `;
 }
 
-function renderFeatureMarkdown(feature: FeatureRequest, terms: string[], nodes: any[], edges: any[], unresolved: any[], files: string[], evidence: EvidenceItem[], broadFallback: boolean, inventory: FeatureInventoryEntry[], truncations: string[], factPack: FeatureFactPack): string {
+function renderFeatureMarkdown(feature: FeatureRequest, terms: string[], nodes: any[], edges: any[], unresolved: any[], files: string[], evidence: EvidenceItem[], broadFallback: boolean, inventory: FeatureInventoryEntry[], truncations: string[]): string {
   const compactNodes = nodes.slice(0, 100).map((node) => ({ id: node.id, kind: node.kind, name: node.name, file: node.filePath, lines: `${node.startLine}-${node.endLine}`, signature: node.signature ? truncate(String(node.signature), 180) : null }));
   const compactEdges = edges.slice(0, 160).map((edge) => ({ source: edge.source, target: edge.target, kind: edge.kind, line: edge.line, refName: edge.metadata?.refName, confidence: edge.metadata?.confidence }));
   const edgeKinds = Object.entries(edges.reduce((acc: Record<string, number>, edge: any) => { acc[edge.kind] = (acc[edge.kind] ?? 0) + 1; return acc; }, {})).sort((a, b) => Number(b[1]) - Number(a[1]));
@@ -713,8 +696,6 @@ This inventory is a coverage map, not a source of truth by itself. Complete ever
 | Report section | Category | Candidate nodes | Candidate files | Representative paths |
 |---:|---|---:|---:|---|
 ${inventory.map((item) => `| ${item.section} | ${item.label} | ${item.nodeCount} | ${item.fileCount} | ${item.examples.map((value) => `\`${value}\``).join("<br>") || "—"} |`).join("\n")}
-
-${renderFactPackSection(factPack)}
 
 ## Files
 

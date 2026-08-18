@@ -9,6 +9,7 @@ import { auditWorkItemClaimCoverage } from "../src/assurance/section-audit.ts";
 import { logicWorkItems } from "../src/assurance/logic-workitems.ts";
 import { readJson, writeJson } from "../src/base/util.ts";
 import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, tempDir } from "./helpers.ts";
+import { v2Item, v2Pack } from "./factpack-v2-fixture.ts";
 
 // 57B-375 wiring proof, WITHOUT any authoring run. The sample-target rescues no logic function, so these
 // tests inject one rescued `logic` item into the prepared run's on-disk fact pack and derive the matching
@@ -27,7 +28,7 @@ async function featureRequest(): Promise<ReportRequest> {
 }
 
 /** The one rescued decision function these tests promote, at a real sample-target source location. */
-const RESCUED: FactPackItem = { category: "logic", name: "isIgnoreHolidayLvType", filePath: "src/server.ts", line: 3, endLine: 3, detail: "func isIgnoreHolidayLvType", source: "graph", rank: 0, signal: "anchor-token holiday, references LvHldyTypeC(x1)" };
+const RESCUED: FactPackItem = v2Item({ category: "logic", name: "isIgnoreHolidayLvType", filePath: "src/server.ts", line: 3, endLine: 3, detail: "func isIgnoreHolidayLvType", source: "graph", rank: 0, signal: "anchor-token holiday, references LvHldyTypeC(x1)" });
 
 /** Overwrite the run's single feature fact pack so its `logic` category carries one rescued item. Returns the
  *  pack and manifest so a caller can derive the matching work item through the production function. */
@@ -38,9 +39,13 @@ async function writeRescuedPack(runDir: string): Promise<{ pack: FeatureFactPack
   assert.ok(packFile, "the prepared feature run wrote a fact pack");
   const packPath = join(featuresDir, packFile);
   const pack = await readJson<FeatureFactPack>(packPath);
-  pack.items = [...pack.items.filter((item) => item.category !== "logic"), RESCUED];
-  await writeJson(packPath, pack);
-  return { pack, manifest };
+  const updated = v2Pack([...pack.items.filter((item) => item.category !== "logic"), RESCUED], {
+    featureKey: pack.featureKey,
+    snapshotId: pack.snapshotId,
+    warnings: pack.warnings
+  });
+  await writeJson(packPath, updated);
+  return { pack: updated, manifest };
 }
 
 /** writeRescuedPack + bake the derived work item into workitems.json (pending) and its checklist mirror,

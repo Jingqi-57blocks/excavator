@@ -13,6 +13,7 @@
 // expected-plan/checklist can all derive from this one function and never disagree.
 
 import type { DocumentPlan, FactPackItem, FeatureFactPack, InvestigationWorkItem } from "../base/types.ts";
+import { consumableFactPackItems } from "../workset/factpack-view.ts";
 
 /** Per-feature ceiling on promoted rescued logic functions; a pathological feature cannot flood the plan. */
 export const LOGIC_WORKITEM_CAP = 24;
@@ -63,7 +64,7 @@ export function logicWorkItems(factPacks: FeatureFactPack[], documents: Document
       .filter((document) => document.kind === "feature" && document.id === `feature-${featureKey}-${document.audience}`)
       .map((document) => document.id);
     if (!requiredFor.length) continue;
-    const rescued = (pack.items ?? [])
+    const rescued = consumableFactPackItems(pack)
       .filter((item) => item.category === "logic" && typeof item.signal === "string" && item.signal.length > 0)
       .sort((a, b) => rankOf(a) - rankOf(b) || compareStrings(a.filePath, b.filePath) || a.line - b.line || compareStrings(a.name, b.name));
     if (rescued.length > cap) {

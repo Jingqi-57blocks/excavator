@@ -4,8 +4,10 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { buildDenominatorReport, denominatorExitCode, parseMust } from "../read-denominator.ts";
 
-// The fixture is not synthetic: it is the real prepare output of WCP's 请假管理 feature, trimmed to the
-// leave handler files and to the `logic` category the denominator actually consumes. Span data has no
+// The fixture's rows are the real prepare output of WCP's 请假管理 feature, trimmed to the leave handler
+// files and to the `logic` category the denominator actually consumes. Its container is schema-lifted to
+// factpack-v2 for this historical denominator replay; this is a test fixture, not production v1 compatibility.
+// Span data has no
 // "invented wording" failure mode — a start line either matches the source or it does not — so a byte
 // extraction of a real run is the right shape of fixture here, and it keeps CI free of the target repo.
 //

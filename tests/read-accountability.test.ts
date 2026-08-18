@@ -4,12 +4,13 @@ import { readObligations, READ_OBLIGATIONS_VERSION, normalizeObligationPath, typ
 import { auditReadAccountability, citesOverlappingWindow, reconcileReadCoverage } from "../src/assurance/read-coverage.ts";
 import { LOGIC_WORKITEM_DIMENSION } from "../src/assurance/logic-workitems.ts";
 import type { EvidenceItem, FactPackItem, FeatureFactPack, InvestigationWorkItem } from "../src/base/types.ts";
+import { v2Item, v2Pack } from "./factpack-v2-fixture.ts";
 
 const KEY = "leave-abc123";
 const SERVICE = "svc/internal/handlers/leave/service.go";
 
 function logic(name: string, line: number, endLine?: number, extra: Partial<FactPackItem> = {}): FactPackItem {
-  return { category: "logic", name, filePath: SERVICE, line, ...(endLine !== undefined ? { endLine } : {}), source: "graph", ...extra };
+  return v2Item({ category: "logic", name, filePath: SERVICE, line, ...(endLine !== undefined ? { endLine } : {}), source: "graph", ...extra });
 }
 
 /** A pack mirroring the real WCP leave shape: single-line declarations, a nested span, two real functions. */
@@ -21,7 +22,7 @@ function pack(items: FactPackItem[] = [
   logic("Reject", 810, 922, { signal: "branch-heavy" }), // rescued → tier 0
   logic("spanless", 1000),                         // no endLine → cannot-determine
 ]): FeatureFactPack {
-  return { version: "factpack-v1", snapshotId: "snap1", featureKey: KEY, items, coverage: [], warnings: [] };
+  return v2Pack(items, { snapshotId: "snap1", featureKey: KEY });
 }
 
 function workItem(name: string, line: number, overrides: Partial<InvestigationWorkItem> = {}): InvestigationWorkItem {

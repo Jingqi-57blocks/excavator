@@ -33,13 +33,13 @@
 | **5 工作集** | `attribution.json`（**席位集是成员资格的唯一权威**）+ 事实库 + `units.json` + `files.json` | 每调查的工作集：fact pack v2（每条目必带关系标注 retained / co-located / seeded——按第 3 层写下的成员资格与注册表声明的判定规则对席位 `UnitId` 集合判定，`{corpus}` 域标 `NotApplicable`——及粒度）、**`ReadSpec` 集：路径 + span + 理由 + 预算授权，不含源码正文、不含 evidence id**；scope census v2（分母来自台账，模块 × 语言，双守恒律）；overview census（无条件产出，含 overview-only run）；**渲染视图带声明的上界**（§四视图法则） | 顶层使用统一 `ArtifactResult`；每 feature 的不可构建原因作为 `Built` 内逐行状态，整层不可构建才返回 `Unavailable` | **整文件作为归属边界——文件只授权阅读，绝不授予成员资格**；无关系标注的事实条目；分母取自图 summary、候选池或证据目录；**源码读取器**——本层只授权，不执行；下游以 path/span 重算成员关系 | attribution 身份 + 事实库身份 |
 | **6 义务声明** | `requirements.json` + 工作集 + `mechanisms.json` + `units.json` | 义务声明集：每候选行必落桶——decision-bearing → 义务；probe unavailable → **残差行**（永不丢弃）；模板推导的知识要求逐条成行；**无 feature 的 run 也发 run 级义务** | 顶层使用统一 `ArtifactResult`；逐 feature 的失败原因保留为 `Built` 内的残差行，整层不可构建才返回 `Unavailable` | **证据目录的任何内容——声明绝不引用证据 id（这是义务↔证据环的切口）**；模板 / audience 形状本身；requirements 之外的需求来源 | 工作集身份 + requirements 摘要 |
 | **7 调查结果** | 义务声明集 + 工作集的 `ReadSpec` + 事实库 + 台账 + 被记录的判断（成员归属裁定、**observed aliases**：判者与所读证据 id 必填） | **执行 `ReadSpec` 产出真实源码窗口** + 证据目录 + 义务处置，三者同层生长、同被封存：证据条目稳定 id、摘要、逐字节可重推导，类型含 source / graph / derived / **fact / ledger**（「我没能看」可被引用）；空枚举也是一条证据；**四级字节上界（标量字段 / 单条记录 / 分片产物 / 模型视图）皆必设且覆盖所有 evidence kind**——超界确定性截断，必带 `contentRef`、`contentDigest`、`originalBytes`、`retainedBytes`、`truncatedReason`（P18）。`contentRef` 必须指向 run 内不可变、内容寻址且归档后仍可解析的字节（或等价的冻结源）；只指向可变化的 target 路径不成立。**它引用的是「本 run 声明的脱敏模式作用之后、截断之前」的字节，redaction 模式与版本进入内容身份**（今天 `src/snapshot/source.ts:29` 的 `windowCacheVersion` 已是这个形状）——把 target 的未脱敏字节存进 blob 会绕过 `redactSecrets`，让脱敏 run 的归档产物里出现原秘密；`originalBytes` 指的是截断前的长度，与此处的「原始」不是一回事。处置必引声明 id 与所读证据 id，关闭状态分正向 / 负向 | 顶层使用统一 `ArtifactResult`；空类别写成证据条目（empty is a fact）；未处置的声明保持 pending 行——可见，且阻冻结 | 不在本 run 记录产物集内的数据；模型生成内容作为 derived 之外的任何类型；judgement 当事实消费；`rejected` 当预过滤器；负向关闭计入知识覆盖；**模型生成的摘要替代被截断的 source**（那只能是 derived，且必须与 `contentRef` 并存）；用活 target 路径冒充可归档 `contentRef` | (snapshot 身份, 源产物摘要, 声明集身份, **被记录判断摘要, 截断策略版本**)；id 规则稳定（`FACT-*` 等） |
-| **8 冻结** | 全部前层产物 + 各自完整度块 + `BoundRunContract` + 审计清单 | 封闭哈希链产物集，**按 epoch 封存**：completeness **按 CoverageDomain 逐域合取**，内嵌各台账摘要或其摘要+限定（声明「没看」禁止无限定地渲染「全齐」）；正 / 负关闭拆分；**每个 `NotApplicable` 的 determination 必被验证其 `coverageDigest` 所依赖的完整度**（扫描被 cap、读取失败、机制部分覆盖时 not-detected 不成立，降级为 Unavailable）；审计清单让「检查被跳过」本身可检查 | 冻结拒绝本身是一份带理由的 append-only 记录：不平衡 census、pending 声明、对照契约缺信封、determination 前提不成立 ⇒ **错误**；tier1 身份失配 ⇒ 劝告，tier2 失配 ⇒ 错误 | 记录产物集之外的任何东西；**只由 plan 计算的 completeness**（`src/assurance/freeze.ts:137` 的现状即禁例）；**对照当前代码的期望集而非本 run 契约验收信封**（追溯性失败的源头）；**跨 CoverageDomain 合成的单一完整度比值**；**原地改写已封存 epoch 的哈希链** | 全链摘要 + 契约摘要 + **epoch 序号**；归档 run 永远按其记录的契约验证——无契约的旧 run 按 `assuranceVersion` 世代闸（`src/base/assurance-version.ts:77`）复验，9 份已冻结 knowledge（v4×2 / v5×4 / v7×2 / v8×1）零迁移 |
+| **8 冻结** | 全部前层产物 + 各自完整度块 + `BoundRunContract` + 审计清单 | 封闭哈希链产物集，**按 epoch 封存**：completeness **按 CoverageDomain 逐域合取**，内嵌各台账摘要或其摘要+限定（声明「没看」禁止无限定地渲染「全齐」）；正 / 负关闭拆分；**每个 `NotApplicable` 的 determination 必被验证其 `coverageDigest` 所依赖的完整度**（扫描被 cap、读取失败、机制部分覆盖时 not-detected 不成立，降级为 Unavailable）；审计清单让「检查被跳过」本身可检查 | 冻结拒绝本身是一份带理由的 append-only 记录：不平衡 census、pending 声明、对照契约缺信封、determination 前提不成立 ⇒ **错误**；tier1 身份失配 ⇒ 劝告，tier2 失配 ⇒ 错误 | 记录产物集之外的任何东西；**只由 plan 计算的 completeness**（`src/assurance/freeze.ts:137` 的现状即禁例）；**对照当前代码的期望集而非本 run 契约验收信封**（追溯性失败的源头）；**跨 CoverageDomain 合成的单一完整度比值**；**原地改写已封存 epoch 的哈希链** | 全链摘要 + 契约摘要 + **epoch 序号**；归档 run 永远按其记录的契约验证——无契约的旧 run 按 `assuranceVersion` 世代闸（`src/base/assurance-version.ts:79`）复验，9 份已冻结 knowledge（v4×2 / v5×4 / v7×2 / v8×1）零迁移 |
 
 **第五列（产物身份）的辩护。** 五件已付过学费的事压在它上面：归档 run 必须按自己记录的契约永久可验（硬约束）；快照身份曾是 mtime 形状而非内容（P10，双层身份写进第 1 层输出与第 8 层验证）；缓存键漏掉模式位造成静默漂移（先前裁定：模式是身份的一部分）；**语义输入漏进身份则缓存假命中**——故第 3 层身份含 `mechanisms.json` 摘要与生产者配置，第 7 层身份含被记录判断与截断策略版本。且**第 3 层身份不含 feature key**、**`RefUnitId` 与 partition `UnitId` 都不含 producer**，这两格分别治 P17 与「分母是工具观察数而非代码单元数」。`RefUnitId` 解决引用与多生产者合并，partition `UnitId` 解决守恒；两者职责不可再合并。
 
 第五件学费是本轮新钉的：**单元身份只用内容哈希会让同 snapshot 内路径不同、内容相同的文件坍缩成一组 id**。实测**在扫描器自己的语料上**（`createSnapshot` 的输出，不是按扩展名 glob 的近似）：provital 3005 个扫描文件里 226 份与另一路径字节相同，83 个碰撞组，最大一组 **22 份 0 字节文件**（横跨 `.py` / `.dtml` / `.css` / `.zpt`，不是同一目录下的同名文件）；wcp 50 / 1999，20 组，最大 7；excavator 自己 0 组——它那批同内容文件在 git-ignored 路径里，扫描器本就不收。失败形态是静默的：坍缩后第 4 层分母少算，而三态守恒仍在 partition 行内部平衡，单文件夹具全部照绿。故两类身份都锚在第 1 层台账的行身份上——由 L1 拥有「什么让一行唯一」（target 相对路径 dedupe）加 tier2 内容哈希；不在此处重拼元组。副产物是结构性的：`UnitId` 从此不可能指向一个不在 `files.json` 里的文件。
 
-**冻结的 epoch 模型（P0-4 的解法）。** 「不可变」与「允许冻结后补证」不能同时原地成立，而现行代码确实允许补证（`src/run/run.ts:839`：冻结后的写入必须携带一个能在 `workitems.json` 里解析到的 supplement）。裁定：**保留原地补证，但封存按 epoch 追加**——`freeze` 成功产出 `epoch N` 的封存清单；此后每次 supplement 记入 append-only 补证账，再次 `freeze` 产出 `epoch N+1`，前一个 epoch 的哈希链**只读不改**。报告绑定具体 epoch。这样：现有 supplement 机制不失效、9 份归档零迁移、而「补了什么」在产物上可见。不选「supplement 必须开新 run」是因为它让归档 run 身份变化、且实测使用中的补证通道会整体失效。
+**冻结的 epoch 模型（P0-4 的解法）。** 「不可变」与「允许冻结后补证」不能同时原地成立，而现行代码确实允许补证（`src/run/run.ts:859`：冻结后的写入必须携带一个能在 `workitems.json` 里解析到的 supplement）。裁定：**保留原地补证，但封存按 epoch 追加**——`freeze` 成功产出 `epoch N` 的封存清单；此后每次 supplement 记入 append-only 补证账，再次 `freeze` 产出 `epoch N+1`，前一个 epoch 的哈希链**只读不改**。报告绑定具体 epoch。这样：现有 supplement 机制不失效、9 份归档零迁移、而「补了什么」在产物上可见。不选「supplement 必须开新 run」是因为它让归档 run 身份变化、且实测使用中的补证通道会整体失效。
 
 **事实的成员资格是一个闭合联合，不是一个 cell。** 第 2 层声明的 `UnitKind` 含模块、模块对、corpus，而「每条事实恰好指向一个 partition cell」对它们不成立——`src/crossrepo/link-match.ts:41` 的 `MatchedLink` 真的两端（`call` 在前端文件、`route` 在另一模块），class 跨 method cell 与 residual cell，corpus 域的词汇 df 没有任何 cell 可挑。挑一端就直接污染 seeded / retained / co-located：后端路由入席而前端文件未入席时，那条跨仓边会被读成 co-located 而丢弃，P17 换个粒度重演。裁定：成员资格是**必填的闭合联合**——`{unit, unitId}` / `{spanSet, unitIds[]}` / `{relation, endpoints[]}` / `{module, moduleId}` / `{corpus}`，没有可选字段、没有空集合合法态。**判定规则（任一端入席 / 全部覆盖入席 / 锚点入席 / 不参与席位判定）由基座的 kind 闭合注册表随 kind 一起声明**，不由第 5 层按 fact kind 选择——否则消费侧持有第二份语义表，正是「下游不得拥有第二份映射算法」禁的事。`{corpus}` 的席位判定是 `NotApplicable`：它是一个被写下的状态，不得塞进任一 cell，也不得以 null 进入事实包的逐条标注。事实不参与三态守恒（守恒的对象是 partition 行），不得为多单元成员资格补一条事实守恒律。
 
@@ -49,7 +49,7 @@
 
 **`co-located` 不建立同 run 的反向提升环。** 关系标注本身不得授权 `ReadSpec`、进入模型视图或自动生成 fact evidence。第 7 层只有在**已有独立理由的第 5 层 `ReadSpec` 已覆盖该条目成员资格中的任一 `UnitId`**时，才可用所读 evidence id 与判者记录把它显式纳入调查结果；该判断不得回写第 5 层或补造一个追溯性的 `ReadSpec`。若没有独立授权，必须以新的 run-intent / 查询别名开启新 run，而不是从第 7 层反馈到第 5 或第 4 层。负向验收是默认 co-located 全部零消费；正向验收是已有独立 `ReadSpec` 时恰好一条具名判断可提升。
 
-**第 6/7 层的切法是从现状读出来的，不是排出来的。** 今天计划就在 prepare 铸出（`src/run/run.ts:568`），先于源码窗口阅读；而冻结后补证必须引用一个既有 work item（`src/run/run.ts:839`）——证据引义务、义务处置引证据，两个方向都真实存在。切成「声明在下（绝不引证据）、执行与处置同层在上」，环被声明侧的禁止输入列切断；调查在第 7 层内迭代生长，冻结是唯一封口。层序约束跨层依赖方向，不约束层内迭代。
+**第 6/7 层的切法是从现状读出来的，不是排出来的。** 今天计划就在 prepare 铸出（`src/run/run.ts:574`），先于源码窗口阅读；而冻结后补证必须引用一个既有 work item（`src/run/run.ts:859`）——证据引义务、义务处置引证据，两个方向都真实存在。切成「声明在下（绝不引证据）、执行与处置同层在上」，环被声明侧的禁止输入列切断；调查在第 7 层内迭代生长，冻结是唯一封口。层序约束跨层依赖方向，不约束层内迭代。
 
 ---
 
@@ -116,7 +116,7 @@ src/facts/             层 3：units.ts（reference units + canonical partition 
     probe/           ✓ —— 今天 src/facts/ 下只有这一个；另外六个生产者仍在自己的顶层目录里
     codegraph/  nativegraph/  framework/  schema/  crossrepo/  vocabulary/
 src/attribution/     ✓ 层 4：feature-prune、module-floor、选择痕迹与归属产物
-src/workset/           层 5：fact pack v2、ReadSpec、census —— 今天仍叫 src/context/
+src/workset/         ◐ 层 5：fact pack v2 的关系标注与消费视图已落地；ReadSpec、census 仍随后续切片迁入
 src/obligation/        层 6：义务声明、requirements 展开、残差行
 src/investigation/     层 7：ReadSpec 执行、证据目录、义务处置、截断策略
 src/freeze/            层 8：epoch 封存、completeness 逐域合取、审计清单
@@ -127,7 +127,7 @@ src/run/  src/cli.ts ✓ 编排
 **登记表今天与目标结构的两处差距，都是过渡而不是裁定：**
 
 - `src/facts/` 只有 `probe/`。另外六个生产者（codegraph、nativegraph、framework、schema、crossrepo、词汇）仍在自己的顶层目录里，各自登记 L3。层 3 的约束是「每生产者一个子目录」而不是「必须叫 `facts/x`」，所以这只是名字没搬。
-- 层 1 与层 5 的目录名（`snapshot/`、`context/`）没改。**登记表是契约，目录名不是**；改名不带行为、也不解任何红边，留给各自的层切片一并做。
+- 层 1 的目录名 `snapshot/` 尚未改。层 5 处于有意的双目录过渡：`src/context/` 只收集与缓存不带关系裁定的 `factpack-collected-v1`，`src/workset/` 消费第 3/4 层产物、写出 `factpack-v2` 并生成唯一模型视图；待 ReadSpec 与 census 切片落地后再收束目录。**登记表是契约，目录名不是**。
 
 探针三份（`decision-probe`、`condition-extract`、`condition-extract-perl`）与版本闸簇**已迁出** `assurance/`，分别去了 `facts/probe/` 与 `base/`。留下的 21 份已按侧逐文件登记、尚未迁目录，去向是：`read-obligations`、`relevance-annotation`、`logic-workitems` → `obligation/`；`read-coverage`、`read-residual-exposure`、`condition-inventory`、`assurance.ts`、`investigation-artifacts` → `investigation/`；`freeze`、`contract-instance-audit`、`mechanism-ledger-audit` → `freeze/`；`timeline` → `base/`；报告侧九份（`authoring-packet`、`claims-scaffold`、`claim-comparison`、`parallel-authoring`、`checkpoint`、`section-audit`、`section-slug`、`recommendation-language`、`assurance-artifacts`）→ `report/`。每个目录落在十个文件以内。
 
@@ -139,10 +139,10 @@ src/run/  src/cli.ts ✓ 编排
 
 | 法则 | 接口规则表述 | 承载列 |
 |---|---|---|
-| **输出法则** | 每个接口是**全函数**：任何输入（含坏输入）都映到一份被写下的 `ArtifactResult<T>`，闭合三态、穷举 switch。**判据——新增状态仅当冻结/完整度消费者必须在不读 reason 的前提下分支、且并桶会翻转一个审计结论**：`not-detected`、`single-module` 是对 target 的**判定**（已看，确定无），并进 Unavailable 会把「已判定无」错渲染成盲区，故 NotApplicable 成立——但**判定必须携带其成立前提**（`basedOn` 指出依据哪份完整度、`coverageDigest` 钉住当时的值），第 8 层验证该前提；扫描被 cap、读取失败或机制部分覆盖时 not-detected 不成立，降级为 `Unavailable`。策略性跳过今天没有按状态分支的消费者，折叠为 `Unavailable{cause:"policy"}`，不设第四态。**唯一写者，两个温度类**：第 7 层产物与 timeline 是 append-until-freeze（并按 epoch 封存），其余 write-once。**append 类产物必须真正做到累计 I/O 为 O(N)**：不仅禁止「整读 → 改一条 → 整写」，也禁止像 `src/assurance/timeline.ts:18-19` 那样追加前整读历史来取得尾状态；evidence、timeline、supplement 共用单写者/尾 checkpoint，追加顺序由确定性序列而非并发到达时刻决定。**序列权威说清三件事**：sequence 在单写者提交时分配（不预留），语义序取自确定性排序的收集队列而非完成时刻（`src/assurance/parallel-authoring.ts:100-110` 的 `collectDrafts` 串行栅栏已是这个形状：草稿落 receipt，一个进程按确定序收集），墙钟 `at` 进 digest（否则可无痕改时间）。因此**字节确定性钉在封存产物上，不钉在 timeline 上**：timeline 是保留真实因果顺序的墙钟日志，两次跑不可能逐字节相同，要求它相同只能靠丢掉真实时序；「随机到达仍逐字节相同」的验收对象是 canonical 排序后的冻结产物（证据目录、声明集、partition），timeline 的验收是链验证通过 + sequence 连续。今天 `src/run/run.ts:960-964` 每条证据整读、整写、全量归一与全量哈希，单 run 内 O(n²)；全量归一只在封存时发生一次。可能截断的生产者把完整度日志作为必填参数。消费强制在第 8 层 | **失败输出**列（全表八行），消费强制在第 8 层的输入契约 |
+| **输出法则** | 每个接口是**全函数**：任何输入（含坏输入）都映到一份被写下的 `ArtifactResult<T>`，闭合三态、穷举 switch。**判据——新增状态仅当冻结/完整度消费者必须在不读 reason 的前提下分支、且并桶会翻转一个审计结论**：`not-detected`、`single-module` 是对 target 的**判定**（已看，确定无），并进 Unavailable 会把「已判定无」错渲染成盲区，故 NotApplicable 成立——但**判定必须携带其成立前提**（`basedOn` 指出依据哪份完整度、`coverageDigest` 钉住当时的值），第 8 层验证该前提；扫描被 cap、读取失败或机制部分覆盖时 not-detected 不成立，降级为 `Unavailable`。策略性跳过今天没有按状态分支的消费者，折叠为 `Unavailable{cause:"policy"}`，不设第四态。**唯一写者，两个温度类**：第 7 层产物与 timeline 是 append-until-freeze（并按 epoch 封存），其余 write-once。**append 类产物必须真正做到累计 I/O 为 O(N)**：不仅禁止「整读 → 改一条 → 整写」，也禁止像 `src/assurance/timeline.ts:18-19` 那样追加前整读历史来取得尾状态；evidence、timeline、supplement 共用单写者/尾 checkpoint，追加顺序由确定性序列而非并发到达时刻决定。**序列权威说清三件事**：sequence 在单写者提交时分配（不预留），语义序取自确定性排序的收集队列而非完成时刻（`src/assurance/parallel-authoring.ts:100-110` 的 `collectDrafts` 串行栅栏已是这个形状：草稿落 receipt，一个进程按确定序收集），墙钟 `at` 进 digest（否则可无痕改时间）。因此**字节确定性钉在封存产物上，不钉在 timeline 上**：timeline 是保留真实因果顺序的墙钟日志，两次跑不可能逐字节相同，要求它相同只能靠丢掉真实时序；「随机到达仍逐字节相同」的验收对象是 canonical 排序后的冻结产物（证据目录、声明集、partition），timeline 的验收是链验证通过 + sequence 连续。今天 `src/run/run.ts:984` 每条证据整读、整写、全量归一与全量哈希，单 run 内 O(n²)；全量归一只在封存时发生一次。可能截断的生产者把完整度日志作为必填参数。消费强制在第 8 层 | **失败输出**列（全表八行），消费强制在第 8 层的输入契约 |
 | **分母法则** | 任何跨接口的分母必须是**严格更低层台账产物**派生的 RowSet（`files.json`、`mechanisms.json`、`units.json.partition`、事实信封），且该台账记录自己的完整度；每个 RowSet 携带其 UnitKind 与 CoverageDomain，消费方嵌入台账身份与完整度块。分子可以来自任何地方，**分母只能来自台账**——`GraphSummary["roots"]`、候选池、证据目录、允许嵌套的 `refUnits[]` 都不是归属分母。分母的 partition `UnitId` 必须 canonical、无重叠、锚在第 1 层台账行身份上且不含 producer；**分区只由指定的分区构建器产出，事实生产者增减不得改变既有分区**（构建器本身换代走 epoch，见§一「分区由指定构建器产出」） | **禁止输入**列（第 4、5 层的行把它落到实处） |
 | **三态法则** | 每个集合值输出是一次**完全划分**，两条轴两条守恒律，各有唯一构造函数、**各在其自己的 CoverageDomain 与 UnitKind 内成立**：覆盖轴 `total = counted + excluded + unexplained`（第 1/2/5 层）；选择轴 `counted = seated + zero-score + displaced`（第 4 层）。**文件的 partition 也是一次完全划分**：非重叠细粒度 cells + residual cells = 该 counted 文件的全部（第 3 层）；允许嵌套的 `refUnits[]` 与事实都不参与这条加法，只通过声明的成员资格映射到 partition——多单元成员资格因此不需要、也不许补一条事实守恒律。**不同域的守恒不得合成一个数**——跨域比值被第 2、8 层的禁止输入列点名。zero-score 不是排除；`unexplained` 是诚实残差，永不可删，在第 4 层它意味着产物损坏，是错误而非劝告 | **输出**列（产物 schema 自带守恒），复核在第 8 层平衡强制 |
-| **视图法则** | **机器产物绝不直接进入模型上下文**；模型消费只经由声明了上界的确定性渲染视图，视图必引其源产物摘要（今天 `renderFactPackSection` 的 60 行/类目上限即此形状，`src/context/factpack.ts:361`）。实测同一批 660 条事实项，JSON 比表格贵一倍（125,807 vs 60,939 字符）——JSON 是给审计与重推导的，视图是给模型的。**上界分四级各自设定**：标量字段、单条记录、分片产物、模型视图——只限字段挡不住「每条都小但数组无限大」。不给层表加「模型可读性」列：八层产物全部是机器读物，一列会重复同一个词八遍；模型可见的视图各自在产物定义里声明上界 | 第 5 层**输出**列；产物侧四级上界由 P18 禁令（第 7 层输出列）承载 |
+| **视图法则** | **机器产物绝不直接进入模型上下文**；模型消费只经由声明了上界的确定性渲染视图，视图必引其源产物摘要（今天 `renderFactPackSection` 的 60 行/类目上限即此形状，`src/workset/factpack-view.ts:54`）。实测同一批 660 条事实项，JSON 比表格贵一倍（125,807 vs 60,939 字符）——JSON 是给审计与重推导的，视图是给模型的。**上界分四级各自设定**：标量字段、单条记录、分片产物、模型视图——只限字段挡不住「每条都小但数组无限大」。不给层表加「模型可读性」列：八层产物全部是机器读物，一列会重复同一个词八遍；模型可见的视图各自在产物定义里声明上界 | 第 5 层**输出**列；产物侧四级上界由 P18 禁令（第 7 层输出列）承载 |
 
 ---
 
@@ -156,7 +156,7 @@ src/run/  src/cli.ts ✓ 编排
 | P2 | 噪声判断只在下游生效 | 事实信封：unit kind 由第 3 层唯一声明，下游禁止再分类——第二份拷贝在接口上不可表达 |
 | P3 | 结构工具不能准入、不可引用 | 事实 → 归属 与 事实 → 调查结果：工具成为第 3 层生产者，产物经通道计分、经证据目录可引用 |
 | P4 | 加语言要改六处 | 边界 → 机制：注册表在基座唯一；未注册扩展名在第 1 层落 `excluded{unsupported-extension}` 并按扩展名分组，已 counted 而无机制支持的在第 2 层落 no-mechanism 行——两个桶都进 census，「忘了」在分母所在的层就可见 |
-| P5 | census 分母取自索引 | 台账 → 工作集：census 分母只能是台账 RowSet；今天 `src/context/context.ts:38` 的 `censusRoots: GraphSummary["roots"]` 被第 5 层禁止输入列点名废止 |
+| P5 | census 分母取自索引 | 台账 → 工作集：census 分母只能是台账 RowSet；今天 `src/context/context.ts:37` 的 `censusRoots: GraphSummary["roots"]` 被第 5 层禁止输入列点名废止 |
 | P6 | 记账按 feature、整 run 可沉默 | 工作集 与 义务声明：overview census 无条件产出；无 feature 的 run 也收 run 级 requirements 与义务声明 |
 | P7 | 模块身份 = 路径首段 | 工作集产物契约：模块 × 语言双分组强制，每行声明粒度，比值绝不跨粒度、绝不跨 UnitKind |
 | P8 | 全局预算整模块清零 | 台账 → 归属（零命中侧：分母成员资格构造性完整）+ 归属产物契约（有命中侧：挤出必带记录） |
@@ -165,17 +165,17 @@ src/run/  src/cli.ts ✓ 编排
 | P11 | 冻结在证据需求已知前关门 | 义务声明 → 冻结：pending 需求行或未处置声明即冻结失败；冻结保持单阶段，补证走 epoch |
 | P12 | 静默出空（清点 42 处） | **全部接口的失败输出列**——这一类由「接口是全函数」整体化解，不属于单条边 |
 | P13 | 文件扫描静默截断 | 边界 → 一切下游：**已由 57B-418 落地**（以下行号是修之前的 `snapshot.ts`，留作出处）：`:211` 把 cap 与固定排除混在同一个条件里、`:238` 的 break 可丢整根，另有三处静默吞（`:215` 路径逃逸、`:218` 非常规文件/符号链接/>2MB、`:226` lstat 失败）；现在每个候选必落桶，完整度块必填，经分母法则被每个消费方继承；**并被 NotApplicable 的 `basedOn` 引用**——扫描不完整时 not-detected 不成立 |
-| P14 | 未探测函数被静默丢弃 | 机制 → 义务声明：`mechanisms.json` 声明（语言 × 机制）缺口；声明层每候选行必落桶——今天 `src/assurance/read-obligations.ts:257` 的 `if (fn.probe !== "decision") continue` 在新契约下是残差行 |
+| P14 | 未探测函数被静默丢弃 | 机制 → 义务声明：`mechanisms.json` 声明（语言 × 机制）缺口；声明层每候选行必落桶——今天 `src/assurance/read-obligations.ts:258` 的 `if (fn.probe !== "decision") continue` 在新契约下是残差行 |
 | P15 | 最新机制零问责 | 归属产物契约：无挤出 / 捞回记录的机制接不进分配器（`src/attribution/prune-module-floor.ts:51` 的地板是第一个补上记录的机制：每模块一条决策，含加零个的空操作） |
 | P16 | 旁路工具或层产物在流程里不可达 | 契约 → 冻结：八层产物槽位与第 3 层生产者未列入 `contract-manifest` = 无期望；列入而缺统一信封 = 冻结失败——不可达从文档问题变成会红的检查 |
-| P17 | 事实包按文件边界收录 | **归属 → 工作集**：席位 `UnitId` 集是成员资格唯一权威；`src/context/context.ts:571` 传入而 `src/context/factpack.ts:247` 忽略的保留图，在新契约下先被第 4 层记录为 attribution。每个事实由第 3 层携带闭合联合的成员资格，第 5 层只按注册表声明的规则做 id 集合判定并标 retained / co-located / seeded，禁止重新按 path/span 猜测；「整文件作归属边界」被禁止输入列点名（实测 `handlers.go` 299 条 entrypoint 事实 293 条与功能无关且全部可引用，`src/context/factpack.ts:345-358`） |
+| P17 | 事实包按文件边界收录 | **归属 → 工作集**：席位 `UnitId` 集是成员资格唯一权威。`src/context/factpack.ts:229` 现在只产不带关系裁定的收集结果与 layer-3 join hint；`src/workset/factpack-annotate.ts:38-58` 在第 4 层之后逐条转录成员资格、保持分母不变并标 seeded / retained / co-located / not-applicable；`src/workset/factpack-view.ts:6-22` 是模型视图、FACT evidence、义务、work item 与 cross-feature 的同一消费闸，只放行 seeded / retained。全链禁止重新按 path/span 猜测，也禁止 co-located 自动产事实。旧实现实测 `handlers.go` 299 条 entrypoint 中 293 条与功能无关且全部可引用；换格式不能修这类成员资格错误 |
 | P18 | 无上界字段打穿产物与其每个消费者 | **调查结果 → 冻结**：一次真跑 `evidence.json` 2.5 MB，单条 SEARCH 记录 2.27 MB——一条 excerpt 439,321 字符，来自压缩过的 `tiny_mce.js`；现存历史 WCP run 还出现 8.56 MB / 596 条的目录，最大单条 graph evidence 约 266 KB，故风险既包含「一个巨型字段」也包含「许多中型记录累积」。第 7 层对所有 evidence kind 设四级上界，超界截断必带五字段；`contentRef` 必须是归档后仍可解析的不可变内容引用，freeze 后修改/删除 target 仍能重推导原字节。压缩判定走第 1 层行形状；append writer 的累计读写量必须线性，不能只把整写改成 JSONL 却保留每次整读 |
 
 **检验改变了层的形状，三处：**
 
 1. **结构 / 约定 / 词汇三个事实层合并为一个。** 三者接口形状完全相同（输入台账与源文件，输出带完整度的信封），差异只是生产者。P1–P18 没有一条需要跨「结构 vs 约定 vs 词汇」的边界。词汇信封保留独立产物身份与字节稳定验收。
-2. **补一个工作集（消费）层。** `buildFactPack` 今天不属于任何层——生产与消费熔在一个函数里，契约没说保留图与整文件清单哪个权威，这正是 P17 长在那里的原因。
-3. **义务拆为「声明」与「处置」，处置与证据、读取执行合为一个调查结果层。** 上一版把义务整体放在证据之上，但冻结后补证必须引既有 work item（`src/run/run.ts:839`）——证据引义务在旧序下是向上引用，契约自己违序；而计划本就在 prepare 铸出（`src/run/run.ts:568`），先于窗口阅读。声明在下（绝不引证据 id），执行与处置同层迭代生长，冻结按 epoch 封口。
+2. **补一个工作集（消费）层（fact pack 切片已落地）。** `buildFactPack` 已被拆成第 5 层之前的确定性收集结果与 `src/workset/` 的关系标注 / 消费视图；机器分母保留全部行，自动消费只读 seeded / retained。ReadSpec 与 census 仍按后续切片接入同一层。
+3. **义务拆为「声明」与「处置」，处置与证据、读取执行合为一个调查结果层。** 上一版把义务整体放在证据之上，但冻结后补证必须引既有 work item（`src/run/run.ts:859`）——证据引义务在旧序下是向上引用，契约自己违序；而计划本就在 prepare 铸出（`src/run/run.ts:574`），先于窗口阅读。声明在下（绝不引证据 id），执行与处置同层迭代生长，冻结按 epoch 封口。
 
 十层 → **八层**（另有契约、基座、报告层、编排四个非层地层）。P5、P14、P17、P18 全部跨具名接口，检验闭合。
 

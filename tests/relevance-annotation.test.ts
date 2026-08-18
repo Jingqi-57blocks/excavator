@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { anchorHitFor, anchorVocabulary } from "../src/assurance/relevance-annotation.ts";
 import { readObligations } from "../src/assurance/read-obligations.ts";
 import type { FeatureFactPack } from "../src/base/types.ts";
+import { v2Pack } from "./factpack-v2-fixture.ts";
 
 // This label decides nothing — it groups a reading. The tests below pin that character: the denominator
 // never changes, absence of a hit never means "irrelevant", and there is no threshold anywhere to tune.
@@ -51,13 +52,10 @@ test("only the directory of a path is vocabulary — a bare filename is not", ()
 
 // The whole point: this is a label, not a filter.
 test("annotating changes no obligation's membership, only adds a label", () => {
-  const pack: FeatureFactPack = {
-    version: "factpack-v1", snapshotId: "s", featureKey: "k", coverage: [], warnings: [],
-    items: [
+  const pack: FeatureFactPack = v2Pack([
       { category: "logic", name: "approveLeave", filePath: "svc/leave/service.go", line: 10, endLine: 40 },
       { category: "logic", name: "OrderSheetMember", filePath: "svc/management/utils.go", line: 10, endLine: 40 },
-    ] as never,
-  };
+    ], { snapshotId: "s", featureKey: "k" });
   const plain = readObligations([pack], []);
   const labelled = readObligations([pack], [], null, null, { k: ANCHORS });
 
@@ -75,10 +73,9 @@ test("annotating changes no obligation's membership, only adds a label", () => {
 // Two different things: "annotation was not requested" (byte-identical, which is what keeps frozen runs
 // stable) and "annotation ran and matched nothing" (a real, reportable outcome).
 test("not requesting annotation is byte-identical; requesting it with nothing to match is not", () => {
-  const pack: FeatureFactPack = {
-    version: "factpack-v1", snapshotId: "s", featureKey: "k", coverage: [], warnings: [],
-    items: [{ category: "logic", name: "approveLeave", filePath: "svc/leave/service.go", line: 10, endLine: 40 }] as never,
-  };
+  const pack: FeatureFactPack = v2Pack([
+    { category: "logic", name: "approveLeave", filePath: "svc/leave/service.go", line: 10, endLine: 40 }
+  ], { snapshotId: "s", featureKey: "k" });
   const plain = readObligations([pack], []);
   assert.equal(JSON.stringify(readObligations([pack], [], null, null, null)), JSON.stringify(plain));
   assert.equal(plain.summary.anchor, undefined, "not requested → the block is absent, not empty");
