@@ -363,12 +363,13 @@ export async function prepareRun(request: ReportRequest): Promise<{ runDir: stri
   // Layer 3, from the two ledgers plus what this run resolved. It runs HERE — after layer 2, before anything
   // else derived — because its identity contains `mechanisms.json`'s digest and every producer envelope's
   // identity contains the units digest, so the order is a property of the identities, not a preference.
-  const facts = mechanisms.availability === null
+  const facts = mechanisms.availability === null || mechanisms.artifact.status !== "built"
     ? unavailableFactsStage(`the mechanism availability probe failed, so no designated builder could be gated: ${mechanisms.artifact.status === "unavailable" ? mechanisms.artifact.cause : "unknown"}`, true)
     : await buildFactsStage({
       target: request.target,
       ledger: result.ledger,
       mechanismsDigest: mechanisms.digest,
+      mechanismLedger: mechanisms.artifact.value,
       availability: mechanisms.availability,
       codegraphPath: result.stats.codegraphPath,
       codegraphModules: result.stats.codegraphModules,

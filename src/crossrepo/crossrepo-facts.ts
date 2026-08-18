@@ -1,4 +1,8 @@
 import { notApplicable, unavailable, type NotApplicable, type Unavailable } from "../base/artifact-result.ts";
+import {
+  canonicalModuleSources, CODEGRAPH_MODULES_BASIS, coverageBasisDigest, fileCompletenessValue, FILE_COMPLETENESS_BASIS,
+  mechanismCoverageBasisName
+} from "../base/coverage-basis.ts";
 import { sha256, stableJson } from "../base/util.ts";
 import type { FactDetail, ObservedFact } from "../facts/units/membership-map.ts";
 import { CROSSREPO_SCAN_VERSION, type CrossRepoScan } from "./crossrepo-scan.ts";
@@ -132,7 +136,11 @@ export interface CrossRepoDeterminationInput {
   /** Null when resolution was attempted and produced nothing usable. */
   readonly scan: CrossRepoScan | null;
   /** Layer 1's scan completeness. A capped scan cannot support a "there is only one module" determination. */
-  readonly ledgerCompleteness: { readonly capReached: boolean; readonly skippedByCap: number; readonly droppedRoots: readonly string[] };
+  readonly ledgerCompleteness: { readonly capReached: boolean; readonly skippedByCap: number; readonly droppedRoots: readonly string[]; readonly readFailures?: number };
+  /** The exact request-level module database paths persisted in request.json. */
+  readonly moduleSources?: readonly string[];
+  /** The normalized layer-2 record for the crossrepo mechanism. */
+  readonly mechanismCoverage?: unknown;
 }
 
 /**
@@ -151,15 +159,20 @@ export function crossRepoDetermination(input: CrossRepoDeterminationInput): NotA
     return unavailable("the cross-repo resolver's ast-grep binding is unavailable, so no call site could be parsed", true);
   }
   const modules = input.modules ?? [];
-  const capped = input.ledgerCompleteness.capReached || input.ledgerCompleteness.droppedRoots.length > 0;
+  const capped = input.ledgerCompleteness.capReached || input.ledgerCompleteness.skippedByCap > 0
+    || input.ledgerCompleteness.droppedRoots.length > 0 || Number(input.ledgerCompleteness.readFailures ?? 0) > 0;
   if (modules.length < 2) {
     if (capped) {
-      return unavailable(`the target looks single-module, but layer 1's scan was capped (skippedByCap ${input.ledgerCompleteness.skippedByCap}, droppedRoots ${input.ledgerCompleteness.droppedRoots.length}), so a second module may be in the part that was never examined`, true);
+      return unavailable(`the target looks single-module, but layer 1's scan was incomplete (skippedByCap ${input.ledgerCompleteness.skippedByCap}, droppedRoots ${input.ledgerCompleteness.droppedRoots.length}, readFailures ${input.ledgerCompleteness.readFailures ?? 0}), so a second module may be in the part that was never examined`, true);
     }
     return notApplicable(
       "single-module",
-      ["ledger/files.json#completeness", "ledger/files.json#completeness.roots"],
-      sha256(stableJson({ modules: modules.map((module) => module.id).sort(), completeness: { ...input.ledgerCompleteness, droppedRoots: [...input.ledgerCompleteness.droppedRoots].sort() } }))
+      [FILE_COMPLETENESS_BASIS, mechanismCoverageBasisName("crossrepo"), CODEGRAPH_MODULES_BASIS],
+      coverageBasisDigest([
+        { reference: FILE_COMPLETENESS_BASIS, value: fileCompletenessValue(input.ledgerCompleteness) },
+        { reference: mechanismCoverageBasisName("crossrepo"), value: input.mechanismCoverage ?? null },
+        { reference: CODEGRAPH_MODULES_BASIS, value: canonicalModuleSources(input.moduleSources) }
+      ])
     );
   }
   if (input.scan === null) {

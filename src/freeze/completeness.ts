@@ -1,0 +1,468 @@
+import { join } from "node:path";
+import { assertNever, type ArtifactResult, type NotApplicable } from "../base/artifact-result.ts";
+import {
+  canonicalModuleSources, CODEGRAPH_MODULES_BASIS, coverageBasisDigest, fileCompletenessValue,
+  FILE_COMPLETENESS_BASIS, mechanismCoverageBasisName, mechanismCoverageValue, type CoverageBasisValue
+} from "../base/coverage-basis.ts";
+import type {
+  AuditFinding, CompletenessSource, DomainCompleteness, FreezeAuditCheck, InvestigationPlan,
+  KnowledgeCompleteness, RunManifest
+} from "../base/types.ts";
+import type { ContractManifest } from "../contract/contract-manifest.ts";
+import { attributionContentDigest, type AttributionArtifact } from "../attribution/attribution-artifact.ts";
+import type { InvestigationResults } from "../investigation/read-execution.ts";
+import type { MechanismLedger } from "../mechanism/mechanism-ledger.ts";
+import { ledgerContentIdentity, type FileLedger } from "../snapshot/file-ledger.ts";
+import { unitsContentDigest, type UnitsArtifact } from "../facts/units/units-artifact.ts";
+import type { OverviewCensusV2, ScopeCensusRow, ScopeCensusV2 } from "../workset/census.ts";
+import { exists, readJson, sha256, stableJson } from "../base/util.ts";
+import { DOMAIN_COMPLETENESS_ASSURANCE_GENERATION, assuranceGenerationAtLeast } from "../base/assurance-version.ts";
+
+const MATERIAL_FLOW_DIMENSIONS = new Set(["normal-flow", "decision-flow", "reversal-flow", "states-and-lifecycle", "notifications-and-exports"]);
+
+export interface FreezeCompletenessInput {
+  readonly runDir: string;
+  readonly manifest: RunManifest;
+  readonly contract: ContractManifest;
+  readonly plan: InvestigationPlan;
+  readonly investigationResults: InvestigationResults | null;
+  /** Result of the already-executed contract-instance check; reused, never silently rerun or skipped. */
+  readonly contractFindings: readonly AuditFinding[];
+}
+
+export interface FreezeCompletenessResult {
+  readonly completeness: KnowledgeCompleteness;
+  readonly findings: readonly AuditFinding[];
+}
+
+interface CheckOutcome {
+  readonly findings: AuditFinding[];
+  readonly domains?: DomainCompleteness[];
+}
+
+/** Run exactly the check families the bound contract names. An unknown family is a visible skipped check. */
+export async function buildFreezeCompleteness(input: FreezeCompletenessInput): Promise<FreezeCompletenessResult> {
+  const findings: AuditFinding[] = [];
+  const checks: FreezeAuditCheck[] = [];
+  let domains: DomainCompleteness[] = [];
+  const seen = new Set<string>();
+  for (const declared of [...input.contract.checks].sort((a, b) => a.family.localeCompare(b.family))) {
+    if (seen.has(declared.family)) {
+      const finding = error("freeze-checklist", `check family ${declared.family} is declared more than once`);
+      findings.push(finding);
+      checks.push({ ...declared, status: "failed", findingCount: 1, reason: finding.message });
+      continue;
+    }
+    seen.add(declared.family);
+    const outcome = await executeCheck(declared.family, declared.version, input);
+    if (outcome === null) {
+      const reason = `check family ${declared.family}@${declared.version} has no layer-8 executor and was skipped`;
+      findings.push(error("freeze-checklist", reason));
+      checks.push({ ...declared, status: "skipped", findingCount: 1, reason });
+      continue;
+    }
+    findings.push(...outcome.findings);
+    if (outcome.domains) domains = outcome.domains;
+    const errors = outcome.findings.filter((finding) => finding.level === "error");
+    checks.push({ ...declared, status: errors.length ? "failed" : "passed", findingCount: outcome.findings.length, ...(errors.length ? { reason: errors[0]!.message } : {}) });
+  }
+  const requiredFamilies = ["contract-instances", "coverage-conservation", "boundary-identity",
+    ...(assuranceGenerationAtLeast(input.manifest, DOMAIN_COMPLETENESS_ASSURANCE_GENERATION) ? ["not-applicable-premises", "investigation-closure"] : [])];
+  for (const required of requiredFamilies) {
+    if (seen.has(required)) continue;
+    const reason = `required check family ${required} is absent from the bound contract and was skipped`;
+    findings.push(error("freeze-checklist", reason));
+    checks.push({ family: required, version: "missing", status: "skipped", findingCount: 1, reason });
+  }
+  checks.sort((a, b) => a.family.localeCompare(b.family));
+  return {
+    completeness: {
+      version: "knowledge-completeness-v2",
+      domains,
+      closure: buildClosure(input.plan, input.investigationResults),
+      checks,
+      warnings: domains.flatMap((domain) => domain.sources.flatMap((source) => source.limitations.map((limit) => `${source.id}: ${limit}`)))
+    },
+    findings
+  };
+}
+
+async function executeCheck(family: string, version: string, input: FreezeCompletenessInput): Promise<CheckOutcome | null> {
+  if (version !== "v1") return null;
+  const v15 = assuranceGenerationAtLeast(input.manifest, DOMAIN_COMPLETENESS_ASSURANCE_GENERATION);
+  switch (family) {
+    case "contract-instances": return { findings: [...input.contractFindings] };
+    case "coverage-conservation": return inspectDomainCompleteness(input.runDir, input.contract);
+    case "boundary-identity": return { findings: await auditBoundaryIdentity(input.runDir, input.manifest) };
+    case "not-applicable-premises": return { findings: v15 ? await auditNotApplicablePremises(input.runDir, input.contract) : [] };
+    case "investigation-closure": return { findings: v15 ? auditInvestigationClosure(input.investigationResults) : [] };
+    default: return null;
+  }
+}
+
+async function inspectDomainCompleteness(runDir: string, contract: ContractManifest): Promise<CheckOutcome> {
+  const findings: AuditFinding[] = [];
+  const sources: CompletenessSource[] = [];
+  const files = await readResult<FileLedger>(runDir, "ledger/files.json", findings);
+  const mechanisms = await readResult<MechanismLedger>(runDir, "ledger/mechanisms.json", findings);
+  const units = await readResult<UnitsArtifact>(runDir, "facts/units.json", findings);
+  const attribution = await readResult<AttributionArtifact>(runDir, "attribution/attribution.json", findings);
+
+  if (files) inspectFiles(files, sources, findings);
+  if (mechanisms) inspectMechanisms(mechanisms, sources, findings);
+  if (units) inspectUnits(units, files, sources, findings);
+  if (attribution) inspectAttribution(attribution, units, sources, findings);
+
+  const overviewPath = contract.expected.find((row) => row.slotId === "workset.overview-census")?.path;
+  if (overviewPath) {
+    const overview = await readResult<OverviewCensusV2>(runDir, overviewPath, findings);
+    if (overview) inspectOverview(overviewPath, overview, files, sources, findings);
+  }
+  for (const instance of contract.expected.filter((row) => row.slotId === "workset.scope-census").sort((a, b) => a.instanceKey.localeCompare(b.instanceKey))) {
+    const census = await readResult<ScopeCensusV2>(runDir, instance.path, findings);
+    if (census) inspectScope(instance.path, census, files, units, attribution, sources, findings);
+  }
+  return { findings, domains: groupDomains(sources) };
+}
+
+function inspectFiles(ledger: FileLedger, sources: CompletenessSource[], findings: AuditFinding[]): void {
+  const { total, counted, excluded, unexplained } = ledger.summary;
+  if (total !== counted + excluded + unexplained) findings.push(error("completeness", `ledger/files.json file/file conservation is unbalanced`));
+  if (unexplained > 0) findings.push(error("completeness", `ledger/files.json leaves ${unexplained} file candidate(s) unexplained`));
+  const unread = ledger.counted.filter((row) => row.content.status === "absent").length;
+  const limitations = [
+    ...(ledger.completeness.capReached ? [`scan capped: skipped ${ledger.completeness.skippedByCap}, dropped roots ${ledger.completeness.droppedRoots.length}`] : []),
+    ...(unread ? [`${unread} counted file(s) have no content identity`] : [])
+  ];
+  sources.push(source("files", "file", "file", "ledger/files.json", ledger.contentManifestDigest, ledger.scannerVersion, total,
+    { total, counted, excluded, unexplained }, limitations));
+}
+
+function inspectMechanisms(ledger: MechanismLedger, sources: CompletenessSource[], findings: AuditFinding[]): void {
+  const digest = sha256(stableJson(ledger));
+  const matrixById = new Map(ledger.fileMatrix.map((row) => [row.mechanismId, row]));
+  for (const mechanism of [...ledger.mechanisms].sort((a, b) => a.id.localeCompare(b.id))) {
+    const matrix = matrixById.get(mechanism.id);
+    const limitations: string[] = [];
+    let denominatorRows = 0;
+    let accounting: Record<string, number> = {};
+    if (mechanism.takesMatrixRows) {
+      if (!matrix) {
+        findings.push(error("completeness", `ledger/mechanisms.json omits the file-domain row for ${mechanism.id}`));
+      } else {
+        const { covered, noMechanism, mechanismUnavailable } = matrix.totals;
+        denominatorRows = ledger.counted;
+        accounting = { counted: ledger.counted, covered, noMechanism, mechanismUnavailable };
+        if (covered + noMechanism + mechanismUnavailable !== ledger.counted) findings.push(error("completeness", `mechanism ${mechanism.id} does not conserve its file denominator`));
+        if (noMechanism) limitations.push(`${noMechanism} file row(s) outside declared mechanism coverage`);
+        if (mechanismUnavailable) limitations.push(`${mechanismUnavailable} declared row(s) unavailable at runtime`);
+      }
+    } else {
+      limitations.push("declared domain has no row-set denominator in mechanisms-v2");
+    }
+    if (mechanism.availability.status === "unavailable") limitations.push(`runtime unavailable: ${mechanism.availability.cause}`);
+    sources.push(source(`mechanism:${mechanism.id}`, mechanism.coverageDomain, mechanism.unitKind, "ledger/mechanisms.json", digest,
+      mechanism.version, denominatorRows, accounting, limitations));
+  }
+}
+
+function inspectUnits(artifact: UnitsArtifact, ledger: FileLedger | null, sources: CompletenessSource[], findings: AuditFinding[]): void {
+  const { total, counted, excluded, unexplained } = artifact.completeness;
+  if (total !== counted + excluded + unexplained) findings.push(error("completeness", "facts/units.json file-building conservation is unbalanced"));
+  if (unexplained > 0) findings.push(error("completeness", `facts/units.json leaves ${unexplained} file(s) unexplained`));
+  if (ledger) {
+    if (artifact.identity.filesContentManifestDigest !== ledger.contentManifestDigest || artifact.identity.scannerVersion !== ledger.scannerVersion) {
+      findings.push(error("completeness", "facts/units.json names a different file-ledger identity"));
+    }
+    if (total !== ledger.counted.length) findings.push(error("completeness", `facts/units.json counts ${total} files but its file-ledger denominator has ${ledger.counted.length}`));
+    if (artifact.inheritedCompleteness.capReached !== ledger.completeness.capReached
+      || artifact.inheritedCompleteness.skippedByCap !== ledger.completeness.skippedByCap
+      || stableJson(artifact.inheritedCompleteness.droppedRoots) !== stableJson([...ledger.completeness.droppedRoots].sort((a, b) => a.localeCompare(b)))) {
+      findings.push(error("completeness", "facts/units.json does not inherit the file ledger's scan qualifications"));
+    }
+  }
+  const limitations = [
+    ...(artifact.inheritedCompleteness.capReached ? ["partition inherits a capped file scan"] : []),
+    ...(excluded ? [`${excluded} file(s) could not be partitioned`] : []),
+    ...(artifact.observations.lineIndexReadFailures ? [`${artifact.observations.lineIndexReadFailures} observation line-index read(s) failed`] : [])
+  ];
+  sources.push(source("partition", "file", "partition-cell", "facts/units.json", unitsContentDigest(artifact),
+    artifact.identity.partitionDesignation.version, artifact.partition.length,
+    { sourceFilesTotal: total, sourceFilesPartitioned: counted, sourceFilesExcluded: excluded, sourceFilesUnexplained: unexplained }, limitations));
+}
+
+function inspectAttribution(artifact: AttributionArtifact, units: UnitsArtifact | null, sources: CompletenessSource[], findings: AuditFinding[]): void {
+  if (units) {
+    const unitsDigest = unitsContentDigest(units);
+    if (artifact.denominator.contentDigest !== unitsDigest || artifact.identity.unitsContentDigest !== unitsDigest) {
+      findings.push(error("completeness", "attribution/attribution.json names a different partition denominator"));
+    }
+    if (artifact.denominator.cells !== units.partition.length) {
+      findings.push(error("completeness", `attribution/attribution.json names ${artifact.denominator.cells} cells but the partition has ${units.partition.length}`));
+    }
+  }
+  const digest = attributionContentDigest(artifact);
+  if (artifact.featureCount !== artifact.selections.length) findings.push(error("completeness", "attribution featureCount does not match its selection rows"));
+  if (new Set(artifact.selections.map((row) => row.featureKey)).size !== artifact.selections.length) findings.push(error("completeness", "attribution contains duplicate feature selections"));
+  if (!artifact.selections.length) {
+    sources.push(source("attribution:no-feature", "file", "partition-cell", "attribution/attribution.json", digest,
+      artifact.version, artifact.denominator.cells, { requestedFeatures: 0 }, []));
+    return;
+  }
+  for (const selection of artifact.selections) {
+    if (selection.conservation.length !== 1 || selection.conservation[0]?.unitKind !== artifact.denominator.unitKind) {
+      findings.push(error("completeness", `attribution ${selection.featureKey} does not publish exactly one conservation row for ${artifact.denominator.unitKind}`));
+    }
+    for (const row of selection.conservation) {
+      const { counted, seated, zeroScore, displaced } = row.totals;
+      if (counted !== seated + zeroScore + displaced) findings.push(error("completeness", `attribution ${selection.featureKey} does not conserve ${row.unitKind}`));
+      if (counted !== artifact.denominator.cells) findings.push(error("completeness", `attribution ${selection.featureKey} counts ${counted} cells but its denominator has ${artifact.denominator.cells}`));
+      const limitations = selection.channels.status === "channel-unavailable" ? [`selection channel unavailable: ${selection.channels.cause}`] : [];
+      sources.push(source(`attribution:${selection.featureKey}`, "file", row.unitKind, "attribution/attribution.json", digest,
+        artifact.version, counted, { counted, seated, zeroScore, displaced }, limitations));
+    }
+  }
+}
+
+function inspectOverview(path: string, census: OverviewCensusV2, ledger: FileLedger | null, sources: CompletenessSource[], findings: AuditFinding[]): void {
+  const summed = census.rows.reduce((out, row) => addCoverage(out, row.totals), emptyCoverage());
+  if (!sameCoverage(summed, census.summary)) findings.push(error("completeness", `${path} summary does not equal its module x language rows`));
+  for (const row of census.rows) if (!balancedCoverage(row.totals)) findings.push(error("completeness", `${path} has an unbalanced ${row.module}/${row.language} file row`));
+  if (ledger && (census.identity.files.contentDigest !== ledger.contentManifestDigest || census.identity.files.rows !== ledger.counted.length)) {
+    findings.push(error("completeness", `${path} does not name the file ledger denominator it summarizes`));
+  }
+  if (ledger && !sameCoverage(census.summary, ledger.summary)) findings.push(error("completeness", `${path} does not preserve the file ledger's coverage buckets`));
+  const limitations = census.identity.files.completeness.capReached ? ["overview inherits a capped file scan"] : [];
+  sources.push(source("overview-census", "file", "file", path, sha256(stableJson(census)), census.version,
+    census.summary.total, numericCoverage(census.summary), limitations));
+}
+
+function inspectScope(path: string, census: ScopeCensusV2, ledger: FileLedger | null, units: UnitsArtifact | null,
+  attribution: AttributionArtifact | null, sources: CompletenessSource[], findings: AuditFinding[]): void {
+  const rows = census.rows.filter((row): row is ScopeCensusRow => row.kind === "census");
+  const unavailable = census.rows.filter((row) => row.kind === "census-unavailable");
+  const coverage = rows.reduce((out, row) => addCoverage(out, row.coverage.totals), emptyCoverage());
+  const selection = rows.reduce((out, row) => addSelection(out, row.selection.totals), emptySelection());
+  for (const row of rows) {
+    if (!balancedCoverage(row.coverage.totals)) findings.push(error("completeness", `${path} has unbalanced file coverage for ${row.module}/${row.language}`));
+    if (!balancedSelection(row.selection.totals)) findings.push(error("completeness", `${path} has unbalanced partition selection for ${row.module}/${row.language}`));
+  }
+  if (!sameCoverage(coverage, census.summary.coverage)) findings.push(error("completeness", `${path} coverage summary does not equal its rows`));
+  if (census.summary.selection && !sameSelection(selection, census.summary.selection)) findings.push(error("completeness", `${path} selection summary does not equal its rows`));
+  if (census.summary.unavailableRows !== unavailable.length) findings.push(error("completeness", `${path} unavailable row count does not reconcile`));
+  if (census.summary.coverage.total !== census.identity.files.rows) findings.push(error("completeness", `${path} file coverage does not conserve its named denominator`));
+  if (census.identity.partition && census.summary.selection && census.summary.selection.counted !== census.identity.partition.rows) {
+    findings.push(error("completeness", `${path} partition selection does not conserve its named denominator`));
+  }
+  if (ledger && (census.identity.files.contentDigest !== ledger.contentManifestDigest || census.identity.files.rows !== ledger.counted.length)) {
+    findings.push(error("completeness", `${path} names a different file denominator`));
+  }
+  if (units && census.identity.partition
+    && (census.identity.partition.contentDigest !== unitsContentDigest(units) || census.identity.partition.rows !== units.partition.length)) {
+    findings.push(error("completeness", `${path} names a different partition denominator`));
+  }
+  if (attribution && census.identity.attributionDigest !== attributionContentDigest(attribution)) {
+    findings.push(error("completeness", `${path} names a different attribution source`));
+  }
+  const commonLimits = [
+    ...(census.identity.files.completeness.capReached ? ["scope inherits a capped file scan"] : []),
+    ...unavailable.map((row) => `scope census unavailable: ${row.cause}`)
+  ];
+  const digest = sha256(stableJson(census));
+  sources.push(source(`scope:${census.featureKey}:files`, "file", "file", path, digest, census.version,
+    census.identity.files.rows, numericCoverage(census.summary.coverage), commonLimits));
+  if (census.identity.partition && census.summary.selection) {
+    sources.push(source(`scope:${census.featureKey}:partition`, "file", "partition-cell", path, digest, census.version,
+      census.identity.partition.rows, numericSelection(census.summary.selection), commonLimits));
+  }
+}
+
+async function auditBoundaryIdentity(runDir: string, manifest: RunManifest): Promise<AuditFinding[]> {
+  const findings: AuditFinding[] = [];
+  const ledger = await readResult<FileLedger>(runDir, "ledger/files.json", findings);
+  if (!ledger) return findings;
+  const derived = ledgerContentIdentity(ledger);
+  if (derived !== ledger.contentManifestDigest) findings.push(error("boundary-identity", "ledger/files.json content identity cannot be re-derived"));
+  if (manifest.snapshot?.contentManifestDigest !== ledger.contentManifestDigest) findings.push(error("boundary-identity", "ledger/files.json content identity differs from the run snapshot"));
+  return findings;
+}
+
+export async function auditNotApplicablePremises(runDir: string, contract: ContractManifest): Promise<AuditFinding[]> {
+  const findings: AuditFinding[] = [];
+  for (const instance of contract.expected.filter((row) => row.enforced).sort((a, b) => a.path.localeCompare(b.path))) {
+    const path = join(runDir, instance.path);
+    if (!await exists(path)) continue; // contract-instances names the missing artifact.
+    let envelope: ArtifactResult<unknown>;
+    try { envelope = await readJson<ArtifactResult<unknown>>(path); }
+    catch { continue; }
+    if (envelope.status !== "not-applicable") continue;
+    findings.push(...await validateNotApplicable(runDir, instance.path, envelope));
+  }
+  return findings;
+}
+
+async function validateNotApplicable(runDir: string, artifactPath: string, result: NotApplicable): Promise<AuditFinding[]> {
+  const findings: AuditFinding[] = [];
+  if (typeof result.determination !== "string" || !result.determination.trim()
+    || !Array.isArray(result.basedOn) || !result.basedOn.length || result.basedOn.some((row) => typeof row !== "string" || !row.trim())
+    || typeof result.coverageDigest !== "string" || !result.coverageDigest.trim()) {
+    return [error("not-applicable", `${artifactPath} has an incomplete NotApplicable premise` )];
+  }
+  if (result.determination !== "not-detected" && result.determination !== "single-module") {
+    findings.push(error("not-applicable", `${artifactPath} uses unsupported NotApplicable determination ${result.determination}; no premise validator exists`));
+  }
+  const references = new Set(result.basedOn);
+  if (references.size !== result.basedOn.length) {
+    findings.push(error("not-applicable", `${artifactPath} names the same coverage basis more than once`));
+  }
+  const bases: CoverageBasisValue[] = [];
+  if (result.determination === "not-detected") {
+    if (!result.basedOn.includes(FILE_COMPLETENESS_BASIS) || !result.basedOn.some((row) => row.startsWith("ledger/mechanisms.json#mechanism:"))) {
+      findings.push(error("not-applicable", `${artifactPath} claims not-detected without both file completeness and mechanism coverage premises`));
+    }
+  }
+  if (result.determination === "single-module") {
+    if (!result.basedOn.includes(FILE_COMPLETENESS_BASIS) || !result.basedOn.includes(CODEGRAPH_MODULES_BASIS)
+      || !result.basedOn.some((row) => row.startsWith("ledger/mechanisms.json#mechanism:"))) {
+      findings.push(error("not-applicable", `${artifactPath} claims single-module without file, module-index and resolver-coverage premises`));
+    }
+  }
+  for (const reference of result.basedOn) {
+    try { bases.push({ reference, value: await resolveBasis(runDir, reference) }); }
+    catch (basisError) {
+      findings.push(error("not-applicable", `${artifactPath} cannot resolve ${reference}: ${(basisError as Error).message}`));
+    }
+  }
+  if (references.size === result.basedOn.length && bases.length === result.basedOn.length && coverageBasisDigest(bases) !== result.coverageDigest) {
+    findings.push(error("not-applicable", `${artifactPath} coverageDigest does not match its current basedOn records`));
+  }
+  for (const basis of bases) {
+    if (basis.reference === FILE_COMPLETENESS_BASIS) {
+      const value = basis.value as { capReached?: unknown; skippedByCap?: unknown; droppedRoots?: unknown; readFailures?: unknown };
+      if (value.capReached === true || Number(value.skippedByCap ?? 0) > 0 || Number(value.readFailures ?? 0) > 0 || (Array.isArray(value.droppedRoots) && value.droppedRoots.length > 0)) {
+        findings.push(error("not-applicable", `${artifactPath} claims ${result.determination} from a capped, dropped or unread file scan; it must be Unavailable`));
+      }
+    }
+    if (basis.reference.startsWith("ledger/mechanisms.json#mechanism:")) {
+      const value = basis.value as { declaration?: { availability?: { status?: string }; takesMatrixRows?: boolean }; matrix?: { totals?: { noMechanism?: number; mechanismUnavailable?: number } } };
+      if (value.declaration?.availability?.status !== "available") findings.push(error("not-applicable", `${artifactPath} claims ${result.determination} while its mechanism is unavailable; it must be Unavailable`));
+      if (result.determination === "not-detected") {
+        if (value.declaration?.takesMatrixRows !== true || !value.matrix?.totals) {
+          findings.push(error("not-applicable", `${artifactPath} claims not-detected without a file-domain mechanism matrix; it must be Unavailable`));
+        } else if (Number(value.matrix.totals.noMechanism ?? 0) > 0 || Number(value.matrix.totals.mechanismUnavailable ?? 0) > 0) {
+          findings.push(error("not-applicable", `${artifactPath} claims not-detected with partial mechanism coverage; it must be Unavailable`));
+        }
+      }
+    }
+    if (basis.reference === CODEGRAPH_MODULES_BASIS && result.determination === "single-module" && Array.isArray(basis.value) && basis.value.length >= 2) {
+      findings.push(error("not-applicable", `${artifactPath} claims single-module but the recorded request has ${basis.value.length} module indexes`));
+    }
+  }
+  return findings;
+}
+
+async function resolveBasis(runDir: string, reference: string): Promise<unknown> {
+  if (reference === FILE_COMPLETENESS_BASIS) {
+    const result = await readJson<ArtifactResult<FileLedger>>(join(runDir, "ledger", "files.json"));
+    if (result.status !== "built") throw new Error(`file ledger is ${result.status}`);
+    return fileCompletenessValue({
+      ...result.value.completeness,
+      readFailures: result.value.counted.filter((row) => row.content.status === "absent").length
+    });
+  }
+  if (reference === CODEGRAPH_MODULES_BASIS) {
+    const request = await readJson<{ codegraphModules?: string[] }>(join(runDir, "request.json"));
+    return canonicalModuleSources(request.codegraphModules);
+  }
+  const prefix = "ledger/mechanisms.json#mechanism:";
+  if (reference.startsWith(prefix)) {
+    const result = await readJson<ArtifactResult<MechanismLedger>>(join(runDir, "ledger", "mechanisms.json"));
+    if (result.status !== "built") throw new Error(`mechanism ledger is ${result.status}`);
+    return mechanismCoverageValue(result.value, reference.slice(prefix.length));
+  }
+  throw new Error("basis kind is not registered");
+}
+
+function auditInvestigationClosure(results: InvestigationResults | null): AuditFinding[] {
+  if (!results) return [error("investigation-closure", "L7 investigation results were not available to the closure check")];
+  const findings: AuditFinding[] = [];
+  for (const execution of results.executions.filter((row) => row.outcome === "unavailable")) {
+    findings.push(error("investigation-closure", `source-reading ${execution.declarationId} remains pending: ${execution.cause ?? "authorized source unavailable"}`));
+  }
+  for (const disposition of results.dispositions.filter((row) => row.status === "pending")) {
+    findings.push(error("investigation-closure", `decision-reading ${disposition.declarationId} remains pending after its authorized read`));
+  }
+  return findings;
+}
+
+function buildClosure(plan: InvestigationPlan, results: InvestigationResults | null): KnowledgeCompleteness["closure"] {
+  const byStatus: Record<string, number> = {};
+  for (const item of plan.items) byStatus[item.status] = (byStatus[item.status] ?? 0) + 1;
+  return {
+    workItems: {
+      positive: byStatus.found ?? 0,
+      negative: (byStatus["searched-not-found"] ?? 0) + (byStatus["cannot-determine"] ?? 0) + (byStatus["not-applicable"] ?? 0),
+      pending: (byStatus.pending ?? 0) + (byStatus.in_progress ?? 0),
+      byStatus
+    },
+    decisions: {
+      positive: results?.dispositions.filter((row) => row.status === "fulfilled").length ?? 0,
+      negative: results?.dispositions.filter((row) => row.status === "closed-negative").length ?? 0,
+      pending: results?.dispositions.filter((row) => row.status === "pending").length ?? 0
+    },
+    probeResiduals: results?.residuals.length ?? 0,
+    materialFlowsWithTraces: plan.items.filter((item) => item.material && item.status === "found" && MATERIAL_FLOW_DIMENSIONS.has(item.dimension) && item.traceIds.length > 0).length
+  };
+}
+
+function groupDomains(sources: CompletenessSource[]): DomainCompleteness[] {
+  const groups = new Map<string, CompletenessSource[]>();
+  for (const row of sources) {
+    const key = `${row.coverageDomain}\0${row.unitKind}`;
+    const bucket = groups.get(key);
+    if (bucket) bucket.push(row); else groups.set(key, [row]);
+  }
+  return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([, rows]) => {
+    const sorted = rows.sort((a, b) => a.id.localeCompare(b.id));
+    return { coverageDomain: sorted[0]!.coverageDomain, unitKind: sorted[0]!.unitKind,
+      status: sorted.every((row) => row.status === "complete") ? "complete" : "limited", sources: sorted };
+  });
+}
+
+function source(id: string, coverageDomain: CompletenessSource["coverageDomain"], unitKind: CompletenessSource["unitKind"],
+  artifact: string, contentDigest: string, producerVersion: string, denominatorRows: number,
+  accounting: Record<string, number>, limitations: string[]): CompletenessSource {
+  return { id, coverageDomain, unitKind, identity: { artifact, contentDigest, producerVersion }, denominatorRows,
+    accounting, status: limitations.length ? "limited" : "complete", limitations };
+}
+
+async function readResult<T>(runDir: string, relativePath: string, findings: AuditFinding[]): Promise<T | null> {
+  const path = join(runDir, relativePath);
+  if (!await exists(path)) return null; // contract-instances owns missing-path findings.
+  let result: ArtifactResult<T>;
+  try { result = await readJson<ArtifactResult<T>>(path); }
+  catch (readError) {
+    findings.push(error("completeness", `${relativePath} cannot be read: ${(readError as Error).message}`));
+    return null;
+  }
+  switch (result.status) {
+    case "built": return result.value;
+    case "not-applicable": findings.push(error("completeness", `${relativePath} has no denominator because it is NotApplicable(${result.determination})`)); return null;
+    case "unavailable": findings.push(error("completeness", `${relativePath} has no denominator because it is Unavailable(${result.cause})`)); return null;
+    default: return assertNever(result, `${relativePath} artifact result`);
+  }
+}
+
+function emptyCoverage(): { total: number; counted: number; excluded: number; unexplained: number } { return { total: 0, counted: 0, excluded: 0, unexplained: 0 }; }
+function addCoverage<T extends { total: number; counted: number; excluded: number; unexplained: number }>(out: T, row: T): T {
+  out.total += row.total; out.counted += row.counted; out.excluded += row.excluded; out.unexplained += row.unexplained; return out;
+}
+function balancedCoverage(row: { total: number; counted: number; excluded: number; unexplained: number }): boolean { return row.total === row.counted + row.excluded + row.unexplained; }
+function sameCoverage(a: { total: number; counted: number; excluded: number; unexplained: number }, b: { total: number; counted: number; excluded: number; unexplained: number }): boolean { return a.total === b.total && a.counted === b.counted && a.excluded === b.excluded && a.unexplained === b.unexplained; }
+function numericCoverage(row: { total: number; counted: number; excluded: number; unexplained: number }): Record<string, number> { return { total: row.total, counted: row.counted, excluded: row.excluded, unexplained: row.unexplained }; }
+function emptySelection(): { counted: number; seated: number; zeroScore: number; displaced: number } { return { counted: 0, seated: 0, zeroScore: 0, displaced: 0 }; }
+function addSelection<T extends { counted: number; seated: number; zeroScore: number; displaced: number }>(out: T, row: T): T { out.counted += row.counted; out.seated += row.seated; out.zeroScore += row.zeroScore; out.displaced += row.displaced; return out; }
+function balancedSelection(row: { counted: number; seated: number; zeroScore: number; displaced: number }): boolean { return row.counted === row.seated + row.zeroScore + row.displaced; }
+function sameSelection(a: { counted: number; seated: number; zeroScore: number; displaced: number }, b: { counted: number; seated: number; zeroScore: number; displaced: number }): boolean { return a.counted === b.counted && a.seated === b.seated && a.zeroScore === b.zeroScore && a.displaced === b.displaced; }
+function numericSelection(row: { counted: number; seated: number; zeroScore: number; displaced: number }): Record<string, number> { return { counted: row.counted, seated: row.seated, zeroScore: row.zeroScore, displaced: row.displaced }; }
+function error(document: string, message: string): AuditFinding { return { level: "error", document, message }; }

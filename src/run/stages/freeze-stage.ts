@@ -5,6 +5,8 @@ import { atomicWrite, exists, nowIso, readJson, writeJson } from "../../base/uti
 import { appendTimeline, readTimeline } from "../../base/timeline.ts";
 import { auditContractInstances } from "../../freeze/contract-instance-audit.ts";
 import { buildKnowledge, freezePreconditions, knowledgeDigest, writeKnowledgeArtifact } from "../../freeze/freeze.ts";
+import { buildFreezeCompleteness } from "../../freeze/completeness.ts";
+import type { ContractManifest } from "../../contract/contract-manifest.ts";
 import { auditReadAccountability } from "../../investigation/read-coverage.ts";
 import { inventoryConditions } from "../../investigation/condition-inventory.ts";
 import { createInvestigationPlan } from "../../investigation/assurance.ts";
@@ -50,15 +52,18 @@ export async function freezeRun(runDirInput: string): Promise<{ manifest: RunMan
   if (assuranceGenerationAtLeast(manifest, READ_EXECUTION_ASSURANCE_GENERATION)) {
     try {
       investigationResults = await readRequiredInvestigationResults(runDir, manifest, evidenceCatalog.evidence);
-      for (const execution of investigationResults.executions.filter((row) => row.outcome === "unavailable")) {
-        contractFindings.push({ level: "error", document: "investigation", message: `source-reading ${execution.declarationId} remains pending: ${execution.cause ?? "authorized source unavailable"}` });
-      }
-      for (const disposition of investigationResults.dispositions.filter((row) => row.status === "pending")) {
-        contractFindings.push({ level: "error", document: "investigation", message: `decision-reading ${disposition.declarationId} remains pending after its authorized read` });
-      }
     } catch (error) {
       contractFindings.push({ level: "error", document: "contract", message: `investigation/results.json cannot be used at freeze: ${(error as Error).message}` });
     }
+  }
+  let completeness: Awaited<ReturnType<typeof buildFreezeCompleteness>>["completeness"] | null = null;
+  try {
+    const contract = await readJson<ContractManifest>(join(runDir, "contract", "contract-manifest.json"));
+    const result = await buildFreezeCompleteness({ runDir, manifest, contract, plan, investigationResults, contractFindings });
+    completeness = result.completeness;
+    contractFindings.splice(0, contractFindings.length, ...result.findings);
+  } catch (error) {
+    contractFindings.push({ level: "error", document: "freeze-checklist", message: `layer-8 completeness could not be built: ${(error as Error).message}` });
   }
   const documentIds = new Set(manifest.documents.map((document) => document.id));
   const snapshotDrift = (await reDeriveIdentities(runDir, manifest))?.drift ?? null;
@@ -66,7 +71,7 @@ export async function freezeRun(runDirInput: string): Promise<{ manifest: RunMan
   if (obligations && readResidual) {
     findings.push(...auditReadAccountability({ obligations: obligations.obligations, workItems: plan.items, evidenceById, report: readResidual }));
   }
-  if (findings.some((finding) => finding.level === "error")) return { manifest, findings, frozen: false };
+  if (findings.some((finding) => finding.level === "error") || !completeness) return { manifest, findings, frozen: false };
   if (obligations && readResidual) {
     await writeJson(join(runDir, "coverage", "read-obligations.json"), obligations);
     await writeJson(join(runDir, "coverage", "read-residual.json"), readResidual);
@@ -88,7 +93,7 @@ export async function freezeRun(runDirInput: string): Promise<{ manifest: RunMan
   ];
   const mechanismsPath = join(runDir, "ledger", "mechanisms.json");
   const mechanismsLedger = await exists(mechanismsPath) ? await readJson<unknown>(mechanismsPath) : null;
-  const knowledge = buildKnowledge({ manifest, plan, evidence: evidenceCatalog.evidence, traces, factPacks, crossFeature, frozenAt, readObligations: obligations, boundaryFunctions, crossRepoLinks, mechanismsLedger, investigationResults, appendStreams });
+  const knowledge = buildKnowledge({ manifest, plan, evidence: evidenceCatalog.evidence, traces, factPacks, crossFeature, frozenAt, readObligations: obligations, boundaryFunctions, crossRepoLinks, mechanismsLedger, investigationResults, completeness, appendStreams });
   await writeKnowledgeArtifact(runDir, knowledge);
   let authoringPackets = 0;
   for (const document of manifest.documents) {
@@ -101,7 +106,7 @@ export async function freezeRun(runDirInput: string): Promise<{ manifest: RunMan
   manifest.knowledgeDigest = knowledgeDigest(knowledge);
   manifest.metrics.supplements = manifest.metrics.supplements ?? 0;
   manifest.updatedAt = nowIso();
-  await appendTimeline(runDir, manifest.id, { stage: "investigation", action: "investigation.frozen", data: { knowledgeDigest: manifest.knowledgeDigest, evidence: knowledge.evidenceIds.length, workItems: { total: plan.items.length, disposed: knowledge.completeness.disposed }, traces: knowledge.traceIds.length, authoringPackets } });
+  await appendTimeline(runDir, manifest.id, { stage: "investigation", action: "investigation.frozen", data: { knowledgeDigest: manifest.knowledgeDigest, evidence: knowledge.evidenceIds.length, workItems: knowledge.completeness.closure.workItems, traces: knowledge.traceIds.length, authoringPackets } });
   manifest.metrics.timelineEvents = (manifest.metrics.timelineEvents ?? 0) + 1;
   await writeJson(runPath, manifest);
   await writeJson(join(runDir, "metrics.json"), manifest.metrics);

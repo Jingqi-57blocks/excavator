@@ -311,12 +311,46 @@ export interface KnowledgeSupplement {
   workItemId: string;
 }
 
-/** Deterministic freeze-gate report: the machine-readable output of the investigation-side checks. */
+export interface CompletenessSource {
+  id: string;
+  coverageDomain: "file" | "module" | "module-pair" | "corpus";
+  unitKind: "file" | "module" | "module-pair" | "corpus" | "node" | "partition-cell";
+  identity: { artifact: string; contentDigest: string; producerVersion: string };
+  /** Rows in this source's own denominator. Never added to a source with another domain or unit kind. */
+  denominatorRows: number;
+  /** Source-specific conserved counters. Kept separate because coverage and selection are different laws. */
+  accounting: Record<string, number>;
+  status: "complete" | "limited";
+  limitations: string[];
+}
+
+export interface DomainCompleteness {
+  coverageDomain: CompletenessSource["coverageDomain"];
+  unitKind: CompletenessSource["unitKind"];
+  /** Conjunction over this domain/kind only: one limited source makes this domain limited. */
+  status: "complete" | "limited";
+  sources: CompletenessSource[];
+}
+
+export interface FreezeAuditCheck {
+  family: string;
+  version: string;
+  status: "passed" | "failed" | "skipped";
+  findingCount: number;
+  reason?: string;
+}
+
+/** Deterministic freeze-gate report, with no cross-domain or positive/negative aggregate ratio. */
 export interface KnowledgeCompleteness {
-  requiredItems: number;
-  disposed: number;
-  byStatus: Record<string, number>;
-  materialFlowsWithTraces: number;
+  version: "knowledge-completeness-v2";
+  domains: DomainCompleteness[];
+  closure: {
+    workItems: { positive: number; negative: number; pending: number; byStatus: Record<string, number> };
+    decisions: { positive: number; negative: number; pending: number };
+    probeResiduals: number;
+    materialFlowsWithTraces: number;
+  };
+  checks: FreezeAuditCheck[];
   warnings: string[];
 }
 
