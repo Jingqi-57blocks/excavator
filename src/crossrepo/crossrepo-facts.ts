@@ -1,6 +1,6 @@
 import { notApplicable, unavailable, type NotApplicable, type Unavailable } from "../base/artifact-result.ts";
 import {
-  canonicalModuleSources, CODEGRAPH_MODULES_BASIS, coverageBasisDigest, fileCompletenessValue, FILE_COMPLETENESS_BASIS,
+  coverageBasisDigest, fileCompletenessValue, FILE_COMPLETENESS_BASIS, FILE_ROOTS_BASIS, fileRootCensusValue,
   mechanismCoverageBasisName
 } from "../base/coverage-basis.ts";
 import { sha256, stableJson } from "../base/util.ts";
@@ -129,16 +129,22 @@ function unique(used: Map<string, number>, base: string): string {
 }
 
 export interface CrossRepoDeterminationInput {
-  /** The module list the run detected, or null when it detected none at all. */
+  /** The optional index-backed module list available to the resolver; never a premise for target shape. */
   readonly modules: readonly CrossRepoModule[] | null;
+  /** Layer 1's complete target-root census. This is the sole source of the single-module determination. */
+  readonly ledgerRoots: readonly {
+    readonly name: string;
+    readonly candidateSource: string;
+    readonly candidates: number;
+    readonly counted: number;
+    readonly dropped: boolean;
+  }[];
   /** Whether the resolver's own runtime dependency (the ast-grep binding) is available this run. */
   readonly resolverAvailable: boolean;
   /** Null when resolution was attempted and produced nothing usable. */
   readonly scan: CrossRepoScan | null;
   /** Layer 1's scan completeness. A capped scan cannot support a "there is only one module" determination. */
   readonly ledgerCompleteness: { readonly capReached: boolean; readonly skippedByCap: number; readonly droppedRoots: readonly string[]; readonly readFailures?: number };
-  /** The exact request-level module database paths persisted in request.json. */
-  readonly moduleSources?: readonly string[];
   /** The normalized layer-2 record for the crossrepo mechanism. */
   readonly mechanismCoverage?: unknown;
 }
@@ -146,11 +152,10 @@ export interface CrossRepoDeterminationInput {
 /**
  * Whether this run can publish cross-repo facts, and if not, WHICH kind of not.
  *
- * The single-module answer is a `NotApplicable` determination, not a blind spot: a target with one module provably
- * has no cross-repo edge. But §四 makes a determination carry its premise, and the premise here is that layer 1
- * saw the whole tree. If the file cap refused candidates or dropped a root, a second module may be sitting in the
- * part nobody looked at — so the determination does not hold and the honest answer is `Unavailable`. That check
- * mirrors what layer 8 does to every `NotApplicable` it reads; doing it at the source means the two agree.
+ * The single-module answer is a `NotApplicable` determination, not a blind spot: layer 1 discovered exactly one
+ * target root and saw it completely. Optional CodeGraph modules do not participate in that statement. If the file
+ * cap refused candidates or dropped a root, the premise no longer holds and the honest answer is `Unavailable`.
+ * Layer 8 re-resolves both the root census and its completeness from the same ledger.
  *
  * Returns `null` when the producer may proceed to `Built`.
  */
@@ -159,21 +164,29 @@ export function crossRepoDetermination(input: CrossRepoDeterminationInput): NotA
     return unavailable("the cross-repo resolver's ast-grep binding is unavailable, so no call site could be parsed", true);
   }
   const modules = input.modules ?? [];
+  const roots = input.ledgerRoots;
   const capped = input.ledgerCompleteness.capReached || input.ledgerCompleteness.skippedByCap > 0
     || input.ledgerCompleteness.droppedRoots.length > 0 || Number(input.ledgerCompleteness.readFailures ?? 0) > 0;
-  if (modules.length < 2) {
-    if (capped) {
-      return unavailable(`the target looks single-module, but layer 1's scan was incomplete (skippedByCap ${input.ledgerCompleteness.skippedByCap}, droppedRoots ${input.ledgerCompleteness.droppedRoots.length}, readFailures ${input.ledgerCompleteness.readFailures ?? 0}), so a second module may be in the part that was never examined`, true);
-    }
+  if (capped) {
+    const detail = `skippedByCap ${input.ledgerCompleteness.skippedByCap}, droppedRoots ${input.ledgerCompleteness.droppedRoots.length}, readFailures ${input.ledgerCompleteness.readFailures ?? 0}`;
+    return unavailable(roots.length < 2
+      ? `the target looks single-module, but layer 1's scan was incomplete (${detail}), so a second module may be in the part that was never examined`
+      : `layer 1 found ${roots.length} target roots but its scan was incomplete (${detail}), so cross-repo coverage cannot be claimed for the whole target`, true);
+  }
+  if (roots.length < 2) {
+    if (roots.length === 0) return unavailable("layer 1 published no target root, so single-module cannot be determined", true);
     return notApplicable(
       "single-module",
-      [FILE_COMPLETENESS_BASIS, mechanismCoverageBasisName("crossrepo"), CODEGRAPH_MODULES_BASIS],
+      [FILE_COMPLETENESS_BASIS, FILE_ROOTS_BASIS, mechanismCoverageBasisName("crossrepo")],
       coverageBasisDigest([
         { reference: FILE_COMPLETENESS_BASIS, value: fileCompletenessValue(input.ledgerCompleteness) },
-        { reference: mechanismCoverageBasisName("crossrepo"), value: input.mechanismCoverage ?? null },
-        { reference: CODEGRAPH_MODULES_BASIS, value: canonicalModuleSources(input.moduleSources) }
+        { reference: FILE_ROOTS_BASIS, value: fileRootCensusValue(roots) },
+        { reference: mechanismCoverageBasisName("crossrepo"), value: input.mechanismCoverage ?? null }
       ])
     );
+  }
+  if (modules.length < 2) {
+    return unavailable(`layer 1 found ${roots.length} target roots, but only ${modules.length} indexed modules were available to cross-repo resolution`, true);
   }
   if (input.scan === null) {
     return unavailable(`the target has ${modules.length} modules but cross-repo resolution produced no scan`, true);

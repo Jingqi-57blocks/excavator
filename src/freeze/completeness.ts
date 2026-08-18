@@ -1,8 +1,8 @@
 import { join } from "node:path";
 import { assertNever, type ArtifactResult, type NotApplicable } from "../base/artifact-result.ts";
 import {
-  canonicalModuleSources, CODEGRAPH_MODULES_BASIS, coverageBasisDigest, fileCompletenessValue,
-  FILE_COMPLETENESS_BASIS, mechanismCoverageBasisName, mechanismCoverageValue, type CoverageBasisValue
+  coverageBasisDigest, fileCompletenessValue, FILE_COMPLETENESS_BASIS, FILE_ROOTS_BASIS, fileRootCensusValue,
+  mechanismCoverageBasisName, mechanismCoverageValue, type CoverageBasisValue
 } from "../base/coverage-basis.ts";
 import type {
   AuditFinding, CompletenessSource, DomainCompleteness, FreezeAuditCheck, InvestigationPlan,
@@ -364,9 +364,9 @@ async function validateNotApplicable(runDir: string, artifactPath: string, resul
     }
   }
   if (result.determination === "single-module") {
-    if (!result.basedOn.includes(FILE_COMPLETENESS_BASIS) || !result.basedOn.includes(CODEGRAPH_MODULES_BASIS)
+    if (!result.basedOn.includes(FILE_COMPLETENESS_BASIS) || !result.basedOn.includes(FILE_ROOTS_BASIS)
       || !result.basedOn.some((row) => row.startsWith("ledger/mechanisms.json#mechanism:"))) {
-      findings.push(error("not-applicable", `${artifactPath} claims single-module without file, module-index and resolver-coverage premises`));
+      findings.push(error("not-applicable", `${artifactPath} claims single-module without file completeness, root census and resolver-coverage premises`));
     }
   }
   for (const reference of result.basedOn) {
@@ -396,8 +396,9 @@ async function validateNotApplicable(runDir: string, artifactPath: string, resul
         }
       }
     }
-    if (basis.reference === CODEGRAPH_MODULES_BASIS && result.determination === "single-module" && Array.isArray(basis.value) && basis.value.length >= 2) {
-      findings.push(error("not-applicable", `${artifactPath} claims single-module but the recorded request has ${basis.value.length} module indexes`));
+    if (basis.reference === FILE_ROOTS_BASIS && result.determination === "single-module"
+      && (!Array.isArray(basis.value) || basis.value.length !== 1)) {
+      findings.push(error("not-applicable", `${artifactPath} claims single-module but the layer-1 ledger has ${Array.isArray(basis.value) ? basis.value.length : "an invalid number of"} roots`));
     }
   }
   return findings;
@@ -412,9 +413,10 @@ async function resolveBasis(runDir: string, reference: string): Promise<unknown>
       readFailures: result.value.counted.filter((row) => row.content.status === "absent").length
     });
   }
-  if (reference === CODEGRAPH_MODULES_BASIS) {
-    const request = await readJson<{ codegraphModules?: string[] }>(join(runDir, "request.json"));
-    return canonicalModuleSources(request.codegraphModules);
+  if (reference === FILE_ROOTS_BASIS) {
+    const result = await readJson<ArtifactResult<FileLedger>>(join(runDir, "ledger", "files.json"));
+    if (result.status !== "built") throw new Error(`file ledger is ${result.status}`);
+    return fileRootCensusValue(result.value.completeness.roots);
   }
   const prefix = "ledger/mechanisms.json#mechanism:";
   if (reference.startsWith(prefix)) {

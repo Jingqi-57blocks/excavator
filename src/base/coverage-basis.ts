@@ -5,7 +5,7 @@ import { sha256, stableJson } from "./util.ts";
  * the producer that makes the determination and layer 8, which re-resolves the same values from the run.
  */
 export const FILE_COMPLETENESS_BASIS = "ledger/files.json#completeness";
-export const CODEGRAPH_MODULES_BASIS = "request.json#codegraphModules";
+export const FILE_ROOTS_BASIS = "ledger/files.json#completeness.roots";
 export function mechanismCoverageBasisName(mechanismId: string): string {
   return `ledger/mechanisms.json#mechanism:${mechanismId}`;
 }
@@ -37,8 +37,21 @@ export function mechanismCoverageValue(ledger: {
   return { declaration, matrix, byLanguage };
 }
 
-export function canonicalModuleSources(paths: readonly string[] | undefined): readonly string[] {
-  return [...(paths ?? [])].sort((a, b) => a.localeCompare(b));
+/** Layer 1's target-root census, canonicalized without importing the layer-1 artifact type upward. */
+export function fileRootCensusValue(roots: readonly {
+  readonly name: string;
+  readonly candidateSource: string;
+  readonly candidates: number;
+  readonly counted: number;
+  readonly dropped: boolean;
+}[]): unknown {
+  return roots.map((root) => ({
+    name: root.name,
+    candidateSource: root.candidateSource,
+    candidates: root.candidates,
+    counted: root.counted,
+    dropped: root.dropped
+  })).sort((a, b) => a.name.localeCompare(b.name) || a.candidateSource.localeCompare(b.candidateSource));
 }
 
 /** Only the scan-limit fields govern negative determinations; root progress detail is reported elsewhere. */

@@ -5,7 +5,7 @@ import { join } from "node:path";
 import type { ArtifactResult, NotApplicable } from "../src/base/artifact-result.ts";
 import { notApplicable } from "../src/base/artifact-result.ts";
 import {
-  CODEGRAPH_MODULES_BASIS, coverageBasisDigest, fileCompletenessValue, FILE_COMPLETENESS_BASIS,
+  coverageBasisDigest, fileCompletenessValue, FILE_COMPLETENESS_BASIS, FILE_ROOTS_BASIS, fileRootCensusValue,
   mechanismCoverageBasisName, mechanismCoverageValue
 } from "../src/base/coverage-basis.ts";
 import type { KnowledgeArtifact, ReportRequest } from "../src/base/types.ts";
@@ -150,16 +150,31 @@ test("a matching NotApplicable digest still fails when its file scan premise was
   assert.equal(files.status, "built"); assert.equal(mechanisms.status, "built"); assert.equal(producer.status, "not-applicable");
   files.value.completeness.capReached = true;
   files.value.completeness.skippedByCap = 1;
-  const requestValue = JSON.parse(await readFile(join(runDir, "request.json"), "utf8")) as { codegraphModules?: string[] };
   const coverageDigest = coverageBasisDigest([
     { reference: FILE_COMPLETENESS_BASIS, value: fileCompletenessValue(files.value.completeness) },
-    { reference: mechanismCoverageBasisName("crossrepo"), value: mechanismCoverageValue(mechanisms.value, "crossrepo") },
-    { reference: CODEGRAPH_MODULES_BASIS, value: [...(requestValue.codegraphModules ?? [])].sort() }
+    { reference: FILE_ROOTS_BASIS, value: fileRootCensusValue(files.value.completeness.roots) },
+    { reference: mechanismCoverageBasisName("crossrepo"), value: mechanismCoverageValue(mechanisms.value, "crossrepo") }
   ]);
   await writeJson(filesPath, files);
   await writeJson(producerPath, { ...producer, coverageDigest });
   const findings = await auditNotApplicablePremises(runDir, contract);
   assert.ok(findings.some((finding) => /capped, dropped or unread file scan/.test(finding.message)), JSON.stringify(findings, null, 2));
+});
+
+test("single-module is invalid without the layer-1 root census premise", async () => {
+  const requestValue = await request([]);
+  const { runDir } = await prepareRun(requestValue);
+  const contract = await readContract(runDir);
+  const path = join(runDir, "facts", "producers", "crossrepo.json");
+  const result = JSON.parse(await readFile(path, "utf8")) as ArtifactResult<unknown>;
+  assert.equal(result.status, "not-applicable");
+  if (result.status !== "not-applicable") return;
+  await writeJson(path, {
+    ...result,
+    basedOn: result.basedOn.filter((reference) => reference !== FILE_ROOTS_BASIS)
+  });
+  const findings = await auditNotApplicablePremises(runDir, contract);
+  assert.ok(findings.some((finding) => /without file completeness, root census and resolver-coverage premises/.test(finding.message)), JSON.stringify(findings, null, 2));
 });
 
 test("not-detected is invalid when its own mechanism only covers part of the file denominator", async () => {
