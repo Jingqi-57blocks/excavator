@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import type { Audience, EvidenceItem, FeatureFactPack, FeatureRequest, GraphNode, ProviderRegistry, ReportRequest, Snapshot } from "../base/types.ts";
 import { CodeGraphIndex, type GraphReader, type GraphSummary } from "../codegraph/codegraph.ts";
 import { CodeGraphSet } from "../codegraph/codegraph-set.ts";
-import { pruneFeatureGraphWithModuleFloor } from "./prune-module-floor.ts";
+import { pruneFeatureGraphWithModuleFloor } from "../attribution/prune-module-floor.ts";
 import { buildScopeCensus, type ScopeCensus } from "./scope-census.ts";
 import { buildOverviewCensus, type OverviewCensus } from "./overview-census.ts";
 import { createSnapshot, isLikelySource, type ScannedFile } from "../snapshot/snapshot.ts";

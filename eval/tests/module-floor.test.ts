@@ -9,8 +9,8 @@ import { join } from "node:path";
 import { loadPrunePool, prunePool, prunePoolToNodes } from "../prune-replay.ts";
 import { boundaryRecall } from "../boundary.ts";
 import { loadBoundaryGold } from "../boundary-gold.ts";
-import { pruneFeatureGraph, rescueQuotaFor, rescueSignalsFor, NAME_TOKEN_EXACT } from "../../src/context/feature-prune.ts";
-import { pruneFeatureGraphWithModuleFloor } from "../../src/context/prune-module-floor.ts";
+import { pruneFeatureGraph, rescueQuotaFor, rescueSignalsFor, NAME_TOKEN_EXACT } from "../../src/attribution/feature-prune.ts";
+import { pruneFeatureGraphWithModuleFloor } from "../../src/attribution/prune-module-floor.ts";
 import { ID_SEPARATOR } from "../../src/codegraph/codegraph-set.ts";
 
 const WCP_LEAVE = join(import.meta.dirname, "..", "fixtures", "wcp-leave");

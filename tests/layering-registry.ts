@@ -27,6 +27,7 @@ export const LAYERING_REGISTRY: readonly RegistryEntry[] = [
   // The whole of `src/facts/` is layer 3 — `inDirectory` is a recursive prefix match, so `probe/` and `units/`
   // are both covered and the next producer to move in needs no new entry.
   { dir: "src/facts", layer: "L3" },
+  { dir: "src/attribution", layer: "L4" },
   { dir: "src/context", layer: "L5" },
 
   // --- src/assurance/: the known mixed directory, knowledge side and report side in one folder -----------

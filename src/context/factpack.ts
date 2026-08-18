@@ -1,5 +1,5 @@
 import type { GraphReader } from "../codegraph/codegraph.ts";
-import { BRIDGE_MAX_MULTIPLICITY } from "./feature-prune.ts";
+import { BRIDGE_MAX_MULTIPLICITY } from "../attribution/feature-prune.ts";
 import { logicClaimKey, logicItems, type LogicFeatureGraph } from "./factpack-logic.ts";
 import type { ScannedFile } from "../snapshot/snapshot.ts";
 import type { SourceReader } from "../snapshot/source.ts";

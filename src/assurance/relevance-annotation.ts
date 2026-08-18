@@ -22,7 +22,7 @@
 // tokenizer and abbreviation derivation the boundary detection used. Nothing is tunable here — no
 // threshold, no hand-written word list — because a knob would let whoever runs the numbers move them.
 
-import { deriveAbbreviations, nameTokens } from "../context/feature-prune.ts";
+import { deriveAbbreviations, nameTokens } from "../attribution/feature-prune.ts";
 
 /** Where a feature's vocabulary was found. Absent means "nowhere" — never "irrelevant". */
 export type AnchorHit = "name" | "path";

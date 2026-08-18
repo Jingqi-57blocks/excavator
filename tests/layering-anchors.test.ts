@@ -94,7 +94,7 @@ const ANCHORS: Record<string, Classification> = {
   "snapshot.ts:226": { kind: "historical", why: "P13's provenance: the silent lstat-failure continue" },
   "snapshot.ts:238": { kind: "historical", why: "P13's provenance: the break that could drop a whole root" },
   "src/assurance/read-obligations.ts:257": { kind: "current", expect: 'if (fn.probe !== "decision") continue;' },
-  "src/context/prune-module-floor.ts:43": { kind: "current", expect: "export function pruneFeatureGraphWithModuleFloor" },
+  "src/attribution/prune-module-floor.ts:43": { kind: "current", expect: "export function pruneFeatureGraphWithModuleFloor" },
   "src/context/context.ts:540": { kind: "current", expect: "featureGraph: { nodes, edges, seeds }" },
   "src/context/factpack.ts:247": { kind: "current", expect: "nodesByKindInFiles" },
   "src/context/factpack.ts:345-358": { kind: "current", expect: "export function factPackEvidence" },
