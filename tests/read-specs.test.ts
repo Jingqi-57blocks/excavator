@@ -5,6 +5,7 @@ import { join } from "node:path";
 import type { ArtifactResult } from "../src/base/artifact-result.ts";
 import { auditRun, prepareRun } from "../src/run/run.ts";
 import { requireReadSpecs, type ReadSpecsArtifact } from "../src/workset/read-specs.ts";
+import { MAX_WINDOW_LINES } from "../src/snapshot/source.ts";
 import { copyFixture, createCodeGraphFixture, tempDir } from "./helpers.ts";
 
 const BUDGETS = { prepareMs: 30_000, authorMs: 30_000, maxGraphQueries: 40, maxSourceWindows: 50, maxSourceCharacters: 120_000, maxFiles: 10_000, maxFeatureNodes: 80, maxExpansionDepth: 2 };
@@ -26,7 +27,8 @@ test("ReadSpecs are pure bounded authorizations with no source body or evidence 
   assert.equal(result.status, "built");
   requireReadSpecs(result.value);
   assert.ok(result.value.specs.length > 0);
-  assert.ok(result.value.specs.every((spec) => spec.budget.windows === 1 && spec.budget.requestedLines === spec.span.endLine - spec.span.startLine + 1));
+  assert.ok(result.value.specs.every((spec) => spec.budget.windows === Math.ceil(spec.budget.requestedLines / MAX_WINDOW_LINES)
+    && spec.budget.requestedLines === spec.span.endLine - spec.span.startLine + 1));
   const serialized = JSON.stringify(result.value);
   assert.doesNotMatch(serialized, /"(?:content|sourceText|excerpt|evidenceId|evidenceIds)"/i);
   assert.ok(result.value.specs.every((spec) => Object.keys(spec).sort().join(",") === "budget,featureKey,id,path,reason,span"));

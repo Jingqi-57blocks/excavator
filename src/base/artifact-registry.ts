@@ -171,6 +171,17 @@ const SLOTS: RegistryEntry[] = [
     enforcementNote: "Exists from prepare onward; every kind passes the same scalar/record bound, immutable content store and shard cap, while a single-writer tail checkpoint lets freeze pin the cutoff without per-append full rewrites."
   },
   {
+    id: "investigation.read-results",
+    layer: 7,
+    title: "ReadSpec executions and obligation dispositions",
+    pathTemplate: "investigation/results.json",
+    cardinality: "run",
+    schemaId: "read-execution-v1",
+    validatorVersion: "read-execution-validator-v1",
+    enforced: true,
+    enforcementNote: "Written by every prepare after layer 6; each ReadSpec has one source, empty or unavailable result, each decision-reading has a positive, negative or pending disposition, and every probe-unavailable residual remains named."
+  },
+  {
     id: "investigation.timeline",
     layer: 7,
     title: "Run timeline (append until freeze, hash-chained)",

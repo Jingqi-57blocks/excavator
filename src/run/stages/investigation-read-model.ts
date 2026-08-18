@@ -3,7 +3,7 @@ import { join, resolve } from "node:path";
 import type { EvidenceItem, FeatureFactPack, InvestigationPlan, InvestigationWorkItem, RunManifest } from "../../base/types.ts";
 import { BOUNDARY_DENOMINATOR_ASSURANCE_GENERATION, CROSSREPO_DENOMINATOR_ASSURANCE_GENERATION, READ_ACCOUNTABILITY_ASSURANCE_GENERATION, RECOVERED_ROUTE_DENOMINATOR_ASSURANCE_GENERATION, readObligations, type ReadObligationsArtifact, type RouteHandlerObligation } from "../../obligation/read-obligations.ts";
 import { assuranceGenerationAtLeast } from "../../base/assurance-version.ts";
-import { Deadline, exists, readJson, stableJson, writeJson } from "../../base/util.ts";
+import { Deadline, exists, readJson, REDACTION_VERSION, stableJson, writeJson } from "../../base/util.ts";
 import { appendTimeline } from "../../base/timeline.ts";
 import { featureAnchorTerms, featureCacheKey, tokenize } from "../../context/context.ts";
 import { requireFactPackV2 } from "../../workset/factpack-view.ts";
@@ -19,7 +19,8 @@ import type { UnitsArtifact } from "../../facts/units/units-artifact.ts";
 import type { ArtifactResult } from "../../base/artifact-result.ts";
 import type { ReadSpecsArtifact } from "../../workset/read-specs.ts";
 import type { MechanismLedger } from "../../mechanism/mechanism-ledger.ts";
-import { readEvidenceCatalog } from "../../investigation/evidence-store.ts";
+import { EVIDENCE_BOUND_POLICY_VERSION, readEvidenceCatalog } from "../../investigation/evidence-store.ts";
+import { requireInvestigationResults, type InvestigationResults } from "../../investigation/read-execution.ts";
 
 export async function readFrozenFactPacks(runDir: string, manifest: RunManifest): Promise<Record<string, FeatureFactPack>> {
   const factPacks: Record<string, FeatureFactPack> = {};
@@ -53,6 +54,26 @@ export async function readRequiredObligationDeclarations(runDir: string): Promis
   const expected = buildObligationDeclarations({ requirements, workset: workset.value, mechanisms: mechanisms.value, units: units.value });
   if (stableJson(expected) !== stableJson(result.value)) {
     throw new Error(`${path} is not the deterministic declaration set derived from requirements, workset, mechanisms and units`);
+  }
+  return result.value;
+}
+
+export async function readRequiredInvestigationResults(runDir: string, manifest: RunManifest, evidence: readonly EvidenceItem[]): Promise<InvestigationResults> {
+  const path = join(runDir, "investigation", "results.json");
+  if (!await exists(path)) throw new Error(`${path} is missing`);
+  const result = await readJson<ArtifactResult<InvestigationResults>>(path);
+  if (result.status !== "built") {
+    throw new Error(`${path} is ${result.status === "unavailable" ? `unavailable: ${result.cause}` : `not applicable: ${result.determination}`}`);
+  }
+  const workset = await readJson<ArtifactResult<ReadSpecsArtifact>>(join(runDir, "workset", "read-specs.json"));
+  if (workset.status !== "built") throw new Error(`${path} cannot be checked because ReadSpecs are not Built`);
+  const obligations = await readRequiredObligationDeclarations(runDir);
+  requireInvestigationResults(result.value, workset.value, obligations, evidence);
+  const expectedPolicy = `${EVIDENCE_BOUND_POLICY_VERSION}-${REDACTION_VERSION}-${manifest.request.redactSecrets === true ? "redacted" : "plain"}`;
+  if (result.value.identity.snapshotId !== manifest.snapshot?.id
+    || result.value.identity.filesContentManifestDigest !== manifest.snapshot?.contentManifestDigest
+    || result.value.identity.evidencePolicy !== expectedPolicy) {
+    throw new Error(`${path} does not belong to this snapshot, file ledger and evidence policy`);
   }
   return result.value;
 }

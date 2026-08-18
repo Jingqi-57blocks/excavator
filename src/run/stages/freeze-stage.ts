@@ -1,6 +1,6 @@
 import { join, resolve } from "node:path";
 import type { AuditFinding, EvidenceItem, InvestigationPlan, KnowledgeArtifact, RunManifest, TraceCatalog } from "../../base/types.ts";
-import { WORKSET_OBLIGATION_ASSURANCE_GENERATION, assuranceGenerationAtLeast } from "../../base/assurance-version.ts";
+import { READ_EXECUTION_ASSURANCE_GENERATION, WORKSET_OBLIGATION_ASSURANCE_GENERATION, assuranceGenerationAtLeast } from "../../base/assurance-version.ts";
 import { atomicWrite, exists, nowIso, readJson, writeJson } from "../../base/util.ts";
 import { appendTimeline, readTimeline } from "../../base/timeline.ts";
 import { auditContractInstances } from "../../freeze/contract-instance-audit.ts";
@@ -12,7 +12,7 @@ import { warmExtractors } from "../../facts/probe/condition-extract.ts";
 import { buildAuthoringPacket } from "../../report/authoring-packet.ts";
 import { declarationWorkItems } from "../obligation-stage.ts";
 import { logicWorkItems, LOGIC_DISPOSITION_ASSURANCE_GENERATION } from "../../obligation/logic-workitems.ts";
-import { deriveReadAccountability, readCrossRepoLinks, readFrozenFactPacks, readRequiredObligationDeclarations } from "./investigation-read-model.ts";
+import { deriveReadAccountability, readCrossRepoLinks, readFrozenFactPacks, readRequiredInvestigationResults, readRequiredObligationDeclarations } from "./investigation-read-model.ts";
 import { reDeriveIdentities } from "./runtime-identity.ts";
 import { readEvidenceCatalog } from "../../investigation/evidence-store.ts";
 
@@ -37,6 +37,7 @@ export async function freezeRun(runDirInput: string): Promise<{ manifest: RunMan
   const boundaryFunctions = accountability?.boundaryFunctions ?? null;
   const expectedPlan = createInvestigationPlan(manifest.id, manifest.request, manifest.documents);
   const contractFindings = await auditContractInstances(runDir, manifest);
+  let investigationResults: Awaited<ReturnType<typeof readRequiredInvestigationResults>> | null = null;
   if (assuranceGenerationAtLeast(manifest, LOGIC_DISPOSITION_ASSURANCE_GENERATION)) expectedPlan.items.push(...logicWorkItems(Object.values(factPacks), manifest.documents).items);
   if (assuranceGenerationAtLeast(manifest, WORKSET_OBLIGATION_ASSURANCE_GENERATION)) {
     try {
@@ -44,6 +45,19 @@ export async function freezeRun(runDirInput: string): Promise<{ manifest: RunMan
       expectedPlan.items.push(...declarationWorkItems(declarations, manifest.documents, new Set(expectedPlan.items.map((item) => item.id))));
     } catch (error) {
       contractFindings.push({ level: "error", document: "contract", message: `obligations/declarations.json cannot be used at freeze: ${(error as Error).message}` });
+    }
+  }
+  if (assuranceGenerationAtLeast(manifest, READ_EXECUTION_ASSURANCE_GENERATION)) {
+    try {
+      investigationResults = await readRequiredInvestigationResults(runDir, manifest, evidenceCatalog.evidence);
+      for (const execution of investigationResults.executions.filter((row) => row.outcome === "unavailable")) {
+        contractFindings.push({ level: "error", document: "investigation", message: `source-reading ${execution.declarationId} remains pending: ${execution.cause ?? "authorized source unavailable"}` });
+      }
+      for (const disposition of investigationResults.dispositions.filter((row) => row.status === "pending")) {
+        contractFindings.push({ level: "error", document: "investigation", message: `decision-reading ${disposition.declarationId} remains pending after its authorized read` });
+      }
+    } catch (error) {
+      contractFindings.push({ level: "error", document: "contract", message: `investigation/results.json cannot be used at freeze: ${(error as Error).message}` });
     }
   }
   const documentIds = new Set(manifest.documents.map((document) => document.id));
@@ -74,7 +88,7 @@ export async function freezeRun(runDirInput: string): Promise<{ manifest: RunMan
   ];
   const mechanismsPath = join(runDir, "ledger", "mechanisms.json");
   const mechanismsLedger = await exists(mechanismsPath) ? await readJson<unknown>(mechanismsPath) : null;
-  const knowledge = buildKnowledge({ manifest, plan, evidence: evidenceCatalog.evidence, traces, factPacks, crossFeature, frozenAt, readObligations: obligations, boundaryFunctions, crossRepoLinks, mechanismsLedger, appendStreams });
+  const knowledge = buildKnowledge({ manifest, plan, evidence: evidenceCatalog.evidence, traces, factPacks, crossFeature, frozenAt, readObligations: obligations, boundaryFunctions, crossRepoLinks, mechanismsLedger, investigationResults, appendStreams });
   await writeKnowledgeArtifact(runDir, knowledge);
   let authoringPackets = 0;
   for (const document of manifest.documents) {

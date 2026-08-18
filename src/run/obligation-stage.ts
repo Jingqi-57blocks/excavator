@@ -52,8 +52,8 @@ export function declarationWorkItems(
   const out: InvestigationWorkItem[] = [];
   const seen = new Set(existingIds);
   for (const declaration of artifact.declarations) {
-    if (declaration.kind === "knowledge-requirement") continue;
-    const id = `feature:${declaration.featureKey}:logic:${declaration.name}@${declaration.path}:${declaration.span.startLine}`;
+    if (declaration.kind !== "decision-reading") continue;
+    const id = declarationWorkItemId(declaration);
     if (seen.has(id)) continue;
     seen.add(id);
     const requiredFor = documents.filter((document) => document.id.startsWith(`feature-${declaration.featureKey}-`)).map((document) => document.id);
@@ -71,6 +71,10 @@ export function declarationWorkItems(
     });
   }
   return out;
+}
+
+export function declarationWorkItemId(declaration: Extract<ObligationDeclarations["declarations"][number], { kind: "decision-reading" }>): string {
+  return `feature:${declaration.featureKey}:logic:${declaration.name}@${declaration.path}:${declaration.span.startLine}`;
 }
 
 function describe(name: string, result: ArtifactResult<unknown>): string | null {

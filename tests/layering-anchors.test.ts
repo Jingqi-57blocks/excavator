@@ -42,11 +42,11 @@ const ANCHORS: Record<string, Classification> = {
   // --- layer 1's ledger, layers 7 and 8, the epoch model -----------------------------------------------------
   "snapshot.ts:213": { kind: "historical", why: "the pre-57B-418 line where an unregistered extension never became a candidate; the document says 修之前 and keeps it as provenance" },
   "src/snapshot/source.ts:29": { kind: "current", expect: "export function windowCacheVersion" },
-  "src/freeze/freeze.ts:147": { kind: "current", expect: "completeness: buildCompleteness(plan)" },
-  "src/base/assurance-version.ts:84": { kind: "current", expect: "export function runUsesCurrentAssurance" },
+  "src/freeze/freeze.ts:150": { kind: "current", expect: "completeness: buildCompleteness(plan)" },
+  "src/base/assurance-version.ts:86": { kind: "current", expect: "export function runUsesCurrentAssurance" },
   "src/run/stages/investigation-stage.ts:35": { kind: "current", expect: "plan.items.some((item) => item.id === normalized.workItemId)" },
   "src/crossrepo/link-match.ts:41": { kind: "current", expect: "export interface MatchedLink" },
-  "src/run/run.ts:310": { kind: "current", expect: "createInvestigationPlan(runId, effectiveRequest, documents)" },
+  "src/run/run.ts:328": { kind: "current", expect: "createInvestigationPlan(runId, effectiveRequest, documents)" },
 
   // --- §二: the seven edges, as a landing record --------------------------------------------------------------
   // The "before" column is where each violating import USED to sit. Several of those line numbers now happen to
@@ -84,8 +84,8 @@ const ANCHORS: Record<string, Classification> = {
 
   // --- §四 the four laws ------------------------------------------------------------------------------------
   "src/base/timeline.ts:18-19": { kind: "historical", why: "the pre-57B-430 full-history read on every timeline append; the document explicitly says 57B-430 前" },
-  "src/base/single-writer.ts:29-51": { kind: "current", expect: "export async function withRunWriter" },
-  "src/investigation/evidence-store.ts:116-132": { kind: "current", expect: "export async function appendEvidence" },
+  "src/base/single-writer.ts:28-50": { kind: "current", expect: "export async function withRunWriter" },
+  "src/investigation/evidence-store.ts:129-145": { kind: "current", expect: "export async function appendEvidence" },
   "src/report/parallel-authoring.ts:100-110": { kind: "current", expect: "export async function collectDrafts" },
   "src/run/stages/investigation-stage.ts:152": { kind: "historical", why: "the pre-57B-430 full-catalog normalize-and-hash on each evidence append; the document explicitly says 57B-430 前" },
   "src/workset/factpack-view.ts:54": { kind: "current", expect: "maxRowsPerCategory = 60" },
@@ -98,7 +98,7 @@ const ANCHORS: Record<string, Classification> = {
   "snapshot.ts:226": { kind: "historical", why: "P13's provenance: the silent lstat-failure continue" },
   "snapshot.ts:238": { kind: "historical", why: "P13's provenance: the break that could drop a whole root" },
   "src/obligation/read-obligations.ts:258": { kind: "current", expect: 'if (fn.probe !== "decision") continue;' },
-  "src/obligation/declarations.ts:80": { kind: "current", expect: "export function buildObligationDeclarations" },
+  "src/obligation/declarations.ts:93": { kind: "current", expect: "export function buildObligationDeclarations" },
   "src/attribution/prune-module-floor.ts:51": { kind: "current", expect: "export function pruneFeatureGraphWithModuleFloorRecorded" },
   "src/context/factpack.ts:229": { kind: "current", expect: "export async function buildFactPack" },
   "src/workset/factpack-annotate.ts:38-58": { kind: "current", expect: "export function annotateFactPack" },

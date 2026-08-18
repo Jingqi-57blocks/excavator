@@ -42,7 +42,10 @@ test("layer 6 declares every template/run requirement exactly once and carries n
   assert.equal(result.status, "built");
   requireObligationDeclarations(result.value, args.requirements);
   const declaredRequirements = result.value.declarations.filter((row) => row.kind === "knowledge-requirement");
+  const declaredReadings = result.value.declarations.filter((row) => row.kind === "source-reading");
   assert.equal(declaredRequirements.length, args.requirements.rows.length);
+  assert.equal(declaredReadings.length, args.workset.specs.length, "every L5 authorization is declared before L7 can execute it");
+  assert.deepEqual(declaredReadings.map((row) => row.readSpecId).sort(), args.workset.specs.map((row) => row.id).sort());
   assert.ok(declaredRequirements.some((row) => row.scope === "run" && row.documentId === null));
   assert.ok(declaredRequirements.some((row) => row.sectionIndex !== null));
   assert.doesNotMatch(JSON.stringify(result.value), /evidence/i);

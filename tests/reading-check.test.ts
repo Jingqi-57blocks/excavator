@@ -57,10 +57,22 @@ async function featureRequest(): Promise<ReportRequest> {
   return { target, codegraph, workdir, language: "zh-CN", detailLevel: "standard", overviewAudiences: [], features: [{ subject: "Leave management", aliases: ["leave", "holiday"], audiences: ["product"] }], budgets: { ...BUDGETS, maxSourceWindows: 2 } };
 }
 
+/** These fixtures deliberately exercise the archived pre-L7 residual reader. V14 executes every authorized
+ * span and blocks a pending declaration, so keeping that separate is what makes these tests about readingCheck
+ * rather than about the new execution gate. */
+async function prepareLegacyReadingRun(): Promise<{ runDir: string }> {
+  const prepared = await prepareRun(await featureRequest());
+  const path = join(prepared.runDir, "run.json");
+  const manifest = JSON.parse(await readFile(path, "utf8")) as RunManifest;
+  manifest.assuranceVersion = "assurance-v13-reading-check-fixture";
+  await writeFile(path, JSON.stringify(manifest, null, 2));
+  return { runDir: prepared.runDir };
+}
+
 // The failure this forbids: two commands deriving a denominator separately, so one run could show two
 // different readings and the check would be advising against numbers the gate does not use.
 test("the pre-freeze check and freeze reconcile the same denominator", async () => {
-  const { runDir } = await prepareRun(await featureRequest());
+  const { runDir } = await prepareLegacyReadingRun();
   await disposeAllWorkItems(runDir);
 
   const before = await readingCheck(runDir);
@@ -87,7 +99,7 @@ test("the pre-freeze check and freeze reconcile the same denominator", async () 
 // inputs still exist. Removing the second source's input separates them: a frozen read is unaffected, a
 // live re-derivation silently loses the obligation that source contributed.
 test("after freeze the check reports the frozen denominator, not a fresh derivation", async () => {
-  const { runDir } = await prepareRun(await featureRequest());
+  const { runDir } = await prepareLegacyReadingRun();
   await disposeAllWorkItems(runDir);
   assert.equal((await freezeRun(runDir)).frozen, true);
   const frozen = await readingCheck(runDir);
@@ -104,7 +116,7 @@ test("after freeze the check reports the frozen denominator, not a fresh derivat
 // a denominator and a run whose frozen denominator is gone both decline to re-derive, but only one of them
 // is old. Both must also leave the run untouched — there is nothing to record.
 test("a run with no denominator is told why, and nothing is written", async () => {
-  const { runDir } = await prepareRun(await featureRequest());
+  const { runDir } = await prepareLegacyReadingRun();
   await disposeAllWorkItems(runDir);
   assert.equal((await freezeRun(runDir)).frozen, true);
   await rm(join(runDir, "coverage", "read-obligations.json"));
@@ -129,7 +141,7 @@ test("a run with no denominator is told why, and nothing is written", async () =
 
 // The end-to-end leg: without it, the packet renderer can be perfect while freeze never hands it anything.
 test("freeze writes the block into the packet on disk", async () => {
-  const { runDir } = await prepareRun(await featureRequest());
+  const { runDir } = await prepareLegacyReadingRun();
   await disposeAllWorkItems(runDir);
   assert.equal((await freezeRun(runDir)).frozen, true);
   const manifest = JSON.parse(await readFile(join(runDir, "run.json"), "utf8")) as RunManifest;
@@ -143,7 +155,7 @@ test("freeze writes the block into the packet on disk", async () => {
 });
 
 test("the check is read-only: it opens no window and needs no supplement after freeze", async () => {
-  const { runDir } = await prepareRun(await featureRequest());
+  const { runDir } = await prepareLegacyReadingRun();
   await disposeAllWorkItems(runDir);
   assert.equal((await freezeRun(runDir)).frozen, true);
   const evidenceBefore = await readFile(join(runDir, "evidence.json"), "utf8");
@@ -160,7 +172,7 @@ test("the check is read-only: it opens no window and needs no supplement after f
 // Without this event the only way to ask "did exposure change a reading choice" is to compare runs, where
 // the answer is dominated by run-to-run variance. With it, the before/after lives inside one run.
 test("the check leaves a timeline trace naming what it pointed at", async () => {
-  const { runDir } = await prepareRun(await featureRequest());
+  const { runDir } = await prepareLegacyReadingRun();
   await disposeAllWorkItems(runDir);
   const result = await readingCheck(runDir);
 
