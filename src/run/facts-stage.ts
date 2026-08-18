@@ -15,6 +15,7 @@ import {
 import type { CrossRepoScan } from "../crossrepo/crossrepo-scan.ts";
 import { buildProducerFactSet, factsOfProducer, serializeProducerFactSet, type ProducerFactSet } from "../facts/envelope.ts";
 import { loadAstGrep } from "../facts/probe/condition-extract.ts";
+import { probeAstGrammars } from "../facts/units/ast-grammar-probe.ts";
 import type { FactDetail, MappingResult, ObservedFact } from "../facts/units/membership-map.ts";
 import { PartitionSkeletonCache } from "../facts/units/partition-cache.ts";
 import { buildPartition, designatedBuilderGate } from "../facts/units/partition-build.ts";
@@ -106,10 +107,17 @@ export async function buildFactsStage(input: FactsStageInput): Promise<FactsStag
     droppedRoots: input.ledger.completeness.droppedRoots
   };
 
-  // The ONE place availability enters the partition story. If a counted file's designated builder cannot run, the
-  // whole envelope is `Unavailable` — never a quietly coarser partition, which would make the denominator a
-  // function of which optional binding loaded (§一, "分区由指定构建器产出，观察者不得改分区").
-  const gate = designatedBuilderGate(counted, input.availability, LANGUAGE_REGISTRY, PARTITION_DESIGNATION);
+  // The binding and its grammars are two facts, probed together and used together: the SAME api object is gated
+  // and then handed to the builder, so the gate can never have answered about a different binding than the one
+  // that runs. Probing the grammars costs one empty parse per designated language, once per run.
+  const astGrep = loadAstGrep();
+  const grammars = probeAstGrammars(astGrep);
+
+  // The ONE place availability enters the partition story. If a counted file's designated builder cannot run — its
+  // binding missing, or its grammar for that file's language missing — the whole envelope is `Unavailable`, never a
+  // quietly coarser partition, which would make the denominator a function of which optional package happened to
+  // install (§一, "分区由指定构建器产出，观察者不得改分区").
+  const gate = designatedBuilderGate(counted, input.availability, grammars, LANGUAGE_REGISTRY, PARTITION_DESIGNATION);
   if (gate) return allUnavailable(gate, gate.cause, gate.retryable);
 
   const build = await buildPartition({
@@ -118,7 +126,7 @@ export async function buildFactsStage(input: FactsStageInput): Promise<FactsStag
     languages: LANGUAGE_REGISTRY,
     designation: PARTITION_DESIGNATION,
     mechanisms: MECHANISM_REGISTRY,
-    astGrep: loadAstGrep(),
+    astGrep,
     cache: await PartitionSkeletonCache.open(input.cacheDir)
   });
 

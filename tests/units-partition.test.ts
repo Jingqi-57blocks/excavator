@@ -8,7 +8,8 @@ import { PARTITION_DESIGNATION, type PartitionDesignation } from "../src/base/pa
 import { RowSet } from "../src/base/row-set.ts";
 import { stableJson } from "../src/base/util.ts";
 import { loadAstGrep, type AstGrepApi } from "../src/facts/probe/condition-extract.ts";
-import { extractAstSkeleton, flattenSkeleton } from "../src/facts/units/ast-partition.ts";
+import { AST_PARTITION_GRAMMARS, grammarAvailability, probeAstGrammars } from "../src/facts/units/ast-grammar-probe.ts";
+import { astPartitionLanguage, extractAstSkeleton, flattenSkeleton } from "../src/facts/units/ast-partition.ts";
 import { PartitionSkeletonCache } from "../src/facts/units/partition-cache.ts";
 import {
   PARTITION_DEGRADE_REASONS, assembleFileCells, buildPartition, designatedBuilderGate,
@@ -33,6 +34,10 @@ import { tempDir } from "./helpers.ts";
  */
 
 const AST_GREP = loadAstGrep();
+/** This machine's real grammars, probed the way `prepare` probes them. */
+const REAL_GRAMMARS = probeAstGrammars(AST_GREP);
+/** What the probe answers when the binding itself never loaded. */
+const NO_GRAMMARS = probeAstGrammars(null);
 /** Every reason a fixture below actually produced; the totality check at the bottom reads it. */
 const EXERCISED = new Set<PartitionDegradeReason>();
 
@@ -365,15 +370,17 @@ test("the builder gate is the only place availability enters, and it looks at th
   const perlRows = await snapshot(perlTarget);
   const missing = availabilityWith({ "partition-ast": { status: "unavailable", cause: "the @ast-grep/napi native binding could not be loaded" } });
 
-  const blocked = designatedBuilderGate(typescriptRows, missing, LANGUAGE_REGISTRY, PARTITION_DESIGNATION);
+  const blocked = designatedBuilderGate(typescriptRows, missing, NO_GRAMMARS, LANGUAGE_REGISTRY, PARTITION_DESIGNATION);
   assert.ok(blocked, "a counted .ts file with no builder means the whole envelope is Unavailable, never a coarser partition");
   assert.equal(blocked.status, "unavailable");
   assert.match(blocked.cause, /partition-ast \(1 counted file\(s\)\)/);
+  assert.ok(!/grammar/.test(blocked.cause),
+    "with no binding at all the grammars are gone with it; naming both would report one absence twice");
   assert.equal(blocked.retryable, true, "a missing native binding really can be repaired");
 
-  assert.equal(designatedBuilderGate(perlRows, missing, LANGUAGE_REGISTRY, PARTITION_DESIGNATION), null,
+  assert.equal(designatedBuilderGate(perlRows, missing, NO_GRAMMARS, LANGUAGE_REGISTRY, PARTITION_DESIGNATION), null,
     "a target with no file designated to the builder is unaffected by its absence");
-  assert.equal(designatedBuilderGate(typescriptRows, availabilityWith(), LANGUAGE_REGISTRY, PARTITION_DESIGNATION), null);
+  assert.equal(designatedBuilderGate(typescriptRows, availabilityWith(), REAL_GRAMMARS, LANGUAGE_REGISTRY, PARTITION_DESIGNATION), null);
 
   // And the builder cannot be talked into degrading a file over an availability fact: with no binding it refuses.
   const cacheless = await PartitionSkeletonCache.open(null);
@@ -388,18 +395,114 @@ test("the builder gate is the only place availability enters, and it looks at th
   }), /builder gate \(designatedBuilderGate\) must answer Unavailable before the builder is invoked/);
 });
 
+/**
+ * The middle state: `@ast-grep/napi` loaded, `@ast-grep/lang-go` did not.
+ *
+ * No other fixture covers it. The gate test above removes the whole binding, and the Go skeleton tests only mean
+ * anything on a machine where the grammar IS registered — so on the machine this describes, nothing went red while
+ * every `.go` file quietly became one residual cell inside a `built` envelope. That is the coarser partition §一
+ * forbids, and it wore `parse-failed`, a bucket whose contract says the same bytes fail the same way everywhere.
+ */
+test("the binding is present and the go grammar is not: the gate refuses the run instead of coarsening every .go file", async () => {
+  const goTarget = await tempDir("excavator-units-grammar-go-");
+  await writeFile(join(goTarget, "main.go"), "package main\n\nfunc Top() {}\n\nfunc (t T) M() {}\n");
+  const typescriptTarget = await tempDir("excavator-units-grammar-ts-");
+  await writeFile(join(typescriptTarget, "app.ts"), "export function f() {}\n");
+  await writeFile(join(typescriptTarget, "mod.mts"), "export function g() {}\n");
+  const goRows = await snapshot(goTarget);
+  const typescriptRows = await snapshot(typescriptTarget);
+
+  // Keyed on the LANGUAGE, not on the source, because that is what a missing grammar is: a machine fact that
+  // refuses every file of one language. The message is the binding's own, measured by requiring `@ast-grep/napi`
+  // and NOT registering the dynamic grammar.
+  const goGrammarMissing: AstGrepApi = {
+    parse: (language, source) => {
+      if (language === "go") throw new Error("go is not supported in napi");
+      return AST_GREP!.parse(language, source);
+    }
+  };
+  const partial = probeAstGrammars(goGrammarMissing);
+  assert.equal(partial["go"]!.status, "unavailable");
+  assert.equal(partial["TypeScript"]!.status, "available",
+    "the built-in grammars are unaffected — this state is not 'the binding is gone', which is why the binding's truth value could not see it");
+
+  const blocked = designatedBuilderGate(goRows, availabilityWith(), partial, LANGUAGE_REGISTRY, PARTITION_DESIGNATION);
+  assert.ok(blocked, "a counted .go file whose grammar is absent means the whole envelope is Unavailable, never a file-level partition");
+  assert.match(blocked.cause, /partition-ast grammar go \(1 counted file\(s\)\): ast-grep has no registered grammar for go: go is not supported in napi/);
+  assert.equal(blocked.retryable, true, "installing the grammar package really does repair it");
+
+  // The other half, and the reason the check is per grammar and not per mechanism: `partition-ast` is available,
+  // so a target with no Go in it is untouched by a missing Go grammar. `.mts` is here on purpose — the adapter
+  // declares no ast-grep language for it, which is a DECLARED gap decided by the extension on every machine, so it
+  // stays one file's `builder-extension-not-declared` rather than blocking the run.
+  assert.equal(astPartitionLanguage(".mts"), null);
+  assert.equal(designatedBuilderGate(typescriptRows, availabilityWith(), partial, LANGUAGE_REGISTRY, PARTITION_DESIGNATION), null,
+    "a missing grammar blocks the languages that need it and nothing else");
+
+  // What the gate stands in front of, measured rather than asserted from the outside: invoked anyway, the builder
+  // turns the .go file into a single residual cell and calls it a content-determined parse failure.
+  const unguarded = await buildPartition({
+    counted: goRows,
+    target: goTarget,
+    languages: LANGUAGE_REGISTRY,
+    designation: PARTITION_DESIGNATION,
+    mechanisms: MECHANISM_REGISTRY,
+    astGrep: goGrammarMissing,
+    cache: await PartitionSkeletonCache.open(null)
+  });
+  const main = unguarded.files.find((file) => file.relativePath === "main.go")!;
+  assert.deepEqual(main.degraded, { reason: "parse-failed", mechanism: "partition-ast" });
+  assert.deepEqual(main.cells.map((cell) => cell.partitionKind), ["residual"],
+    "one residual cell over a file with two functions in it: the granularity a run is not allowed to lose to a package");
+
+  // And a designation that points a language at some OTHER mechanism cannot slip past the grammar grain unasked.
+  const retargeted: PartitionDesignation = {
+    ...PARTITION_DESIGNATION,
+    byLanguage: { ...PARTITION_DESIGNATION.byLanguage, "typescript": { kind: "mechanism", mechanism: "condition-ast" } }
+  };
+  assert.throws(() => designatedBuilderGate(typescriptRows, availabilityWith(), REAL_GRAMMARS, LANGUAGE_REGISTRY, retargeted),
+    /no grammar adapter for designated builder condition-ast/);
+});
+
+test("every language the partition adapter can designate is probed, and an unprobed one is not 'available'", () => {
+  for (const extension of [".ts", ".tsx", ".js", ".jsx", ".cjs", ".mjs", ".go"]) {
+    const language = astPartitionLanguage(extension);
+    assert.ok(language, `${extension} is one of the adapter's own extensions`);
+    assert.ok(AST_PARTITION_GRAMMARS.includes(language), `${extension} designates ${language}, which the probe does not cover`);
+  }
+  assert.equal(AST_PARTITION_GRAMMARS.length, new Set(AST_PARTITION_GRAMMARS).size);
+  // Fail-closed: the only honest answer about a question nobody asked is not "available".
+  assert.deepEqual(grammarAvailability(REAL_GRAMMARS, "Klingon"),
+    { status: "unavailable", cause: "the ast-grep grammar for Klingon was never probed" });
+  for (const language of AST_PARTITION_GRAMMARS) {
+    assert.equal(grammarAvailability(NO_GRAMMARS, language).status, "unavailable",
+      "with no binding at all, every grammar is unavailable");
+  }
+});
+
 test("no source file outside the gate reads a mechanism availability while deciding a degrade", async () => {
   const { readFile } = await import("node:fs/promises");
   const text = await readFile("src/facts/units/partition-build.ts", "utf8");
-  const availabilityUses = [...text.matchAll(/availability/gi)].length;
-  const gate = text.slice(text.indexOf("export function designatedBuilderGate"), text.indexOf("export function assembleFileCells"));
-  const outsideGate = availabilityUses - [...gate.matchAll(/availability/gi)].length;
-  // The remaining mentions are the two doc comments that say degradation may not read it; the point is that no
-  // per-file branch can, and that is checkable by the absence of the identifier from the classifier.
+  // Comments are blanked rather than removed so every index below still points at the real file, and the check is
+  // then about CODE. It used to be a budget ("at most six mentions outside the gate"), which counted prose and
+  // imports and therefore had to be raised whenever either grew — a number that moves for innocent reasons stops
+  // being evidence. Now the rule is exact: outside an import statement, the identifier may appear only inside the
+  // gate, and a new grammar-shaped availability input can be added without touching this assertion.
+  const code = text.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, (comment) => comment.replace(/[^\n]/g, " "));
+  const gateStart = text.indexOf("export function designatedBuilderGate");
+  const gateEnd = text.indexOf("export function assembleFileCells");
+  const importSpans = [...text.matchAll(/^import[\s\S]*?;$/gm)].map((match) => [match.index, match.index + match[0].length] as const);
+  const leaked = [...code.matchAll(/availability/gi)]
+    .filter((match) => !(match.index >= gateStart && match.index < gateEnd))
+    .filter((match) => !importSpans.some(([from, to]) => match.index >= from && match.index < to))
+    .map((match) => `line ${text.slice(0, match.index).split("\n").length}: ${text.split("\n")[text.slice(0, match.index).split("\n").length - 1]!.trim()}`);
+  assert.deepEqual(leaked, [],
+    "availability may be read by the gate and by nothing else in this module: degradation is content-determined and Unavailable is envelope-wide");
+  // And the per-file classifier is checked on its own, prose included, because that is the branch a future author
+  // would reach for first.
   const classifier = text.slice(text.indexOf("function planFor"), text.indexOf("async function resolveFile"));
   assert.equal([...classifier.matchAll(/availability/gi)].length, 0,
     "the per-file classifier may not read availability: degradation is content-determined and Unavailable is envelope-wide");
-  assert.ok(outsideGate <= 6, `availability is mentioned ${outsideGate} times outside the gate; it must be prose only`);
   const observerWrites = await readFile("src/facts/units/ast-partition.ts", "utf8");
   assert.ok(!/mintUnitId|PartitionCell/.test(observerWrites),
     "the skeleton extractor may not mint cells; only the partition builder writes the denominator");
@@ -413,12 +516,12 @@ test("adding or removing an optional producer does not move one byte of the part
 
   // The two builds differ on every optional producer's availability. The partition takes no producer input at
   // all, so this cannot change it — and the assertion is what keeps that structural.
-  const withIndex = designatedBuilderGate(counted, availabilityWith(), LANGUAGE_REGISTRY, PARTITION_DESIGNATION);
+  const withIndex = designatedBuilderGate(counted, availabilityWith(), REAL_GRAMMARS, LANGUAGE_REGISTRY, PARTITION_DESIGNATION);
   const withoutIndex = designatedBuilderGate(counted, availabilityWith({
     codegraph: { status: "unavailable", cause: "no index" },
     crossrepo: { status: "unavailable", cause: "no binding" },
     "ctags-census": { status: "unavailable", cause: "no ctags" }
-  }), LANGUAGE_REGISTRY, PARTITION_DESIGNATION);
+  }), REAL_GRAMMARS, LANGUAGE_REGISTRY, PARTITION_DESIGNATION);
   assert.equal(withIndex, null);
   assert.equal(withoutIndex, null, "an optional producer's absence is not the designated builder's absence");
 

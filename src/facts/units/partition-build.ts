@@ -14,6 +14,7 @@ import {
 import { sha256, stableJson } from "../../base/util.ts";
 import type { CountedRow } from "../../snapshot/file-ledger.ts";
 import type { AstGrepApi } from "../probe/condition-extract.ts";
+import { grammarAvailability, type AstGrammarAvailability } from "./ast-grammar-probe.ts";
 import { astPartitionLanguage, extractAstSkeleton, flattenSkeleton, type AstStructureNode } from "./ast-partition.ts";
 import type { PartitionSkeletonCache } from "./partition-cache.ts";
 import {
@@ -37,6 +38,11 @@ import {
  * availability question is answered once, for the whole envelope, by `designatedBuilderGate` below, and if it
  * answers `Unavailable` the builder never runs at all. So "the partition got coarser because ast-grep was
  * missing" is not a state this file can produce.
+ *
+ * That claim used to have a hole exactly one grain wide, and the hole is why the gate now asks about GRAMMARS as
+ * well as bindings: with `@ast-grep/napi` present and `@ast-grep/lang-go` absent, `resolveFile` below took a
+ * throwing parse for a content fact, filed every `.go` file under `parse-failed`, and produced precisely the
+ * coarser-because-a-package-was-missing partition this paragraph says is impossible.
  *
  * A degraded file still gets a COMPLETE partition — one residual cell over its whole size — with the reason in
  * its per-file record. The one exception is a file layer 1 never observed a size for: there is no interval to
@@ -225,36 +231,63 @@ export interface PartitionBuildInput {
 }
 
 /**
- * Whether every designated builder this corpus needs is available for this run.
+ * Whether every designated builder this corpus needs — down to the GRAMMAR each counted file needs — is available
+ * for this run.
  *
  * The ONLY place availability enters the partition story, and it decides the WHOLE envelope: `Unavailable` when a
  * counted file's designated builder cannot run, `null` (proceed) otherwise. A target with no TypeScript at all is
  * unaffected by a missing ast-grep — the builder's absence is harmless when nothing was designated to it — which
- * is why this is computed from the corpus rather than from the availability map alone.
+ * is why this is computed from the corpus rather than from the availability map alone. The same rule is what keeps
+ * the grammar check narrow: a target with no `.go` file is unaffected by a missing Go grammar.
+ *
+ * TWO GRAINS, because the mechanism's dependency is not one object. `partition-ast` needs the `@ast-grep/napi`
+ * binding AND a registered grammar per language, and the second is a separate package for Go that is allowed to
+ * fail to load. Gating on the binding alone let a machine with the binding and no `@ast-grep/lang-go` publish a
+ * `built` envelope in which every `.go` file was one residual cell — the coarser partition §一 forbids, wearing
+ * `parse-failed`, a bucket that claims to be content-determined. `ast-grammar-probe.ts` answers the second grain
+ * with the builder's own `parse` call, and it is a REQUIRED parameter so no call site can forget to ask.
  */
 export function designatedBuilderGate(
   counted: readonly CountedRow[],
   availability: MechanismAvailabilityMap,
+  grammars: AstGrammarAvailability,
   languages: LanguageRegistry = LANGUAGE_REGISTRY,
   designation: PartitionDesignation = PARTITION_DESIGNATION
 ): Unavailable | null {
   const corpus = corpusResolver(languages);
-  const blocked = new Map<MechanismId, { files: number; cause: string }>();
+  const blocked = new Map<string, { files: number; cause: string }>();
+  const block = (subject: string, cause: string): void => {
+    const entry = blocked.get(subject) ?? { files: 0, cause };
+    entry.files += 1;
+    blocked.set(subject, entry);
+  };
   for (const row of counted) {
     const language = corpus.languageOf(basenameOf(row.relativePath), row.extension);
     if (language === null) continue;
     const builder = designatedBuilder(language, designation);
     if (builder.kind !== "mechanism") continue;
     const state = availability[builder.mechanism];
-    if (state.status !== "unavailable") continue;
-    const entry = blocked.get(builder.mechanism) ?? { files: 0, cause: state.cause };
-    entry.files += 1;
-    blocked.set(builder.mechanism, entry);
+    if (state.status === "unavailable") {
+      // The binding is gone, so every grammar is gone with it; one entry, not two, says the same thing once.
+      block(builder.mechanism, state.cause);
+      continue;
+    }
+    if (builder.mechanism !== "partition-ast") {
+      // Unreachable today and loud on purpose. The grammar grain is asked through `partition-ast`'s own extension
+      // adapter, so a second mechanism builder must bring its own adapter rather than silently skipping the check.
+      throw new Error(`designatedBuilderGate has no grammar adapter for designated builder ${builder.mechanism}; a new mechanism partition builder must state which grammar its rows need before it can be gated`);
+    }
+    const astLanguage = astPartitionLanguage(row.extension);
+    // No adapter entry is a DECLARED gap (`.mts`, `.cts`), decided by the extension and identical on every
+    // machine, so it is one file's `builder-extension-not-declared` and never the whole envelope.
+    if (astLanguage === null) continue;
+    const grammar = grammarAvailability(grammars, astLanguage);
+    if (grammar.status === "unavailable") block(`${builder.mechanism} grammar ${astLanguage}`, grammar.cause);
   }
   if (blocked.size === 0) return null;
   const detail = [...blocked.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([mechanism, entry]) => `${mechanism} (${entry.files} counted file(s)): ${entry.cause}`)
+    .map(([subject, entry]) => `${subject} (${entry.files} counted file(s)): ${entry.cause}`)
     .join("; ")
   ;
   // Retryable: the dependency is a native binding, so the same inputs on a repaired machine really can succeed.

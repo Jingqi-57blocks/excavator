@@ -138,15 +138,26 @@ test("a prepared run's layer-3 records carry the units digest and no feature key
   // IDENTITY rather than the whole file, because the `probe` envelope's cause honestly explains that probes run
   // per feature today — that sentence is the record, not a leak.
   const keys = request.features.map((feature) => feature.subject);
+  const skipped: string[] = [];
+  const checked: string[] = [];
   for (const producer of ARTIFACT_REGISTRY.producers) {
     const envelope = JSON.parse(await readFile(join(runDir, "facts", "producers", `${producer.id}.json`), "utf8")) as ArtifactResult<{ identity: Record<string, string> }>;
-    if (envelope.status !== "built") continue;
+    if (envelope.status !== "built") {
+      skipped.push(`${producer.id}: ${envelope.status === "unavailable" ? envelope.cause : envelope.status}`);
+      continue;
+    }
+    checked.push(producer.id);
     const identity = canonicalJson(envelope.value.identity);
     assert.ok(!/feature/i.test(identity), `${producer.id}'s identity may not mention a feature: layer-3 facts are feature-free`);
     for (const subject of keys) assert.ok(!identity.includes(subject), `${producer.id}'s identity may not carry ${subject}`);
     assert.equal(envelope.value.identity.unitsContentDigest, digest,
       `${producer.id} must bind to the partition generation its memberships name`);
   }
+  // Everything above is inside an `if built` and would therefore pass on a run where NOTHING was built — the loop
+  // would spin over unavailable envelopes and assert nothing. `codegraph` is the producer this fixture really does
+  // build, so it is named: the day index resolution regresses, this test goes red instead of quietly emptying.
+  assert.ok(checked.includes("codegraph"),
+    `no codegraph envelope was built, so the identity checks above examined nothing. Skipped: ${skipped.join(" | ")}`);
 });
 
 test("a prepare failure records all eight layer-3 slots as unavailable rather than leaving them absent", async () => {

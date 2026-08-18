@@ -79,11 +79,19 @@ export interface AstStructureNode {
 /**
  * A file's skeleton, or the one way extracting it can fail.
  *
- * `parse-failed` is CONTENT-DETERMINED and reachable: `api.parse` throws for a language the binding does not
- * have registered (measured: `Klingon is not supported in napi`), which is what happens when the dynamic Go
- * grammar fails to load while the built-ins are fine. tree-sitter itself is error tolerant and recovers from
- * broken syntax rather than throwing, so a syntax error produces a skeleton, not this state — which is correct:
- * a half-parsed file still has real structure, and refusing it would trade a partial partition for none.
+ * `parse-failed` is CONTENT-DETERMINED — and saying so used to be false, which is why the qualification below is
+ * long. `api.parse` throws for two unrelated reasons. One is the bytes. The other is a language the binding never
+ * registered (measured: `go is not supported in napi` on a machine holding `@ast-grep/napi` but not
+ * `@ast-grep/lang-go`), which is a fact about the MACHINE, and it used to arrive here as a per-file degrade: every
+ * `.go` file became one residual cell under a bucket that advertises "same bytes, same failure". That path no
+ * longer reaches a run — `designatedBuilderGate` probes each designated grammar with this same `parse` call and
+ * makes the whole layer-3 envelope `Unavailable` before the builder is invoked. It still reaches THIS function,
+ * which is a pure function of the arguments it is handed and reports what it was told; the gate is what stands
+ * between it and a partition.
+ *
+ * tree-sitter itself is error tolerant and recovers from broken syntax rather than throwing, so a syntax error
+ * produces a skeleton, not this state — which is correct: a half-parsed file still has real structure, and
+ * refusing it would trade a partial partition for none.
  */
 export type AstSkeleton =
   | { readonly status: "built"; readonly topLevel: readonly AstStructureNode[]; readonly byteLength: number }

@@ -56,9 +56,13 @@ export async function collectMechanismAvailability(): Promise<MechanismAvailabil
     "condition-ast-perl": treeSitterPerl,
     "condition-regex-numeric": builtIn,
     "native-graph": treeSitterPerl,
-    // The designated partition builder shares ast-grep with the two probes, so it shares their probe: if the
-    // binding is missing, the builder is missing, and layer 3 must say `Unavailable` instead of publishing a
-    // partition it could not build.
+    // The designated partition builder shares ast-grep with the two probes, so it shares their probe — and the
+    // probe answers exactly one question: is the BINDING there. It deliberately does not answer whether a given
+    // grammar is registered, because that answer is per language (`@ast-grep/lang-go` is its own package and may
+    // be the only one missing) and this map holds one verdict per mechanism. Folding a missing Go grammar in here
+    // would mark `partition-ast` unavailable for TypeScript targets that never needed it. Layer 3's
+    // `designatedBuilderGate` asks the per-grammar question against the corpus it actually has, so a missing
+    // grammar still refuses the whole layer-3 envelope rather than quietly coarsening the partition.
     "partition-ast": astGrep,
     "framework": builtIn,
     "db-schema": builtIn,
