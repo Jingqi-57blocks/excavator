@@ -1,5 +1,6 @@
 import type { ArtifactRegistry, InstanceCardinality, RegistryEntry } from "../base/artifact-registry.ts";
 import { registryDigest } from "../base/artifact-registry.ts";
+import { PARTITION_DESIGNATION, PARTITION_DESIGNATION_VERSION, partitionDesignationDigest } from "../base/partition-designation.ts";
 import { sha256, stableJson } from "../base/util.ts";
 import type { Requirements, RunIntent } from "./bound-run-contract.ts";
 
@@ -26,11 +27,21 @@ export interface ExpectedInstance {
 }
 
 export interface ContractManifest {
-  version: "contract-manifest-v1";
+  version: "contract-manifest-v2";
   registryVersion: string;
   registryDigest: string;
   runIntentDigest: string;
   requirementsDigest: string;
+  /**
+   * The partition schema generation this run is bound to, and the designation table it was derived from.
+   *
+   * v2 adds it, and the reason is the one §一 gives for making a builder change an EPOCH rather than a refinement:
+   * `UnitId`s are not comparable across generations, so "the expected instance set" is not the whole contract a
+   * run's layer-3 artifacts have to be read under. An archived run verifies against the contract IT recorded, and
+   * without this a run prepared under one designation table would verify against another's ids with nothing to
+   * detect it. The digest moves when any language is retargeted or a builder's algorithm changes.
+   */
+  partitionDesignation: { version: string; digest: string };
   expected: ExpectedInstance[];
   checks: Array<{ family: string; version: string }>;
   digest: string;
@@ -44,11 +55,12 @@ export function deriveContractManifest(registry: ArtifactRegistry, runIntent: Ru
   }
   expected.sort((a, b) => a.layer - b.layer || a.slotId.localeCompare(b.slotId) || a.instanceKey.localeCompare(b.instanceKey));
   const unsigned: Omit<ContractManifest, "digest"> = {
-    version: "contract-manifest-v1",
+    version: "contract-manifest-v2",
     registryVersion: registry.version,
     registryDigest: registryDigest(registry),
     runIntentDigest: runIntent.digest,
     requirementsDigest: requirements.digest,
+    partitionDesignation: { version: PARTITION_DESIGNATION_VERSION, digest: partitionDesignationDigest(PARTITION_DESIGNATION) },
     expected,
     checks: [...registry.checks].sort((a, b) => a.family.localeCompare(b.family))
   };

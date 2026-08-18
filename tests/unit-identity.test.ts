@@ -3,9 +3,10 @@ import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { loadAstGrep } from "../src/facts/probe/condition-extract.ts";
+import { PartitionSkeletonCache } from "../src/facts/units/partition-cache.ts";
 import { extractAstSkeleton, flattenSkeleton } from "../src/facts/units/ast-partition.ts";
 import {
-  canonicalSpan, compareSpans, mintRefUnitId, mintUnitId, parseUnitId, spanSize, spansOverlap,
+  canonicalSpan, compareSpans, lineOffsetsFromBytes, mintRefUnitId, mintUnitId, parseUnitId, spanSize, spansOverlap,
   utf8OffsetMap, PARTITION_KINDS, UNIT_KINDS
 } from "../src/facts/units/unit-identity.ts";
 import { buildPartition } from "../src/facts/units/partition-build.ts";
@@ -98,6 +99,37 @@ test("a canonical span is a half-open byte interval, and the empty file has one"
   assert.ok(compareSpans(canonicalSpan(0, 5), canonicalSpan(0, 9)) < 0);
 });
 
+test("the line index counts the file's own bytes, and its answers are checked against a hand-computed table", () => {
+  // Non-ASCII on purpose: a newline is one byte in UTF-8 while a multi-byte character is not, so an index built
+  // from the decoded string's character offsets would be wrong here and plausible everywhere.
+  const source = "const 名前 = 1;\n// 二行目 🎉\nexport function f() {}\n";
+  const bytes = Buffer.from(source, "utf8");
+  const offsets = lineOffsetsFromBytes(bytes);
+  assert.equal(offsets.byteLength, bytes.length);
+  assert.equal(offsets.lineCount, 3);
+  // Recomputed from the encoder rather than from a literal, so the expectation is derived and not remembered.
+  const expected = source.split("\n").slice(0, 3).map((line) => Buffer.byteLength(line, "utf8"));
+  let cursor = 0;
+  for (let line = 1; line <= 3; line++) {
+    assert.equal(offsets.startOfLine(line), cursor, `line ${line} starts where the previous one ended`);
+    cursor += expected[line - 1]! + 1;  // + the newline, which `endOfLine` includes
+    assert.equal(offsets.endOfLine(line), cursor);
+  }
+  assert.equal(cursor, bytes.length, "the lines tile the file exactly");
+  assert.equal(bytes.subarray(offsets.startOfLine(3), offsets.endOfLine(3)).toString("utf8"), "export function f() {}\n");
+  assert.throws(() => offsets.startOfLine(0), /outside the file \(1\.\.3\)/);
+  assert.throws(() => offsets.endOfLine(4), /outside the file \(1\.\.3\)/);
+
+  // The two files whose line structure is easiest to get wrong.
+  assert.equal(lineOffsetsFromBytes(Buffer.alloc(0)).lineCount, 1, "an empty file has one empty line");
+  assert.equal(lineOffsetsFromBytes(Buffer.alloc(0)).endOfLine(1), 0);
+  const trailing = lineOffsetsFromBytes(Buffer.from("a\n", "utf8"));
+  assert.equal(trailing.lineCount, 1, "a trailing newline does not open a line that is not there");
+  assert.equal(trailing.endOfLine(1), 2);
+  const blank = lineOffsetsFromBytes(Buffer.from("a\n\nb", "utf8"));
+  assert.deepEqual([blank.lineCount, blank.startOfLine(2), blank.endOfLine(2)], [3, 2, 3], "and a blank line is a line");
+});
+
 test("neither id constructor has a producer parameter, and neither id mentions one", () => {
   const span = canonicalSpan(10, 30);
   const refId = mintRefUnitId("method", span, "src/a:b.ts");
@@ -169,7 +201,11 @@ test("two byte-identical files at two paths get the same content digest and diff
     languages: LANGUAGE_REGISTRY,
     designation: PARTITION_DESIGNATION,
     mechanisms: MECHANISM_REGISTRY,
-    astGrep: loadAstGrep()
+    astGrep: loadAstGrep(),
+    // A REAL cache, because that is the configuration that could collapse these two files into one skeleton and
+    // therefore the configuration this fixture has to stand in: the cache is content-addressed, so both twins
+    // share one cached parse, and the ids below must still differ.
+    cache: await PartitionSkeletonCache.open(await tempDir("excavator-collision-units-cache-"))
   });
   const cellsOf = (path: string): string[] => built.partition.filter((cell) => cell.relativePath === path).map((cell) => cell.unitId);
   for (const [left, right] of twins) {

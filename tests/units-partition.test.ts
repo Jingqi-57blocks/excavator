@@ -3,19 +3,20 @@ import assert from "node:assert/strict";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { LANGUAGE_REGISTRY } from "../src/base/language-registry.ts";
-import { MECHANISM_IDS, MECHANISM_REGISTRY, type MechanismAvailabilityMap } from "../src/base/mechanism-registry.ts";
+import { MECHANISM_IDS, MECHANISM_REGISTRY, mechanismById, type MechanismAvailabilityMap } from "../src/base/mechanism-registry.ts";
 import { PARTITION_DESIGNATION, type PartitionDesignation } from "../src/base/partition-designation.ts";
 import { RowSet } from "../src/base/row-set.ts";
 import { stableJson } from "../src/base/util.ts";
 import { loadAstGrep, type AstGrepApi } from "../src/facts/probe/condition-extract.ts";
 import { extractAstSkeleton, flattenSkeleton } from "../src/facts/units/ast-partition.ts";
+import { PartitionSkeletonCache } from "../src/facts/units/partition-cache.ts";
 import {
   PARTITION_DEGRADE_REASONS, assembleFileCells, buildPartition, designatedBuilderGate,
   partitionContentDigest, verifyFilePartition,
   type PartitionBuildResult, type PartitionDegradeReason
 } from "../src/facts/units/partition-build.ts";
 import { canonicalSpan } from "../src/facts/units/unit-identity.ts";
-import { buildMechanismLedger } from "../src/mechanism/mechanism-ledger.ts";
+import { buildMechanismLedger, expandMatrixRow } from "../src/mechanism/mechanism-ledger.ts";
 import type { CountedRow, FileLedger } from "../src/snapshot/file-ledger.ts";
 import { createSnapshot } from "../src/snapshot/snapshot.ts";
 import { tempDir } from "./helpers.ts";
@@ -40,14 +41,22 @@ function availabilityWith(overrides: Partial<MechanismAvailabilityMap> = {}): Me
   return { ...base, ...overrides };
 }
 
-async function build(target: string, counted: readonly CountedRow[], designation: PartitionDesignation = PARTITION_DESIGNATION): Promise<PartitionBuildResult> {
+async function build(
+  target: string,
+  counted: readonly CountedRow[],
+  designation: PartitionDesignation = PARTITION_DESIGNATION,
+  cache?: PartitionSkeletonCache
+): Promise<PartitionBuildResult> {
   return buildPartition({
     counted,
     target,
     languages: LANGUAGE_REGISTRY,
     designation,
     mechanisms: MECHANISM_REGISTRY,
-    astGrep: AST_GREP
+    astGrep: AST_GREP,
+    // Explicitly cacheless unless a test asks otherwise. The cache has its own test, with a real directory: a
+    // helper that quietly defaulted to one would make every other assertion here depend on cache state.
+    cache: cache ?? await PartitionSkeletonCache.open(null)
   });
 }
 
@@ -256,7 +265,8 @@ test("a parser that refuses the bytes degrades that file and nothing else", asyn
     languages: LANGUAGE_REGISTRY,
     designation: PARTITION_DESIGNATION,
     mechanisms: MECHANISM_REGISTRY,
-    astGrep: throwsOnA
+    astGrep: throwsOnA,
+    cache: await PartitionSkeletonCache.open(null)
   });
   assert.deepEqual(result.files.find((file) => file.relativePath === "a.ts")!.degraded, { reason: "parse-failed", mechanism: "partition-ast" });
   assert.equal(result.files.find((file) => file.relativePath === "b.ts")!.degraded, null);
@@ -366,13 +376,15 @@ test("the builder gate is the only place availability enters, and it looks at th
   assert.equal(designatedBuilderGate(typescriptRows, availabilityWith(), LANGUAGE_REGISTRY, PARTITION_DESIGNATION), null);
 
   // And the builder cannot be talked into degrading a file over an availability fact: with no binding it refuses.
+  const cacheless = await PartitionSkeletonCache.open(null);
   await assert.rejects(() => buildPartition({
     counted: typescriptRows,
     target: typescriptTarget,
     languages: LANGUAGE_REGISTRY,
     designation: PARTITION_DESIGNATION,
     mechanisms: MECHANISM_REGISTRY,
-    astGrep: null
+    astGrep: null,
+    cache: cacheless
   }), /builder gate \(designatedBuilderGate\) must answer Unavailable before the builder is invoked/);
 });
 
@@ -466,6 +478,87 @@ test("the partition is a RowSet source, and the per-language census reads off th
   assert.equal(cells, result.partition.length);
   assert.equal(result.byLanguage.reduce((sum, row) => sum + row.refUnits, 0), result.refUnits.length);
   recordDegrades(result);
+});
+
+test("a file past the builder's declared LINE bound is one residual cell, and the size bound would not have caught it", async () => {
+  const target = await tempDir("excavator-units-linecap-");
+  const declared = mechanismById("partition-ast", MECHANISM_REGISTRY).maxLineLength!;
+  // One line past the bound, and a file far UNDER the 500 KB size bound: that combination is the whole reason the
+  // line bound exists. Measured on provital, `tiny_mce.js` is 439,601 bytes — under the size cap — and produced
+  // 3,489 reference units in each of its four copies.
+  const compressed = `const t=${JSON.stringify("x".repeat(declared + 100))};function f(){return t}\n`;
+  await writeFile(join(target, "bundle.js"), compressed);
+  await writeFile(join(target, "plain.js"), "function g() { return 1; }\n");
+  const counted = await snapshot(target);
+  const bundleRow = counted.find((row) => row.relativePath === "bundle.js")!;
+  assert.equal(bundleRow.tier1.status, "sampled");
+  assert.ok(bundleRow.tier1.status === "sampled" && bundleRow.tier1.maxLineLength > declared,
+    "the fixture must really stand on the line-shape condition, per layer 1's own measurement");
+  assert.ok(bundleRow.tier1.status === "sampled" && bundleRow.tier1.size < mechanismById("partition-ast", MECHANISM_REGISTRY).maxFileBytes!,
+    "and it must be under the SIZE bound, or this test would pass for the wrong reason");
+
+  const result = await build(target, counted);
+  const bundle = result.files.find((file) => file.relativePath === "bundle.js")!;
+  assert.deepEqual(bundle.degraded, {
+    reason: "builder-line-shape-cap",
+    mechanism: "partition-ast",
+    maxLineLength: declared,
+    observedLineLength: bundleRow.tier1.status === "sampled" ? bundleRow.tier1.maxLineLength : 0
+  });
+  assert.deepEqual(bundle.cells.map((cell) => [cell.partitionKind, cell.span.startByte, cell.span.endByte]), [["residual", 0, bundle.size]],
+    "a refused row still gets a complete partition — one residual cell — so nothing leaves the denominator");
+  assert.deepEqual(bundle.refUnits, [], "and no reference unit, which is the point of the bound");
+  // The neighbouring file is untouched: the bound is per row, decided from that row's own shape.
+  assert.equal(result.files.find((file) => file.relativePath === "plain.js")!.degraded, null);
+
+  // And layer 2 says the same thing about the same row, in its own vocabulary.
+  const ledger = buildMechanismLedger({
+    counted,
+    filesContentManifestDigest: "digest",
+    scannerVersion: "scanner",
+    availability: availabilityWith(),
+    languages: LANGUAGE_REGISTRY,
+    mechanisms: MECHANISM_REGISTRY
+  });
+  const row = ledger.fileMatrix.find((entry) => entry.mechanismId === "partition-ast")!;
+  const verdicts = expandMatrixRow(row, new Map([[".js", ["bundle.js", "plain.js"]]]));
+  assert.deepEqual(verdicts.get("bundle.js"), { cell: "no-mechanism", cause: `partition-ast-line-cap-${declared}` });
+  assert.deepEqual(verdicts.get("plain.js"), { cell: "covered" });
+  recordDegrades(result);
+});
+
+test("the skeleton cache changes the cost and not one byte of the answer", async () => {
+  const target = await tempDir("excavator-units-cache-hit-");
+  await writeFile(join(target, "a.ts"), "export class A { m() {} }\nexport function f() { return 1; }\n");
+  // Byte-identical content at a second path: the cache is content-addressed, so this is the shape that could
+  // collapse two files into one — and the ids below prove it does not, because they are minted per path.
+  await writeFile(join(target, "twin.ts"), "export class A { m() {} }\nexport function f() { return 1; }\n");
+  const counted = await snapshot(target);
+  const cacheDir = await tempDir("excavator-units-skeleton-cache-");
+
+  const cold = await build(target, counted, PARTITION_DESIGNATION, await PartitionSkeletonCache.open(cacheDir));
+  assert.equal(cold.cacheStats.misses, 1, "one parse for two byte-identical files: the second is a hit within the run");
+  assert.equal(cold.cacheStats.hits, 1);
+  const warm = await build(target, counted, PARTITION_DESIGNATION, await PartitionSkeletonCache.open(cacheDir));
+  assert.equal(warm.cacheStats.misses, 0, "the second run parses nothing");
+  assert.equal(warm.cacheStats.hits, 2);
+  assert.equal(stableJson(warm.partition), stableJson(cold.partition), "and the partition is byte-identical");
+  assert.equal(partitionContentDigest(warm), partitionContentDigest(cold));
+  assert.equal(stableJson(warm.refUnits), stableJson(cold.refUnits));
+
+  // The two twins share one cached parse and still get different ids, because the path is in the id.
+  const idsOf = (path: string): string[] => warm.partition.filter((cell) => cell.relativePath === path).map((cell) => cell.unitId);
+  // Two `export ` residuals, two structure cells, one trailing newline residual.
+  assert.equal(idsOf("a.ts").length, 5);
+  assert.deepEqual(idsOf("a.ts").filter((id) => idsOf("twin.ts").includes(id)), []);
+
+  // The SENSITIVITY CONTROL for the key: a cache written by a different extractor identity must not be served.
+  const stale = await PartitionSkeletonCache.open(cacheDir);
+  const digest = counted.find((row) => row.relativePath === "a.ts")!.content;
+  assert.equal(digest.status, "present");
+  assert.equal(stale.get(digest.status === "present" ? digest.digest : "", "tsx", cold.files[0]!.size!), null,
+    "the same bytes under a different grammar are a different tree, and the key says so");
+  recordDegrades(cold);
 });
 
 test("every degrade reason has a fixture: the vocabulary may not contain a state nothing can produce", () => {

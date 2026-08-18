@@ -84,6 +84,17 @@ export interface MechanismEntry {
    * that nobody declared is a bound nobody accounts for, and content search has had one (500 KB) all along.
    */
   maxFileBytes: number | null;
+  /**
+   * Longest line (in bytes, as layer 1's tier1 shape measured it) the mechanism will look at, or `null` for no
+   * bound. Required, like `maxFileBytes`, so a mechanism that has no line-shape bound says so.
+   *
+   * This is the COMPRESSION bound, and it is stated in the same units layer 1 already publishes because P18
+   * settles that the minification judgement travels on the layer-1 row shape — a second scan here would be a
+   * second taxonomy. Its limit is stated with it: `maxLineLength` is measured over the leading
+   * `SAMPLE_BYTES` (8 KiB) of the file, so a long line that begins past 8 KiB is not seen. The consequence of
+   * a miss is a larger artifact, never a wrong span, which is why the bound may live on a sampled signal.
+   */
+  maxLineLength: number | null;
 }
 
 export interface MechanismRegistry {
@@ -120,7 +131,9 @@ const MECHANISMS: MechanismEntry[] = [
     // difference a row in the ledger instead of an accident in a predicate.
     nameClasses: ["readme"],
     // The mechanism refuses files above this size, so those rows are `no-mechanism`, not `covered`.
-    maxFileBytes: 500_000
+    maxFileBytes: 500_000,
+    // Content search reads a file's bytes whatever shape its lines are in; it has no line bound, and says so.
+    maxLineLength: null
   },
   {
     id: "decision-probe",
@@ -130,7 +143,8 @@ const MECHANISMS: MechanismEntry[] = [
     unitKind: "node",
     support: { kind: "extensions", extensions: [...AST_GREP_EXTENSIONS] },
     nameClasses: [],
-    maxFileBytes: null
+    maxFileBytes: null,
+    maxLineLength: null
   },
   {
     // The DESIGNATED PARTITION BUILDER for typescript / javascript / go (`base/partition-designation.ts`), and
@@ -148,7 +162,24 @@ const MECHANISMS: MechanismEntry[] = [
     // A whole file's bytes must be decoded and walked to partition it. The bound is content search's, for the
     // same reason: past it the work stops being worth its cost, and the refusal is a `no-mechanism` row rather
     // than an invisible skip — the file still gets a partition, as one residual cell with `size-cap` recorded.
-    maxFileBytes: 500_000
+    maxFileBytes: 500_000,
+    /**
+     * The line-shape bound, and the reason the size bound alone is not enough.
+     *
+     * MEASURED on three real targets. `refUnits[]` is itself a P18 shape: on provital the builder minted 61,067
+     * reference units, and the largest contributors were compressed bundles that sail under the 500 KB size
+     * bound — `tiny_mce.js` (439,601 bytes, 3,489 units) and `themes/silver/theme.js` (406,288 bytes, 5,062
+     * units), each present in four copies. Serialised whole, that artifact was 63 MB. Refusing rows whose
+     * longest sampled line exceeds this bound leaves 7,186 units on the same target.
+     *
+     * 5,000 rather than a tighter number because the bound must not catch hand-written source, and the largest
+     * hand-written line measured across the three targets is 3,153 bytes (wcp `wcp-ui/src/pages/hr/components/
+     * ManPrice.tsx`); this repository's own longest is 1,392. At 5,000 the refusals are 81/3005 on provital (60
+     * of them `*.min.js`, the rest webpack chunks and bundled vendor dists, all under `root/static/`), 3/1999 on
+     * wcp (vendored prettify lexer tables) and 0/340 here. A refused row still gets a complete partition — one
+     * residual cell, with `builder-line-shape-cap` recorded — so nothing leaves the denominator.
+     */
+    maxLineLength: 5_000
   },
   {
     id: "condition-ast",
@@ -158,7 +189,8 @@ const MECHANISMS: MechanismEntry[] = [
     unitKind: "node",
     support: { kind: "extensions", extensions: [...AST_GREP_EXTENSIONS] },
     nameClasses: [],
-    maxFileBytes: null
+    maxFileBytes: null,
+    maxLineLength: null
   },
   {
     id: "condition-ast-perl",
@@ -168,7 +200,8 @@ const MECHANISMS: MechanismEntry[] = [
     unitKind: "node",
     support: { kind: "extensions", extensions: [...PERL_EXTENSIONS] },
     nameClasses: [],
-    maxFileBytes: null
+    maxFileBytes: null,
+    maxLineLength: null
   },
   {
     id: "condition-regex-numeric",
@@ -181,7 +214,8 @@ const MECHANISMS: MechanismEntry[] = [
     // useful" would be layer 2 exercising judgement it has no basis for.
     support: { kind: "extensions", extensions: [...textualExtensions()] },
     nameClasses: [],
-    maxFileBytes: null
+    maxFileBytes: null,
+    maxLineLength: null
   },
   {
     id: "native-graph",
@@ -191,7 +225,8 @@ const MECHANISMS: MechanismEntry[] = [
     unitKind: "node",
     support: { kind: "extensions", extensions: [...PERL_EXTENSIONS, ".zpt", ".dtml"] },
     nameClasses: [],
-    maxFileBytes: null
+    maxFileBytes: null,
+    maxLineLength: null
   },
   {
     id: "framework",
@@ -201,7 +236,8 @@ const MECHANISMS: MechanismEntry[] = [
     unitKind: "node",
     support: { kind: "extensions", extensions: [".pm"] },
     nameClasses: [],
-    maxFileBytes: null
+    maxFileBytes: null,
+    maxLineLength: null
   },
   {
     id: "db-schema",
@@ -211,7 +247,8 @@ const MECHANISMS: MechanismEntry[] = [
     unitKind: "node",
     support: { kind: "extensions", extensions: [".go", ".js", ".cjs", ".mjs", ".sql", ".ts", ".tsx", ".mts", ".cts", ".py", ".rb"] },
     nameClasses: [],
-    maxFileBytes: null
+    maxFileBytes: null,
+    maxLineLength: null
   },
   {
     id: "crossrepo",
@@ -223,7 +260,8 @@ const MECHANISMS: MechanismEntry[] = [
     unitKind: "module-pair",
     support: { kind: "extensions", extensions: [".go", ".js", ".ts", ".tsx"] },
     nameClasses: [],
-    maxFileBytes: null
+    maxFileBytes: null,
+    maxLineLength: null
   },
   {
     id: "ctags-census",
@@ -233,7 +271,8 @@ const MECHANISMS: MechanismEntry[] = [
     unitKind: "corpus",
     support: { kind: "tool-languages", languages: ["html", "javascript", "perl", "python", "sql"] },
     nameClasses: [],
-    maxFileBytes: null
+    maxFileBytes: null,
+    maxLineLength: null
   },
   {
     id: "codegraph",
@@ -243,7 +282,8 @@ const MECHANISMS: MechanismEntry[] = [
     unitKind: "node",
     support: { kind: "externally-determined" },
     nameClasses: [],
-    maxFileBytes: null
+    maxFileBytes: null,
+    maxLineLength: null
   }
 ];
 
@@ -303,6 +343,9 @@ export function validateMechanismRegistry(registry: MechanismRegistry, languages
     if (!mechanism.version.trim()) throw new Error(`Mechanism ${JSON.stringify(mechanism.id)} declares no version`);
     if (mechanism.maxFileBytes !== null && !(mechanism.maxFileBytes > 0)) {
       throw new Error(`Mechanism ${JSON.stringify(mechanism.id)} declares a non-positive size bound ${mechanism.maxFileBytes}`);
+    }
+    if (mechanism.maxLineLength !== null && !(mechanism.maxLineLength > 0)) {
+      throw new Error(`Mechanism ${JSON.stringify(mechanism.id)} declares a non-positive line bound ${mechanism.maxLineLength}`);
     }
     for (const id of mechanism.nameClasses) {
       if (!classes.has(id)) throw new Error(`Mechanism ${JSON.stringify(mechanism.id)} claims support for unregistered name class ${JSON.stringify(id)}`);

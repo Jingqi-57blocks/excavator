@@ -193,3 +193,46 @@ function requireIndex(index: number, length: number): void {
     throw new Error(`UTF-16 index ${index} is outside the source (0..${length})`);
   }
 }
+
+// --- lines -> bytes, because every producer in this repository reports lines --------------------------------
+
+/**
+ * One file's line boundaries in UTF-8 byte offsets, 1-based lines.
+ *
+ * It exists because of a measured asymmetry: canonical spans are byte intervals, and NOT ONE producer in this
+ * repository reports a byte offset. `PerlSub` carries a line, a framework `RouteAction` carries a line, a
+ * `RecoveredRoute` carries a line and sometimes an end line, and only CodeGraph nodes carry both. So every
+ * observation enters the partition through a line→byte conversion, and this is the one that performs it.
+ *
+ * Built from the BYTES, not from the decoded string: a newline is one byte in UTF-8 and the offsets have to be
+ * the file's own, so counting `\n` in the buffer is both the simplest and the only correct way to do it.
+ */
+export interface LineOffsets {
+  readonly byteLength: number;
+  readonly lineCount: number;
+  /** Byte offset of the first byte of line `line`. Throws outside `1..lineCount`. */
+  startOfLine(line: number): number;
+  /** Byte offset just past line `line`, its newline included. Throws outside `1..lineCount`. */
+  endOfLine(line: number): number;
+}
+
+export function lineOffsetsFromBytes(bytes: Uint8Array): LineOffsets {
+  const starts: number[] = [0];
+  for (let index = 0; index < bytes.length; index++) {
+    if (bytes[index] === 0x0a && index + 1 < bytes.length) starts.push(index + 1);
+  }
+  const byteLength = bytes.length;
+  const lineCount = starts.length;
+  const require = (line: number): number => {
+    if (!Number.isInteger(line) || line < 1 || line > lineCount) {
+      throw new Error(`Line ${line} is outside the file (1..${lineCount})`);
+    }
+    return line;
+  };
+  return {
+    byteLength,
+    lineCount,
+    startOfLine: (line) => starts[require(line) - 1]!,
+    endOfLine: (line) => (require(line) === lineCount ? byteLength : starts[line]!)
+  };
+}

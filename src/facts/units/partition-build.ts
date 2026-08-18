@@ -15,9 +15,10 @@ import { sha256, stableJson } from "../../base/util.ts";
 import type { CountedRow } from "../../snapshot/file-ledger.ts";
 import type { AstGrepApi } from "../probe/condition-extract.ts";
 import { astPartitionLanguage, extractAstSkeleton, flattenSkeleton, type AstStructureNode } from "./ast-partition.ts";
+import type { PartitionSkeletonCache } from "./partition-cache.ts";
 import {
-  canonicalSpan, compareSpans, mintRefUnitId, mintUnitId, spanSize, spansOverlap,
-  type CanonicalSpan, type UnitKind
+  canonicalSpan, compareSpans, lineOffsetsFromBytes, mintRefUnitId, mintUnitId, spanSize, spansOverlap,
+  type CanonicalSpan, type LineOffsets, type UnitKind
 } from "./unit-identity.ts";
 
 /**
@@ -51,6 +52,16 @@ export type PartitionDegrade =
   | { readonly reason: "builder-extension-not-declared"; readonly mechanism: MechanismId; readonly extension: string }
   /** Past the builder's declared size bound; the same row is `no-mechanism` in `mechanisms.json`. */
   | { readonly reason: "size-cap"; readonly mechanism: MechanismId; readonly maxFileBytes: number; readonly size: number }
+  /**
+   * Past the builder's declared LINE-SHAPE bound — a compressed or generated bundle.
+   *
+   * A separate reason from `size-cap` because the size bound provably does not catch it: `tiny_mce.js` is
+   * 439,601 bytes, under the 500 KB bound, and alone produced 3,489 reference units in four copies. The
+   * judgement is layer 1's tier1 `maxLineLength`, per P18's ruling that compression is decided on the layer-1
+   * row shape, so nothing here re-measures it. Like every other reason here it is CONTENT-determined: the same
+   * bytes are refused on every machine.
+   */
+  | { readonly reason: "builder-line-shape-cap"; readonly mechanism: MechanismId; readonly maxLineLength: number; readonly observedLineLength: number }
   /** The parser refused these bytes. Content-determined: the same content fails the same way. */
   | { readonly reason: "parse-failed"; readonly mechanism: MechanismId }
   /** The bytes could not be read now, although layer 1 read them. `code` is the errno, never a message. */
@@ -74,6 +85,7 @@ export type PartitionDegradeReason = PartitionDegrade["reason"];
 
 export const PARTITION_DEGRADE_REASONS = [
   "builder-extension-not-declared",
+  "builder-line-shape-cap",
   "content-drift",
   "content-not-utf8",
   "content-read-failed",
@@ -104,8 +116,11 @@ export interface RefUnit {
   readonly rootName: string;
   readonly unitKind: UnitKind;
   readonly span: CanonicalSpan;
-  /** 1 for an outermost structure; the cell over it has the same span. */
-  readonly depth: number;
+  /**
+   * 1 for an outermost structure; the cell over it has the same span. `null` for a `reported-span` unit — depth
+   * is a coordinate IN the builder's skeleton, and a span the builder did not produce has no place in it.
+   */
+  readonly depth: number | null;
   /**
    * Where the span came from. Binary and required, with no third value: the builder's skeleton is the AUTHORITY
    * on canonical spans, and an observation that could not be normalised onto it says so rather than being
@@ -159,6 +174,22 @@ export interface PartitionBuildResult {
    */
   readonly completeness: CoverageConservation & { readonly byDegradeReason: Readonly<Record<string, number>> };
   readonly byLanguage: readonly PartitionLanguageRow[];
+  /**
+   * Line→byte offsets for every file this build DECODED, keyed by target-relative path.
+   *
+   * NOT part of the artifact and never serialised — `unitsContentDigest` enumerates its inputs by name, so this
+   * cannot leak into an identity. It is here because every producer in this repository reports LINES while a
+   * canonical span is bytes, so the conversion has to happen somewhere, and the alternative is reading and
+   * decoding each file a second time in the observation pass. A file that was degraded is absent from the map:
+   * its partition is one cell over the whole file, which needs no line index to map an anchor onto.
+   */
+  readonly lineOffsets: ReadonlyMap<string, LineOffsets>;
+  /**
+   * Skeleton cache hits and misses for this build. NOT serialised, and it must never be: a cache hit count is a
+   * property of the machine, and an artifact carrying one could not be byte-identical across two runs. It exists
+   * so a test can prove the warm path was actually taken instead of inferring it from a stopwatch.
+   */
+  readonly cacheStats: { readonly hits: number; readonly misses: number };
 }
 
 export interface PartitionBuildInput {
@@ -182,6 +213,15 @@ export interface PartitionBuildInput {
    * conflation §一 forbids.
    */
   readonly astGrep: AstGrepApi | null;
+  /**
+   * The parsed-skeleton cache, or an explicitly cacheless one. REQUIRED, not optional.
+   *
+   * A parameter that may be omitted is a parameter production forgets: slice 1's false green was exactly a test
+   * running without the cache directory production always passes. Required means every call site — test or
+   * prepare — states which configuration it is exercising, and `PartitionSkeletonCache.open(null)` is the honest
+   * way to say "no cache". The two configurations must produce byte-identical partitions.
+   */
+  readonly cache: PartitionSkeletonCache;
 }
 
 /**
@@ -296,7 +336,14 @@ export async function buildPartition(input: PartitionBuildInput): Promise<Partit
   if (needsBinding && input.astGrep === null) {
     throw new Error("buildPartition was handed no ast-grep binding while a counted file designates it; the run's builder gate (designatedBuilderGate) must answer Unavailable before the builder is invoked, never degrade the file");
   }
-  const files = await mapWithLimit(plans, 16, async ({ row, plan }) => resolveFile(row, plan, input));
+  const resolved = await mapWithLimit(plans, 16, async ({ row, plan }) => resolveFile(row, plan, input));
+  // Written back before anything is assembled, and a failed write is not a failed build (see `flush`).
+  await input.cache.flush();
+  const files = resolved.map((entry) => entry.file);
+  const lineOffsets = new Map<string, LineOffsets>();
+  for (const entry of resolved) {
+    if (entry.lineOffsets) lineOffsets.set(entry.file.relativePath, entry.lineOffsets);
+  }
 
   const partition = files.flatMap((file) => file.cells).sort((a, b) => a.unitId.localeCompare(b.unitId));
   const refUnits = files.flatMap((file) => file.refUnits).sort((a, b) => a.refUnitId.localeCompare(b.refUnitId));
@@ -323,7 +370,9 @@ export async function buildPartition(input: PartitionBuildInput): Promise<Partit
       summarizeCoverage({ total: input.counted.length, counted: partitioned, excluded: files.length - partitioned }),
       { byDegradeReason }
     ),
-    byLanguage: censusByLanguage(files)
+    byLanguage: censusByLanguage(files),
+    lineOffsets,
+    cacheStats: input.cache.stats
   };
 }
 
@@ -352,9 +401,20 @@ function planFor(row: CountedRow, corpus: CorpusResolver, designation: Partition
   if (size === null) {
     return { step: "degraded", degraded: { reason: "size-unobserved" }, builder, language, size };
   }
-  const maxFileBytes = mechanismById(builder.mechanism, mechanisms).maxFileBytes;
+  const entry = mechanismById(builder.mechanism, mechanisms);
+  const maxFileBytes = entry.maxFileBytes;
   if (maxFileBytes !== null && size > maxFileBytes) {
     return { step: "degraded", degraded: { reason: "size-cap", mechanism: builder.mechanism, maxFileBytes, size }, builder, language, size };
+  }
+  // The line-shape bound sits beside the size bound because both are read off the ledger and need no bytes. A
+  // row whose line shape was never OBSERVED falls through deliberately rather than getting a bucket of its own:
+  // for a counted row, `tier1.status !== "sampled"` implies `content.status === "absent"` (both come from the
+  // one read in `resolveIdentity`), so it lands in `ledger-content-absent` two lines down — which is the more
+  // fundamental fact about it. Inventing `line-shape-unobserved` here would be a second name for that row.
+  const maxLineLength = entry.maxLineLength;
+  const observedLineLength = row.tier1.status === "sampled" ? row.tier1.maxLineLength : null;
+  if (maxLineLength !== null && observedLineLength !== null && observedLineLength > maxLineLength) {
+    return { step: "degraded", degraded: { reason: "builder-line-shape-cap", mechanism: builder.mechanism, maxLineLength, observedLineLength }, builder, language, size };
   }
   if (row.content.status !== "present") {
     return { step: "degraded", degraded: { reason: "ledger-content-absent" }, builder, language, size };
@@ -362,48 +422,71 @@ function planFor(row: CountedRow, corpus: CorpusResolver, designation: Partition
   return { step: "read", builder, mechanism: builder.mechanism, astLanguage, language, size, digest: row.content.digest };
 }
 
-async function resolveFile(row: CountedRow, plan: Plan, input: PartitionBuildInput): Promise<FilePartition> {
-  if (plan.step === "degraded") return degradedFile(row, plan.language, plan.size, plan.builder, plan.degraded);
+/** One file's partition plus the line index of the read that produced it; `lineOffsets` is null when degraded. */
+interface ResolvedFile {
+  readonly file: FilePartition;
+  readonly lineOffsets: LineOffsets | null;
+}
+
+async function resolveFile(row: CountedRow, plan: Plan, input: PartitionBuildInput): Promise<ResolvedFile> {
+  const fallback = (reason: PartitionDegrade): ResolvedFile =>
+    ({ file: degradedFile(row, plan.language, plan.size, plan.builder, reason), lineOffsets: null });
+  if (plan.step === "degraded") return fallback(plan.degraded);
 
   let bytes: Buffer;
   try {
     bytes = await readFile(join(input.target, row.relativePath));
   } catch (error) {
     const code = typeof (error as { code?: unknown }).code === "string" ? (error as { code: string }).code : "unknown";
-    return degradedFile(row, plan.language, plan.size, plan.builder, { reason: "content-read-failed", code });
+    return fallback({ reason: "content-read-failed", code });
   }
   // Compared against the LEDGER's digest, not against a size: the ledger's tier2 hash is what the snapshot
   // identity anchors on, so equality here is what makes every span below a span over the counted row.
-  if (sha256(bytes) !== plan.digest) return degradedFile(row, plan.language, plan.size, plan.builder, { reason: "content-drift" });
+  if (sha256(bytes) !== plan.digest) return fallback({ reason: "content-drift" });
   const source = bytes.toString("utf8");
   const decodedBytes = Buffer.byteLength(source, "utf8");
   if (decodedBytes !== bytes.length) {
     // Invalid UTF-8 came back as replacement characters, so offsets into the decoded text no longer index the
     // file. Every span would be plausible and wrong, which is the failure mode a bucket exists to prevent.
-    return degradedFile(row, plan.language, plan.size, plan.builder, { reason: "content-not-utf8", ledgerBytes: bytes.length, decodedBytes });
+    return fallback({ reason: "content-not-utf8", ledgerBytes: bytes.length, decodedBytes });
   }
-  const skeleton = extractAstSkeleton(input.astGrep!, plan.astLanguage, source);
-  if (skeleton.status === "parse-failed") {
-    return degradedFile(row, plan.language, plan.size, plan.builder, { reason: "parse-failed", mechanism: plan.mechanism });
-  }
-  if (skeleton.byteLength !== plan.size) {
-    throw new Error(`${row.relativePath}: the ledger recorded ${plan.size} bytes and the verified content decodes to ${skeleton.byteLength}; the partition's completeness arithmetic has nothing to close against`);
+  // The cache is consulted only AFTER the read and the drift check: it holds parsed skeletons, which is where
+  // the time goes (measured: 6.85 s of a 6.9 s build on wcp), and skipping the read to save 200 ms would have
+  // retired the `content-drift` bucket along with it.
+  const cached = input.cache.get(plan.digest, plan.astLanguage, plan.size);
+  let topLevel: readonly AstStructureNode[];
+  if (cached) {
+    topLevel = cached;
+  } else {
+    const skeleton = extractAstSkeleton(input.astGrep!, plan.astLanguage, source);
+    if (skeleton.status === "parse-failed") {
+      return fallback({ reason: "parse-failed", mechanism: plan.mechanism });
+    }
+    if (skeleton.byteLength !== plan.size) {
+      throw new Error(`${row.relativePath}: the ledger recorded ${plan.size} bytes and the verified content decodes to ${skeleton.byteLength}; the partition's completeness arithmetic has nothing to close against`);
+    }
+    topLevel = skeleton.topLevel;
+    input.cache.put(plan.digest, plan.astLanguage, plan.size, topLevel);
   }
   // A named grammar node always spans at least one byte, so a zero-width structure means the parser handed back
   // something this builder cannot express as a cell. It lands in the parser's bucket rather than being dropped.
-  const nodes = flattenSkeleton(skeleton.topLevel);
+  const nodes = flattenSkeleton(topLevel);
   if (nodes.some((node) => spanSize(node.span) === 0)) {
-    return degradedFile(row, plan.language, plan.size, plan.builder, { reason: "parse-failed", mechanism: plan.mechanism });
+    return fallback({ reason: "parse-failed", mechanism: plan.mechanism });
   }
   return {
-    relativePath: row.relativePath,
-    rootName: row.rootName,
-    language: plan.language,
-    size: plan.size,
-    builder: plan.builder,
-    degraded: null,
-    cells: assembleFileCells(row.relativePath, row.rootName, skeleton.topLevel, plan.size),
-    refUnits: nodes.map((node) => refUnitOf(row, node))
+    file: {
+      relativePath: row.relativePath,
+      rootName: row.rootName,
+      language: plan.language,
+      size: plan.size,
+      builder: plan.builder,
+      degraded: null,
+      cells: assembleFileCells(row.relativePath, row.rootName, topLevel, plan.size),
+      refUnits: nodes.map((node) => refUnitOf(row, node))
+    },
+    // Taken from the verified bytes of the one read, so the observation pass never opens this file again.
+    lineOffsets: lineOffsetsFromBytes(bytes)
   };
 }
 

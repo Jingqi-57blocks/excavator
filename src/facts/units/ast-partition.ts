@@ -1,3 +1,4 @@
+import { sha256, stableJson } from "../../base/util.ts";
 import { AST_LANGUAGE_BY_EXTENSION, type AstGrepApi, type AstNode } from "../probe/condition-extract.ts";
 import { canonicalSpan, compareSpans, utf8OffsetMap, type CanonicalSpan, type UnitKind } from "./unit-identity.ts";
 
@@ -91,6 +92,17 @@ export type AstSkeleton =
 /** The ast-grep language for one extension, or `null` when this builder does not declare it (`.mts`, `.cts`). */
 export function astPartitionLanguage(extension: string): string | null {
   return AST_LANGUAGE_BY_EXTENSION[extension] ?? null;
+}
+
+/**
+ * This extractor's identity: its version AND the node-kind table it walks with.
+ *
+ * The table is in the digest rather than trusted to a remembered version bump, because a skeleton cache keyed on
+ * a version alone would serve pre-edit skeletons after someone added `method_definition` to the map — a silent
+ * wrong answer of exactly the "cache key missing a semantic input" shape the contract's fifth column names.
+ */
+export function astSkeletonIdentity(): string {
+  return sha256(stableJson({ version: AST_PARTITION_VERSION, nodeKinds: UNIT_KIND_BY_NODE_KIND }));
 }
 
 /**
