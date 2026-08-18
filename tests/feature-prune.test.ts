@@ -6,7 +6,7 @@ import {
   nameTokens,
   rescueQuotaFor,
   pruneFeatureGraph
-} from "../src/context/feature-prune.ts";
+} from "../src/attribution/feature-prune.ts";
 
 // ---- consonant-skeleton abbreviation derivation (framework-agnostic, runtime-derived) ----
 

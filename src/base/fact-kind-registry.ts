@@ -253,6 +253,25 @@ export function factKindById(id: FactKindId, registry: FactKindRegistry = FACT_K
 }
 
 /**
+ * Every partition cell a membership names, in the order the membership states them.
+ *
+ * `module` and `corpus` name none, and that is not an omission: a module id is not a cell, and a corpus fact has
+ * no place in the source to point at. Exported because "which cells did layer 3 file this fact in" is a question
+ * consumers ask, and the alternative — a `switch` at each call site — is a second reader of a closed union that
+ * stops agreeing with this one the day the union grows an arm.
+ */
+export function membershipCells(membership: Membership): readonly string[] {
+  switch (membership.kind) {
+    case "unit": return [membership.unitId];
+    case "span-set": return membership.unitIds;
+    case "relation": return membership.endpoints;
+    case "module": return [];
+    case "corpus": return [];
+    default: return assertNever(membership, "membership");
+  }
+}
+
+/**
  * Every id in a membership that does not resolve to something this run actually has.
  *
  * A dangling `unitId` is the failure this catches, and it is silent by nature: a fact whose membership names a
@@ -267,9 +286,9 @@ export function membershipViolations(
   const dangling = (ids: readonly string[]): string[] =>
     ids.filter((id) => !known.cells.has(id)).map((id) => `${membership.kind} membership names ${JSON.stringify(id)}, which is not a partition cell of this run`);
   switch (membership.kind) {
-    case "unit": return dangling([membership.unitId]);
-    case "span-set": return dangling(membership.unitIds);
-    case "relation": return dangling(membership.endpoints);
+    case "unit":
+    case "span-set":
+    case "relation": return dangling(membershipCells(membership));
     case "module":
       return known.modules.has(membership.moduleId)
         ? []

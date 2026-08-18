@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { join } from "node:path";
-import { readFile, rm, writeFile } from "node:fs/promises";
+import { join, sep } from "node:path";
+import { readdir, readFile, rm, writeFile } from "node:fs/promises";
 import type { ReportRequest, RunManifest } from "../src/base/types.ts";
 import { auditRun, freezeRun, prepareRun } from "../src/run/run.ts";
 import { ARTIFACT_REGISTRY } from "../src/base/artifact-registry.ts";
@@ -43,6 +43,20 @@ async function overviewRequest(): Promise<ReportRequest> {
   const codegraph = join(workdir, "codegraph.db");
   createCodeGraphFixture(codegraph);
   return { target, codegraph, workdir, language: "zh-CN", detailLevel: "standard", overviewAudiences: ["product"], features: [], budgets: BUDGETS };
+}
+
+/** Every per-feature context cache the run wrote, found by shape rather than by re-deriving the cache key. */
+async function featureCachePaths(workdir: string): Promise<string[]> {
+  const found: string[] = [];
+  const walk = async (dir: string): Promise<void> => {
+    for (const entry of await readdir(dir, { withFileTypes: true })) {
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) await walk(path);
+      else if (entry.name.endsWith(".json") && path.includes(`${sep}features${sep}`)) found.push(path);
+    }
+  };
+  await walk(workdir);
+  return found.sort();
 }
 
 async function readManifest(runDir: string): Promise<RunManifest> {
@@ -124,6 +138,74 @@ test("every prepare writes the layer-3 artifact and all seven producer envelopes
     await writeFile(join(runDir, path), kept);
   }
   assert.deepEqual(await auditContractInstances(runDir, manifest), [], "and restoring them clears the findings");
+});
+
+test("every prepare writes the layer-4 attribution record, including a run with no feature at all", async () => {
+  // The slot is `enforced: true` as of this slice, and that flag is only honest because
+  // `src/run/attribution-stage.ts` writes the record on the success path and the failure path alike. Checked on
+  // the overview-only request precisely because it selects nothing: `featureCount: 0` is the record, not a
+  // missing file.
+  const { runDir } = await prepareRun(await overviewRequest());
+  await disposeAllWorkItems(runDir);
+  const path = join(runDir, "attribution", "attribution.json");
+  assert.ok(await exists(path), "an overview-only prepare still writes the attribution record");
+  const record = JSON.parse(await readFile(path, "utf8")) as ArtifactResult<{ featureCount: number; selections: unknown[]; identity: Record<string, unknown>; denominator: { cells: number } }>;
+  assert.equal(record.status, "built");
+  if (record.status !== "built") return;
+  assert.equal(record.value.featureCount, 0);
+  assert.deepEqual(record.value.selections, [], "a run that selected nothing publishes no selection, not a fabricated one");
+  assert.ok(record.value.denominator.cells > 0, "and it still states the denominator it would have seated into");
+
+  const manifest = await readManifest(runDir);
+  assert.deepEqual(await auditContractInstances(runDir, manifest), [], "a freshly prepared run satisfies the slot");
+  const kept = await readFile(path, "utf8");
+  await rm(path);
+  const findings = await auditContractInstances(runDir, manifest);
+  assert.ok(findings.some((finding) => finding.level === "error" && finding.message.includes("attribution/attribution.json")),
+    `removing it must be an error naming it: ${JSON.stringify(findings)}`);
+  await writeFile(path, kept);
+  assert.deepEqual(await auditContractInstances(runDir, manifest), []);
+});
+
+test("a two-feature prepare's attribution balances per selection and carries no feature subject in its identity", async () => {
+  const request = await twoFeatureRequest();
+  const { runDir } = await prepareRun(request);
+  const record = JSON.parse(await readFile(join(runDir, "attribution", "attribution.json"), "utf8")) as ArtifactResult<{
+    featureCount: number;
+    denominator: { cells: number };
+    identity: Record<string, unknown>;
+    selections: Array<{ featureKey: string; conservation: Array<{ totals: { counted: number; seated: number; zeroScore: number; displaced: number } }>; projection: { retained: { nodes: number; seated: number; missCounts: Record<string, number> } } }>;
+  }>;
+  assert.equal(record.status, "built");
+  if (record.status !== "built") return;
+  assert.equal(record.value.featureCount, 2, "one selection per feature — the law holds per selection, not per run");
+  for (const selection of record.value.selections) {
+    const totals = selection.conservation[0]!.totals;
+    assert.equal(totals.counted, record.value.denominator.cells);
+    assert.equal(totals.seated + totals.zeroScore + totals.displaced, totals.counted, `${selection.featureKey} does not balance`);
+    const missed = Object.values(selection.projection.retained.missCounts).reduce((sum, value) => sum + value, 0);
+    assert.equal(selection.projection.retained.seated + missed, selection.projection.retained.nodes);
+  }
+  // The layer-4 identity may not be keyed by what a feature is CALLED for an audience; the run intent summary
+  // carries the operator's own subject and aliases, and nothing about which document wanted them.
+  const identity = JSON.stringify(record.value.identity);
+  for (const forbidden of ["product", "engineering", "outputLanguage", request.target]) {
+    assert.ok(!identity.includes(forbidden), `the attribution identity leaked ${forbidden}`);
+  }
+});
+
+test("a cached feature context with no selection trace is refused, not served as a selection that never ran", async () => {
+  const request = await twoFeatureRequest();
+  await prepareRun(request);
+  // The cache the first prepare wrote, doctored the way a pre-trace builder would have left it. The path is
+  // untouched, so this is exactly the false hit a forgotten version bump would produce.
+  const caches = await featureCachePaths(request.workdir);
+  assert.ok(caches.length >= 2, `the first prepare really cached its features: ${JSON.stringify(caches)}`);
+  const cached = JSON.parse(await readFile(caches[0]!, "utf8")) as Record<string, unknown>;
+  assert.ok("selectionTrace" in cached, "the cache entry carries the trace in the first place");
+  delete cached.selectionTrace;
+  await writeFile(caches[0]!, JSON.stringify(cached));
+  await assert.rejects(prepareRun(request), /carries no selection trace/);
 });
 
 test("a prepared run's layer-3 records carry the units digest and no feature key", async () => {
@@ -368,6 +450,15 @@ test("an unreadable target leaves a failed run directory whose layer-1 ledger re
   const mechanisms = JSON.parse(await readFile(join(runDir, "ledger", "mechanisms.json"), "utf8")) as ArtifactResult<MechanismLedger>;
   assert.equal(mechanisms.status, "unavailable");
   if (mechanisms.status === "unavailable") assert.match(mechanisms.cause, /does-not-exist/);
+
+  // Layer 4 follows for the same reason one layer up, and it is asserted rather than assumed: `attribution-stage.ts`
+  // claims to write on the success path and the failure path alike, and only the failure half was ever unread.
+  const attribution = JSON.parse(await readFile(join(runDir, "attribution", "attribution.json"), "utf8")) as ArtifactResult<unknown>;
+  assert.equal(attribution.status, "unavailable", "a run with no selection writes the record, it does not omit the file");
+  if (attribution.status === "unavailable") {
+    assert.match(attribution.cause, /no selection to attribute/);
+    assert.match(attribution.cause, /does-not-exist/, "and it names the cause it inherited rather than restating one");
+  }
 
   const manifest = await readManifest(runDir);
   assert.equal(manifest.state, "failed");

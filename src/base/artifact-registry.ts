@@ -101,8 +101,8 @@ const SLOTS: RegistryEntry[] = [
     cardinality: "run",
     schemaId: "attribution-v1",
     validatorVersion: "attribution-validator-v1",
-    enforced: false,
-    enforcementNote: "Attribution records do not exist yet; today's seating happens inside context preparation with no artifact."
+    enforced: true,
+    enforcementNote: "Written by every prepare from the selector's own channel trace and the layer-3 memberships, and written as an Unavailable record when there was no partition to seat anything in; a run with no feature writes it with featureCount 0 rather than omitting it."
   },
   {
     id: "workset.fact-pack",

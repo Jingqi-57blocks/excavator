@@ -20,7 +20,7 @@ import { gzipSync, gunzipSync } from "node:zlib";
 import { join, dirname, basename } from "node:path";
 import { CodeGraphIndex } from "../src/codegraph/codegraph.ts";
 import { CodeGraphSet } from "../src/codegraph/codegraph-set.ts";
-import { pruneFeatureGraphWithModuleFloor } from "../src/context/prune-module-floor.ts";
+import { pruneFeatureGraphWithModuleFloor } from "../src/attribution/prune-module-floor.ts";
 import { Deadline } from "../src/base/util.ts";
 import type { BoundaryNode } from "./boundary.ts";
 

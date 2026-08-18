@@ -29,7 +29,7 @@ export const FUNCTION_INVENTORY_VERSION = "function-inventory-v1";
  * bytes under two kinds. `variable`, `constant`, `import` and `property` are absent for the plainer reason that
  * the reference-unit vocabulary has no member for them.
  */
-const UNIT_KIND_BY_NODE_KIND: Readonly<Record<string, UnitKind>> = {
+export const UNIT_KIND_BY_NODE_KIND: Readonly<Record<string, UnitKind>> = {
   "class": "class",
   "function": "function",
   "method": "method"
@@ -116,7 +116,7 @@ export function functionInventory(reader: GraphReader, relativePaths: readonly s
 }
 
 /** An index row with no line range cannot be anchored, so it is counted rather than given a made-up line. */
-function usableLines(node: GraphNode): boolean {
+function usableLines(node: { readonly startLine: number; readonly endLine: number }): boolean {
   return Number.isInteger(node.startLine) && node.startLine >= 1 && Number.isInteger(node.endLine) && node.endLine >= node.startLine;
 }
 
@@ -129,10 +129,54 @@ function usableLines(node: GraphNode): boolean {
  * make the count depend on the coincidence.
  */
 function factId(used: Map<string, number>, node: GraphNode, unitKind: UnitKind): string {
-  const base = `${unitKind}:${node.filePath}:${node.startLine}-${node.endLine}:${node.name}`;
+  const base = inventoryFactIdBase(node, unitKind);
   const seen = (used.get(base) ?? 0) + 1;
   used.set(base, seen);
   return seen === 1 ? base : `${base}#${seen}`;
+}
+
+function inventoryFactIdBase(node: { readonly filePath: string; readonly startLine: number; readonly endLine: number; readonly name: string }, unitKind: UnitKind): string {
+  return `${unitKind}:${node.filePath}:${node.startLine}-${node.endLine}:${node.name}`;
+}
+
+/** The unit kind this inventory claims for an index node kind, or `null` when it claims none. */
+export function inventoryUnitKind(nodeKind: string): UnitKind | null {
+  return UNIT_KIND_BY_NODE_KIND[nodeKind] ?? null;
+}
+
+/**
+ * The fact id this inventory WOULD mint for one index node, or `null` when it would mint none.
+ *
+ * Exported because layer 4 has to find the fact row a retained graph node corresponds to, and the only
+ * alternative — re-matching by path and span downstream — is the second mapping algorithm §一 forbids the
+ * consumer to own. There is exactly one encoder of this id and this is it; a caller gets the BASE id (no repeat
+ * suffix), because a caller holding one node cannot know how many other nodes share its coordinates.
+ *
+ * `null` covers both ways a node fails to become a fact: a kind the inventory does not claim, and a node the
+ * index reported with no usable line range. Both are states the caller must be able to see rather than infer.
+ */
+export function inventoryFactIdFor(node: {
+  readonly kind: string;
+  readonly filePath: string;
+  readonly startLine: number | null;
+  readonly endLine: number | null;
+  readonly name: string;
+}): string | null {
+  const unitKind = inventoryUnitKind(node.kind);
+  if (unitKind === null) return null;
+  if (!usableLines({ startLine: node.startLine ?? -1, endLine: node.endLine ?? -1 })) return null;
+  return inventoryFactIdBase({ filePath: node.filePath, startLine: node.startLine!, endLine: node.endLine!, name: node.name }, unitKind);
+}
+
+/**
+ * The base id of a published fact id: the repeat suffix removed.
+ *
+ * The suffix format has one owner and it is this file, so a consumer joining on base ids reads it back through
+ * here rather than re-implementing `#N` splitting — which is how two readers of one format start disagreeing.
+ */
+export function inventoryFactIdBaseOf(factId: string): string {
+  const hash = factId.lastIndexOf("#");
+  return hash > 0 && /^[0-9]+$/.test(factId.slice(hash + 1)) ? factId.slice(0, hash) : factId;
 }
 
 /**

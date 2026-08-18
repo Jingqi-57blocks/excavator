@@ -31,6 +31,7 @@ import { readObligations, BOUNDARY_DENOMINATOR_ASSURANCE_GENERATION, CROSSREPO_D
 import { readingExposure, renderReadingCheck, type ReadingExposure } from "../assurance/read-residual-exposure.ts";
 import type { BoundaryFunctionsArtifact } from "../context/boundary-functions.ts";
 import { scanCrossRepoLinks, type CrossRepoScan } from "../crossrepo/crossrepo-scan.ts";
+import { buildAttributionStage, unavailableAttributionStage, writeAttributionStage } from "./attribution-stage.ts";
 import { buildFactsStage, unavailableFactsStage, writeFactsStage } from "./facts-stage.ts";
 import { featureAnchorTerms, tokenize } from "../context/context.ts";
 import { unnegatedAdvice } from "../assurance/recommendation-language.ts";
@@ -406,6 +407,9 @@ async function writePrepareFailureRecord(request: ReportRequest, contract: Bound
   // failed run that simply lacked them would fail the instance audit for a reason that has nothing to do with
   // why it failed. The cause is the phase's, so the eight records say what was never reached.
   await writeFactsStage(runDir, unavailableFactsStage(reason, retryable));
+  // Layer 4 follows layer 3 on the failure path too, and its slot is enforced: a failed run that simply lacked
+  // the attribution record would fail the instance audit for a reason unrelated to why it failed.
+  await writeAttributionStage(runDir, unavailableAttributionStage(reason, retryable));
   const now = nowIso();
   const manifest: RunManifest = {
     version: 3,
@@ -658,6 +662,26 @@ export async function prepareRun(request: ReportRequest): Promise<{ runDir: stri
     });
   await writeFactsStage(runDir, facts);
   result.stats.warnings.push(...facts.warnings);
+  // Layer 4, from layer 3's in-memory result plus what each feature's selector recorded. It runs HERE — after
+  // layer 3, before the fact packs are written — because the seats are joined against the layer-3 envelope's
+  // membership rows and the identity carries the units digest, so the order is a property of the identities.
+  await writeAttributionStage(runDir, buildAttributionStage({
+    units: facts.units,
+    codegraph: facts.producers["codegraph"]!,
+    ledger: result.ledger,
+    mechanismsDigest: mechanisms.digest,
+    selections: [...result.prepared.featureSelectionTraces].map(([featureKey, trace]) => ({ featureKey, trace })),
+    identity: {
+      filesContentManifestDigest: result.ledger.contentManifestDigest,
+      mechanismsDigest: mechanisms.digest,
+      budgets: {
+        maxFeatureNodes: effectiveRequest.budgets.maxFeatureNodes,
+        maxExpansionDepth: effectiveRequest.budgets.maxExpansionDepth,
+        maxGraphQueries: effectiveRequest.budgets.maxGraphQueries
+      },
+      runIntent: { version: contract.runIntent.version, features: contract.runIntent.features }
+    }
+  }));
   await writeJson(join(runDir, "request.json"), effectiveRequest);
   await writeJson(join(runDir, "snapshot.json"), result.prepared.snapshot);
   await writeJson(join(runDir, "evidence.json"), { evidence });
