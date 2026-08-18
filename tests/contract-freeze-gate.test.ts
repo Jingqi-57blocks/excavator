@@ -10,7 +10,7 @@ import { CONTRACT_MANIFEST_ASSURANCE_GENERATION } from "../src/base/assurance-ve
 import type { ContractManifest } from "../src/contract/contract-manifest.ts";
 import { ledgerContentIdentity, type FileLedger } from "../src/snapshot/file-ledger.ts";
 import type { ArtifactResult } from "../src/base/artifact-result.ts";
-import { exists, sha256, stableJson, writeJson } from "../src/base/util.ts";
+import { canonicalJson, exists, sha256, stableJson, writeJson } from "../src/base/util.ts";
 import type { MechanismLedger } from "../src/mechanism/mechanism-ledger.ts";
 import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, tempDir } from "./helpers.ts";
 
@@ -102,6 +102,81 @@ test("a missing layer-2 mechanism ledger fails the contract instance audit and f
   const frozen = await freezeRun(runDir);
   assert.equal(frozen.frozen, false, "a run missing a required contract instance cannot be frozen");
   assert.ok(frozen.findings.some((finding) => /ledger\/mechanisms\.json/.test(finding.message)));
+});
+
+test("every prepare writes the layer-3 artifact and all seven producer envelopes, and removing one is a finding", async () => {
+  // The registry slots are `enforced: true` as of this slice, and that flag is only honest because
+  // `src/run/facts-stage.ts` writes all eight records unconditionally. Checked by removal, one at a time.
+  const { runDir } = await prepareRun(await overviewRequest());
+  await disposeAllWorkItems(runDir);
+  const paths = ["facts/units.json", ...ARTIFACT_REGISTRY.producers.map((producer) => `facts/producers/${producer.id}.json`)];
+  assert.equal(paths.length, 8);
+  for (const path of paths) assert.ok(await exists(join(runDir, path)), `${path} is written by every prepare`);
+  const manifest = await readManifest(runDir);
+  assert.deepEqual(await auditContractInstances(runDir, manifest), [], "and a freshly prepared run satisfies all eight");
+
+  for (const path of paths) {
+    const kept = await readFile(join(runDir, path), "utf8");
+    await rm(join(runDir, path));
+    const findings = await auditContractInstances(runDir, manifest);
+    assert.ok(findings.some((finding) => finding.level === "error" && finding.message.includes(path)),
+      `${path} missing must be an error naming it: ${JSON.stringify(findings)}`);
+    await writeFile(join(runDir, path), kept);
+  }
+  assert.deepEqual(await auditContractInstances(runDir, manifest), [], "and restoring them clears the findings");
+});
+
+test("a prepared run's layer-3 records carry the units digest and no feature key", async () => {
+  const request = await twoFeatureRequest();
+  const { runDir } = await prepareRun(request);
+  const units = JSON.parse(await readFile(join(runDir, "facts", "units.json"), "utf8")) as ArtifactResult<{ identity: Record<string, unknown>; partition: unknown[] }>;
+  assert.equal(units.status, "built");
+  if (units.status !== "built") return;
+  assert.ok(units.value.partition.length > 0, "the fixture target really has counted files to partition");
+  const digest = sha256(canonicalJson(units.value));
+  // Two features, so a feature key that had leaked into an identity would be there to find. The check is on the
+  // IDENTITY rather than the whole file, because the `probe` envelope's cause honestly explains that probes run
+  // per feature today — that sentence is the record, not a leak.
+  const keys = request.features.map((feature) => feature.subject);
+  const skipped: string[] = [];
+  const checked: string[] = [];
+  for (const producer of ARTIFACT_REGISTRY.producers) {
+    const envelope = JSON.parse(await readFile(join(runDir, "facts", "producers", `${producer.id}.json`), "utf8")) as ArtifactResult<{ identity: Record<string, string> }>;
+    if (envelope.status !== "built") {
+      skipped.push(`${producer.id}: ${envelope.status === "unavailable" ? envelope.cause : envelope.status}`);
+      continue;
+    }
+    checked.push(producer.id);
+    const identity = canonicalJson(envelope.value.identity);
+    assert.ok(!/feature/i.test(identity), `${producer.id}'s identity may not mention a feature: layer-3 facts are feature-free`);
+    for (const subject of keys) assert.ok(!identity.includes(subject), `${producer.id}'s identity may not carry ${subject}`);
+    assert.equal(envelope.value.identity.unitsContentDigest, digest,
+      `${producer.id} must bind to the partition generation its memberships name`);
+  }
+  // Everything above is inside an `if built` and would therefore pass on a run where NOTHING was built — the loop
+  // would spin over unavailable envelopes and assert nothing. `codegraph` is the producer this fixture really does
+  // build, so it is named: the day index resolution regresses, this test goes red instead of quietly emptying.
+  assert.ok(checked.includes("codegraph"),
+    `no codegraph envelope was built, so the identity checks above examined nothing. Skipped: ${skipped.join(" | ")}`);
+});
+
+test("a prepare failure records all eight layer-3 slots as unavailable rather than leaving them absent", async () => {
+  const request = await overviewRequest();
+  const missing = { ...request, target: join(request.target, "does-not-exist") };
+  await assert.rejects(() => prepareRun(missing));
+  const runs = join(await (async () => {
+    const { projectWorkspace } = await import("../src/base/util.ts");
+    return projectWorkspace(missing.workdir, missing.target);
+  })(), "runs");
+  const { readdir } = await import("node:fs/promises");
+  const entries = await readdir(runs);
+  assert.equal(entries.length, 1, "the failure left exactly one run directory");
+  const runDir = join(runs, entries[0]!);
+  for (const path of ["facts/units.json", ...ARTIFACT_REGISTRY.producers.map((producer) => `facts/producers/${producer.id}.json`)]) {
+    const envelope = JSON.parse(await readFile(join(runDir, path), "utf8")) as ArtifactResult<unknown>;
+    assert.equal(envelope.status, "unavailable", `${path} is a written record, never an absent file`);
+    assert.match(envelope.status === "unavailable" ? envelope.cause : "", /source boundary could not be read/);
+  }
 });
 
 test("two prepares of the same request produce byte-identical layer-2 ledgers", async () => {

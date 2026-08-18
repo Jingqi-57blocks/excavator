@@ -14,6 +14,7 @@ import {
   type MechanismEntry, type MechanismRegistry
 } from "../src/base/mechanism-registry.ts";
 import { AST_LANGUAGE_BY_EXTENSION, PERL_EXTENSIONS } from "../src/facts/probe/condition-extract.ts";
+import { AST_PARTITION_VERSION, astPartitionLanguage } from "../src/facts/units/ast-partition.ts";
 import { NATIVE_GRAPH_EXTENSIONS } from "../src/nativegraph/build.ts";
 import { CTAGS_LANGUAGES } from "../src/nativegraph/ctags.ts";
 import { PACKS } from "../src/framework/pack.ts";
@@ -111,6 +112,20 @@ test("every mechanism whitelist is a subset of the scanned corpus", () => {
 test("each adapter's whitelist is identical to the support set the mechanism registry declares for it", () => {
   assert.deepEqual(sorted(Object.keys(AST_LANGUAGE_BY_EXTENSION)), sorted(declaredExtensions("decision-probe")));
   assert.deepEqual(sorted(Object.keys(AST_LANGUAGE_BY_EXTENSION)), sorted(declaredExtensions("condition-ast")));
+  // The designated partition builder reads the SAME adapter table as the two probes. A separate support set for
+  // it would let the builder claim a file type ast-grep cannot resolve, and that file would then get no cells
+  // while the ledger reported it covered.
+  assert.deepEqual(sorted(Object.keys(AST_LANGUAGE_BY_EXTENSION)), sorted(declaredExtensions("partition-ast")));
+  for (const extension of Object.keys(AST_LANGUAGE_BY_EXTENSION)) {
+    assert.ok(astPartitionLanguage(extension), `${extension} must resolve to an ast-grep language for the partition builder`);
+  }
+  for (const extension of [".mts", ".cts"]) {
+    assert.equal(astPartitionLanguage(extension), null,
+      `${extension} is a scanned TypeScript extension ast-grep does not resolve; the builder must report builder-extension-not-declared rather than claim it`);
+    assert.ok(!declaredExtensions("partition-ast").has(extension));
+  }
+  assert.equal(mechanismById("partition-ast").version, AST_PARTITION_VERSION,
+    "the builder module and the registry declare one version; two would let the schema generation drift from the code");
   assert.deepEqual(sorted(PERL_EXTENSIONS), sorted(declaredExtensions("condition-ast-perl")));
   assert.deepEqual(sorted(NATIVE_GRAPH_EXTENSIONS), sorted(declaredExtensions("native-graph")));
   assert.deepEqual(sorted(PACKS.flatMap((pack) => pack.extensions)), sorted(declaredExtensions("framework")));
@@ -160,7 +175,7 @@ test("the production registry validates, and every declared id has an entry", ()
   // Only file-domain mechanisms with a declared extension set may produce a per-file grid; the other three
   // declare their domain and take no rows, which is what keeps a module-pair count out of a file ratio.
   const matrix = MECHANISM_REGISTRY.mechanisms.filter((entry) => entry.coverageDomain === "file" && entry.support.kind === "extensions");
-  assert.equal(matrix.length, 8, `eight file-domain mechanisms carry matrix rows: ${matrix.map((entry) => entry.id).join(", ")}`);
+  assert.equal(matrix.length, 9, `nine file-domain mechanisms carry matrix rows: ${matrix.map((entry) => entry.id).join(", ")}`);
   assert.deepEqual(sorted(MECHANISM_REGISTRY.mechanisms.filter((entry) => !matrix.includes(entry)).map((entry) => entry.id)),
     ["codegraph", "crossrepo", "ctags-census"]);
 });

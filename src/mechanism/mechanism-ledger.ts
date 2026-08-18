@@ -140,6 +140,8 @@ interface CorpusRow {
   name: string;
   /** `null` when layer 1 never observed a size; see `observedSize`. */
   size: number | null;
+  /** Longest line in layer 1's tier1 sample, `null` when the bytes were never sampled. */
+  maxLineLength: number | null;
   nameClasses: string[];
   registeredExtension: boolean;
   language: string;
@@ -222,6 +224,14 @@ function verdictFor(mechanism: FileMatrixMechanism, row: CorpusRow, availability
     // the bound. The cause names the observation gap instead of pretending capability.
     if (row.size === null) return { cell: "no-mechanism", cause: "size-unobserved" };
     if (row.size > mechanism.maxFileBytes) return { cell: "no-mechanism", cause: `${mechanism.id}-size-cap-${mechanism.maxFileBytes}` };
+  }
+
+  // The line-shape bound, in the same shape and the same declared order as the size bound: a mechanism that
+  // refuses compressed input refuses it whether or not anything is installed. The signal is layer 1's tier1
+  // `maxLineLength`, which is the contract's one compression judgement (P18) — this layer re-measures nothing.
+  if (mechanism.maxLineLength !== null) {
+    if (row.maxLineLength === null) return { cell: "no-mechanism", cause: "line-shape-unobserved" };
+    if (row.maxLineLength > mechanism.maxLineLength) return { cell: "no-mechanism", cause: `${mechanism.id}-line-cap-${mechanism.maxLineLength}` };
   }
 
   switch (availability.status) {
@@ -323,6 +333,7 @@ function toCorpusRow(row: CountedRow, corpus: CorpusResolver): CorpusRow {
     extension: row.extension,
     name,
     size: observedSize(row),
+    maxLineLength: row.tier1.status === "sampled" ? row.tier1.maxLineLength : null,
     nameClasses: corpus.nameClassesMatching(name).map((entry) => entry.id),
     registeredExtension: corpus.isRegisteredExtension(row.extension),
     language: corpus.languageOf(name, row.extension) ?? "unregistered"

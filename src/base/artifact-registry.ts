@@ -90,8 +90,8 @@ const SLOTS: RegistryEntry[] = [
     cardinality: "run",
     schemaId: "units-v1",
     validatorVersion: "units-validator-v1",
-    enforced: false,
-    enforcementNote: "Units and the partition builder are not built yet; the slot is registered so layer 4 has a declared denominator source."
+    enforced: true,
+    enforcementNote: "Written by every prepare from the layer-1 counted rows and the designated partition builders, and written as an Unavailable record when a designated builder could not run or preparation failed earlier; there is no path through prepare that leaves it absent."
   },
   {
     id: "attribution.attribution",
@@ -194,14 +194,35 @@ const SLOTS: RegistryEntry[] = [
   }
 ];
 
+/**
+ * The seven layer-3 producers, all enforced.
+ *
+ * `enforced: true` does NOT mean each producer runs — five of the seven publish a written `Unavailable` record
+ * today. It means the ENVELOPE must exist, which is the whole of P16: a tool whose envelope may be absent can sit
+ * outside the pipeline with every check green. `src/run/facts-stage.ts` is what makes the flag honest: it produces
+ * all seven on the success path and all seven on the failure path, so there is no prepare that leaves one out.
+ *
+ * Each note says what the envelope SAYS today, not what the producer aspires to. The `vocabulary` note used to
+ * claim "in-repository term frequency, computed inline during context preparation" — measured: nothing in this
+ * repository computes a document frequency anywhere, and the terms `tokenize` is given all come from the
+ * operator's own run-intent subject and aliases. A registry that describes a mechanism that does not exist is
+ * worse than one that says nothing, because freeze reports a clean envelope set over it.
+ */
 const PRODUCERS: ProducerEntry[] = ([
-  ["codegraph", "CodeGraph index queries", "The index is optional by design; its envelope is not written yet, so absence cannot be a finding."],
-  ["native-graph", "Native tree-sitter graph for languages the index misses", "Runs as a separate command today and produces no run-scoped envelope."],
-  ["framework", "Framework convention recovery (routes, components)", "Runs as a separate command today and produces no run-scoped envelope."],
-  ["db-schema", "Database schema discovery", "Runs as a separate command today and produces no run-scoped envelope."],
-  ["crossrepo", "Cross-repository HTTP link resolution", "Produces context/crossrepo-links.json only for multi-module targets; the uniform envelope is not built yet."],
-  ["probe", "Decision probes and condition extraction", "Produces boundary functions and condition inventories, not yet a producer envelope."],
-  ["vocabulary", "In-repository term frequency", "Computed inline during context preparation with no envelope."]
+  ["codegraph", "CodeGraph index queries: the whole-corpus function, method and class inventory",
+    "Written by every prepare. Built when the run resolved a readable index, otherwise Unavailable{index-not-present} — the index is optional by design, and which of the two happened is now a record instead of a missing file."],
+  ["native-graph", "Native tree-sitter graph for languages the index misses",
+    "Written by every prepare as Unavailable{policy: not-run-scoped}: the builder runs as its own command and writes outside the run directory, so this run has no fact set from it."],
+  ["framework", "Framework convention recovery (routes, components)",
+    "Written by every prepare as Unavailable{policy: not-run-scoped}: convention recovery runs as its own command and writes outside the run directory."],
+  ["db-schema", "Database schema discovery",
+    "Written by every prepare as Unavailable{policy: not-run-scoped}: schema discovery runs as its own command and writes outside the run directory."],
+  ["crossrepo", "Cross-repository HTTP link resolution: call sites, recovered routes and the links between them",
+    "Written by every prepare. Built for a multi-module target; NotApplicable{single-module} when there is provably no cross-repo edge — and Unavailable instead when layer 1's scan was capped, because a dropped root may hold the second module."],
+  ["probe", "Decision probes and condition extraction",
+    "Written by every prepare as Unavailable{policy: feature-scoped-today}: probes run per feature inside context preparation, and a layer-3 fact set may not be keyed by a feature."],
+  ["vocabulary", "In-repository term frequency",
+    "Written by every prepare as Unavailable{not-implemented}: no document frequency is computed anywhere in this engine. The previous note claimed it was computed inline during context preparation, which was not true of any code path."]
 ] as const).map(([id, title, note]) => ({
   id,
   layer: 3 as const,
@@ -210,7 +231,7 @@ const PRODUCERS: ProducerEntry[] = ([
   cardinality: "per-producer" as const,
   schemaId: "producer-envelope-v1",
   validatorVersion: "producer-envelope-validator-v1",
-  enforced: false,
+  enforced: true,
   enforcementNote: note
 }));
 

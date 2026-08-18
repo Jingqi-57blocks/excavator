@@ -30,7 +30,8 @@ import { logicWorkItems, LOGIC_DISPOSITION_ASSURANCE_GENERATION } from "../assur
 import { readObligations, BOUNDARY_DENOMINATOR_ASSURANCE_GENERATION, CROSSREPO_DENOMINATOR_ASSURANCE_GENERATION, READ_ACCOUNTABILITY_ASSURANCE_GENERATION, RECOVERED_ROUTE_DENOMINATOR_ASSURANCE_GENERATION, type ReadObligationsArtifact, type RouteHandlerObligation } from "../assurance/read-obligations.ts";
 import { readingExposure, renderReadingCheck, type ReadingExposure } from "../assurance/read-residual-exposure.ts";
 import type { BoundaryFunctionsArtifact } from "../context/boundary-functions.ts";
-import { scanCrossRepoLinks } from "../crossrepo/crossrepo-scan.ts";
+import { scanCrossRepoLinks, type CrossRepoScan } from "../crossrepo/crossrepo-scan.ts";
+import { buildFactsStage, unavailableFactsStage, writeFactsStage } from "./facts-stage.ts";
 import { featureAnchorTerms, tokenize } from "../context/context.ts";
 import { unnegatedAdvice } from "../assurance/recommendation-language.ts";
 import { scopeCensusResidual, scopeCensusUnavailable, type ScopeCensus } from "../context/scope-census.ts";
@@ -123,13 +124,15 @@ async function resolveCrossRepoLinks(
   snapshotId: string,
   warnings: string[],
   redact: boolean,
-): Promise<{ artifact: CrossRepoArtifact; evidence: EvidenceItem[] } | null> {
+): Promise<{ scan: CrossRepoScan; artifact: CrossRepoArtifact; evidence: EvidenceItem[] } | null> {
   if (!modules?.length) return null;
   try {
     const scan = await scanCrossRepoLinks(target, modules.map((module) => ({ id: module.id, dir: module.dir, databasePath: module.path })));
     warnings.push(...scan.warnings.slice(0, 20));
     const binding = mintCrossRepoEvidence(scan, snapshotId, redact);
-    return { artifact: buildCrossRepoArtifact(scan, snapshotId, binding, redact), evidence: binding.evidence };
+    // The raw scan travels alongside the report-side artifact: layer 3's envelope is built from the scan itself,
+    // not from the rendered artifact, so the two consumers cannot disagree about what was resolved.
+    return { scan, artifact: buildCrossRepoArtifact(scan, snapshotId, binding, redact), evidence: binding.evidence };
   } catch (error) {
     warnings.push(`cross-repo link resolution skipped: ${(error as Error).message}`);
     return null;
@@ -396,8 +399,13 @@ async function writePrepareFailureRecord(request: ReportRequest, contract: Bound
   await atomicWrite(join(runDir, "ledger", "files.json"), serializeLedgerArtifact(ledgerResult));
   // Layer 2 follows the phase the same way layer 1 does: with no corpus there is nothing to declare mechanisms
   // over, and that is written down rather than omitted.
-  await atomicWrite(join(runDir, "ledger", "mechanisms.json"), serializeMechanismLedger(
-    boundary === null ? unavailable(reason, retryable) : await mechanismLedgerArtifact(boundary.ledger)));
+  await atomicWrite(join(runDir, "ledger", "mechanisms.json"), boundary === null
+    ? serializeMechanismLedger(unavailable(reason, retryable))
+    : (await mechanismLedgerArtifact(boundary.ledger)).serialized);
+  // Layer 3 follows it too, and here the record is not optional: all eight layer-3 slots are enforced, so a
+  // failed run that simply lacked them would fail the instance audit for a reason that has nothing to do with
+  // why it failed. The cause is the phase's, so the eight records say what was never reached.
+  await writeFactsStage(runDir, unavailableFactsStage(reason, retryable));
   const now = nowIso();
   const manifest: RunManifest = {
     version: 3,
@@ -440,7 +448,7 @@ async function writePrepareFailureRecord(request: ReportRequest, contract: Bound
  * is recorded as `Unavailable`, never left as a missing file: "we never found out what could look at this
  * corpus" is a state layer 8 must be able to read. There is no third outcome and no absent artifact.
  */
-async function mechanismLedgerArtifact(ledger: FileLedger): Promise<ArtifactResult<MechanismLedger>> {
+async function mechanismLedgerArtifact(ledger: FileLedger): Promise<MechanismStage> {
   let availability: MechanismAvailabilityMap;
   try {
     availability = await collectMechanismAvailability();
@@ -448,16 +456,36 @@ async function mechanismLedgerArtifact(ledger: FileLedger): Promise<ArtifactResu
     // Retryable: every probe is a module load or a PATH lookup that a re-run can plausibly win. Only the PROBE
     // is caught here — a throw out of the pure builder is a defect in this engine, and recording our own bug as
     // `Unavailable` would file it under "blind spot", which is the one bucket it must never hide in.
-    return unavailable(`availability probing failed: ${(error as Error).message}`, true);
+    return stageOf(unavailable(`availability probing failed: ${(error as Error).message}`, true), null);
   }
-  return built(buildMechanismLedger({
+  return stageOf(built(buildMechanismLedger({
     counted: ledger.counted,
     filesContentManifestDigest: ledger.contentManifestDigest,
     scannerVersion: ledger.scannerVersion,
     availability,
     languages: LANGUAGE_REGISTRY,
     mechanisms: MECHANISM_REGISTRY
-  }));
+  })), availability);
+}
+
+/**
+ * Layer 2's envelope, its exact bytes, and the availability observation both it and layer 3 read.
+ *
+ * The three travel together because layer 3's identity contains `mechanisms.json`'s content digest, and a digest
+ * computed from a second serialisation of a second build would be a digest of something no one wrote. The bytes
+ * written to disk and the bytes hashed are the same string.
+ */
+interface MechanismStage {
+  readonly artifact: ArtifactResult<MechanismLedger>;
+  readonly serialized: string;
+  readonly digest: string;
+  /** Null only when the availability probe itself threw, in which case layer 3 has no gate input either. */
+  readonly availability: MechanismAvailabilityMap | null;
+}
+
+function stageOf(artifact: ArtifactResult<MechanismLedger>, availability: MechanismAvailabilityMap | null): MechanismStage {
+  const serialized = serializeMechanismLedger(artifact);
+  return { artifact, serialized, digest: sha256(serialized), availability };
 }
 
 async function writeContractArtifacts(runDir: string, contract: BoundRunContract, contractManifest: ContractManifest): Promise<void> {
@@ -608,7 +636,28 @@ export async function prepareRun(request: ReportRequest): Promise<{ runDir: stri
   // layering runs in, so a partially written run directory is readable from the bottom up.
   await writeContractArtifacts(runDir, contract, contractManifest);
   await atomicWrite(join(runDir, "ledger", "files.json"), serializeLedgerArtifact(built(result.ledger)));
-  await atomicWrite(join(runDir, "ledger", "mechanisms.json"), serializeMechanismLedger(await mechanismLedgerArtifact(result.ledger)));
+  const mechanisms = await mechanismLedgerArtifact(result.ledger);
+  await atomicWrite(join(runDir, "ledger", "mechanisms.json"), mechanisms.serialized);
+  // Layer 3, from the two ledgers plus what this run resolved. It runs HERE — after layer 2, before anything
+  // else derived — because its identity contains `mechanisms.json`'s digest and every producer envelope's
+  // identity contains the units digest, so the order is a property of the identities, not a preference.
+  const facts = mechanisms.availability === null
+    ? unavailableFactsStage(`the mechanism availability probe failed, so no designated builder could be gated: ${mechanisms.artifact.status === "unavailable" ? mechanisms.artifact.cause : "unknown"}`, true)
+    : await buildFactsStage({
+      target: request.target,
+      ledger: result.ledger,
+      mechanismsDigest: mechanisms.digest,
+      availability: mechanisms.availability,
+      codegraphPath: result.stats.codegraphPath,
+      codegraphModules: result.stats.codegraphModules,
+      codegraphDigest: result.stats.codegraphDigest,
+      crossRepoScan: crossRepo?.scan ?? null,
+      // The same project cache the boundary's content identities live under. Passed explicitly, and by a required
+      // field, because the builder's cost is real: parsing wcp's 1,704 designated files takes 6.9 seconds.
+      cacheDir: projectCacheDir(runDir)
+    });
+  await writeFactsStage(runDir, facts);
+  result.stats.warnings.push(...facts.warnings);
   await writeJson(join(runDir, "request.json"), effectiveRequest);
   await writeJson(join(runDir, "snapshot.json"), result.prepared.snapshot);
   await writeJson(join(runDir, "evidence.json"), { evidence });

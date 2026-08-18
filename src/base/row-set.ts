@@ -21,14 +21,21 @@ import type { CoverageDomain, MechanismUnitKind } from "./mechanism-registry.ts"
  *  - `completeness`, so "the scan was capped" travels WITH the denominator instead of being looked up later.
  *    A determination of `not-detected` rests on it, and layer 8 re-checks that premise.
  *
- * DIRECTION. This file is in the base, so it may not import a layer-1 type: `fromLedgerCounted` takes the
- * minimal structural shape declared here and layer 1 feeds it (`countedRowSet` in `snapshot/file-ledger.ts`),
- * which is a downward import and therefore legal. `fromPartition`, the layer-3 factory, lands with the units
- * slice; adding it now would mean guessing the partition row shape before the artifact exists.
+ * DIRECTION. This file is in the base, so it may not import a layer-1 or layer-3 type: each factory takes the
+ * minimal structural shape declared here and the owning layer feeds it (`countedRowSet` in
+ * `snapshot/file-ledger.ts`, and the units artifact for `fromPartition`), which is a downward import and
+ * therefore legal.
  */
 
-/** The unit kinds a RowSet can be counted in — the same vocabulary layer 2 declares its mechanisms with. */
-export type RowSetUnitKind = MechanismUnitKind;
+/**
+ * The unit kinds a RowSet can be counted in: layer 2's mechanism vocabulary, plus the partition cell.
+ *
+ * `partition-cell` is added HERE and deliberately not to `MechanismUnitKind`. Layer 2's union is serialised into
+ * every `mechanisms.json` declaration and its registry digest is that ledger's identity, so widening it for a
+ * layer-3 concept would move layer 2's artifact bytes for a reason layer 2 has nothing to do with. The two
+ * vocabularies overlap; they are not the same vocabulary.
+ */
+export type RowSetUnitKind = MechanismUnitKind | "partition-cell";
 
 /**
  * The minimum a ledger row must expose to be counted: a stable, unique identity string.
@@ -40,6 +47,19 @@ export type RowSetUnitKind = MechanismUnitKind;
  */
 export interface LedgerRow {
   readonly relativePath: string;
+}
+
+/**
+ * The minimum a partition cell must expose to be counted: its id, its file, and its byte interval.
+ *
+ * Structural, like `LedgerRow`, so the base learns nothing about the layer-3 artifact. The span is here and not
+ * merely in the id because this factory checks for overlap, and re-parsing an id string to get the interval back
+ * would make the check depend on the id ENCODING — a second reader of a format that has exactly one owner.
+ */
+export interface PartitionCellRow {
+  readonly unitId: string;
+  readonly relativePath: string;
+  readonly span: { readonly startByte: number; readonly endByte: number };
 }
 
 /** The completeness block a ledger publishes about its own scan; carried with the rows, never looked up later. */
@@ -89,9 +109,7 @@ export class RowSet {
    * decides the domain and the unit kind — letting a caller state them would let a caller state them wrongly.
    */
   static fromLedgerCounted(rows: readonly LedgerRow[], identity: RowSetIdentity): RowSet {
-    if (!identity.artifact.trim()) throw new Error("A RowSet requires the artifact its rows came from");
-    if (!identity.contentDigest.trim()) throw new Error("A RowSet requires the ledger's content digest; a denominator with no corpus identity cannot be compared to anything");
-    if (!identity.producerVersion.trim()) throw new Error("A RowSet requires the version of the producer that wrote the ledger");
+    requireIdentity(identity);
     const rowIds = rows.map((row) => row.relativePath);
     const unique = new Set(rowIds);
     if (unique.size !== rowIds.length) {
@@ -99,7 +117,48 @@ export class RowSet {
       // repeat here means the caller fed something other than the counted bucket.
       throw new Error(`A RowSet must be canonical: ${rowIds.length - unique.size} row identity(ies) appear more than once`);
     }
-    return new RowSet("file", "file", { ...identity, completeness: { ...identity.completeness, droppedRoots: [...identity.completeness.droppedRoots].sort() } }, [...unique].sort());
+    return new RowSet("file", "file", canonicalIdentity(identity), [...unique].sort());
+  }
+
+  /**
+   * The layer-3 factory: the cells of `units.json.partition`, in the file domain, counted as partition cells.
+   *
+   * Named after its source for the same reason as `fromLedgerCounted` — "which artifact produced these rows"
+   * decides the domain and the unit kind, so a caller cannot state them wrongly. The domain is `file` because a
+   * cell is a byte interval of one counted file: the partition is a refinement of the file corpus, not a second
+   * corpus, which is what lets a per-file completeness block travel with it.
+   *
+   * The three checks here are the ones this factory can perform CHEAPLY on rows it did not build. The deep
+   * invariant — that the cells of each file tile it exactly, with no gap — is enforced at construction by
+   * `facts/units/partition-build.ts`, and copying the whole verifier here would create the second copy §一 warns
+   * about. What is re-checked is what a bug in the caller could still get past: a duplicated id, and two cells of
+   * one file that overlap.
+   */
+  static fromPartition(cells: readonly PartitionCellRow[], identity: RowSetIdentity): RowSet {
+    requireIdentity(identity);
+    const rowIds = cells.map((row) => row.unitId);
+    const unique = new Set(rowIds);
+    if (unique.size !== rowIds.length) {
+      throw new Error(`A RowSet must be canonical: ${rowIds.length - unique.size} partition cell id(s) appear more than once`);
+    }
+    const byPath = new Map<string, PartitionCellRow[]>();
+    for (const row of cells) {
+      const bucket = byPath.get(row.relativePath);
+      if (bucket) bucket.push(row);
+      else byPath.set(row.relativePath, [row]);
+    }
+    for (const [relativePath, rows] of byPath) {
+      const sorted = [...rows].sort((a, b) => a.span.startByte - b.span.startByte || a.span.endByte - b.span.endByte);
+      for (let i = 1; i < sorted.length; i++) {
+        const previous = sorted[i - 1]!.span;
+        const current = sorted[i]!.span;
+        // Half-open, so `[0,5)` and `[5,9)` are adjacent rather than overlapping.
+        if (current.startByte < previous.endByte) {
+          throw new Error(`A partition denominator may not double-count bytes: ${relativePath} has overlapping cells [${previous.startByte}, ${previous.endByte}) and [${current.startByte}, ${current.endByte})`);
+        }
+      }
+    }
+    return new RowSet("partition-cell", "file", canonicalIdentity(identity), [...unique].sort());
   }
 
   get size(): number {
@@ -109,4 +168,16 @@ export class RowSet {
   has(rowId: string): boolean {
     return this.rowIds.includes(rowId);
   }
+}
+
+/** Read by every factory, so "a denominator states what it is accountable to" cannot hold in one door only. */
+function requireIdentity(identity: RowSetIdentity): void {
+  if (!identity.artifact.trim()) throw new Error("A RowSet requires the artifact its rows came from");
+  if (!identity.contentDigest.trim()) throw new Error("A RowSet requires the ledger's content digest; a denominator with no corpus identity cannot be compared to anything");
+  if (!identity.producerVersion.trim()) throw new Error("A RowSet requires the version of the producer that wrote the ledger");
+}
+
+/** Sorted and copied, so a denominator's completeness cannot change under it after the fact. */
+function canonicalIdentity(identity: RowSetIdentity): RowSetIdentity {
+  return { ...identity, completeness: { ...identity.completeness, droppedRoots: [...identity.completeness.droppedRoots].sort() } };
 }

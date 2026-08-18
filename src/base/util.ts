@@ -6,17 +6,31 @@ export function sha256(value: string | Buffer): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
+/** Key-sorted, cycle-refusing normalization. Shared by both serializers so they cannot order keys differently. */
+function canonicalize(input: unknown, ancestors: object[] = []): unknown {
+  if (input === null || typeof input !== "object") return input;
+  if (ancestors.includes(input as object)) throw new TypeError("circular value");
+  const nextAncestors = [...ancestors, input as object];
+  if (Array.isArray(input)) return input.map((item) => canonicalize(item, nextAncestors));
+  return Object.fromEntries(Object.entries(input as Record<string, unknown>)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, val]) => [key, canonicalize(val, nextAncestors)]));
+}
+
 export function stableJson(value: unknown): string {
-  const normalize = (input: unknown, ancestors: object[] = []): unknown => {
-    if (input === null || typeof input !== "object") return input;
-    if (ancestors.includes(input as object)) throw new TypeError("circular value");
-    const nextAncestors = [...ancestors, input as object];
-    if (Array.isArray(input)) return input.map((item) => normalize(item, nextAncestors));
-    return Object.fromEntries(Object.entries(input as Record<string, unknown>)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, val]) => [key, normalize(val, nextAncestors)]));
-  };
-  return JSON.stringify(normalize(value), null, 2);
+  return JSON.stringify(canonicalize(value), null, 2);
+}
+
+/**
+ * The same canonical bytes, without the indentation.
+ *
+ * For artifacts nobody reads by eye and everybody pays for. Measured on wcp: `facts/units.json` is 13.7 MB
+ * indented and 9.6 MB not, over 14,443 partition cells and 17,159 reference units — a third of the file was
+ * whitespace nothing consumes. `stableJson` keeps its indentation because `files.json` and `mechanisms.json` are
+ * read by hand during an investigation, and because their bytes are pinned by test.
+ */
+export function canonicalJson(value: unknown): string {
+  return JSON.stringify(canonicalize(value));
 }
 
 

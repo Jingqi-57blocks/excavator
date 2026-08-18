@@ -44,9 +44,9 @@ const ANCHORS: Record<string, Classification> = {
   "src/snapshot/source.ts:29": { kind: "current", expect: "export function windowCacheVersion" },
   "src/assurance/freeze.ts:137": { kind: "current", expect: "completeness: buildCompleteness(plan)" },
   "src/base/assurance-version.ts:77": { kind: "current", expect: "export function runUsesCurrentAssurance" },
-  "src/run/run.ts:765-767": { kind: "current", expect: "plan.items.some((item) => item.id === normalized.workItemId)" },
+  "src/run/run.ts:815": { kind: "current", expect: "plan.items.some((item) => item.id === normalized.workItemId)" },
   "src/crossrepo/link-match.ts:41": { kind: "current", expect: "export interface MatchedLink" },
-  "src/run/run.ts:536": { kind: "current", expect: "createInvestigationPlan(runId, effectiveRequest, documents)" },
+  "src/run/run.ts:564": { kind: "current", expect: "createInvestigationPlan(runId, effectiveRequest, documents)" },
 
   // --- §二: the seven edges, as a landing record --------------------------------------------------------------
   // The "before" column is where each violating import USED to sit. Several of those line numbers now happen to
@@ -83,7 +83,7 @@ const ANCHORS: Record<string, Classification> = {
   // --- §四 the four laws ------------------------------------------------------------------------------------
   "src/assurance/timeline.ts:18-19": { kind: "current", expect: "events.at(-1)" },
   "src/assurance/parallel-authoring.ts:100-110": { kind: "current", expect: "export async function collectDrafts" },
-  "src/run/run.ts:889-893": { kind: "current", expect: "manifest.evidenceDigest = sha256(stableJson(catalog.evidence))" },
+  "src/run/run.ts:936-940": { kind: "current", expect: "manifest.evidenceDigest = sha256(stableJson(catalog.evidence))" },
   "src/context/factpack.ts:361": { kind: "current", expect: "maxRowsPerCategory = 60" },
 
   // --- §五 P1-P18 -------------------------------------------------------------------------------------------
@@ -101,7 +101,13 @@ const ANCHORS: Record<string, Classification> = {
 
   // --- §六 explicitly undecided ------------------------------------------------------------------------------
   "src/facts/probe/condition-extract.ts:47-55": { kind: "current", expect: "AST_LANGUAGE_BY_EXTENSION" },
-  "src/facts/probe/decision-probe.ts:52-55": { kind: "current", expect: 'return "unavailable"' }
+  "src/facts/probe/decision-probe.ts:52-55": { kind: "current", expect: 'return "unavailable"' },
+
+  // --- §六 已落地: the five 57B-421 pinned, cited by file so the citation cannot rot on a line ---------------
+  "src/facts/units/unit-identity.ts": { kind: "current-file" },
+  "src/facts/units/membership-map.ts": { kind: "current-file" },
+  "src/base/fact-kind-registry.ts": { kind: "current-file" },
+  "src/base/partition-designation.ts": { kind: "current-file" }
 };
 
 interface Anchor {

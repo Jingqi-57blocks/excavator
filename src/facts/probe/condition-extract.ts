@@ -98,6 +98,25 @@ export interface AstGrepApi {
 export interface AstNode {
   /** A pattern string (`$A > $N`) or a rule object (`{ rule: { kind: "if_statement" } }`). */
   findAll(query: string | { rule: { kind: string } }): AstMatch[];
+  /** The grammar's node kind, e.g. `class_declaration`. */
+  kind(): string;
+  /**
+   * Whether this is a NAMED node rather than an anonymous token. Load-bearing for any kind-based walk: the
+   * `class` keyword token and an anonymous `class` expression (`export default class {}`) report the same kind
+   * string, and only `isNamed()` tells them apart.
+   */
+  isNamed(): boolean;
+  children(): AstNode[];
+  range(): AstRange;
+}
+/**
+ * A node's position. `index` is documented by `@ast-grep/napi` as a byte offset and MEASURED to be UTF-16 code
+ * units (see `facts/units/unit-identity.ts`); the name is the library's, the meaning is recorded where it is
+ * converted.
+ */
+export interface AstRange {
+  start: { line: number; column: number; index: number };
+  end: { line: number; column: number; index: number };
 }
 interface AstMatch {
   getMatch(name: string): { text(): string } | null;
