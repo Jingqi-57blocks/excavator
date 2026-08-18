@@ -1,5 +1,6 @@
 import type { ArtifactResult } from "../base/artifact-result.ts";
 import { summarizeSelection, type SelectionConservation } from "../base/conservation.ts";
+import { membershipCells } from "../base/fact-kind-registry.ts";
 import type { RowSetCompleteness, RowSetUnitKind } from "../base/row-set.ts";
 import { canonicalJson, sha256, stableJson } from "../base/util.ts";
 import { inventoryFactIdBaseOf, inventoryFactIdFor, inventoryUnitKind } from "../codegraph/function-inventory.ts";
@@ -51,9 +52,10 @@ export type SeatProjectionMiss = typeof SEAT_PROJECTION_MISSES[number];
  * Why a counted cell holds no seat and lost no budget. Closed, and every member is produced by a real path.
  *
  * `structure-not-in-pool` and `structure-unobserved` are deliberately two reasons and not one: the first says
- * the index knows a declaration in that cell and this feature's expansion never reached it (a scope question),
- * the second says nothing observed the cell at all (a coverage question). Collapsing them would hide which of
- * the two a widened budget could fix.
+ * the index filed a fact in that cell and this feature's expansion never reached it (a scope question), the
+ * second says the index filed none there at all (a coverage question). Collapsing them would hide which of the
+ * two a widened budget could fix — and getting the boundary between them wrong hides the same thing, which is
+ * why `groupZeroScore` reads the answer off layer 3's memberships instead of matching coordinates.
  */
 export const ZERO_SCORE_REASONS = [
   "channels-unavailable",
@@ -206,9 +208,19 @@ export interface AttributionAssemblyInput {
  * The units-digest check is a REFUSAL, not a warning. A `UnitId` names a cell of one partition generation; an
  * envelope written against another generation would join to ids that no longer exist and every one of its seats
  * would silently become a zero-score cell — the artifact would balance and be wrong. So a mismatch throws.
+ *
+ * `observedCells` is the OTHER thing the envelope answers, and it is read from the same memberships for the same
+ * reason: "which cells has a producer's fact been filed in" is a question layer 3 already wrote the answer to.
+ * Deriving it from coordinates instead is what this index exists to avoid — see `groupZeroScore`.
  */
 type SeatIndex =
-  | { readonly status: "available"; readonly byBaseFactId: ReadonlyMap<string, string>; readonly envelopeDigest: string }
+  | {
+    readonly status: "available";
+    readonly byBaseFactId: ReadonlyMap<string, string>;
+    /** Every cell any fact of this envelope names, across every membership shape. */
+    readonly observedCells: ReadonlySet<string>;
+    readonly envelopeDigest: string;
+  }
   | { readonly status: "unavailable" };
 
 function seatIndex(codegraph: ArtifactResult<ProducerFactSet>, unitsDigest: string): SeatIndex {
@@ -218,7 +230,9 @@ function seatIndex(codegraph: ArtifactResult<ProducerFactSet>, unitsDigest: stri
     throw new Error(`The codegraph fact envelope was written against partition generation ${JSON.stringify(envelope.identity.unitsContentDigest)} but this run's units artifact is ${JSON.stringify(unitsDigest)}; joining across generations would resolve seats to cells that do not exist in this partition`);
   }
   const byBaseFactId = new Map<string, string>();
+  const observedCells = new Set<string>();
   for (const fact of envelope.facts) {
+    for (const unitId of membershipCells(fact.membership)) observedCells.add(unitId);
     if (fact.membership.kind !== "unit") continue;
     // Two index nodes at the same coordinates get `base` and `base#2`, and both carry the SAME anchor, so the
     // mapper gives both the same cell. Joining on the base id is therefore lossless — and a disagreement would
@@ -230,7 +244,7 @@ function seatIndex(codegraph: ArtifactResult<ProducerFactSet>, unitsDigest: stri
     }
     byBaseFactId.set(base, fact.membership.unitId);
   }
-  return { status: "available", byBaseFactId, envelopeDigest: sha256(canonicalJson(envelope)) };
+  return { status: "available", byBaseFactId, observedCells, envelopeDigest: sha256(canonicalJson(envelope)) };
 }
 
 /** One node's projection outcome: the cell it reached, or the visible bucket it fell into. */
@@ -273,8 +287,24 @@ interface CellFacts {
   readonly relativePath: string;
   readonly language: string | null;
   readonly isResidual: boolean;
-  /** Whether any layer-3 fact points at this cell at all — the difference between "not reached" and "unseen". */
-  readonly observed: boolean;
+}
+
+/**
+ * The cell a projection reached, or a refusal.
+ *
+ * Same failure as the cross-generation check in `seatIndex`, one join later: a membership naming a cell this
+ * partition does not hold. It used to be a silent `continue`, and that was WORSE than the zero-score drop the
+ * generation check exists to prevent — the node had already been counted in `retainedSeated`, so the census said
+ * "seated", the seat list held no row for it, and the conservation sum said nothing was seated. Three published
+ * answers to one question, and no error anywhere. `project()` promises every retained node lands in exactly one
+ * of five buckets; a node that reaches here and finds no cell is a sixth, so it stops the artifact.
+ */
+function cellOf(cells: ReadonlyMap<string, CellFacts>, projection: { readonly unitId: string; readonly factId: string }): CellFacts {
+  const cell = cells.get(projection.unitId);
+  if (cell === undefined) {
+    throw new Error(`Fact ${JSON.stringify(projection.factId)} carries a membership in cell ${JSON.stringify(projection.unitId)}, which is not a cell of this run's partition; seating a node against a cell that does not exist would count it as seated and publish no seat for it`);
+  }
+  return cell;
 }
 
 function buildSelection(
@@ -305,8 +335,7 @@ function buildSelection(
         displacedNodes += 1;
         if (projection.kind !== "seated") { displacedMiss[projection.kind] += 1; continue; }
         displacedProjected += 1;
-        const cell = cells.get(projection.unitId);
-        if (cell === undefined) continue; // a membership naming a cell outside the partition cannot occur; §四
+        const cell = cellOf(cells, projection);
         displacedCells.add(projection.unitId);
         displacements.push({
           unitId: projection.unitId,
@@ -323,8 +352,7 @@ function buildSelection(
       retainedNodes += 1;
       if (projection.kind !== "seated") { retainedMiss[projection.kind] += 1; continue; }
       retainedSeated += 1;
-      const cell = cells.get(projection.unitId);
-      if (cell === undefined) continue;
+      const cell = cellOf(cells, projection);
       seatedCells.add(projection.unitId);
       seats.push({
         unitId: projection.unitId,
@@ -387,9 +415,17 @@ function buildSelection(
  * Every cell that is neither seated nor displaced, counted by (module x language x reason).
  *
  * The reason is decided per cell and the enumeration is total: a run whose channels never ran gives every cell
- * the same reason; otherwise a residual cell says so, and a structure cell says whether any producer observed it
- * — which is the distinction between "this feature's pool never reached it" and "nothing in this run has ever
- * looked at it".
+ * the same reason; otherwise a residual cell says so, and a structure cell says whether the producer the channels
+ * select over filed any fact in it — which is the distinction between "this feature's pool never reached it" and
+ * "the index has never looked at it".
+ *
+ * THE OBSERVATION ANSWER IS LAYER 3'S, READ AND NOT RECOMPUTED. It used to be "some reference unit with the
+ * SAME (path, startByte, endByte) as this cell was observed", which is a coordinate match, which is the second
+ * mapping algorithm §一 forbids the consumer to own — and it was wrong in the ordinary case, not the exotic one:
+ * a reference unit at depth ≥ 2 (a method inside a class) never has a cell's span, and neither does a
+ * `reported-span` unit, so a cell whose only observation was a nested one came out `structure-unobserved` when
+ * the truth was `structure-not-in-pool`. §一's own remedy applies unchanged — associate by the membership
+ * layer 3 wrote — so the answer now comes off `fact.membership`, which is the same join the seats use.
  */
 function groupZeroScore(
   cells: ReadonlyMap<string, CellFacts>,
@@ -404,7 +440,7 @@ function groupZeroScore(
     const reason: ZeroScoreReason = forced !== null ? forced
       : index.status === "unavailable" ? "channels-unavailable"
       : cell.isResidual ? "residual-no-channel-contribution"
-      : cell.observed ? "structure-not-in-pool"
+      : index.observedCells.has(unitId) ? "structure-not-in-pool"
       : "structure-unobserved";
     const key = JSON.stringify([cell.rootName, cell.language, reason]);
     const existing = groups.get(key);
@@ -426,21 +462,13 @@ export function assembleAttributionArtifact(input: AttributionAssemblyInput): At
   const counted = new Set(input.countedPaths);
 
   const languageByPath = new Map(input.units.files.map((file) => [file.relativePath, file.language] as const));
-  // Which cells any producer's fact points at. Read off the units artifact's OWN observation record rather than
-  // recomputed: `observedBy` is the merge across producers, and a second derivation here would be a second
-  // answer to "was this unit observed".
-  const observedSpans = new Set<string>();
-  for (const unit of input.units.refUnits) {
-    if (unit.observedBy.length) observedSpans.add(spanKey(unit.relativePath, unit.span.startByte, unit.span.endByte));
-  }
   const cells = new Map<string, CellFacts>();
   for (const cell of input.units.partition) {
     cells.set(cell.unitId, {
       rootName: cell.rootName,
       relativePath: cell.relativePath,
       language: languageByPath.get(cell.relativePath) ?? null,
-      isResidual: cell.partitionKind === "residual",
-      observed: observedSpans.has(spanKey(cell.relativePath, cell.span.startByte, cell.span.endByte))
+      isResidual: cell.partitionKind === "residual"
     });
   }
 
@@ -475,11 +503,6 @@ export function assembleAttributionArtifact(input: AttributionAssemblyInput): At
       .sort((a, b) => a.featureKey.localeCompare(b.featureKey))
       .map((selection) => buildSelection(selection.featureKey, selection.trace, cells, index, counted, rowSet.unitKind))
   };
-}
-
-/** A path plus a byte interval as one lookup key. JSON-encoded, so no separator can appear in a path. */
-function spanKey(relativePath: string, startByte: number, endByte: number): string {
-  return JSON.stringify([relativePath, startByte, endByte]);
 }
 
 /**

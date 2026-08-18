@@ -451,6 +451,15 @@ test("an unreadable target leaves a failed run directory whose layer-1 ledger re
   assert.equal(mechanisms.status, "unavailable");
   if (mechanisms.status === "unavailable") assert.match(mechanisms.cause, /does-not-exist/);
 
+  // Layer 4 follows for the same reason one layer up, and it is asserted rather than assumed: `attribution-stage.ts`
+  // claims to write on the success path and the failure path alike, and only the failure half was ever unread.
+  const attribution = JSON.parse(await readFile(join(runDir, "attribution", "attribution.json"), "utf8")) as ArtifactResult<unknown>;
+  assert.equal(attribution.status, "unavailable", "a run with no selection writes the record, it does not omit the file");
+  if (attribution.status === "unavailable") {
+    assert.match(attribution.cause, /no selection to attribute/);
+    assert.match(attribution.cause, /does-not-exist/, "and it names the cause it inherited rather than restating one");
+  }
+
   const manifest = await readManifest(runDir);
   assert.equal(manifest.state, "failed");
   assert.equal(manifest.snapshot, null);

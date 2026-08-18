@@ -73,6 +73,30 @@ const HANDLER_PY = [
 /** `.ejs` is not a registered extension, so layer 1 never counts it and no cell exists for it. */
 const PAGE_EJS = "<%= title %>\n";
 
+/**
+ * A class with a method inside it, on its own target: the ONE shape that separates "which cell does layer 3 say
+ * this fact is in" from "which reference unit has the same span as this cell".
+ *
+ * The class is the file's only structure CELL; the method is a reference unit at depth 2, so no cell anywhere
+ * carries its span. An index that reports only the method therefore observes the class's cell — and a
+ * coordinate match cannot see that, which is what this fixture pins.
+ */
+const SERVICE_TS = [
+  "export class AccessService {",  // 1
+  "  grant() {",                   // 2
+  "    return true;",              // 3
+  "  }",                           // 4
+  "}",                             // 5
+  ""
+].join("\n");
+
+async function nestedTarget(): Promise<string> {
+  const target = await tempDir("excavator-attribution-nested-");
+  await mkdir(join(target, "src"), { recursive: true });
+  await writeFile(join(target, "src", "service.ts"), SERVICE_TS);
+  return target;
+}
+
 async function fixtureTarget(): Promise<string> {
   const target = await tempDir("excavator-attribution-target-");
   await mkdir(join(target, "src"), { recursive: true });
@@ -115,9 +139,9 @@ interface Layer3 {
   readonly target: string;
 }
 
-/** The real layer-3 pipeline over the fixture target, with the index reporting `nodes`. */
-async function layer3(nodes: readonly GraphNode[]): Promise<Layer3> {
-  const target = await fixtureTarget();
+/** The real layer-3 pipeline over one fixture target, with the index reporting `nodes`. */
+async function layer3(nodes: readonly GraphNode[], targetFactory: () => Promise<string> = fixtureTarget): Promise<Layer3> {
+  const target = await targetFactory();
   const cacheDir = await tempDir("excavator-attribution-cache-");
   const { ledger } = await createSnapshot(target, 100_000, { cacheDir });
   const counted = (ledger as FileLedger).counted;
@@ -212,6 +236,9 @@ const EJS_RENDER = graphNode({ id: "n5", kind: "function", name: "render", fileP
 /** A kind the inventory does not claim; it is a role, not a declaration. */
 const ROUTE = graphNode({ id: "n6", kind: "route", name: "GET /access", filePath: "src/app.ts", startLine: 1, endLine: 1 });
 
+/** Lives on `nestedTarget` only: a method at depth 2, whose enclosing class the index never reports. */
+const SERVICE_GRANT = graphNode({ id: "n7", kind: "method", name: "grant", filePath: "src/service.ts", startLine: 2, endLine: 4 });
+
 const ALL_NODES = [GRANT, REVOKE, GRANT_TWIN, PY_HANDLE, EJS_RENDER, ROUTE];
 
 // --- the projection: every retained node in exactly one visible bucket -----------------------------------------
@@ -252,6 +279,50 @@ test("a Python file under a file-level partition seats in its RESIDUAL cell — 
   const cell = layer.units.partition.find((row) => row.unitId === seat.unitId);
   assert.equal(cell?.partitionKind, "residual", "the python file's only cell is residual, and it holds a seat");
   assert.equal(artifact.selections[0]!.projection.retained.missCounts["no-matching-fact"], 0);
+});
+
+test("no-matching-fact has both its fixtures: a node with no line range, and a structure the index never reported", async () => {
+  const layer = await layer3(ALL_NODES);
+  // An inventoried kind in a counted file, and NO line range: `inventoryFactIdFor` mints nothing, so layer 3
+  // published no fact to join against. The bucket is the same one an unpublished fact lands in, and it has to be
+  // reachable — `TraceNode.startLine` is nullable precisely because the index really reports rows like this.
+  const noLineRange: TraceNode = {
+    nodeId: "n90", nodeKind: "function", name: "grantAccess", relativePath: "src/app.ts",
+    startLine: null, endLine: null, outcome: "stage1", score: 12, reason: "", displacedBy: null
+  };
+  // The other road into the bucket: a real structure with real lines that the fixture's index never reported.
+  const unreported = traced(graphNode({ id: "n91", kind: "function", name: "neverIndexed", filePath: "src/app.ts", startLine: 7, endLine: 9 }), "stage1");
+  const artifact = assemble(layer, [{ featureKey: "f1", trace: ranTrace([noLineRange, unreported]) }]);
+  const selection = artifact.selections[0]!;
+  assert.deepEqual(selection.projection.retained, {
+    nodes: 2,
+    seated: 0,
+    missCounts: { "envelope-unavailable": 0, "file-not-counted": 0, "kind-not-inventoried": 0, "no-matching-fact": 2 }
+  });
+  assert.deepEqual(selection.seats, [], "neither node reached a cell, so neither may appear as a seat");
+});
+
+test("a cell whose only observation is a NESTED structure reads as not-in-pool, not as unobserved", async () => {
+  const layer = await layer3([SERVICE_GRANT], nestedTarget);
+  // The premise, stated before the assertion: layer 3 filed the method's fact in the CLASS's cell, and the
+  // method's own reference unit is nested, so no cell in this partition carries its span.
+  const fact = layer.envelope.facts.find((row) => row.detail.name === "grant");
+  assert.ok(fact && fact.membership.kind === "unit", `the fixture must produce one method fact: ${JSON.stringify(layer.envelope.facts)}`);
+  const cell = layer.units.partition.find((row) => row.unitId === (fact.membership as { unitId: string }).unitId);
+  assert.equal(cell?.partitionKind, "structure");
+  assert.equal(cell?.unitKind, "class", "the cell is the outermost structure; the method lives inside it");
+  const method = layer.units.refUnits.find((unit) => unit.unitKind === "method");
+  assert.ok(method, "the builder found the method as a reference unit");
+  assert.deepEqual(method.observedBy, ["codegraph"], "and the observation attached to THAT unit, not to the class");
+  assert.ok(method.depth !== null && method.depth >= 2, `nested, so its span is no cell's span: depth ${method.depth}`);
+  assert.notDeepEqual(method.span, cell!.span, "which is exactly what a span-tuple join loses");
+
+  const selection = assemble(layer, [{ featureKey: "f1", trace: ranTrace([]) }]).selections[0]!;
+  const reasons = selection.zeroScore.map((group) => group.reason);
+  assert.ok(!reasons.includes("structure-unobserved"),
+    `the index filed a fact in this file's only structure cell, so nothing here is unobserved: ${JSON.stringify(selection.zeroScore)}`);
+  assert.ok(reasons.includes("structure-not-in-pool"),
+    `the cell is observed and this feature never pooled it, which is a scope answer: ${JSON.stringify(selection.zeroScore)}`);
 });
 
 test("two index nodes at one coordinate join by base fact id and seat ONE cell", async () => {
@@ -363,6 +434,33 @@ test("two memberships under one base fact id are refused rather than averaged", 
   assert.throws(
     () => assemble(layer, [{ featureKey: "f1", trace: ranTrace([traced(GRANT, "stage1", 1000)]) }], { codegraph: built(forged) }),
     /two memberships/
+  );
+});
+
+test("a same-generation envelope whose membership names a cell outside the partition is refused, not skipped", async () => {
+  const layer = await layer3(ALL_NODES);
+  // The generation check cannot see this one: the digest IS this run's, and every membership is individually
+  // well-formed. What is broken is the JOIN — and the same dangling id on every fact keeps the two-memberships
+  // check from firing first, which is exactly how a probe reached the silent path.
+  const dangling = "cell:structure:0-1:src/nowhere.ts";
+  const forged = {
+    ...layer.envelope,
+    facts: layer.envelope.facts.map((fact) => ({ ...fact, membership: { kind: "unit" as const, unitId: dangling } }))
+  };
+  assert.equal(forged.identity.unitsContentDigest, unitsContentDigest(layer.units), "same generation: the digest check passes");
+  assert.equal(layer.units.partition.some((cell) => cell.unitId === dangling), false, "and no cell of this partition carries that id");
+
+  // Silently skipping this published three contradictory answers at once: the census said one node was seated,
+  // `seats` held no row, and conservation said nothing was seated. Both arms of the projection must refuse it.
+  assert.throws(
+    () => assemble(layer, [{ featureKey: "f1", trace: ranTrace([traced(GRANT, "stage1", 1000)]) }], { codegraph: built(forged) }),
+    /is not a cell of this run's partition/,
+    "a retained node joined to a cell that does not exist must stop the artifact"
+  );
+  assert.throws(
+    () => assemble(layer, [{ featureKey: "f1", trace: ranTrace([traced(GRANT, "displaced")]) }], { codegraph: built(forged) }),
+    /is not a cell of this run's partition/,
+    "and so must a displaced one — the displacement census counts it as projected before the cell is read"
   );
 });
 
