@@ -22,6 +22,7 @@ import type {
 } from "../base/types.ts";
 import { exists, nowIso, redactSecrets, safeRelative, sha256, stableJson } from "../base/util.ts";
 import { recordedUnderRedaction, runUsesCurrentAssurance } from "../base/assurance-version.ts";
+import { readContentRef } from "./evidence-store.ts";
 
 const PROJECT_HYPOTHESES: Array<[string, string]> = [
   ["literal-secrets", "Credentials, private keys, tokens or cryptographic secrets are written as source literals."],
@@ -230,7 +231,7 @@ export function workItemsToChecklist(plan: InvestigationPlan): InvestigationChec
   };
 }
 
-export async function auditEvidenceCatalog(manifest: RunManifest, evidence: EvidenceItem[]): Promise<AuditFinding[]> {
+export async function auditEvidenceCatalog(runDir: string, manifest: RunManifest, evidence: EvidenceItem[]): Promise<AuditFinding[]> {
   const findings: AuditFinding[] = [];
   const seen = new Set<string>();
   for (const item of evidence) {
@@ -242,7 +243,7 @@ export async function auditEvidenceCatalog(manifest: RunManifest, evidence: Evid
     }
     if (item.snapshotId !== manifest.snapshot.id) findings.push(error("evidence", `${item.id} belongs to snapshot ${item.snapshotId || "<missing>"}, expected ${manifest.snapshot.id}`));
     if (item.content != null) {
-      findings.push(...await auditSourceEvidence(manifest, item));
+      findings.push(...await auditSourceEvidence(runDir, manifest, item));
       continue;
     }
     if (item.data === undefined) {
@@ -255,13 +256,18 @@ export async function auditEvidenceCatalog(manifest: RunManifest, evidence: Evid
   return findings;
 }
 
-async function auditSourceEvidence(manifest: RunManifest, item: EvidenceItem): Promise<AuditFinding[]> {
+async function auditSourceEvidence(runDir: string, manifest: RunManifest, item: EvidenceItem): Promise<AuditFinding[]> {
+  let recorded = item;
+  if (item.contentRef) {
+    try { recorded = JSON.parse((await readContentRef(runDir, item.contentRef)).toString("utf8")) as EvidenceItem; }
+    catch { return [error("evidence", `${item.id} contentRef does not contain its pre-truncation evidence record`)]; }
+  }
   // Legacy runs predate the current redaction/strict-check version. Re-deriving the redacted window
   // with today's logic would spuriously fail them, so grandfather the re-derivation checks and
   // instead verify the archived excerpt against its own stored digest: catalog tampering is still
   // caught, without reading a source file that may have drifted since the run was created.
   if (!runUsesCurrentAssurance(manifest)) {
-    if (item.content != null && sha256(item.content) !== item.digest) {
+    if (recorded.content != null && sha256(recorded.content) !== recorded.digest) {
       return [error("evidence", `${item.id} stored excerpt does not match its own recorded digest`)];
     }
     return [];
@@ -283,8 +289,8 @@ async function auditSourceEvidence(manifest: RunManifest, item: EvidenceItem): P
   const excerpt = lines.slice(item.startLine - 1, item.endLine).join("\n");
   const selected = recordedUnderRedaction(manifest) ? redactSecrets(excerpt) : excerpt;
   const digest = sha256(selected);
-  if (digest !== item.digest) findings.push(error("evidence", `${item.id} source digest is stale for ${item.path}:${item.startLine}-${item.endLine}`));
-  if (selected !== item.content) findings.push(error("evidence", `${item.id} stored excerpt does not match the current redacted source window`));
+  if (digest !== recorded.digest) findings.push(error("evidence", `${item.id} source digest is stale for ${item.path}:${item.startLine}-${item.endLine}`));
+  if (selected !== recorded.content) findings.push(error("evidence", `${item.id} stored excerpt does not match the current redacted source window`));
   return findings;
 }
 
@@ -316,7 +322,7 @@ export function auditChecklist(checklist: InvestigationChecklist, expected: Inve
     } else if (item.verdict === "cannot-determine") {
       if (!item.reason?.trim() || !item.settledBy?.trim()) findings.push(error("checklist", `cannot-determine item requires reason and settledBy: ${item.id}`));
       if (!item.evidenceIds.length) findings.push(error("checklist", `cannot-determine item has no evidence for the analysis limitation: ${item.id}`));
-      const limitationKinds = new Set(["search", "coverage", "graph", "manifest", "git"]);
+      const limitationKinds = new Set(["search", "coverage", "graph", "manifest", "git", "ledger"]);
       if (item.evidenceIds.length && !item.evidenceIds.some((id) => limitationKinds.has(evidenceById.get(id)?.kind ?? ""))) {
         findings.push(error("checklist", `cannot-determine item cites no coverage, graph, manifest, git or search evidence: ${item.id}`));
       }

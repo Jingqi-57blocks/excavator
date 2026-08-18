@@ -316,7 +316,7 @@ async function buildSharedContext(snapshot: Snapshot, files: ScannedFile[], grap
   evidence.push({
     id: `GIT-${snapshot.id}`,
     snapshotId: snapshot.id,
-    kind: "git",
+    kind: "ledger",
     title: "Source snapshot",
     data: { roots: snapshot.roots, snapshotId: snapshot.id },
     reason: "record the immutable source boundary used by the report",
@@ -574,7 +574,7 @@ function renderOverviewContext(audience: Audience, language: string): string {
 - Output language: ${language}
 - Read the shared project context once from \`context/shared.md\`.
 - When two or more features are prepared, the shared context ends with a "Cross-feature relationships" section and the same data is in \`context/cross-feature.json\`; use it for the cross-feature relationship matrix. It is deterministic prepared context, not an audited claim.
-- Read the evidence catalog from \`evidence.json\` only when a cited item needs full detail.
+- After freeze, read this document's bounded \`context/authoring/<document-id>.md\` view. Do not load the machine evidence catalog or content store into the model context.
 - Describe the current source snapshot only. State observed problems, but do not recommend fixes or future architecture.
 - Inference from code is allowed when marked and grounded.
 - Additional source must be recorded through the Excavator source command before use.
@@ -597,7 +597,7 @@ function renderFeatureContext(audience: Audience, language: string, subject: str
 - Output language: ${language}
 - Reuse \`context/shared.md\`; do not reread or rebuild project-wide context.
 - Read the feature scope once from \`context/features/${key}.md\`.
-- Read \`evidence.json\` only for full evidence details.
+- After freeze, read this document's bounded \`context/authoring/<document-id>.md\` view. Do not load the machine evidence catalog or content store into the model context.
 - Describe current state and current problems only. Do not recommend fixes.
 - Inference from code is allowed when marked and grounded.
 

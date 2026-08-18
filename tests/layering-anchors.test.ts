@@ -42,11 +42,11 @@ const ANCHORS: Record<string, Classification> = {
   // --- layer 1's ledger, layers 7 and 8, the epoch model -----------------------------------------------------
   "snapshot.ts:213": { kind: "historical", why: "the pre-57B-418 line where an unregistered extension never became a candidate; the document says 修之前 and keeps it as provenance" },
   "src/snapshot/source.ts:29": { kind: "current", expect: "export function windowCacheVersion" },
-  "src/freeze/freeze.ts:137": { kind: "current", expect: "completeness: buildCompleteness(plan)" },
-  "src/base/assurance-version.ts:81": { kind: "current", expect: "export function runUsesCurrentAssurance" },
-  "src/run/stages/investigation-stage.ts:34": { kind: "current", expect: "plan.items.some((item) => item.id === normalized.workItemId)" },
+  "src/freeze/freeze.ts:147": { kind: "current", expect: "completeness: buildCompleteness(plan)" },
+  "src/base/assurance-version.ts:84": { kind: "current", expect: "export function runUsesCurrentAssurance" },
+  "src/run/stages/investigation-stage.ts:35": { kind: "current", expect: "plan.items.some((item) => item.id === normalized.workItemId)" },
   "src/crossrepo/link-match.ts:41": { kind: "current", expect: "export interface MatchedLink" },
-  "src/run/run.ts:309": { kind: "current", expect: "createInvestigationPlan(runId, effectiveRequest, documents)" },
+  "src/run/run.ts:310": { kind: "current", expect: "createInvestigationPlan(runId, effectiveRequest, documents)" },
 
   // --- §二: the seven edges, as a landing record --------------------------------------------------------------
   // The "before" column is where each violating import USED to sit. Several of those line numbers now happen to
@@ -83,9 +83,11 @@ const ANCHORS: Record<string, Classification> = {
   "src/base/conservation.ts": { kind: "current-file" },
 
   // --- §四 the four laws ------------------------------------------------------------------------------------
-  "src/base/timeline.ts:18-19": { kind: "current", expect: "events.at(-1)" },
+  "src/base/timeline.ts:18-19": { kind: "historical", why: "the pre-57B-430 full-history read on every timeline append; the document explicitly says 57B-430 前" },
+  "src/base/single-writer.ts:29-51": { kind: "current", expect: "export async function withRunWriter" },
+  "src/investigation/evidence-store.ts:116-132": { kind: "current", expect: "export async function appendEvidence" },
   "src/report/parallel-authoring.ts:100-110": { kind: "current", expect: "export async function collectDrafts" },
-  "src/run/stages/investigation-stage.ts:152": { kind: "current", expect: "manifest.evidenceDigest = sha256(stableJson(catalog.evidence))" },
+  "src/run/stages/investigation-stage.ts:152": { kind: "historical", why: "the pre-57B-430 full-catalog normalize-and-hash on each evidence append; the document explicitly says 57B-430 前" },
   "src/workset/factpack-view.ts:54": { kind: "current", expect: "maxRowsPerCategory = 60" },
 
   // --- §五 P1-P18 -------------------------------------------------------------------------------------------

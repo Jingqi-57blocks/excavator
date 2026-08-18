@@ -165,10 +165,10 @@ const SLOTS: RegistryEntry[] = [
     title: "Evidence catalog (append until freeze)",
     pathTemplate: "evidence.json",
     cardinality: "append-stream",
-    schemaId: "evidence-catalog-v1",
-    validatorVersion: "evidence-catalog-validator-v1",
+    schemaId: "evidence-catalog-v2-bounded-shards",
+    validatorVersion: "evidence-catalog-validator-v2",
     enforced: true,
-    enforcementNote: "Exists from prepare onward and is digest-bound to the manifest; its stream identity is registered so freeze can pin the cutoff."
+    enforcementNote: "Exists from prepare onward; every kind passes the same scalar/record bound, immutable content store and shard cap, while a single-writer tail checkpoint lets freeze pin the cutoff without per-append full rewrites."
   },
   {
     id: "investigation.timeline",
@@ -177,9 +177,9 @@ const SLOTS: RegistryEntry[] = [
     pathTemplate: "timeline.jsonl",
     cardinality: "append-stream",
     schemaId: "timeline-v1",
-    validatorVersion: "timeline-validator-v1",
+    validatorVersion: "timeline-validator-v2-tail-checkpoint",
     enforced: true,
-    enforcementNote: "Written from the first prepare event onward; the chain plus a continuous sequence is its verification, not byte determinism."
+    enforcementNote: "Written from the first prepare event onward through the shared single writer; the chain, tail checkpoint and continuous sequence are its verification, not byte determinism."
   },
   {
     id: "freeze.sealed-knowledge",
