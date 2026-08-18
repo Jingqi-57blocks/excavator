@@ -110,10 +110,10 @@ const SLOTS: RegistryEntry[] = [
     title: "Per-feature fact pack",
     pathTemplate: "context/features/{feature}.factpack.json",
     cardinality: "per-feature",
-    schemaId: "factpack-v1",
-    validatorVersion: "factpack-validator-v1",
+    schemaId: "factpack-v2",
+    validatorVersion: "factpack-validator-v2",
     enforced: true,
-    enforcementNote: "Written for every feature at prepare today; instance-level enforcement is what keeps one feature's pack from covering another's."
+    enforcementNote: "Written for every feature after layer-4 attribution; every machine row carries a copied layer-3 membership or a written unjoined reason plus a seeded/retained/co-located/not-applicable relation."
   },
   {
     id: "workset.scope-census",

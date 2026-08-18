@@ -29,6 +29,8 @@ export const LAYERING_REGISTRY: readonly RegistryEntry[] = [
   { dir: "src/facts", layer: "L3" },
   { dir: "src/attribution", layer: "L4" },
   { dir: "src/context", layer: "L5" },
+  { dir: "src/workset", layer: "L5" },
+  { dir: "src/investigation", layer: "L7" },
 
   // --- src/assurance/: the known mixed directory, knowledge side and report side in one folder -----------
   { file: "src/assurance/timeline.ts", layer: "base" },

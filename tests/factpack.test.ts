@@ -3,15 +3,17 @@ import assert from "node:assert/strict";
 import { join } from "node:path";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import type { DatabaseSync } from "node:sqlite";
-import { FACT_PACK_CATEGORIES, buildFactPack, factPackEvidence, factPackEvidenceId } from "../src/context/factpack.ts";
+import { FACT_PACK_CATEGORIES, buildFactPack } from "../src/context/factpack.ts";
+import { factPackEvidence, factPackEvidenceId } from "../src/workset/factpack-view.ts";
 import { CodeGraphIndex } from "../src/codegraph/codegraph.ts";
 import { SourceReader } from "../src/snapshot/source.ts";
 import { scanFiles } from "../src/snapshot/snapshot.ts";
 import { buildContexts } from "../src/context/context.ts";
 import { prepareRun } from "../src/run/run.ts";
 import { Deadline, stableJson } from "../src/base/util.ts";
-import type { EvidenceItem, FactPackCategory, FeatureFactPack, ReportRequest } from "../src/base/types.ts";
+import type { CollectedFeatureFactPack, EvidenceItem, FactPackCategory, FeatureFactPack, ReportRequest } from "../src/base/types.ts";
 import { copyFixture, createCodeGraphFixture, createCodeGraphSchema, insertGraphFile, insertGraphNode, tempDir } from "./helpers.ts";
+import { v2Pack } from "./factpack-v2-fixture.ts";
 
 const BOUNDARY_SOURCES: Record<string, string> = {
   // Inside the boundary, but nothing in it matches the feature vocabulary: a scored scope node
@@ -101,7 +103,7 @@ async function boundary(withGraph: boolean): Promise<Boundary> {
   return { ...scope, graph: new CodeGraphIndex(dbPath, 40, new Deadline(30_000, "fact pack test"), paths) };
 }
 
-function pack(scope: Boundary, limits?: { maxItemsPerCategory?: number; maxEntityWindows?: number }): Promise<FeatureFactPack> {
+function pack(scope: Boundary, limits?: { maxItemsPerCategory?: number; maxEntityWindows?: number }): Promise<CollectedFeatureFactPack> {
   return buildFactPack({
     snapshotId: "snapshot-fact-pack",
     featureKey: "leave-management-abc123",
@@ -112,11 +114,11 @@ function pack(scope: Boundary, limits?: { maxItemsPerCategory?: number; maxEntit
   });
 }
 
-function items(factPack: FeatureFactPack, category: FactPackCategory): Array<{ name: string; location: string; source: string }> {
+function items(factPack: Pick<CollectedFeatureFactPack, "items"> | Pick<FeatureFactPack, "items">, category: FactPackCategory): Array<{ name: string; location: string; source: string }> {
   return factPack.items.filter((item) => item.category === category).map((item) => ({ name: item.name, location: `${item.filePath}:${item.line}`, source: item.source }));
 }
 
-function coverage(factPack: FeatureFactPack, category: FactPackCategory) {
+function coverage(factPack: Pick<CollectedFeatureFactPack, "coverage"> | Pick<FeatureFactPack, "coverage">, category: FactPackCategory) {
   return factPack.coverage.find((entry) => entry.category === category)!;
 }
 
@@ -125,7 +127,7 @@ test("a fact pack enumerates every category inside the boundary and prefers the 
   const factPack = await pack(scope);
   scope.graph?.close();
 
-  assert.equal(factPack.version, "factpack-v1");
+  assert.equal(factPack.version, "factpack-collected-v1");
   assert.deepEqual(factPack.coverage.map((entry) => entry.category), FACT_PACK_CATEGORIES);
 
   assert.deepEqual(items(factPack, "entrypoints"), [
@@ -300,7 +302,13 @@ test("a config key used in several places is enumerated once and keeps its occur
 
 test("every category carries one derived evidence item, including the empty ones", async () => {
   const scope = await boundary(false);
-  const factPack = await pack(scope);
+  const collected = await pack(scope);
+  const factPack = v2Pack(collected.items, {
+    featureKey: collected.featureKey,
+    snapshotId: collected.snapshotId,
+    coverage: collected.coverage,
+    warnings: collected.warnings
+  });
   const evidence = factPackEvidence(factPack);
 
   assert.deepEqual(evidence.map((item) => item.id), FACT_PACK_CATEGORIES.map((category) => `FACT-leave-mana-${category}-snapshot`));
@@ -309,7 +317,7 @@ test("every category carries one derived evidence item, including the empty ones
   assert.deepEqual((entities.data as { items: unknown[] }).items, [], "an empty category is still stated as a fact");
 });
 
-test("the sample target's fact pack enumerates its Hono route and reports the empty categories honestly", async () => {
+test("buildContexts keeps the collected fact pack internal until layer 5", async () => {
   const target = await copyFixture();
   const workdir = await tempDir();
   const db = join(workdir, "codegraph.db");
@@ -325,7 +333,7 @@ test("the sample target's fact pack enumerates its Hono route and reports the em
     budgets: { prepareMs: 30_000, authorMs: 30_000, maxGraphQueries: 60, maxSourceWindows: 50, maxSourceCharacters: 120_000, maxFiles: 10_000, maxFeatureNodes: 60, maxExpansionDepth: 2 }
   };
   const result = await buildContexts(request);
-  const [key, factPack] = [...result.prepared.featureFactPacks.entries()][0];
+  const [key, factPack] = [...result.prepared.collectedFactPacks.entries()][0];
 
   assert.deepEqual(items(factPack, "entrypoints"), [{ name: "GET /leave", location: "src/server.ts:5", source: "graph" }]);
   assert.deepEqual(
@@ -337,7 +345,7 @@ test("the sample target's fact pack enumerates its Hono route and reports the em
   assert.ok(result.prepared.featureScopes.get(key)!.files.includes("src/LeavePanel.vue"), "the Vue entry file is inside the boundary the pack was built from");
 
   const evidenceIds = new Set(result.prepared.evidence.map((item) => item.id));
-  for (const category of FACT_PACK_CATEGORIES) assert.ok(evidenceIds.has(factPackEvidenceId(key, category, factPack.snapshotId)), `missing fact pack evidence for ${category}`);
+  for (const category of FACT_PACK_CATEGORIES) assert.ok(!evidenceIds.has(factPackEvidenceId(key, category, factPack.snapshotId)), `layer 4 must not publish pre-annotation FACT evidence for ${category}`);
 });
 
 test("prepare writes the fact pack as JSON, as a markdown section and as per-category evidence", async () => {
@@ -356,29 +364,31 @@ test("prepare writes the fact pack as JSON, as a markdown section and as per-cat
   const key = manifest.documents[0].id.replace(/^feature-/, "").replace(/-engineering$/, "");
 
   const factPack = JSON.parse(await readFile(join(runDir, "context", "features", `${key}.factpack.json`), "utf8")) as FeatureFactPack;
-  assert.equal(factPack.version, "factpack-v1");
+  assert.equal(factPack.version, "factpack-v2");
   assert.equal(factPack.featureKey, key);
   assert.equal(factPack.snapshotId, manifest.snapshot?.id);
   assert.deepEqual(factPack.coverage.map((entry) => entry.category), FACT_PACK_CATEGORIES);
   assert.ok(factPack.items.every((item) => item.filePath && item.line > 0 && item.name && ["graph", "scan"].includes(item.source)));
   assert.deepEqual(items(factPack, "entrypoints"), [{ name: "app.get /leave", location: "src/server.ts:5", source: "scan" }]);
+  assert.equal(factPack.items.find((item) => item.category === "entrypoints")?.relation.kind, "co-located");
 
   const context = await readFile(join(runDir, "context", "features", `${key}.md`), "utf8");
   assert.match(context, /## Authoring inventory/);
   assert.match(context, /## Fact pack/);
-  assert.match(context, new RegExp(`### entrypoints — 1 item, method scan, evidence ${factPackEvidenceId(key, "entrypoints", factPack.snapshotId)}`));
-  assert.match(context, /\| app\.get \/leave \| `src\/server\.ts:5` \| scan \|/);
-  assert.match(context, /### jobs — 0 items, method scan/);
-  assert.match(context, /### entities — 0 items, method none[\s\S]*?absence here is not evidence of absence in the code/);
+  assert.match(context, new RegExp(`### entrypoints — 0 consumable of 1 machine item, method scan, evidence ${factPackEvidenceId(key, "entrypoints", factPack.snapshotId)}`));
+  assert.doesNotMatch(context, /app\.get \/leave/, "a co-located scan row must not enter the model view");
+  assert.match(context, /### jobs — 0 consumable of 0 machine items, method scan/);
+  assert.match(context, /### entities — 0 consumable of 0 machine items, method none[\s\S]*?absence here is not evidence of absence in the code/);
   assert.match(context, new RegExp(`context/features/${key}\\.factpack\\.json`));
 
   const catalog = JSON.parse(await readFile(join(runDir, "evidence.json"), "utf8")) as { evidence: EvidenceItem[] };
   const factEvidence = catalog.evidence.filter((item) => item.id.startsWith("FACT-"));
   assert.equal(factEvidence.length, 7);
   assert.ok(factEvidence.every((item) => item.kind === "derived" && item.snapshotId === manifest.snapshot?.id));
+  assert.ok(factEvidence.every((item) => ((item.data as { items?: unknown[] }).items ?? []).length === 0), "co-located scan rows produce no automatic fact evidence rows");
 });
 
-test("detailed feature prompts require item-by-item fact pack coverage; overview prompts do not", async () => {
+test("detailed feature prompts require item-by-item consumable fact coverage; overview prompts do not", async () => {
   const target = await copyFixture();
   const workdir = await tempDir();
   const { runDir, manifest } = await prepareRun({
@@ -397,7 +407,7 @@ test("detailed feature prompts require item-by-item fact pack coverage; overview
 
   assert.match(prompt, /## Fact pack/);
   assert.match(prompt, new RegExp(`context/features/${key}\\.factpack\\.json`));
-  assert.match(prompt, /must cover every fact pack item of the matching category/);
+  assert.match(prompt, /must cover every consumable fact pack item of the matching category/);
   assert.match(prompt, /explicitly counted group/);
   assert.match(prompt, /Cite the category's `FACT-\*` evidence id/);
   assert.match(prompt, /truncated must be reported as incomplete/);

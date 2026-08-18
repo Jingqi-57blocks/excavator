@@ -286,10 +286,10 @@ const FACT_PACK_SECTIONS: Record<number, FactPackCategory[]> = {
 };
 
 /**
- * Advisory enumeration reconciliation: the enumerating chapter must represent every fact pack item of
+ * Advisory enumeration reconciliation: the enumerating chapter must represent every consumable fact-pack item of
  * the categories it owns. Under-coverage is a warning, never an error, and only non-truncated
  * categories are enforced — a truncated category (e.g. a 405-item entrypoint boundary) is already
- * declared incomplete, so holding the prose to it would flood the report. An absent fact pack (older
+ * declared incomplete, so holding the prose to it would flood the report. An absent fact-pack view
  * run, no `FACT-*` evidence passed) reconciles nothing.
  */
 function reconcileFactPack(document: DocumentPlan, sectionIndex: number, sectionText: string, factEvidence: EvidenceItem[]): AuditFinding[] {

@@ -17,7 +17,7 @@ import { join, resolve } from "node:path";
 import { stableJson } from "../src/base/util.ts";
 import { featureLogicItems } from "../src/context/factpack.ts";
 import type { LogicFeatureGraph } from "../src/context/factpack-logic.ts";
-import type { FactPackItem } from "../src/base/types.ts";
+import type { CollectedFactPackItem } from "../src/base/types.ts";
 import { rawFeatureGraphFromRun, factPackItemsToNodes, type BoundaryNode } from "./boundary.ts";
 
 export interface FactpackFixtureNode {
@@ -156,7 +156,7 @@ export function fixtureFeatureGraph(fixture: FactpackFixture): LogicFeatureGraph
 
 /** The `logic` complement items the post-PR-2 fact pack adds for this fixture: the exact production
  *  derivation (`featureLogicItems`) over the frozen graph and the run's own claimed item locations. */
-export function fixtureLogicItems(fixture: FactpackFixture): FactPackItem[] {
+export function fixtureLogicItems(fixture: FactpackFixture): CollectedFactPackItem[] {
   return featureLogicItems(fixtureFeatureGraph(fixture), fixture.claimedItems);
 }
 

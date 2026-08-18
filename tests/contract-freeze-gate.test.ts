@@ -6,7 +6,7 @@ import type { ReportRequest, RunManifest } from "../src/base/types.ts";
 import { auditRun, freezeRun, prepareRun } from "../src/run/run.ts";
 import { ARTIFACT_REGISTRY } from "../src/base/artifact-registry.ts";
 import { auditContractInstances } from "../src/assurance/contract-instance-audit.ts";
-import { CONTRACT_MANIFEST_ASSURANCE_GENERATION } from "../src/base/assurance-version.ts";
+import { assuranceGenerationAtLeast, CONTRACT_MANIFEST_ASSURANCE_GENERATION } from "../src/base/assurance-version.ts";
 import type { ContractManifest } from "../src/contract/contract-manifest.ts";
 import { ledgerContentIdentity, type FileLedger } from "../src/snapshot/file-ledger.ts";
 import type { ArtifactResult } from "../src/base/artifact-result.ts";
@@ -308,8 +308,8 @@ test("deleting one feature's working set is an error naming that instance, even 
 test("a run prepared before the contract existed is grandfathered, and one prepared after is not", async () => {
   const { runDir } = await prepareRun(await overviewRequest());
   const manifest = await readManifest(runDir);
-  assert.ok((manifest.assuranceVersion ?? "").startsWith(`assurance-v${CONTRACT_MANIFEST_ASSURANCE_GENERATION}-`),
-    `a fresh run is prepared under generation ${CONTRACT_MANIFEST_ASSURANCE_GENERATION}: ${manifest.assuranceVersion}`);
+  assert.ok(assuranceGenerationAtLeast(manifest, CONTRACT_MANIFEST_ASSURANCE_GENERATION),
+    `a fresh run is prepared under generation ${CONTRACT_MANIFEST_ASSURANCE_GENERATION} or later: ${manifest.assuranceVersion}`);
   await rm(join(runDir, "contract"), { recursive: true });
   const current = await auditContractInstances(runDir, manifest);
   assert.ok(current.some((finding) => finding.level === "error" && /contract-manifest\.json/.test(finding.message)),

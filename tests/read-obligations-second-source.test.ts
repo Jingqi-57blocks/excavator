@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readObligations } from "../src/assurance/read-obligations.ts";
 import type { BoundaryFunctionsArtifact } from "../src/context/boundary-functions.ts";
 import type { FeatureFactPack } from "../src/base/types.ts";
+import { v2Pack } from "./factpack-v2-fixture.ts";
 
 // The second source widens the denominator, which is the point — but widening a frozen artifact is exactly
 // where a regression hides. These tests pin the three properties that make the widening safe: without a
@@ -12,14 +13,7 @@ import type { FeatureFactPack } from "../src/base/types.ts";
 const PATH = "svc/internal/handlers/leave/service.go";
 
 function factPack(items: Array<{ name: string; line: number; endLine?: number; signal?: string }>): FeatureFactPack {
-  return {
-    version: "factpack-v1",
-    snapshotId: "s",
-    featureKey: "leave",
-    items: items.map((item) => ({ category: "logic", name: item.name, filePath: PATH, line: item.line, endLine: item.endLine, signal: item.signal })) as never,
-    coverage: [],
-    warnings: [],
-  };
+  return v2Pack(items.map((item) => ({ category: "logic", name: item.name, filePath: PATH, line: item.line, endLine: item.endLine, signal: item.signal })), { snapshotId: "s", featureKey: "leave" });
 }
 
 function boundaryOf(functions: Array<{ name: string; startLine: number; endLine: number; probe?: "decision" | "no-decision" | "unavailable"; path?: string }>, extra: Partial<BoundaryFunctionsArtifact> = {}): BoundaryFunctionsArtifact {

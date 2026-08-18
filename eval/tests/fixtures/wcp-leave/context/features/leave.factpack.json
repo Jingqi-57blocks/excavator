@@ -1,5 +1,13 @@
 {
-  "coverage": [],
+  "coverage": [
+    {
+      "category": "logic",
+      "method": "graph",
+      "itemCount": 102,
+      "truncated": false,
+      "note": "historical denominator replay trimmed to logic rows"
+    }
+  ],
   "featureKey": "请假管理-4d1c219b61",
   "items": [
     {
@@ -11,7 +19,22 @@
       "name": "ApplyLeavePrompt",
       "rank": 5,
       "signal": "anchor-token leave, instantiates LeaveDetailDto(x1)",
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:0",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:0"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -22,7 +45,22 @@
       "name": "handleSES",
       "rank": 7,
       "signal": "calls LvHldyTypeC(x2), calls getLeaveLink(x2)",
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:1",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:1"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -33,7 +71,22 @@
       "name": "Reject",
       "rank": 8,
       "signal": "calls GetSelfHandLeaveIds(x2), calls LvHldyTypeC(x1), calls queryLeaveEssInfo(x1), calls updateLvStatus(x1)",
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:2",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:2"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -44,7 +97,22 @@
       "name": "Export",
       "rank": 9,
       "signal": "calls GetSickLeaveHourInTheSelectedPeriod(x1), calls GetUserPaidSickLeaveExhaustionDateMap(x1), calls GetUserSickLeaveDis(x1), calls GetUserTotalSickLeaveHourMap(x1)",
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:3",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:3"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -54,7 +122,22 @@
       "line": 741,
       "name": "updateLvStatus",
       "rank": 18,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:4",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:4"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -64,7 +147,22 @@
       "line": 776,
       "name": "updateAprvStatus",
       "rank": 19,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:5",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:5"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -74,7 +172,22 @@
       "line": 513,
       "name": "withdrawBgData",
       "rank": 20,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:6",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:6"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -84,7 +197,22 @@
       "line": 652,
       "name": "withdrawByType",
       "rank": 21,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:7",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:7"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -94,7 +222,22 @@
       "line": 640,
       "name": "restoreWithCap",
       "rank": 22,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:8",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:8"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -104,7 +247,22 @@
       "line": 22,
       "name": "getLeaveLink",
       "rank": 23,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:9",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:9"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -114,7 +272,22 @@
       "line": 390,
       "name": "consumeCurtHoliday",
       "rank": 25,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:10",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:10"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -124,7 +297,22 @@
       "line": 526,
       "name": "holidayByYear",
       "rank": 26,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:11",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:11"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -133,7 +321,22 @@
       "line": 455,
       "name": "nextApproverBuilder",
       "rank": 27,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:12",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:12"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -143,7 +346,22 @@
       "line": 530,
       "name": "BuildCpst",
       "rank": 28,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:13",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:13"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -153,7 +371,22 @@
       "line": 755,
       "name": "updateAddAprvRecords",
       "rank": 29,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:14",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:14"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -163,7 +396,22 @@
       "line": 792,
       "name": "addAprvRecord",
       "rank": 30,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:15",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:15"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -173,7 +421,22 @@
       "line": 41,
       "name": "GetSelfHandLeaveIds",
       "rank": 31,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:16",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:16"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -183,7 +446,22 @@
       "line": 58,
       "name": "GenAprvRecord",
       "rank": 34,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:17",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:17"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -193,7 +471,22 @@
       "line": 42,
       "name": "backgroundData",
       "rank": 35,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:18",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:18"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -203,7 +496,22 @@
       "line": 109,
       "name": "saveLeaveRelated",
       "rank": 36,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:19",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:19"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -213,7 +521,22 @@
       "line": 204,
       "name": "consumeByYear",
       "rank": 37,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:20",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:20"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -223,7 +546,22 @@
       "line": 298,
       "name": "mixConsume",
       "rank": 38,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:21",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:21"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -233,7 +571,22 @@
       "line": 608,
       "name": "newPTOWithdrawCapper",
       "rank": 39,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:22",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:22"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -243,7 +596,22 @@
       "line": 679,
       "name": "withdrawByComments",
       "rank": 40,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:23",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:23"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -253,7 +621,22 @@
       "line": 731,
       "name": "generalCancellation",
       "rank": 41,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:24",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:24"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -263,7 +646,22 @@
       "line": 804,
       "name": "generalRejection",
       "rank": 42,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:25",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:25"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -273,7 +671,22 @@
       "line": 840,
       "name": "crossCancellation",
       "rank": 43,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:26",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:26"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -283,7 +696,22 @@
       "line": 925,
       "name": "crossRejection",
       "rank": 44,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:27",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:27"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -293,7 +721,22 @@
       "line": 13,
       "name": "RemoveDuplicateElement",
       "rank": 45,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:28",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:28"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -302,7 +745,22 @@
       "line": 63,
       "name": "Approvers",
       "rank": 46,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:29",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:29"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -312,7 +770,22 @@
       "line": 30,
       "name": "genMobileComposite",
       "rank": 47,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:30",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:30"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -322,7 +795,22 @@
       "line": 276,
       "name": "queryLeaveEssInfo",
       "rank": 48,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:31",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:31"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -332,7 +820,22 @@
       "line": 134,
       "name": "GetUserSickLeaveDis",
       "rank": 49,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:32",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:32"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -342,7 +845,22 @@
       "line": 162,
       "name": "GetUserTotalSickLeaveHourMap",
       "rank": 50,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:33",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:33"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -352,7 +870,22 @@
       "line": 21,
       "name": "GenAprvRecord",
       "rank": 53,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:34",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:34"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -361,7 +894,22 @@
       "line": 54,
       "name": "HrApprover",
       "rank": 54,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:35",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:35"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -371,7 +919,22 @@
       "line": 183,
       "name": "UnknownHolidayType",
       "rank": 55,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:36",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:36"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -381,7 +944,22 @@
       "line": 187,
       "name": "employeeHolidays",
       "rank": 56,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:37",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:37"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -391,7 +969,22 @@
       "line": 93,
       "name": "handleHeadAndTail",
       "rank": 57,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:38",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:38"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -401,7 +994,22 @@
       "line": 544,
       "name": "withdrawHours",
       "rank": 58,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:39",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:39"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -411,7 +1019,22 @@
       "line": 617,
       "name": "reducePTOOverCap",
       "rank": 59,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:40",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:40"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -421,7 +1044,22 @@
       "line": 68,
       "name": "Recipients",
       "rank": 60,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:41",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:41"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -430,7 +1068,22 @@
       "line": 73,
       "name": "waitingApprovedByLevelBuilder",
       "rank": 61,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:42",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:42"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -440,7 +1093,22 @@
       "line": 88,
       "name": "subject",
       "rank": 62,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:43",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:43"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -450,7 +1118,22 @@
       "line": 137,
       "name": "BuildCpst",
       "rank": 63,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:44",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:44"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -460,7 +1143,22 @@
       "line": 48,
       "name": "Demand",
       "rank": 64,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:45",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:45"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -470,7 +1168,22 @@
       "line": 149,
       "name": "deftPgRepr",
       "rank": 65,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:46",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:46"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -480,7 +1193,22 @@
       "line": 174,
       "name": "deftOwnPgRepr",
       "rank": 66,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:47",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:47"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -490,7 +1218,22 @@
       "line": 192,
       "name": "DeletionApplication",
       "rank": 67,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:48",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:48"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -500,7 +1243,22 @@
       "line": 217,
       "name": "Deletion",
       "rank": 68,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:49",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:49"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -510,7 +1268,22 @@
       "line": 247,
       "name": "ApproveLeavePrompt",
       "rank": 69,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:50",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:50"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -520,7 +1293,22 @@
       "line": 30,
       "name": "Approve",
       "rank": 70,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:51",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:51"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -530,7 +1318,22 @@
       "line": 41,
       "name": "ApproveLeavePrompt",
       "rank": 71,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:52",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:52"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -540,7 +1343,22 @@
       "line": 48,
       "name": "NewLvService",
       "rank": 72,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:53",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:53"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -550,7 +1368,22 @@
       "line": 362,
       "name": "Approve",
       "rank": 73,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:54",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:54"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -560,7 +1393,22 @@
       "line": 1792,
       "name": "ApproveLeavePrompt",
       "rank": 74,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:55",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:55"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -570,7 +1418,22 @@
       "line": 15,
       "name": "GetRemainsPTOMap",
       "rank": 75,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:56",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:56"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -580,7 +1443,22 @@
       "line": 54,
       "name": "GetUserPaidSickLeaveExhaustionDateMap",
       "rank": 76,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:57",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:57"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -590,7 +1468,22 @@
       "line": 96,
       "name": "GetSickLeaveHourInTheSelectedPeriod",
       "rank": 77,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:58",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:58"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -600,7 +1493,22 @@
       "line": 116,
       "name": "GetInTheSelectedPeriodByYear",
       "rank": 78,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:59",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:59"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -610,7 +1518,22 @@
       "line": 31,
       "name": "isTheLevel",
       "rank": 87,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:60",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:60"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -620,7 +1543,22 @@
       "line": 44,
       "name": "getManagerByLevel",
       "rank": 88,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:61",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:61"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -630,7 +1568,22 @@
       "line": 343,
       "name": "queryMangerByLevel",
       "rank": 89,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:62",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:62"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -640,7 +1593,22 @@
       "line": 41,
       "name": "distributeYearsHours",
       "rank": 90,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:63",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:63"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -650,7 +1618,22 @@
       "line": 88,
       "name": "maxAvailableHoliday",
       "rank": 91,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:64",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:64"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -660,7 +1643,22 @@
       "line": 169,
       "name": "BuildCpntEmail",
       "rank": 92,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:65",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:65"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -670,7 +1668,22 @@
       "line": 183,
       "name": "handleSES",
       "rank": 93,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:66",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:66"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -680,7 +1693,22 @@
       "line": 241,
       "name": "BuildCpntMobile",
       "rank": 94,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:67",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:67"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -690,7 +1718,22 @@
       "line": 467,
       "name": "subject",
       "rank": 95,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:68",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:68"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -700,7 +1743,22 @@
       "line": 562,
       "name": "BuildCpntEmail",
       "rank": 96,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:69",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:69"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -710,7 +1768,22 @@
       "line": 576,
       "name": "handleSES",
       "rank": 97,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:70",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:70"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -720,7 +1793,22 @@
       "line": 653,
       "name": "BuildCpntMobile",
       "rank": 98,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:71",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:71"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -730,7 +1818,22 @@
       "line": 14,
       "name": "init",
       "rank": 99,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:72",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:72"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -740,7 +1843,22 @@
       "line": 30,
       "name": "Creation",
       "rank": 100,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:73",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:73"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -750,7 +1868,22 @@
       "line": 66,
       "name": "Approve",
       "rank": 101,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:74",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:74"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -760,7 +1893,22 @@
       "line": 89,
       "name": "Reject",
       "rank": 102,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:75",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:75"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -770,7 +1918,22 @@
       "line": 104,
       "name": "Between",
       "rank": 103,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:76",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:76"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -780,7 +1943,22 @@
       "line": 140,
       "name": "Pagination",
       "rank": 104,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:77",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:77"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -790,7 +1968,22 @@
       "line": 165,
       "name": "OwnPagination",
       "rank": 105,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:78",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:78"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -800,7 +1993,22 @@
       "line": 231,
       "name": "SimpleForLogTime",
       "rank": 106,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:79",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:79"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -810,7 +2018,22 @@
       "line": 239,
       "name": "Export",
       "rank": 107,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:80",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:80"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -820,7 +2043,22 @@
       "line": 255,
       "name": "ApplyLeavePrompt",
       "rank": 108,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:81",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:81"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -830,7 +2068,22 @@
       "line": 263,
       "name": "GetUserRemainFullySickLeave",
       "rank": 109,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:82",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:82"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -839,7 +2092,22 @@
       "line": 11,
       "name": "LeaveEssInfo",
       "rank": 139,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:83",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:83"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -848,7 +2116,22 @@
       "line": 52,
       "name": "LeaveApprove",
       "rank": 144,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:84",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:84"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -858,7 +2141,22 @@
       "line": 42,
       "name": "ApplyLeavePrompt",
       "rank": 147,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:85",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:85"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -868,7 +2166,22 @@
       "line": 43,
       "name": "GetUserRemainFullySickLeave",
       "rank": 148,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:86",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:86"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -877,7 +2190,22 @@
       "line": 46,
       "name": "leaveService",
       "rank": 149,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:87",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:87"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -887,7 +2215,22 @@
       "line": 1903,
       "name": "GetUserRemainFullySickLeave",
       "rank": 150,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:88",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:88"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -897,7 +2240,22 @@
       "line": 975,
       "name": "Consume",
       "rank": 163,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:89",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:89"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -907,7 +2265,22 @@
       "line": 980,
       "name": "Cancel",
       "rank": 164,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:90",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:90"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -917,7 +2290,22 @@
       "line": 985,
       "name": "Reject",
       "rank": 165,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:91",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:91"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -927,7 +2315,22 @@
       "line": 995,
       "name": "Consume",
       "rank": 166,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:92",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:92"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -937,7 +2340,22 @@
       "line": 1000,
       "name": "Cancel",
       "rank": 167,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:93",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:93"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -947,7 +2365,22 @@
       "line": 1005,
       "name": "Reject",
       "rank": 168,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:94",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:94"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -957,7 +2390,22 @@
       "line": 1015,
       "name": "Consume",
       "rank": 169,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:95",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:95"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -967,7 +2415,22 @@
       "line": 1028,
       "name": "Cancel",
       "rank": 170,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:96",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:96"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -977,7 +2440,22 @@
       "line": 1033,
       "name": "Reject",
       "rank": 171,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:97",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:97"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -987,7 +2465,22 @@
       "line": 1043,
       "name": "Consume",
       "rank": 172,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:98",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:98"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -997,7 +2490,22 @@
       "line": 1048,
       "name": "Cancel",
       "rank": 173,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:99",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:99"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -1007,7 +2515,22 @@
       "line": 1053,
       "name": "Reject",
       "rank": 174,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:100",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:100"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     },
     {
       "category": "logic",
@@ -1017,14 +2540,40 @@
       "line": 1063,
       "name": "Consume",
       "rank": 175,
-      "source": "graph"
+      "source": "graph",
+      "granularity": "graph-node",
+      "membership": {
+        "joined": {
+          "factId": "eval-history:101",
+          "kind": "indexed-function",
+          "membership": {
+            "kind": "unit",
+            "unitId": "eval-history-cell:101"
+          }
+        }
+      },
+      "relation": {
+        "kind": "retained",
+        "basis": "membership-seated"
+      }
     }
   ],
   "snapshotId": "e7b7fd1a3489390b9d48",
-  "version": "factpack-v1",
+  "version": "factpack-v2",
   "warnings": [
     "Fact pack category entrypoints is incomplete: the feature scope node cap was reached upstream, so the graph node set this category was enumerated over may be short",
     "Fact pack category entities is incomplete: the feature scope node cap was reached upstream, so the graph node set this category was enumerated over may be short",
-    "Fact pack category states is incomplete: the feature scope node cap was reached upstream, so the graph node set this category was enumerated over may be short"
-  ]
+    "Fact pack category states is incomplete: the feature scope node cap was reached upstream, so the graph node set this category was enumerated over may be short",
+    "Historical eval fixture schema-lifted to factpack-v2; production factpack-v1 runs remain invalid."
+  ],
+  "relations": {
+    "total": 102,
+    "seeded": 0,
+    "retained": 102,
+    "coLocated": 0,
+    "notApplicable": 0,
+    "byBasis": {
+      "membership-seated": 102
+    }
+  }
 }

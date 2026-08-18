@@ -8,6 +8,7 @@ import { FACT_PACK_CATEGORIES } from "../src/context/factpack.ts";
 import { freezeRun, prepareRun } from "../src/run/run.ts";
 import { atomicWrite, exists } from "../src/base/util.ts";
 import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, tempDir } from "./helpers.ts";
+import { v2Pack, type FactPackItemSeed } from "./factpack-v2-fixture.ts";
 
 const DOC_ID = "feature-abc-engineering";
 const NO_TRACES: TraceCatalog = { version: 1, runId: "run-x", traces: [] };
@@ -54,8 +55,8 @@ function searchEvidence(id: string): EvidenceItem {
 function evidenceMap(items: EvidenceItem[]): Map<string, EvidenceItem> {
   return new Map(items.map((item) => [item.id, item]));
 }
-function factPack(items: FeatureFactPack["items"], coverage: FeatureFactPack["coverage"]): Record<string, FeatureFactPack> {
-  return { abc: { version: "factpack-v1", snapshotId: "snap", featureKey: "abc", items, coverage, warnings: [] } };
+function factPack(items: FactPackItemSeed[], coverage: FeatureFactPack["coverage"]): Record<string, FeatureFactPack> {
+  return { abc: v2Pack(items, { featureKey: "abc", snapshotId: "snap", coverage }) };
 }
 
 // --- 1. determinism ---
@@ -159,7 +160,10 @@ test("excerpts clip with a footnote; FACT/SEARCH/trace render as summary lines; 
   ]);
   const evidence = evidenceMap([sourceEvidence("S-long", longContent), sourceEvidence("S-shared", "shared window"), factEvidence("FACT-abc-entities", "entities", 4, true), searchEvidence("SEARCH-1")]);
   const traces: TraceCatalog = { version: 1, runId: "run-x", traces: [{ id: "T-1", title: "Leave decision flow", type: "business-flow", status: "verified", confidence: "high", documentIds: [DOC_ID], steps: [{ index: 1, action: "a", evidenceIds: [] }, { index: 2, action: "b", evidenceIds: [] }, { index: 3, action: "c", evidenceIds: [] }], createdAt: "2026-01-01T00:00:00Z" }] };
-  const markdown = buildAuthoringPacket(document, workItems, evidence, traces, factPack([], [{ category: "entities", method: "scan", itemCount: 4, truncated: true, note: "item cap reached" }]));
+  const markdown = buildAuthoringPacket(document, workItems, evidence, traces, factPack(
+    ["A", "B", "C", "D"].map((name, index) => ({ category: "entities" as const, name, filePath: "svc/model.go", line: index + 1, source: "scan" as const, granularity: "source-line" as const })),
+    [{ category: "entities", method: "scan", itemCount: 4, truncated: true, note: "item cap reached" }]
+  ));
 
   assert.ok(markdown.includes("line 40") && !markdown.includes("line 41"), "excerpt keeps the first 40 lines only");
   assert.ok(markdown.includes("…clipped; full excerpt: evidence.json id S-long"), "a clipped excerpt carries the honest footnote");

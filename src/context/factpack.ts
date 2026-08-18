@@ -4,9 +4,9 @@ import { logicClaimKey, logicItems, type LogicFeatureGraph } from "./factpack-lo
 import type { ScannedFile } from "../snapshot/snapshot.ts";
 import type { SourceReader } from "../snapshot/source.ts";
 import { sourceSearch } from "../snapshot/source.ts";
-import type { EvidenceItem, FactPackCategory, FactPackCoverage, FactPackItem, FactPackMethod, FeatureFactPack, GraphNode } from "../base/types.ts";
+import type { CollectedFactPackItem, CollectedFeatureFactPack, FactPackCategory, FactPackCoverage, FactPackJoinHint, FactPackMethod, GraphNode } from "../base/types.ts";
 import type { Deadline } from "../base/util.ts";
-import { sha256, stableJson } from "../base/util.ts";
+import { inventoryFactIdFor, inventoryUnitKind } from "../codegraph/function-inventory.ts";
 
 const DETAIL_LIMIT = 200;
 const NAME_LIMIT = 120;
@@ -165,8 +165,6 @@ export const FACT_PACK_CATEGORIES: FactPackCategory[] = CATEGORY_STRATEGIES.map(
 
 /** Per-caller in-degree cap for logic ordering, mirroring the prune's bridge multiplicity so both agree. */
 const LOGIC_INDEGREE_CAP = BRIDGE_MAX_MULTIPLICITY;
-/** Inline-window row cap for the deeper logic complement; the full pack stays in factpack.json. */
-const LOGIC_RENDER_ROWS = 120;
 /** Kinds no kind-based category owns yet are still structural noise, not feature symbols. */
 const LOGIC_STRUCTURAL_KINDS = ["import", "file"];
 
@@ -189,7 +187,7 @@ function logicRouteKinds(): Set<string> {
  * exact (filePath, line) each one occupies is excluded here. Exposed so the eval replay measures exactly
  * what production emits, over the same runtime-derived kind sets.
  */
-export function featureLogicItems(featureGraph: LogicFeatureGraph, claimedItems: Array<{ filePath: string; line: number }>): FactPackItem[] {
+export function featureLogicItems(featureGraph: LogicFeatureGraph, claimedItems: Array<{ filePath: string; line: number }>): CollectedFactPackItem[] {
   const claimedLocations = new Set(claimedItems.map((item) => logicClaimKey(item.filePath, item.line)));
   return logicItems(featureGraph, { claimedLocations, excludedKinds: logicExcludedKinds(), routeKinds: logicRouteKinds(), cap: LOGIC_INDEGREE_CAP });
 }
@@ -228,11 +226,11 @@ export interface FactPackInput {
  * coverage note and a warning; nothing is dropped silently. The boundary is the feature scope
  * only — facts outside it are not this artifact's claim.
  */
-export async function buildFactPack(input: FactPackInput): Promise<FeatureFactPack> {
+export async function buildFactPack(input: FactPackInput): Promise<CollectedFeatureFactPack> {
   const maxItems = Math.max(1, input.limits?.maxItemsPerCategory ?? DEFAULT_MAX_ITEMS_PER_CATEGORY);
   const maxEntityWindows = Math.max(0, input.limits?.maxEntityWindows ?? DEFAULT_MAX_ENTITY_WINDOWS);
   const boundaryPaths = [...new Set(input.files.map((file) => normalizePath(file.relativePath)))].sort(compareStrings);
-  const items: FactPackItem[] = [];
+  const items: CollectedFactPackItem[] = [];
   const coverage: FactPackCoverage[] = [];
   const warnings: string[] = [];
   let entityWindowsUsed = 0;
@@ -240,7 +238,7 @@ export async function buildFactPack(input: FactPackInput): Promise<FeatureFactPa
   for (const strategy of CATEGORY_STRATEGIES) {
     input.deadline?.check(`building the ${strategy.category} fact pack`);
     const notes: string[] = [];
-    const collected: FactPackItem[] = [];
+    const collected: CollectedFactPackItem[] = [];
 
     if (input.graph && strategy.graphKinds) {
       const queried = strategy.graphPathFilter ? boundaryPaths.filter((path) => strategy.graphPathFilter!.test(path)) : boundaryPaths;
@@ -251,14 +249,16 @@ export async function buildFactPack(input: FactPackInput): Promise<FeatureFactPa
       const wantsFieldDetail = strategy.category === "entities";
       let windowBudgetSpent = false;
       for (const node of graphNodes) {
-        const item: FactPackItem = {
+        const item: CollectedFactPackItem = {
           category: strategy.category,
           name: clip(String(node.name || node.qualifiedName || node.id), NAME_LIMIT),
           filePath: normalizePath(String(node.filePath)),
           line: Number(node.startLine) || 1,
           endLine: Number(node.endLine) || undefined,
           detail: node.signature ? clip(collapse(String(node.signature)), DETAIL_LIMIT) : undefined,
-          source: "graph"
+          source: "graph",
+          granularity: "graph-node",
+          join: graphJoin(node)
         };
         if (wantsFieldDetail && !windowBudgetSpent && entityWindowsUsed < maxEntityWindows) {
           entityWindowsUsed += 1;
@@ -329,7 +329,7 @@ export async function buildFactPack(input: FactPackInput): Promise<FeatureFactPa
   }
 
   return {
-    version: "factpack-v1",
+    version: "factpack-collected-v1",
     snapshotId: input.snapshotId,
     featureKey: input.featureKey,
     items: items.sort(compareItems),
@@ -338,70 +338,7 @@ export async function buildFactPack(input: FactPackInput): Promise<FeatureFactPa
   };
 }
 
-export function factPackEvidenceId(featureKey: string, category: FactPackCategory, snapshotId: string): string {
-  return `FACT-${featureKey.slice(0, 10)}-${category}-${snapshotId.slice(0, 8)}`;
-}
-
-/** One derived evidence item per category, including empty categories: an empty enumeration is a fact too. */
-export function factPackEvidence(pack: FeatureFactPack): EvidenceItem[] {
-  return pack.coverage.map((coverage) => {
-    const data = { category: coverage.category, coverage, items: pack.items.filter((item) => item.category === coverage.category) };
-    return {
-      id: factPackEvidenceId(pack.featureKey, coverage.category, pack.snapshotId),
-      snapshotId: pack.snapshotId,
-      kind: "derived" as const,
-      title: `Fact pack: ${coverage.category}`,
-      data,
-      reason: `enumerate every ${coverage.category} fact found inside the feature boundary, with its coverage limits`,
-      digest: sha256(stableJson(data))
-    };
-  });
-}
-
-export function renderFactPackSection(pack: FeatureFactPack, maxRowsPerCategory = 60): string {
-  const rows = pack.coverage.map((coverage) => [
-    coverage.category,
-    coverage.method,
-    String(coverage.itemCount),
-    coverage.truncated ? "yes" : "no",
-    factPackEvidenceId(pack.featureKey, coverage.category, pack.snapshotId),
-    cell(coverage.note ?? "—")
-  ].join(" | "));
-  const blocks = pack.coverage.map((coverage) => {
-    const categoryItems = pack.items.filter((item) => item.category === coverage.category);
-    // The logic complement is deeper than the six structural categories (tier 0 + tier 1 alone can exceed
-    // 40), so its inline window is wider; the machine-readable pack still carries every item.
-    const rowCap = coverage.category === "logic" ? LOGIC_RENDER_ROWS : maxRowsPerCategory;
-    const shown = categoryItems.slice(0, rowCap);
-    const header = `### ${coverage.category} — ${coverage.itemCount} item${coverage.itemCount === 1 ? "" : "s"}, method ${coverage.method}, evidence ${factPackEvidenceId(pack.featureKey, coverage.category, pack.snapshotId)}`;
-    const empty = coverage.method === "none"
-      ? "No method was available for this category in this run, so it was not enumerated; absence here is not evidence of absence in the code."
-      : "No item of this category was found inside the feature boundary.";
-    const body = shown.length
-      ? [
-        "| Name | Location | Source | Detail |",
-        "|---|---|---|---|",
-        ...shown.map((item) => `| ${cell(item.name)} | \`${cell(item.filePath)}:${item.line}${item.endLine && item.endLine !== item.line ? `-${item.endLine}` : ""}\` | ${item.source} | ${cell(detailWithSignal(item))} |`)
-      ].join("\n")
-      : empty;
-    const remainder = categoryItems.length > shown.length ? `\n\n其余 ${categoryItems.length - shown.length} 条见 factpack.json` : "";
-    const note = coverage.truncated ? `\n\nTruncated: ${cell(coverage.note ?? "budget or cap reached")}` : "";
-    return `${header}\n\n${body}${remainder}${note}`;
-  });
-  return `## Fact pack
-
-Enumerated boundary facts. Every category is an enumeration of what was found inside this feature's boundary, not a sample; facts outside the boundary are out of this pack's scope. The complete machine-readable pack is \`context/features/${pack.featureKey}.factpack.json\`.
-
-| Category | Method | Items | Truncated | Evidence | Note |
-|---|---|---:|---|---|---|
-${rows.map((row) => `| ${row} |`).join("\n")}
-
-Fact pack warnings: ${pack.warnings.length ? pack.warnings.map((warning) => cell(warning)).join(" | ") : "none"}
-
-${blocks.join("\n\n")}`;
-}
-
-async function scanCategory(strategy: CategoryStrategy, files: ScannedFile[], maxItems: number, notes: string[], redact: boolean): Promise<FactPackItem[]> {
+async function scanCategory(strategy: CategoryStrategy, files: ScannedFile[], maxItems: number, notes: string[], redact: boolean): Promise<CollectedFactPackItem[]> {
   const scan = strategy.scan!;
   if (!files.length) return [];
   const matches = await sourceSearch(files, scan.patterns, { regex: true, caseSensitive: scan.caseSensitive, maxResults: maxItems, redact });
@@ -411,13 +348,13 @@ async function scanCategory(strategy: CategoryStrategy, files: ScannedFile[], ma
   for (const [path, count] of [...perFile.entries()].sort((a, b) => compareStrings(a[0], b[0]))) {
     if (count >= SCAN_FILE_MATCH_CAP) notes.push(`${path} reached the per-file scan cap (${SCAN_FILE_MATCH_CAP} matches); further matches in that file were not read`);
   }
-  const items: FactPackItem[] = [];
+  const items: CollectedFactPackItem[] = [];
   for (const match of matches) {
     const line = matchedLine(match.excerpt, match.line);
     const filePath = normalizePath(match.file.relativePath);
     if (strategy.category === "config-keys") {
       for (const key of configKeys(line)) {
-        items.push({ category: strategy.category, name: clip(key, NAME_LIMIT), filePath, line: match.line, detail: clip(collapse(line), DETAIL_LIMIT), source: "scan" });
+        items.push({ category: strategy.category, name: clip(key, NAME_LIMIT), filePath, line: match.line, detail: clip(collapse(line), DETAIL_LIMIT), source: "scan", granularity: "source-line", join: { kind: "unjoined", reason: "scan-only" } });
       }
       continue;
     }
@@ -427,7 +364,9 @@ async function scanCategory(strategy: CategoryStrategy, files: ScannedFile[], ma
       filePath,
       line: match.line,
       detail: clip(collapse(line), DETAIL_LIMIT),
-      source: "scan"
+      source: "scan",
+      granularity: "source-line",
+      join: { kind: "unjoined", reason: "scan-only" }
     });
   }
   return items;
@@ -464,8 +403,8 @@ function methodFor(strategy: CategoryStrategy, hasGraph: boolean, hasFeatureGrap
  * Two hits on one line are one fact, so location collapsing is silent. A config key found in
  * several places is one key with several call sites, so name collapsing keeps the count visible.
  */
-function dedupe(items: FactPackItem[], by: "location" | "name"): FactPackItem[] {
-  const seen = new Map<string, FactPackItem>();
+function dedupe(items: CollectedFactPackItem[], by: "location" | "name"): CollectedFactPackItem[] {
+  const seen = new Map<string, CollectedFactPackItem>();
   const order: string[] = [];
   const extra = new Map<string, number>();
   for (const item of [...items].sort(compareItems)) {
@@ -519,7 +458,7 @@ function matchedLine(excerpt: string, line: number): string {
   return (line === 1 ? lines[0] : lines[1]) ?? lines[0] ?? "";
 }
 
-function compareItems(a: FactPackItem, b: FactPackItem): number {
+function compareItems(a: CollectedFactPackItem, b: CollectedFactPackItem): number {
   const byCategory = FACT_PACK_CATEGORIES.indexOf(a.category) - FACT_PACK_CATEGORIES.indexOf(b.category);
   if (byCategory) return byCategory;
   // Within a category an explicit rank orders first — logic items carry the deterministic attention order
@@ -540,13 +479,20 @@ function compareNodes(a: GraphNode, b: GraphNode): number {
 /** Code-unit ordering, not locale ordering: the same snapshot must produce the same bytes anywhere. */
 function compareStrings(a: string, b: string): number { return a < b ? -1 : a > b ? 1 : 0; }
 
-/** A logic item's Detail cell surfaces its rescue signal so the author knows to disposition it individually. */
-function detailWithSignal(item: FactPackItem): string {
-  if (item.signal) return item.detail ? `${item.detail} · rescued: ${item.signal}` : `rescued: ${item.signal}`;
-  return item.detail ?? "—";
-}
-
 function normalizePath(value: string): string { return value.replaceAll("\\", "/").replace(/^\.\/+/, ""); }
 function collapse(value: string): string { return value.replace(/\s+/g, " ").trim(); }
 function clip(value: string, max: number): string { return value.length <= max ? value : `${value.slice(0, max - 1)}…`; }
-function cell(value: string): string { return collapse(value).replaceAll("|", "\\|"); }
+
+function graphJoin(node: GraphNode): FactPackJoinHint {
+  if (inventoryUnitKind(String(node.kind)) === null) return { kind: "unjoined", reason: "kind-not-inventoried" };
+  const factId = inventoryFactIdFor({
+    kind: String(node.kind),
+    filePath: normalizePath(String(node.filePath)),
+    startLine: Number.isInteger(node.startLine) ? Number(node.startLine) : null,
+    endLine: Number.isInteger(node.endLine) ? Number(node.endLine) : null,
+    name: String(node.name ?? node.qualifiedName ?? node.id)
+  });
+  return factId === null
+    ? { kind: "unjoined", reason: "no-matching-fact" }
+    : { kind: "fact", producer: "codegraph", factId };
+}

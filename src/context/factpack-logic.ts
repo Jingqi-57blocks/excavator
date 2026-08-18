@@ -15,7 +15,8 @@
 // Pure: zero I/O, zero npm dependency, no model call. Directly unit-testable — the caller derives the
 // kind sets from CATEGORY_STRATEGIES and passes them in, so a future category auto-shrinks the complement.
 
-import type { FactPackItem } from "../base/types.ts";
+import type { CollectedFactPackItem, FactPackJoinHint } from "../base/types.ts";
+import { inventoryFactIdFor, inventoryUnitKind } from "../codegraph/function-inventory.ts";
 
 const NAME_LIMIT = 120;
 const DETAIL_LIMIT = 200;
@@ -50,7 +51,7 @@ export function logicClaimKey(filePath: unknown, line: unknown): string {
  * Enumerate the complement `logic` items of a retained feature graph. Deterministic and total-ordered:
  * the same graph and selection produce byte-identical items with byte-identical ranks.
  */
-export function logicItems(graph: LogicFeatureGraph, selection: LogicSelection): FactPackItem[] {
+export function logicItems(graph: LogicFeatureGraph, selection: LogicSelection): CollectedFactPackItem[] {
   const seedIds = new Set(graph.seeds.map((seed) => String(seed.id ?? "")));
 
   // Attention tier 2: a node an entrypoint/route-kind node points at through an out-edge.
@@ -102,9 +103,9 @@ export function logicItems(graph: LogicFeatureGraph, selection: LogicSelection):
     || compareStrings(String(a.node.name ?? ""), String(b.node.name ?? ""))
     || compareStrings(String(a.node.id ?? ""), String(b.node.id ?? "")));
 
-  return ranked.map((entry, index): FactPackItem => {
+  return ranked.map((entry, index): CollectedFactPackItem => {
     const signature = String(entry.node.signature ?? "");
-    const item: FactPackItem = {
+    const item: CollectedFactPackItem = {
       category: "logic",
       name: clip(String(entry.node.name ?? entry.node.id ?? ""), NAME_LIMIT),
       filePath: entry.filePath,
@@ -112,6 +113,8 @@ export function logicItems(graph: LogicFeatureGraph, selection: LogicSelection):
       endLine: Number(entry.node.endLine) || undefined,
       detail: signature ? clip(collapse(signature), DETAIL_LIMIT) : undefined,
       source: "graph",
+      granularity: "graph-node",
+      join: graphJoin(entry.node),
       rank: index
     };
     if (entry.signal) item.signal = clip(collapse(entry.signal), DETAIL_LIMIT);
@@ -123,3 +126,18 @@ function compareStrings(a: string, b: string): number { return a < b ? -1 : a > 
 function normPath(value: string): string { return value.replaceAll("\\", "/").replace(/^\.\/+/, ""); }
 function collapse(value: string): string { return value.replace(/\s+/g, " ").trim(); }
 function clip(value: string, max: number): string { return value.length <= max ? value : `${value.slice(0, max - 1)}…`; }
+
+function graphJoin(node: LogicFeatureGraph["nodes"][number]): FactPackJoinHint {
+  const kind = String(node.kind ?? "");
+  if (inventoryUnitKind(kind) === null) return { kind: "unjoined", reason: "kind-not-inventoried" };
+  const factId = inventoryFactIdFor({
+    kind,
+    filePath: normPath(String(node.filePath ?? "")),
+    startLine: Number.isInteger(node.startLine) ? Number(node.startLine) : null,
+    endLine: Number.isInteger(node.endLine) ? Number(node.endLine) : null,
+    name: String(node.name ?? node.id ?? "")
+  });
+  return factId === null
+    ? { kind: "unjoined", reason: "no-matching-fact" }
+    : { kind: "fact", producer: "codegraph", factId };
+}

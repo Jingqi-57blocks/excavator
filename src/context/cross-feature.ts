@@ -1,4 +1,5 @@
 import type { FactPackItem, FeatureFactPack } from "../base/types.ts";
+import { consumableFactPackItems } from "../workset/factpack-view.ts";
 
 /**
  * Deterministic cross-feature relationships.
@@ -158,11 +159,11 @@ function intersectConfigKeys(a: FeatureFactPack, b: FeatureFactPack): string[] {
 }
 
 function entities(pack: FeatureFactPack): FactPackItem[] {
-  return pack.items.filter((item) => item.category === "entities");
+  return consumableFactPackItems(pack).filter((item) => item.category === "entities");
 }
 
 function configKeys(pack: FeatureFactPack): string[] {
-  return pack.items.filter((item) => item.category === "config-keys").map((item) => item.name);
+  return consumableFactPackItems(pack).filter((item) => item.category === "config-keys").map((item) => item.name);
 }
 
 /** Entities collapse by name plus location; a fact without a file path falls back to the name alone. */

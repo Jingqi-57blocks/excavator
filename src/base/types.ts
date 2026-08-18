@@ -1,3 +1,5 @@
+import type { FactKindId, Membership } from "./fact-kind-registry.ts";
+
 export type Audience = "product" | "engineering" | "prd";
 export type DocumentKind = "overview" | "feature";
 export type RunState = "planned" | "preparing" | "prepared" | "authoring" | "assembled" | "audited" | "complete" | "failed" | "timed-out";
@@ -488,7 +490,7 @@ export interface GraphEdge {
 export type FactPackCategory = "entrypoints" | "entities" | "states" | "config-keys" | "jobs" | "external-calls" | "logic";
 export type FactPackMethod = "graph" | "scan" | "graph+scan" | "none";
 
-export interface FactPackItem {
+export interface FactPackItemCore {
   category: FactPackCategory;
   name: string;
   filePath: string;
@@ -502,6 +504,43 @@ export interface FactPackItem {
   signal?: string;
 }
 
+/** The precision at which the collector actually observed an item; relation membership is recorded separately. */
+export type FactPackGranularity = "graph-node" | "source-line";
+
+/**
+ * The only association hint the collector may hand to layer 5. A graph item carries the id layer 3 would mint;
+ * a scan has no layer-3 fact to join. The hint deliberately carries no path/span fallback.
+ */
+export type FactPackJoinHint =
+  | { kind: "fact"; producer: string; factId: string }
+  | { kind: "unjoined"; reason: "kind-not-inventoried" | "no-matching-fact" | "scan-only" };
+
+/** Internal, cached collection result. It is never a run artifact; layer 5 must annotate it before writing. */
+export interface CollectedFactPackItem extends FactPackItemCore {
+  granularity: FactPackGranularity;
+  join: FactPackJoinHint;
+}
+
+export type FactPackUnjoinedReason = "kind-not-inventoried" | "no-matching-fact" | "envelope-unavailable" | "scan-only";
+
+/** The layer-3 membership copied verbatim, or a written reason why no such membership can be read. */
+export type FactPackMembership =
+  | { joined: { factId: string; kind: FactKindId; membership: Membership }; unjoined?: never }
+  | { joined?: never; unjoined: { reason: FactPackUnjoinedReason } };
+
+export type FactPackRelation =
+  | { kind: "seeded"; basis: "explicit-seed" }
+  | { kind: "retained"; basis: "membership-seated" }
+  | { kind: "co-located"; basis: FactPackUnjoinedReason | "membership-not-seated" }
+  | { kind: "not-applicable"; basis: "registry-not-applicable" };
+
+/** Persisted factpack-v2 row. Every row has one membership outcome and one relation outcome. */
+export interface FactPackItem extends FactPackItemCore {
+  granularity: FactPackGranularity;
+  membership: FactPackMembership;
+  relation: FactPackRelation;
+}
+
 export interface FactPackCoverage {
   category: FactPackCategory;
   method: FactPackMethod;
@@ -510,11 +549,29 @@ export interface FactPackCoverage {
   note?: string;
 }
 
+/** The collector's feature-wide enumeration, before layer-4 seats are applied. */
+export interface CollectedFeatureFactPack {
+  version: "factpack-collected-v1";
+  snapshotId: string;
+  featureKey: string;
+  items: CollectedFactPackItem[];
+  coverage: FactPackCoverage[];
+  warnings: string[];
+}
+
 export interface FeatureFactPack {
-  version: "factpack-v1";
+  version: "factpack-v2";
   snapshotId: string;
   featureKey: string;
   items: FactPackItem[];
   coverage: FactPackCoverage[];
   warnings: string[];
+  relations: {
+    total: number;
+    seeded: number;
+    retained: number;
+    coLocated: number;
+    notApplicable: number;
+    byBasis: Record<string, number>;
+  };
 }
