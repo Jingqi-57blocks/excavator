@@ -39,6 +39,8 @@ export interface AttributionStageInput {
   /** The layer-3 producer whose facts the channels select over; its `Unavailable` states are a real input. */
   readonly codegraph: ArtifactResult<ProducerFactSet>;
   readonly ledger: FileLedger;
+  /** Complete resolved module inventory, including modules that emitted no candidate for this feature. */
+  readonly modules: readonly { readonly id: string; readonly dir: string }[];
   readonly mechanismsDigest: string;
   /**
    * One entry per feature this run prepared, in any order. An EMPTY array is a legal, meaningful input: an
@@ -63,6 +65,7 @@ export function buildAttributionStage(input: AttributionStageInput): Attribution
       units: input.units.value,
       codegraph: input.codegraph,
       countedPaths: input.ledger.counted.map((row) => row.relativePath),
+      modules: input.modules,
       selections: input.selections,
       identity: input.identity
     }))

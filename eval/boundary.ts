@@ -1,5 +1,5 @@
 // Deterministic, zero-model boundary-recall metric. The measured object is the
-// FEATURE-GRAPH NODE SET (the output of pruneFeatureGraph), NOT claims and NOT the
+// FEATURE-GRAPH NODE SET (the output of the allocator), NOT claims and NOT the
 // wider evidence file set: 57B-371's intervention point is the prune, so the metric
 // must isolate "did the graph capture this material symbol" from downstream fallback
 // search. `boundaryRecall` is a pure function of (nodes, gold); the run adapters below
@@ -62,7 +62,7 @@ export interface BoundarySummary {
   pass: boolean;
 }
 
-/** Which layer a recall report measured. "fg": the pruneFeatureGraph node set (upstream, 57B-370);
+/** Which layer a recall report measured. "fg": the allocator node set (upstream, 57B-370);
  *  "factpack": the fact pack the author actually reads (context/features/*.factpack.json — the
  *  consumption layer, downstream of the FG node set). Optional so `boundaryRecall` stays a pure,
  *  layer-agnostic function; the run/fixture adapters stamp it. */
@@ -257,9 +257,9 @@ export function rawFeatureGraphFromRun(runDir: string): { seeds: any[]; nodes: a
 
 // ---- fact-pack (consumption) layer ----
 //
-// The FG node set (above) is what pruneFeatureGraph selected; the FACT PACK is the projection of it the
+// The FG node set (above) is what the allocator selected; the FACT PACK is the projection of it the
 // authoring model actually reads (context/features/*.factpack.json). Measuring recall against the fact
-// pack — not the FG node set — is the point of 57B-372: a node the boundary fix rescued into the FG can
+// pack — not the FG node set — is the point of 57B-372: a node the boundary fix retained in the FG can
 // still be dropped by fact-pack derivation, and only the fact-pack layer sees that.
 
 /** Map fact-pack items to boundary nodes: each item's `name` is the node name gold anchors match,

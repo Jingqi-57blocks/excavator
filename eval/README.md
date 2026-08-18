@@ -38,8 +38,8 @@ the run dirs.
 Measures whether a feature's **material symbols survived to a given layer** of the pipeline. Two layers
 descend the same gold, selected by `--layer`:
 
-- **`fg`** (57B-370) — the **feature-graph node set**, the output of `pruneFeatureGraph` before any
-  downstream fallback search. Its intervention point is the prune (57B-371): loosening it must recover
+- **`fg`** (57B-370) — the **feature-graph node set**, the output of the allocator before any
+  downstream fallback search. Its intervention point is allocation (57B-371): changing it must recover
   today's confirmed misses without dropping the feature core it already captures.
 - **`factpack`** (57B-372) — the **fact-pack the author actually reads**: the six structural categories'
   claimed items **∪** the `logic` complement (every retained FG node the categories did not claim). Its
@@ -49,7 +49,7 @@ descend the same gold, selected by `--layer`:
   set (no run dir, no pack) and therefore measures the `fg` layer only.
 
 The measured object at the `fg` layer is the **graph node set at node granularity**, deliberately *not* the
-wider evidence file set. The prune is the intervention point, so the metric isolates "did the graph select
+wider evidence file set. Allocation is the intervention point, so the metric isolates "did the graph select
 this symbol" from "did a downstream source-window search reach it". The S-window signal is preserved only as
 the informational `coveredBySourceWindow` field on each miss (run mode) and never affects the verdict.
 

@@ -1,16 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
-import { canonicalJson } from "../../src/base/util.ts";
-import { captureAllocatorPreregistration } from "../capture-allocator-baseline.ts";
 import { loadAllocatorPreregistration, validateAllocatorPreregistration } from "../allocator-preregistration.ts";
 
 const FILE = join(import.meta.dirname, "..", "fixtures", "allocator", "preregistration-v1.json");
 
-test("57B-426 preregistration was captured by the executable old selector before replacement", () => {
+test("57B-426 frozen v0 preregistration remains structurally valid after old-selector deletion", () => {
   const frozen = loadAllocatorPreregistration(FILE);
   assert.deepEqual(validateAllocatorPreregistration(frozen), []);
-  assert.equal(canonicalJson(captureAllocatorPreregistration()), canonicalJson(frozen));
 });
 
 test("57B-426 preregisters M1-M7 and the no-threshold contribution contract", () => {

@@ -30,7 +30,7 @@ function units(...ids: string[]): UnitsArtifact {
 
 function attribution(unitsValue: UnitsArtifact, seats: string[], featureKey = FEATURE): ArtifactResult<AttributionArtifact> {
   return built({
-    version: "attribution-v1",
+    version: "attribution-v2",
     identity: { unitsContentDigest: unitsContentDigest(unitsValue) },
     selections: [{ featureKey, seats: seats.map((unitId) => ({ unitId })), channels: { status: "ran" } }]
   } as unknown as AttributionArtifact);
@@ -137,7 +137,7 @@ test("a join miss is written as co-located instead of dropping the row", () => {
 test("a written attribution channel failure is transcribed into the fact-pack view", () => {
   const unitsValue = units("cell-a");
   const unavailableChannels = built({
-    version: "attribution-v1",
+    version: "attribution-v2",
     identity: { unitsContentDigest: unitsContentDigest(unitsValue) },
     selections: [{
       featureKey: FEATURE,

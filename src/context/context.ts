@@ -3,8 +3,8 @@ import { readFile } from "node:fs/promises";
 import type { Audience, CollectedFeatureFactPack, EvidenceItem, FeatureRequest, GraphNode, ProviderRegistry, ReportRequest, Snapshot } from "../base/types.ts";
 import { CodeGraphIndex, type GraphReader, type GraphSummary } from "../codegraph/codegraph.ts";
 import { CodeGraphSet } from "../codegraph/codegraph-set.ts";
-import { pruneFeatureGraphWithModuleFloorRecorded } from "../attribution/prune-module-floor.ts";
-import { channelUnavailable, type FeatureSelectionTrace } from "../attribution/selection-trace.ts";
+import { allocateFeatureGraphRecorded } from "../attribution/allocator.ts";
+import { channelUnavailable, SELECTION_TRACE_VERSION, type FeatureSelectionTrace } from "../attribution/selection-trace.ts";
 import { createSnapshot, isLikelySource, type ScannedFile } from "../snapshot/snapshot.ts";
 import type { FileLedger } from "../snapshot/file-ledger.ts";
 import { codegraphIdentity } from "../codegraph/codegraph-identity.ts";
@@ -15,11 +15,10 @@ import { buildFactPack } from "./factpack.ts";
 import { BOUNDARY_FUNCTIONS_VERSION, BOUNDARY_FUNCTION_KINDS, enumerateBoundaryFunctions, type BoundaryFunctionsArtifact, type FeatureBoundaryFunctions } from "../facts/probe/boundary-functions.ts";
 import { legacyWorkspaceWarning } from "../snapshot/workspace-residue.ts";
 
-// v21: CachedFeature carries the selection trace (57B-423) — the layer-4 attribution record is assembled from
-// it, so a v20 hit would serve `undefined` and the run would publish an attribution with no channels. v20 added
-// the boundary-function enumeration's `truncated` flag and per-feature warnings, for the same class of reason.
-// Any change to a cached shape bumps this (57B-375).
-const BUILDER_VERSION = "excavator-context-v26-workset-census";
+// v27: selection-trace-v2 is produced by the unique allocator. Reusing a v26 feature cache would feed the old
+// selector's channels and displacement vocabulary into attribution-v2, so both the cache path and the payload's
+// explicit trace version move together. Any change to a cached shape bumps this (57B-375).
+const BUILDER_VERSION = "excavator-context-v27-allocator";
 
 interface CachedShared {
   snapshotId: string;
@@ -48,6 +47,7 @@ interface CachedFeature {
    * what makes required safe.
    */
   selectionTrace: FeatureSelectionTrace;
+  selectionTraceVersion: typeof SELECTION_TRACE_VERSION;
   warnings: string[];
 }
 
@@ -239,6 +239,9 @@ export async function buildContextsFromBoundary(request: ReportRequest, boundary
       if (cached.selectionTrace === undefined) {
         throw new Error(`The cached feature context ${cachePath} carries no selection trace, so it was written by a builder older than ${BUILDER_VERSION} under this version's name; delete it rather than publishing an attribution with no channels`);
       }
+      if (cached.selectionTraceVersion !== SELECTION_TRACE_VERSION) {
+        throw new Error(`The cached feature context ${cachePath} carries selection trace version ${JSON.stringify(cached.selectionTraceVersion)} instead of ${JSON.stringify(SELECTION_TRACE_VERSION)}; delete it rather than mixing allocator generations`);
+      }
       cache[`feature:${key}`] = "hit";
     } else {
       cache[`feature:${key}`] = "miss";
@@ -418,10 +421,10 @@ async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], fea
     // Candidate pool: expand cap ×6 so depth-2 neighbourhoods are not starved (a per-module cap of
     // maxNodes let level-0 exhaust before the depth-2 ring was ever visited). Then close the pool
     // over its own internal edges so hop2↔hop2 relationships (which layered BFS never captures) are
-    // present for the prune's structural-rescue bridge signal and the retained edge set.
+    // present for the allocator's relation channel and the retained edge set.
     const expanded = graph.expand(seeds.map((node) => node.id), Math.min(depth, 2), Math.max(maxNodes, seeds.length) * 6);
     const poolEdges = graph.edgesAmong(expanded.nodes.map((node) => node.id));
-    const pruned = pruneFeatureGraphWithModuleFloorRecorded(expanded.nodes, [...expanded.edges, ...poolEdges], seeds, anchorTerms, maxNodes);
+    const pruned = allocateFeatureGraphRecorded(expanded.nodes, [...expanded.edges, ...poolEdges], seeds, anchorTerms, maxNodes);
     nodes = pruned.nodes;
     edges = pruned.edges;
     selectionTrace = pruned.trace;
@@ -502,7 +505,11 @@ async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], fea
   }, warnings);
   const inventory = buildFeatureInventory(nodes, scopeFiles);
   const markdown = renderFeatureMarkdown(feature, terms, nodes, edges, unresolved, scopeFiles, evidence, needBroadFallback, inventory, warnings);
-  return { snapshotId: snapshot.id, key, subject: feature.subject, aliases: feature.aliases, nodes, files: scopeFiles, evidence: dedupeEvidence(evidence), markdown, factPack, boundaryFunctions, selectionTrace, warnings: [...warnings, ...factPack.warnings] };
+  return {
+    snapshotId: snapshot.id, key, subject: feature.subject, aliases: feature.aliases, nodes, files: scopeFiles,
+    evidence: dedupeEvidence(evidence), markdown, factPack, boundaryFunctions, selectionTrace,
+    selectionTraceVersion: SELECTION_TRACE_VERSION, warnings: [...warnings, ...factPack.warnings]
+  };
 }
 
 function renderSharedMarkdown(snapshot: Snapshot, graphSummary: unknown, coverage: { indexed: number; eligible: number; ratio: number }, docs: Array<Record<string, unknown>>, representativeNodes: any[], routes: any[], evidence: EvidenceItem[], warnings: string[]): string {

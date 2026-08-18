@@ -14,11 +14,10 @@ import {
   type AttributionArtifact, type AttributionAssemblyInput, type ZeroScoreReason
 } from "../src/attribution/attribution-artifact.ts";
 import {
-  channelConfigDigest, channelUnavailable, SELECTION_CHANNELS, WEIGHTS,
-  type FeatureSelectionTrace, type RanSelectionTrace, type TraceNode
+  channelConfigDigest, channelUnavailable, RANK_CONSTANT, SELECTION_CHANNELS, WEIGHTS,
+  type ContributionChannel, type FeatureSelectionTrace, type RanSelectionTrace, type TraceNode
 } from "../src/attribution/selection-trace.ts";
-import { pruneFeatureGraph, pruneFeatureGraphRecorded } from "../src/attribution/feature-prune.ts";
-import { pruneFeatureGraphWithModuleFloor, pruneFeatureGraphWithModuleFloorRecorded } from "../src/attribution/prune-module-floor.ts";
+import { allocateFeatureGraph, allocateFeatureGraphRecorded } from "../src/attribution/allocator.ts";
 import { ID_SEPARATOR } from "../src/codegraph/codegraph-set.ts";
 import type { GraphReader } from "../src/codegraph/codegraph.ts";
 import { functionInventory, FUNCTION_INVENTORY_VERSION, inventoryObservations } from "../src/codegraph/function-inventory.ts";
@@ -182,6 +181,15 @@ async function layer3(nodes: readonly GraphNode[], targetFactory: () => Promise<
 }
 
 function traced(node: GraphNode, outcome: TraceNode["outcome"], score = 0): TraceNode {
+  const sourceChannel: ContributionChannel = outcome === "displaced" ? "fallback" : outcome;
+  const contribution = {
+    sourceChannel,
+    reason: `${sourceChannel} fixture`,
+    anchor: sourceChannel === "fallback" ? null : "access",
+    propagationPath: [],
+    rank: 1,
+    normalizedContribution: score
+  } as const;
   return {
     nodeId: node.id,
     nodeKind: node.kind,
@@ -191,8 +199,9 @@ function traced(node: GraphNode, outcome: TraceNode["outcome"], score = 0): Trac
     endLine: node.endLine,
     outcome,
     score,
-    reason: outcome === "rescue" ? "anchor-token access" : "",
-    displacedBy: outcome === "displaced" ? "stage1-cut" : null
+    reason: contribution.reason,
+    contributions: [contribution],
+    displacedBy: outcome === "displaced" ? "seat-cap" : null
   };
 }
 
@@ -201,9 +210,14 @@ function ranTrace(pool: readonly TraceNode[]): RanSelectionTrace {
     status: "ran",
     pool: [...pool],
     seedCount: 1,
-    budgets: { maxNodes: 180, rescueQuota: 14 },
-    stage1CutScore: 220,
-    floorDecisions: [{ decision: "no-op-single-module", moduleCount: 1 }]
+    budgets: { maxNodes: 180 },
+    fusion: {
+      method: "weighted-reciprocal-rank",
+      rankConstant: RANK_CONSTANT,
+      rawScoresSummedAcrossChannels: false,
+      tieBreak: ["relativePath", "name", "nodeId"],
+      cutoffScore: 0.01
+    }
   };
 }
 
@@ -212,6 +226,7 @@ function assemble(layer: Layer3, selections: readonly { featureKey: string; trac
     units: layer.units,
     codegraph: built(layer.envelope),
     countedPaths: layer.counted.map((row) => row.relativePath),
+    modules: [],
     selections,
     identity: {
       filesContentManifestDigest: "files-digest",
@@ -221,6 +236,15 @@ function assemble(layer: Layer3, selections: readonly { featureKey: string; trac
     },
     ...overrides
   });
+}
+
+async function moduleTarget(): Promise<string> {
+  const target = await tempDir("excavator-attribution-modules-");
+  await mkdir(join(target, "active"), { recursive: true });
+  await mkdir(join(target, "silent"), { recursive: true });
+  await writeFile(join(target, "active", "app.ts"), APP_TS);
+  await writeFile(join(target, "silent", "worker.ts"), "export function backgroundWorker() {\n  return true;\n}\n");
+  return target;
 }
 
 // --- the fixture node set, one per middle state ---------------------------------------------------------------
@@ -238,6 +262,7 @@ const ROUTE = graphNode({ id: "n6", kind: "route", name: "GET /access", filePath
 
 /** Lives on `nestedTarget` only: a method at depth 2, whose enclosing class the index never reports. */
 const SERVICE_GRANT = graphNode({ id: "n7", kind: "method", name: "grant", filePath: "src/service.ts", startLine: 2, endLine: 4 });
+const MODULE_GRANT = graphNode({ id: "active\0n1", kind: "function", name: "grantAccess", filePath: "active/app.ts", startLine: 1, endLine: 3 });
 
 const ALL_NODES = [GRANT, REVOKE, GRANT_TWIN, PY_HANDLE, EJS_RENDER, ROUTE];
 
@@ -250,10 +275,10 @@ test("every retained node lands in exactly one visible bucket, and each bucket h
     // GRANT seated, PY_HANDLE seated in a residual cell, EJS file-not-counted, ROUTE kind-not-inventoried,
     // REVOKE displaced — five nodes, four different outcomes for the retained four.
     trace: ranTrace([
-      traced(GRANT, "stage1", 1000),
-      traced(PY_HANDLE, "rescue", 220),
-      traced(EJS_RENDER, "backfill"),
-      traced(ROUTE, "stage1"),
+      traced(GRANT, "seed", 1000),
+      traced(PY_HANDLE, "relation", 220),
+      traced(EJS_RENDER, "fallback"),
+      traced(ROUTE, "seed"),
       traced(REVOKE, "displaced")
     ])
   }]);
@@ -272,7 +297,7 @@ test("every retained node lands in exactly one visible bucket, and each bucket h
 
 test("a Python file under a file-level partition seats in its RESIDUAL cell — a residual cell is a real seat", async () => {
   const layer = await layer3(ALL_NODES);
-  const artifact = assemble(layer, [{ featureKey: "f1", trace: ranTrace([traced(PY_HANDLE, "stage1", 220)]) }]);
+  const artifact = assemble(layer, [{ featureKey: "f1", trace: ranTrace([traced(PY_HANDLE, "seed", 220)]) }]);
   const seat = artifact.selections[0]!.seats.find((row) => row.relativePath === "src/handler.py");
   assert.ok(seat, `expected a seat in the python file: ${JSON.stringify(artifact.selections[0]!.seats)}`);
   assert.match(seat.unitId, /^cell:residual:/);
@@ -288,10 +313,12 @@ test("no-matching-fact has both its fixtures: a node with no line range, and a s
   // reachable — `TraceNode.startLine` is nullable precisely because the index really reports rows like this.
   const noLineRange: TraceNode = {
     nodeId: "n90", nodeKind: "function", name: "grantAccess", relativePath: "src/app.ts",
-    startLine: null, endLine: null, outcome: "stage1", score: 12, reason: "", displacedBy: null
+    startLine: null, endLine: null, outcome: "seed", score: 12, reason: "seed fixture",
+    contributions: [{ sourceChannel: "seed", reason: "seed fixture", anchor: "access", propagationPath: [], rank: 1, normalizedContribution: 12 }],
+    displacedBy: null
   };
   // The other road into the bucket: a real structure with real lines that the fixture's index never reported.
-  const unreported = traced(graphNode({ id: "n91", kind: "function", name: "neverIndexed", filePath: "src/app.ts", startLine: 7, endLine: 9 }), "stage1");
+  const unreported = traced(graphNode({ id: "n91", kind: "function", name: "neverIndexed", filePath: "src/app.ts", startLine: 7, endLine: 9 }), "seed");
   const artifact = assemble(layer, [{ featureKey: "f1", trace: ranTrace([noLineRange, unreported]) }]);
   const selection = artifact.selections[0]!;
   assert.deepEqual(selection.projection.retained, {
@@ -333,7 +360,7 @@ test("two index nodes at one coordinate join by base fact id and seat ONE cell",
   assert.ok(base, "and its un-suffixed sibling");
   assert.deepEqual(base.membership, suffixed[0]!.membership, "same coordinates, same cell — which is what makes the base join lossless");
 
-  const artifact = assemble(layer, [{ featureKey: "f1", trace: ranTrace([traced(GRANT, "stage1", 1000), traced(GRANT_TWIN, "rescue", 220)]) }]);
+  const artifact = assemble(layer, [{ featureKey: "f1", trace: ranTrace([traced(GRANT, "seed", 1000), traced(GRANT_TWIN, "relation", 220)]) }]);
   const selection = artifact.selections[0]!;
   assert.equal(selection.projection.retained.seated, 2, "both nodes project");
   assert.equal(selection.seats.length, 2, "one seat ROW per seating decision");
@@ -343,7 +370,7 @@ test("two index nodes at one coordinate join by base fact id and seat ONE cell",
 
 test("an unavailable envelope with a non-empty retained set puts every node in envelope-unavailable", async () => {
   const layer = await layer3(ALL_NODES);
-  const artifact = assemble(layer, [{ featureKey: "f1", trace: ranTrace([traced(GRANT, "stage1", 1000), traced(REVOKE, "stage1")]) }], {
+  const artifact = assemble(layer, [{ featureKey: "f1", trace: ranTrace([traced(GRANT, "seed", 1000), traced(REVOKE, "seed")]) }], {
     codegraph: unavailable("index-not-present: this run resolved no readable CodeGraph database", true)
   });
   const selection = artifact.selections[0]!;
@@ -362,7 +389,7 @@ test("partial contribution: some cells hold a seat, some are displaced, the rest
   const layer = await layer3(ALL_NODES);
   const artifact = assemble(layer, [{
     featureKey: "f1",
-    trace: ranTrace([traced(GRANT, "stage1", 1000), traced(REVOKE, "displaced"), traced(PY_HANDLE, "rescue", 220)])
+    trace: ranTrace([traced(GRANT, "seed", 1000), traced(REVOKE, "displaced"), traced(PY_HANDLE, "relation", 220)])
   }]);
   const selection = artifact.selections[0]!;
   const totals = selection.conservation[0]!.totals;
@@ -380,7 +407,7 @@ test("a seated cell is never also counted as displaced, even when both a seated 
   const artifact = assemble(layer, [{
     featureKey: "f1",
     // Both nodes have the SAME coordinates, so they resolve to one cell; one is retained, one is displaced.
-    trace: ranTrace([traced(GRANT, "stage1", 1000), traced(GRANT_TWIN, "displaced")])
+    trace: ranTrace([traced(GRANT, "seed", 1000), traced(GRANT_TWIN, "displaced")])
   }]);
   const selection = artifact.selections[0]!;
   assert.equal(selection.conservation[0]!.totals.seated, 1);
@@ -398,7 +425,7 @@ test("every zero-score reason has a fixture: the vocabulary may not contain a st
   collect(assemble(layer, [{ featureKey: "f1", trace: channelUnavailable("no-graph") }]));
   // Channels ran and reached one structure: the other structure is observed but not pooled, the python file's
   // residual cell contributed nothing, and a file the index knows nothing about is unobserved.
-  collect(assemble(layer, [{ featureKey: "f1", trace: ranTrace([traced(GRANT, "stage1", 1000)]) }]));
+  collect(assemble(layer, [{ featureKey: "f1", trace: ranTrace([traced(GRANT, "seed", 1000)]) }]));
   assert.deepEqual([...produced].sort(), [...ZERO_SCORE_REASONS].sort());
 });
 
@@ -416,7 +443,7 @@ test("an envelope from another partition generation is refused, not joined again
   const layer = await layer3(ALL_NODES);
   const stale = { ...layer.envelope, identity: { ...layer.envelope.identity, unitsContentDigest: "a-different-generation" } };
   assert.throws(
-    () => assemble(layer, [{ featureKey: "f1", trace: ranTrace([traced(GRANT, "stage1", 1000)]) }], { codegraph: built(stale) }),
+    () => assemble(layer, [{ featureKey: "f1", trace: ranTrace([traced(GRANT, "seed", 1000)]) }], { codegraph: built(stale) }),
     /another partition generation|partition generation/,
     "a stale envelope must throw rather than silently seat nothing"
   );
@@ -432,7 +459,7 @@ test("two memberships under one base fact id are refused rather than averaged", 
       : fact)
   };
   assert.throws(
-    () => assemble(layer, [{ featureKey: "f1", trace: ranTrace([traced(GRANT, "stage1", 1000)]) }], { codegraph: built(forged) }),
+    () => assemble(layer, [{ featureKey: "f1", trace: ranTrace([traced(GRANT, "seed", 1000)]) }], { codegraph: built(forged) }),
     /two memberships/
   );
 });
@@ -453,7 +480,7 @@ test("a same-generation envelope whose membership names a cell outside the parti
   // Silently skipping this published three contradictory answers at once: the census said one node was seated,
   // `seats` held no row, and conservation said nothing was seated. Both arms of the projection must refuse it.
   assert.throws(
-    () => assemble(layer, [{ featureKey: "f1", trace: ranTrace([traced(GRANT, "stage1", 1000)]) }], { codegraph: built(forged) }),
+    () => assemble(layer, [{ featureKey: "f1", trace: ranTrace([traced(GRANT, "seed", 1000)]) }], { codegraph: built(forged) }),
     /is not a cell of this run's partition/,
     "a retained node joined to a cell that does not exist must stop the artifact"
   );
@@ -476,18 +503,51 @@ test("the conservation constructor refuses an imbalance, and the compressed zero
   const layer = await layer3(ALL_NODES);
   const artifact = assemble(layer, [{
     featureKey: "f1",
-    trace: ranTrace([traced(GRANT, "stage1", 1000), traced(REVOKE, "displaced"), traced(PY_HANDLE, "rescue", 220)])
+    trace: ranTrace([traced(GRANT, "seed", 1000), traced(REVOKE, "displaced"), traced(PY_HANDLE, "relation", 220)])
   }]);
   const selection = artifact.selections[0]!;
   assert.equal(selection.zeroScore.reduce((sum, group) => sum + group.cells, 0), selection.conservation[0]!.totals.zeroScore);
   assert.ok(selection.zeroScore.every((group) => group.cells > 0), "a zero-count group is a row with no referent");
 });
 
+test("the module census is total: a zero-signal module keeps its denominator row and receives no seat", async () => {
+  const layer = await layer3([MODULE_GRANT], moduleTarget);
+  const artifact = assemble(layer, [{ featureKey: "f1", trace: ranTrace([traced(MODULE_GRANT, "seed", 1)]) }], {
+    modules: [{ id: "silent", dir: "silent" }, { id: "active", dir: "active" }]
+  });
+  const rows = artifact.selections[0]!.modules;
+  assert.deepEqual(rows.map((row) => row.moduleId), ["active", "silent"], "module inventory order is canonical");
+  assert.equal(rows[0]!.status, "seated");
+  assert.ok(rows[0]!.denominatorCells > 0);
+  assert.equal(rows[0]!.poolNodes, 1);
+  assert.equal(rows[0]!.seatedCells, 1);
+  assert.equal(rows[0]!.soleSourceSeats, 1);
+  assert.equal(rows[1]!.status, "zero-signal");
+  assert.ok(rows[1]!.denominatorCells > 0, "the silent module still names its semantic denominator");
+  assert.equal(rows[1]!.poolNodes, 0);
+  assert.equal(rows[1]!.retainedNodes, 0);
+  assert.equal(rows[1]!.seatedCells, 0, "M6 gives a silent module a row, never a forced seat");
+  assert.throws(
+    () => assemble(layer, [], { modules: [{ id: "duplicate", dir: "active" }, { id: "duplicate", dir: "silent" }] }),
+    /Duplicate CodeGraph module id/
+  );
+
+  const rootLayer = await layer3([GRANT]);
+  const root = assemble(rootLayer, [{ featureKey: "f1", trace: ranTrace([traced(GRANT, "seed", 1)]) }], {
+    modules: [{ id: ".", dir: "" }]
+  }).selections[0]!.modules;
+  assert.equal(root.length, 1, "a single CodeGraph is still one inventoried module, not an empty census");
+  assert.equal(root[0]!.moduleId, ".");
+  assert.ok(root[0]!.denominatorCells > 0);
+  assert.equal(root[0]!.poolNodes, 1);
+  assert.equal(root[0]!.seatedCells, 1);
+});
+
 // --- identity ---------------------------------------------------------------------------------------------------
 
 test("the identity is audience-free and moves when a channel weight moves", async () => {
   const layer = await layer3(ALL_NODES);
-  const artifact = assemble(layer, [{ featureKey: "f1", trace: ranTrace([traced(GRANT, "stage1", 1000)]) }]);
+  const artifact = assemble(layer, [{ featureKey: "f1", trace: ranTrace([traced(GRANT, "seed", 1000)]) }]);
   const serialized = JSON.stringify(artifact.identity);
   for (const forbidden of ["outputLanguage", "documents", "audience", "engineering", "product"]) {
     assert.ok(!serialized.includes(forbidden), `the attribution identity must not carry ${forbidden}: ${serialized}`);
@@ -495,13 +555,13 @@ test("the identity is audience-free and moves when a channel weight moves", asyn
   assert.ok(!/"\/[A-Za-z]/.test(JSON.stringify(artifact.identity.runIntentSummary)), "no absolute target path travels in the identity");
   assert.deepEqual(artifact.identity.channels, [...SELECTION_CHANNELS]);
   assert.equal(artifact.identity.channelConfigDigest, channelConfigDigest(WEIGHTS));
-  const moved = channelConfigDigest({ ...WEIGHTS, nameTokenExact: WEIGHTS.nameTokenExact + 1 });
+  const moved = channelConfigDigest({ ...WEIGHTS, lexical: WEIGHTS.lexical + 1 });
   assert.notEqual(moved, artifact.identity.channelConfigDigest, "a changed weight must move the channel identity");
 });
 
 test("the artifact re-serializes byte-identically and its digest covers the identity", async () => {
   const layer = await layer3(ALL_NODES);
-  const artifact = assemble(layer, [{ featureKey: "f1", trace: ranTrace([traced(GRANT, "stage1", 1000)]) }]);
+  const artifact = assemble(layer, [{ featureKey: "f1", trace: ranTrace([traced(GRANT, "seed", 1000)]) }]);
   assert.equal(serializeAttributionArtifact(built(artifact)), serializeAttributionArtifact(built(artifact)));
   const moved: AttributionArtifact = { ...artifact, identity: { ...artifact.identity, mechanismsDigest: "other" } };
   assert.notEqual(attributionContentDigest(moved), attributionContentDigest(artifact));
@@ -509,7 +569,7 @@ test("the artifact re-serializes byte-identically and its digest covers the iden
 
 // --- the selection range: the recorded kernel and the shell decide identically -----------------------------------
 
-/** A multi-module pool with namespaced ids, so the module floor really runs rather than short-circuiting. */
+/** A multi-module pool with namespaced ids, so cross-module competition is exercised under one cap. */
 function syntheticPool(): { nodes: any[]; edges: any[]; seeds: any[] } {
   const nodes: any[] = [];
   const edges: any[] = [];
@@ -536,19 +596,15 @@ function syntheticPool(): { nodes: any[]; edges: any[]; seeds: any[] } {
 test("the recorded kernel and the trace-free shell return byte-identical node and edge sets", () => {
   const pool = syntheticPool();
   for (const maxNodes of [12, 40, 200]) {
-    const shell = pruneFeatureGraph(pool.nodes, pool.edges, pool.seeds, ["leave", "request"], maxNodes);
-    const recorded = pruneFeatureGraphRecorded(pool.nodes, pool.edges, pool.seeds, ["leave", "request"], maxNodes);
-    assert.equal(JSON.stringify({ nodes: recorded.nodes, edges: recorded.edges }), JSON.stringify(shell), `global prune at ${maxNodes}`);
-
-    const floorShell = pruneFeatureGraphWithModuleFloor(pool.nodes, pool.edges, pool.seeds, ["leave", "request"], maxNodes);
-    const floorRecorded = pruneFeatureGraphWithModuleFloorRecorded(pool.nodes, pool.edges, pool.seeds, ["leave", "request"], maxNodes);
-    assert.equal(JSON.stringify({ nodes: floorRecorded.nodes, edges: floorRecorded.edges }), JSON.stringify(floorShell), `module floor at ${maxNodes}`);
+    const shell = allocateFeatureGraph(pool.nodes, pool.edges, pool.seeds, ["leave", "request"], maxNodes);
+    const recorded = allocateFeatureGraphRecorded(pool.nodes, pool.edges, pool.seeds, ["leave", "request"], maxNodes);
+    assert.equal(JSON.stringify({ nodes: recorded.nodes, edges: recorded.edges }), JSON.stringify(shell), `allocator at ${maxNodes}`);
   }
 });
 
 test("the trace is a partition of the pool: every candidate carries exactly one channel", () => {
   const pool = syntheticPool();
-  const recorded = pruneFeatureGraphWithModuleFloorRecorded(pool.nodes, pool.edges, pool.seeds, ["leave", "request"], 30);
+  const recorded = allocateFeatureGraphRecorded(pool.nodes, pool.edges, pool.seeds, ["leave", "request"], 30);
   assert.equal(recorded.trace.pool.length, pool.nodes.length, "the pool is the INPUT set, not the retained one");
   assert.equal(new Set(recorded.trace.pool.map((node) => node.nodeId)).size, pool.nodes.length);
   const retained = new Set(recorded.nodes.map((node) => String(node.id)));
@@ -559,28 +615,18 @@ test("the trace is a partition of the pool: every candidate carries exactly one 
   }
 });
 
-test("the module floor records a decision per module, including the ones that add nothing", () => {
+test("every producer contribution carries the complete explanation contract", () => {
   const pool = syntheticPool();
-  const recorded = pruneFeatureGraphWithModuleFloorRecorded(pool.nodes, pool.edges, pool.seeds, ["leave", "request"], 30);
-  const decisions = recorded.trace.floorDecisions;
-  assert.equal(decisions.length, 2, "two modules, two decisions");
-  for (const decision of decisions) assert.equal(decision.decision, "module-evaluated");
-  assert.deepEqual(decisions.map((decision) => decision.decision === "module-evaluated" ? decision.moduleId : null), ["backend", "frontend"]);
-
-  // A single-module pool is the OTHER empty operation, and it is written rather than left as an empty list.
-  const single = pruneFeatureGraphWithModuleFloorRecorded(
-    pool.nodes.filter((node) => String(node.id).startsWith("backend")),
-    pool.edges.filter((edge) => String(edge.source).startsWith("backend") && String(edge.target).startsWith("backend")),
-    [pool.nodes[0]], ["leave"], 30
-  );
-  assert.deepEqual(single.trace.floorDecisions, [{ decision: "no-op-single-module", moduleCount: 1 }]);
+  const recorded = allocateFeatureGraphRecorded(pool.nodes, pool.edges, pool.seeds, ["leave", "request"], 30);
+  for (const row of recorded.trace.pool) for (const contribution of row.contributions) {
+    assert.ok(contribution.sourceChannel);
+    assert.ok(contribution.reason);
+    assert.ok(Array.isArray(contribution.propagationPath));
+    assert.equal(contribution.anchor === null, contribution.sourceChannel === "fallback");
+  }
 });
 
-/**
- * A pool where the floor really adds something: the frontend's rescue candidates carry BOTH anchors (name signal
- * at its 440 cap) and crowd the shared quota, while the backend's `syncLvCompleted` — the 57B-377 node, by name —
- * scores 340 and is displaced globally but rescued when its own module is pruned alone.
- */
+/** A crowded pool where one module can consume nearly the whole cap; there is deliberately no hidden floor. */
 function crowdedPool(): { nodes: any[]; edges: any[]; seeds: any[] } {
   const nodes: any[] = [];
   const edges: any[] = [];
@@ -591,66 +637,38 @@ function crowdedPool(): { nodes: any[]; edges: any[]; seeds: any[] } {
   nodes.push({ id: `backend${ID_SEPARATOR}b1`, kind: "function", name: "holidayCalendar", filePath: "backend/src/svc/cal.ts", signature: "", startLine: 1, endLine: 9 });
   edges.push({ source: `backend${ID_SEPARATOR}b0`, target: `backend${ID_SEPARATOR}b1`, kind: "calls", line: 3 });
   edges.push({ source: `backend${ID_SEPARATOR}b0`, target: `backend${ID_SEPARATOR}b1`, kind: "calls", line: 4 });
-  // Filler whose PATH carries an anchor but whose NAME carries none: it outranks b0 in Stage 1 without ever
-  // becoming a rescue candidate, which is what pushes b0 out of the module-local Stage-1 cut and into rescue.
+  // Filler whose path carries an anchor but whose name carries none; it exercises deterministic lexical rank.
   for (let i = 2; i < 20; i++) nodes.push({ id: `backend${ID_SEPARATOR}b${i}`, kind: "function", name: `plain${i}`, filePath: `backend/src/leave/u${i}.ts`, signature: "", startLine: i, endLine: i + 3 });
   return { nodes, edges, seeds: [nodes[0]] };
 }
 
-test("a floored node's outcome is module-floor, not displaced — the channel census stays a partition", () => {
+test("the allocator never adds a hidden additive seat beyond the one cap", () => {
   const pool = crowdedPool();
   const anchors = ["leave", "holiday"];
-  const recorded = pruneFeatureGraphWithModuleFloorRecorded(pool.nodes, pool.edges, pool.seeds, anchors, 16);
-  const backendId = `backend${ID_SEPARATOR}b0`;
-  const decision = recorded.trace.floorDecisions.find((row) => row.decision === "module-evaluated" && row.moduleId === "backend");
-  assert.ok(decision && decision.decision === "module-evaluated" && decision.added.includes(backendId),
-    `the floor must record which node it added: ${JSON.stringify(recorded.trace.floorDecisions)}`);
-  assert.equal(recorded.nodes.length, 17, "the floor is additive: one node back beyond the 16-node cap");
-
-  const floored = recorded.trace.pool.find((node) => node.nodeId === backendId)!;
-  assert.equal(floored.outcome, "module-floor", "the node the floor recovered may not still read as displaced");
-  assert.equal(floored.displacedBy, null, "and it lost no budget in the end");
-  assert.equal(recorded.trace.pool.filter((node) => node.outcome === "module-floor").length, 1);
-  // The un-floored global prune is what it was: the shell over the same kernel returns the same bytes.
-  assert.equal(
-    JSON.stringify({ nodes: recorded.nodes, edges: recorded.edges }),
-    JSON.stringify(pruneFeatureGraphWithModuleFloor(pool.nodes, pool.edges, pool.seeds, anchors, 16))
-  );
+  const recorded = allocateFeatureGraphRecorded(pool.nodes, pool.edges, pool.seeds, anchors, 16);
+  assert.equal(recorded.nodes.length, 16);
+  assert.equal(recorded.trace.pool.filter((node) => node.outcome !== "displaced").length, 16);
+  for (const node of recorded.trace.pool) assert.equal(node.displacedBy, node.outcome === "displaced" ? "seat-cap" : null);
 });
 
-test("the channel weights are the values they had before they were table-ised — this slice moved them, not tuned them", () => {
-  // Pinned one by one rather than by digest, because the claim being protected is "every value is unchanged",
-  // and a digest golden says only "something moved" while a reviewer still has to go and find what.
+test("the preregistered fusion weights are pinned", () => {
   assert.deepEqual({ ...WEIGHTS }, {
-    stage1Seed: 1000,
-    stage1DirectlyConnected: 120,
-    stage1PathTerm: 220,
-    stage1NameTerm: 160,
-    stage1SignatureTerm: 80,
-    stage1CommonPenalty: -180,
-    stage1TestBonus: 20,
-    nameTokenExact: 220,
-    nameSubstring: 160,
-    abbrevTokenExact: 220,
-    nameSignalCap: 440,
-    bridgePerNeighbor: 60,
-    bridgeMaxMultiplicity: 3,
-    schedulerBonus: 80,
-    rescueQuotaMin: 8,
-    rescueQuotaMax: 24,
-    rescueQuotaFraction: 0.08
+    seed: 1,
+    lexical: 1,
+    derived: 1,
+    relation: 1,
+    convention: 1,
+    fallback: 0.25
   });
 });
 
-test("a displaced rescue candidate names the rescue quota, and a never-scored node names the stage-1 cut", () => {
+test("every displaced candidate names the single seat cap", () => {
   const pool = syntheticPool();
-  const recorded = pruneFeatureGraphRecorded(pool.nodes, pool.edges, pool.seeds, ["leave", "request"], 20);
+  const recorded = allocateFeatureGraphRecorded(pool.nodes, pool.edges, pool.seeds, ["leave", "request"], 20);
   const displaced = recorded.trace.pool.filter((node) => node.outcome === "displaced");
   assert.ok(displaced.length > 0, "the fixture really displaces something");
-  const byQuota = displaced.filter((node) => node.displacedBy === "rescue-quota");
-  const byCut = displaced.filter((node) => node.displacedBy === "stage1-cut");
-  assert.ok(byQuota.length > 0, `expected a rescue-quota displacement: ${JSON.stringify(displaced.map((node) => [node.nodeId, node.score, node.displacedBy]))}`);
-  assert.ok(byCut.length > 0, "expected a stage1-cut displacement");
-  for (const node of byQuota) assert.ok(node.score > 0, "a node that lost the rescue quota had a positive signal");
-  for (const node of byCut) assert.equal(node.reason, "", "a node that was never a rescue candidate states no rescue reason");
+  for (const node of displaced) {
+    assert.equal(node.displacedBy, "seat-cap");
+    assert.ok(node.contributions.some((item) => item.sourceChannel === "fallback"));
+  }
 });

@@ -208,6 +208,18 @@ test("a cached feature context with no selection trace is refused, not served as
   await assert.rejects(prepareRun(request), /carries no selection trace/);
 });
 
+test("a cached feature context from another allocator generation is refused", async () => {
+  const request = await twoFeatureRequest();
+  await prepareRun(request);
+  const caches = await featureCachePaths(request.workdir);
+  assert.ok(caches.length >= 2);
+  const cached = JSON.parse(await readFile(caches[0]!, "utf8")) as Record<string, unknown>;
+  assert.equal(cached.selectionTraceVersion, "selection-trace-v2");
+  cached.selectionTraceVersion = "selection-trace-v1";
+  await writeFile(caches[0]!, JSON.stringify(cached));
+  await assert.rejects(prepareRun(request), /instead of "selection-trace-v2"|mixing allocator generations/);
+});
+
 test("a prepared run's layer-3 records carry the units digest and no feature key", async () => {
   const request = await twoFeatureRequest();
   const { runDir } = await prepareRun(request);

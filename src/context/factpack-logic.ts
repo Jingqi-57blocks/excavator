@@ -1,6 +1,6 @@
 // The `logic` fact-pack category: the business and decision functions inside a feature boundary that
 // the six kind/scan categories do not already name. It is a COMPLEMENT FULL-ENUMERATION of the pruned
-// feature-graph node set — pruneFeatureGraph already made the significance decision, so membership here
+// feature-graph node set — the allocator already made the significance decision, so membership here
 // is never a score. (Top-K scoring was rejected: a real target can rank near the bottom of the boundary,
 // so any cut below the full complement would drop it.) Significance is used ONLY to ORDER the items and
 // choose which get an inline window; it never decides who is in.
@@ -38,7 +38,7 @@ export interface LogicSelection {
   excludedKinds: Set<string>;
   /** Kinds whose out-edges promote a target to attention tier 2 (the entrypoint/route kinds). */
   routeKinds: Set<string>;
-  /** Per-caller in-degree multiplicity cap (mirrors pruneFeatureGraph's BRIDGE_MAX_MULTIPLICITY). */
+  /** Per-caller in-degree multiplicity cap (mirrors the allocator's BRIDGE_MAX_MULTIPLICITY). */
   cap: number;
 }
 
