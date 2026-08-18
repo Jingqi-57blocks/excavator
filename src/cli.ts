@@ -61,8 +61,7 @@ async function main(): Promise<void> {
           target: required(args.target, "--target"),
           out: args.out,
           manifest: args.manifest,
-          descriptions: args.descriptions,
-          language: args.language
+          descriptions: args.descriptions
         });
         print(args.json === "true"
           ? result.extraction
@@ -365,7 +364,7 @@ Examples:
   excavator overview --target ./workspace --no-codegraph --audience both
   excavator codegraph status --target ./workspace
   excavator codegraph build --target ./workspace --quiet
-  excavator db-schema --target ./workspace --out ./db --language en-US
+  excavator db-schema --target ./workspace --out ./db --descriptions descriptions.json
   excavator native-graph --target ./workspace --out ./nav
   excavator framework --target ./workspace --out ./fw
   excavator reading --run <run>

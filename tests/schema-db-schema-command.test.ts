@@ -39,7 +39,7 @@ async function tinyTarget(): Promise<string> {
 test("db-schema runs end-to-end and writes database-design.md and db-schema.json", async () => {
   const target = await tinyTarget();
   const out = await tempDir("excavator-dbschema-out-");
-  const result = await runDbSchema({ target, out, language: "en-US" });
+  const result = await runDbSchema({ target, out });
 
   assert.ok(await exists(result.markdownPath));
   assert.ok(await exists(result.jsonPath));
@@ -62,19 +62,24 @@ test("db-schema output is byte-identical on a second run (deterministic artifact
   const target = await tinyTarget();
   const outA = await tempDir("excavator-dbschema-a-");
   const outB = await tempDir("excavator-dbschema-b-");
-  await runDbSchema({ target, out: outA, language: "en-US" });
-  await runDbSchema({ target, out: outB, language: "en-US" });
+  await runDbSchema({ target, out: outA });
+  await runDbSchema({ target, out: outB });
   assert.equal(await readFile(join(outA, "database-design.md"), "utf8"), await readFile(join(outB, "database-design.md"), "utf8"));
   assert.equal(await readFile(join(outA, "db-schema.json"), "utf8"), await readFile(join(outB, "db-schema.json"), "utf8"));
 });
 
-test("db-schema accepts any language (localization is the authoring layer's, not a Core allowlist)", async () => {
+test("db-schema renders any language (localization is injected descriptions, not a Core allowlist)", async () => {
   const target = await tinyTarget();
   const out = await tempDir("excavator-dbschema-out-");
-  // A once-"unsupported" tag no longer throws: Core renders neutral structure regardless of language,
-  // and localization is AI-written descriptions — so there is no fixed language allowlist to reject.
-  const result = await runDbSchema({ target, out, language: "fr-FR" });
-  assert.ok(result.tables >= 0);
+  // There is no language parameter to reject a tag with: Core renders one neutral structure, and the
+  // target-language prose arrives as descriptions written by the authoring layer and injected verbatim.
+  const descriptions = join(out, "descriptions.json");
+  await writeFile(descriptions, JSON.stringify({ orders: "Commandes passees par les clients.", users: "\u5458\u5de5\u8d26\u53f7\u3002" }), "utf8");
+  const result = await runDbSchema({ target, out, descriptions });
+  assert.equal(result.tables, 2);
+  const md = await readFile(result.markdownPath, "utf8");
+  assert.match(md, /Commandes passees par les clients\./);
+  assert.match(md, /\u5458\u5de5\u8d26\u53f7\u3002/);
 });
 
 test("db-schema is exposed in the CLI help and its own --help entry", async () => {
@@ -89,7 +94,7 @@ test("db-schema is exposed in the CLI help and its own --help entry", async () =
 test("db-schema CLI end-to-end prints a summary and writes both artifacts", async () => {
   const target = await tinyTarget();
   const out = await tempDir("excavator-dbschema-cli-");
-  const run = await cli(["db-schema", "--target", target, "--out", out, "--language", "en-US"]);
+  const run = await cli(["db-schema", "--target", target, "--out", out]);
   assert.equal(run.code, 0);
   const summary = JSON.parse(run.stdout);
   assert.equal(summary.tables, 2);
