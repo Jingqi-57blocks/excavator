@@ -379,7 +379,9 @@ test("prepare writes the fact pack as JSON, as a markdown section and as per-cat
   assert.doesNotMatch(context, /app\.get \/leave/, "a co-located scan row must not enter the model view");
   assert.match(context, /### jobs — 0 consumable of 0 machine items, method scan/);
   assert.match(context, /### entities — 0 consumable of 0 machine items, method none[\s\S]*?absence here is not evidence of absence in the code/);
-  assert.match(context, new RegExp(`context/features/${key}\\.factpack\\.json`));
+  assert.match(context, /Source digest: `[0-9a-f]{64}`/);
+  assert.match(context, /Declared view bounds: 60 rows per category and 120 logic rows/);
+  assert.doesNotMatch(context, new RegExp(`context/features/${key}\\.factpack\\.json`), "the model view must not direct the author to machine JSON");
 
   const catalog = JSON.parse(await readFile(join(runDir, "evidence.json"), "utf8")) as { evidence: EvidenceItem[] };
   const factEvidence = catalog.evidence.filter((item) => item.id.startsWith("FACT-"));
@@ -406,11 +408,12 @@ test("detailed feature prompts require item-by-item consumable fact coverage; ov
   const prompt = await readFile(join(runDir, "prompts", `${featureDocument.id}.md`), "utf8");
 
   assert.match(prompt, /## Fact pack/);
-  assert.match(prompt, new RegExp(`context/features/${key}\\.factpack\\.json`));
-  assert.match(prompt, /must cover every consumable fact pack item of the matching category/);
+  assert.match(prompt, /context\/workset\.md/);
+  assert.doesNotMatch(prompt, new RegExp(`context/features/${key}\\.factpack\\.json`), "the prompt must not direct the model to machine JSON");
+  assert.match(prompt, /must cover every visible consumable fact-pack item of the matching category/);
   assert.match(prompt, /explicitly counted group/);
   assert.match(prompt, /Cite the category's `FACT-\*` evidence id/);
-  assert.match(prompt, /truncated must be reported as incomplete/);
+  assert.match(prompt, /truncated or view-bounded must be reported as incomplete/);
 
   const overviewPrompt = await readFile(join(runDir, "prompts", "overview-engineering.md"), "utf8");
   assert.ok(!/fact pack/i.test(overviewPrompt), "an overview has no feature fact pack to enumerate");

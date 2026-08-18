@@ -303,7 +303,7 @@ function renderFactCategory(category: FactPackCategory, coverage: FactPackCovera
     const shown = items.slice(0, rowCap);
     for (const item of shown) lines.push(`- \`${item.name}\` — \`${item.filePath}:${item.line}${item.endLine && item.endLine !== item.line ? `-${item.endLine}` : ""}\`${item.signal ? ` · rescued: ${item.signal}` : ""}`);
     const remainder = items.length - shown.length;
-    if (remainder > 0) lines.push(`- … ${remainder} further ${category} item${remainder === 1 ? "" : "s"} in context/features/${featureKey}.factpack.json`);
+    if (remainder > 0) lines.push(`- … view bound reached; ${remainder} additional ${category} item${remainder === 1 ? "" : "s"} remain counted by the category summary`);
   }
   if (coverage?.truncated) lines.push(`Truncated: ${coverage.note ?? "budget or cap reached"}`);
   return lines.join("\n");

@@ -24,7 +24,7 @@
 // denominator from the same frozen fact packs.
 
 import type { FactPackItem, FeatureFactPack, InvestigationWorkItem } from "../base/types.ts";
-import type { BoundaryFunctionsArtifact } from "../context/boundary-functions.ts";
+import type { BoundaryFunctionsArtifact } from "../facts/probe/boundary-functions.ts";
 import { anchorHitFor, type AnchorHit } from "./relevance-annotation.ts";
 import { LOGIC_WORKITEM_DIMENSION } from "./logic-workitems.ts";
 import { consumableFactPackItems } from "../workset/factpack-view.ts";

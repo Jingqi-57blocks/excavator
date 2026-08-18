@@ -132,8 +132,8 @@ const SLOTS: RegistryEntry[] = [
     title: "Overview module accounting, produced unconditionally",
     pathTemplate: "context/overview-census.json",
     cardinality: "run",
-    schemaId: "overview-census-v1",
-    validatorVersion: "overview-census-validator-v1",
+    schemaId: "overview-census-v2",
+    validatorVersion: "overview-census-validator-v2",
     enforced: true,
     enforcementNote: "Written unconditionally at prepare, including on overview-only runs; that unconditional shape is the whole point of the artifact."
   },
@@ -145,8 +145,8 @@ const SLOTS: RegistryEntry[] = [
     cardinality: "run",
     schemaId: "read-specs-v1",
     validatorVersion: "read-specs-validator-v1",
-    enforced: false,
-    enforcementNote: "Reading is authorised implicitly today; the ReadSpec artifact lands with the layer 5/6 slice."
+    enforced: true,
+    enforcementNote: "Written by every prepare as a pure authorization artifact; it contains path, span, reason and budget but never source bytes or evidence identity."
   },
   {
     id: "obligation.declarations",
@@ -156,8 +156,8 @@ const SLOTS: RegistryEntry[] = [
     cardinality: "run",
     schemaId: "obligation-declarations-v1",
     validatorVersion: "obligation-declarations-validator-v1",
-    enforced: false,
-    enforcementNote: "Today's equivalent is the work-item plan plus the read-obligation denominator, which are not yet a declaration artifact."
+    enforced: true,
+    enforcementNote: "Written by every prepare from requirements, workset, mechanisms and units; an unavailable probe becomes an individual residual rather than disappearing."
   },
   {
     id: "investigation.evidence-catalog",

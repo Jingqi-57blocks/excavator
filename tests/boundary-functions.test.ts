@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
-import { BOUNDARY_FUNCTION_KINDS, enumerateBoundaryFunctions } from "../src/context/boundary-functions.ts";
+import { BOUNDARY_FUNCTION_KINDS, enumerateBoundaryFunctions } from "../src/facts/probe/boundary-functions.ts";
 import type { GraphReader } from "../src/codegraph/codegraph.ts";
 
 // This enumeration widens the read-obligation denominator, so its own boundaries have to be visible: which

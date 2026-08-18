@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readObligations } from "../src/assurance/read-obligations.ts";
-import type { BoundaryFunctionsArtifact } from "../src/context/boundary-functions.ts";
+import type { BoundaryFunctionsArtifact } from "../src/facts/probe/boundary-functions.ts";
 import type { FeatureFactPack } from "../src/base/types.ts";
 import { v2Pack } from "./factpack-v2-fixture.ts";
 
