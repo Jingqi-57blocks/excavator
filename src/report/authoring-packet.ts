@@ -20,6 +20,7 @@ import type {
 } from "../base/types.ts";
 import { exists } from "../base/util.ts";
 import { consumableFactPackItems } from "../workset/factpack-view.ts";
+import { boundEvidenceModelView } from "../investigation/evidence-store.ts";
 
 /**
  * The authoring packet: a deterministic, model-free per-document rendering of the frozen investigation
@@ -394,7 +395,7 @@ function renderEvidence(block: PacketSection, evidenceById: Map<string, Evidence
     seen.set(id, block.key);
     lines.push(...renderEvidenceItem(id, evidenceById.get(id)));
   }
-  return lines.join("\n");
+  return boundEvidenceModelView(lines.join("\n"));
 }
 
 function renderEvidenceItem(id: string, item: EvidenceItem | undefined): string[] {
@@ -412,7 +413,9 @@ function renderEvidenceItem(id: string, item: EvidenceItem | undefined): string[
   if (item.content != null) {
     const { text, clipped } = clipExcerpt(item.content);
     const out = [`- \`${id}\` — ${item.title}${item.path ? ` (\`${item.path}:${item.startLine}-${item.endLine}\`)` : ""}`, "", "```", text, "```"];
-    if (clipped) out.push(`…clipped; full excerpt: evidence.json id ${id}`);
+    if (clipped) out.push(item.contentRef
+      ? `…clipped in this model view; an immutable full machine record is retained audit-only (${item.contentDigest})`
+      : `…clipped in this model view; the full machine record remains audit-only under evidence id ${id}`);
     return out;
   }
   return [`- \`${id}\` — ${item.kind}: ${item.title}`];

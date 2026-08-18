@@ -45,6 +45,7 @@ import { authorPrompt, makeDocumentPlan, referencePath, reportFileName } from ".
 import { projectCacheDir, reDeriveIdentities } from "./stages/runtime-identity.ts";
 import { readFrozenFactPacks, readRequiredObligationDeclarations } from "./stages/investigation-read-model.ts";
 import { resolveCrossRepoLinks } from "./stages/crossrepo-stage.ts";
+import { auditEvidenceStorage, evidenceStreamDigest, readEvidenceCatalog, writeEvidenceCatalog } from "../investigation/evidence-store.ts";
 
 export { assembleRun, beginDocument, checkpointSection, resumeRun, runStatus, scaffoldClaims } from "./stages/authoring-stage.ts";
 export { addSourceEvidence, searchCacheVersion, searchSourceEvidence, SOURCE_SEARCH_VERSION, updateChecklist, updateTraces, updateWorkItems, type SupplementInput } from "./stages/investigation-stage.ts";
@@ -422,7 +423,9 @@ export async function prepareRun(request: ReportRequest): Promise<{ runDir: stri
     request: effectiveRequest,
     snapshot: result.prepared.snapshot,
     documents,
-    evidenceDigest: sha256(stableJson(evidence)),
+    // Replaced with the append-chain tail returned by `writeEvidenceCatalog` below. It is not a full-array
+    // canonical digest: that O(N) normalization is intentionally deferred to freeze.
+    evidenceDigest: "",
     providerRegistryDigest: providerRegistry.digest,
     analysisScopeDigest: analysisScope.digest,
     assuranceVersion: ASSURANCE_VERSION,
@@ -450,7 +453,8 @@ export async function prepareRun(request: ReportRequest): Promise<{ runDir: stri
   };
   await writeJson(join(runDir, "request.json"), effectiveRequest);
   await writeJson(join(runDir, "snapshot.json"), result.prepared.snapshot);
-  await writeJson(join(runDir, "evidence.json"), { evidence });
+  const evidenceCatalog = await writeEvidenceCatalog(runDir, evidence, effectiveRequest.redactSecrets === true);
+  manifest.evidenceDigest = evidenceCatalog.checkpoint.tailDigest;
   await writeJson(join(runDir, "provider-status.json"), providerRegistry);
   await writeJson(join(runDir, "analysis-scope.json"), analysisScope);
   await writeJson(join(runDir, "workitems.json"), plan);
@@ -524,7 +528,7 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
   const runWide = singleDocument ? toAdvisory : (items: AuditFinding[]) => items;
   const coverageLevel = singleDocument ? "warning" : "error";
   const findings: AuditFinding[] = [];
-  const evidenceCatalog = await readJson<{ evidence: EvidenceItem[] }>(join(runDir, "evidence.json"));
+  const evidenceCatalog = await readEvidenceCatalog(runDir);
   const evidenceIds = new Set(evidenceCatalog.evidence.map((item) => item.id));
   const evidenceById = new Map(evidenceCatalog.evidence.map((item) => [item.id, item]));
   const providerRegistry = await readJson<any>(join(runDir, "provider-status.json"));
@@ -572,13 +576,14 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
       findings.push({ level: "error", document: "contract", message: `obligations/declarations.json violates its declaration contract: ${(error as Error).message}` });
     }
   }
-  if (manifest.evidenceDigest !== sha256(stableJson(evidenceCatalog.evidence))) findings.push({ level: "error", document: "evidence", message: "evidence catalog changed outside the recorded source-evidence workflow" });
+  if (manifest.evidenceDigest !== evidenceStreamDigest(evidenceCatalog.evidence)) findings.push({ level: "error", document: "evidence", message: "evidence catalog changed outside the recorded source-evidence workflow" });
+  findings.push(...(await auditEvidenceStorage(runDir, evidenceCatalog.evidence, manifest.request.redactSecrets === true)).map((message) => ({ level: "error" as const, document: "evidence", message })));
   const providerUnsigned = { ...providerRegistry }; delete providerUnsigned.digest;
   if (sha256(stableJson(providerUnsigned)) !== providerRegistry.digest || manifest.providerRegistryDigest !== providerRegistry.digest) findings.push({ level: "error", document: "providers", message: "provider registry digest is invalid or changed" });
   const scopeUnsigned = { ...analysisScope }; delete scopeUnsigned.digest;
   if (sha256(stableJson(scopeUnsigned)) !== analysisScope.digest || manifest.analysisScopeDigest !== analysisScope.digest || analysisScope.snapshotId !== manifest.snapshot?.id) findings.push({ level: "error", document: "scope", message: "analysis scope digest is invalid or does not match the run" });
 
-  findings.push(...await auditEvidenceCatalog(manifest, evidenceCatalog.evidence));
+  findings.push(...await auditEvidenceCatalog(runDir, manifest, evidenceCatalog.evidence));
   const identities = await reDeriveIdentities(runDir, manifest);
   if (identities) {
     // A generation change is a stated LIMIT, not a finding about the target: the check could not run. Reporting

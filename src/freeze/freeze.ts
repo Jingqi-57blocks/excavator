@@ -1,9 +1,17 @@
 import { join } from "node:path";
+import { stat } from "node:fs/promises";
 import { auditEvidenceCatalog, auditTraces, auditWorkItems } from "../investigation/assurance.ts";
 import { runUsesCurrentAssurance } from "../base/assurance-version.ts";
 import type { AuditFinding, EvidenceItem, InvestigationPlan, KnowledgeArtifact, KnowledgeCompleteness, RunManifest, TraceCatalog } from "../base/types.ts";
 import { readTimeline } from "../base/timeline.ts";
-import { exists, nowIso, readJson, sha256, stableJson, writeJson } from "../base/util.ts";
+import { atomicWrite, canonicalJson, exists, nowIso, readJson, sha256, stableJson } from "../base/util.ts";
+import {
+  APPEND_STREAM_VERSION, appendJsonArrayValue, nextStreamDigest, readCheckpoint, withRunWriter, writeCheckpoint,
+  type StreamCheckpoint
+} from "../base/single-writer.ts";
+import {
+  auditEvidenceStorage, canonicalEvidenceDigest, evidenceStreamDigest
+} from "../investigation/evidence-store.ts";
 
 /**
  * "First freeze, then write." This module owns the deterministic, model-free machinery that turns a
@@ -43,6 +51,7 @@ export interface SnapshotDrift {
 }
 
 export interface FreezePreconditionInput {
+  runDir: string;
   manifest: RunManifest;
   plan: InvestigationPlan;
   expectedPlan: InvestigationPlan;
@@ -61,12 +70,13 @@ export interface FreezePreconditionInput {
  * was audit-clean at freeze time. Returns findings; an empty error set means the run may be frozen.
  */
 export async function freezePreconditions(input: FreezePreconditionInput): Promise<AuditFinding[]> {
-  const { manifest, plan, expectedPlan, evidence, evidenceById, traces, documentIds, snapshotDrift, contractFindings } = input;
+  const { runDir, manifest, plan, expectedPlan, evidence, evidenceById, traces, documentIds, snapshotDrift, contractFindings } = input;
   const findings: AuditFinding[] = [...contractFindings];
   const evidenceIds = new Set(evidence.map((item) => item.id));
   const traceIds = new Set(traces.traces.map((trace) => trace.id));
-  if (manifest.evidenceDigest !== sha256(stableJson(evidence))) findings.push(error("evidence", "evidence catalog changed outside the recorded source-evidence workflow"));
-  findings.push(...await auditEvidenceCatalog(manifest, evidence));
+  if (manifest.evidenceDigest !== evidenceStreamDigest(evidence)) findings.push(error("evidence", "evidence catalog changed outside the recorded source-evidence workflow"));
+  findings.push(...(await auditEvidenceStorage(runDir, evidence, manifest.request.redactSecrets === true)).map((message) => error("evidence", message)));
+  findings.push(...await auditEvidenceCatalog(runDir, manifest, evidence));
   findings.push(...auditWorkItems(plan, expectedPlan, evidenceById, traceIds));
   // Claims do not exist yet at freeze time, so no trace step can legitimately cite one: pass an empty set.
   findings.push(...auditTraces(traces, documentIds, evidenceIds, new Set<string>()));
@@ -123,7 +133,7 @@ export function buildKnowledge(input: BuildKnowledgeInput): KnowledgeArtifact {
     assuranceVersion: manifest.assuranceVersion,
     frozenAt,
     evidenceIds,
-    evidenceDigest: manifest.evidenceDigest,
+    evidenceDigest: canonicalEvidenceDigest(evidence),
     workitems,
     workitemsDigest: sha256(stableJson(workitems)),
     traceIds,
@@ -167,10 +177,38 @@ export function normalizeSupplement(reason?: string, workItemId?: string): { rea
 /** Append one supplement entry to the frozen record. Supplements are the one field freeze leaves mutable;
  *  appending never touches the frozen core, so `knowledgeDigest` stays constant. */
 export async function recordSupplement(runDir: string, command: string, ids: string[], supplement: { reason: string; workItemId: string }): Promise<void> {
-  const path = join(runDir, "knowledge.json");
-  const knowledge = await readJson<KnowledgeArtifact>(path);
-  knowledge.supplements.push({ at: nowIso(), command, ids, reason: supplement.reason, workItemId: supplement.workItemId });
-  await writeJson(path, knowledge);
+  const entry = { at: nowIso(), command, ids, reason: supplement.reason, workItemId: supplement.workItemId };
+  await withRunWriter(runDir, async () => {
+    const checkpoint = await readCheckpoint(runDir, SUPPLEMENT_STREAM);
+    if (!checkpoint) throw new Error("Frozen knowledge has no supplement append checkpoint; re-prepare the run under the current schema");
+    const next = await appendJsonArrayValue(join(runDir, "knowledge.json"), checkpoint, entry);
+    await writeCheckpoint(runDir, next);
+  });
+}
+
+const SUPPLEMENT_STREAM = "supplement";
+
+/** Write the epoch core once and initialize the O(1) supplement tail immediately before its closing array. */
+export async function writeKnowledgeArtifact(runDir: string, knowledge: KnowledgeArtifact): Promise<StreamCheckpoint> {
+  if (knowledge.supplements.length) throw new Error("A newly sealed knowledge artifact must start with no supplements");
+  return withRunWriter(runDir, async () => {
+    const { supplements: _supplements, ...core } = knowledge;
+    const prefix = `${canonicalJson(core).slice(0, -1)},\"supplements\":[`;
+    await writeJsonArrayArtifact(join(runDir, "knowledge.json"), prefix);
+    const checkpoint: StreamCheckpoint = {
+      version: APPEND_STREAM_VERSION,
+      stream: SUPPLEMENT_STREAM,
+      sequence: 0,
+      tailDigest: "",
+      byteOffset: Buffer.byteLength(prefix)
+    };
+    await writeCheckpoint(runDir, checkpoint);
+    return checkpoint;
+  });
+}
+
+async function writeJsonArrayArtifact(path: string, prefix: string): Promise<void> {
+  await atomicWrite(path, `${prefix}]}\n`);
 }
 
 /**
@@ -190,6 +228,16 @@ export async function auditFrozenKnowledge(runDir: string, manifest: RunManifest
   const knowledge = await readJson<KnowledgeArtifact>(path);
   const findings: AuditFinding[] = [];
   if (knowledgeDigest(knowledge) !== manifest.knowledgeDigest) findings.push(error("knowledge", "frozen knowledge digest does not match the run manifest"));
+  const supplementCheckpoint = await readCheckpoint(runDir, SUPPLEMENT_STREAM);
+  if (!supplementCheckpoint) findings.push(error("knowledge", "supplement ledger has no append checkpoint"));
+  else {
+    let tail = "";
+    for (let index = 0; index < knowledge.supplements.length; index += 1) tail = nextStreamDigest(tail, index + 1, knowledge.supplements[index]);
+    if (supplementCheckpoint.sequence !== knowledge.supplements.length) findings.push(error("knowledge", "supplement checkpoint sequence does not match the ledger"));
+    if (supplementCheckpoint.tailDigest !== tail) findings.push(error("knowledge", "supplement checkpoint has an invalid tail digest"));
+    const bytes = await stat(path).then((value) => value.size).catch(() => 0);
+    if (supplementCheckpoint.byteOffset + Buffer.byteLength("]}\n") !== bytes) findings.push(error("knowledge", "supplement checkpoint has an invalid byte offset"));
+  }
   // Symmetric to the "added after freeze" checks below: the frozen set must remain a subset of the
   // current artifacts. A legitimate supplement only ever adds; a frozen evidence id, work item or trace
   // that has vanished from the run is a silent deletion of recorded knowledge, so it is always an error.

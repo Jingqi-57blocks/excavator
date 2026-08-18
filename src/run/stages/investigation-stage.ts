@@ -7,6 +7,7 @@ import { checklistUpdatesToWorkItems, mergeChecklist, mergeWorkItems, workItemsT
 import { mergeTraces } from "../../investigation/investigation-artifacts.ts";
 import { MAX_WINDOW_LINES, SourceReader, evidenceFromWindow, sourceSearch, type SourceSearchStats } from "../../snapshot/source.ts";
 import { projectCacheDir, reDeriveIdentities } from "./runtime-identity.ts";
+import { appendEvidence } from "../../investigation/evidence-store.ts";
 
 export const SOURCE_SEARCH_VERSION = `source-search-v4-ranking-v1-${REDACTION_VERSION}`;
 
@@ -58,11 +59,8 @@ export async function addSourceEvidence(runDirInput: string, relativePath: strin
     redact: Boolean(manifest.request.redactSecrets),
   });
   const window = await reader.window(relativePath, startLine, endLine, reason);
-  const evidencePath = join(runDir, "evidence.json");
-  const catalog = await readJson<{ evidence: Array<Record<string, unknown>> }>(evidencePath);
-  if (!catalog.evidence.some((item) => item.id === window.id)) catalog.evidence.push(evidenceFromWindow(window) as unknown as Record<string, unknown>);
-  await writeJson(evidencePath, catalog);
-  manifest.evidenceDigest = sha256(stableJson(catalog.evidence));
+  const recorded = await appendEvidence(runDir, evidenceFromWindow(window), manifest.request.redactSecrets === true);
+  manifest.evidenceDigest = recorded.checkpoint.tailDigest;
   manifest.metrics.sourceWindows += reader.stats.windows;
   manifest.metrics.sourceWindowCacheHits += reader.stats.hits;
   manifest.metrics.sourceCharacters += reader.stats.characters;
@@ -78,7 +76,7 @@ export async function addSourceEvidence(runDirInput: string, relativePath: strin
   const totalLines = short ? await reader.lineCount(relativePath) : 0;
   const cappedAt = short && window.endLine < totalLines;
   return {
-    evidence: evidenceFromWindow(window),
+    evidence: recorded.item,
     cacheHit: reader.stats.hits > 0,
     ...(cappedAt
       ? { clamped: true, requestedEndLine: endLine, unreadFrom: window.endLine + 1, unreadThrough: Math.min(endLine, totalLines), notice: `Only lines ${window.startLine}-${window.endLine} were recorded: one window holds at most ${MAX_WINDOW_LINES} lines. Lines ${window.endLine + 1}-${Math.min(endLine, totalLines)} are still unread — open another window if they carry behavior.` }
@@ -145,11 +143,8 @@ export async function searchSourceEvidence(runDirInput: string, termsInput: stri
     reason,
     digest: sha256(stableJson(data)),
   };
-  const evidencePath = join(runDir, "evidence.json");
-  const catalog = await readJson<{ evidence: EvidenceItem[] }>(evidencePath);
-  if (!catalog.evidence.some((evidence) => evidence.id === item.id)) catalog.evidence.push(item);
-  await writeJson(evidencePath, catalog);
-  manifest.evidenceDigest = sha256(stableJson(catalog.evidence));
+  const recorded = await appendEvidence(runDir, item, manifest.request.redactSecrets === true);
+  manifest.evidenceDigest = recorded.checkpoint.tailDigest;
   manifest.metrics.sourceSearches = (manifest.metrics.sourceSearches ?? 0) + (cacheHit ? 0 : 1);
   manifest.metrics.sourceSearchCacheHits = (manifest.metrics.sourceSearchCacheHits ?? 0) + (cacheHit ? 1 : 0);
   manifest.metrics.sourceFilesSearched = (manifest.metrics.sourceFilesSearched ?? 0) + (cacheHit ? 0 : scopedFiles.length);
@@ -160,7 +155,7 @@ export async function searchSourceEvidence(runDirInput: string, termsInput: stri
   await writeJson(runPath, manifest);
   await writeJson(join(runDir, "metrics.json"), manifest.metrics);
   if (supp) await recordSupplement(runDir, "search", [item.id], supp);
-  return { evidence: item, cacheHit, ...data };
+  return { evidence: recorded.item, cacheHit, ...((recorded.item.data as SearchReceipt | undefined) ?? data) };
 }
 
 export async function updateChecklist(runDirInput: string, updates: Partial<ChecklistItem>[], supplement?: SupplementInput): Promise<InvestigationChecklist> {

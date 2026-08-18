@@ -300,7 +300,7 @@ test("a config key used in several places is enumerated once and keeps its occur
   assert.match(keys[0].detail ?? "", /\(\+1 further occurrence\)$/);
 });
 
-test("every category carries one derived evidence item, including the empty ones", async () => {
+test("every category carries one fact evidence item, including the empty ones", async () => {
   const scope = await boundary(false);
   const collected = await pack(scope);
   const factPack = v2Pack(collected.items, {
@@ -312,7 +312,7 @@ test("every category carries one derived evidence item, including the empty ones
   const evidence = factPackEvidence(factPack);
 
   assert.deepEqual(evidence.map((item) => item.id), FACT_PACK_CATEGORIES.map((category) => `FACT-leave-mana-${category}-snapshot`));
-  assert.ok(evidence.every((item) => item.kind === "derived" && item.snapshotId === "snapshot-fact-pack"));
+  assert.ok(evidence.every((item) => item.kind === "fact" && item.snapshotId === "snapshot-fact-pack"));
   const entities = evidence.find((item) => item.id.includes("-entities-"))!;
   assert.deepEqual((entities.data as { items: unknown[] }).items, [], "an empty category is still stated as a fact");
 });
@@ -386,7 +386,7 @@ test("prepare writes the fact pack as JSON, as a markdown section and as per-cat
   const catalog = JSON.parse(await readFile(join(runDir, "evidence.json"), "utf8")) as { evidence: EvidenceItem[] };
   const factEvidence = catalog.evidence.filter((item) => item.id.startsWith("FACT-"));
   assert.equal(factEvidence.length, 7);
-  assert.ok(factEvidence.every((item) => item.kind === "derived" && item.snapshotId === manifest.snapshot?.id));
+  assert.ok(factEvidence.every((item) => item.kind === "fact" && item.snapshotId === manifest.snapshot?.id));
   assert.ok(factEvidence.every((item) => ((item.data as { items?: unknown[] }).items ?? []).length === 0), "co-located scan rows produce no automatic fact evidence rows");
 });
 

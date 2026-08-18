@@ -41,7 +41,7 @@ export function factPackEvidence(pack: FeatureFactPack): EvidenceItem[] {
     return {
       id: factPackEvidenceId(pack.featureKey, coverage.category, pack.snapshotId),
       snapshotId: pack.snapshotId,
-      kind: "derived" as const,
+      kind: "fact" as const,
       title: `Fact pack: ${coverage.category}`,
       data,
       reason: `enumerate the seeded and retained ${coverage.category} facts authorized by the feature attribution, with the machine denominator and coverage limits kept visible`,

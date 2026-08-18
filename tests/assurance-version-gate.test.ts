@@ -44,7 +44,7 @@ function sourceEvidence(content: string, digest: string): EvidenceItem {
 test("current-version run keeps source re-derivation mismatch as hard errors", async () => {
   const target = await targetWith(FILE_LINE);
   const stored = "export const answer = 7;"; // internally consistent, but disagrees with the file
-  const findings = await auditEvidenceCatalog(manifest(target, ASSURANCE_VERSION), [sourceEvidence(stored, sha256(stored))]);
+  const findings = await auditEvidenceCatalog(target, manifest(target, ASSURANCE_VERSION), [sourceEvidence(stored, sha256(stored))]);
   assert.ok(findings.some((f) => f.level === "error" && f.message.includes("source digest is stale")), "expected a stale source digest error");
   assert.ok(findings.some((f) => f.level === "error" && f.message.includes("stored excerpt does not match the current redacted source window")), "expected an excerpt mismatch error");
 });
@@ -52,7 +52,7 @@ test("current-version run keeps source re-derivation mismatch as hard errors", a
 test("older-version run grandfathers the same source-side mismatch", async () => {
   const target = await targetWith(FILE_LINE);
   const stored = "export const answer = 7;";
-  const findings = await auditEvidenceCatalog(manifest(target, "assurance-v0-redaction-v3"), [sourceEvidence(stored, sha256(stored))]);
+  const findings = await auditEvidenceCatalog(target, manifest(target, "assurance-v0-redaction-v3"), [sourceEvidence(stored, sha256(stored))]);
   assert.deepEqual(findings, [], "a legacy run must not fail on a redaction/source re-derivation mismatch");
 });
 
@@ -60,14 +60,14 @@ test("older-version run still catches a tampered archived excerpt", async () => 
   const target = await targetWith(FILE_LINE);
   const stored = "export const answer = 7;";
   // Digest recorded for a different string: the archived catalog was tampered after the run.
-  const findings = await auditEvidenceCatalog(manifest(target, "assurance-v0-redaction-v3"), [sourceEvidence(stored, sha256("export const answer = 999;"))]);
+  const findings = await auditEvidenceCatalog(target, manifest(target, "assurance-v0-redaction-v3"), [sourceEvidence(stored, sha256("export const answer = 999;"))]);
   assert.ok(findings.some((f) => f.level === "error" && f.message.includes("does not match its own recorded digest")), "internal-consistency check must still catch tampering on a legacy run");
 });
 
 test("a run with no assuranceVersion field audits without crashing", async () => {
   const target = await targetWith(FILE_LINE);
   const stored = "export const answer = 7;"; // internally consistent
-  const findings = await auditEvidenceCatalog(manifest(target, undefined), [sourceEvidence(stored, sha256(stored))]);
+  const findings = await auditEvidenceCatalog(target, manifest(target, undefined), [sourceEvidence(stored, sha256(stored))]);
   assert.deepEqual(findings, [], "a field-less run is grandfathered and, when internally consistent, produces no findings");
 });
 

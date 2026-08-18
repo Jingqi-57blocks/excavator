@@ -79,11 +79,9 @@ Read these inputs before writing:
 - Document instructions: \`${contextPath}\`
 - Shared project context: \`context/shared.md\`
 - Bounded layer-5 census and ReadSpec view: \`context/workset.md\`
-- Evidence catalog: \`evidence.json\`
-- Investigation work items: \`workitems.json\`
-- Compatibility checklist: \`checklist.json\`
+- Frozen investigation view: \`context/authoring/${document.id}.md\`
 
-If \`context/authoring/${document.id}.md\` exists (written by freeze), read it before writing: it lists, per section, the work items, deterministic facts and frozen evidence that section must cover — cover each listed item or state explicitly why it does not apply.
+The frozen investigation view is written by freeze and is the only model-facing evidence/work-item view. Read it before writing: it lists, per section, the work items, deterministic facts and frozen evidence that section must cover — cover each listed item or state explicitly why it does not apply. Do not load \`evidence.json\`, its shards/content store, \`workitems.json\`, \`traces.json\`, \`checklist.json\` or \`knowledge.json\` into the model context; those are authoritative machine/audit storage.
 
 For a feature document, the document instructions identify the reusable feature-scope file under \`context/features/\`.
 
@@ -91,7 +89,7 @@ Use the report contract's chapter order exactly. In section 1, begin with one lo
 
 When the requested detail level above is \`detailed\`, do not compress distinct rules, states, types, thresholds, entry points, records, jobs or side effects into a few summary sentences. Build the section inventory first, then enumerate every material distinct item supported by the prepared evidence. Use the contract-required tables and Mermaid diagrams. The feature context is a candidate corpus, not a finished summary.
 ${factPackInstructions(document, detailLevel)}
-The investigation is frozen before authoring: \`evidence.json\`, \`workitems.json\`, \`traces.json\` and the prepared context are complete and are the authoring input. Consume them as they are; do not re-investigate to fill a gap. When a claim seems to lack evidence, first decide whether it is an expression problem — the evidence you need is almost always already in the catalog under a different framing. Only when the frozen knowledge is genuinely incomplete, open a supplement: re-run the relevant Excavator command with \`--supplement-reason "<why the frozen knowledge is insufficient>" --supplement-workitem <work item id>\`, which performs the operation and records the exception in the coverage ledger. Ensure each material item appears in the report.
+The investigation is frozen before authoring: the bounded authoring view and prepared context are the model input, while the machine artifacts remain the audit authority. Consume the view as written; do not re-investigate to fill a gap. When a claim seems to lack evidence, first decide whether it is an expression problem — the evidence you need is almost always already present under a different framing. Only when the frozen knowledge is genuinely incomplete, open a supplement: re-run the relevant Excavator command with \`--supplement-reason "<why the frozen knowledge is insufficient>" --supplement-workitem <work item id>\`, which performs the operation and records the exception in the coverage ledger. Ensure each material item appears in the report.
 
 Describe current state and current problems only. Do not provide recommendations, remediation, future architecture, migration steps, or action items. A target problem must be attributable to the target snapshot. Never place CodeGraph/Excavator limitations, unresolved graph references, source fallback, provider coverage, analysis budgets or static-review limitations in a target risk/current-problem section; put them only in the coverage chapter or an Excavator validation report.
 `;

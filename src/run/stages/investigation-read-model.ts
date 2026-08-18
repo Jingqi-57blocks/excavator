@@ -19,6 +19,7 @@ import type { UnitsArtifact } from "../../facts/units/units-artifact.ts";
 import type { ArtifactResult } from "../../base/artifact-result.ts";
 import type { ReadSpecsArtifact } from "../../workset/read-specs.ts";
 import type { MechanismLedger } from "../../mechanism/mechanism-ledger.ts";
+import { readEvidenceCatalog } from "../../investigation/evidence-store.ts";
 
 export async function readFrozenFactPacks(runDir: string, manifest: RunManifest): Promise<Record<string, FeatureFactPack>> {
   const factPacks: Record<string, FeatureFactPack> = {};
@@ -101,7 +102,7 @@ export async function readingCheck(runDirInput: string): Promise<{ frozen: boole
   const runDir = resolve(runDirInput);
   const manifest = await readJson<RunManifest>(join(runDir, "run.json"));
   const frozen = Boolean(manifest.frozenAt);
-  const evidenceCatalog = await readJson<{ evidence: EvidenceItem[] }>(join(runDir, "evidence.json"));
+  const evidenceCatalog = await readEvidenceCatalog(runDir);
   const plan = await readJson<InvestigationPlan>(join(runDir, "workitems.json"));
 
   let accountability: ReadAccountability | null = null;

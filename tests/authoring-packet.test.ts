@@ -166,7 +166,7 @@ test("excerpts clip with a footnote; FACT/SEARCH/trace render as summary lines; 
   ));
 
   assert.ok(markdown.includes("line 40") && !markdown.includes("line 41"), "excerpt keeps the first 40 lines only");
-  assert.ok(markdown.includes("…clipped; full excerpt: evidence.json id S-long"), "a clipped excerpt carries the honest footnote");
+  assert.ok(markdown.includes("…clipped in this model view; the full machine record remains audit-only under evidence id S-long"), "a clipped excerpt carries the honest footnote without directing the model to physical storage");
   assert.ok(markdown.includes('search "escalation": 12 candidate file(s), 1 match(es)'), "search receipts render as one summary line");
   assert.ok(/fact pack entities: 4 item\(s\), truncated yes/.test(markdown), "FACT-* renders a coverage summary, not inline items");
   assert.ok(/`T-1` — Leave decision flow · verified · 3 steps/.test(markdown), "a trace renders id, title, status and step count");

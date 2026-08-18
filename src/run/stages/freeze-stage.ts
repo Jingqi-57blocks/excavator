@@ -4,7 +4,7 @@ import { WORKSET_OBLIGATION_ASSURANCE_GENERATION, assuranceGenerationAtLeast } f
 import { atomicWrite, exists, nowIso, readJson, writeJson } from "../../base/util.ts";
 import { appendTimeline, readTimeline } from "../../base/timeline.ts";
 import { auditContractInstances } from "../../freeze/contract-instance-audit.ts";
-import { buildKnowledge, freezePreconditions, knowledgeDigest } from "../../freeze/freeze.ts";
+import { buildKnowledge, freezePreconditions, knowledgeDigest, writeKnowledgeArtifact } from "../../freeze/freeze.ts";
 import { auditReadAccountability } from "../../investigation/read-coverage.ts";
 import { inventoryConditions } from "../../investigation/condition-inventory.ts";
 import { createInvestigationPlan } from "../../investigation/assurance.ts";
@@ -14,6 +14,7 @@ import { declarationWorkItems } from "../obligation-stage.ts";
 import { logicWorkItems, LOGIC_DISPOSITION_ASSURANCE_GENERATION } from "../../obligation/logic-workitems.ts";
 import { deriveReadAccountability, readCrossRepoLinks, readFrozenFactPacks, readRequiredObligationDeclarations } from "./investigation-read-model.ts";
 import { reDeriveIdentities } from "./runtime-identity.ts";
+import { readEvidenceCatalog } from "../../investigation/evidence-store.ts";
 
 /**
  * Freeze a run: verify the investigation-side gate, write the immutable knowledge record and render the
@@ -24,7 +25,7 @@ export async function freezeRun(runDirInput: string): Promise<{ manifest: RunMan
   const runPath = join(runDir, "run.json");
   const manifest = await readJson<RunManifest>(runPath);
   if (manifest.frozenAt) throw new Error(`Run is already frozen at ${manifest.frozenAt}; re-freeze is not supported. Post-freeze changes go through the supplement channel.`);
-  const evidenceCatalog = await readJson<{ evidence: EvidenceItem[] }>(join(runDir, "evidence.json"));
+  const evidenceCatalog = await readEvidenceCatalog(runDir);
   const evidenceById = new Map(evidenceCatalog.evidence.map((item) => [item.id, item]));
   const plan = await readJson<InvestigationPlan>(join(runDir, "workitems.json"));
   const traces = await readJson<TraceCatalog>(join(runDir, "traces.json"));
@@ -47,7 +48,7 @@ export async function freezeRun(runDirInput: string): Promise<{ manifest: RunMan
   }
   const documentIds = new Set(manifest.documents.map((document) => document.id));
   const snapshotDrift = (await reDeriveIdentities(runDir, manifest))?.drift ?? null;
-  const findings = await freezePreconditions({ manifest, plan, expectedPlan, evidence: evidenceCatalog.evidence, evidenceById, traces, documentIds, snapshotDrift, contractFindings });
+  const findings = await freezePreconditions({ runDir, manifest, plan, expectedPlan, evidence: evidenceCatalog.evidence, evidenceById, traces, documentIds, snapshotDrift, contractFindings });
   if (obligations && readResidual) {
     findings.push(...auditReadAccountability({ obligations: obligations.obligations, workItems: plan.items, evidenceById, report: readResidual }));
   }
@@ -69,11 +70,12 @@ export async function freezeRun(runDirInput: string): Promise<{ manifest: RunMan
   const appendStreams = [
     { id: "evidence.json", frozenThroughSequence: evidenceCatalog.evidence.length, tailDigest: manifest.evidenceDigest },
     { id: "timeline.jsonl", frozenThroughSequence: timelineTail?.sequence ?? 0, tailDigest: timelineTail?.digest ?? "" },
+    { id: "supplements", frozenThroughSequence: 0, tailDigest: "" },
   ];
   const mechanismsPath = join(runDir, "ledger", "mechanisms.json");
   const mechanismsLedger = await exists(mechanismsPath) ? await readJson<unknown>(mechanismsPath) : null;
   const knowledge = buildKnowledge({ manifest, plan, evidence: evidenceCatalog.evidence, traces, factPacks, crossFeature, frozenAt, readObligations: obligations, boundaryFunctions, crossRepoLinks, mechanismsLedger, appendStreams });
-  await writeJson(join(runDir, "knowledge.json"), knowledge);
+  await writeKnowledgeArtifact(runDir, knowledge);
   let authoringPackets = 0;
   for (const document of manifest.documents) {
     const markdown = buildAuthoringPacket(document, plan, evidenceById, traces, factPacks, freezeConditions ?? undefined,

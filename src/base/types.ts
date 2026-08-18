@@ -130,7 +130,7 @@ export interface AnalysisScope {
 export interface EvidenceItem {
   id: string;
   snapshotId: string;
-  kind: "graph" | "source" | "readme" | "manifest" | "git" | "coverage" | "derived" | "search" | "scope" | "provider" | "limitation";
+  kind: "graph" | "source" | "readme" | "manifest" | "git" | "coverage" | "derived" | "search" | "scope" | "provider" | "limitation" | "fact" | "ledger";
   title: string;
   path?: string;
   startLine?: number;
@@ -139,6 +139,15 @@ export interface EvidenceItem {
   data?: unknown;
   reason: string;
   digest: string;
+  /** Run-relative immutable bytes after this run's redaction mode and before any evidence bound. */
+  contentRef?: string;
+  contentDigest?: string;
+  /** Byte lengths before and after deterministic clipping; present together with `contentRef`. */
+  originalBytes?: number;
+  retainedBytes?: number;
+  truncatedReason?: string;
+  boundPolicyVersion?: string;
+  redactionVersion?: string;
   sensitive?: boolean;
   supersedes?: string;
 }
@@ -314,8 +323,8 @@ export interface KnowledgeCompleteness {
 /**
  * `knowledge.json` (knowledge-v1): the frozen fingerprint of a run's investigation plus a completeness
  * report and an append-only supplements ledger. It copies no evidence content and builds no ontology —
- * authoring keeps reading `evidence.json`, `workitems.json`, `traces.json` and `context/*`, which are
- * complete and frozen by this point. Every field except `supplements` is part of the frozen core the
+ * the deterministic packet builder reads `evidence.json`, `workitems.json`, `traces.json` and `context/*`;
+ * the author reads only its bounded packet. Every field except `supplements` is part of the frozen core the
  * `knowledgeDigest` covers; supplements are the one field the escape hatch may append to.
  */
 export interface KnowledgeArtifact {
