@@ -1,12 +1,12 @@
 import { rm, readdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { AuditFinding, DocumentPlan, DraftReceipt, RunManifest, SectionClaim } from "../base/types.ts";
-import { runUsesCurrentAssurance } from "../base/assurance-version.ts";
 import { validateClaimsInput } from "./section-audit.ts";
 import { collectClaims } from "./assurance-artifacts.ts";
 import { archiveCheckpoint, normalizeSection } from "./checkpoint.ts";
 import { appendTimeline } from "../base/timeline.ts";
 import { atomicWrite, exists, listDirectories, nowIso, readJson, writeJson } from "../base/util.ts";
+import { assertCurrentKnowledgeEpochForAuthoring } from "../freeze/freeze.ts";
 
 /**
  * Parallel section authoring: "write in parallel, account serially."
@@ -26,14 +26,6 @@ function receiptPath(runDir: string, documentId: string, sectionIndex: number): 
   return join(runDir, "drafts", documentId, `${String(sectionIndex).padStart(2, "0")}.json`);
 }
 
-/** The freeze-before-authoring hard gate, replicated verbatim from `beginDocument` so a draft cannot bypass
- *  freeze by skipping `begin`. Same wording, same version gate: older runs are grandfathered. */
-function assertFrozenForAuthoring(runDir: string, manifest: RunManifest): void {
-  if (runUsesCurrentAssurance(manifest) && !manifest.frozenAt) {
-    throw new Error(`Run is not frozen; the current assurance version requires freezing the investigation before authoring. Run \`excavator freeze --run ${runDir}\` first.`);
-  }
-}
-
 /**
  * Draft one section: the parallel-safe half of a checkpoint. Validates the document/section and the freeze
  * gate read-only, normalizes the section and validates its claims (so a bad section is rejected at draft
@@ -45,7 +37,7 @@ function assertFrozenForAuthoring(runDir: string, manifest: RunManifest): void {
 export async function draftSection(runDirInput: string, documentId: string, sectionIndex: number, content: string, claims?: SectionClaim[]): Promise<DraftReceipt> {
   const runDir = resolve(runDirInput);
   const manifest = await readJson<RunManifest>(join(runDir, "run.json"));
-  assertFrozenForAuthoring(runDir, manifest);
+  await assertCurrentKnowledgeEpochForAuthoring(runDir, manifest);
   const document = manifest.documents.find((item) => item.id === documentId);
   if (!document) throw new Error(`Unknown document: ${documentId}`);
   const section = document.sections.find((item) => item.index === sectionIndex);
@@ -58,6 +50,7 @@ export async function draftSection(runDirInput: string, documentId: string, sect
   const receipt: DraftReceipt = {
     version: 1,
     runId: manifest.id,
+    ...(manifest.knowledgeEpoch !== undefined ? { knowledgeEpoch: manifest.knowledgeEpoch } : {}),
     documentId,
     section: sectionIndex,
     draftedAt: nowIso(),
@@ -112,6 +105,7 @@ export async function collectDrafts(runDirInput: string): Promise<{ manifest: Ru
   const runPath = join(runDir, "run.json");
   const metricsPath = join(runDir, "metrics.json");
   const manifest = await readJson<RunManifest>(runPath);
+  await assertCurrentKnowledgeEpochForAuthoring(runDir, manifest);
   const pending = await pendingReceipts(runDir, manifest);
   if (!pending.length) return { manifest, collected: [] };
 
@@ -126,6 +120,9 @@ export async function collectDrafts(runDirInput: string): Promise<{ manifest: Ru
     await assertNotConcurrentlyModified(runPath, expectedUpdatedAt);
     const document = manifest.documents.find((item) => item.id === receipt.documentId);
     if (!document) throw new Error(`Draft receipt references unknown document: ${receipt.documentId}`);
+    if (manifest.knowledgeEpoch !== undefined && receipt.knowledgeEpoch !== manifest.knowledgeEpoch) {
+      throw new Error(`Draft receipt for ${receipt.documentId} section ${receipt.section} was written from knowledge epoch ${String(receipt.knowledgeEpoch)}; re-draft it from current epoch ${manifest.knowledgeEpoch}`);
+    }
     const section = document.sections.find((item) => item.index === receipt.section);
     if (!section) throw new Error(`Draft receipt references unknown section ${receipt.section} for ${receipt.documentId}`);
     // Fail closed: a receipt is a promise that the section (and its claims) are on disk. If the drafted

@@ -43,6 +43,7 @@ test("timeline and supplement appends share one cross-process commit door withou
   const frozen = knowledge();
   const coreDigest = knowledgeDigest(frozen);
   await writeKnowledgeArtifact(runDir, frozen);
+  const epochBytes = await readFile(join(runDir, "knowledge.json"), "utf8");
 
   await Promise.all(Array.from({ length: 80 }, (_, index) => index % 2 === 0
     ? appendTimeline(runDir, "run", { stage: "investigation", action: "fixture", subject: String(index) })
@@ -53,8 +54,10 @@ test("timeline and supplement appends share one cross-process commit door withou
   assert.equal(timeline.length, 41);
   assert.deepEqual(timeline.map((entry) => entry.sequence), Array.from({ length: 41 }, (_, index) => index + 1));
   const persisted = JSON.parse(await readFile(join(runDir, "knowledge.json"), "utf8")) as KnowledgeArtifact;
-  assert.equal(persisted.supplements.length, 40);
-  assert.equal(knowledgeDigest(persisted), coreDigest, "append-only supplements never rewrite the sealed core");
+  const ledger = JSON.parse(await readFile(join(runDir, "knowledge", "supplements.json"), "utf8")) as { supplements: KnowledgeArtifact["supplements"] };
+  assert.equal(ledger.supplements.length, 40);
+  assert.equal(await readFile(join(runDir, "knowledge.json"), "utf8"), epochBytes, "supplements never rewrite the immutable epoch bytes");
+  assert.equal(knowledgeDigest(persisted), coreDigest);
 });
 
 test("tail checkpoints remain constant-sized while timeline and supplement counts grow", async () => {
@@ -79,7 +82,7 @@ test("the three hot append paths cannot regress to reading or rewriting their fu
   const freezeSource = await readFile(join(import.meta.dirname, "..", "src", "freeze", "freeze.ts"), "utf8");
   const evidenceAppend = evidenceSource.slice(evidenceSource.indexOf("export async function appendEvidence("), evidenceSource.indexOf("export async function readEvidenceCatalog("));
   const timelineAppend = timelineSource.slice(timelineSource.indexOf("export async function appendTimeline("), timelineSource.indexOf("export async function auditTimeline("));
-  const supplementAppend = freezeSource.slice(freezeSource.indexOf("export async function recordSupplement("), freezeSource.indexOf("const SUPPLEMENT_STREAM"));
+  const supplementAppend = freezeSource.slice(freezeSource.indexOf("export async function recordSupplement("), freezeSource.indexOf("export async function writeKnowledgeArtifact("));
   assert.doesNotMatch(evidenceAppend, /readEvidenceCatalog|readJson|readFile\(.*evidence\.json|writeJson/);
   assert.doesNotMatch(timelineAppend, /readTimeline|readFile/);
   assert.doesNotMatch(supplementAppend, /readJson|readFile|writeJson/);

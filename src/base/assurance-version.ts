@@ -76,14 +76,16 @@ export const CONTRACT_MANIFEST_ASSURANCE_GENERATION = 10;
 // content-addressed append stream and gives evidence/timeline/supplement a common single-writer checkpoint.
 // v14 executes every ReadSpec and records L7 source/empty/unavailable results plus decision dispositions. v15
 // replaces the plan-only disposed/total number with domain/kind conjunctions, validates every NotApplicable
-// premise, and records every bound freeze check family as passed, failed or skipped.
+// premise, and records every bound freeze check family as passed, failed or skipped. v16 moves supplements to
+// their own append ledger and makes re-freeze append an immutable, hash-chained epoch.
 // These are intentional archive boundaries: an older run must be prepared again rather than being assigned
 // denominator, obligation or byte-bound semantics it never wrote.
 export const WORKSET_OBLIGATION_ASSURANCE_GENERATION = 12;
 export const EVIDENCE_STORE_ASSURANCE_GENERATION = 13;
 export const READ_EXECUTION_ASSURANCE_GENERATION = 14;
 export const DOMAIN_COMPLETENESS_ASSURANCE_GENERATION = 15;
-export const ASSURANCE_VERSION = `assurance-v15-domain-completeness-${REDACTION_VERSION}`;
+export const EPOCH_SEAL_ASSURANCE_GENERATION = 16;
+export const ASSURANCE_VERSION = `assurance-v16-epoch-seal-${REDACTION_VERSION}`;
 
 /** Strict re-derivation checks apply only to runs prepared under exactly the current version. */
 export function runUsesCurrentAssurance(manifest: RunManifest): boolean {

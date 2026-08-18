@@ -163,7 +163,9 @@ export function buildAuthoringPacket(
   /** The reconciled read obligations, for the reading-boundary block (generation 5+). Optional and additive
    *  on the same terms as `conditions`: absent, the packet is byte-identical to before. Feature documents
    *  only — the partitions are feature-scoped by construction, so an overview has nothing to scope them to. */
-  reading?: ReadingExposureSource
+  reading?: ReadingExposureSource,
+  /** Latest immutable knowledge epoch. Optional so legacy/direct render callers retain their exact bytes. */
+  epoch?: number
 ): string {
   const sections = packetEvidenceForDocument(document, plan);
   const relevant = plan.items.filter((item) => item.requiredFor.includes(document.id));
@@ -174,6 +176,7 @@ export function buildAuthoringPacket(
 
   const parts: string[] = [];
   parts.push(`# Authoring packet — ${document.id}`);
+  if (epoch !== undefined) parts.push(`Sealed knowledge epoch: ${epoch}`);
   parts.push(
     "This packet renders the frozen investigation knowledge this document must cover, organized by report section. " +
     "It is a deterministic view of `evidence.json`, `workitems.json`, `traces.json` and the feature fact pack; it adds nothing that is not already frozen. " +

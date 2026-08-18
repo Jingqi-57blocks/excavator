@@ -376,7 +376,7 @@ test("cannot-determine checklist dispositions require evidence for the limitatio
     reason: "The synthetic fixture does not expose runtime configuration.",
     settledBy: "Runtime configuration and traffic evidence."
   }], { reason: "the frozen disposition needs a cannot-determine re-classification", workItemId: checklist.items[0].id });
-  await assembleRun(runDir);
+  await assert.rejects(() => assembleRun(runDir), /unsealed supplements/, "a stale epoch cannot be reassembled after the invalid re-disposition");
   const audit = await auditRun(runDir);
   assert.ok(audit.findings.some((item) => /cannot-determine item has no evidence/i.test(item.message)));
   assert.ok(id);

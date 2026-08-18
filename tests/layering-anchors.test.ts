@@ -42,7 +42,7 @@ const ANCHORS: Record<string, Classification> = {
   // --- layer 1's ledger, layers 7 and 8, the epoch model -----------------------------------------------------
   "snapshot.ts:213": { kind: "historical", why: "the pre-57B-418 line where an unregistered extension never became a candidate; the document says 修之前 and keeps it as provenance" },
   "src/snapshot/source.ts:29": { kind: "current", expect: "export function windowCacheVersion" },
-  "src/base/assurance-version.ts:89": { kind: "current", expect: "export function runUsesCurrentAssurance" },
+  "src/base/assurance-version.ts:91": { kind: "current", expect: "export function runUsesCurrentAssurance" },
   "src/run/stages/investigation-stage.ts:35": { kind: "current", expect: "plan.items.some((item) => item.id === normalized.workItemId)" },
   "src/crossrepo/link-match.ts:41": { kind: "current", expect: "export interface MatchedLink" },
   "src/run/run.ts:328": { kind: "current", expect: "createInvestigationPlan(runId, effectiveRequest, documents)" },

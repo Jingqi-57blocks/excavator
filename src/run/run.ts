@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { readFile, readdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import type { Audience, DocumentPlan, EvidenceItem, InvestigationChecklist, InvestigationPlan, KnowledgeArtifact, ReportRequest, RunManifest, SectionClaim, SectionClaimsFile, TraceCatalog } from "../base/types.ts";
+import type { Audience, DocumentPlan, EvidenceItem, InvestigationChecklist, InvestigationPlan, ReportRequest, RunManifest, SectionClaim, SectionClaimsFile, TraceCatalog } from "../base/types.ts";
 import { auditAuthoringPacketConsumption } from "../report/authoring-packet.ts";
 import { buildContextsFromBoundary, featureCacheKey, readSourceBoundary, type ContextBuildResult, type SourceBoundary } from "../context/context.ts";
 import { FACT_PACK_CATEGORIES } from "../context/factpack.ts";
@@ -21,8 +21,8 @@ import { auditDetailedFeatureSection, auditEvidenceMarkerPlacement, auditReadabi
 import { ASSURANCE_VERSION, READ_EXECUTION_ASSURANCE_GENERATION, WORKSET_OBLIGATION_ASSURANCE_GENERATION, assuranceGenerationAtLeast, runUsesCurrentAssurance } from "../base/assurance-version.ts";
 import type { AuditFinding } from "../base/types.ts";
 import { auditComparativeClaims } from "../report/claim-comparison.ts";
-import { auditFreezeOrder, auditFrozenKnowledge } from "../freeze/freeze.ts";
-import { atomicWrite, ensureDir, exists, nowIso, projectWorkspace, readJson, runIdTimestamp, sha256, stableJson, writeJson } from "../base/util.ts";
+import { auditFreezeOrder, auditFrozenKnowledge, canonicalInvestigationResults, readCurrentKnowledge } from "../freeze/freeze.ts";
+import { atomicWrite, canonicalJson, ensureDir, exists, nowIso, projectWorkspace, readJson, runIdTimestamp, sha256, stableJson, writeJson } from "../base/util.ts";
 import { logicWorkItems, LOGIC_DISPOSITION_ASSURANCE_GENERATION } from "../obligation/logic-workitems.ts";
 import { READ_ACCOUNTABILITY_ASSURANCE_GENERATION } from "../obligation/read-obligations.ts";
 import { buildAttributionStage, unavailableAttributionStage, writeAttributionStage } from "./attribution-stage.ts";
@@ -741,27 +741,29 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
     // edited file (dropping an obligation whose gate would fire) is a silent weakening of the gate.
     const knowledgePath = join(runDir, "knowledge.json");
     if (await exists(knowledgePath)) {
-      const frozenKnowledge = await readJson<KnowledgeArtifact>(knowledgePath);
-      if (frozenKnowledge.readObligationsDigest && frozenKnowledge.readObligationsDigest !== sha256(stableJson(frozenObligations))) {
-        findings.push({ level: "error", document: "read-coverage", message: "coverage/read-obligations.json does not match the read-obligation digest recorded at freeze; the denominator was changed after freeze" });
-      }
-      // The second source is checked in BOTH directions: a changed artifact and a vanished one. The
-      // denominator itself is already protected by the digest above, so this catches the subtler case —
-      // the frozen numbers still reconcile while the inputs a reader would re-derive them from no longer do.
-      if (frozenKnowledge.crossRepoLinksDigest) {
-        const linksPath = join(runDir, "context", "crossrepo-links.json");
-        if (!await exists(linksPath)) {
-          findings.push({ level: "error", document: "read-coverage", message: "knowledge.json records a cross-repo links digest but context/crossrepo-links.json is gone; the resolved links cannot be re-derived" });
-        } else if (frozenKnowledge.crossRepoLinksDigest !== sha256(stableJson(await readJson<unknown>(linksPath)))) {
-          findings.push({ level: "error", document: "read-coverage", message: "context/crossrepo-links.json does not match the digest recorded at freeze; the resolved links were changed after freeze" });
+      const frozenKnowledge = await readCurrentKnowledge(runDir, manifest).catch(() => null);
+      if (frozenKnowledge) {
+        if (frozenKnowledge.readObligationsDigest && frozenKnowledge.readObligationsDigest !== sha256(stableJson(frozenObligations))) {
+          findings.push({ level: "error", document: "read-coverage", message: "coverage/read-obligations.json does not match the read-obligation digest recorded at freeze; the denominator was changed after freeze" });
         }
-      }
-      if (frozenKnowledge.boundaryFunctionsDigest) {
-        const boundaryPath = join(runDir, "context", "boundary-functions.json");
-        if (!await exists(boundaryPath)) {
-          findings.push({ level: "error", document: "read-coverage", message: "knowledge.json records a boundary-functions digest but context/boundary-functions.json is gone; the second obligation source cannot be re-derived" });
-        } else if (frozenKnowledge.boundaryFunctionsDigest !== sha256(stableJson(await readJson<unknown>(boundaryPath)))) {
-          findings.push({ level: "error", document: "read-coverage", message: "context/boundary-functions.json does not match the digest recorded at freeze; the second obligation source was changed after freeze" });
+        // The second source is checked in BOTH directions: a changed artifact and a vanished one. The
+        // denominator itself is already protected by the digest above, so this catches the subtler case —
+        // the frozen numbers still reconcile while the inputs a reader would re-derive them from no longer do.
+        if (frozenKnowledge.crossRepoLinksDigest) {
+          const linksPath = join(runDir, "context", "crossrepo-links.json");
+          if (!await exists(linksPath)) {
+            findings.push({ level: "error", document: "read-coverage", message: "knowledge.json records a cross-repo links digest but context/crossrepo-links.json is gone; the resolved links cannot be re-derived" });
+          } else if (frozenKnowledge.crossRepoLinksDigest !== sha256(stableJson(await readJson<unknown>(linksPath)))) {
+            findings.push({ level: "error", document: "read-coverage", message: "context/crossrepo-links.json does not match the digest recorded at freeze; the resolved links were changed after freeze" });
+          }
+        }
+        if (frozenKnowledge.boundaryFunctionsDigest) {
+          const boundaryPath = join(runDir, "context", "boundary-functions.json");
+          if (!await exists(boundaryPath)) {
+            findings.push({ level: "error", document: "read-coverage", message: "knowledge.json records a boundary-functions digest but context/boundary-functions.json is gone; the second obligation source cannot be re-derived" });
+          } else if (frozenKnowledge.boundaryFunctionsDigest !== sha256(stableJson(await readJson<unknown>(boundaryPath)))) {
+            findings.push({ level: "error", document: "read-coverage", message: "context/boundary-functions.json does not match the digest recorded at freeze; the second obligation source was changed after freeze" });
+          }
         }
       }
     }
@@ -830,12 +832,15 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
   // unfrozen or legacy run is untouched. A scoped audit keeps them advisory like the other run-wide checks.
   const knowledgePath = join(runDir, "knowledge.json");
   if (auditedInvestigationResults && await exists(knowledgePath)) {
-    const frozenKnowledge = await readJson<KnowledgeArtifact>(knowledgePath);
-    if (frozenKnowledge.investigationResultsDigest !== sha256(stableJson(auditedInvestigationResults))) {
+    const frozenKnowledge = await readCurrentKnowledge(runDir, manifest).catch(() => null);
+    const resultsDigest = frozenKnowledge?.judgementDigest
+      ? sha256(canonicalJson(canonicalInvestigationResults(auditedInvestigationResults)))
+      : sha256(stableJson(auditedInvestigationResults));
+    if (frozenKnowledge && frozenKnowledge.investigationResultsDigest !== resultsDigest) {
       findings.push(...runWide([{ level: "error" as const, document: "knowledge", message: "investigation/results.json does not match the L7 execution digest recorded at freeze" }]));
     }
   }
-  findings.push(...runWide(await auditFrozenKnowledge(runDir, manifest, evidenceCatalog.evidence, plan, traces)));
+  findings.push(...runWide(await auditFrozenKnowledge(runDir, manifest, evidenceCatalog.evidence, plan, traces, auditedInvestigationResults ?? undefined)));
   // Freeze-before-authoring order gate: a run-wide assertion (needs the whole timeline), so a scoped
   // audit downgrades it to advisory exactly like the other run-wide checks above.
   findings.push(...runWide(await auditFreezeOrder(runDir, manifest)));

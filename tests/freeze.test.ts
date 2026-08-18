@@ -1,11 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import type { EvidenceItem, InvestigationPlan, KnowledgeArtifact, ReportRequest, RunManifest, SectionClaim, TraceRecord } from "../src/base/types.ts";
-import { addSourceEvidence, assembleRun, auditRun, checkpointSection, freezeRun, prepareRun, searchSourceEvidence, updateChecklist, updateTraces, updateWorkItems } from "../src/run/run.ts";
-import { knowledgeDigest } from "../src/freeze/freeze.ts";
-import { exists, sha256, stableJson } from "../src/base/util.ts";
+import { addSourceEvidence, assembleRun, auditRun, beginDocument, checkpointSection, freezeRun, prepareRun, searchSourceEvidence, updateChecklist, updateTraces, updateWorkItems } from "../src/run/run.ts";
+import { canonicalInvestigationResults, knowledgeDigest } from "../src/freeze/freeze.ts";
+import { canonicalJson, exists, sha256 } from "../src/base/util.ts";
 import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, tempDir } from "./helpers.ts";
 
 const BUDGETS = { prepareMs: 30_000, authorMs: 30_000, maxGraphQueries: 40, maxSourceWindows: 50, maxSourceCharacters: 120_000, maxFiles: 10_000, maxFeatureNodes: 80, maxExpansionDepth: 2 };
@@ -41,6 +41,9 @@ async function readPlan(runDir: string): Promise<InvestigationPlan> {
 }
 async function readKnowledge(runDir: string): Promise<KnowledgeArtifact> {
   return JSON.parse(await readFile(join(runDir, "knowledge.json"), "utf8")) as KnowledgeArtifact;
+}
+async function readSupplements(runDir: string): Promise<KnowledgeArtifact["supplements"]> {
+  return (JSON.parse(await readFile(join(runDir, "knowledge", "supplements.json"), "utf8")) as { supplements: KnowledgeArtifact["supplements"] }).supplements;
 }
 async function readManifest(runDir: string): Promise<RunManifest> {
   return JSON.parse(await readFile(join(runDir, "run.json"), "utf8")) as RunManifest;
@@ -83,7 +86,7 @@ test("freeze is refused when a found material flow work item has no trace", asyn
 
 // --- Group 2: freeze success ---
 
-test("freeze writes a knowledge-v1 record, stamps the manifest, appends a timeline event and refuses a re-freeze", async () => {
+test("freeze writes epoch 0, stamps the manifest and refuses a re-freeze with no new supplement", async () => {
   const { runDir, manifest } = await prepareRun(await featureRequest());
   await disposeAllWorkItems(runDir);
   const result = await freezeRun(runDir);
@@ -106,11 +109,16 @@ test("freeze writes a knowledge-v1 record, stamps the manifest, appends a timeli
   assert.ok(knowledge.completeness.checks.every((row) => row.status === "passed"), JSON.stringify(knowledge.completeness.checks));
   assert.ok(Object.keys(knowledge.factPackDigests).length >= 1, "a feature run records at least one fact-pack digest");
   const investigationResults = JSON.parse(await readFile(join(runDir, "investigation", "results.json"), "utf8"));
-  assert.equal(knowledge.investigationResultsDigest, sha256(stableJson(investigationResults.value)), "the same L7 execution/disposition set is sealed with knowledge");
+  assert.equal(knowledge.investigationResultsDigest, sha256(canonicalJson(canonicalInvestigationResults(investigationResults.value))), "the same canonical L7 execution/disposition set is sealed with knowledge");
+  assert.equal(knowledge.epoch, 0);
+  assert.ok(knowledge.judgementDigest);
+  assert.equal(knowledge.truncationPolicy?.evidenceBounds, "evidence-bounds-v1");
   assert.deepEqual(knowledge.supplements, []);
+  assert.deepEqual(await readSupplements(runDir), []);
 
   const persisted = await readManifest(runDir);
   assert.ok(persisted.frozenAt);
+  assert.equal(persisted.knowledgeEpoch, 0);
   assert.equal(persisted.knowledgeDigest, knowledgeDigest(knowledge), "manifest digest recomputes from the frozen core");
   assert.equal(persisted.metrics.supplements, 0, "a frozen run initializes the supplement counter");
 
@@ -125,7 +133,7 @@ test("freeze writes a knowledge-v1 record, stamps the manifest, appends a timeli
     assert.equal(await exists(join(runDir, "context", "authoring", `${document.id}.md`)), true, `packet missing for ${document.id}`);
   }
 
-  await assert.rejects(() => freezeRun(runDir), /already frozen/);
+  await assert.rejects(() => freezeRun(runDir), /no new supplement to seal/);
 });
 
 // --- Group 3: freeze gate and supplement accounting ---
@@ -154,12 +162,12 @@ test("a post-freeze search carrying a supplement succeeds and is recorded in kno
   const receipt = await searchSourceEvidence(runDir, ["Leave requests"], "confirm the UI phrase", { maxResults: 10 }, { reason: "the frozen catalog does not frame the UI phrase", workItemId: itemId });
   const searchId = String((receipt.evidence as EvidenceItem).id);
 
-  const knowledge = await readKnowledge(runDir);
-  assert.equal(knowledge.supplements.length, 1);
-  assert.equal(knowledge.supplements[0].command, "search");
-  assert.deepEqual(knowledge.supplements[0].ids, [searchId]);
-  assert.equal(knowledge.supplements[0].workItemId, itemId);
-  assert.ok(knowledge.supplements[0].reason.length > 0);
+  const supplements = await readSupplements(runDir);
+  assert.equal(supplements.length, 1);
+  assert.equal(supplements[0].command, "search");
+  assert.deepEqual(supplements[0].ids, [searchId]);
+  assert.equal(supplements[0].workItemId, itemId);
+  assert.ok(supplements[0].reason.length > 0);
 
   assert.equal((await readManifest(runDir)).metrics.supplements, 1);
 
@@ -172,14 +180,81 @@ test("a post-freeze search carrying a supplement succeeds and is recorded in kno
 test("a post-freeze work-item update carrying a supplement is recorded the same three ways", async () => {
   const { runDir, itemId } = await frozenOverviewRun();
   await updateWorkItems(runDir, [{ id: itemId, status: "not-applicable", reason: "re-confirmed after freeze" }], { reason: "the frozen disposition was too coarse", workItemId: itemId });
-  const knowledge = await readKnowledge(runDir);
-  assert.equal(knowledge.supplements.length, 1);
-  assert.equal(knowledge.supplements[0].command, "workitem");
-  assert.deepEqual(knowledge.supplements[0].ids, [itemId]);
+  const supplements = await readSupplements(runDir);
+  assert.equal(supplements.length, 1);
+  assert.equal(supplements[0].command, "workitem");
+  assert.deepEqual(supplements[0].ids, [itemId]);
   assert.equal((await readManifest(runDir)).metrics.supplements, 1);
   const last = (await readTimeline(runDir)).at(-1)!;
   assert.equal(last.action, "workitems.updated");
   assert.equal((last.data as Record<string, unknown>).supplement, true);
+});
+
+test("a supplement re-freezes N to immutable N+1, pins the prior digest and consumes the supplement once", async () => {
+  const { runDir, itemId } = await frozenOverviewRun();
+  const epochZeroBytes = await readFile(join(runDir, "knowledge.json"), "utf8");
+  const epochZero = await readKnowledge(runDir);
+  await searchSourceEvidence(runDir, ["Leave requests"], "seal a new phrase", { maxResults: 10 }, {
+    reason: "the first epoch did not contain this phrase search",
+    workItemId: itemId
+  });
+  const beforeRefreeze = await readManifest(runDir);
+  await assert.rejects(() => beginDocument(runDir, beforeRefreeze.documents[0].id), /unsealed supplements/, "authoring cannot consume a stale epoch packet");
+
+  const result = await freezeRun(runDir);
+  assert.equal(result.frozen, true, JSON.stringify(result.findings, null, 2));
+  assert.equal(await readFile(join(runDir, "knowledge.json"), "utf8"), epochZeroBytes, "epoch 0 bytes never change");
+  const epochOne = JSON.parse(await readFile(join(runDir, "knowledge", "epochs", "epoch-1.json"), "utf8")) as KnowledgeArtifact;
+  assert.equal(epochOne.epoch, 1);
+  assert.equal(epochOne.previousEpochDigest, knowledgeDigest(epochZero));
+  assert.equal(epochOne.appendStreams?.find((entry) => entry.id === "supplements")?.frozenThroughSequence, 1);
+  const manifest = await readManifest(runDir);
+  assert.equal(manifest.knowledgeEpoch, 1);
+  assert.equal(manifest.knowledgeDigest, knowledgeDigest(epochOne));
+  const refrozen = (await readTimeline(runDir)).filter((event) => event.action === "investigation.refrozen").at(-1);
+  assert.equal(refrozen?.data?.epoch, 1);
+  assert.equal(refrozen?.data?.knowledgeDigest, manifest.knowledgeDigest, "the causal timeline anchors the epoch head digest");
+  for (const document of manifest.documents) {
+    assert.match(await readFile(join(runDir, "context", "authoring", `${document.id}.md`), "utf8"), /Sealed knowledge epoch: 1/);
+  }
+  const evidenceId = await firstEvidence(runDir);
+  await authorAll(runDir, manifest, evidenceId);
+  await assembleRun(runDir);
+  assert.match(await readFile(join(runDir, "reports", "product-overview.md"), "utf8"), /^epoch: 1$/m, "the report binds its sealed epoch");
+  const audit = await auditRun(runDir);
+  assert.deepEqual(audit.findings.filter((finding) => finding.level === "error" && finding.document === "knowledge"), [], JSON.stringify(audit.findings, null, 2));
+  await assert.rejects(() => freezeRun(runDir), /no new supplement to seal/, "an already-consumed supplement cannot authorize another epoch");
+
+  const unmanifestedPath = join(runDir, "knowledge", "epochs", "epoch-2.json");
+  await writeFile(unmanifestedPath, JSON.stringify({ ...epochOne, epoch: 2 }));
+  const withUnmanifested = await auditRun(runDir);
+  assert.ok(withUnmanifested.findings.some((finding) => finding.document === "knowledge" && /unmanifested or malformed knowledge epoch file/.test(finding.message)), JSON.stringify(withUnmanifested.findings, null, 2));
+  await rm(unmanifestedPath);
+
+  const tampered = { ...epochZero, frozenAt: "tampered" };
+  await writeFile(join(runDir, "knowledge.json"), JSON.stringify(tampered));
+  const afterTamper = await auditRun(runDir);
+  assert.ok(afterTamper.findings.some((finding) => finding.document === "knowledge" && /does not pin epoch 0/.test(finding.message)), JSON.stringify(afterTamper.findings, null, 2));
+
+  // Rewriting the remaining hash-chain links and mutable manifest head still cannot detach the epoch series
+  // from the append-only causal record: each epoch's original digest is anchored in its freeze event.
+  const rewrittenEpochOne = { ...epochOne, previousEpochDigest: knowledgeDigest(tampered) };
+  await writeFile(join(runDir, "knowledge", "epochs", "epoch-1.json"), `${canonicalJson(rewrittenEpochOne)}\n`);
+  const rewrittenManifest = await readManifest(runDir);
+  rewrittenManifest.knowledgeDigest = knowledgeDigest(rewrittenEpochOne);
+  await writeFile(join(runDir, "run.json"), `${canonicalJson(rewrittenManifest)}\n`);
+  const coordinatedRewrite = await auditRun(runDir);
+  assert.ok(coordinatedRewrite.findings.some((finding) => finding.document === "knowledge" && /digest does not match its timeline freeze event/.test(finding.message)), JSON.stringify(coordinatedRewrite.findings, null, 2));
+});
+
+test("changing a sealed judgement rationale without a supplement fails audit even when its status is unchanged", async () => {
+  const { runDir } = await frozenOverviewRun();
+  const path = join(runDir, "workitems.json");
+  const plan = await readPlan(runDir);
+  plan.items[0].reason = "silently rewritten after the seal";
+  await writeFile(path, JSON.stringify(plan));
+  const audit = await auditRun(runDir);
+  assert.ok(audit.findings.some((finding) => finding.document === "knowledge" && /judgements do not match/.test(finding.message)), JSON.stringify(audit.findings, null, 2));
 });
 
 test("a supplement whose work item does not resolve in the plan is refused", async () => {
