@@ -5,8 +5,6 @@ import { CodeGraphIndex, type GraphReader, type GraphSummary } from "../codegrap
 import { CodeGraphSet } from "../codegraph/codegraph-set.ts";
 import { pruneFeatureGraphWithModuleFloorRecorded } from "../attribution/prune-module-floor.ts";
 import { channelUnavailable, type FeatureSelectionTrace } from "../attribution/selection-trace.ts";
-import { buildScopeCensus, type ScopeCensus } from "./scope-census.ts";
-import { buildOverviewCensus, type OverviewCensus } from "./overview-census.ts";
 import { createSnapshot, isLikelySource, type ScannedFile } from "../snapshot/snapshot.ts";
 import type { FileLedger } from "../snapshot/file-ledger.ts";
 import { codegraphIdentity } from "../codegraph/codegraph-identity.ts";
@@ -14,34 +12,20 @@ import { SourceReader, evidenceFromWindow, manifestSummary, selectProjectDocumen
 import { Deadline, ensureDir, exists, projectWorkspace, readJson, redactionCacheTag, sha256, slugify, stableJson, truncate, writeJson } from "../base/util.ts";
 import { createProviderRegistry, resolveCodeGraphDatabase } from "../snapshot/providers.ts";
 import { buildFactPack } from "./factpack.ts";
-import { BOUNDARY_FUNCTIONS_VERSION, BOUNDARY_FUNCTION_KINDS, enumerateBoundaryFunctions, type BoundaryFunctionsArtifact, type FeatureBoundaryFunctions } from "./boundary-functions.ts";
+import { BOUNDARY_FUNCTIONS_VERSION, BOUNDARY_FUNCTION_KINDS, enumerateBoundaryFunctions, type BoundaryFunctionsArtifact, type FeatureBoundaryFunctions } from "../facts/probe/boundary-functions.ts";
 import { legacyWorkspaceWarning } from "../snapshot/workspace-residue.ts";
 
 // v21: CachedFeature carries the selection trace (57B-423) — the layer-4 attribution record is assembled from
 // it, so a v20 hit would serve `undefined` and the run would publish an attribution with no channels. v20 added
 // the boundary-function enumeration's `truncated` flag and per-feature warnings, for the same class of reason.
 // Any change to a cached shape bumps this (57B-375).
-const BUILDER_VERSION = "excavator-context-v25-factpack-join";
+const BUILDER_VERSION = "excavator-context-v26-workset-census";
 
 interface CachedShared {
   snapshotId: string;
   evidence: EvidenceItem[];
   markdown: string;
   graphFilePaths: string[];
-  /**
-   * The per-module census, carried on the shared context because `buildSharedContext` already computes the
-   * graph summary. Taking it here costs nothing on either path: cold runs reuse the summary that was just
-   * computed, and warm runs read it from the cached shared context instead of re-querying — which the
-   * "cached contexts must not repeat graph reads" invariant requires.
-   */
-  censusRoots: GraphSummary["roots"];
-  /**
-   * Per-module accounting for the overview. Carried on the shared context for the same reason `censusRoots`
-   * is: warm runs must read it from cache rather than re-deriving it, or the "cached contexts must not repeat
-   * graph reads" invariant breaks. Always present — unlike the feature census it needs no graph, so there is
-   * no unavailable state to represent.
-   */
-  overviewCensus: OverviewCensus;
   metrics: { coverage?: { indexed: number; eligible: number; ratio: number }; warnings: string[] };
 }
 
@@ -57,10 +41,6 @@ interface CachedFeature {
   factPack: CollectedFeatureFactPack;
   /** Second source for the read-obligation denominator; absent on a source-only run (57B-396). */
   boundaryFunctions?: FeatureBoundaryFunctions;
-  /** Per-module scope accounting; absent when no census could be built. */
-  scopeCensus?: ScopeCensus;
-  /** Which cause, when `scopeCensus` is absent. */
-  censusUnavailableReason?: "no-graph" | "empty-vocabulary";
   /**
    * What the feature-graph selection did, for layer 4. REQUIRED, unlike the optional fields above: an optional
    * trace served from an older cache entry would read as "this feature selected nothing" and the attribution
@@ -89,24 +69,10 @@ export interface PreparedContext {
   /** Second source for the read-obligation denominator (57B-396); frozen as a run artifact at prepare. */
   boundaryFunctions: BoundaryFunctionsArtifact;
   /**
-   * Per-module scope accounting, keyed by feature. Its row set comes from the graph census rather than the
-   * candidate pool, so a module that contributed nothing still gets a row — which is the only way "an entire
-   * module was never looked at" can be stated at all. Absent for features analysed without a graph.
-   */
-  scopeCensus: Map<string, ScopeCensus>;
-  /** Why a feature has no census, keyed by feature — so "no table" always states its cause. */
-  censusUnavailable: Map<string, "no-graph" | "empty-vocabulary">;
-  /**
    * What each feature's selection did, keyed by feature. Layer 4's only input from this layer: the channel that
    * seated a node cannot be recovered from the retained node list, so it travels from the selector or not at all.
    */
   featureSelectionTraces: Map<string, FeatureSelectionTrace>;
-  /**
-   * Per-module accounting for the overview documents. Not keyed by feature, and its denominator is the
-   * snapshot rather than the graph census: an overview-only run has no features at all, which is exactly the
-   * shape that left the module accounting silent about a target whose entire Perl half CodeGraph never indexed.
-   */
-  overviewCensus: OverviewCensus;
 }
 
 export interface ContextBuildResult {
@@ -249,8 +215,6 @@ export async function buildContextsFromBoundary(request: ReportRequest, boundary
   const allEvidence = [...shared.evidence];
   const documentContexts = new Map<string, string>();
   const featureScopes = new Map<string, { nodes: any[]; files: string[]; evidenceIds: string[] }>();
-  const scopeCensusByFeature = new Map<string, ScopeCensus>();
-  const censusUnavailableByFeature = new Map<string, "no-graph" | "empty-vocabulary">();
   const selectionTraceByFeature = new Map<string, FeatureSelectionTrace>();
   const featureMarkdowns = new Map<string, string>();
   const collectedFactPacks = new Map<string, CollectedFeatureFactPack>();
@@ -279,15 +243,13 @@ export async function buildContextsFromBoundary(request: ReportRequest, boundary
     } else {
       cache[`feature:${key}`] = "miss";
       const started = Date.now();
-      cached = await buildFeatureContext(snapshot, files, feature, graph, new Set(shared.graphFilePaths), sourceReader, deadline, request.budgets.maxFeatureNodes, request.budgets.maxExpansionDepth, shared.censusRoots ?? []);
+      cached = await buildFeatureContext(snapshot, files, feature, graph, new Set(shared.graphFilePaths), sourceReader, deadline, request.budgets.maxFeatureNodes, request.budgets.maxExpansionDepth);
       timing[`feature:${key}Ms`] = Date.now() - started;
       await writeJson(cachePath, cached);
     }
     warnings.push(...(cached.warnings ?? []));
     allEvidence.push(...cached.evidence.filter((item) => !allEvidence.some((existing) => existing.id === item.id)));
     featureScopes.set(key, { nodes: cached.nodes as any[], files: cached.files, evidenceIds: cached.evidence.map((item) => item.id) });
-    if (cached.scopeCensus) scopeCensusByFeature.set(key, cached.scopeCensus);
-    else censusUnavailableByFeature.set(key, cached.censusUnavailableReason ?? "no-graph");
     selectionTraceByFeature.set(key, cached.selectionTrace);
     if (cached.boundaryFunctions) boundaryFeatures.push(cached.boundaryFunctions);
     featureMarkdowns.set(key, cached.markdown);
@@ -316,7 +278,7 @@ export async function buildContextsFromBoundary(request: ReportRequest, boundary
 
   timing.totalPrepareMs = Date.now() - t0;
   return {
-    prepared: { snapshot, evidence: dedupeEvidence(allEvidence), sharedMarkdown: shared.markdown, documentContexts, featureMarkdowns, collectedFactPacks, featureScopes, boundaryFunctions, scopeCensus: scopeCensusByFeature, censusUnavailable: censusUnavailableByFeature, featureSelectionTraces: selectionTraceByFeature, overviewCensus: shared.overviewCensus },
+    prepared: { snapshot, evidence: dedupeEvidence(allEvidence), sharedMarkdown: shared.markdown, documentContexts, featureMarkdowns, collectedFactPacks, featureScopes, boundaryFunctions, featureSelectionTraces: selectionTraceByFeature },
     ledger,
     projectDir,
     stats: {
@@ -423,20 +385,10 @@ async function buildSharedContext(snapshot: Snapshot, files: ScannedFile[], grap
   }
 
   const markdown = renderSharedMarkdown(snapshot, graphSummary, coverage, docSummaries, representativeNodes, routes, evidence, warnings);
-  // Per-module accounting for the overview, taken here because this is the only place that holds all four
-  // inputs at once. Its denominator is the SNAPSHOT, not `graphSummary.roots`: an overview claims something
-  // about the whole project, and the graph is a filtered view of it — see `overview-census.ts`.
-  const named = [...representativeNodes, ...routes] as Array<{ filePath?: string }>;
-  const overviewCensus = buildOverviewCensus({
-    sourcePaths: files.filter(isLikelySource).map((file) => file.relativePath),
-    indexedPaths: graphPaths,
-    namedPaths: named.map((node) => node.filePath ?? "").filter(Boolean),
-    readPaths: evidence.map((item) => item.path ?? "").filter(Boolean)
-  });
-  return { snapshotId: snapshot.id, evidence: dedupeEvidence(evidence), markdown, graphFilePaths: [...graphPaths], censusRoots: graphSummary?.roots ?? [], overviewCensus, metrics: { coverage, warnings } };
+  return { snapshotId: snapshot.id, evidence: dedupeEvidence(evidence), markdown, graphFilePaths: [...graphPaths], metrics: { coverage, warnings } };
 }
 
-async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], feature: FeatureRequest, graph: GraphReader | null, graphPaths: Set<string>, sourceReader: SourceReader, deadline: Deadline, maxNodes: number, depth: number, censusRoots: GraphSummary["roots"]): Promise<CachedFeature> {
+async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], feature: FeatureRequest, graph: GraphReader | null, graphPaths: Set<string>, sourceReader: SourceReader, deadline: Deadline, maxNodes: number, depth: number): Promise<CachedFeature> {
   const terms = [...new Set([feature.subject, ...feature.aliases].flatMap(tokenize))].filter(Boolean);
   const evidence: EvidenceItem[] = [];
   const warnings: string[] = [];
@@ -448,21 +400,14 @@ async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], fea
   let seeds: any[] = [];
   let unresolved: any[] = [];
   /**
-   * Per-module scope accounting. Null when no census could be built — either no graph, or a subject whose
-   * vocabulary tokenised to nothing so no graph search ran. `censusUnavailableReason` says which; the two
-   * are recorded separately because a reason naming the wrong cause is one someone will act on wrongly.
-   */
-  let scopeCensus: ScopeCensus | null = null;
-  let censusUnavailableReason: "no-graph" | "empty-vocabulary" = "no-graph";
-  /**
    * The layer-4 record of this selection. It starts as the unavailable arm and is REPLACED by the selector's own
    * trace when the channels run, so the two are never both true and a feature that never selected cannot be
    * mistaken for one that selected nothing.
    */
   let selectionTrace: FeatureSelectionTrace;
 
-  if (graph && !terms.length) censusUnavailableReason = "empty-vocabulary";
-  selectionTrace = channelUnavailable(censusUnavailableReason);
+  const selectionUnavailableReason = graph && !terms.length ? "empty-vocabulary" : "no-graph";
+  selectionTrace = channelUnavailable(selectionUnavailableReason);
   if (graph && terms.length) {
     const anchorTerms = featureAnchorTerms(terms);
     const actionTerms = terms.filter((term) => !anchorTerms.includes(term));
@@ -481,14 +426,6 @@ async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], fea
     edges = pruned.edges;
     selectionTrace = pruned.trace;
     unresolved = graph.unresolvedForNodeIds(nodes.map((node) => node.id), 150);
-    // The row set comes from the CENSUS (`summary().roots` enumerates every indexed module, including ones
-    // this feature never touched), not from the pool — a pool-derived table cannot express the one fact
-    // worth reporting. See scope-census.ts for why that distinction is the whole point.
-    scopeCensus = buildScopeCensus({
-      roots: censusRoots,
-      pool: expanded.nodes.map((node) => ({ filePath: String(node.filePath) })),
-      retained: nodes.map((node) => ({ filePath: String(node.filePath) })),
-    });
     evidence.push({ id: `FG-${featureCacheKey(feature)}-${snapshot.id}`, snapshotId: snapshot.id, kind: "graph", title: `CodeGraph scope for ${feature.subject}`, data: { terms, anchorTerms, actionTerms, seeds, nodes, edges, unresolved }, reason: "locate the feature from specific anchors before applying generic action vocabulary", digest: sha256(stableJson({ terms, anchorTerms, actionTerms, seeds, nodes, edges, unresolved })) });
   }
 
@@ -565,7 +502,7 @@ async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], fea
   }, warnings);
   const inventory = buildFeatureInventory(nodes, scopeFiles);
   const markdown = renderFeatureMarkdown(feature, terms, nodes, edges, unresolved, scopeFiles, evidence, needBroadFallback, inventory, warnings);
-  return { snapshotId: snapshot.id, key, subject: feature.subject, aliases: feature.aliases, nodes, files: scopeFiles, evidence: dedupeEvidence(evidence), markdown, factPack, boundaryFunctions, scopeCensus: scopeCensus ?? undefined, censusUnavailableReason, selectionTrace, warnings: [...warnings, ...factPack.warnings] };
+  return { snapshotId: snapshot.id, key, subject: feature.subject, aliases: feature.aliases, nodes, files: scopeFiles, evidence: dedupeEvidence(evidence), markdown, factPack, boundaryFunctions, selectionTrace, warnings: [...warnings, ...factPack.warnings] };
 }
 
 function renderSharedMarkdown(snapshot: Snapshot, graphSummary: unknown, coverage: { indexed: number; eligible: number; ratio: number }, docs: Array<Record<string, unknown>>, representativeNodes: any[], routes: any[], evidence: EvidenceItem[], warnings: string[]): string {

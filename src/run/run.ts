@@ -16,13 +16,13 @@ import { LANGUAGE_REGISTRY } from "../base/language-registry.ts";
 import { MECHANISM_REGISTRY, type MechanismAvailabilityMap } from "../base/mechanism-registry.ts";
 import { collectMechanismAvailability } from "./mechanism-availability.ts";
 import { ARTIFACT_REGISTRY } from "../base/artifact-registry.ts";
-import { materializeBoundRunContract, type BoundRunContract, type PlannedDocument } from "../contract/bound-run-contract.ts";
+import { materializeBoundRunContract, type BoundRunContract, type PlannedDocument, type Requirements } from "../contract/bound-run-contract.ts";
 import { deriveContractManifest, type ContractManifest } from "../contract/contract-manifest.ts";
 import { codegraphIdentity } from "../codegraph/codegraph-identity.ts";
 import { auditContractInstances } from "../assurance/contract-instance-audit.ts";
 import { auditChecklist, auditEvidenceCatalog, auditTraces, auditWorkItems, checklistUpdatesToWorkItems, createInvestigationChecklist, createInvestigationPlan, mergeChecklist, mergeWorkItems, workItemsToChecklist } from "../assurance/assurance.ts";
 import { auditDetailedFeatureSection, auditEvidenceMarkerPlacement, auditReadabilityTables, auditRescuedLogicCoverage, auditSectionClaims, auditSectionEvidenceMarkers, auditTargetProblemAttribution, auditWorkItemClaimCoverage, hasEvidenceMarkers, validateClaimsInput } from "../assurance/section-audit.ts";
-import { ASSURANCE_VERSION, assuranceGenerationAtLeast, runUsesCurrentAssurance } from "../base/assurance-version.ts";
+import { ASSURANCE_VERSION, WORKSET_OBLIGATION_ASSURANCE_GENERATION, assuranceGenerationAtLeast, runUsesCurrentAssurance } from "../base/assurance-version.ts";
 import type { AuditFinding } from "../base/types.ts";
 import { auditComparativeClaims } from "../assurance/claim-comparison.ts";
 import { auditFreezeOrder, auditFrozenKnowledge, buildKnowledge, freezePreconditions, knowledgeDigest, normalizeSupplement, recordSupplement, type SnapshotDrift } from "../assurance/freeze.ts";
@@ -30,15 +30,18 @@ import { atomicWrite, Deadline, ensureDir, exists, nowIso, projectWorkspace, rea
 import { logicWorkItems, LOGIC_DISPOSITION_ASSURANCE_GENERATION } from "../assurance/logic-workitems.ts";
 import { readObligations, BOUNDARY_DENOMINATOR_ASSURANCE_GENERATION, CROSSREPO_DENOMINATOR_ASSURANCE_GENERATION, READ_ACCOUNTABILITY_ASSURANCE_GENERATION, RECOVERED_ROUTE_DENOMINATOR_ASSURANCE_GENERATION, type ReadObligationsArtifact, type RouteHandlerObligation } from "../assurance/read-obligations.ts";
 import { readingExposure, renderReadingCheck, type ReadingExposure } from "../assurance/read-residual-exposure.ts";
-import type { BoundaryFunctionsArtifact } from "../context/boundary-functions.ts";
+import type { BoundaryFunctionsArtifact } from "../facts/probe/boundary-functions.ts";
+import type { UnitsArtifact } from "../facts/units/units-artifact.ts";
 import { scanCrossRepoLinks, type CrossRepoScan } from "../crossrepo/crossrepo-scan.ts";
 import { buildAttributionStage, unavailableAttributionStage, writeAttributionStage } from "./attribution-stage.ts";
 import { buildFactsStage, unavailableFactsStage, writeFactsStage } from "./facts-stage.ts";
-import { buildWorksetStage, writeWorksetStage } from "./workset-stage.ts";
+import { buildWorksetStage, writeUnavailableWorksetStage, writeWorksetStage } from "./workset-stage.ts";
+import { buildObligationStage, declarationWorkItems, writeObligationStage, writeUnavailableObligationStage } from "./obligation-stage.ts";
+import { buildObligationDeclarations, requireObligationDeclarations, type ObligationDeclarations } from "../obligation/declarations.ts";
 import { featureAnchorTerms, tokenize } from "../context/context.ts";
 import { unnegatedAdvice } from "../assurance/recommendation-language.ts";
-import { scopeCensusResidual, scopeCensusUnavailable, type ScopeCensus } from "../context/scope-census.ts";
-import { OVERVIEW_CENSUS_ASSURANCE_GENERATION, overviewCensusResidual, untouchedExtensions, type OverviewCensus } from "../context/overview-census.ts";
+import { overviewCensusResidual, scopeCensusResidual, type OverviewCensusV2, type ScopeCensusV2 } from "../workset/census.ts";
+import { requireReadSpecs, type ReadSpecsArtifact } from "../workset/read-specs.ts";
 import { buildCrossRepoArtifact, mintCrossRepoEvidence, recoveredRouteObligations, routeHandlerObligations, type CrossRepoArtifact } from "../crossrepo/crossrepo-artifact.ts";
 import { goImportAliases, parseHandlerTarget, resolveHandler } from "../crossrepo/handler-resolve.ts";
 import { CodeGraphIndex } from "../codegraph/codegraph.ts";
@@ -108,6 +111,29 @@ async function readFrozenFactPacks(runDir: string, manifest: RunManifest): Promi
     }
   }
   return factPacks;
+}
+
+/** A generation-12 successful run cannot silently turn its required declarations into an empty/non-built set. */
+async function readRequiredObligationDeclarations(runDir: string): Promise<ObligationDeclarations> {
+  const path = join(runDir, "obligations", "declarations.json");
+  if (!await exists(path)) throw new Error(`${path} is missing`);
+  const result = await readJson<ArtifactResult<ObligationDeclarations>>(path);
+  if (result.status !== "built") {
+    throw new Error(`${path} is ${result.status === "unavailable" ? `unavailable: ${result.cause}` : `not applicable: ${result.determination}`}`);
+  }
+  const requirements = await readJson<Requirements>(join(runDir, "contract", "requirements.json"));
+  const workset = await readJson<ArtifactResult<ReadSpecsArtifact>>(join(runDir, "workset", "read-specs.json"));
+  const mechanisms = await readJson<ArtifactResult<MechanismLedger>>(join(runDir, "ledger", "mechanisms.json"));
+  const units = await readJson<ArtifactResult<UnitsArtifact>>(join(runDir, "facts", "units.json"));
+  if (workset.status !== "built" || mechanisms.status !== "built" || units.status !== "built") {
+    throw new Error(`${path} cannot be re-derived because one of its four declared inputs is not Built`);
+  }
+  requireObligationDeclarations(result.value, requirements, path);
+  const expected = buildObligationDeclarations({ requirements, workset: workset.value, mechanisms: mechanisms.value, units: units.value });
+  if (stableJson(expected) !== stableJson(result.value)) {
+    throw new Error(`${path} is not the deterministic declaration set derived from requirements, workset, mechanisms and units`);
+  }
+  return result.value;
 }
 
 /**
@@ -352,14 +378,28 @@ function anchorTermsFor(manifest: RunManifest): Record<string, string[]> {
  * Computed here rather than inside the document loop because the bound contract needs the document set BEFORE
  * any producer runs, and having two places construct the same ids is how they drift apart.
  */
-function plannedDocuments(request: ReportRequest): PlannedDocument[] {
+async function plannedDocuments(request: ReportRequest): Promise<PlannedDocument[]> {
   const planned: PlannedDocument[] = [];
-  for (const audience of request.overviewAudiences) planned.push({ id: `overview-${audience}`, kind: "overview", audience, featureKey: null });
+  for (const audience of request.overviewAudiences) planned.push({
+    id: `overview-${audience}`, kind: "overview", audience, featureKey: null,
+    sections: await templateSections("overview", audience)
+  });
   for (const feature of request.features) {
     const key = featureCacheKey(feature);
-    for (const audience of feature.audiences) planned.push({ id: `feature-${key}-${audience}`, kind: "feature", audience, featureKey: key });
+    for (const audience of feature.audiences) planned.push({
+      id: `feature-${key}-${audience}`, kind: "feature", audience, featureKey: key,
+      sections: await templateSections("feature", audience)
+    });
   }
   return planned;
+}
+
+async function templateSections(kind: "overview" | "feature", audience: Audience): Promise<Array<{ index: number; title: string }>> {
+  const templatePath = referencePath(kind, audience);
+  const template = await readFile(templatePath, "utf8");
+  const headings = [...template.matchAll(/^##\s+(.+)$/gm)].map((match) => match[1]!.trim());
+  if (!headings.length) throw new Error(`Template has no level-two sections: ${templatePath}`);
+  return headings.map((title, index) => ({ index: index + 1, title }));
 }
 
 /**
@@ -416,6 +456,8 @@ async function writePrepareFailureRecord(request: ReportRequest, contract: Bound
   // Layer 4 follows layer 3 on the failure path too, and its slot is enforced: a failed run that simply lacked
   // the attribution record would fail the instance audit for a reason unrelated to why it failed.
   await writeAttributionStage(runDir, unavailableAttributionStage(reason, retryable));
+  await writeUnavailableWorksetStage(runDir, contract.runIntent.features.map((feature) => feature.key), reason, retryable);
+  await writeUnavailableObligationStage(runDir, reason, retryable);
   const now = nowIso();
   const manifest: RunManifest = {
     version: 3,
@@ -513,7 +555,7 @@ export async function prepareRun(request: ReportRequest): Promise<{ runDir: stri
   // The bound contract is materialized BEFORE any producer is called, and the expected artifact set is derived
   // from the base registry — never from what the run turns out to have produced. That ordering is the whole
   // reason "a required artifact is missing" can be a real check rather than a restatement of the results.
-  const planned = plannedDocuments(request);
+  const planned = await plannedDocuments(request);
   const contract = materializeBoundRunContract({
     request,
     features: request.features.map((feature) => ({ key: featureCacheKey(feature), subject: feature.subject, aliases: feature.aliases })),
@@ -566,7 +608,7 @@ export async function prepareRun(request: ReportRequest): Promise<{ runDir: stri
     const subject = document.featureKey === null
       ? undefined
       : request.features.find((feature) => featureCacheKey(feature) === document.featureKey)?.subject;
-    documents.push(await makeDocumentPlan(runDir, document.id, document.kind, document.audience, templatePath, contextPath, subject, order));
+    documents.push(makeDocumentPlan(runDir, document, templatePath, contextPath, subject, order));
   }
 
   const providerRegistry = result.stats.providerRegistry;
@@ -654,6 +696,8 @@ export async function prepareRun(request: ReportRequest): Promise<{ runDir: stri
     attribution: attribution.attribution,
     units: facts.units,
     producers: facts.producers,
+    ledger: result.ledger,
+    boundaryFunctions: result.prepared.boundaryFunctions,
     seedCellsByFeature: new Map([...result.prepared.collectedFactPacks.keys()].map((key) => [key, new Set<string>()])),
     features: request.features.map((feature) => {
       const key = featureCacheKey(feature);
@@ -661,10 +705,20 @@ export async function prepareRun(request: ReportRequest): Promise<{ runDir: stri
     })
   });
   await writeWorksetStage(runDir, workset);
+  const obligations = buildObligationStage({
+    requirements: contract.requirements,
+    workset: workset.readSpecs,
+    mechanisms: mechanisms.artifact,
+    units: facts.units
+  });
+  await writeObligationStage(runDir, obligations);
   evidence.push(...workset.evidence);
   // The forcing-function denominator is now the workset's seeded/retained view. It cannot see co-located rows.
   const logic = logicWorkItems([...workset.factPacks.values()], documents);
   plan.items.push(...logic.items);
+  if (obligations.status === "built") {
+    plan.items.push(...declarationWorkItems(obligations.value, documents, new Set(plan.items.map((item) => item.id))));
+  }
   result.stats.warnings.push(...logic.warnings);
   const manifest: RunManifest = {
     version: 3,
@@ -719,21 +773,6 @@ export async function prepareRun(request: ReportRequest): Promise<{ runDir: stri
   // The second obligation source is frozen at prepare beside the fact packs, for the same reason they are:
   // freeze and audit must both derive the denominator from one recorded set of facts, never recompute it.
   await writeJson(join(runDir, "context", "boundary-functions.json"), result.prepared.boundaryFunctions);
-  // Per-module scope accounting, one file per feature. Written at prepare — BEFORE any authoring — because
-  // its whole purpose is to be readable while the scope can still be widened cheaply. A module row at zero
-  // that no rule explains means this run silently omitted a whole module.
-  // Every feature gets a file — either the table or an explicit "no census could be built". A missing file
-  // would make "no graph" and "nothing to report" indistinguishable on disk.
-  for (const featureKey of [...result.prepared.collectedFactPacks.keys()].sort((a, b) => a.localeCompare(b))) {
-    const census = result.prepared.scopeCensus.get(featureKey);
-    await writeJson(join(runDir, "context", `${featureKey}.scope-census.json`), census ?? scopeCensusUnavailable(result.prepared.censusUnavailable.get(featureKey)));
-  }
-  // The overview's own accounting, written unconditionally — including on overview-only runs, which have no
-  // feature keys and therefore produced no accounting at all before this. The filename stays outside the
-  // `.scope-census.json` suffix that audit reads the feature artifacts by; collision is already impossible
-  // because every feature key carries a content hash, but keeping the two namespaces apart means a future
-  // change to key derivation cannot silently make one artifact overwrite the other.
-  await writeJson(join(runDir, "context", "overview-census.json"), result.prepared.overviewCensus);
   if (crossRepo) await writeJson(join(runDir, "context", "crossrepo-links.json"), crossRepo.artifact);
 
   // Cross-feature relationships need at least two features to have any pair to relate; single-feature
@@ -756,10 +795,8 @@ export async function prepareRun(request: ReportRequest): Promise<{ runDir: stri
   return { runDir, manifest };
 }
 
-async function makeDocumentPlan(runDir: string, id: string, kind: "overview" | "feature", audience: Audience, templatePath: string, contextPath: string, subject: string | undefined, order: number): Promise<DocumentPlan> {
-  const template = await readFile(templatePath, "utf8");
-  const headings = [...template.matchAll(/^##\s+(.+)$/gm)].map((match) => match[1].trim());
-  if (!headings.length) throw new Error(`Template has no level-two sections: ${templatePath}`);
+function makeDocumentPlan(runDir: string, planned: PlannedDocument, templatePath: string, contextPath: string, subject: string | undefined, order: number): DocumentPlan {
+  const { id, kind, audience } = planned;
   return {
     id,
     kind,
@@ -767,12 +804,12 @@ async function makeDocumentPlan(runDir: string, id: string, kind: "overview" | "
     subject,
     templatePath,
     contextPath,
-    sections: headings.map((title, index) => {
+    sections: planned.sections.map(({ index, title }) => {
       // Section markdown and its claims sidecar share one `NN-<slug>` stem, so a section and its claims
       // carry the same human-readable name while the zero-padded prefix keeps them numerically ordered.
-      const stem = sectionFileStem(index + 1, title);
+      const stem = sectionFileStem(index, title);
       return {
-        index: index + 1,
+        index,
         title,
         file: join(runDir, "sections", id, `${stem}.md`),
         claimsFile: join(runDir, "claims", id, `${stem}.json`),
@@ -895,13 +932,21 @@ export async function freezeRun(runDirInput: string): Promise<{ manifest: RunMan
   const readResidual = accountability?.residual ?? null;
   const boundaryFunctions = accountability?.boundaryFunctions ?? null;
   const expectedPlan = createInvestigationPlan(manifest.id, manifest.request, manifest.documents);
+  const contractFindings = await auditContractInstances(runDir, manifest);
   // Gate the generative expansion on the run's assurance GENERATION, not exact-version equality: a run
   // prepared under generation 4+ already baked these items, so re-derive them regardless of any later
   // redaction/assurance bump. Older (pre-4) runs never baked them and are grandfathered.
   if (assuranceGenerationAtLeast(manifest, LOGIC_DISPOSITION_ASSURANCE_GENERATION)) expectedPlan.items.push(...logicWorkItems(Object.values(factPacks), manifest.documents).items);
+  if (assuranceGenerationAtLeast(manifest, WORKSET_OBLIGATION_ASSURANCE_GENERATION)) {
+    try {
+      const declarations = await readRequiredObligationDeclarations(runDir);
+      expectedPlan.items.push(...declarationWorkItems(declarations, manifest.documents, new Set(expectedPlan.items.map((item) => item.id))));
+    } catch (error) {
+      contractFindings.push({ level: "error", document: "contract", message: `obligations/declarations.json cannot be used at freeze: ${(error as Error).message}` });
+    }
+  }
   const documentIds = new Set(manifest.documents.map((document) => document.id));
   const snapshotDrift = (await reDeriveIdentities(runDir, manifest))?.drift ?? null;
-  const contractFindings = await auditContractInstances(runDir, manifest);
   const findings = await freezePreconditions({ manifest, plan, expectedPlan, evidence: evidenceCatalog.evidence, evidenceById, traces, documentIds, snapshotDrift, contractFindings });
   // The reading gate runs at freeze because that is where a false ledger entry is cheapest to fix: the
   // author simply records the window. Claims do not exist yet, so only the read side is reconciled here.
@@ -1227,52 +1272,43 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
   const allClaims = await collectClaims(runDir, manifest.documents);
   const claimsByDocument = new Map<string, Array<{ section: number; claim: SectionClaim }>>();
   const traceIds = new Set(traces.traces.map((trace) => trace.id));
-  // Per-module scope accounting, reported as an ADVISORY and reported EARLY. A module row at zero that no
-  // named rule explains means this run's scope silently omitted a whole module — the failure that
-  // function-level read obligations structurally cannot express, since a module outside the boundary lands
-  // in no bucket at all.
-  //
-  // Deliberately NOT nested under the frozen-knowledge checks. It was there first, and a test that actually
-  // exercised the path showed what that costs: those checks only run after freeze, so the finding would
-  // arrive after the authoring it was supposed to inform. The whole point of this reading is to be legible
-  // while widening the scope is still cheap, so it fires whenever the artifact exists.
-  for (const file of (await readdir(join(runDir, "context")).catch(() => [])).filter((name: string) => name.endsWith(".scope-census.json")).sort()) {
-    const raw = await readJson<ScopeCensus | { reason?: string; detail?: string }>(join(runDir, "context", file));
-    if ("reason" in raw && raw.reason !== undefined) {
-      // Reported, not skipped: a run with no module accounting must say so, or a reader cannot tell it
-      // apart from a run where everything was accounted for.
-      findings.push({ level: "warning", document: "read-coverage", message: `${file}: no module accounting for this feature (${raw.reason}). ${raw.detail ?? ""}`.trim() });
-      continue;
+  let auditedDeclarations: ObligationDeclarations | null = null;
+  // Generation 12 reads the two census laws from their ArtifactResult envelopes. File coverage and partition
+  // selection are checked independently: adding their counts would mix different unit kinds.
+  if (assuranceGenerationAtLeast(manifest, WORKSET_OBLIGATION_ASSURANCE_GENERATION)) {
+    for (const file of (await readdir(join(runDir, "context")).catch(() => [])).filter((name: string) => name.endsWith(".scope-census.json")).sort()) {
+      const result = await readJson<ArtifactResult<ScopeCensusV2>>(join(runDir, "context", file));
+      if (result.status !== "built") {
+        findings.push({ level: "warning", document: "read-coverage", message: `${file}: scope census ${result.status === "unavailable" ? `unavailable (${result.cause})` : `not applicable (${result.determination})`}` });
+        continue;
+      }
+      const residual = scopeCensusResidual(result.value);
+      if (!residual.balanced) findings.push({ level: "error", document: "read-coverage", message: `${file}: file-coverage or partition-selection conservation does not balance` });
+      for (const row of residual.unavailable) findings.push({ level: "warning", document: "read-coverage", message: `${file}: ${row.featureKey} census-unavailable (${row.cause})` });
+      if (residual.unexplained.length > 0) findings.push({ level: "warning", document: "read-coverage", message: `${file}: ${residual.unexplained.length} module x language file-coverage row(s) remain unexplained (${residual.unexplained.join(", ")})` });
     }
-    const census = raw as ScopeCensus;
-    const residual = scopeCensusResidual(census);
-    if (!residual.balanced) {
-      findings.push({ level: "error", document: "read-coverage", message: `${file}: the module accounting does not balance (census ${census.summary.censusModules} != counted ${census.summary.countedModules} + excluded ${census.summary.excludedModules} + zero-hit ${census.summary.zeroHitModules})` });
+    const overview = await readJson<ArtifactResult<OverviewCensusV2>>(join(runDir, "context", "overview-census.json"));
+    if (overview.status === "built") {
+      const residual = overviewCensusResidual(overview.value);
+      if (!residual.balanced) findings.push({ level: "error", document: "read-coverage", message: "overview-census.json: file coverage does not balance" });
+      if (residual.unexplained.length > 0) findings.push({ level: "warning", document: "read-coverage", message: `overview-census.json: ${residual.unexplained.length} module x language row(s) remain unexplained (${residual.unexplained.join(", ")})` });
+    } else {
+      findings.push({ level: "warning", document: "read-coverage", message: `overview-census.json: overview census ${overview.status === "unavailable" ? `unavailable (${overview.cause})` : `not applicable (${overview.determination})`}` });
     }
-    if (residual.unexplained.length > 0) {
-      findings.push({ level: "warning", document: "read-coverage", message: `${file}: ${residual.unexplained.length} of ${census.summary.censusModules} indexed module(s) contributed no scope and no rule explains it (${residual.unexplained.join(", ")}). Every per-module coverage figure in this run is a conditional reading: census ${census.summary.censusModules} / accounted ${census.summary.countedModules + census.summary.excludedModules}.` });
+    try {
+      const readSpecs = await readJson<ArtifactResult<ReadSpecsArtifact>>(join(runDir, "workset", "read-specs.json"));
+      if (readSpecs.status !== "built") {
+        throw new Error(`artifact is ${readSpecs.status === "unavailable" ? `unavailable: ${readSpecs.cause}` : `not applicable: ${readSpecs.determination}`}`);
+      }
+      requireReadSpecs(readSpecs.value, "workset/read-specs.json");
+    } catch (error) {
+      findings.push({ level: "error", document: "contract", message: `workset/read-specs.json violates its authorization contract: ${(error as Error).message}` });
     }
-  }
-  // The overview's module accounting. Read separately from the feature censuses because its denominator is a
-  // different set — the snapshot rather than the graph census — so the two must not be summed or compared.
-  const overviewCensusRaw = assuranceGenerationAtLeast(manifest, OVERVIEW_CENSUS_ASSURANCE_GENERATION)
-    ? await readJson<OverviewCensus>(join(runDir, "context", "overview-census.json")).catch(() => null)
-    : null;
-  if (overviewCensusRaw !== null) {
-    const summary = overviewCensusRaw.summary;
-    const residual = overviewCensusResidual(overviewCensusRaw);
-    if (!residual.balanced) findings.push({ level: "error", document: "read-coverage", message: `overview-census.json: the module accounting does not balance (census ${summary.censusModules} != counted ${summary.countedModules} + excluded ${summary.excludedModules} + zero-hit ${summary.zeroHitModules})` });
-    // Index coverage is carried INSIDE this message rather than raised on its own. On its own it fires on
-    // essentially every real target — source fallback exists precisely so that unindexed files are still
-    // readable — and `buildSharedContext` already warns on the coverage ratio. A warning that always fires is
-    // how the ones that matter get ignored. Here the same number is the likeliest cause of the gap, so it
-    // earns its place.
-    if (residual.unexplained.length > 0) findings.push({ level: "warning", document: "read-coverage", message: `overview-census.json: ${residual.unexplained.length} of ${summary.censusModules} module(s) in the snapshot were neither named nor read by the overview and no rule explains it (${residual.unexplained.join(", ")}). An overview describes the whole project, so these modules are outside what it examined. CodeGraph indexed ${summary.indexedFiles}/${summary.snapshotFiles} snapshot source files; the overview named ${summary.namedFiles} and read ${summary.readFiles}.` });
-    // Reported as ONE finding over all extensions rather than one each: the point is the list, and N findings
-    // for N languages would bury it. Module rows cannot express this on a target that keeps its whole
-    // codebase under one top-level directory, which is the common shape for the legacy targets that need it.
-    const untouched = untouchedExtensions(overviewCensusRaw);
-    if (untouched.length > 0) findings.push({ level: "warning", document: "read-coverage", message: `overview-census.json: the overview neither named nor read any file of ${untouched.length} file type(s) the snapshot scanned (${untouched.map((row) => `${row.extension || "(no extension)"} ${row.snapshotFiles} file(s), ${row.indexedFiles} indexed`).join("; ")}). Statements about those parts of the project rest on no evidence from them.` });
+    try {
+      auditedDeclarations = await readRequiredObligationDeclarations(runDir);
+    } catch (error) {
+      findings.push({ level: "error", document: "contract", message: `obligations/declarations.json violates its declaration contract: ${(error as Error).message}` });
+    }
   }
   if (manifest.evidenceDigest !== sha256(stableJson(evidenceCatalog.evidence))) findings.push({ level: "error", document: "evidence", message: "evidence catalog changed outside the recorded source-evidence workflow" });
   const providerUnsigned = { ...providerRegistry }; delete providerUnsigned.digest;
@@ -1380,6 +1416,9 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
   // Generation-gated (not exact-version): a run that baked these items under generation 4+ must have them
   // re-derived here even after a later assurance/redaction bump, or it would false-fail as `unexpected`.
   const expectedLogicItems = assuranceGenerationAtLeast(manifest, LOGIC_DISPOSITION_ASSURANCE_GENERATION) ? logicWorkItems(Object.values(factPacks), manifest.documents).items : [];
+  const expectedDeclarationItems = auditedDeclarations
+    ? declarationWorkItems(auditedDeclarations, manifest.documents, new Set(expectedLogicItems.map((item) => item.id)))
+    : [];
   // Reading accountability: reconcile against the FROZEN denominator, never a recomputed one — self-gated on
   // the artifact existing, so a legacy, unfrozen or pre-generation-5 run is untouched. The consumption side
   // (which claim cites the window) can only be evaluated here, after authoring, so the residual is rewritten
@@ -1444,6 +1483,7 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
   }
   const expectedPlan = createInvestigationPlan(manifest.id, manifest.request, manifest.documents);
   expectedPlan.items.push(...expectedLogicItems);
+  expectedPlan.items.push(...expectedDeclarationItems.filter((item) => !expectedPlan.items.some((existing) => existing.id === item.id)));
   findings.push(...runWide(auditWorkItems(plan, expectedPlan, evidenceById, traceIds)));
   // Claim-attribution defects run over every scoped document (they are always errors and detectable
   // per document); completeness is certified only for documents whose sections are all checkpointed,
@@ -1467,6 +1507,8 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
   // The checklist mirror carries the same forced logic items (checklist.json is projected from the plan), so
   // its expected set must expand identically or auditChecklist would report them as unexpected/missing.
   expectedChecklist.items.push(...workItemsToChecklist({ version: 1, runId: manifest.id, createdAt: nowIso(), items: expectedLogicItems }).items);
+  expectedChecklist.items.push(...workItemsToChecklist({ version: 1, runId: manifest.id, createdAt: nowIso(), items: expectedDeclarationItems }).items
+    .filter((item) => !expectedChecklist.items.some((existing) => existing.id === item.id)));
   if (!await exists(join(runDir, "checklist.json"))) findings.push({ level: "error", document: "checklist", message: "checklist.json is missing" });
   else {
     const checklist = await readJson<InvestigationChecklist>(join(runDir, "checklist.json"));
@@ -1640,6 +1682,7 @@ Read these inputs before writing:
 - Report contract: \`${templatePath}\`
 - Document instructions: \`${contextPath}\`
 - Shared project context: \`context/shared.md\`
+- Bounded layer-5 census and ReadSpec view: \`context/workset.md\`
 - Evidence catalog: \`evidence.json\`
 - Investigation work items: \`workitems.json\`
 - Compatibility checklist: \`checklist.json\`
@@ -1665,9 +1708,8 @@ Describe current state and current problems only. Do not provide recommendations
  */
 function factPackInstructions(document: DocumentPlan, detailLevel: "standard" | "detailed"): string {
   if (document.kind !== "feature" || detailLevel !== "detailed") return "";
-  const key = document.id.replace(/^feature-/, "").replace(new RegExp(`-${document.audience}$`), "");
   return `
-The feature scope file carries a \`## Fact pack\` section, while \`context/features/${key}.factpack.json\` keeps the complete machine denominator and each row's layer-5 relation. Authoring consumes only rows marked \`seeded\` or \`retained\`; \`co-located\` and \`not-applicable\` rows are audit context, not facts to repeat. The categories are \`entrypoints\`, \`entities\`, \`states\`, \`config-keys\`, \`jobs\`, \`external-calls\` and \`logic\` (the business and decision functions inside the boundary that the structural categories do not already name). The enumerating chapters — entry points, rules and states, data, configuration and integrations — must cover every consumable fact pack item of the matching category: each item either appears in that chapter, or is folded into an explicitly counted group such as "N further items of kind X". Cite the category's \`FACT-*\` evidence id in the chapter that covers it. The consumable \`logic\` items belong to the flow, decision and authorization chapters; a consumable logic item carrying a \`signal\` (rescued into the boundary by structural analysis) must be dispositioned individually — named and placed where its behavior belongs — never folded into an aggregate count. Each such rescued \`logic\` function is also a \`logic-disposition\` work item in \`workitems.json\` (id \`feature:<key>:logic:<name>@<path>:<line>\`, no pinned section): dispose it before freeze, then satisfy it with at least one visible claim that DESCRIBES THE BUSINESS BEHAVIOR and cites the deciding source window, listing the work-item id in the claim's \`workItemIds\`. The prose need not repeat the symbol name — identifiers stay in the collapsed evidence block or coverage chapter, and covering the behavior counts because the ledger binds through the cited evidence, not the name. A genuinely boundary-noise item is disposed \`not-applicable\` with a reason; one claim may batch-dispose several such n/a items by listing them all in \`workItemIds\`. When source reading contradicts a consumable fact pack item, say so explicitly and state which reading the source supports; a fact pack category marked truncated must be reported as incomplete rather than presented as a full inventory. Silently omitting a consumable item is a defect.
+The feature scope file carries the bounded \`## Fact pack\` model view and its source digest. The corresponding machine pack remains audit storage and must not be read directly by the author. Authoring consumes only rows marked \`seeded\` or \`retained\`; \`co-located\` and \`not-applicable\` rows are audit context, not facts to repeat. The categories are \`entrypoints\`, \`entities\`, \`states\`, \`config-keys\`, \`jobs\`, \`external-calls\` and \`logic\` (the business and decision functions inside the boundary that the structural categories do not already name). The enumerating chapters — entry points, rules and states, data, configuration and integrations — must cover every visible consumable fact-pack item of the matching category: each item either appears in that chapter, or is folded into an explicitly counted group such as "N further items of kind X". Cite the category's \`FACT-*\` evidence id in the chapter that covers it. The consumable \`logic\` items belong to the flow, decision and authorization chapters; a consumable logic item carrying a \`signal\` (rescued into the boundary by structural analysis) must be dispositioned individually — named and placed where its behavior belongs — never folded into an aggregate count. Each such rescued \`logic\` function is also a \`logic-disposition\` work item in \`workitems.json\` (id \`feature:<key>:logic:<name>@<path>:<line>\`, no pinned section): dispose it before freeze, then satisfy it with at least one visible claim that DESCRIBES THE BUSINESS BEHAVIOR and cites the deciding source window, listing the work-item id in the claim's \`workItemIds\`. The prose need not repeat the symbol name — identifiers stay in the collapsed evidence block or coverage chapter, and covering the behavior counts because the ledger binds through the cited evidence, not the name. A genuinely boundary-noise item is disposed \`not-applicable\` with a reason; one claim may batch-dispose several such n/a items by listing them all in \`workItemIds\`. When source reading contradicts a consumable fact-pack item, say so explicitly and state which reading the source supports; a fact-pack category marked truncated or view-bounded must be reported as incomplete rather than presented as a full inventory. Silently omitting a visible consumable item is a defect.
 `;
 }
 

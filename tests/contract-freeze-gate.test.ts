@@ -259,6 +259,10 @@ test("a prepare failure records all eight layer-3 slots as unavailable rather th
     assert.equal(envelope.status, "unavailable", `${path} is a written record, never an absent file`);
     assert.match(envelope.status === "unavailable" ? envelope.cause : "", /source boundary could not be read/);
   }
+  for (const path of ["context/overview-census.json", "workset/read-specs.json", "obligations/declarations.json"]) {
+    const envelope = JSON.parse(await readFile(join(runDir, path), "utf8")) as ArtifactResult<unknown>;
+    assert.equal(envelope.status, "unavailable", `${path} records the whole-layer failure instead of disappearing`);
+  }
 });
 
 test("two prepares of the same request produce byte-identical layer-2 ledgers", async () => {

@@ -34,8 +34,8 @@ function input(overrides: Partial<BoundRunContractInput> = {}): BoundRunContract
     request: request(),
     features: [{ key: "leave-abc1234567", subject: "请假管理", aliases: ["annual", "leave"] }],
     documents: [
-      { id: "overview-product", kind: "overview", audience: "product", featureKey: null },
-      { id: "feature-leave-abc1234567-engineering", kind: "feature", audience: "engineering", featureKey: "leave-abc1234567" }
+      { id: "overview-product", kind: "overview", audience: "product", featureKey: null, sections: [{ index: 1, title: "Purpose" }] },
+      { id: "feature-leave-abc1234567-engineering", kind: "feature", audience: "engineering", featureKey: "leave-abc1234567", sections: [{ index: 1, title: "Flow" }, { index: 2, title: "Rules" }] }
     ],
     ...overrides
   };
@@ -59,16 +59,17 @@ test("alias order in the request cannot change the contract bytes", () => {
   assert.equal(ascending.runIntent.digest, descending.runIntent.digest);
 });
 
-test("requirements carry one row per requested document plus the run-level row, and no feature row for an overview-only run", () => {
+test("requirements carry one row per template section plus run-level rows, and no feature row for an overview-only run", () => {
   const withFeature = materializeBoundRunContract(input());
   const featureRows = withFeature.requirements.rows.filter((row) => row.scope === "feature");
-  assert.equal(featureRows.length, 1);
+  assert.equal(featureRows.length, 2);
   assert.equal(featureRows[0].featureKey, "leave-abc1234567");
+  assert.deepEqual(featureRows.map((row) => [row.sectionIndex, row.sectionTitle]), [[1, "Flow"], [2, "Rules"]]);
   assert.ok(withFeature.requirements.rows.some((row) => row.scope === "run"), "a run-level requirement exists even with features");
 
   const overviewOnly = materializeBoundRunContract(input({
     features: [],
-    documents: [{ id: "overview-product", kind: "overview", audience: "product", featureKey: null }]
+    documents: [{ id: "overview-product", kind: "overview", audience: "product", featureKey: null, sections: [{ index: 1, title: "Purpose" }] }]
   }));
   assert.deepEqual(overviewOnly.requirements.rows.filter((row) => row.scope === "feature"), []);
   assert.ok(overviewOnly.requirements.rows.length >= 2, "an overview-only run still receives run-level requirements");
@@ -115,8 +116,8 @@ test("the expected instance set is per-feature where the artifact is per-feature
       { key: "payroll-bbbbbbbbbb", subject: "薪酬", aliases: [] }
     ],
     documents: [
-      { id: "feature-leave-aaaaaaaaaa-engineering", kind: "feature", audience: "engineering", featureKey: "leave-aaaaaaaaaa" },
-      { id: "feature-payroll-bbbbbbbbbb-engineering", kind: "feature", audience: "engineering", featureKey: "payroll-bbbbbbbbbb" }
+      { id: "feature-leave-aaaaaaaaaa-engineering", kind: "feature", audience: "engineering", featureKey: "leave-aaaaaaaaaa", sections: [{ index: 1, title: "Flow" }] },
+      { id: "feature-payroll-bbbbbbbbbb-engineering", kind: "feature", audience: "engineering", featureKey: "payroll-bbbbbbbbbb", sections: [{ index: 1, title: "Flow" }] }
     ]
   }));
   const manifest = deriveContractManifest(ARTIFACT_REGISTRY, twoFeatures.runIntent, twoFeatures.requirements);

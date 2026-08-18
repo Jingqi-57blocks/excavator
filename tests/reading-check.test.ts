@@ -137,7 +137,8 @@ test("freeze writes the block into the packet on disk", async () => {
   assert.match(packet, /## Reading boundary — feature-associated decision code never opened/);
   assert.match(packet, /3 functions across 1 file, 24 unread lines — retained 3, named 0, in-directory 0\./);
   assert.match(packet, /`settleLeaveBalance`/);
-  assert.doesNotMatch(packet, /computeOvertimeCap/, "the unclassified partition is counted in the packet, never expanded there");
+  const readingBoundary = packet.slice(packet.indexOf("## Reading boundary"));
+  assert.doesNotMatch(readingBoundary, /computeOvertimeCap/, "the read residual counts the unclassified partition but does not expand it; layer-6 obligations may name it elsewhere");
   assert.match(packet, /A further 1 never-opened function \(7 line\(s\)\)/);
 });
 

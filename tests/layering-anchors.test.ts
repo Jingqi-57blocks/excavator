@@ -43,10 +43,10 @@ const ANCHORS: Record<string, Classification> = {
   "snapshot.ts:213": { kind: "historical", why: "the pre-57B-418 line where an unregistered extension never became a candidate; the document says 修之前 and keeps it as provenance" },
   "src/snapshot/source.ts:29": { kind: "current", expect: "export function windowCacheVersion" },
   "src/assurance/freeze.ts:137": { kind: "current", expect: "completeness: buildCompleteness(plan)" },
-  "src/base/assurance-version.ts:79": { kind: "current", expect: "export function runUsesCurrentAssurance" },
-  "src/run/run.ts:859": { kind: "current", expect: "plan.items.some((item) => item.id === normalized.workItemId)" },
+  "src/base/assurance-version.ts:81": { kind: "current", expect: "export function runUsesCurrentAssurance" },
+  "src/run/run.ts:896": { kind: "current", expect: "plan.items.some((item) => item.id === normalized.workItemId)" },
   "src/crossrepo/link-match.ts:41": { kind: "current", expect: "export interface MatchedLink" },
-  "src/run/run.ts:574": { kind: "current", expect: "createInvestigationPlan(runId, effectiveRequest, documents)" },
+  "src/run/run.ts:616": { kind: "current", expect: "createInvestigationPlan(runId, effectiveRequest, documents)" },
 
   // --- §二: the seven edges, as a landing record --------------------------------------------------------------
   // The "before" column is where each violating import USED to sit. Several of those line numbers now happen to
@@ -83,17 +83,18 @@ const ANCHORS: Record<string, Classification> = {
   // --- §四 the four laws ------------------------------------------------------------------------------------
   "src/assurance/timeline.ts:18-19": { kind: "current", expect: "events.at(-1)" },
   "src/assurance/parallel-authoring.ts:100-110": { kind: "current", expect: "export async function collectDrafts" },
-  "src/run/run.ts:984": { kind: "current", expect: "manifest.evidenceDigest = sha256(stableJson(catalog.evidence))" },
+  "src/run/run.ts:1029": { kind: "current", expect: "manifest.evidenceDigest = sha256(stableJson(catalog.evidence))" },
   "src/workset/factpack-view.ts:54": { kind: "current", expect: "maxRowsPerCategory = 60" },
 
   // --- §五 P1-P18 -------------------------------------------------------------------------------------------
-  "src/context/context.ts:37": { kind: "current", expect: 'censusRoots: GraphSummary["roots"]' },
+  "src/workset/census.ts:95": { kind: "current", expect: "export function buildScopeCensus" },
   "snapshot.ts:211": { kind: "historical", why: "P13's provenance: the pre-57B-418 scan loop, kept because the document says so explicitly" },
   "snapshot.ts:215": { kind: "historical", why: "P13's provenance: the silent path-escape continue" },
   "snapshot.ts:218": { kind: "historical", why: "P13's provenance: the silent irregular-file/symlink/oversize continue" },
   "snapshot.ts:226": { kind: "historical", why: "P13's provenance: the silent lstat-failure continue" },
   "snapshot.ts:238": { kind: "historical", why: "P13's provenance: the break that could drop a whole root" },
   "src/assurance/read-obligations.ts:258": { kind: "current", expect: 'if (fn.probe !== "decision") continue;' },
+  "src/obligation/declarations.ts:80": { kind: "current", expect: "export function buildObligationDeclarations" },
   "src/attribution/prune-module-floor.ts:51": { kind: "current", expect: "export function pruneFeatureGraphWithModuleFloorRecorded" },
   "src/context/factpack.ts:229": { kind: "current", expect: "export async function buildFactPack" },
   "src/workset/factpack-annotate.ts:38-58": { kind: "current", expect: "export function annotateFactPack" },

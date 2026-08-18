@@ -71,9 +71,11 @@ export const REDACTION_MODE_ASSURANCE_GENERATION = 9;
  */
 export const CONTRACT_MANIFEST_ASSURANCE_GENERATION = 10;
 
-// v11 makes relation-annotated factpack-v2 the only readable workset. This is an intentional archive boundary:
-// v1 runs must be prepared again rather than being assigned membership and relation semantics they never wrote.
-export const ASSURANCE_VERSION = `assurance-v11-factpack-v2-${REDACTION_VERSION}`;
+// v11 makes relation-annotated factpack-v2 the only readable workset. v12 binds the layer-5 RowSet census and
+// ReadSpec authorization plus layer-6 obligation declarations. Both are intentional archive boundaries: an
+// older run must be prepared again rather than being assigned denominator or obligation semantics it never wrote.
+export const WORKSET_OBLIGATION_ASSURANCE_GENERATION = 12;
+export const ASSURANCE_VERSION = `assurance-v12-workset-obligations-${REDACTION_VERSION}`;
 
 /** Strict re-derivation checks apply only to runs prepared under exactly the current version. */
 export function runUsesCurrentAssurance(manifest: RunManifest): boolean {

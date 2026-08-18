@@ -85,13 +85,13 @@ export function renderFactPackSection(pack: FeatureFactPack, maxRowsPerCategory 
         ...shown.map((item) => `| ${cell(item.name)} | \`${cell(item.filePath)}:${item.line}${item.endLine && item.endLine !== item.line ? `-${item.endLine}` : ""}\` | ${item.source} | ${item.relation.kind} | ${cell(detailWithSignal(item))} |`)
       ].join("\n")
       : empty;
-    const remainder = categoryItems.length > shown.length ? `\n\n其余 ${categoryItems.length - shown.length} 条可消费项见 factpack.json` : "";
+    const remainder = categoryItems.length > shown.length ? `\n\nView bound reached: ${categoryItems.length - shown.length} additional consumable row(s) are omitted from this model view and remain counted above.` : "";
     const note = coverage.truncated ? `\n\nTruncated: ${cell(coverage.note ?? "budget or cap reached")}` : "";
     return `${header}\n\n${body}${remainder}${note}`;
   });
   return `## Fact pack
 
-Layer-5 relation view. The machine pack keeps every enumerated item, while this model view and its FACT evidence expose only seeded or retained rows. Co-located rows remain machine-readable audit context and contribute counts only. The complete pack is \`context/features/${pack.featureKey}.factpack.json\`.
+Layer-5 relation view. Source digest: \`${sha256(stableJson(pack))}\`. Declared view bounds: ${maxRowsPerCategory} rows per category and ${LOGIC_RENDER_ROWS} logic rows. The authoritative machine pack is audit storage, not a model input; this view and its FACT evidence expose only seeded or retained rows. Co-located rows contribute counts only.
 
 | Category | Method | Machine | Consumable | Co-located | Truncated | Evidence | Note |
 |---|---|---:|---:|---:|---|---|---|

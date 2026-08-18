@@ -30,6 +30,7 @@ export const LAYERING_REGISTRY: readonly RegistryEntry[] = [
   { dir: "src/attribution", layer: "L4" },
   { dir: "src/context", layer: "L5" },
   { dir: "src/workset", layer: "L5" },
+  { dir: "src/obligation", layer: "L6" },
   { dir: "src/investigation", layer: "L7" },
 
   // --- src/assurance/: the known mixed directory, knowledge side and report side in one folder -----------

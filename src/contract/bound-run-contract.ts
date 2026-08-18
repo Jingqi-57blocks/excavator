@@ -43,6 +43,10 @@ export interface RequirementRow {
   featureKey: string | null;
   documentId: string | null;
   audience: Audience | null;
+  /** Positional level-two template section, or null for a run-level requirement. */
+  sectionIndex: number | null;
+  /** Recorded so the requirement remains understandable without reopening the template. */
+  sectionTitle: string | null;
   statement: string;
   /** Where the requirement came from: a report template, or the run itself. */
   source: string;
@@ -65,6 +69,8 @@ export interface PlannedDocument {
   kind: DocumentKind;
   audience: Audience;
   featureKey: string | null;
+  /** Deterministically extracted before any producer runs; one requirement is materialized per section. */
+  sections: Array<{ index: number; title: string }>;
 }
 
 export interface BoundRunContractInput {
@@ -122,7 +128,7 @@ export function requirementsDigest(requirements: Pick<Requirements, "rows">): st
 }
 
 /**
- * The minimal requirement row set: the run-level rows plus one row per requested document.
+ * The requirement row set: the run-level rows plus one row per level-two section of every requested document.
  *
  * A template is a PRODUCER of requirements, not the requirement itself, so the row names the audience and
  * kind it came from rather than a template path — a machine-specific absolute path would make the contract
@@ -134,22 +140,28 @@ function materializeRequirements(input: BoundRunContractInput): Requirements {
     featureKey: null,
     documentId: null,
     audience: null,
+    sectionIndex: null,
+    sectionTitle: null,
     statement: requirement.statement,
     source: requirement.source
   }));
   const subjects = new Map(input.features.map((feature) => [feature.key, feature.subject]));
   for (const document of [...input.documents].sort((a, b) => a.id.localeCompare(b.id))) {
     const subject = document.featureKey === null ? null : subjects.get(document.featureKey) ?? document.featureKey;
-    rows.push({
-      scope: document.featureKey === null ? "run" : "feature",
-      featureKey: document.featureKey,
-      documentId: document.id,
-      audience: document.audience,
-      statement: subject === null
-        ? `The ${document.audience} ${document.kind} report is answerable from this run's recorded knowledge.`
-        : `The ${document.audience} ${document.kind} report on "${subject}" is answerable from this run's recorded knowledge.`,
-      source: `template:${document.kind}/${document.audience}`
-    });
+    for (const section of document.sections) {
+      rows.push({
+        scope: document.featureKey === null ? "run" : "feature",
+        featureKey: document.featureKey,
+        documentId: document.id,
+        audience: document.audience,
+        sectionIndex: section.index,
+        sectionTitle: section.title,
+        statement: subject === null
+          ? `The ${document.audience} ${document.kind} section "${section.title}" is answerable from this run's recorded knowledge.`
+          : `The ${document.audience} ${document.kind} section "${section.title}" on "${subject}" is answerable from this run's recorded knowledge.`,
+        source: `template:${document.kind}/${document.audience}#section-${String(section.index).padStart(2, "0")}`
+      });
+    }
   }
   const numbered: RequirementRow[] = rows.map((row, index) => ({ id: `REQ-${String(index + 1).padStart(2, "0")}`, ...row }));
   return { version: "requirements-v1", rows: numbered, digest: requirementsDigest({ rows: numbered }) };

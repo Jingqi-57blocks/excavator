@@ -1,4 +1,4 @@
-// BOUNDARY FUNCTIONS — the second source for the read-obligation denominator.
+// BOUNDARY FUNCTIONS — the layer-3 structured probe result used by later obligation layers.
 //
 // The first source (the fact pack's `logic` complement) enumerates what the prune RETAINED, so it inherits
 // the boundary's recall ceiling: measured on a real run, `service.go` was inside the boundary with
@@ -21,9 +21,9 @@
 // rendering live, and the boundary's frontend silence is one of the misses being chased.
 
 import { readFile } from "node:fs/promises";
-import type { GraphReader } from "../codegraph/codegraph.ts";
-import type { GraphNode } from "../base/types.ts";
-import { probeDecision, type ProbeResult } from "../facts/probe/decision-probe.ts";
+import type { GraphReader } from "../../codegraph/codegraph.ts";
+import type { GraphNode } from "../../base/types.ts";
+import { probeDecision, type ProbeResult } from "./decision-probe.ts";
 
 export const BOUNDARY_FUNCTIONS_VERSION = "boundary-functions-v1";
 
