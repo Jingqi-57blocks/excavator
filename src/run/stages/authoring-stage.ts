@@ -1,7 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { InvestigationPlan, RunManifest, SectionClaim, SectionClaimsFile, TraceCatalog } from "../../base/types.ts";
-import { runUsesCurrentAssurance } from "../../base/assurance-version.ts";
 import { atomicWrite, exists, nowIso, readJson, writeJson } from "../../base/util.ts";
 import { appendTimeline, readTimeline } from "../../base/timeline.ts";
 import { collectClaims, writeReportCompanions } from "../../report/assurance-artifacts.ts";
@@ -9,16 +8,13 @@ import { outputFrontMatter, reportFileName } from "../../report/authoring-plan.t
 import { archiveCheckpoint, normalizeSection } from "../../report/checkpoint.ts";
 import { scaffoldSectionClaims } from "../../report/claims-scaffold.ts";
 import { validateClaimsInput } from "../../report/section-audit.ts";
+import { assertCurrentKnowledgeEpochForAuthoring } from "../../freeze/freeze.ts";
 
 export async function beginDocument(runDirInput: string, documentId: string): Promise<RunManifest> {
   const runDir = resolve(runDirInput);
   const path = join(runDir, "run.json");
   const manifest = await readJson<RunManifest>(path);
-  // Freeze-before-authoring hard gate: under the current assurance version an unfrozen run cannot begin
-  // authoring. Older runs (prepared before this version) are grandfathered and keep the soft path.
-  if (runUsesCurrentAssurance(manifest) && !manifest.frozenAt) {
-    throw new Error(`Run is not frozen; the current assurance version requires freezing the investigation before authoring. Run \`excavator freeze --run ${runDir}\` first.`);
-  }
+  await assertCurrentKnowledgeEpochForAuthoring(runDir, manifest);
   const document = manifest.documents.find((item) => item.id === documentId);
   if (!document) throw new Error(`Unknown document: ${documentId}`);
   if (!document.startedAt || document.completedAt) {
@@ -39,6 +35,7 @@ export async function checkpointSection(runDirInput: string, documentId: string,
   const runDir = resolve(runDirInput);
   const path = join(runDir, "run.json");
   const manifest = await readJson<RunManifest>(path);
+  if (manifest.frozenAt) await assertCurrentKnowledgeEpochForAuthoring(runDir, manifest);
   const document = manifest.documents.find((item) => item.id === documentId);
   if (!document) throw new Error(`Unknown document: ${documentId}`);
   const section = document.sections.find((item) => item.index === sectionIndex);
@@ -100,6 +97,7 @@ export async function assembleRun(runDirInput: string): Promise<RunManifest> {
   const runDir = resolve(runDirInput);
   const path = join(runDir, "run.json");
   const manifest = await readJson<RunManifest>(path);
+  if (manifest.frozenAt) await assertCurrentKnowledgeEpochForAuthoring(runDir, manifest);
   const plan = await readJson<InvestigationPlan>(join(runDir, "workitems.json"));
   const traces = await readJson<TraceCatalog>(join(runDir, "traces.json"));
   for (const document of manifest.documents) {

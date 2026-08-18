@@ -92,7 +92,8 @@ function expandSlot(slot: RegistryEntry, runIntent: RunIntent, registry: Artifac
       // The stream identity IS the instance; freeze registers its cutoff sequence and tail digest against it.
       return [instance(slot, slot.pathTemplate, slot.pathTemplate)];
     case "epoch":
-      // Only epoch 0 is expected today: freeze produces it, and later supplements append further epochs.
+      // A pre-run contract can name only epoch 0. Later epoch instances are dynamic outputs justified by the
+      // sealed supplement stream; the layer-8 chain audit verifies their exact consecutive set and hashes.
       return [instance(slot, "epoch-0", slot.pathTemplate)];
   }
 }

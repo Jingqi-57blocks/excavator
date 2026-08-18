@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { join } from "node:path";
 import { readFile, rm, writeFile } from "node:fs/promises";
 import type { EvidenceItem, ReportRequest, RunManifest, SectionClaim, TimelineEvent } from "../src/base/types.ts";
-import { assembleRun, auditRun, beginDocument, checkpointSection, freezeRun, prepareRun, resumeRun, runStatus } from "../src/run/run.ts";
+import { assembleRun, auditRun, beginDocument, checkpointSection, freezeRun, prepareRun, resumeRun, runStatus, searchSourceEvidence } from "../src/run/run.ts";
 import { collectDrafts, draftSection } from "../src/report/parallel-authoring.ts";
 import { auditTimeline, readTimeline } from "../src/base/timeline.ts";
 import { exists } from "../src/base/util.ts";
@@ -114,6 +114,21 @@ test("draft rejects invalid claims, unknown document/section, and an unfrozen cu
   // An unfrozen current-version run is refused with begin's exact wording — the freeze gate has no bypass.
   const { runDir: unfrozenDir, manifest: unfrozen } = await prepareRun(await overviewRequest());
   await assert.rejects(() => draftSection(unfrozenDir, unfrozen.documents[0].id, 1, good), /not frozen/);
+});
+
+test("collect rejects an unsealed supplement and then rejects drafts made from the superseded epoch", async () => {
+  const { runDir, manifest, evidenceId } = await frozenRun(await overviewRequest());
+  const document = manifest.documents[0];
+  const section = document.sections[0];
+  await draftSection(runDir, document.id, section.index, sectionText(section.title, section.index, evidenceId), sectionClaims(document.id, section.index, evidenceId));
+  const plan = JSON.parse(await readFile(join(runDir, "workitems.json"), "utf8")) as { items: Array<{ id: string }> };
+  await searchSourceEvidence(runDir, ["Leave requests"], "epoch barrier fixture", { maxResults: 5 }, {
+    reason: "the draft's epoch lacks this search",
+    workItemId: plan.items[0].id
+  });
+  await assert.rejects(() => collectDrafts(runDir), /unsealed supplements/);
+  assert.equal((await freezeRun(runDir)).frozen, true);
+  await assert.rejects(() => collectDrafts(runDir), /written from knowledge epoch 0.*current epoch 1/);
 });
 
 // --- ② concurrent draft across documents: every artifact lands, the timeline is still untouched ---

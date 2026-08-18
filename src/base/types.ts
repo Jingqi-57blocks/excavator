@@ -217,6 +217,8 @@ export interface SectionClaimsFile {
 export interface DraftReceipt {
   version: 1;
   runId: string;
+  /** Epoch whose authoring packet this draft consumed; absent on pre-epoch archived receipts. */
+  knowledgeEpoch?: number;
   documentId: string;
   section: number;
   draftedAt: string;
@@ -355,11 +357,12 @@ export interface KnowledgeCompleteness {
 }
 
 /**
- * `knowledge.json` (knowledge-v1): the frozen fingerprint of a run's investigation plus a completeness
- * report and an append-only supplements ledger. It copies no evidence content and builds no ontology —
+ * A `knowledge-v1` epoch: the frozen fingerprint of a run's investigation plus a completeness report.
+ * Epoch 0 remains at `knowledge.json`; later epochs append under `knowledge/epochs/`. It copies no evidence
+ * content and builds no ontology —
  * the deterministic packet builder reads `evidence.json`, `workitems.json`, `traces.json` and `context/*`;
- * the author reads only its bounded packet. Every field except `supplements` is part of the frozen core the
- * `knowledgeDigest` covers; supplements are the one field the escape hatch may append to.
+ * the author reads only its bounded packet. New epochs are entirely immutable. `supplements` remains only so
+ * archived pre-epoch records whose ledger lived inside `knowledge.json` retain their readable shape.
  */
 export interface KnowledgeArtifact {
   version: "knowledge-v1";
@@ -385,19 +388,24 @@ export interface KnowledgeArtifact {
   mechanismsLedgerDigest?: string;
   /** Digest of L7 ReadSpec executions, decision dispositions and retained probe residuals (57B-433). */
   investigationResultsDigest?: string;
+  /** Canonical digest of work-item and L7 judgements, including reasons and grounding, not just statuses. */
+  judgementDigest?: string;
+  /** The exact byte-bound and redaction policy under which contentRef objects in this epoch were minted. */
+  truncationPolicy?: { evidenceBounds: string; redactionVersion: string };
   completeness: KnowledgeCompleteness;
   /**
-   * Which sealing epoch this record is. Registered, not yet machinery: freeze produces epoch 0, and the
-   * supplement channel that already exists is what a later epoch would be built from. Absent on runs frozen
-   * before the field existed, so no archived record needs migrating.
+   * Which sealing epoch this immutable record is. Absent on runs frozen before epoch machinery existed.
    */
   epoch?: number;
+  /** Digest of epoch N-1. Present exactly when epoch > 0, making the epoch series a closed hash chain. */
+  previousEpochDigest?: string;
   /**
    * Where each append-until-freeze stream stood when this record was sealed: the stream, the last sequence or
    * item count it covers, and the digest of its tail. Without it, "appended after freeze" could only be judged
    * against the manifest's single evidence digest, and the timeline had no cutoff recorded at all.
    */
   appendStreams?: Array<{ id: string; frozenThroughSequence: number; tailDigest: string }>;
+  /** Empty on immutable epochs; populated only by legacy inline-supplement knowledge records. */
   supplements: KnowledgeSupplement[];
 }
 
@@ -461,7 +469,9 @@ export interface RunManifest {
   codegraphDigest?: string | null;
   /** ISO timestamp stamped by `excavator freeze` when the investigation knowledge is frozen; absent on unfrozen or legacy runs. */
   frozenAt?: string;
-  /** Digest of the frozen knowledge core (knowledge.json minus its append-only supplements ledger); set together with `frozenAt`. */
+  /** Latest sealed epoch number. Absent on runs frozen before epoch machinery existed. */
+  knowledgeEpoch?: number;
+  /** Digest of the latest immutable knowledge epoch; set together with `frozenAt`. */
   knowledgeDigest?: string;
   metrics: RunMetrics;
   error?: { stage: string; message: string; stack?: string };

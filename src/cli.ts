@@ -344,7 +344,7 @@ Commands:
   framework  Recover routes/components from framework conventions (Catalyst, …) — for dynamically-dispatched apps
   begin      Start or restart one document authoring timer
   reading    Show which in-boundary decision code no source window covers yet — run it before freeze, where opening one is free
-  freeze     Freeze the completed investigation into knowledge.json before authoring; also renders per-document authoring packets
+  freeze     Seal epoch 0, or re-seal justified supplements as epoch N+1; renders epoch-bound authoring packets
   source     Record a bounded source excerpt as evidence
   search     Search source under the run snapshot and record a reusable receipt
   checkpoint Save one completed section and its claims atomically

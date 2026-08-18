@@ -1,16 +1,16 @@
 import { join } from "node:path";
-import { stat } from "node:fs/promises";
+import { readdir, stat } from "node:fs/promises";
 import { auditEvidenceCatalog, auditTraces, auditWorkItems } from "../investigation/assurance.ts";
-import { runUsesCurrentAssurance } from "../base/assurance-version.ts";
-import type { AuditFinding, EvidenceItem, InvestigationPlan, KnowledgeArtifact, KnowledgeCompleteness, RunManifest, TraceCatalog } from "../base/types.ts";
+import { EPOCH_SEAL_ASSURANCE_GENERATION, assuranceGenerationAtLeast, runUsesCurrentAssurance } from "../base/assurance-version.ts";
+import type { AuditFinding, EvidenceItem, InvestigationPlan, KnowledgeArtifact, KnowledgeCompleteness, KnowledgeSupplement, RunManifest, TraceCatalog } from "../base/types.ts";
 import { readTimeline } from "../base/timeline.ts";
-import { atomicWrite, canonicalJson, exists, nowIso, readJson, sha256, stableJson } from "../base/util.ts";
+import { atomicWrite, canonicalJson, exists, nowIso, readJson, REDACTION_VERSION, sha256, stableJson } from "../base/util.ts";
 import {
   APPEND_STREAM_VERSION, appendJsonArrayValue, nextStreamDigest, readCheckpoint, withRunWriter, writeCheckpoint,
   type StreamCheckpoint
 } from "../base/single-writer.ts";
 import {
-  auditEvidenceStorage, canonicalEvidenceDigest, evidenceStreamDigest
+  auditEvidenceStorage, canonicalEvidenceDigest, EVIDENCE_BOUND_POLICY_VERSION, evidenceStreamDigest
 } from "../investigation/evidence-store.ts";
 
 /**
@@ -113,18 +113,60 @@ export interface BuildKnowledgeInput {
   completeness: KnowledgeCompleteness;
   /**
    * Where each append-until-freeze stream stood at this seal: the cutoff and the tail digest. Computed by the
-   * caller because the timeline is read from disk. Registered, not enforced — the epoch machinery it prepares
-   * for does not exist yet, and recording the cutoff is what makes building it possible without a migration.
+   * caller because the timeline is read from disk. Every epoch audit enforces the three registered streams,
+   * their monotonic cutoffs and the digest at each cutoff.
    */
   appendStreams?: Array<{ id: string; frozenThroughSequence: number; tailDigest: string }>;
+  /** The immutable epoch being created. Epoch 0 stays at knowledge.json for archive compatibility. */
+  epoch?: number;
+  /** Digest of epoch N-1. Required for every epoch after zero and forbidden on epoch zero. */
+  previousEpochDigest?: string;
+}
+
+/** Normalize order-insensitive L7 result sets before sealing them. */
+export function canonicalInvestigationResults(value: unknown): unknown {
+  if (value == null || typeof value !== "object" || Array.isArray(value)) return value;
+  const source = value as Record<string, unknown>;
+  const sorted = (key: string): unknown => {
+    const rows = source[key];
+    if (!Array.isArray(rows)) return rows;
+    return [...rows].sort((a, b) => canonicalJson(a).localeCompare(canonicalJson(b)));
+  };
+  return {
+    ...source,
+    ...(Array.isArray(source.judgements) ? { judgements: sorted("judgements") } : {}),
+    ...(Array.isArray(source.executions) ? { executions: sorted("executions") } : {}),
+    ...(Array.isArray(source.dispositions) ? { dispositions: sorted("dispositions") } : {}),
+    ...(Array.isArray(source.residuals) ? { residuals: sorted("residuals") } : {})
+  };
+}
+
+/** Seal dispositions, reasons and grounding — the status-only workitems digest is not a judgement identity. */
+export function judgementDigest(plan: InvestigationPlan, investigationResults: unknown | null): string {
+  const workitems = plan.items.map((item) => ({
+    id: item.id,
+    status: item.status,
+    ...(item.reason !== undefined ? { reason: item.reason } : {}),
+    ...(item.settledBy !== undefined ? { settledBy: item.settledBy } : {}),
+    ...(item.searchScope !== undefined ? { searchScope: item.searchScope } : {}),
+    evidenceIds: [...item.evidenceIds].sort((a, b) => a.localeCompare(b)),
+    traceIds: [...item.traceIds].sort((a, b) => a.localeCompare(b))
+  })).sort((a, b) => a.id.localeCompare(b.id));
+  return sha256(canonicalJson({ workitems, investigationResults: canonicalInvestigationResults(investigationResults) }));
 }
 
 /** Build the knowledge-v1 record: frozen fingerprints of the run's artifacts plus a completeness report. */
 export function buildKnowledge(input: BuildKnowledgeInput): KnowledgeArtifact {
   const { manifest, plan, evidence, traces, factPacks, crossFeature, frozenAt, readObligations, boundaryFunctions, crossRepoLinks, mechanismsLedger, investigationResults, completeness, appendStreams } = input;
+  const epoch = input.epoch ?? 0;
+  if (!Number.isSafeInteger(epoch) || epoch < 0) throw new Error(`Invalid knowledge epoch: ${epoch}`);
+  if (epoch === 0 && input.previousEpochDigest !== undefined) throw new Error("Epoch 0 cannot name a previous epoch digest");
+  if (epoch > 0 && !input.previousEpochDigest) throw new Error(`Epoch ${epoch} requires the previous epoch digest`);
   const evidenceIds = evidence.map((item) => item.id).sort((a, b) => a.localeCompare(b));
   const workitems = plan.items.map((item) => ({ id: item.id, status: item.status })).sort((a, b) => a.id.localeCompare(b.id));
   const traceIds = traces.traces.map((trace) => trace.id).sort((a, b) => a.localeCompare(b));
+  const canonicalTraces = { ...traces, traces: [...traces.traces].sort((a, b) => a.id.localeCompare(b.id)) };
+  const canonicalResults = canonicalInvestigationResults(investigationResults);
   const factPackDigests: Record<string, string> = {};
   for (const [key, pack] of Object.entries(factPacks).sort(([a], [b]) => a.localeCompare(b))) factPackDigests[key] = sha256(stableJson(pack));
   return {
@@ -138,18 +180,22 @@ export function buildKnowledge(input: BuildKnowledgeInput): KnowledgeArtifact {
     workitems,
     workitemsDigest: sha256(stableJson(workitems)),
     traceIds,
-    tracesDigest: sha256(stableJson(traces)),
+    tracesDigest: sha256(canonicalJson(canonicalTraces)),
     factPackDigests,
     ...(crossFeature != null ? { crossFeatureDigest: sha256(stableJson(crossFeature)) } : {}),
     ...(readObligations != null ? { readObligationsDigest: sha256(stableJson(readObligations)) } : {}),
     ...(boundaryFunctions != null ? { boundaryFunctionsDigest: sha256(stableJson(boundaryFunctions)) } : {}),
     ...(crossRepoLinks != null ? { crossRepoLinksDigest: sha256(stableJson(crossRepoLinks)) } : {}),
     ...(mechanismsLedger != null ? { mechanismsLedgerDigest: sha256(stableJson(mechanismsLedger)) } : {}),
-    ...(investigationResults != null ? { investigationResultsDigest: sha256(stableJson(investigationResults)) } : {}),
+    ...(investigationResults != null ? { investigationResultsDigest: sha256(canonicalJson(canonicalResults)) } : {}),
+    judgementDigest: judgementDigest(plan, investigationResults),
+    truncationPolicy: {
+      evidenceBounds: EVIDENCE_BOUND_POLICY_VERSION,
+      redactionVersion: `${REDACTION_VERSION}${manifest.request.redactSecrets === true ? "-redacted" : "-plain"}`
+    },
     completeness,
-    // Epoch 0 is this first seal. Recorded now so the append-only supplement ledger that already exists can
-    // later grow a second epoch without any archived record needing to change shape.
-    epoch: 0,
+    epoch,
+    ...(input.previousEpochDigest ? { previousEpochDigest: input.previousEpochDigest } : {}),
     ...(appendStreams ? { appendStreams } : {}),
     supplements: []
   };
@@ -168,27 +214,84 @@ export function normalizeSupplement(reason?: string, workItemId?: string): { rea
   return { reason: reason!.trim(), workItemId: workItemId!.trim() };
 }
 
-/** Append one supplement entry to the frozen record. Supplements are the one field freeze leaves mutable;
- *  appending never touches the frozen core, so `knowledgeDigest` stays constant. */
+const SUPPLEMENT_STREAM = "supplement";
+const SUPPLEMENT_LEDGER = join("knowledge", "supplements.json");
+
+/** The stable archive location of epoch 0 and the append-only locations of subsequent epochs. */
+export function knowledgeEpochRelativePath(epoch: number): string {
+  if (!Number.isSafeInteger(epoch) || epoch < 0) throw new Error(`Invalid knowledge epoch: ${epoch}`);
+  return epoch === 0 ? "knowledge.json" : join("knowledge", "epochs", `epoch-${epoch}.json`);
+}
+
+/** Read the manifest-selected epoch. Field-less manifests retain the legacy knowledge.json interpretation. */
+export async function readCurrentKnowledge(runDir: string, manifest: RunManifest): Promise<KnowledgeArtifact> {
+  return readJson<KnowledgeArtifact>(join(runDir, knowledgeEpochRelativePath(manifest.knowledgeEpoch ?? 0)));
+}
+
+/** Authoring may consume only an epoch that includes every supplement committed so far. */
+export async function assertCurrentKnowledgeEpochForAuthoring(runDir: string, manifest: RunManifest): Promise<void> {
+  if (!runUsesCurrentAssurance(manifest)) return;
+  if (!manifest.frozenAt) {
+    throw new Error(`Run is not frozen; the current assurance version requires freezing the investigation before authoring. Run \`excavator freeze --run ${runDir}\` first.`);
+  }
+  if (manifest.knowledgeEpoch === undefined) throw new Error("The run has no current knowledge epoch; re-prepare it under the current assurance version");
+  const knowledge = await readCurrentKnowledge(runDir, manifest);
+  if (knowledgeDigest(knowledge) !== manifest.knowledgeDigest) throw new Error("The latest knowledge epoch does not match the run manifest; run audit before authoring");
+  const sealed = appendStream(knowledge, "supplements");
+  const checkpoint = await readCheckpoint(runDir, SUPPLEMENT_STREAM);
+  if (!sealed || !checkpoint) throw new Error("The latest knowledge epoch has no verifiable supplement cutoff; run audit before authoring");
+  if (checkpoint.sequence > sealed.frozenThroughSequence) {
+    throw new Error(`Knowledge epoch ${manifest.knowledgeEpoch} has unsealed supplements; run \`excavator freeze --run ${runDir}\` again before authoring.`);
+  }
+  if (checkpoint.sequence !== sealed.frozenThroughSequence || checkpoint.tailDigest !== sealed.tailDigest) {
+    throw new Error("The supplement stream no longer matches the latest knowledge epoch; run audit before authoring");
+  }
+}
+
+interface SupplementLedger { supplements: KnowledgeSupplement[] }
+
+async function readSupplementLedger(runDir: string, legacyKnowledge?: KnowledgeArtifact): Promise<{ ledger: SupplementLedger; path: string; modern: boolean }> {
+  const modernPath = join(runDir, SUPPLEMENT_LEDGER);
+  if (await exists(modernPath)) return { ledger: await readJson<SupplementLedger>(modernPath), path: modernPath, modern: true };
+  const legacyPath = join(runDir, "knowledge.json");
+  const knowledge = legacyKnowledge ?? await readJson<KnowledgeArtifact>(legacyPath);
+  return { ledger: { supplements: knowledge.supplements ?? [] }, path: legacyPath, modern: false };
+}
+
+/** Append one supplement intent. Modern runs append to a separate ledger; archived runs keep their inline one. */
 export async function recordSupplement(runDir: string, command: string, ids: string[], supplement: { reason: string; workItemId: string }): Promise<void> {
   const entry = { at: nowIso(), command, ids, reason: supplement.reason, workItemId: supplement.workItemId };
   await withRunWriter(runDir, async () => {
     const checkpoint = await readCheckpoint(runDir, SUPPLEMENT_STREAM);
     if (!checkpoint) throw new Error("Frozen knowledge has no supplement append checkpoint; re-prepare the run under the current schema");
-    const next = await appendJsonArrayValue(join(runDir, "knowledge.json"), checkpoint, entry);
+    const modernPath = join(runDir, SUPPLEMENT_LEDGER);
+    const target = await exists(modernPath) ? modernPath : join(runDir, "knowledge.json");
+    const next = await appendJsonArrayValue(target, checkpoint, entry);
     await writeCheckpoint(runDir, next);
   });
 }
 
-const SUPPLEMENT_STREAM = "supplement";
-
-/** Write the epoch core once and initialize the O(1) supplement tail immediately before its closing array. */
+/** Write one immutable epoch. Epoch zero also initializes the separate O(1) supplement ledger. */
 export async function writeKnowledgeArtifact(runDir: string, knowledge: KnowledgeArtifact): Promise<StreamCheckpoint> {
   if (knowledge.supplements.length) throw new Error("A newly sealed knowledge artifact must start with no supplements");
   return withRunWriter(runDir, async () => {
-    const { supplements: _supplements, ...core } = knowledge;
-    const prefix = `${canonicalJson(core).slice(0, -1)},\"supplements\":[`;
-    await writeJsonArrayArtifact(join(runDir, "knowledge.json"), prefix);
+    const epoch = knowledge.epoch ?? 0;
+    const target = join(runDir, knowledgeEpochRelativePath(epoch));
+    if (await exists(target)) throw new Error(`Knowledge epoch ${epoch} already exists and cannot be overwritten`);
+    const existing = await readCheckpoint(runDir, SUPPLEMENT_STREAM);
+    if (epoch > 0) {
+      if (!existing || !await exists(join(runDir, SUPPLEMENT_LEDGER))) {
+        throw new Error("A later knowledge epoch requires the existing supplement ledger and checkpoint");
+      }
+      await atomicWrite(target, `${canonicalJson(knowledge)}\n`);
+      return existing;
+    }
+    if (existing || await exists(join(runDir, SUPPLEMENT_LEDGER))) {
+      throw new Error("Knowledge epoch 0 cannot replace an existing supplement ledger or checkpoint");
+    }
+    await atomicWrite(target, `${canonicalJson(knowledge)}\n`);
+    const prefix = '{"supplements":[';
+    await writeJsonArrayArtifact(join(runDir, SUPPLEMENT_LEDGER), prefix);
     const checkpoint: StreamCheckpoint = {
       version: APPEND_STREAM_VERSION,
       stream: SUPPLEMENT_STREAM,
@@ -205,32 +308,184 @@ async function writeJsonArrayArtifact(path: string, prefix: string): Promise<voi
   await atomicWrite(path, `${prefix}]}\n`);
 }
 
-/**
- * Reconcile a run against its frozen knowledge. Self-gated: a run with no `knowledge.json` (a legacy run,
- * or one that was never frozen) is grandfathered and no check fires — so the new assurance never
- * retroactively fails historical or unfrozen runs. When the record exists, every check is an error:
- *
- *  1. the frozen core digest still matches the run manifest;
- *  2. every evidence id not present at freeze is charged to a recorded supplement;
- *  3. every work item whose disposition changed (or that appeared) after freeze is charged to a supplement;
- *  4. every trace added after freeze is charged to a supplement;
- *  5. every gated investigation timeline event after the freeze event carries the supplement marker.
- */
-export async function auditFrozenKnowledge(runDir: string, manifest: RunManifest, evidence: EvidenceItem[], plan: InvestigationPlan, traces: TraceCatalog): Promise<AuditFinding[]> {
-  const path = join(runDir, "knowledge.json");
-  if (!await exists(path)) return [];
-  const knowledge = await readJson<KnowledgeArtifact>(path);
+function appendStream(knowledge: KnowledgeArtifact, id: string): { id: string; frozenThroughSequence: number; tailDigest: string } | undefined {
+  return knowledge.appendStreams?.find((entry) => entry.id === id);
+}
+
+function supplementTail(entries: readonly KnowledgeSupplement[], count = entries.length): string {
+  let tail = "";
+  for (let index = 0; index < count; index += 1) tail = nextStreamDigest(tail, index + 1, entries[index]);
+  return tail;
+}
+
+async function auditSupplementLedger(runDir: string, ledger: SupplementLedger, path: string): Promise<AuditFinding[]> {
   const findings: AuditFinding[] = [];
-  if (knowledgeDigest(knowledge) !== manifest.knowledgeDigest) findings.push(error("knowledge", "frozen knowledge digest does not match the run manifest"));
-  const supplementCheckpoint = await readCheckpoint(runDir, SUPPLEMENT_STREAM);
-  if (!supplementCheckpoint) findings.push(error("knowledge", "supplement ledger has no append checkpoint"));
-  else {
-    let tail = "";
-    for (let index = 0; index < knowledge.supplements.length; index += 1) tail = nextStreamDigest(tail, index + 1, knowledge.supplements[index]);
-    if (supplementCheckpoint.sequence !== knowledge.supplements.length) findings.push(error("knowledge", "supplement checkpoint sequence does not match the ledger"));
-    if (supplementCheckpoint.tailDigest !== tail) findings.push(error("knowledge", "supplement checkpoint has an invalid tail digest"));
-    const bytes = await stat(path).then((value) => value.size).catch(() => 0);
-    if (supplementCheckpoint.byteOffset + Buffer.byteLength("]}\n") !== bytes) findings.push(error("knowledge", "supplement checkpoint has an invalid byte offset"));
+  let checkpoint: StreamCheckpoint | null = null;
+  try { checkpoint = await readCheckpoint(runDir, SUPPLEMENT_STREAM); }
+  catch (cause) { return [error("knowledge", `supplement checkpoint is invalid: ${(cause as Error).message}`)]; }
+  if (!checkpoint) return [error("knowledge", "supplement ledger has no append checkpoint")];
+  const tail = supplementTail(ledger.supplements);
+  if (checkpoint.sequence !== ledger.supplements.length) findings.push(error("knowledge", "supplement checkpoint sequence does not match the ledger"));
+  if (checkpoint.tailDigest !== tail) findings.push(error("knowledge", "supplement checkpoint has an invalid tail digest"));
+  const bytes = await stat(path).then((value) => value.size).catch(() => 0);
+  if (checkpoint.byteOffset + Buffer.byteLength("]}\n") !== bytes) findings.push(error("knowledge", "supplement checkpoint has an invalid byte offset"));
+  return findings;
+}
+
+function auditAppendStreamSeals(
+  knowledge: KnowledgeArtifact,
+  evidence: readonly EvidenceItem[],
+  timeline: Awaited<ReturnType<typeof readTimeline>>,
+  supplements: readonly KnowledgeSupplement[]
+): AuditFinding[] {
+  const findings: AuditFinding[] = [];
+  const epoch = knowledge.epoch ?? 0;
+  if (!Array.isArray(knowledge.appendStreams)) return [error("knowledge", `epoch ${epoch} has no valid append-stream seal set`)];
+  const entries = knowledge.appendStreams.filter((entry) => entry && typeof entry === "object");
+  const required = ["evidence.json", "timeline.jsonl", "supplements"];
+  for (const id of required) {
+    const matches = entries.filter((entry) => entry.id === id);
+    if (matches.length !== 1) findings.push(error("knowledge", `epoch ${epoch} must seal append stream ${id} exactly once`));
+  }
+  for (const entry of entries) {
+    if (!required.includes(entry.id)) findings.push(error("knowledge", `epoch ${epoch} seals unknown append stream ${entry.id}`));
+    if (!Number.isSafeInteger(entry.frozenThroughSequence) || entry.frozenThroughSequence < 0) {
+      findings.push(error("knowledge", `epoch ${epoch} has an invalid ${entry.id} cutoff`));
+    }
+  }
+  const evidenceSeal = appendStream(knowledge, "evidence.json");
+  if (evidenceSeal && evidenceSeal.frozenThroughSequence <= evidence.length) {
+    const tail = canonicalEvidenceDigest(evidence.slice(0, evidenceSeal.frozenThroughSequence));
+    if (tail !== evidenceSeal.tailDigest) findings.push(error("knowledge", `epoch ${epoch} evidence cutoff has an invalid tail digest`));
+  } else if (evidenceSeal) findings.push(error("knowledge", `epoch ${epoch} evidence cutoff exceeds the current stream`));
+  const timelineSeal = appendStream(knowledge, "timeline.jsonl");
+  if (timelineSeal && timelineSeal.frozenThroughSequence <= timeline.length) {
+    const tail = timelineSeal.frozenThroughSequence === 0 ? "" : timeline[timelineSeal.frozenThroughSequence - 1]?.digest ?? "";
+    if (tail !== timelineSeal.tailDigest) findings.push(error("knowledge", `epoch ${epoch} timeline cutoff has an invalid tail digest`));
+  } else if (timelineSeal) findings.push(error("knowledge", `epoch ${epoch} timeline cutoff exceeds the current stream`));
+  const supplementSeal = appendStream(knowledge, "supplements");
+  if (supplementSeal && supplementSeal.frozenThroughSequence <= supplements.length) {
+    if (supplementTail(supplements, supplementSeal.frozenThroughSequence) !== supplementSeal.tailDigest) {
+      findings.push(error("knowledge", `epoch ${epoch} supplement cutoff has an invalid tail digest`));
+    }
+  } else if (supplementSeal) findings.push(error("knowledge", `epoch ${epoch} supplement cutoff exceeds the current stream`));
+  return findings;
+}
+
+/**
+ * Reconcile the latest immutable epoch and, for generation 16+, every link behind it. Legacy inline-ledger
+ * records retain their old interpretation; no archived run is assigned epoch semantics retroactively.
+ */
+export async function auditFrozenKnowledge(
+  runDir: string,
+  manifest: RunManifest,
+  evidence: EvidenceItem[],
+  plan: InvestigationPlan,
+  traces: TraceCatalog,
+  investigationResults?: unknown
+): Promise<AuditFinding[]> {
+  const epochZeroPath = join(runDir, "knowledge.json");
+  if (!await exists(epochZeroPath)) {
+    return assuranceGenerationAtLeast(manifest, EPOCH_SEAL_ASSURANCE_GENERATION) && manifest.frozenAt
+      ? [error("knowledge", "current epoch-seal run is frozen but knowledge epoch 0 is missing")]
+      : [];
+  }
+  const findings: AuditFinding[] = [];
+  if (assuranceGenerationAtLeast(manifest, EPOCH_SEAL_ASSURANCE_GENERATION) && manifest.knowledgeEpoch === undefined) {
+    findings.push(error("knowledge", "current epoch-seal run has no latest knowledge epoch in the manifest"));
+  }
+  const modern = manifest.knowledgeEpoch !== undefined;
+  const epochs: KnowledgeArtifact[] = [];
+  if (modern) {
+    if (!Number.isSafeInteger(manifest.knowledgeEpoch) || manifest.knowledgeEpoch! < 0) {
+      return [error("knowledge", "run manifest has an invalid latest knowledge epoch")];
+    }
+    for (let epoch = 0; epoch <= manifest.knowledgeEpoch!; epoch += 1) {
+      const relativePath = knowledgeEpochRelativePath(epoch);
+      try {
+        const item = await readJson<KnowledgeArtifact>(join(runDir, relativePath));
+        epochs.push(item);
+      } catch (cause) {
+        findings.push(error("knowledge", `knowledge epoch ${epoch} cannot be read at ${relativePath}: ${(cause as Error).message}`));
+        return findings;
+      }
+    }
+    const epochDir = join(runDir, "knowledge", "epochs");
+    if (await exists(epochDir)) {
+      const expected = new Set(Array.from({ length: manifest.knowledgeEpoch! }, (_, index) => `epoch-${index + 1}.json`));
+      for (const name of await readdir(epochDir)) {
+        if (!expected.has(name)) findings.push(error("knowledge", `unmanifested or malformed knowledge epoch file exists: knowledge/epochs/${name}`));
+      }
+    }
+  } else {
+    epochs.push(await readJson<KnowledgeArtifact>(epochZeroPath));
+  }
+  const knowledge = epochs.at(-1)!;
+  let supplementState: Awaited<ReturnType<typeof readSupplementLedger>>;
+  try { supplementState = await readSupplementLedger(runDir, modern ? undefined : knowledge); }
+  catch (cause) { return [...findings, error("knowledge", `supplement ledger cannot be read: ${(cause as Error).message}`)]; }
+  if (modern && !supplementState.modern) findings.push(error("knowledge", "epoch-seal run has no separate supplement ledger"));
+  const supplements = supplementState.ledger.supplements;
+  if (!Array.isArray(supplements)) return [...findings, error("knowledge", "supplement ledger does not contain an array")];
+  for (let index = 0; index < supplements.length; index += 1) {
+    const entry = supplements[index] as Partial<KnowledgeSupplement> | null;
+    if (!entry || !Array.isArray(entry.ids) || typeof entry.at !== "string" || typeof entry.command !== "string"
+      || typeof entry.reason !== "string" || typeof entry.workItemId !== "string") {
+      findings.push(error("knowledge", `supplement ledger entry ${index + 1} is malformed`));
+    }
+  }
+  findings.push(...await auditSupplementLedger(runDir, supplementState.ledger, supplementState.path));
+
+  const timeline = await readTimeline(runDir);
+  const freezeEvents = timeline.filter((event) => event.action === "investigation.frozen" || event.action === "investigation.refrozen");
+  if (modern) {
+    if (freezeEvents.length !== epochs.length) {
+      findings.push(error("knowledge", `knowledge has ${epochs.length} epoch(s) but the timeline has ${freezeEvents.length} freeze event(s)`));
+    }
+    let previousDigest: string | undefined;
+    let previousCutoffs = { evidence: -1, timeline: -1, supplements: -1 };
+    for (let epoch = 0; epoch < epochs.length; epoch += 1) {
+      const item = epochs[epoch];
+      if (item.epoch !== epoch) findings.push(error("knowledge", `knowledge epoch file ${epoch} declares epoch ${String(item.epoch)}`));
+      if (item.runId !== manifest.id || item.snapshotId !== (manifest.snapshot?.id ?? "")) {
+        findings.push(error("knowledge", `knowledge epoch ${epoch} does not belong to this run and snapshot`));
+      }
+      if (!Array.isArray(item.supplements) || item.supplements.length !== 0) findings.push(error("knowledge", `immutable knowledge epoch ${epoch} contains invalid inline supplements`));
+      if (item.assuranceVersion !== manifest.assuranceVersion) findings.push(error("knowledge", `knowledge epoch ${epoch} has a different assurance version from the run`));
+      if (epoch === 0 && item.previousEpochDigest !== undefined) findings.push(error("knowledge", "knowledge epoch 0 names a previous epoch digest"));
+      if (epoch > 0 && item.previousEpochDigest !== previousDigest) findings.push(error("knowledge", `knowledge epoch ${epoch} does not pin epoch ${epoch - 1}`));
+      if (!item.judgementDigest) findings.push(error("knowledge", `knowledge epoch ${epoch} has no judgement digest`));
+      const expectedPolicy = {
+        evidenceBounds: EVIDENCE_BOUND_POLICY_VERSION,
+        redactionVersion: `${REDACTION_VERSION}${manifest.request.redactSecrets === true ? "-redacted" : "-plain"}`
+      };
+      if (canonicalJson(item.truncationPolicy) !== canonicalJson(expectedPolicy)) findings.push(error("knowledge", `knowledge epoch ${epoch} does not pin the run's evidence-bound and redaction policy`));
+      findings.push(...auditAppendStreamSeals(item, evidence, timeline, supplements));
+      const evidenceCutoff = appendStream(item, "evidence.json")?.frozenThroughSequence ?? -1;
+      const timelineCutoff = appendStream(item, "timeline.jsonl")?.frozenThroughSequence ?? -1;
+      const supplementCutoff = appendStream(item, "supplements")?.frozenThroughSequence ?? -1;
+      if (evidenceCutoff < previousCutoffs.evidence || timelineCutoff < previousCutoffs.timeline || supplementCutoff < previousCutoffs.supplements) {
+        findings.push(error("knowledge", `knowledge epoch ${epoch} moves an append-stream cutoff backwards`));
+      }
+      const freezeEvent = freezeEvents[epoch];
+      if (freezeEvent) {
+        const expectedAction = epoch === 0 ? "investigation.frozen" : "investigation.refrozen";
+        const data = freezeEvent.data as Record<string, unknown> | undefined;
+        if (freezeEvent.action !== expectedAction) findings.push(error("knowledge", `knowledge epoch ${epoch} has timeline action ${freezeEvent.action}, expected ${expectedAction}`));
+        if (data?.epoch !== epoch) findings.push(error("knowledge", `knowledge epoch ${epoch} is not named by its timeline freeze event`));
+        if (data?.knowledgeDigest !== knowledgeDigest(item)) findings.push(error("knowledge", `knowledge epoch ${epoch} digest does not match its timeline freeze event`));
+        if (timelineCutoff >= 0 && freezeEvent.sequence !== timelineCutoff + 1) {
+          findings.push(error("knowledge", `knowledge epoch ${epoch} timeline cutoff is not immediately followed by its freeze event`));
+        }
+      }
+      previousCutoffs = { evidence: evidenceCutoff, timeline: timelineCutoff, supplements: supplementCutoff };
+      previousDigest = knowledgeDigest(item);
+    }
+  }
+  if (knowledgeDigest(knowledge) !== manifest.knowledgeDigest) findings.push(error("knowledge", "latest frozen knowledge digest does not match the run manifest"));
+  if (modern && knowledge.frozenAt !== manifest.frozenAt) findings.push(error("knowledge", "latest knowledge epoch timestamp does not match the run manifest"));
+  if (knowledge.judgementDigest && investigationResults !== undefined && knowledge.judgementDigest !== judgementDigest(plan, investigationResults)) {
+    findings.push(error("knowledge", "current work-item and L7 judgements do not match the latest sealed judgement digest"));
   }
   // Symmetric to the "added after freeze" checks below: the frozen set must remain a subset of the
   // current artifacts. A legitimate supplement only ever adds; a frozen evidence id, work item or trace
@@ -242,8 +497,18 @@ export async function auditFrozenKnowledge(runDir: string, manifest: RunManifest
   for (const entry of knowledge.workitems) if (!currentWorkItems.has(entry.id)) findings.push(error("knowledge", `frozen work item ${entry.id} is no longer present in the run`));
   const currentTraces = new Set(traces.traces.map((trace) => trace.id));
   for (const id of knowledge.traceIds) if (!currentTraces.has(id)) findings.push(error("knowledge", `frozen trace ${id} is no longer present in the run`));
-  // Any id named by any supplement is accounted for; ids are namespaced by prefix so a single set is safe.
-  const supplemented = new Set(knowledge.supplements.flatMap((entry) => entry.ids));
+  // Only entries after the latest epoch's cutoff authorize another mutation. Reusing a supplement consumed
+  // by an earlier epoch would otherwise let the same id change indefinitely without a fresh intent record.
+  const supplementCutoff = modern ? appendStream(knowledge, "supplements")?.frozenThroughSequence ?? supplements.length : 0;
+  const pendingSupplements = supplements.slice(supplementCutoff);
+  const supplemented = new Set(pendingSupplements.flatMap((entry) => Array.isArray(entry?.ids) ? entry.ids : []));
+  if (modern && pendingSupplements.length === 0) {
+    if (knowledge.evidenceDigest !== canonicalEvidenceDigest(evidence)) findings.push(error("knowledge", "current evidence set does not match the latest sealed evidence digest"));
+    const currentWorkitems = plan.items.map((item) => ({ id: item.id, status: item.status })).sort((a, b) => a.id.localeCompare(b.id));
+    if (knowledge.workitemsDigest !== sha256(stableJson(currentWorkitems))) findings.push(error("knowledge", "current work-item statuses do not match the latest sealed digest"));
+    const currentTraces = { ...traces, traces: [...traces.traces].sort((a, b) => a.id.localeCompare(b.id)) };
+    if (knowledge.tracesDigest !== sha256(canonicalJson(currentTraces))) findings.push(error("knowledge", "current traces do not match the latest sealed digest"));
+  }
   const frozenEvidence = new Set(knowledge.evidenceIds);
   for (const item of evidence) if (!frozenEvidence.has(item.id) && !supplemented.has(item.id)) findings.push(error("knowledge", `evidence ${item.id} was added after freeze without a recorded supplement`));
   const frozenStatus = new Map(knowledge.workitems.map((entry) => [entry.id, entry.status]));
@@ -257,8 +522,7 @@ export async function auditFrozenKnowledge(runDir: string, manifest: RunManifest
   }
   const frozenTraces = new Set(knowledge.traceIds);
   for (const trace of traces.traces) if (!frozenTraces.has(trace.id) && !supplemented.has(trace.id)) findings.push(error("knowledge", `trace ${trace.id} was added after freeze without a recorded supplement`));
-  const timeline = await readTimeline(runDir);
-  const frozenSequence = timeline.find((event) => event.action === "investigation.frozen")?.sequence ?? Number.POSITIVE_INFINITY;
+  const frozenSequence = freezeEvents.at(-1)?.sequence ?? Number.POSITIVE_INFINITY;
   for (const event of timeline) {
     if (event.sequence > frozenSequence && GATED_TIMELINE_ACTIONS.has(event.action) && (event.data as Record<string, unknown> | undefined)?.supplement !== true) {
       findings.push(error("knowledge", `timeline event ${event.sequence} (${event.action}) mutated investigation state after freeze without a supplement marker`));

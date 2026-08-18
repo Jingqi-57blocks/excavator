@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { cp, readFile, stat } from "node:fs/promises";
+import { cp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { DocumentPlan, EvidenceItem } from "../src/base/types.ts";
 import { canonicalJson, sha256, stableJson } from "../src/base/util.ts";
@@ -127,6 +127,24 @@ test("content refs survive a run-directory archive copy and the model view has i
   assert.ok(Buffer.byteLength(view) <= EVIDENCE_MODEL_VIEW_MAX_BYTES);
   assert.match(view, /model-view byte bound reached/);
   assert.equal(canonicalEvidenceDigest([item("b", "fact", {}), item("a", "ledger", {})]), canonicalEvidenceDigest([item("a", "ledger", {}), item("b", "fact", {})]));
+});
+
+test("an offline archive audit fails when a content-addressed evidence blob is tampered with or deleted", async () => {
+  const runDir = await tempDir();
+  const written = await writeEvidenceCatalog(runDir, [item("E-archive", "fact", { rows: Array.from({ length: 1_000 }, () => "v".repeat(1_000)) })], false);
+  const contentRef = written.evidence[0].contentRef;
+  assert.ok(contentRef);
+  const archived = await tempDir();
+  await cp(runDir, archived, { recursive: true });
+  assert.deepEqual(await auditEvidenceStorage(archived, (await readEvidenceCatalog(archived)).evidence, false), []);
+
+  const blob = join(archived, contentRef);
+  const original = await readFile(blob);
+  await writeFile(blob, Buffer.from("tampered"));
+  assert.ok((await auditEvidenceStorage(archived, (await readEvidenceCatalog(archived)).evidence, false)).some((message) => /contentRef has the wrong/.test(message)));
+  await writeFile(blob, original);
+  await rm(blob);
+  assert.ok((await auditEvidenceStorage(archived, (await readEvidenceCatalog(archived)).evidence, false)).some((message) => /contentRef cannot be resolved/.test(message)));
 });
 
 test("the author reads the bounded logical view and is explicitly barred from physical JSON/blob storage", () => {

@@ -199,9 +199,9 @@ const SLOTS: RegistryEntry[] = [
     pathTemplate: "knowledge.json",
     cardinality: "epoch",
     schemaId: "knowledge-v1",
-    validatorVersion: "knowledge-validator-v1",
+    validatorVersion: "knowledge-validator-v2-epoch-chain",
     enforced: false,
-    enforcementNote: "Only exists after freeze; enforcing it at every audit would fail every investigation still in progress. Freeze checks it directly."
+    enforcementNote: "The pre-run contract seeds epoch 0 at knowledge.json. Freeze audits the dynamic N>0 chain under knowledge/epochs because those instances do not exist until justified supplements are sealed."
   }
 ];
 

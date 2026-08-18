@@ -54,7 +54,8 @@ export function outputFrontMatter(document: DocumentPlan, manifest: RunManifest,
   // redaction defaulting off, a quoted evidence excerpt may be verbatim source, and a reader who received
   // the HTML export has no other way to know which of the two things they are holding.
   const sourceText = manifest.request.redactSecrets === true ? "redacted" : "verbatim";
-  return `---\ntitle: ${yamlScalar(title)}\nnavTitle: ${yamlScalar(navTitle)}\nkind: ${document.kind}\naudience: ${document.audience}\nlanguage: ${manifest.request.language}\norder: ${order}\nrun: ${manifest.id}\nsnapshot: ${manifest.snapshot?.id ?? "unknown"}\nsourceText: ${sourceText}\n---`;
+  const epoch = manifest.knowledgeEpoch === undefined ? "" : `\nepoch: ${manifest.knowledgeEpoch}`;
+  return `---\ntitle: ${yamlScalar(title)}\nnavTitle: ${yamlScalar(navTitle)}\nkind: ${document.kind}\naudience: ${document.audience}\nlanguage: ${manifest.request.language}\norder: ${order}\nrun: ${manifest.id}\nsnapshot: ${manifest.snapshot?.id ?? "unknown"}${epoch}\nsourceText: ${sourceText}\n---`;
 }
 
 function yamlScalar(value: string): string {
@@ -89,7 +90,7 @@ Use the report contract's chapter order exactly. In section 1, begin with one lo
 
 When the requested detail level above is \`detailed\`, do not compress distinct rules, states, types, thresholds, entry points, records, jobs or side effects into a few summary sentences. Build the section inventory first, then enumerate every material distinct item supported by the prepared evidence. Use the contract-required tables and Mermaid diagrams. The feature context is a candidate corpus, not a finished summary.
 ${factPackInstructions(document, detailLevel)}
-The investigation is frozen before authoring: the bounded authoring view and prepared context are the model input, while the machine artifacts remain the audit authority. Consume the view as written; do not re-investigate to fill a gap. When a claim seems to lack evidence, first decide whether it is an expression problem — the evidence you need is almost always already present under a different framing. Only when the frozen knowledge is genuinely incomplete, open a supplement: re-run the relevant Excavator command with \`--supplement-reason "<why the frozen knowledge is insufficient>" --supplement-workitem <work item id>\`, which performs the operation and records the exception in the coverage ledger. Ensure each material item appears in the report.
+The investigation is frozen before authoring: the bounded authoring view and prepared context are the model input, while the machine artifacts remain the audit authority. Consume the view as written; do not re-investigate to fill a gap. When a claim seems to lack evidence, first decide whether it is an expression problem — the evidence you need is almost always already present under a different framing. Only when the frozen knowledge is genuinely incomplete, open a supplement: re-run the relevant Excavator command with \`--supplement-reason "<why the frozen knowledge is insufficient>" --supplement-workitem <work item id>\`, then run \`excavator freeze --run ${runDir}\` again to seal the new epoch and refresh this packet before authoring resumes. Ensure each material item appears in the report.
 
 Describe current state and current problems only. Do not provide recommendations, remediation, future architecture, migration steps, or action items. A target problem must be attributable to the target snapshot. Never place CodeGraph/Excavator limitations, unresolved graph references, source fallback, provider coverage, analysis budgets or static-review limitations in a target risk/current-problem section; put them only in the coverage chapter or an Excavator validation report.
 `;
