@@ -25,22 +25,27 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { extractPacketReadings, type DocumentPacketReading, type PacketReadings } from "../packet-readings.ts";
+import { extractPacketReadings, type DocumentPacketReading, type ModalCount, type PacketReadings } from "../packet-readings.ts";
 import { stableJson } from "../../src/base/util.ts";
 
 const TWIN = join(import.meta.dirname, "fixtures", "packet-twin-overviews");
 const FEATURE = join(import.meta.dirname, "fixtures", "packet-feature-blocks");
 const FACTPACK = join(import.meta.dirname, "fixtures", "packet-feature-factpack");
 
-const twin = extractPacketReadings(TWIN);
-const feature = extractPacketReadings(FEATURE);
-const factpack = extractPacketReadings(FACTPACK);
+const twin = extractPacketReadings(TWIN, "authored");
+const feature = extractPacketReadings(FEATURE, "authored");
+const factpack = extractPacketReadings(FACTPACK, "authored");
 const ALL: Array<readonly [PacketReadings, string]> = [[twin, TWIN], [feature, FEATURE], [factpack, FACTPACK]];
 
 function document(readings: PacketReadings, id: string): DocumentPacketReading {
   const found = readings.documents.find((entry) => entry.documentId === id);
   assert.ok(found, `missing document ${id}`);
   return found;
+}
+/** A modal reading, asserted numeric: in `authored` mode every one of them must be a real count. */
+function num(value: ModalCount, what: string): number {
+  assert.equal(typeof value, "number", `${what} must be a number under authored mode, got ${JSON.stringify(value)}`);
+  return value as number;
 }
 function bucketSum(reading: DocumentPacketReading): number {
   const b = reading.buckets;
@@ -75,8 +80,10 @@ test("per-document readings report sections, claims, packet bytes and audit find
   // The fourth finding is scoped to `condition-coverage`, which is not a document: visible, not dropped.
   assert.deepEqual(twin.auditUnscoped, { errors: 0, warnings: 1, scopes: ["condition-coverage"] });
   // Conservation on the audit side: every finding is either on a document or in the unscoped bucket.
-  const perDocument = twin.documents.reduce((sum, entry) => sum + entry.auditErrors + entry.auditWarnings, 0);
-  assert.equal(perDocument + twin.auditUnscoped.errors + twin.auditUnscoped.warnings, twin.totals.auditFindings);
+  const perDocument = twin.documents.reduce((sum, entry) => sum + num(entry.auditErrors, "auditErrors") + num(entry.auditWarnings, "auditWarnings"), 0);
+  assert.notEqual(twin.auditUnscoped, "absent-by-mode");
+  const unscoped = twin.auditUnscoped as { errors: number; warnings: number };
+  assert.equal(perDocument + unscoped.errors + unscoped.warnings, twin.totals.auditFindings);
 });
 
 test("twin overview packets differ by exactly the document id, so every attributed bucket matches", () => {
@@ -203,7 +210,7 @@ test("a unit whose own chunk is gone but whose anchor line survives is reported 
     assert.ok(packet.includes(chunk), "fixture must contain E-1's full render");
     writeFileSync(path, packet.replace(chunk, ""));
 
-    const readings = extractPacketReadings(dir);
+    const readings = extractPacketReadings(dir, "authored");
     const reading = document(readings, "feature-leave-engineering");
     assert.deepEqual(reading.units, { total: 7, full: 6, anchorOnly: 1, absent: 0 });
     assert.deepEqual(reading.absentUnits, []);
@@ -222,7 +229,7 @@ test("a unit with no trace left in the packet is named in absentUnits rather tha
     const kept = readFileSync(path, "utf8").split("\n").filter((line) => !line.includes("`E-1`")).join("\n");
     writeFileSync(path, kept);
 
-    const readings = extractPacketReadings(dir);
+    const readings = extractPacketReadings(dir, "authored");
     const reading = document(readings, "feature-leave-engineering");
     assert.deepEqual(reading.absentUnits, [{ kind: "evidence", id: "E-1" }]);
     assert.deepEqual(reading.units, { total: 7, full: 6, anchorOnly: 0, absent: 1 });
@@ -243,7 +250,7 @@ test("a chunk that occurs twice in one packet is a named failure, never a double
     const line = "- `W-1` — api-entrypoints · found · material · the leave route is the entry point";
     assert.ok(packet.includes(line));
     writeFileSync(path, packet.replace(line, `${line}\n${line}`));
-    assert.throws(() => extractPacketReadings(dir), /packet readings: document overview-product: the rendered chunk for work-item W-1 occurs 2 times/);
+    assert.throws(() => extractPacketReadings(dir, "authored"), /packet readings: document overview-product: the rendered chunk for work-item W-1 occurs 2 times/);
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
@@ -370,7 +377,7 @@ test("a missing or unusable required artifact fails by name, with no zero-valued
     const dir = await copyFixture(TWIN);
     try {
       await mutate(dir);
-      assert.throws(() => extractPacketReadings(dir), expected, `${label} must fail by name`);
+      assert.throws(() => extractPacketReadings(dir, "authored"), expected, `${label} must fail by name`);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
@@ -378,15 +385,15 @@ test("a missing or unusable required artifact fails by name, with no zero-valued
 });
 
 test("a path that is not a run directory fails by name", () => {
-  assert.throws(() => extractPacketReadings(join(TWIN, "no-such-directory")), /packet readings: .* is not a directory/);
+  assert.throws(() => extractPacketReadings(join(TWIN, "no-such-directory"), "authored"), /packet readings: .* is not a directory/);
 });
 
 // --- ⑤ determinism: the same run directory projects to the same bytes ---
 
 test("re-running the extractor over the same run directory produces byte-identical output", () => {
   for (const dir of [TWIN, FEATURE, FACTPACK]) {
-    const first = stableJson(extractPacketReadings(dir));
-    const second = stableJson(extractPacketReadings(dir));
+    const first = stableJson(extractPacketReadings(dir, "authored"));
+    const second = stableJson(extractPacketReadings(dir, "authored"));
     assert.equal(Buffer.compare(Buffer.from(first), Buffer.from(second)), 0, `${dir} must project to the same bytes twice`);
   }
 });
@@ -404,3 +411,144 @@ async function patchManifest(dir: string, mutate: (manifest: Record<string, any>
   mutate(manifest);
   await writeFile(path, JSON.stringify(manifest, null, 2));
 }
+
+// --- ⑥ the required mode: what "frozen but not authored" is allowed to leave out, and what it is not ---
+//
+// The three checked-in fixtures are authored runs, so the frozen-not-authored cases are built by deleting exactly
+// the two artifacts the mode declares absent from a copy. That is also the point of the pair of tests below: the
+// SAME fixture bytes projected under the two modes must differ in nothing except the declared readings.
+
+/** A copy of a fixture with the two authoring-side artifacts removed: what a run looks like at the freeze boundary. */
+async function frozenNotAuthoredCopy(source: string): Promise<string> {
+  const dir = await copyFixture(source);
+  await rm(join(dir, "audit"), { recursive: true, force: true });
+  await rm(join(dir, "claims"), { recursive: true, force: true });
+  return dir;
+}
+
+test("frozen-not-authored writes claims and audit down as absent, and changes nothing else", async () => {
+  const dir = await frozenNotAuthoredCopy(TWIN);
+  try {
+    const frozen = extractPacketReadings(dir, "frozen-not-authored");
+    assert.equal(frozen.mode, "frozen-not-authored");
+    assert.deepEqual(frozen.absentByMode, ["audit", "claims"]);
+    // Absence is a value, not a missing key and not a zero.
+    assert.equal(frozen.totals.claims, "absent-by-mode");
+    assert.equal(frozen.totals.auditErrors, "absent-by-mode");
+    assert.equal(frozen.totals.auditWarnings, "absent-by-mode");
+    assert.equal(frozen.totals.auditFindings, "absent-by-mode");
+    assert.equal(frozen.auditUnscoped, "absent-by-mode");
+    for (const reading of frozen.documents) {
+      assert.equal(reading.claims, "absent-by-mode");
+      assert.equal(reading.auditErrors, "absent-by-mode");
+      assert.equal(reading.auditWarnings, "absent-by-mode");
+    }
+
+    // Everything the mode does NOT excuse is byte-identical to the authored projection of the same fixture: the
+    // mode excuses readings, it does not change how a packet is measured.
+    assert.equal(stableJson(frozen.duplication), stableJson(twin.duplication));
+    assert.equal(stableJson(frozen.readCoverage), stableJson(twin.readCoverage));
+    assert.equal(stableJson(frozen.workItems), stableJson(twin.workItems));
+    assert.equal(frozen.totals.packetBytes, twin.totals.packetBytes);
+    assert.equal(frozen.totals.sections, twin.totals.sections);
+    assert.equal(frozen.totals.documents, twin.totals.documents);
+    for (const reading of frozen.documents) {
+      const authored = document(twin, reading.documentId);
+      assert.equal(stableJson(reading.buckets), stableJson(authored.buckets));
+      assert.equal(reading.packetDigest, authored.packetDigest);
+      assert.equal(reading.packetBytes, authored.packetBytes);
+      assert.deepEqual(reading.units, authored.units);
+    }
+    // And it is deterministic in this mode too.
+    assert.equal(stableJson(extractPacketReadings(dir, "frozen-not-authored")), stableJson(frozen));
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test("a mode whose declared absence is contradicted by the run fails by name, in both directions", async () => {
+  // frozen-not-authored over a run that WAS audited: reporting "absent-by-mode" here would hide real findings.
+  assert.throws(() => extractPacketReadings(TWIN, "frozen-not-authored"),
+    /packet readings: mode frozen-not-authored declares audit absent, but audit\/audit.json is on disk/);
+
+  // Audit gone but claims still there: the other half of the declaration is checked separately.
+  const claimsOnly = await copyFixture(TWIN);
+  try {
+    await rm(join(claimsOnly, "audit"), { recursive: true, force: true });
+    assert.throws(() => extractPacketReadings(claimsOnly, "frozen-not-authored"),
+      /packet readings: mode frozen-not-authored declares claims absent, but claims\/overview-product holds 2 claims file\(s\)/);
+  } finally {
+    await rm(claimsOnly, { recursive: true, force: true });
+  }
+
+  // And the reverse: authored over a run that never authored is still the ordinary named throw, not a zero.
+  const frozen = await frozenNotAuthoredCopy(TWIN);
+  try {
+    assert.throws(() => extractPacketReadings(frozen, "authored"), /packet readings: audit\/audit.json is missing at/);
+  } finally {
+    await rm(frozen, { recursive: true, force: true });
+  }
+});
+
+test("an unrecognized mode fails by name rather than falling back to a default", () => {
+  assert.throws(() => extractPacketReadings(TWIN, "frozen" as never),
+    /packet readings: mode "frozen" is not one of authored, frozen-not-authored/);
+});
+
+test("an input the mode does not excuse is still a named throw under frozen-not-authored", async () => {
+  const dir = await frozenNotAuthoredCopy(TWIN);
+  try {
+    await rm(join(dir, "coverage", "read-residual.json"));
+    assert.throws(() => extractPacketReadings(dir, "frozen-not-authored"), /packet readings: coverage\/read-residual.json is missing at/);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+// --- ⑦ the work-item census: the close-out reading that enters the baseline ---
+
+test("work items are tallied by dimension and status, and the cells conserve", () => {
+  assert.deepEqual(twin.workItems, {
+    total: 2,
+    byStatus: { found: 2 },
+    byDimensionStatus: { "api-entrypoints": { found: 1 }, "entities-and-fields": { found: 1 } },
+    unsettled: 0
+  });
+  assert.deepEqual(feature.workItems, {
+    total: 3,
+    byStatus: { found: 2, "searched-not-found": 1 },
+    byDimensionStatus: {
+      "api-entrypoints": { found: 1 },
+      "decision-flow": { "searched-not-found": 1 },
+      "entities-and-fields": { found: 1 }
+    },
+    unsettled: 0
+  });
+  for (const [readings, dir] of ALL) {
+    const census = readings.workItems;
+    const plan = JSON.parse(readFileSync(join(dir, "workitems.json"), "utf8")) as { items: unknown[] };
+    assert.equal(census.total, plan.items.length, `${dir} census must count every planned item`);
+    assert.equal(Object.values(census.byStatus).reduce((sum, value) => sum + value, 0), census.total);
+    let cells = 0;
+    for (const statuses of Object.values(census.byDimensionStatus)) for (const value of Object.values(statuses)) cells += value;
+    assert.equal(cells, census.total, `${dir} dimension x status cells must sum to the item count`);
+  }
+});
+
+test("a work item with no status or no dimension is a named failure, not an uncounted item", async () => {
+  for (const [field, expected] of [
+    ["status", /packet readings: workitems.json item 0 \(W-1\) has no status/],
+    ["dimension", /packet readings: workitems.json item 0 \(W-1\) has no dimension/]
+  ] as Array<[string, RegExp]>) {
+    const dir = await copyFixture(TWIN);
+    try {
+      const path = join(dir, "workitems.json");
+      const plan = JSON.parse(readFileSync(path, "utf8")) as { items: Array<Record<string, unknown>> };
+      delete plan.items[0][field];
+      await writeFile(path, JSON.stringify(plan));
+      assert.throws(() => extractPacketReadings(dir, "authored"), expected, `a missing ${field} must fail by name`);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  }
+});

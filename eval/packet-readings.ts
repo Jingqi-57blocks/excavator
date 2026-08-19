@@ -34,6 +34,14 @@
 //
 // Zero model calls, never writes, reads only the run directory. Any input it cannot project is a named throw:
 // there is no code path that returns a zero or an empty list because a file was missing.
+//
+// Third rule, added for the frozen-not-authored baseline: HOW FAR the run got is a required argument, never
+// inferred from which files happen to exist. A packet exists from freeze onward, but claims and audit findings
+// only exist after authoring, so a projection of a run that stopped at the freeze boundary has to say that those
+// readings are absent. It says so with the literal `"absent-by-mode"`, and the mode is checked against the run
+// both ways: a declared-absent reading whose artifact IS on disk fails by name, and a reading the mode does not
+// excuse is still a named throw when missing. Absence is a written state; there is no third thing a reading can
+// be, and no mode is inferred.
 
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { basename, join } from "node:path";
@@ -61,6 +69,39 @@ export type PacketUnitOutcome = "full" | "anchor-only" | "absent";
 
 export const PACKET_UNIT_KINDS: PacketUnitKind[] = ["work-item", "evidence", "trace", "factpack"];
 
+/**
+ * How far the run being projected got. REQUIRED on every call and never defaulted: an optional mode is a mode
+ * the next call site normalizes its own way, and the compiler is the only thing that reliably enumerates call
+ * sites.
+ *
+ *  - `authored` — the run drafted its sections and ran audit. `claims/<document>/*.json` and `audit/audit.json`
+ *    are required inputs, exactly as before.
+ *  - `frozen-not-authored` — the run stopped at the freeze boundary: packets exist, nothing was written from
+ *    them. Claims and audit findings are DECLARED absent and reported as the literal `"absent-by-mode"`, and
+ *    their artifacts must NOT be on disk — a run that was in fact audited is a named failure in this mode, not a
+ *    silently ignored input.
+ *
+ * Everything else — run.json, workitems.json, evidence.json, traces.json, every packet,
+ * `coverage/read-residual.json` — is required identically in both modes. Only the readings named above are
+ * excused, and only by being written down.
+ */
+export type PacketReadingsMode = "authored" | "frozen-not-authored";
+
+export const PACKET_READINGS_MODES: PacketReadingsMode[] = ["authored", "frozen-not-authored"];
+
+/** The value a reading takes when the mode declares it absent. Never `null`, never a missing key, never 0. */
+export const ABSENT_BY_MODE = "absent-by-mode";
+export type ModeAbsent = typeof ABSENT_BY_MODE;
+
+/** A count that a mode may declare absent. */
+export type ModalCount = number | ModeAbsent;
+
+/** The readings each mode declares absent, in sorted order so the JSON is byte-stable. */
+const MODE_ABSENT_READINGS: Record<PacketReadingsMode, string[]> = {
+  authored: [],
+  "frozen-not-authored": ["audit", "claims"]
+};
+
 /** Byte buckets over one packet; they sum to `packetBytes` by construction and that is asserted. */
 export interface PacketByteBuckets {
   "work-item": number;
@@ -80,8 +121,8 @@ export interface DocumentPacketReading {
   audience: string;
   /** Sections the manifest plans for this document. */
   sections: number;
-  /** Claim entries across this document's `claims/<id>/*.json` files. */
-  claims: number;
+  /** Claim entries across this document's `claims/<id>/*.json` files; `"absent-by-mode"` when not authored. */
+  claims: ModalCount;
   /** Byte length of `context/authoring/<id>.md`. */
   packetBytes: number;
   /**
@@ -99,8 +140,23 @@ export interface DocumentPacketReading {
   repeatedUnits: Array<{ kind: PacketUnitKind; id: string; occurrences: number }>;
   /** Whether this document had a fact pack to render from: feature documents only. */
   factPack: "present" | "absent" | "not-applicable";
-  auditErrors: number;
-  auditWarnings: number;
+  auditErrors: ModalCount;
+  auditWarnings: ModalCount;
+}
+
+/**
+ * Work items tallied by dimension and status over `workitems.json`. Read in BOTH modes: the plan exists from
+ * prepare onward, and on a run that stopped at the freeze boundary this census is the reading that says how the
+ * 885 obligations were closed out. Every item lands in exactly one cell and the cells are asserted to sum.
+ */
+export interface WorkItemCensus {
+  total: number;
+  /** `status` -> count, keys sorted. Sums to `total`. */
+  byStatus: Record<string, number>;
+  /** `dimension` -> `status` -> count, keys sorted at both levels. Cells sum to `total`. */
+  byDimensionStatus: Record<string, Record<string, number>>;
+  /** Items the freeze gate treats as not settled (`pending` / `in_progress`) — the one number freeze reads. */
+  unsettled: number;
 }
 
 /** One stable id and the packets it was rendered into. `duplicateBytes` is everything after the first packet. */
@@ -165,7 +221,11 @@ export interface ReadCoverageReading {
 }
 
 export interface PacketReadings {
-  version: 1;
+  version: 2;
+  /** Which stages this projection was taken over. Required input, echoed so a baseline file says what it is. */
+  mode: PacketReadingsMode;
+  /** The readings this mode declares absent, sorted. Empty under `authored`. */
+  absentByMode: string[];
   runId: string;
   snapshotId: string;
   knowledgeEpoch: number;
@@ -173,14 +233,15 @@ export interface PacketReadings {
   totals: {
     documents: number;
     sections: number;
-    claims: number;
+    claims: ModalCount;
     packetBytes: number;
-    auditErrors: number;
-    auditWarnings: number;
-    auditFindings: number;
+    auditErrors: ModalCount;
+    auditWarnings: ModalCount;
+    auditFindings: ModalCount;
   };
   /** Audit findings whose `document` is not a manifest document (e.g. `condition-coverage`) — visible, not dropped. */
-  auditUnscoped: { errors: number; warnings: number; scopes: string[] };
+  auditUnscoped: { errors: number; warnings: number; scopes: string[] } | ModeAbsent;
+  workItems: WorkItemCensus;
   readCoverage: ReadCoverageReading;
   duplication: PacketDuplication;
 }
@@ -212,7 +273,8 @@ function relLabel(path: string): string {
   return parts.slice(Math.max(0, parts.length - 2)).join("/");
 }
 
-export function extractPacketReadings(runDir: string): PacketReadings {
+export function extractPacketReadings(runDir: string, mode: PacketReadingsMode): PacketReadings {
+  if (!PACKET_READINGS_MODES.includes(mode)) fail(`mode ${JSON.stringify(mode)} is not one of ${PACKET_READINGS_MODES.join(", ")}`);
   if (!existsSync(runDir) || !statSync(runDir).isDirectory()) fail(`${runDir} is not a directory`);
   const manifest = readJsonFile<RunManifest>(join(runDir, "run.json"), "run.json");
   if (!Array.isArray(manifest.documents) || manifest.documents.length === 0) fail("run.json has no documents");
@@ -226,8 +288,14 @@ export function extractPacketReadings(runDir: string): PacketReadings {
   if (!Array.isArray(evidenceCatalog.evidence)) fail("evidence.json has no evidence array");
   const traces = readJsonFile<TraceCatalog>(join(runDir, "traces.json"), "traces.json");
   if (!Array.isArray(traces.traces)) fail("traces.json has no traces array");
-  const audit = readJsonFile<{ findings: AuditFinding[] }>(join(runDir, "audit", "audit.json"), "audit/audit.json");
-  if (!Array.isArray(audit.findings)) fail("audit/audit.json has no findings array");
+  const audited = mode === "authored";
+  const auditPath = join(runDir, "audit", "audit.json");
+  // The mode is a claim about the run, so it is checked against the run rather than trusted. A declared-absent
+  // reading whose artifact is on disk means the declaration is wrong, and reporting `"absent-by-mode"` over a
+  // real audit would hide findings.
+  if (!audited && existsSync(auditPath)) fail(`mode frozen-not-authored declares audit absent, but audit/audit.json is on disk: this run was audited, so project it as authored`);
+  const audit = audited ? readJsonFile<{ findings: AuditFinding[] }>(auditPath, "audit/audit.json") : null;
+  if (audit && !Array.isArray(audit.findings)) fail("audit/audit.json has no findings array");
   const readCoverage = readCoverageReading(runDir);
 
   const evidenceById = new Map(evidenceCatalog.evidence.map((item) => [item.id, item]));
@@ -235,7 +303,7 @@ export function extractPacketReadings(runDir: string): PacketReadings {
   const documentIds = new Set(manifest.documents.map((document) => document.id));
   const auditByDocument = new Map<string, { errors: number; warnings: number }>();
   const unscoped = { errors: 0, warnings: 0, scopes: new Set<string>() };
-  for (const finding of audit.findings) {
+  for (const finding of audit?.findings ?? []) {
     if (finding.level !== "error" && finding.level !== "warning") fail(`audit finding for ${finding.document} has unknown level ${JSON.stringify(finding.level)}`);
     if (!documentIds.has(finding.document)) {
       unscoped.scopes.add(finding.document);
@@ -251,7 +319,8 @@ export function extractPacketReadings(runDir: string): PacketReadings {
   const occurrences = new Map<string, DuplicatedUnit>();
   const documents: DocumentPacketReading[] = [];
   for (const document of manifest.documents) {
-    const reading = projectDocument(runDir, document, plan, evidenceById, tracesById, auditByDocument.get(document.id) ?? { errors: 0, warnings: 0 }, occurrences);
+    const counts = audited ? auditByDocument.get(document.id) ?? { errors: 0, warnings: 0 } : ABSENT_BY_MODE;
+    const reading = projectDocument(runDir, document, plan, evidenceById, tracesById, counts, occurrences, mode);
     documents.push(reading);
   }
 
@@ -269,7 +338,9 @@ export function extractPacketReadings(runDir: string): PacketReadings {
   }
 
   return {
-    version: 1,
+    version: 2,
+    mode,
+    absentByMode: [...MODE_ABSENT_READINGS[mode]],
     runId: manifest.id,
     snapshotId: manifest.snapshot.id,
     knowledgeEpoch: manifest.knowledgeEpoch,
@@ -277,13 +348,14 @@ export function extractPacketReadings(runDir: string): PacketReadings {
     totals: {
       documents: documents.length,
       sections: documents.reduce((sum, document) => sum + document.sections, 0),
-      claims: documents.reduce((sum, document) => sum + document.claims, 0),
+      claims: sumModal(documents.map((document) => document.claims), "claims"),
       packetBytes: totalPacketBytes,
-      auditErrors: documents.reduce((sum, document) => sum + document.auditErrors, 0) + unscoped.errors,
-      auditWarnings: documents.reduce((sum, document) => sum + document.auditWarnings, 0) + unscoped.warnings,
-      auditFindings: audit.findings.length
+      auditErrors: audit ? documents.reduce((sum, document) => sum + Number(document.auditErrors), 0) + unscoped.errors : ABSENT_BY_MODE,
+      auditWarnings: audit ? documents.reduce((sum, document) => sum + Number(document.auditWarnings), 0) + unscoped.warnings : ABSENT_BY_MODE,
+      auditFindings: audit ? audit.findings.length : ABSENT_BY_MODE
     },
-    auditUnscoped: { errors: unscoped.errors, warnings: unscoped.warnings, scopes: [...unscoped.scopes].sort() },
+    auditUnscoped: audit ? { errors: unscoped.errors, warnings: unscoped.warnings, scopes: [...unscoped.scopes].sort() } : ABSENT_BY_MODE,
+    workItems: workItemCensus(plan),
     readCoverage,
     duplication: {
       totalPacketBytes,
@@ -297,6 +369,51 @@ export function extractPacketReadings(runDir: string): PacketReadings {
       duplicatedUnits
     }
   };
+}
+
+/**
+ * Total a per-document modal reading. Mixing an absent reading with a numeric one would produce a total that is
+ * neither, so a mixed set is a named failure rather than a coerced sum.
+ */
+function sumModal(values: ModalCount[], what: string): ModalCount {
+  const absent = values.filter((value) => value === ABSENT_BY_MODE).length;
+  if (absent === values.length) return ABSENT_BY_MODE;
+  if (absent > 0) fail(`${what} is absent-by-mode for ${absent} of ${values.length} documents, so no total exists`);
+  return (values as number[]).reduce((sum, value) => sum + value, 0);
+}
+
+/**
+ * The plan's dimension x status census. Read in both modes and asserted to conserve: a status or dimension that
+ * went missing from an item is a named failure, and the cells must sum to the item count on both axes.
+ */
+function workItemCensus(plan: InvestigationPlan): WorkItemCensus {
+  const byStatus = new Map<string, number>();
+  const byDimension = new Map<string, Map<string, number>>();
+  let unsettled = 0;
+  for (const [index, item] of plan.items.entries()) {
+    if (typeof item.status !== "string" || !item.status) fail(`workitems.json item ${index} (${item.id ?? "no id"}) has no status`);
+    if (typeof item.dimension !== "string" || !item.dimension) fail(`workitems.json item ${index} (${item.id ?? "no id"}) has no dimension`);
+    byStatus.set(item.status, (byStatus.get(item.status) ?? 0) + 1);
+    const cells = byDimension.get(item.dimension) ?? new Map<string, number>();
+    cells.set(item.status, (cells.get(item.status) ?? 0) + 1);
+    byDimension.set(item.dimension, cells);
+    if (item.status === "pending" || item.status === "in_progress") unsettled += 1;
+  }
+  const statusTotal = [...byStatus.values()].reduce((sum, value) => sum + value, 0);
+  if (statusTotal !== plan.items.length) fail(`work-item statuses tally ${statusTotal} of ${plan.items.length} items`);
+  let cellTotal = 0;
+  for (const cells of byDimension.values()) for (const value of cells.values()) cellTotal += value;
+  if (cellTotal !== plan.items.length) fail(`work-item dimension x status cells tally ${cellTotal} of ${plan.items.length} items`);
+  return {
+    total: plan.items.length,
+    byStatus: sortedCounts(byStatus),
+    byDimensionStatus: Object.fromEntries([...byDimension.keys()].sort().map((dimension) => [dimension, sortedCounts(byDimension.get(dimension)!)])),
+    unsettled
+  };
+}
+
+function sortedCounts(counts: Map<string, number>): Record<string, number> {
+  return Object.fromEntries([...counts.keys()].sort().map((key) => [key, counts.get(key)!]));
 }
 
 /** Six decimals: enough to read, few enough that the value is byte-identical on a rerun. */
@@ -313,8 +430,9 @@ function projectDocument(
   plan: InvestigationPlan,
   evidenceById: Map<string, EvidenceItem>,
   tracesById: Map<string, TraceRecord>,
-  auditCounts: { errors: number; warnings: number },
-  occurrences: Map<string, DuplicatedUnit>
+  auditCounts: { errors: number; warnings: number } | ModeAbsent,
+  occurrences: Map<string, DuplicatedUnit>,
+  mode: PacketReadingsMode
 ): DocumentPacketReading {
   if (!Array.isArray(document.sections) || document.sections.length === 0) fail(`document ${document.id} has no sections`);
   const packetPath = join(runDir, "context", "authoring", `${document.id}.md`);
@@ -363,7 +481,7 @@ function projectDocument(
     kind: document.kind,
     audience: document.audience,
     sections: document.sections.length,
-    claims: countClaims(runDir, document.id),
+    claims: countClaims(runDir, document.id, mode),
     packetBytes: packet.length,
     packetDigest: sha256(packet),
     blocks: blocks.length,
@@ -377,8 +495,8 @@ function projectDocument(
     absentUnits: outcomes.filter((unit) => unit.outcome === "absent").map((unit) => ({ kind: unit.kind, id: unit.id })),
     repeatedUnits: outcomes.filter((unit) => unit.occurrences > 1).map((unit) => ({ kind: unit.kind, id: unit.id, occurrences: unit.occurrences })),
     factPack: factPack.state,
-    auditErrors: auditCounts.errors,
-    auditWarnings: auditCounts.warnings
+    auditErrors: auditCounts === ABSENT_BY_MODE ? ABSENT_BY_MODE : auditCounts.errors,
+    auditWarnings: auditCounts === ABSENT_BY_MODE ? ABSENT_BY_MODE : auditCounts.warnings
   };
 }
 
@@ -598,9 +716,18 @@ function findAll(haystack: Buffer, needle: Buffer): number[] {
   }
 }
 
-/** Claim entries across a document's claims files. A missing claims directory is a named failure, not a zero. */
-function countClaims(runDir: string, documentId: string): number {
+/**
+ * Claim entries across a document's claims files. A missing claims directory is a named failure, not a zero —
+ * except under `frozen-not-authored`, where the absence is the mode's own declaration and is written down. That
+ * mode also refuses the opposite mismatch: claims on disk mean the run WAS authored and the mode is wrong.
+ */
+function countClaims(runDir: string, documentId: string, mode: PacketReadingsMode): ModalCount {
   const dir = join(runDir, "claims", documentId);
+  if (mode === "frozen-not-authored") {
+    const files = existsSync(dir) ? readdirSync(dir).filter((entry) => entry.endsWith(".json")) : [];
+    if (files.length) fail(`mode frozen-not-authored declares claims absent, but claims/${documentId} holds ${files.length} claims file(s): this run was authored, so project it as authored`);
+    return ABSENT_BY_MODE;
+  }
   if (!existsSync(dir)) fail(`document ${documentId} has no claims directory at claims/${documentId}`);
   let total = 0;
   for (const name of readdirSync(dir).filter((entry) => entry.endsWith(".json")).sort()) {

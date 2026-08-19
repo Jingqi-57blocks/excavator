@@ -8,7 +8,9 @@
 //   read-denominator --run <dir> [--must <path:line>]... [--json]   what the boundary second source added
 //   crossrepo --run <dir> --gold <file> [--sample N] [--json]       cross-repo link gate + review sample
 //   read-attribution --gold <file> --anchors a,b,c [--json]         does the partitioned reading still point right
-//   packet-readings --run <dir> [--out <file>]              per-document packet byte readings + cross-packet duplication
+//   packet-readings --run <dir> --mode <authored|frozen-not-authored> [--out <file>]
+//                                                           per-document packet byte readings + cross-packet duplication
+//   ledger-closeout --run <dir> [--out <file>] [--updates <file>]   transcribe unsettled read obligations to cannot-determine
 // diff exits 1 on any mustFind missing / forbidden violation / coverage failure; 0 otherwise.
 // boundary exits 1 on any mustFind miss; 0 otherwise (same honest-red contract as diff).
 // --prepare-only runs ONLY the anchor-in-scope containment check (zero model, sub-second).
@@ -39,7 +41,8 @@ import { buildPoolFromRun, loadPrunePool, prunePoolToNodes, writePrunePool } fro
 import { buildDenominatorReport, denominatorExitCode, parseMust, renderDenominator } from "./read-denominator.ts";
 import { artifactExists, buildCrossRepoReport, crossRepoExitCode, loadCrossRepoGold, renderCrossRepoReport } from "./crossrepo.ts";
 import { attributionExitCode, buildAttributionReport, renderAttributionReport } from "./read-attribution.ts";
-import { extractPacketReadings } from "./packet-readings.ts";
+import { extractPacketReadings, PACKET_READINGS_MODES, type PacketReadingsMode } from "./packet-readings.ts";
+import { buildLedgerCloseout } from "./ledger-closeout.ts";
 import { stableJson } from "../src/base/util.ts";
 
 interface Flags {
@@ -51,6 +54,8 @@ interface Flags {
   nodes?: string;
   layer?: string;
   out?: string;
+  mode?: string;
+  updates?: string;
   pool?: string;
   emitPool?: string;
   modules: string[];
@@ -76,6 +81,8 @@ function parseFlags(argv: string[]): Flags {
     else if (arg === "--sample") flags.sample = argv[++i];
     else if (arg === "--anchors") flags.anchors = argv[++i];
     else if (arg === "--out") flags.out = argv[++i];
+    else if (arg === "--mode") flags.mode = argv[++i];
+    else if (arg === "--updates") flags.updates = argv[++i];
     else if (arg === "--pool") flags.pool = argv[++i];
     else if (arg === "--emit-pool") flags.emitPool = argv[++i];
     else if (arg === "--module") flags.modules.push(argv[++i]);
@@ -99,7 +106,8 @@ const USAGE = `eval harness
   compare --a <dir> --b <dir> [--json]
   boundary (--run <dir> | --nodes <file>) --gold <file> [--layer fg|factpack|both] [--json]
   prune-replay (--pool <file> | --run <dir> --module <db> [--module <db>...]) --gold <file> [--emit-pool <file>] [--json]
-  packet-readings --run <dir> [--out <file>]`;
+  packet-readings --run <dir> --mode <authored|frozen-not-authored> [--out <file>]
+  ledger-closeout --run <dir> [--out <file>] [--updates <file>]`;
 
 function renderContainment(containment: Containment): string {
   const lines = [`=== prepare containment (${containment.contained.length}/${containment.contained.length + containment.missing.length} anchors in scope) ===`];
@@ -310,11 +318,31 @@ function runExtract(flags: Flags): number {
  * extractor over the same run directory writes the same bytes.
  */
 function runPacketReadings(flags: Flags): number {
-  const readings = extractPacketReadings(requireFlag(flags.run, "--run"));
+  const mode = requireFlag(flags.mode, "--mode");
+  if (!PACKET_READINGS_MODES.includes(mode as PacketReadingsMode)) throw new Error(`--mode must be one of ${PACKET_READINGS_MODES.join(", ")}, got ${mode}`);
+  const readings = extractPacketReadings(requireFlag(flags.run, "--run"), mode as PacketReadingsMode);
   const text = stableJson(readings);
   if (flags.out) writeFileSync(flags.out, `${text}\n`);
   else process.stdout.write(`${text}\n`);
   return 0;
+}
+
+/**
+ * Transcribe a prepared run's unsettled read obligations into `cannot-determine` work-item updates, taking every
+ * reason off the run's own `investigation/results.json` execution records. Exits 1 when ANY unsettled item has no
+ * transcribable cause: that gap is a real finding, and the tool never fills it with a generic wording. `--out`
+ * writes the full report (updates plus per-row provenance); `--updates` writes the apply-ready array for
+ * `excavator workitem --run <dir> --file <file>`. Both are written even on the red exit, so the gap can be read
+ * next to what would have been applied.
+ */
+function runLedgerCloseout(flags: Flags): number {
+  const closeout = buildLedgerCloseout(requireFlag(flags.run, "--run"));
+  const text = stableJson(closeout);
+  if (flags.out) writeFileSync(flags.out, `${text}\n`);
+  if (flags.updates) writeFileSync(flags.updates, `${stableJson(closeout.rows.map((row) => row.update))}\n`);
+  if (!flags.out) process.stdout.write(`${text}\n`);
+  else process.stdout.write(`transcribed ${closeout.transcribed}/${closeout.unsettled} unsettled work items; ${closeout.untranscribable} have no transcribable cause\n`);
+  return closeout.untranscribable === 0 ? 0 : 1;
 }
 
 function runDiff(flags: Flags): number {
@@ -368,6 +396,7 @@ function main(argv: string[]): number {
   if (command === "crossrepo") return runCrossRepoGate(flags);
   if (command === "read-attribution") return runReadAttribution(flags);
   if (command === "packet-readings") return runPacketReadings(flags);
+  if (command === "ledger-closeout") return runLedgerCloseout(flags);
   throw new Error(`unknown command: ${command}`);
 }
 
