@@ -49,7 +49,7 @@
 
 **`co-located` 不建立同 run 的反向提升环。** 关系标注本身不得授权 `ReadSpec`、进入模型视图或自动生成 fact evidence。第 7 层只有在**已有独立理由的第 5 层 `ReadSpec` 已覆盖该条目成员资格中的任一 `UnitId`**时，才可用所读 evidence id 与判者记录把它显式纳入调查结果；该判断不得回写第 5 层或补造一个追溯性的 `ReadSpec`。若没有独立授权，必须以新的 run-intent / 查询别名开启新 run，而不是从第 7 层反馈到第 5 或第 4 层。负向验收是默认 co-located 全部零消费；正向验收是已有独立 `ReadSpec` 时恰好一条具名判断可提升。
 
-**第 6/7 层的切法是从现状读出来的，不是排出来的。** 今天计划就在 prepare 铸出（`src/run/run.ts:332`），先于源码窗口阅读；而冻结后补证必须引用一个既有 work item（`src/run/stages/investigation-stage.ts:35`）——证据引义务、义务处置引证据，两个方向都真实存在。切成「声明在下（绝不引证据）、执行与处置同层在上」，环被声明侧的禁止输入列切断；调查在第 7 层内迭代生长，冻结是唯一封口。层序约束跨层依赖方向，不约束层内迭代。
+**第 6/7 层的切法是从现状读出来的，不是排出来的。** 今天计划就在 prepare 铸出（`src/run/run.ts:333`），先于源码窗口阅读；而冻结后补证必须引用一个既有 work item（`src/run/stages/investigation-stage.ts:35`）——证据引义务、义务处置引证据，两个方向都真实存在。切成「声明在下（绝不引证据）、执行与处置同层在上」，环被声明侧的禁止输入列切断；调查在第 7 层内迭代生长，冻结是唯一封口。层序约束跨层依赖方向，不约束层内迭代。
 
 ---
 
@@ -127,7 +127,7 @@ src/run/  src/cli.ts ✓ 编排
 **登记表今天与目标结构的两处差距，都是过渡而不是裁定：**
 
 - `src/facts/` 只有 `probe/`。另外六个生产者（codegraph、nativegraph、framework、schema、crossrepo、词汇）仍在自己的顶层目录里，各自登记 L3。层 3 的约束是「每生产者一个子目录」而不是「必须叫 `facts/x`」，所以这只是名字没搬。
-- 层 1 的目录名 `snapshot/` 尚未改。层 5 仍处于双目录过渡，但 57B-424 已把 census、`ReadSpec` 与唯一模型视图收束到 `src/workset/`；`src/context/` 只保留确定性收集与缓存。结构化源码预读的生产者已迁至 `src/facts/probe/`。**但层 5 仍在执行源码读取**：`src/context/context.ts:168` 构造 `SourceReader` 并在 prepare 期读出项目文档与回退搜索窗口，与本层禁止输入列的「源码读取器——本层只授权，不执行」直接冲突。这是**已计量的过渡违规**，不是已完成的迁移：第 8 层 `closure.sourceReadsWithoutObligation` 记录每次冻结时未被任何读取执行认领的读取条数（wcp overview 实测 10 条），并在 `investigation-closure` 族发劝告级 finding。层序测试抓不到它——L5→L1 是向下 import，方向合法，禁止输入列不由装置守着。迁移方案见该字段的定义注释。**登记表是契约，目录名不是**。
+- 层 1 的目录名 `snapshot/` 尚未改。层 5 仍处于双目录过渡，但 57B-424 已把 census、`ReadSpec` 与唯一模型视图收束到 `src/workset/`；`src/context/` 只保留确定性收集与缓存。结构化源码预读的生产者已迁至 `src/facts/probe/`。**但层 5 仍在执行源码读取**：`src/context/context.ts:170` 构造 `SourceReader` 并在 prepare 期读出项目文档与回退搜索窗口，与本层禁止输入列的「源码读取器——本层只授权，不执行」直接冲突。这是**已计量的过渡违规**，不是已完成的迁移：第 8 层 `closure.sourceReadsWithoutObligation` 记录每次冻结时未被任何读取执行认领的读取条数（wcp overview 实测 10 条），并在 `investigation-closure` 族发劝告级 finding。层序测试抓不到它——L5→L1 是向下 import，方向合法，禁止输入列不由装置守着。迁移方案见该字段的定义注释。**登记表是契约，目录名不是**。
 
 探针三份（`decision-probe`、`condition-extract`、`condition-extract-perl`）与版本闸簇先迁至 `facts/probe/` 与 `base/`；57B-429 又把余下 21 份全部按已登记的侧归位：义务三份 → `obligation/`，调查五份 → `investigation/`，冻结三份 → `freeze/`，timeline → `base/`，报告九份 → `report/`。`src/assurance/` 不再存在，新文件不能再靠混装目录逃过层登记。
 
@@ -175,7 +175,7 @@ src/run/  src/cli.ts ✓ 编排
 
 1. **结构 / 约定 / 词汇三个事实层合并为一个。** 三者接口形状完全相同（输入台账与源文件，输出带完整度的信封），差异只是生产者。P1–P18 没有一条需要跨「结构 vs 约定 vs 词汇」的边界。词汇信封保留独立产物身份与字节稳定验收。
 2. **补一个工作集（消费）层（57B-424 已完成切片）。** `buildFactPack` 已被拆成第 5 层之前的确定性收集结果与 `src/workset/` 的关系标注 / 消费视图；机器分母保留全部行，自动消费只读 seeded / retained。census 只读 L1/L3 RowSet，`ReadSpec` 只表达授权，模型只读带源摘要与上界的 `context/workset.md`。
-3. **义务拆为「声明」与「处置」，处置与证据、读取执行合为一个调查结果层。** 上一版把义务整体放在证据之上，但冻结后补证必须引既有 work item（`src/run/stages/investigation-stage.ts:35`）——证据引义务在旧序下是向上引用，契约自己违序；而计划本就在 prepare 铸出（`src/run/run.ts:332`），先于窗口阅读。声明在下（绝不引证据 id），执行与处置同层迭代生长，冻结按 epoch 封口。
+3. **义务拆为「声明」与「处置」，处置与证据、读取执行合为一个调查结果层。** 上一版把义务整体放在证据之上，但冻结后补证必须引既有 work item（`src/run/stages/investigation-stage.ts:35`）——证据引义务在旧序下是向上引用，契约自己违序；而计划本就在 prepare 铸出（`src/run/run.ts:333`），先于窗口阅读。声明在下（绝不引证据 id），执行与处置同层迭代生长，冻结按 epoch 封口。
 
 十层 → **八层**（另有契约、基座、报告层、编排四个非层地层）。P5、P14、P17、P18 全部跨具名接口，检验闭合。
 

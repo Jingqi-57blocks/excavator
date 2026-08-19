@@ -17,7 +17,11 @@ Desktop.ini
 *~
 
 # --- Node ---
-node_modules/
+# No trailing slash: a worktree links node_modules to the primary checkout, and a symlink is a FILE.
+# `node_modules/` matched directories only, so that link was committed as a 120000 blob holding an absolute
+# path — a fresh clone would get a dangling symlink, and on the author's machine a silent shared dependency
+# state across checkouts.
+node_modules
 .npm/
 .node_repl_history
 *.tsbuildinfo

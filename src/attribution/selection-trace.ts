@@ -1,7 +1,7 @@
 import { sha256, stableJson } from "../base/util.ts";
 
 /** The allocator trace is the accountable boundary between candidate discovery and layer-4 seats. */
-export const SELECTION_TRACE_VERSION = "selection-trace-v2";
+export const SELECTION_TRACE_VERSION = "selection-trace-v3";
 
 /** Producer channels never share a raw score. `displaced` is the named outcome of the one seat budget. */
 export const CONTRIBUTION_CHANNELS = ["seed", "lexical", "derived", "relation", "convention", "fallback"] as const;
@@ -83,6 +83,18 @@ export interface RanSelectionTrace {
   readonly status: "ran";
   readonly pool: readonly TraceNode[];
   readonly seedCount: number;
+  /**
+   * The query seeds themselves, sorted and deduplicated — the nodes `searchNodes` matched, never their
+   * neighbours.
+   *
+   * It is a recorded id set and NOT `contributions.sourceChannel === "seed"`, because those are two different
+   * things: `allocator.ts` puts a query seed on the `seed` channel, and then puts every node ADJACENT to a seed
+   * on the same channel with reason `seed-neighbor`. Reading the channel back as identity would silently seat a
+   * node's neighbour as if the query had found it, which is the whole distinction layer 5's `seeded` relation
+   * exists to make. The channel says how a candidate earned its rank; this says which candidates the query
+   * actually named.
+   */
+  readonly querySeedNodeIds: readonly string[];
   readonly budgets: SelectionBudgets;
   readonly fusion: SelectionFusion;
 }

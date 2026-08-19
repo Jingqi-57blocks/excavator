@@ -280,7 +280,11 @@ export function allocateFeatureGraphRecorded(
     nodes: outputNodes,
     edges: dedupedEdges.filter((edge) => ids.has(String(edge.source)) && ids.has(String(edge.target))),
     trace: {
-      status: "ran", pool: tracePool, seedCount: seedIds.size, budgets: { maxNodes: cap },
+      status: "ran", pool: tracePool, seedCount: seedIds.size,
+      // From the seed id set, never from the `seed` channel: `put("seed", candidate, ...)` above also tags
+      // seed NEIGHBOURS, so the channel cannot tell "the query found this" from "this is next to what it found".
+      querySeedNodeIds: [...seedIds].filter((id) => nodeById.has(id)).sort(),
+      budgets: { maxNodes: cap },
       fusion: {
         method: "weighted-reciprocal-rank", rankConstant: RANK_CONSTANT,
         rawScoresSummedAcrossChannels: false, tieBreak: ["relativePath", "name", "nodeId"], cutoffScore

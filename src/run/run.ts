@@ -26,6 +26,7 @@ import { atomicWrite, canonicalJson, ensureDir, exists, nowIso, projectWorkspace
 import { logicWorkItems, LOGIC_DISPOSITION_ASSURANCE_GENERATION } from "../obligation/logic-workitems.ts";
 import { READ_ACCOUNTABILITY_ASSURANCE_GENERATION } from "../obligation/read-obligations.ts";
 import { buildAttributionStage, unavailableAttributionStage, writeAttributionStage } from "./attribution-stage.ts";
+import { seedCellsByFeature } from "../attribution/seed-identity.ts";
 import { buildFactsStage, unavailableFactsStage, writeFactsStage } from "./facts-stage.ts";
 import { buildWorksetStage, writeUnavailableWorksetStage, writeWorksetStage } from "./workset-stage.ts";
 import { buildObligationStage, declarationWorkItems, writeObligationStage, writeUnavailableObligationStage } from "./obligation-stage.ts";
@@ -408,8 +409,10 @@ export async function prepareRun(rawRequest: ReportRequest): Promise<{ runDir: s
     }
   });
   await writeAttributionStage(runDir, attribution);
-  // Layer 5 consumes layer 4's seats and layer 3's written memberships. Every production seed set is explicitly
-  // empty in attribution-v2: deriving seed identity from the feature graph here would create a second join.
+  // Layer 5 consumes layer 4's seats and layer 3's written memberships, including which of those seats a query
+  // seed won. That set used to be explicitly empty here, because deriving it from the feature graph at this
+  // point would have been a second join — a correct objection, answered by moving the derivation into layer 4
+  // rather than by keeping the set empty. `seedCellsByFeature` only reads what `attribution.json` published.
   const workset = buildWorksetStage({
     collected: result.prepared.collectedFactPacks,
     attribution: attribution.attribution,
@@ -417,7 +420,7 @@ export async function prepareRun(rawRequest: ReportRequest): Promise<{ runDir: s
     producers: facts.producers,
     ledger: result.ledger,
     boundaryFunctions: result.prepared.boundaryFunctions,
-    seedCellsByFeature: new Map([...result.prepared.collectedFactPacks.keys()].map((key) => [key, new Set<string>()])),
+    seedCellsByFeature: seedCellsByFeature(attribution.attribution, [...result.prepared.collectedFactPacks.keys()]),
     features: request.features.map((feature) => {
       const key = featureCacheKey(feature);
       return { key, subject: feature.subject, files: result.prepared.featureScopes.get(key)?.files ?? [] };

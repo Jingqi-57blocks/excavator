@@ -43,7 +43,7 @@ import {
  * layer deciding something no feature asked it to decide.
  */
 
-export const ATTRIBUTION_ARTIFACT_VERSION = "attribution-v2";
+export const ATTRIBUTION_ARTIFACT_VERSION = "attribution-v3";
 
 /** Where a retained node landed when it did NOT reach a cell. Closed: there is no fourth way to miss. */
 export const SEAT_PROJECTION_MISSES = ["envelope-unavailable", "file-not-counted", "kind-not-inventoried", "no-matching-fact"] as const;
@@ -163,6 +163,23 @@ export interface AttributionSelection {
   readonly modules: readonly AttributionModuleRow[];
   /** One row per RowSet unit kind. The partition is one kind today, so today there is exactly one row. */
   readonly conservation: readonly SelectionConservationRow[];
+  /**
+   * Cells that hold a seat won by a node the query itself named, sorted.
+   *
+   * A subset of `seats[].unitId` by construction: a cell only enters here on the seated branch, after the same
+   * projection that produced the seat. That is why there is no runtime check for the subset property — a guard
+   * on a branch that cannot be reached is a dead arm that reads like a safeguard; the invariant is asserted in
+   * `tests/attribution-artifact.test.ts` instead, where it can actually fail.
+   *
+   * DISPLACED query seeds are deliberately absent. A seed that lost the budget holds no seat, and layer 5's
+   * `seeded` relation authorises reading — publishing a displaced seed here would authorise a read for a cell
+   * this run decided not to seat.
+   *
+   * This is what makes layer 5's `seeded` relation reachable at all. Production passed an empty set until now
+   * (`run.ts`), so `factpack-annotate.ts`'s `{ kind: "seeded", basis: "explicit-seed" }` branch existed and was
+   * never taken on any real run.
+   */
+  readonly seedCells: readonly string[];
 }
 
 /** The run intent, with everything audience-shaped removed. See `runIntentSummary` for why each field is gone. */
@@ -347,6 +364,11 @@ function buildSelection(
   const seats: AttributionSeat[] = [];
   const displacements: AttributionDisplacement[] = [];
   const seatedCells = new Set<string>();
+  const seedCells = new Set<string>();
+  // The query's own seeds, read off the recorded id set. NOT `node.outcome === "seed"`: the allocator puts
+  // seed NEIGHBOURS on that same channel (`allocator.ts`, reason `seed-neighbor`), so the channel would seat a
+  // neighbour as if the query had named it.
+  const querySeeds = new Set(trace.status === "ran" ? trace.querySeedNodeIds : []);
   const displacedCells = new Set<string>();
   const retainedMiss = emptyMissCounts();
   const displacedMiss = emptyMissCounts();
@@ -384,6 +406,7 @@ function buildSelection(
       retainedSeated += 1;
       const cell = cellOf(cells, projection);
       seatedCells.add(projection.unitId);
+      if (querySeeds.has(node.nodeId)) seedCells.add(projection.unitId);
       seats.push({
         unitId: projection.unitId,
         relativePath: cell.relativePath,
@@ -410,6 +433,7 @@ function buildSelection(
 
   return {
     featureKey,
+    seedCells: [...seedCells].sort(),
     channels: trace.status === "ran"
       ? {
         status: "ran",
