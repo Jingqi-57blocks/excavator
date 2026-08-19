@@ -258,7 +258,10 @@ export async function buildContextsFromBoundary(request: ReportRequest, boundary
   const crossRepo = wantsCrossrepo
     ? await resolveCrossRepoLinks(request.target, codegraphResolution.modules, snapshot.id, warnings, sourceReader.redacts)
     : null;
-  const crossRepoLinks = crossRepo?.scan.links ?? [];
+  // `null`, not `[]`. A resolver that threw learned nothing about this target; an empty array is the finding
+  // "this target has no cross-repo links". Folding the first into the second publishes a determination the run
+  // never made — and `targetRelative`'s own comment names that as the wrong conclusion to let a reader draw.
+  const crossRepoLinks = wantsCrossrepo && crossRepo === null ? null : crossRepo?.scan.links ?? null;
 
   for (const feature of request.features) {
     deadline.check(`preparing feature ${feature.subject}`);
@@ -516,7 +519,7 @@ async function buildSharedContext(snapshot: Snapshot, files: ScannedFile[], ledg
   return { snapshotId: snapshot.id, evidence: dedupeEvidence(evidence), markdown, graphFilePaths: [...graphPaths], metrics: { coverage, warnings } };
 }
 
-async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], feature: FeatureRequest, graph: GraphReader | null, graphPaths: Set<string>, sourceReader: SourceReader, deadline: Deadline, maxNodes: number, depth: number, routes: RouteInventory | null, crossRepoLinks: CrossRepoScan["links"], moduleDirs: ReadonlyMap<string, string>): Promise<CachedFeature> {
+async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], feature: FeatureRequest, graph: GraphReader | null, graphPaths: Set<string>, sourceReader: SourceReader, deadline: Deadline, maxNodes: number, depth: number, routes: RouteInventory | null, crossRepoLinks: CrossRepoScan["links"] | null, moduleDirs: ReadonlyMap<string, string>): Promise<CachedFeature> {
   const terms = [...new Set([feature.subject, ...feature.aliases].flatMap(tokenize))].filter(Boolean);
   const evidence: EvidenceItem[] = [];
   const warnings: string[] = [];

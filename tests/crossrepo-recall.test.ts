@@ -99,8 +99,17 @@ test("a probable link is counted and never admitted", () => {
     "with nothing confirmed there is no propagation to run — and the reason is recorded");
   assert.deepEqual([...result.admissionNodeIds], []);
 
+  // `probable` WITH RULE R1 — the shape production actually produces and the shape the corpus cannot supply.
+  // `link-match` marks an ANY-method route's exact match as R1 + probable, so a regression that hard-codes
+  // "probable ⟺ R3" would pass every other test here and admit a probable R1 in production. Everything except
+  // confidence is satisfied: caller inside a root span, route joinable, handler resolved.
+  const probableR1 = link({ confidence: "probable", from: { path: "src/api/leave.ts", line: 20 } });
+  const isolated = crossrepoRecall([probableR1], inventory([route()]), CALLER_IN_POOL, rootsOf(CALLER_IN_POOL), MODULES);
+  assert.deepEqual(isolated.block, { status: "not-run", cause: "no-links" }, "a probable R1 is still not a confirmed link");
+  assert.deepEqual([...isolated.admissionNodeIds], [], "and it admits nothing despite satisfying every other condition");
+
   const mixed = crossrepoRecall(
-    [link(), link({ confidence: "probable", rule: "R3", from: { path: "src/api/other.ts" } })],
+    [link(), probableR1],
     inventory([route()]), CALLER_IN_POOL, rootsOf(CALLER_IN_POOL), MODULES
   );
   assert.equal(mixed.block.status, "ran");
@@ -203,6 +212,35 @@ test("module-relative paths are joined onto their module directory", () => {
     "the frame is module-relative on both ends; a target-relative reading empties the channel and looks like a target with no cross-repo recall to gain");
 });
 
+// A CHAINED REGISTRATION PUTS SEVERAL ROUTES ON ONE LINE.
+//
+// `router.route("/x").get(a).post(b)` yields two inventory rows sharing coordinates and path, differing only by
+// method. Taking the first by position would admit the wrong handler — the same "average over a disagreement"
+// the guard below refuses. Method is the only thing that separates them.
+test("a line registering several routes is disambiguated by method, never by position", () => {
+  const chained = inventory([
+    route({ factId: "route:mod/router.go:1-1:GET /leaves", nodeId: "get-route", handlerNodeId: "get-handler", method: "GET" }),
+    route({ factId: "route:mod/router.go:1-1:POST /leaves", nodeId: "post-route", handlerNodeId: "post-handler", method: "POST" })
+  ]);
+  const post = crossrepoRecall([link({ from: { method: "POST" } })], chained, CALLER_IN_POOL, rootsOf(CALLER_IN_POOL), MODULES);
+  assert.deepEqual([...post.admissionNodeIds].sort(), ["post-handler", "post-route"], "the POST call reaches the POST handler");
+
+  // A method NOTHING on that line registers is a producer disagreement, not a missing index row: rows exist at
+  // those coordinates, they just do not include this one. `route-not-indexed` would be the wrong bucket — it
+  // means "no row at these coordinates" — and picking whichever row came first is the failure this guards.
+  assert.throws(
+    () => crossrepoRecall([link({ from: { method: "DELETE" } })], chained, CALLER_IN_POOL, rootsOf(CALLER_IN_POOL), MODULES),
+    /registers 2 routes and none of them is "DELETE"/
+  );
+});
+
+test("a method disagreement about one registration line is fatal, like a path disagreement", () => {
+  assert.throws(
+    () => crossrepoRecall([link({ from: { method: "PUT" } })], inventory([route({ method: "GET" })]), CALLER_IN_POOL, rootsOf(CALLER_IN_POOL), MODULES),
+    /disagree about/
+  );
+});
+
 // TWO PRODUCERS, ONE REGISTRATION LINE. If they disagree, neither answer is safe to prefer.
 test("a scan and inventory disagreement about one registration line is fatal", () => {
   assert.throws(
@@ -260,10 +298,14 @@ test("the outcome buckets account for every confirmed link", () => {
 test("single-module, missing scan and no links are three distinguishable written states", () => {
   assert.deepEqual(crossrepoRecall([link()], inventory([route()]), CALLER_IN_POOL, rootsOf(CALLER_IN_POOL), new Map([["only", ""]])).block,
     { status: "not-run", cause: "single-module" });
+  assert.deepEqual(crossrepoRecall(null, inventory([route()]), CALLER_IN_POOL, rootsOf(CALLER_IN_POOL), MODULES).block,
+    { status: "not-run", cause: "scan-unavailable" }, "the resolver failed: nothing was learned about this target");
   assert.deepEqual(crossrepoRecall([link()], null, CALLER_IN_POOL, rootsOf(CALLER_IN_POOL), MODULES).block,
-    { status: "not-run", cause: "scan-unavailable" });
+    { status: "not-run", cause: "no-inventory" }, "links exist but cannot be joined — not the same as having none");
   assert.deepEqual(crossrepoRecall([], inventory([route()]), CALLER_IN_POOL, rootsOf(CALLER_IN_POOL), MODULES).block,
     { status: "not-run", cause: "no-links" });
+  assert.deepEqual(crossrepoRecall([], inventory([route()]), CALLER_IN_POOL, rootsOf(CALLER_IN_POOL), MODULES).block,
+    { status: "not-run", cause: "no-links" }, "the scan ran and found none — a determination about the target");
   assert.deepEqual(NO_CROSSREPO_RECALL.block, { status: "not-run", cause: "scan-unavailable" });
 });
 

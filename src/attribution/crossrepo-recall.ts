@@ -70,7 +70,18 @@ export type CrossrepoRecallTraceBlock =
       readonly byOutcome: Readonly<Record<CrossrepoLinkOutcome, number>>;
       readonly admittedNodeIds: readonly string[];
     }
-  | { readonly status: "not-run"; readonly cause: "single-module" | "scan-unavailable" | "no-links" };
+  | {
+      readonly status: "not-run";
+      /**
+       * `scan-unavailable` — the resolver could not run or threw; nothing was learned about this target.
+       * `no-links`        — the scan ran and found none; that IS a determination about the target.
+       * `no-inventory`    — the scan produced links but the route inventory is absent, so they cannot be joined.
+       *
+       * Collapsing the first into the second was the defect this list now prevents: a failed resolver published
+       * "there are no cross-repo links here", which the next slice reads as "no cross-repo recall to gain".
+       */
+      readonly cause: "single-module" | "scan-unavailable" | "no-inventory" | "no-links";
+    };
 
 export interface CrossrepoRecallResult {
   readonly block: CrossrepoRecallTraceBlock;
@@ -113,14 +124,26 @@ function containing(pool: readonly PoolNodeRef[], path: string, line: number): P
  * does not, the two producers disagree about what is registered at that line, which is not a state to average
  * over: the caller throws rather than picking a side.
  */
-function joinRoute(inventory: RouteInventory, registrationPath: string, registrationLine: number, localPath: string): InventoryRoute | null {
-  const row = inventory.routes.find((route) => route.registrationPath === registrationPath && route.registrationLine === registrationLine);
-  if (row === undefined) return null;
+function joinRoute(inventory: RouteInventory, registrationPath: string, registrationLine: number, localPath: string, method: string): InventoryRoute | null {
+  const rows = inventory.routes.filter((route) => route.registrationPath === registrationPath && route.registrationLine === registrationLine);
+  if (rows.length === 0) return null;
+  // One line can register several routes: `router.route("/x").get(a).post(b)` produces two inventory rows sharing
+  // coordinates and path, differing only by method. Taking the first would admit the wrong handler — precisely the
+  // "average over a disagreement" this function refuses elsewhere. Method disambiguates; nothing else can.
+  const row = rows.length === 1 ? rows[0]! : rows.find((candidate) => candidate.method !== null && candidate.method.toUpperCase() === method.toUpperCase());
+  if (row === undefined) {
+    throw new Error(`${registrationPath}:${registrationLine} registers ${rows.length} routes and none of them is ${JSON.stringify(method)}; a chained registration must be disambiguated by method rather than by position`);
+  }
   // Compared against the scan's LOCAL path, not its composed one. The two producers describe the same route at
   // different levels of composition: the scan recovers `/v2/leaves/me` by walking group and mount prefixes, while
   // the index records `/me` — the path as literally written at the registration line. Measured the hard way, by
   // this very check firing on `handlers.go:106`. Comparing the composed path against the indexed one reports a
   // disagreement on every prefixed route in the corpus, which is not a disagreement at all.
+  // Method as well as path. The comment used to promise both and the code checked only one — the same
+  // one-dimension-short comparison as the composed-versus-local path mistake this guard was written for.
+  if (row.method !== null && row.method.toUpperCase() !== method.toUpperCase()) {
+    throw new Error(`the crossrepo scan and the route inventory disagree about ${registrationPath}:${registrationLine}: the scan recorded method ${JSON.stringify(method)} and the index ${JSON.stringify(row.method)}; two producers naming one registration line differently is not a state to average over`);
+  }
   if (row.routePath !== null && row.routePath !== localPath) {
     throw new Error(`the crossrepo scan and the route inventory disagree about ${registrationPath}:${registrationLine}: the scan recorded the registration as ${JSON.stringify(localPath)} and the index as ${JSON.stringify(row.routePath)}; two producers naming one registration line differently is not a state to average over`);
   }
@@ -134,7 +157,8 @@ function joinRoute(inventory: RouteInventory, registrationPath: string, registra
  * wins, so the result does not depend on the scan's emission order.
  */
 export function crossrepoRecall(
-  links: readonly ScanLink[],
+  /** `null` means the resolver failed or did not run — DISTINCT from an empty array, which is a real finding. */
+  links: readonly ScanLink[] | null,
   inventory: RouteInventory | null,
   phase1Pool: readonly PoolNodeRef[],
   /**
@@ -148,7 +172,8 @@ export function crossrepoRecall(
   moduleDirs: ReadonlyMap<string, string>
 ): CrossrepoRecallResult {
   if (moduleDirs.size < 2) return notRun("single-module");
-  if (inventory === null) return notRun("scan-unavailable");
+  if (links === null) return notRun("scan-unavailable");
+  if (inventory === null) return notRun("no-inventory");
   if (links.length === 0) return notRun("no-links");
 
   const confirmed = links.filter((link) => link.confidence === "confirmed");
@@ -163,23 +188,29 @@ export function crossrepoRecall(
   const evidenceByNode = new Map<string, CrossrepoChannelEvidence>();
 
   for (const link of ordered) {
-    const rule = link.rule === "R3" ? null : link.rule;
-    // R3 is framework-shaped and always `probable`, so it cannot reach here; the guard exists because the type
-    // permits it and a silent skip would leave a confirmed link in no bucket at all.
-    if (rule === null) { byOutcome["caller-not-in-pool"] += 1; continue; }
+    // R3 is framework-shaped and `link-match` guarantees it is always `probable`, so a confirmed R3 means the
+    // producer contradicted itself. Thrown rather than filed under a bucket whose name would be a lie — the same
+    // house rule `joinRoute` follows for a producer disagreement.
+    if (link.rule === "R3") {
+      throw new Error(`a confirmed link carries rule R3 (${link.from.path}:${link.from.line}); link-match guarantees R3 is always probable, so this link contradicts its own producer`);
+    }
+    const rule = link.rule;
 
     const callerPath = targetRelative(moduleDirs, link.from.module, link.from.path);
-    const holders = callerPath === null ? [] : containing(phase1Pool, callerPath, link.from.line);
+    if (callerPath === null) {
+      throw new Error(`link ${link.from.path}:${link.from.line} names module ${JSON.stringify(link.from.module)}, which is not in the module inventory; filing it under a caller bucket would report a resolver problem as a property of the caller`);
+    }
+    const holders = containing(phase1Pool, callerPath, link.from.line);
     if (holders.length === 0) { byOutcome["caller-not-in-pool"] += 1; continue; }
 
     // The innermost containing root, so the permit names the tightest signal that earned it.
     const roots = holders.filter((node) => rootNodeIds.has(node.nodeId))
-      .sort((a, b) => (a.endLine! - a.startLine!) - (b.endLine! - b.startLine!));
+      .sort((a, b) => (a.endLine! - a.startLine!) - (b.endLine! - b.startLine!) || a.nodeId.localeCompare(b.nodeId));
     const callerRoot = roots[0];
     if (callerRoot === undefined) { byOutcome["caller-not-root"] += 1; continue; }
 
     const routePath = targetRelative(moduleDirs, link.to.module, link.to.path);
-    const row = routePath === null ? null : joinRoute(inventory, routePath, link.to.line, link.to.localPath);
+    const row = routePath === null ? null : joinRoute(inventory, routePath, link.to.line, link.to.localPath, link.from.method);
     if (row === null) { byOutcome["route-not-indexed"] += 1; continue; }
 
     const anchor = `${callerPath}:${link.from.line}`;
