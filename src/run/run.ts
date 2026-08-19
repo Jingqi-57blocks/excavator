@@ -44,6 +44,7 @@ import { appendTimeline, auditTimeline } from "../base/timeline.ts";
 import { runScopeSlug } from "./run-label.ts";
 import { auditPendingDrafts } from "../report/parallel-authoring.ts";
 import { authorPrompt, makeDocumentPlan, referencePath, reportFileName } from "../report/authoring-plan.ts";
+import { sectionPaths } from "../report/section-paths.ts";
 import { projectCacheDir, reDeriveIdentities } from "./stages/runtime-identity.ts";
 import { readFrozenFactPacks, readRequiredInvestigationResults, readRequiredObligationDeclarations } from "./stages/investigation-read-model.ts";
 import { resolveCrossRepoLinks } from "../crossrepo/resolve-links.ts";
@@ -678,14 +679,15 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
     // report existence so a checkpointed document is audited even when the run was never assembled.
     const featureFactEvidence = factPackEvidenceForDocument(document, manifest, evidenceById);
     for (const section of document.sections) {
-      if (!await exists(section.file)) {
+      const paths = sectionPaths(runDir, document.id, section);
+      if (!await exists(paths.file)) {
         // A section marked complete must have its checkpointed file on disk (fail closed); a section
         // that was never checkpointed is legitimately absent mid-authoring and is simply skipped.
         if (section.complete) findings.push({ level: "error", document: document.id, message: `checkpointed section ${section.index} file is missing` });
         continue;
       }
-      const sectionText = await readFile(section.file, "utf8");
-      const claimsFile = await exists(section.claimsFile) ? await readJson<SectionClaimsFile>(section.claimsFile) : null;
+      const sectionText = await readFile(paths.file, "utf8");
+      const claimsFile = await exists(paths.claimsFile) ? await readJson<SectionClaimsFile>(paths.claimsFile) : null;
       if (claimsFile) claimsByDocument.set(document.id, [...(claimsByDocument.get(document.id) ?? []), ...claimsFile.claims.map((claim) => ({ section: section.index, claim }))]);
       findings.push(...auditSectionClaims({ documentId: document.id, sectionIndex: section.index, sectionText, claimsFile, evidenceIds, traceIds }));
       findings.push(...auditSectionEvidenceMarkers({ documentId: document.id, sectionIndex: section.index, sectionText, strict: runUsesCurrentAssurance(manifest) }));
