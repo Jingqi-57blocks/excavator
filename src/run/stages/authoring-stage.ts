@@ -7,6 +7,7 @@ import { collectClaims, writeReportCompanions } from "../../report/assurance-art
 import { outputFrontMatter, reportFileName } from "../../report/authoring-plan.ts";
 import { archiveCheckpoint, normalizeSection } from "../../report/checkpoint.ts";
 import { scaffoldSectionClaims } from "../../report/claims-scaffold.ts";
+import { sectionPaths } from "../../report/section-paths.ts";
 import { validateClaimsInput } from "../../report/section-audit.ts";
 import { assertCurrentKnowledgeEpochForAuthoring } from "../../freeze/freeze.ts";
 
@@ -44,9 +45,10 @@ export async function checkpointSection(runDirInput: string, documentId: string,
   if (!document.startedAt) document.startedAt = nowIso();
   const elapsed = Date.now() - Date.parse(document.startedAt);
   const normalized = normalizeSection(content, section.title);
-  const revision = await archiveCheckpoint(runDir, documentId, section.file, section.claimsFile);
-  await atomicWrite(section.file, normalized);
-  if (claims) await writeJson(section.claimsFile, validateClaimsInput(documentId, sectionIndex, claims));
+  const paths = sectionPaths(runDir, documentId, section);
+  const revision = await archiveCheckpoint(runDir, documentId, paths.file, paths.claimsFile);
+  await atomicWrite(paths.file, normalized);
+  if (claims) await writeJson(paths.claimsFile, validateClaimsInput(documentId, sectionIndex, claims));
   section.complete = true;
   manifest.state = "authoring";
   manifest.updatedAt = nowIso();
@@ -102,9 +104,9 @@ export async function assembleRun(runDirInput: string): Promise<RunManifest> {
   const traces = await readJson<TraceCatalog>(join(runDir, "traces.json"));
   for (const document of manifest.documents) {
     const missing: typeof document.sections = [];
-    for (const section of document.sections) if (!section.complete || !await exists(section.file)) missing.push(section);
+    for (const section of document.sections) if (!section.complete || !await exists(sectionPaths(runDir, document.id, section).file)) missing.push(section);
     if (missing.length) throw new Error(`Cannot assemble ${document.id}; incomplete sections: ${missing.map((item) => item.index).join(", ")}`);
-    const parts = await Promise.all(document.sections.map((section) => readFile(section.file, "utf8")));
+    const parts = await Promise.all(document.sections.map((section) => readFile(sectionPaths(runDir, document.id, section).file, "utf8")));
     const body = parts.join("\n\n").trim();
     const frontMatter = outputFrontMatter(document, manifest, body);
     await atomicWrite(join(runDir, "reports", reportFileName(document)), `${frontMatter}\n\n${body}\n`);
