@@ -122,11 +122,13 @@
       {
         "module": "wcp-auth",
         "why": "zero-signal in BOTH arms, pool=0 under the FULL vocabulary. Its only route matching /leave|holiday|approv/i is POST /consent/approve -> OAuthConsentApprovePOST, an OAuth consent grant: the regex matches, the domain does not. If S4 seats anything here, the route channel is matching on the word rather than on the capability."
+      },
+      {
+        "module": "wcp_review_service",
+        "why": "Ruled non-gold on source evidence, so it is now pinned rather than deliberately unclassified. Its whole route surface (handler.go:30-92) is review/support/promotion; the one regex hit, promotion/router.go:266 Approve -> promotion/service.go:1486 RejectOrApprove, is promotion approval, sharing the word \"approve\" with leave and not the capability. Its only leave-domain code is review/service.go:1046-1090, which aggregates approved leave duration into a review view by reading the wcp_leave table, plus review/dto.go:52 LeaveDto — a read-only consumer with no part in the leave lifecycle. Seating it on that basis would be data-lineage membership, the same mistake as treating a directory or an import as membership. Note it sits at candidates-no-seat in the full arm and zero-signal under ablation: both mean zero seats, which is why this set is asserted on seats and not on the status literal."
       }
     ],
-    "notPinned": {
-      "wcp_review_service": "Deliberately unclassified. It flips candidates-no-seat -> zero-signal under ablation, which would make an attractive module-level flip target, but its one regex match is POST /:promotion_id/application/:application_id -> Approve: a real approval workflow, for promotions rather than leave. Whether it belongs to 请假管理 is a judgement about the product, and pinning it wrongly is expensive in both directions — as stay-empty it would score a correct S4 recall as a false positive, as flip it would demand a recall that may be wrong. Fable ruled: when unsure, do not pin."
-    }
+    "notPinned": {}
   },
   "budgetsNote": "maxGraphQueries is pinned generously (400) rather than at the production default. It is a CAP, so a larger value changes no selection — but the budget travels in the attribution identity, so a value that later has to be raised would move the baseline for a reason unrelated to recall. S4 adds route-inventory queries; the headroom is there so that slice moves the flip set and nothing else. Two features over five modules already exceeds 70.",
   "profileNote": "Only the ablated arm carries hypotheses; the full arm stays a pure lexical control. pathPattern is the inventory's own routePath verbatim — these are gin group-relative paths, and writing the public full path would align against nothing. Adding the profile changes this arm's featureCacheKey by design (S3), so its featureKey and identity.runIntentFeatures move with it."

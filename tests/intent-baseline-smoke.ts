@@ -169,11 +169,20 @@ async function runFixture(name: string): Promise<void> {
       assert.equal(moduleRow(selection, hold.module).status, "seated",
         `hold-set module ${hold.module} lost its seats in the ${armName} arm`);
     }
-    // STAY-EMPTY SET — empty today, must STAY empty after S4. The false-positive tripwire: turning these green
-    // means the new channel is admitting on the word rather than on the capability.
+    // STAY-EMPTY SET — empty today, must STAY empty. The false-positive tripwire: turning these green means the
+    // new channel is admitting on the word rather than on the capability.
+    //
+    // ASSERTED ON SEATS, NOT ON `status`. The claim this set makes is "nothing here gets selected", and `status`
+    // spells that two different ways: a module whose candidates all lose scoring reads `candidates-no-seat`, one
+    // whose vocabulary never matched reads `zero-signal`. Both are zero seats. wcp_review_service is literally
+    // both — `candidates-no-seat` in the full arm, `zero-signal` under ablation — so a literal comparison would
+    // have to encode per-arm expectations for a distinction that carries no meaning here, and would go red when
+    // an unrelated parameter (the generic action-term list, say) moves a module between two states that are
+    // equally empty. `seatedCells` is the quantity the set is actually about, and `status === "seated"` is
+    // derived from it being non-zero, so this is strictly tighter than the literal for the case that matters.
     for (const empty of fixture.moduleClasses.stayEmpty) {
-      assert.equal(moduleRow(selection, empty.module).status, "zero-signal",
-        `stay-empty module ${empty.module} gained signal in the ${armName} arm`);
+      assert.equal(moduleRow(selection, empty.module).seatedCells, 0,
+        `stay-empty module ${empty.module} gained seats in the ${armName} arm`);
     }
   }
 
