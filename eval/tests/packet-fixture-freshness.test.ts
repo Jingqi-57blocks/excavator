@@ -65,8 +65,15 @@ test("every checked-in fixture packet is byte-identical to what the current rend
     for (const document of manifest.documents as DocumentPlan[]) {
       const checkedIn = readFileSync(join(dir, "context", "authoring", `${document.id}.md`));
       const rendered = Buffer.from(buildAuthoringPacket(document, plan, evidenceById, traces, factPacks, undefined, undefined, manifest.knowledgeEpoch), "utf8");
+      // Same-length divergence is the common case when a fixture is edited in place, and printing two identical
+      // numbers sends the reader looking for a size difference that does not exist. Say which kind of difference
+      // it is: measured on a same-length mutation injected into a checked-in packet, the old wording read
+      // "produces 1198 bytes, the checked-in packet is 1198".
+      const shape = rendered.length === checkedIn.length
+        ? `the current renderer and the checked-in packet differ in CONTENT, not in length (both are ${rendered.length} bytes)`
+        : `the current renderer produces ${rendered.length} bytes, the checked-in packet is ${checkedIn.length}`;
       assert.equal(rendered.equals(checkedIn), true,
-        `${name}/${document.id}: the current renderer produces ${rendered.length} bytes, the checked-in packet is ${checkedIn.length}. `
+        `${name}/${document.id}: ${shape}. `
         + "Re-generate the fixture packet and move the pinned digests and byte numbers in packet-readings.test.ts to the new output.\n"
         + `--- rendered ---\n${rendered.toString("utf8")}\n--- checked in ---\n${checkedIn.toString("utf8")}`);
     }
