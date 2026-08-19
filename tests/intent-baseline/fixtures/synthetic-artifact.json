@@ -1,0 +1,30 @@
+{
+  "version": "attribution-v3",
+  "identity": {
+    "unitsContentDigest": "units-digest",
+    "filesContentManifestDigest": "files-digest",
+    "mechanismsDigest": "mechanisms-digest",
+    "channels": ["seed", "lexical", "derived", "relation", "convention", "fallback"],
+    "channelConfigDigest": "config-digest",
+    "channelInputs": { "codegraphEnvelopeDigest": "envelope-digest", "moduleInventoryDigest": "module-digest" },
+    "budgets": { "maxFeatureNodes": 180, "maxExpansionDepth": 2, "maxGraphQueries": 70 },
+    "runIntentSummary": {
+      "version": "run-intent-v1",
+      "featureCount": 1,
+      "features": [{ "key": "f1", "subject": "s", "aliases": ["a", "b"] }],
+      "digest": "intent-digest"
+    }
+  },
+  "denominator": { "unitKind": "partition-cell", "cells": 4, "completeness": { "capReached": false } },
+  "selections": [{
+    "featureKey": "f1",
+    "channels": { "status": "ran", "poolNodes": 2, "retainedNodes": 2, "seedCount": 1, "byChannel": { "seed": 1, "lexical": 1, "derived": 0, "relation": 0, "convention": 0, "fallback": 0, "displaced": 0 } },
+    "seats": [{ "unitId": "cell:structure:0-10:a.ts", "factId": "function:a.ts:1-2:f", "channel": "seed", "rootName": "root", "nodeKind": "function", "name": "f", "score": 1, "reason": "r", "contributions": [] }],
+    "displacements": [],
+    "zeroScore": [{ "reason": "structure-unobserved", "cells": 3 }],
+    "projection": { "retained": { "nodes": 2, "seated": 1, "missCounts": {} }, "displaced": { "nodes": 0, "seated": 0, "missCounts": {} } },
+    "modules": [{ "moduleId": "root", "dir": "root", "status": "seated", "denominatorCells": 4, "poolNodes": 2, "retainedNodes": 2, "displacedNodes": 0, "seatedCells": 1, "displacedCells": 0, "soleSourceSeats": 0 }],
+    "conservation": [{ "unitKind": "partition-cell", "totals": { "counted": 4, "seated": 1, "displaced": 0, "zeroScore": 3 } }],
+    "seedCells": ["cell:structure:0-10:a.ts"]
+  }]
+}

@@ -241,7 +241,10 @@ async function requestFromArgs(argv: string[]): Promise<ReportRequest> {
 
 function normalizeRequest(raw: Partial<ReportRequest>, args: Record<string, string>): ReportRequest {
   const overviewAudiences = (raw.overviewAudiences ?? []).flatMap((value) => audiences(String(value)));
-  const features = (raw.features ?? []).map((feature) => ({ subject: feature.subject, aliases: feature.aliases ?? [], audiences: feature.audiences?.flatMap((value) => audiences(String(value))) ?? ["product"] }));
+  // `profile` is passed through UNVALIDATED on purpose: `normalizeFeatureProfile` is the single validator, and a
+  // copy of its rules here would be a second one to drift. Spread conditionally so a request without hypotheses
+  // does not acquire a `profile: undefined` key and move its own contract digest.
+  const features = (raw.features ?? []).map((feature) => ({ subject: feature.subject, aliases: feature.aliases ?? [], audiences: feature.audiences?.flatMap((value) => audiences(String(value))) ?? ["product"], ...(feature.profile === undefined ? {} : { profile: feature.profile }) }));
   return {
     target: resolve(String(raw.target ?? required(args.target, "target"))),
     codegraph: raw.codegraph ? resolve(String(raw.codegraph)) : args.codegraph ? resolve(args.codegraph) : undefined,

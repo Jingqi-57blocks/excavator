@@ -1,4 +1,5 @@
 import type { FactKindId, Membership } from "./fact-kind-registry.ts";
+import type { FeatureProfile } from "./feature-profile.ts";
 import type { RowSetIdentity } from "./row-set.ts";
 
 export type Audience = "product" | "engineering" | "prd";
@@ -17,6 +18,14 @@ export interface FeatureRequest {
   subject: string;
   aliases: string[];
   audiences: Audience[];
+  /**
+   * Unverified hypotheses about where this capability enters the system; see `FeatureProfile`.
+   *
+   * Optional because the whole point is that a caller who has nothing to assert says nothing. Absent and present
+   * are genuinely different intents, and the contract records which one it got — an empty profile is refused
+   * rather than treated as absent.
+   */
+  profile?: FeatureProfile;
 }
 
 export interface ReportRequest {
