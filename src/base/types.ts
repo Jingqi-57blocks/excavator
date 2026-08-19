@@ -1,4 +1,5 @@
 import type { FactKindId, Membership } from "./fact-kind-registry.ts";
+import type { RowSetIdentity } from "./row-set.ts";
 
 export type Audience = "product" | "engineering" | "prd";
 export type DocumentKind = "overview" | "feature";
@@ -341,7 +342,17 @@ export interface FreezeAuditCheck {
 
 /** Deterministic freeze-gate report, with no cross-domain or positive/negative aggregate ratio. */
 export interface KnowledgeCompleteness {
-  version: "knowledge-completeness-v2";
+  /**
+   * v3 adds `closure.sourceReadsWithoutObligation`. The label moves with the shape because "the mode is part of
+   * the identity" is a ruling this repository has already paid for: a v2 tag over two different shapes lets a
+   * future consumer gate on a version that does not say what it holds. Cheap now (three test fixtures, no
+   * production reader); the cost of deferring is the `assurance-v9` generation-gate machinery, which exists
+   * precisely because a field once meant two things under one label.
+   *
+   * ABSENCE of the field in an archived epoch means NOT MEASURED — never 0. No reader may treat a missing value
+   * as "no unclaimed reads".
+   */
+  version: "knowledge-completeness-v3";
   domains: DomainCompleteness[];
   closure: {
     workItems: { positive: number; negative: number; pending: number; byStatus: Record<string, number> };
@@ -516,7 +527,23 @@ export interface RunManifest {
 export interface CodeGraphCoverage {
   indexed: number;
   counted: number;
+  /**
+   * Index file rows that match no counted ledger row.
+   *
+   * The numerator's own residual bucket. `indexed` is an intersection, and an intersection hides whatever sits
+   * on the index's side of it: a stale index, a wrong root, a path-normalisation mismatch. Zero on all three
+   * real targets today — which is exactly why a regression here would go unseen without a field to see it in.
+   */
+  unmatchedIndexRows: number;
   ratio: number;
+  /** Which ledger this denominator is accountable to, embedded rather than re-derived (分母法则). */
+  ledgerIdentity: RowSetIdentity;
+  /**
+   * The counted set partitioned by language. It IS a partition and the partition law applies: the rows' counted
+   * values sum to `counted` and their indexed values to `indexed`, enforced by `tests/context.test.ts`. There
+   * are no excluded/unexplained buckets here only because the input is already the counted set — not because
+   * the rows are exempt from adding up.
+   */
   byLanguage: Array<{ language: string; counted: number; indexed: number }>;
 }
 

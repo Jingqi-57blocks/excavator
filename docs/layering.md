@@ -127,7 +127,7 @@ src/run/  src/cli.ts ✓ 编排
 **登记表今天与目标结构的两处差距，都是过渡而不是裁定：**
 
 - `src/facts/` 只有 `probe/`。另外六个生产者（codegraph、nativegraph、framework、schema、crossrepo、词汇）仍在自己的顶层目录里，各自登记 L3。层 3 的约束是「每生产者一个子目录」而不是「必须叫 `facts/x`」，所以这只是名字没搬。
-- 层 1 的目录名 `snapshot/` 尚未改。层 5 仍处于双目录过渡，但 57B-424 已把 census、`ReadSpec` 与唯一模型视图收束到 `src/workset/`；`src/context/` 只保留确定性收集与缓存。结构化源码预读的生产者已迁至 `src/facts/probe/`，层 5 不再持有 reader。**登记表是契约，目录名不是**。
+- 层 1 的目录名 `snapshot/` 尚未改。层 5 仍处于双目录过渡，但 57B-424 已把 census、`ReadSpec` 与唯一模型视图收束到 `src/workset/`；`src/context/` 只保留确定性收集与缓存。结构化源码预读的生产者已迁至 `src/facts/probe/`。**但层 5 仍在执行源码读取**：`src/context/context.ts:168` 构造 `SourceReader` 并在 prepare 期读出项目文档与回退搜索窗口，与本层禁止输入列的「源码读取器——本层只授权，不执行」直接冲突。这是**已计量的过渡违规**，不是已完成的迁移：第 8 层 `closure.sourceReadsWithoutObligation` 记录每次冻结时未被任何读取执行认领的读取条数（wcp overview 实测 10 条），并在 `investigation-closure` 族发劝告级 finding。层序测试抓不到它——L5→L1 是向下 import，方向合法，禁止输入列不由装置守着。迁移方案见该字段的定义注释。**登记表是契约，目录名不是**。
 
 探针三份（`decision-probe`、`condition-extract`、`condition-extract-perl`）与版本闸簇先迁至 `facts/probe/` 与 `base/`；57B-429 又把余下 21 份全部按已登记的侧归位：义务三份 → `obligation/`，调查五份 → `investigation/`，冻结三份 → `freeze/`，timeline → `base/`，报告九份 → `report/`。`src/assurance/` 不再存在，新文件不能再靠混装目录逃过层登记。
 

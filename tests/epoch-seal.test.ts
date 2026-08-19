@@ -10,7 +10,7 @@ import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 const completeness: KnowledgeCompleteness = {
-  version: "knowledge-completeness-v2",
+  version: "knowledge-completeness-v3",
   domains: [],
   closure: {
     workItems: { positive: 2, negative: 0, pending: 0, byStatus: { found: 2 } },

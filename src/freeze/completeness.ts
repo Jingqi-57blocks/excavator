@@ -67,7 +67,11 @@ export async function buildFreezeCompleteness(input: FreezeCompletenessInput): P
     findings.push(...outcome.findings);
     if (outcome.domains) domains = outcome.domains;
     const errors = outcome.findings.filter((finding) => finding.level === "error");
-    checks.push({ ...declared, status: errors.length ? "failed" : "passed", findingCount: outcome.findings.length, ...(errors.length ? { reason: errors[0]!.message } : {}) });
+    // `reason` carries the first finding whatever its level. It used to be populated only for errors, so an
+    // advisory sealed as `passed, findingCount: 1` with nothing saying what the one finding was — a number an
+    // auditor cannot act on, which is the same defect the advisory itself exists to fix one level up.
+    const firstFinding = errors[0] ?? outcome.findings[0];
+    checks.push({ ...declared, status: errors.length ? "failed" : "passed", findingCount: outcome.findings.length, ...(firstFinding ? { reason: firstFinding.message } : {}) });
   }
   const requiredFamilies = ["contract-instances", "coverage-conservation", "boundary-identity",
     ...(assuranceGenerationAtLeast(input.manifest, DOMAIN_COMPLETENESS_ASSURANCE_GENERATION) ? ["not-applicable-premises", "investigation-closure"] : [])];
@@ -80,7 +84,7 @@ export async function buildFreezeCompleteness(input: FreezeCompletenessInput): P
   checks.sort((a, b) => a.family.localeCompare(b.family));
   return {
     completeness: {
-      version: "knowledge-completeness-v2",
+      version: "knowledge-completeness-v3",
       domains,
       closure: buildClosure(input.plan, input.investigationResults, input.evidence),
       checks,
@@ -98,7 +102,7 @@ async function executeCheck(family: string, version: string, input: FreezeComple
     case "coverage-conservation": return inspectDomainCompleteness(input.runDir, input.contract);
     case "boundary-identity": return { findings: await auditBoundaryIdentity(input.runDir, input.manifest) };
     case "not-applicable-premises": return { findings: v15 ? await auditNotApplicablePremises(input.runDir, input.contract) : [] };
-    case "investigation-closure": return { findings: v15 ? auditInvestigationClosure(input.investigationResults) : [] };
+    case "investigation-closure": return { findings: v15 ? auditInvestigationClosure(input.investigationResults, input.evidence) : [] };
     default: return null;
   }
 }
@@ -430,9 +434,31 @@ async function resolveBasis(runDir: string, reference: string): Promise<unknown>
   throw new Error("basis kind is not registered");
 }
 
-function auditInvestigationClosure(results: InvestigationResults | null): AuditFinding[] {
+/** How many unclaimed-read ids one advisory names before it rolls the rest up. A finding is a bounded field. */
+const UNCLAIMED_READ_ADVISORY_LIMIT = 20;
+
+function auditInvestigationClosure(results: InvestigationResults | null, evidence: readonly EvidenceItem[]): AuditFinding[] {
   if (!results) return [error("investigation-closure", "L7 investigation results were not available to the closure check")];
   const findings: AuditFinding[] = [];
+  // ADVISORY, not an error, and not silence either.
+  //
+  // The check only ever asked the forward question — did every AUTHORIZED read complete — so a run that read
+  // without authorization sealed as `passed, 0 findings`. Making it an error would fail every overview and
+  // feature run today, because prepare reads the target's project documents before any ReadSpec exists; the gap
+  // is a property of the current L5/L7 split, not of a run. But a clean verdict printed beside a non-zero
+  // `sourceReadsWithoutObligation` is the artifact contradicting itself — the count says something happened and
+  // the verdict says nothing did. Advisory keeps freeze open while making the check's own record disagree with
+  // "nothing to report", and the ids make it actionable: a bare count tells an auditor nothing to go look at.
+  const unclaimed = unclaimedReads(results, evidence);
+  if (unclaimed.length) {
+    const named = unclaimed.slice(0, UNCLAIMED_READ_ADVISORY_LIMIT);
+    const rest = unclaimed.length - named.length;
+    findings.push({
+      level: "warning",
+      document: "investigation-closure",
+      message: `${unclaimed.length} recorded read(s) are claimed by no read execution: ${named.join(", ")}${rest ? ` (+${rest} more)` : ""}. A run with no ReadSpec authorizes none, so prepare-time reads land here until layer 5 issues run-scoped authorizations.`
+    });
+  }
   for (const execution of results.executions.filter((row) => row.outcome === "unavailable")) {
     findings.push(error("investigation-closure", `source-reading ${execution.declarationId} remains pending: ${execution.cause ?? "authorized source unavailable"}`));
   }
@@ -443,16 +469,30 @@ function auditInvestigationClosure(results: InvestigationResults | null): AuditF
 }
 
 /**
- * Recorded source windows that no execution claims.
+ * Evidence kinds produced by reading the target's bytes.
+ *
+ * All four go through `SourceReader`/`sourceSearch`: `readme` and `manifest` are whole-file windows
+ * (`context.ts` project documents), `search` carries excerpts, `source` is a bounded window. Counting only
+ * `source` measured "unclaimed source entries" while the field claimed to measure unauthorized READS — on the
+ * first wcp overview that left `manifest` 11, `readme` 3 and `search` 5 outside both buckets, a fourth state
+ * in a field whose whole purpose is to have none.
+ */
+const READ_DERIVED_EVIDENCE_KINDS: ReadonlySet<EvidenceItem["kind"]> = new Set(["source", "readme", "manifest", "search"]);
+
+/**
+ * Recorded reads that no execution claims, with their ids.
  *
  * Every `ReadExecutionRecord` names the evidence its authorized read produced, so the unclaimed remainder is
- * exactly the reads that happened outside the authorization chain. With no results at all, every recorded
- * source window is unaccounted — which is the honest reading, not a reason to report zero.
+ * exactly the reads that happened outside the authorization chain. With no results at all, every recorded read
+ * is unaccounted — the honest reading, not a reason to report zero.
+ *
+ * The ids travel with the count because a bare `10` cannot be acted on: an auditor holding it has no way to
+ * find which reads were unaccounted.
  */
-function unauthorizedSourceReads(results: InvestigationResults | null, evidence: readonly EvidenceItem[]): number {
+function unclaimedReads(results: InvestigationResults | null, evidence: readonly EvidenceItem[]): readonly string[] {
   const claimed = new Set<string>();
   for (const execution of results?.executions ?? []) for (const id of execution.evidenceIds) claimed.add(id);
-  return evidence.filter((item) => item.kind === "source" && !claimed.has(item.id)).length;
+  return evidence.filter((item) => READ_DERIVED_EVIDENCE_KINDS.has(item.kind) && !claimed.has(item.id)).map((item) => item.id).sort();
 }
 
 function buildClosure(plan: InvestigationPlan, results: InvestigationResults | null, evidence: readonly EvidenceItem[]): KnowledgeCompleteness["closure"] {
@@ -472,7 +512,7 @@ function buildClosure(plan: InvestigationPlan, results: InvestigationResults | n
     },
     probeResiduals: results?.residuals.length ?? 0,
     materialFlowsWithTraces: plan.items.filter((item) => item.material && item.status === "found" && MATERIAL_FLOW_DIMENSIONS.has(item.dimension) && item.traceIds.length > 0).length,
-    sourceReadsWithoutObligation: unauthorizedSourceReads(results, evidence)
+    sourceReadsWithoutObligation: unclaimedReads(results, evidence).length
   };
 }
 

@@ -7,6 +7,7 @@ import { allocateFeatureGraphRecorded } from "../attribution/allocator.ts";
 import { channelUnavailable, SELECTION_TRACE_VERSION, type FeatureSelectionTrace } from "../attribution/selection-trace.ts";
 import { createSnapshot, isLikelySource, type ScannedFile } from "../snapshot/snapshot.ts";
 import { corpusResolver, LANGUAGE_REGISTRY } from "../base/language-registry.ts";
+import { countedRowSet } from "../snapshot/file-ledger.ts";
 import type { FileLedger } from "../snapshot/file-ledger.ts";
 import { codegraphIdentity } from "../codegraph/codegraph-identity.ts";
 import { SourceReader, evidenceFromWindow, manifestSummary, selectProjectDocuments, sourceSearch } from "../snapshot/source.ts";
@@ -205,7 +206,7 @@ export async function buildContextsFromBoundary(request: ReportRequest, boundary
     warnings.push(...shared.metrics.warnings);
   } else {
     const started = Date.now();
-    shared = await buildSharedContext(snapshot, files, graph, sourceReader, deadline);
+    shared = await buildSharedContext(snapshot, files, ledger, graph, sourceReader, deadline);
     timing.sharedContextMs = Date.now() - started;
     await writeJson(sharedCachePath, shared);
     warnings.push(...shared.metrics.warnings);
@@ -315,29 +316,71 @@ export async function buildContextsFromBoundary(request: ReportRequest, boundary
  * cost. The per-language rows are the part worth reading; the aggregate ratio is depressed by however many
  * stylesheets a project happens to contain, which is a fact about the file mix rather than about the index.
  */
-function codegraphCoverage(files: readonly ScannedFile[], graphPaths: ReadonlySet<string>): CodeGraphCoverage {
+/** How many language rows the model view prints before rolling the rest into one line (view law: declared bound). */
+const COVERAGE_VIEW_ROWS = 20;
+
+/**
+ * The model-facing coverage rows — counts only, never the aggregate percentage.
+ *
+ * The percentage stays in `metrics.json`, where it is checkable against the ledger and harmless. It is kept OUT
+ * of here because this is the channel a report quotes from: the previous headline (95.3%, on a denominator that
+ * existed in no ledger) reached a real report as a `事实` through exactly this line. A percentage sitting beside
+ * a caution not to read it is still the most quotable thing on the page, and the aggregate is the one number
+ * that cannot be acted on — it moves with how many stylesheets a repository happens to contain.
+ *
+ * The row cap is the view law's declared bound. `unregistered:<ext>` means the row count grows with a target's
+ * stray extensions, so an uncapped list is the "each row is small but the array is unbounded" shape P18 names.
+ * The rolled-up remainder keeps the rows a partition of the counted set rather than a truncated prefix.
+ */
+function renderCoverageRows(coverage: CodeGraphCoverage): string {
+  const shown = coverage.byLanguage.slice(0, COVERAGE_VIEW_ROWS);
+  const rest = coverage.byLanguage.slice(COVERAGE_VIEW_ROWS);
+  const lines = shown.map((row) => `  - ${row.language}: ${row.indexed}/${row.counted} indexed`);
+  if (rest.length) {
+    const counted = rest.reduce((sum, row) => sum + row.counted, 0);
+    const indexed = rest.reduce((sum, row) => sum + row.indexed, 0);
+    lines.push(`  - other (${rest.length} languages): ${indexed}/${counted} indexed`);
+  }
+  return lines.join("\n");
+}
+
+function codegraphCoverage(ledger: FileLedger, graphPaths: ReadonlySet<string>): CodeGraphCoverage {
+  // Through the ledger's own door. `countedRowSet` is the single factory the denominator law names, and it
+  // demands the ledger's identity and completeness block — so what is counted here is the artifact, not an
+  // array that happens to equal it. `files.length` from `createSnapshot` IS equal today, and that is exactly
+  // the problem: it is equal by construction, not by consumption, and any filter added between the boundary
+  // and this call would diverge silently while a test comparing against a second `scanFiles()` stayed green.
+  const denominator = countedRowSet(ledger);
   const resolver = corpusResolver(LANGUAGE_REGISTRY);
   const rows = new Map<string, { language: string; counted: number; indexed: number }>();
-  for (const file of files) {
-    const name = file.relativePath.slice(file.relativePath.lastIndexOf("/") + 1);
+  let indexed = 0;
+  for (const row of ledger.counted) {
+    const name = row.relativePath.slice(row.relativePath.lastIndexOf("/") + 1);
     // Same expression and same fallback as `workset/census.ts`, so a language that is a row there is the same
     // row here. A second spelling of "what language is this" is a second census that can disagree with layer 2.
-    const language = resolver.languageOf(name, file.extension) ?? `unregistered:${file.extension || "(none)"}`;
-    const row = rows.get(language) ?? { language, counted: 0, indexed: 0 };
-    row.counted += 1;
-    if (graphPaths.has(file.relativePath)) row.indexed += 1;
-    rows.set(language, row);
+    const language = resolver.languageOf(name, row.extension) ?? `unregistered:${row.extension || "(none)"}`;
+    const entry = rows.get(language) ?? { language, counted: 0, indexed: 0 };
+    entry.counted += 1;
+    if (graphPaths.has(row.relativePath)) { entry.indexed += 1; indexed += 1; }
+    rows.set(language, entry);
   }
-  const indexed = files.filter((file) => graphPaths.has(file.relativePath)).length;
+  // Index rows matching no counted row: a stale index, a wrong root or a path-normalisation mismatch all land
+  // here. Zero on all three real targets today — which is precisely why nobody would notice it becoming
+  // non-zero, and why the denominator's other side needs a visible bucket too.
+  const countedPaths = new Set(ledger.counted.map((row) => row.relativePath));
+  const unmatchedIndexRows = [...graphPaths].filter((path) => !countedPaths.has(path)).length;
+  const counted = denominator.rowIds.length;
   return {
     indexed,
-    counted: files.length,
-    ratio: files.length ? indexed / files.length : 1,
+    counted,
+    unmatchedIndexRows,
+    ratio: counted ? indexed / counted : 1,
+    ledgerIdentity: denominator.identity,
     byLanguage: [...rows.values()].sort((a, b) => b.counted - a.counted || a.language.localeCompare(b.language))
   };
 }
 
-async function buildSharedContext(snapshot: Snapshot, files: ScannedFile[], graph: GraphReader | null, sourceReader: SourceReader, deadline: Deadline): Promise<CachedShared> {
+async function buildSharedContext(snapshot: Snapshot, files: ScannedFile[], ledger: FileLedger, graph: GraphReader | null, sourceReader: SourceReader, deadline: Deadline): Promise<CachedShared> {
   const evidence: EvidenceItem[] = [];
   const warnings: string[] = [];
   let graphPaths = new Set<string>();
@@ -372,7 +415,7 @@ async function buildSharedContext(snapshot: Snapshot, files: ScannedFile[], grap
     // lower (82.0% on wcp) because it stops hiding its own exclusions; `unindexedByExtension` puts those back
     // as observed data rather than as a rule, so a reader can see that `.scss` and `.html` dominate the gap
     // without the engine having to assert which extensions "should" have been indexed.
-    coverage = codegraphCoverage(files, graphPaths);
+    coverage = codegraphCoverage(ledger, graphPaths);
     const { counted, indexed } = coverage;
     graphSummary = graph.summary();
     representativeNodes = graph.representativeNodes(60);
@@ -387,7 +430,7 @@ async function buildSharedContext(snapshot: Snapshot, files: ScannedFile[], grap
     evidence.push({ id: `CG-NODES-${snapshot.id}`, snapshotId: snapshot.id, kind: "graph", title: "Representative CodeGraph nodes", data: representativeNodes, reason: "identify likely entry points, components and implementation centers", digest: sha256(stableJson(representativeNodes)) });
     evidence.push({ id: `CG-ROUTES-${snapshot.id}`, snapshotId: snapshot.id, kind: "graph", title: "Route candidates", data: routes, reason: "identify user and system entry points; source confirmation is required for incomplete route semantics", digest: sha256(stableJson(routes)) });
   } else {
-    coverage = { ...codegraphCoverage(files, new Set()), ratio: 0 };
+    coverage = { ...codegraphCoverage(ledger, new Set()), ratio: 0 };
   }
 
   const projectDocs = selectProjectDocuments(files, 14);
@@ -569,8 +612,8 @@ ${stableJson({ id: snapshot.id, roots: snapshot.roots, scannerVersion: snapshot.
 
 ## Coverage
 
-- CodeGraph indexed ${coverage.indexed} of ${coverage.counted} counted files (${(coverage.ratio * 100).toFixed(1)}%). The denominator is \`ledger/files.json\`'s counted rows, so it includes file types no code index covers; read the per-language rows rather than this ratio.
-${coverage.byLanguage.map((row) => `  - ${row.language}: ${row.indexed}/${row.counted} indexed`).join("\n")}
+- CodeGraph indexed ${coverage.indexed} of ${coverage.counted} counted files, by language:
+${renderCoverageRows(coverage)}
 - CodeGraph is a navigation index. Source excerpts remain authoritative for semantics.
 - Files absent from CodeGraph, extraction errors, unresolved relationships and ambiguous findings trigger source fallback.
 

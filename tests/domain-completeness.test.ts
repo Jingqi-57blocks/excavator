@@ -77,16 +77,23 @@ test("freeze counts the source reads no authorization covers instead of sealing 
 
   const knowledge = JSON.parse(await readFile(join(runDir, "knowledge.json"), "utf8")) as KnowledgeArtifact;
   const evidence = JSON.parse(await readFile(join(runDir, "evidence.json"), "utf8")) as { evidence: Array<{ kind: string }> };
-  const recordedSourceReads = evidence.evidence.filter((item) => item.kind === "source").length;
+  // EVERY kind produced by reading the target, not just `source`. Counting `source` alone measured "unclaimed
+  // source entries" while the field claimed to measure unauthorized reads, leaving `readme`, `manifest` and
+  // `search` — all of them `SourceReader`/`sourceSearch` output — in neither bucket.
+  const readDerived = evidence.evidence.filter((item) => ["source", "readme", "manifest", "search"].includes(item.kind)).length;
+  const sourceOnly = evidence.evidence.filter((item) => item.kind === "source").length;
 
-  assert.ok(recordedSourceReads > 0, "prepare records source windows even on an overview-only run");
-  assert.equal(knowledge.completeness.closure.sourceReadsWithoutObligation, recordedSourceReads,
-    "an overview run authorizes no read, so every recorded window is unaccounted — and the epoch says so");
+  assert.ok(sourceOnly > 0 && readDerived > sourceOnly,
+    "the fixture records more than one kind of read, so a source-only count would be a visible undercount");
+  assert.equal(knowledge.completeness.closure.sourceReadsWithoutObligation, readDerived,
+    "an overview run authorizes no read, so every recorded read is unaccounted — and the epoch says so");
 
-  // And the point of the figure: the check family still passes. A silent zero and an honest count are
-  // indistinguishable from the verdict alone, which is why the number has to be sealed next to it.
+  // The check still passes — the gap is a property of the L5/L7 split, not of this run, and failing it would
+  // stop every overview and feature run today. But it must not pass SILENTLY: a verdict of "passed, 0 findings"
+  // printed beside a non-zero count is the artifact contradicting itself.
   const closure = knowledge.completeness.checks.find((row) => row.family === "investigation-closure");
   assert.equal(closure?.status, "passed", "the gap is stated, not converted into a freeze failure");
+  assert.ok((closure?.findingCount ?? 0) > 0, "and it is not sealed as `0 findings` while the count says otherwise");
 });
 
 test("an overview-only run retains conserved file and partition domains without inventing a feature selection", async () => {

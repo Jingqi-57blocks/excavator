@@ -89,10 +89,16 @@ test("the CodeGraph coverage denominator counts every scanned file, not a hand-p
   const coverage = result.stats.codegraphCoverage;
   assert.ok(coverage, "a run with a graph publishes coverage");
 
-  const scanned = await scanFiles(target, 10_000);
-  assert.equal(coverage.counted, scanned.length,
-    "the denominator is the counted row set; a predicate that drops non-source extensions would report fewer");
+  // AGAINST THE LEDGER, not against a second scan. The first version of this test compared `coverage.counted`
+  // with a fresh `scanFiles()` — but both go through `scanWorkspace`, so a change that moved them together
+  // would keep it green while the denominator quietly stopped being the ledger's. The ledger artifact is the
+  // thing the denominator law names, so the ledger artifact is what the assertion reads.
+  assert.equal(coverage.counted, result.ledger.counted.length,
+    "the denominator is the ledger's counted rows; a predicate that drops non-source extensions would report fewer");
+  assert.equal(coverage.ledgerIdentity.contentDigest, result.ledger.contentManifestDigest,
+    "and it carries which ledger it is accountable to, rather than leaving that to be looked up later");
   assert.equal(coverage.ratio, coverage.indexed / coverage.counted, "and the ratio is those two numbers");
+  assert.equal(coverage.unmatchedIndexRows, 0, "every index row matches a counted row on this fixture");
 
   // The split is reported as observation, not asserted as a rule — the point of replacing the denylist. Each
   // added file lands in its own language row rather than being removed from the denominator.
