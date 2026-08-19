@@ -1,4 +1,6 @@
 import type { FactKindId, Membership } from "./fact-kind-registry.ts";
+import type { FeatureProfile } from "./feature-profile.ts";
+import type { RowSetIdentity } from "./row-set.ts";
 
 export type Audience = "product" | "engineering" | "prd";
 export type DocumentKind = "overview" | "feature";
@@ -16,6 +18,14 @@ export interface FeatureRequest {
   subject: string;
   aliases: string[];
   audiences: Audience[];
+  /**
+   * Unverified hypotheses about where this capability enters the system; see `FeatureProfile`.
+   *
+   * Optional because the whole point is that a caller who has nothing to assert says nothing. Absent and present
+   * are genuinely different intents, and the contract records which one it got — an empty profile is refused
+   * rather than treated as absent.
+   */
+  profile?: FeatureProfile;
 }
 
 export interface ReportRequest {
@@ -34,16 +44,13 @@ export interface ReportRequest {
   /**
    * Whether recorded source is scanned for secrets and their values blanked.
    *
-   * OFF by default, and the reason is an asymmetry rather than a claim about where Excavator runs. The cost
-   * of ON is measured and certain: a real run recorded ten branches of a leave-balance calculation as
-   * `<redacted>` because the domain names an hours field `*Token`. The benefit of ON depends on who ends up
-   * holding the artifacts — which this process cannot know, since the same engine serves a workspace on the
-   * operator's own machine and a deployment that hands results to someone else.
+   * ON by default — only an explicit `false` (or `--no-redact`) turns it off. The costs are not symmetric:
+   * redaction loses evidence, which is measured and recoverable by re-running (a real run blanked ten branches
+   * of a leave calculation because the domain names an hours field `*Token`), while not redacting can leak a
+   * credential into artifacts that have already been handed on, which is neither.
    *
-   * So the engine does not guess. It defaults to preserving evidence, records the choice here, and reports
-   * it in `excavator status` and in every report's front matter, so whoever receives the artifacts can tell
-   * which of the two they are holding. Turn it ON whenever the run directory or its HTML export will reach
-   * anyone who should not read the source verbatim.
+   * `undefined` therefore means ON: an omitted field is a caller who did not decide. `prepareRun` normalises it
+   * to an explicit boolean, so the manifest never carries `undefined` and consumers can read `=== true`.
    */
   redactSecrets?: boolean;
 }
@@ -344,13 +351,38 @@ export interface FreezeAuditCheck {
 
 /** Deterministic freeze-gate report, with no cross-domain or positive/negative aggregate ratio. */
 export interface KnowledgeCompleteness {
-  version: "knowledge-completeness-v2";
+  /**
+   * v3 adds `closure.sourceReadsWithoutObligation`. The label moves with the shape because "the mode is part of
+   * the identity" is a ruling this repository has already paid for: a v2 tag over two different shapes lets a
+   * future consumer gate on a version that does not say what it holds. Cheap now (three test fixtures, no
+   * production reader); the cost of deferring is the `assurance-v9` generation-gate machinery, which exists
+   * precisely because a field once meant two things under one label.
+   *
+   * ABSENCE of the field in an archived epoch means NOT MEASURED — never 0. No reader may treat a missing value
+   * as "no unclaimed reads".
+   */
+  version: "knowledge-completeness-v3";
   domains: DomainCompleteness[];
   closure: {
     workItems: { positive: number; negative: number; pending: number; byStatus: Record<string, number> };
     decisions: { positive: number; negative: number; pending: number };
     probeResiduals: number;
     materialFlowsWithTraces: number;
+    /**
+     * Recorded source windows that no read execution accounts for.
+     *
+     * The closure check only ever asked the forward question — did every AUTHORIZED read complete — so a run
+     * that read without authorization closed clean. Measured on a real wcp overview: `read-specs.json` was
+     * `built` with `specs: 0`, 42 source windows were in the catalog, and freeze sealed
+     * `investigation-closure: passed, 0 findings`. `ReadSpec` carries a required `featureKey`, so a run with no
+     * feature authorizes nothing BY CONSTRUCTION and every one of its reads lands here.
+     *
+     * It is a number, not a finding. Making it an error would fail every overview run today, and the gap is a
+     * property of the current L5/L7 split rather than of any one run — so freeze states the size of the gap in
+     * the sealed record instead of asserting a closure it cannot justify. Whoever tightens the split later has
+     * the figure already sealed for every epoch behind them.
+     */
+    sourceReadsWithoutObligation: number;
   };
   checks: FreezeAuditCheck[];
   warnings: string[];
@@ -477,6 +509,53 @@ export interface RunManifest {
   error?: { stage: string; message: string; stack?: string };
 }
 
+/**
+ * CodeGraph's reach over the run's own corpus, per language.
+ *
+ * `counted` is the layer-1 ledger's counted row count. That is the denominator law in one field: a published
+ * ratio's denominator comes from a ledger recording its own completeness, never from a local predicate. It used
+ * to be `files.filter(isLikelySource)` — a hardcoded nine-extension denylist — which made the denominator a
+ * THIRD taxonomy beside layer 1's `excluded{unsupported-extension}` and layer 2's per-mechanism extension sets,
+ * with nothing reconciling them. On wcp that published "1,639/1,719 = 95.3%" as a fact, and 1,719 appears in no
+ * ledger: it is 1,999 counted minus 280 files the denylist happened to name.
+ *
+ * `byLanguage` is why the aggregate ratio is not the interesting number. The gap it measures is two unrelated
+ * things added together: files no code index covers, and files it should have reached and did not. On wcp the
+ * 331 unindexed rows are 251 stylesheets/markup/data plus 69 `.js` files — and the index holds 415 OTHER `.js`
+ * files, so those 69 are a real gap that no single ratio can show. Split by language it is one row: JavaScript
+ * 415/484 next to SCSS 0/109, and the reader draws the conclusion instead of the engine asserting it.
+ *
+ * The split deliberately carries no "should have been indexed" judgement. Every candidate for one failed on a
+ * second target: `partition-ast`'s declared support covers 1,704 of wcp's files but only 192 of provital's
+ * 3,005, where the index itself holds 346 — a denominator smaller than its own numerator. Language is a
+ * property of the corpus that both targets have; indexability is a property of a tool that varies per run.
+ *
+ * The grouping uses `corpusResolver().languageOf` with the same `unregistered:<ext>` fallback as
+ * `workset/census.ts`, so these rows and the layer-2 `byLanguage` census agree by construction, not by luck.
+ */
+export interface CodeGraphCoverage {
+  indexed: number;
+  counted: number;
+  /**
+   * Index file rows that match no counted ledger row.
+   *
+   * The numerator's own residual bucket. `indexed` is an intersection, and an intersection hides whatever sits
+   * on the index's side of it: a stale index, a wrong root, a path-normalisation mismatch. Zero on all three
+   * real targets today — which is exactly why a regression here would go unseen without a field to see it in.
+   */
+  unmatchedIndexRows: number;
+  ratio: number;
+  /** Which ledger this denominator is accountable to, embedded rather than re-derived (分母法则). */
+  ledgerIdentity: RowSetIdentity;
+  /**
+   * The counted set partitioned by language. It IS a partition and the partition law applies: the rows' counted
+   * values sum to `counted` and their indexed values to `indexed`, enforced by `tests/context.test.ts`. There
+   * are no excluded/unexplained buckets here only because the input is already the counted set — not because
+   * the rows are exempt from adding up.
+   */
+  byLanguage: Array<{ language: string; counted: number; indexed: number }>;
+}
+
 export interface RunMetrics {
   startedAt: string;
   finishedAt?: string;
@@ -496,7 +575,7 @@ export interface RunMetrics {
   workItems?: { total: number; complete: number };
   /** Count of post-freeze supplement mutations recorded through the escape hatch. Present only on frozen runs. */
   supplements?: number;
-  codegraphCoverage?: { indexed: number; eligible: number; ratio: number };
+  codegraphCoverage?: CodeGraphCoverage;
   cache: Record<string, "hit" | "miss" | "unused">;
   warnings: string[];
 }

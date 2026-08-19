@@ -29,6 +29,7 @@ import { assembleUnitsArtifact, runObservationPass, unitsContentDigest, type Uni
 import type { CountedRow, FileLedger } from "../src/snapshot/file-ledger.ts";
 import { createSnapshot } from "../src/snapshot/snapshot.ts";
 import { tempDir } from "./helpers.ts";
+import { NO_RECALL } from "../src/attribution/allocator.ts";
 
 /**
  * Layer 4: the seat projection, the five visible buckets, and the three-state selection law.
@@ -205,11 +206,13 @@ function traced(node: GraphNode, outcome: TraceNode["outcome"], score = 0): Trac
   };
 }
 
-function ranTrace(pool: readonly TraceNode[]): RanSelectionTrace {
+function ranTrace(pool: readonly TraceNode[], querySeedNodeIds: readonly string[] = [], route: RanSelectionTrace["recall"]["route"] = { status: "not-run", cause: "no-hypotheses" }): RanSelectionTrace {
   return {
     status: "ran",
     pool: [...pool],
-    seedCount: 1,
+    seedCount: querySeedNodeIds.length || 1,
+    querySeedNodeIds: [...querySeedNodeIds].sort(),
+    recall: { route, crossrepo: { status: "not-run", cause: "scan-unavailable" } },
     budgets: { maxNodes: 180 },
     fusion: {
       method: "weighted-reciprocal-rank",
@@ -267,6 +270,107 @@ const MODULE_GRANT = graphNode({ id: "active\0n1", kind: "function", name: "gran
 const ALL_NODES = [GRANT, REVOKE, GRANT_TWIN, PY_HANDLE, EJS_RENDER, ROUTE];
 
 // --- the projection: every retained node in exactly one visible bucket -----------------------------------------
+
+// SEED IDENTITY IS A RECORDED ID SET, NOT A CHANNEL LABEL.
+//
+// `allocator.ts` puts a query seed on the `seed` channel — and then puts every node ADJACENT to a seed on the
+// same channel, with reason `seed-neighbor`. So `outcome === "seed"` cannot tell "the query named this" from
+// "this sits next to something the query named". Layer 5's `seeded` relation authorises reading, so getting
+// that distinction wrong authorises reading a neighbour as if it had been asked for.
+//
+// GRANT is the query seed here; PY_HANDLE also rides the `seed` channel but is not in `querySeedNodeIds`.
+test("seedCells holds the query's own seeds and not the neighbours that share their channel", async () => {
+  const layer = await layer3(ALL_NODES);
+  const artifact = assemble(layer, [{
+    featureKey: "f1",
+    trace: ranTrace([
+      traced(GRANT, "seed", 1000),
+      traced(PY_HANDLE, "seed", 220)
+    ], [GRANT.id])
+  }]);
+  const selection = artifact.selections[0]!;
+
+  const seatOf = (id: string): string | undefined => selection.seats.find((seat) => seat.name === id)?.unitId;
+  const grantCell = seatOf(GRANT.name);
+  const neighbourCell = seatOf(PY_HANDLE.name);
+  assert.ok(grantCell && neighbourCell, `both nodes must be seated for this test to mean anything: ${JSON.stringify(selection.seats.map((s) => s.name))}`);
+
+  assert.deepEqual(selection.seedCells, [grantCell], "the query seed's cell, and only it");
+  assert.ok(!selection.seedCells.includes(neighbourCell!),
+    "a seed-neighbor rides the `seed` channel; reading the channel back as identity would put it here");
+});
+
+// A DISPLACED SEED HOLDS NO SEAT, SO IT AUTHORISES NO READ.
+//
+// `seedCells` feeds layer 5's `seeded` relation, which is a read authorisation. Publishing a cell this run
+// decided not to seat would authorise reading exactly what the budget rejected.
+test("a query seed that lost the budget contributes no seedCell", async () => {
+  const layer = await layer3(ALL_NODES);
+  const artifact = assemble(layer, [{
+    featureKey: "f1",
+    trace: ranTrace([
+      traced(GRANT, "seed", 1000),
+      traced(REVOKE, "displaced")
+    ], [GRANT.id, REVOKE.id])
+  }]);
+  const selection = artifact.selections[0]!;
+
+  assert.ok(selection.displacements.length >= 1, "the fixture must actually displace something");
+
+  // The guarantee is NOT "no seedCell appears among the displacements" — measured on wcp, 69 seedCells and
+  // 1,577 displacement rows overlap, and correctly so: a cell holds many nodes, and `buildSelection` documents
+  // that a cell holding any seat is seated even when another of its nodes lost the budget. Asserting the
+  // stronger property would have been asserting a promise the design never made, which `seat-floor.test.ts`
+  // already records as how a test starts lying about what is guaranteed.
+  //
+  // What IS guaranteed: the displaced branch never ADDS a seedCell. So a displaced query seed whose cell holds
+  // no seat must be absent — which this fixture arranges by seating GRANT in a different cell.
+  const seatedCells = new Set(selection.seats.map((seat) => seat.unitId));
+  const displacedOnly = selection.displacements.map((row) => row.unitId).filter((cell) => !seatedCells.has(cell));
+  assert.ok(displacedOnly.length >= 1, "the fixture must displace a cell that holds no seat, or it tests nothing");
+  for (const cell of displacedOnly) {
+    assert.ok(!selection.seedCells.includes(cell),
+      `a displaced query seed whose cell won no seat must not be published as seeded: ${cell}`);
+  }
+  assert.ok(selection.seedCells.every((cell) => seatedCells.has(cell)),
+    "and every seedCell holds a seat — the invariant the type comment relies on, asserted where it can fail");
+});
+
+// THE CELL WHOSE SEAT SOMEBODY ELSE WON.
+//
+// The two tests above leave one shape unpinned, and it is the shape that actually occurs at scale: on wcp, 69
+// seedCells and 1,577 displacement rows overlap, so "a query seed was displaced FROM a cell that holds a seat"
+// is the normal case, not a corner. An implementation reading
+// `if (querySeeds.has(id) && seatedCells.has(cell)) seedCells.add(cell)` passes both of them — the neighbour
+// test has no displacement, and the displaced test's cell holds no seat.
+//
+// What it would do on a real run: publish, as an explicit seed, a cell whose seat was won by a node the query
+// never named, because a node the query DID name was rejected by the budget. Layer 5 would authorise reading it
+// on the strength of a seed that lost.
+//
+// GRANT and GRANT_TWIN share a span, so they share a cell. The twin is seated and is not a query seed; GRANT is
+// a query seed and is displaced. Ordering is adversarial on purpose: the seated node comes first, so a
+// `seatedCells.has(...)` check would already be true when the displaced branch runs.
+test("a cell seated by a non-seed node is not published as seeded because a displaced seed shared it", async () => {
+  const layer = await layer3(ALL_NODES);
+  const artifact = assemble(layer, [{
+    featureKey: "f1",
+    trace: ranTrace([
+      traced(GRANT_TWIN, "lexical", 900),
+      traced(GRANT, "displaced")
+    ], [GRANT.id])
+  }]);
+  const selection = artifact.selections[0]!;
+
+  const twinSeat = selection.seats.find((seat) => seat.unitId);
+  assert.ok(twinSeat, "the twin must be seated for this fixture to exercise anything");
+  const shared = twinSeat.unitId;
+  assert.ok(selection.displacements.some((row) => row.unitId === shared),
+    `the displaced query seed must land in the same cell as the seated twin: ${JSON.stringify({ seats: selection.seats.map((s) => s.unitId), displaced: selection.displacements.map((d) => d.unitId) })}`);
+
+  assert.ok(!selection.seedCells.includes(shared),
+    "the seat was won by a node the query never named; a seed that lost the budget does not make its cell an explicit seed");
+});
 
 test("every retained node lands in exactly one visible bucket, and each bucket has its own fixture", async () => {
   const layer = await layer3(ALL_NODES);
@@ -564,6 +668,37 @@ test("the conservation constructor refuses an imbalance, and the compressed zero
   assert.ok(selection.zeroScore.every((group) => group.cells > 0), "a zero-count group is a row with no referent");
 });
 
+// THE ROUTE RECEIPT'S FOUR BUCKETS, EACH WITH AN INPUT THAT REACHES IT.
+//
+// `unavailable` had zero coverage in every layer — unit tests, smoke and pinned bytes — because all five modules of
+// the frozen corpus register routes. A bucket no input ever reaches is a bucket that can be wrong indefinitely.
+//
+// And the rule itself was wrong for a real topology. `unavailable` means "this channel has nothing to work with in
+// this module", and it was decided from registration paths alone — so a repository that registers routes in one
+// module and implements handlers in another (`routes/` beside `controllers/`, the shape framework-convention
+// recovery exists for) reported `unavailable` for the handler's module, while the channel demonstrably CAN admit
+// that handler through the other module's registration. The same module could go from `unavailable` straight to
+// `contributed`, which is a contradiction rather than a coarse answer.
+test("the route receipt distinguishes a module with no route facts from one whose handler lives there", async () => {
+  const layer = await layer3([MODULE_GRANT], moduleTarget);
+  const modules = [{ id: "active", dir: "active" }, { id: "silent", dir: "silent" }];
+
+  // No route facts anywhere: every module is `unavailable` — the bucket that had no input before this test.
+  const blind = assemble(layer, [{
+    featureKey: "f1",
+    trace: ranTrace([traced(MODULE_GRANT, "seed", 1)], [], { status: "ran", hypotheses: [], admittedNodeIds: [] })
+  }], { modules });
+  for (const row of blind.selections[0]!.modules) {
+    assert.equal(row.recall.route, "unavailable", `${row.moduleId} has no route fact of any kind, so the channel had nothing to work with there`);
+  }
+
+  // The channel did not run at all: distinguishable from having run and found nothing.
+  const idle = assemble(layer, [{ featureKey: "f1", trace: ranTrace([traced(MODULE_GRANT, "seed", 1)]) }], { modules });
+  for (const row of idle.selections[0]!.modules) {
+    assert.equal(row.recall.route, "not-run", "no hypotheses is not the same claim as no match");
+  }
+});
+
 test("the module census is total: a zero-signal module keeps its denominator row and receives no seat", async () => {
   const layer = await layer3([MODULE_GRANT], moduleTarget);
   const artifact = assemble(layer, [{ featureKey: "f1", trace: ranTrace([traced(MODULE_GRANT, "seed", 1)]) }], {
@@ -650,15 +785,15 @@ function syntheticPool(): { nodes: any[]; edges: any[]; seeds: any[] } {
 test("the recorded kernel and the trace-free shell return byte-identical node and edge sets", () => {
   const pool = syntheticPool();
   for (const maxNodes of [12, 40, 200]) {
-    const shell = allocateFeatureGraph(pool.nodes, pool.edges, pool.seeds, ["leave", "request"], maxNodes);
-    const recorded = allocateFeatureGraphRecorded(pool.nodes, pool.edges, pool.seeds, ["leave", "request"], maxNodes);
+    const shell = allocateFeatureGraph(pool.nodes, pool.edges, pool.seeds, ["leave", "request"], maxNodes, NO_RECALL);
+    const recorded = allocateFeatureGraphRecorded(pool.nodes, pool.edges, pool.seeds, ["leave", "request"], maxNodes, NO_RECALL);
     assert.equal(JSON.stringify({ nodes: recorded.nodes, edges: recorded.edges }), JSON.stringify(shell), `allocator at ${maxNodes}`);
   }
 });
 
 test("the trace is a partition of the pool: every candidate carries exactly one channel", () => {
   const pool = syntheticPool();
-  const recorded = allocateFeatureGraphRecorded(pool.nodes, pool.edges, pool.seeds, ["leave", "request"], 30);
+  const recorded = allocateFeatureGraphRecorded(pool.nodes, pool.edges, pool.seeds, ["leave", "request"], 30, NO_RECALL);
   assert.equal(recorded.trace.pool.length, pool.nodes.length, "the pool is the INPUT set, not the retained one");
   assert.equal(new Set(recorded.trace.pool.map((node) => node.nodeId)).size, pool.nodes.length);
   const retained = new Set(recorded.nodes.map((node) => String(node.id)));
@@ -671,7 +806,7 @@ test("the trace is a partition of the pool: every candidate carries exactly one 
 
 test("every producer contribution carries the complete explanation contract", () => {
   const pool = syntheticPool();
-  const recorded = allocateFeatureGraphRecorded(pool.nodes, pool.edges, pool.seeds, ["leave", "request"], 30);
+  const recorded = allocateFeatureGraphRecorded(pool.nodes, pool.edges, pool.seeds, ["leave", "request"], 30, NO_RECALL);
   for (const row of recorded.trace.pool) for (const contribution of row.contributions) {
     assert.ok(contribution.sourceChannel);
     assert.ok(contribution.reason);
@@ -699,7 +834,7 @@ function crowdedPool(): { nodes: any[]; edges: any[]; seeds: any[] } {
 test("the allocator never adds a hidden additive seat beyond the one cap", () => {
   const pool = crowdedPool();
   const anchors = ["leave", "holiday"];
-  const recorded = allocateFeatureGraphRecorded(pool.nodes, pool.edges, pool.seeds, anchors, 16);
+  const recorded = allocateFeatureGraphRecorded(pool.nodes, pool.edges, pool.seeds, anchors, 16, NO_RECALL);
   assert.equal(recorded.nodes.length, 16);
   assert.equal(recorded.trace.pool.filter((node) => node.outcome !== "displaced").length, 16);
   for (const node of recorded.trace.pool) assert.equal(node.displacedBy, node.outcome === "displaced" ? "seat-cap" : null);
@@ -708,6 +843,13 @@ test("the allocator never adds a hidden additive seat beyond the one cap", () =>
 test("the preregistered fusion weights are pinned", () => {
   assert.deepEqual({ ...WEIGHTS }, {
     seed: 1,
+    // A structural match carries the same weight as a lexical one. It is deliberately NOT boosted: the channel
+    // earns its influence by admitting candidates nothing else could reach, and a thumb on the scale would let it
+    // reorder seats it did not discover. Changing this number is a planning decision, not an execution one.
+    route: 1,
+    // Same reasoning as `route`: the channel earns influence by reaching candidates nothing else could, not by
+    // outranking the channels that found them. A link vouches for eligibility, not for importance.
+    crossrepo: 1,
     lexical: 1,
     derived: 1,
     relation: 1,
@@ -718,7 +860,7 @@ test("the preregistered fusion weights are pinned", () => {
 
 test("every displaced candidate names the single seat cap", () => {
   const pool = syntheticPool();
-  const recorded = allocateFeatureGraphRecorded(pool.nodes, pool.edges, pool.seeds, ["leave", "request"], 20);
+  const recorded = allocateFeatureGraphRecorded(pool.nodes, pool.edges, pool.seeds, ["leave", "request"], 20, NO_RECALL);
   const displaced = recorded.trace.pool.filter((node) => node.outcome === "displaced");
   assert.ok(displaced.length > 0, "the fixture really displaces something");
   for (const node of displaced) {

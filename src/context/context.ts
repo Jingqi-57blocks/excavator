@@ -1,11 +1,19 @@
 import { basename, join } from "node:path";
 import { readFile } from "node:fs/promises";
-import type { Audience, CollectedFeatureFactPack, EvidenceItem, FeatureRequest, GraphNode, ProviderRegistry, ReportRequest, Snapshot } from "../base/types.ts";
+import type { Audience, CodeGraphCoverage, CollectedFeatureFactPack, EvidenceItem, FeatureRequest, GraphNode, ProviderRegistry, ReportRequest, Snapshot } from "../base/types.ts";
 import { CodeGraphIndex, type GraphReader, type GraphSummary } from "../codegraph/codegraph.ts";
 import { CodeGraphSet } from "../codegraph/codegraph-set.ts";
 import { allocateFeatureGraphRecorded } from "../attribution/allocator.ts";
 import { channelUnavailable, SELECTION_TRACE_VERSION, type FeatureSelectionTrace } from "../attribution/selection-trace.ts";
 import { createSnapshot, isLikelySource, type ScannedFile } from "../snapshot/snapshot.ts";
+import { corpusResolver, LANGUAGE_REGISTRY } from "../base/language-registry.ts";
+import { routeRecall } from "../attribution/route-recall.ts";
+import { crossrepoRecall } from "../attribution/crossrepo-recall.ts";
+import { resolveCrossRepoLinks } from "../crossrepo/resolve-links.ts";
+import { inventoryPathsOf, routeInventory, type RouteInventory } from "../codegraph/route-inventory.ts";
+import type { CrossRepoScan } from "../crossrepo/crossrepo-scan.ts";
+import { countedRowSet } from "../snapshot/file-ledger.ts";
+import type { RowSet } from "../base/row-set.ts";
 import type { FileLedger } from "../snapshot/file-ledger.ts";
 import { codegraphIdentity } from "../codegraph/codegraph-identity.ts";
 import { SourceReader, evidenceFromWindow, manifestSummary, selectProjectDocuments, sourceSearch } from "../snapshot/source.ts";
@@ -15,17 +23,18 @@ import { buildFactPack } from "./factpack.ts";
 import { BOUNDARY_FUNCTIONS_VERSION, BOUNDARY_FUNCTION_KINDS, enumerateBoundaryFunctions, type BoundaryFunctionsArtifact, type FeatureBoundaryFunctions } from "../facts/probe/boundary-functions.ts";
 import { legacyWorkspaceWarning } from "../snapshot/workspace-residue.ts";
 
-// v27: selection-trace-v2 is produced by the unique allocator. Reusing a v26 feature cache would feed the old
-// selector's channels and displacement vocabulary into attribution-v2, so both the cache path and the payload's
-// explicit trace version move together. Any change to a cached shape bumps this (57B-375).
-const BUILDER_VERSION = "excavator-context-v27-allocator";
+// v28: selection-trace-v3 records `querySeedNodeIds`. A v27 cache carries a trace WITHOUT that field, and a
+// selection built from it would publish an empty `seedCells` — layer 5's `seeded` relation silently back to
+// zero, which is precisely the defect this generation fixes and the shape a stale cache would restore.
+// Any change to a cached shape bumps this (57B-375).
+const BUILDER_VERSION = "excavator-context-v30-crossrepo-recall";
 
 interface CachedShared {
   snapshotId: string;
   evidence: EvidenceItem[];
   markdown: string;
   graphFilePaths: string[];
-  metrics: { coverage?: { indexed: number; eligible: number; ratio: number }; warnings: string[] };
+  metrics: { coverage?: CodeGraphCoverage; warnings: string[] };
 }
 
 interface CachedFeature {
@@ -90,7 +99,7 @@ export interface ContextBuildResult {
     sourceWindowCacheHits: number;
     sourceCharacters: number;
     filesConsidered: number;
-    codegraphCoverage?: { indexed: number; eligible: number; ratio: number };
+    codegraphCoverage?: CodeGraphCoverage;
     codegraphPath?: string;
     codegraphModulePaths?: string[];
     codegraphModules?: Array<{ id: string; dir: string; path: string }>;
@@ -204,7 +213,7 @@ export async function buildContextsFromBoundary(request: ReportRequest, boundary
     warnings.push(...shared.metrics.warnings);
   } else {
     const started = Date.now();
-    shared = await buildSharedContext(snapshot, files, graph, sourceReader, deadline);
+    shared = await buildSharedContext(snapshot, files, ledger, graph, sourceReader, deadline);
     timing.sharedContextMs = Date.now() - started;
     await writeJson(sharedCachePath, shared);
     warnings.push(...shared.metrics.warnings);
@@ -224,6 +233,35 @@ export async function buildContextsFromBoundary(request: ReportRequest, boundary
     const id = `overview-${audience}`;
     documentContexts.set(id, renderOverviewContext(audience, request.language));
   }
+
+  // Built ONCE, before the feature loop, and only when some feature actually has hypotheses.
+  //
+  // It has to happen here because pool admission happens here: the facts stage builds its own inventory
+  // (`facts-stage.ts`) but runs after prepare, by which point every pool is already closed. The two are the same
+  // pure function over the same counted row set, and a test asserts their outputs are byte-identical rather than
+  // this comment asserting it.
+  //
+  // Skipped when no feature carries a profile: the source verification reads files, and a run that cannot use the
+  // result should not pay for it. `routeRecall` then reports `not-run{no-hypotheses}` per feature anyway.
+  const wantsRouteRecall = request.features.some((feature) => (feature.profile?.possibleEntrypoints.length ?? 0) > 0);
+  const moduleDirs = new Map((codegraphResolution.modules ?? []).map((module) => [module.id, module.dir]));
+  // Cross-module recall needs the inventory too — it joins a recovered route to the indexed registration by
+  // coordinates — so the inventory is built whenever EITHER channel can use it.
+  const wantsCrossrepo = moduleDirs.size >= 2;
+  const routes = graph && (wantsRouteRecall || wantsCrossrepo)
+    ? await routeInventory(graph, inventoryPathsOf(ledger), request.target)
+    : null;
+
+  // Resolved ONCE, before the feature loop, for the same reason the inventory is: admission happens inside this
+  // function, and the run-level stage that used to own this ran after prepare had already closed every pool.
+  // Advisory by contract — a resolver failure is a warning, never a failed preparation.
+  const crossRepo = wantsCrossrepo
+    ? await resolveCrossRepoLinks(request.target, codegraphResolution.modules, snapshot.id, warnings, sourceReader.redacts)
+    : null;
+  // `null`, not `[]`. A resolver that threw learned nothing about this target; an empty array is the finding
+  // "this target has no cross-repo links". Folding the first into the second publishes a determination the run
+  // never made — and `targetRelative`'s own comment names that as the wrong conclusion to let a reader draw.
+  const crossRepoLinks = wantsCrossrepo && crossRepo === null ? null : crossRepo?.scan.links ?? null;
 
   for (const feature of request.features) {
     deadline.check(`preparing feature ${feature.subject}`);
@@ -246,7 +284,7 @@ export async function buildContextsFromBoundary(request: ReportRequest, boundary
     } else {
       cache[`feature:${key}`] = "miss";
       const started = Date.now();
-      cached = await buildFeatureContext(snapshot, files, feature, graph, new Set(shared.graphFilePaths), sourceReader, deadline, request.budgets.maxFeatureNodes, request.budgets.maxExpansionDepth);
+      cached = await buildFeatureContext(snapshot, files, feature, graph, new Set(shared.graphFilePaths), sourceReader, deadline, request.budgets.maxFeatureNodes, request.budgets.maxExpansionDepth, routes, crossRepoLinks, moduleDirs);
       timing[`feature:${key}Ms`] = Date.now() - started;
       await writeJson(cachePath, cached);
     }
@@ -307,11 +345,88 @@ export async function buildContextsFromBoundary(request: ReportRequest, boundary
   };
 }
 
-async function buildSharedContext(snapshot: Snapshot, files: ScannedFile[], graph: GraphReader | null, sourceReader: SourceReader, deadline: Deadline): Promise<CachedShared> {
+/**
+ * Index reach over the counted corpus, split by the registry's own language vocabulary.
+ *
+ * DENOMINATOR: the counted rows, and nothing else — see `CodeGraphCoverage` for what the retired predicate
+ * cost. The per-language rows are the part worth reading; the aggregate ratio is depressed by however many
+ * stylesheets a project happens to contain, which is a fact about the file mix rather than about the index.
+ */
+/** How many language rows the model view prints before rolling the rest into one line (view law: declared bound). */
+const COVERAGE_VIEW_ROWS = 20;
+
+/**
+ * The model-facing coverage rows — counts only, never the aggregate percentage.
+ *
+ * The percentage stays in `metrics.json`, where it is checkable against the ledger and harmless. It is kept OUT
+ * of here because this is the channel a report quotes from: the previous headline (95.3%, on a denominator that
+ * existed in no ledger) reached a real report as a `事实` through exactly this line. A percentage sitting beside
+ * a caution not to read it is still the most quotable thing on the page, and the aggregate is the one number
+ * that cannot be acted on — it moves with how many stylesheets a repository happens to contain.
+ *
+ * The row cap is the view law's declared bound. `unregistered:<ext>` means the row count grows with a target's
+ * stray extensions, so an uncapped list is the "each row is small but the array is unbounded" shape P18 names.
+ * The rolled-up remainder keeps the rows a partition of the counted set rather than a truncated prefix.
+ */
+function renderCoverageRows(coverage: CodeGraphCoverage): string {
+  const shown = coverage.byLanguage.slice(0, COVERAGE_VIEW_ROWS);
+  const rest = coverage.byLanguage.slice(COVERAGE_VIEW_ROWS);
+  const lines = shown.map((row) => `  - ${row.language}: ${row.indexed}/${row.counted} indexed`);
+  if (rest.length) {
+    const counted = rest.reduce((sum, row) => sum + row.counted, 0);
+    const indexed = rest.reduce((sum, row) => sum + row.indexed, 0);
+    lines.push(`  - other (${rest.length} languages): ${indexed}/${counted} indexed`);
+  }
+  return lines.join("\n");
+}
+
+function codegraphCoverage(denominator: RowSet, ledger: FileLedger, graphPaths: ReadonlySet<string>): CodeGraphCoverage {
+  // The denominator ARRIVES as a RowSet; this function cannot mint one. `RowSet`'s constructor is private and
+  // `countedRowSet` is the only door, so "the denominator came from the ledger" is carried by the signature
+  // rather than by a comment — the same shape `workset/census.ts` uses. Taking a `FileLedger` and counting
+  // `ledger.counted.length` inside would have been equal BY CONSTRUCTION rather than by consumption, and no
+  // black-box test can tell those two apart: they are the same number on every input.
+  //
+  // The ledger is still needed for the per-row language grouping, so the two are cross-checked here rather
+  // than trusted: a RowSet built over a different ledger than the rows being grouped would silently publish a
+  // denominator from one snapshot and a breakdown from another.
+  if (denominator.identity.contentDigest !== ledger.contentManifestDigest) {
+    throw new Error(`The coverage denominator was built over ledger ${denominator.identity.contentDigest} but the rows being grouped come from ${ledger.contentManifestDigest}; a ratio and its breakdown must describe one snapshot`);
+  }
+  const resolver = corpusResolver(LANGUAGE_REGISTRY);
+  const rows = new Map<string, { language: string; counted: number; indexed: number }>();
+  let indexed = 0;
+  for (const row of ledger.counted) {
+    const name = row.relativePath.slice(row.relativePath.lastIndexOf("/") + 1);
+    // Same expression and same fallback as `workset/census.ts`, so a language that is a row there is the same
+    // row here. A second spelling of "what language is this" is a second census that can disagree with layer 2.
+    const language = resolver.languageOf(name, row.extension) ?? `unregistered:${row.extension || "(none)"}`;
+    const entry = rows.get(language) ?? { language, counted: 0, indexed: 0 };
+    entry.counted += 1;
+    if (graphPaths.has(row.relativePath)) { entry.indexed += 1; indexed += 1; }
+    rows.set(language, entry);
+  }
+  // Index rows matching no counted row: a stale index, a wrong root or a path-normalisation mismatch all land
+  // here. Zero on all three real targets today — which is precisely why nobody would notice it becoming
+  // non-zero, and why the denominator's other side needs a visible bucket too.
+  const countedPaths = new Set(ledger.counted.map((row) => row.relativePath));
+  const unmatchedIndexRows = [...graphPaths].filter((path) => !countedPaths.has(path)).length;
+  const counted = denominator.rowIds.length;
+  return {
+    indexed,
+    counted,
+    unmatchedIndexRows,
+    ratio: counted ? indexed / counted : 1,
+    ledgerIdentity: denominator.identity,
+    byLanguage: [...rows.values()].sort((a, b) => b.counted - a.counted || a.language.localeCompare(b.language))
+  };
+}
+
+async function buildSharedContext(snapshot: Snapshot, files: ScannedFile[], ledger: FileLedger, graph: GraphReader | null, sourceReader: SourceReader, deadline: Deadline): Promise<CachedShared> {
   const evidence: EvidenceItem[] = [];
   const warnings: string[] = [];
   let graphPaths = new Set<string>();
-  let coverage: { indexed: number; eligible: number; ratio: number } | undefined;
+  let coverage: CodeGraphCoverage | undefined;
   let graphSummary: GraphSummary | null = null;
   let representativeNodes: unknown[] = [];
   let routes: unknown[] = [];
@@ -330,21 +445,34 @@ async function buildSharedContext(snapshot: Snapshot, files: ScannedFile[], grap
     const metadata = graph.metadata();
     const graphFiles = graph.files();
     graphPaths = new Set(graphFiles.map((file) => file.path.replace(/^\.\//, "")));
-    const eligibleFiles = files.filter(isLikelySource);
-    const eligible = eligibleFiles.length;
-    const indexed = eligibleFiles.filter((file) => graphPaths.has(file.relativePath)).length;
-    coverage = { indexed, eligible, ratio: eligible ? indexed / eligible : 1 };
+    // DENOMINATOR: the layer-1 counted rows, and nothing else.
+    //
+    // It used to be `files.filter(isLikelySource)` — a hardcoded nine-extension denylist in `snapshot.ts`.
+    // That made the published ratio's denominator a THIRD taxonomy, alongside layer 1's
+    // `excluded{unsupported-extension}` and layer 2's per-mechanism extension sets, with nothing reconciling
+    // the three. On wcp it produced "1,639/1,719 = 95.3%", a number that appears in no ledger: 1,719 is
+    // 1,999 counted minus 280 files the denylist happened to name, and the report printed it as a fact.
+    //
+    // `counted` is a ledger row count, so the ratio is now checkable against `ledger/files.json`. It reads
+    // lower (82.0% on wcp) because it stops hiding its own exclusions; `unindexedByExtension` puts those back
+    // as observed data rather than as a rule, so a reader can see that `.scss` and `.html` dominate the gap
+    // without the engine having to assert which extensions "should" have been indexed.
+    coverage = codegraphCoverage(countedRowSet(ledger), ledger, graphPaths);
+    const { counted, indexed } = coverage;
     graphSummary = graph.summary();
     representativeNodes = graph.representativeNodes(60);
     routes = graph.routeSummary(60);
     const graphErrors = graphFiles.filter((file) => file.errors.length).slice(0, 50);
     if (graphErrors.length) warnings.push(`${graphErrors.length} CodeGraph file records include extraction errors in the sampled set; source fallback remains enabled.`);
-    if (coverage.ratio < 0.98) warnings.push(`CodeGraph indexed ${indexed}/${eligible} eligible source files; unindexed files are read through source fallback when relevant.`);
+    // Named per language: "331 files unindexed" is not actionable, "javascript 415/484" is. Only languages the
+    // index reached at all are worth naming — a language it never covers is a classification, not a gap.
+    const partial = coverage.byLanguage.filter((row) => row.indexed > 0 && row.indexed < row.counted);
+    if (partial.length) warnings.push(`CodeGraph indexed only part of ${partial.map((row) => `${row.language} (${row.indexed}/${row.counted})`).join(", ")}; the rest are read through source fallback when relevant.`);
     evidence.push({ id: `CG-${snapshot.id}`, snapshotId: snapshot.id, kind: "graph", title: "CodeGraph census", data: { metadata, summary: graphSummary, coverage, graphErrors }, reason: "navigate the project without scanning every source file", digest: sha256(stableJson({ metadata, summary: graphSummary, coverage, graphErrors })) });
     evidence.push({ id: `CG-NODES-${snapshot.id}`, snapshotId: snapshot.id, kind: "graph", title: "Representative CodeGraph nodes", data: representativeNodes, reason: "identify likely entry points, components and implementation centers", digest: sha256(stableJson(representativeNodes)) });
     evidence.push({ id: `CG-ROUTES-${snapshot.id}`, snapshotId: snapshot.id, kind: "graph", title: "Route candidates", data: routes, reason: "identify user and system entry points; source confirmation is required for incomplete route semantics", digest: sha256(stableJson(routes)) });
   } else {
-    coverage = { indexed: 0, eligible: files.filter(isLikelySource).length, ratio: 0 };
+    coverage = { ...codegraphCoverage(countedRowSet(ledger), ledger, new Set()), ratio: 0 };
   }
 
   const projectDocs = selectProjectDocuments(files, 14);
@@ -391,7 +519,7 @@ async function buildSharedContext(snapshot: Snapshot, files: ScannedFile[], grap
   return { snapshotId: snapshot.id, evidence: dedupeEvidence(evidence), markdown, graphFilePaths: [...graphPaths], metrics: { coverage, warnings } };
 }
 
-async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], feature: FeatureRequest, graph: GraphReader | null, graphPaths: Set<string>, sourceReader: SourceReader, deadline: Deadline, maxNodes: number, depth: number): Promise<CachedFeature> {
+async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], feature: FeatureRequest, graph: GraphReader | null, graphPaths: Set<string>, sourceReader: SourceReader, deadline: Deadline, maxNodes: number, depth: number, routes: RouteInventory | null, crossRepoLinks: CrossRepoScan["links"] | null, moduleDirs: ReadonlyMap<string, string>): Promise<CachedFeature> {
   const terms = [...new Set([feature.subject, ...feature.aliases].flatMap(tokenize))].filter(Boolean);
   const evidence: EvidenceItem[] = [];
   const warnings: string[] = [];
@@ -422,9 +550,51 @@ async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], fea
     // maxNodes let level-0 exhaust before the depth-2 ring was ever visited). Then close the pool
     // over its own internal edges so hop2↔hop2 relationships (which layered BFS never captures) are
     // present for the allocator's relation channel and the retained edge set.
-    const expanded = graph.expand(seeds.map((node) => node.id), Math.min(depth, 2), Math.max(maxNodes, seeds.length) * 6);
+    // The structural door into the pool. Until now the only way in was a lexical seed, so a module matching no
+    // term was skipped by `expand` and unreachable by anything downstream. A hypothesis that aligns with a
+    // recorded route admits that route's node — and its source-verified handler — as an EXPANSION ROOT.
+    const routeBlock = routeRecall(feature.profile?.possibleEntrypoints ?? [], routes);
+
+    // THE RED LINE. Recalled nodes go into the expansion roots and NEVER into `seeds`.
+    //
+    // `allocateFeatureGraphRecorded` derives `querySeedNodeIds` from `seeds`, and that set is the identity source
+    // for the `seed` channel and for `attribution.seedCells`, which layer 5 reads as "the query named this". A
+    // node this channel recalled was named by a HYPOTHESIS, not by the query. Merging the two would silently
+    // relabel channel recall as query naming and corrupt the join S1 just landed — with no artifact saying so.
+    const phase1Roots = [...new Set([...seeds.map((node) => String(node.id)), ...routeBlock.admissionNodeIds])].sort();
+    const phase1 = graph.expand(phase1Roots, Math.min(depth, 2), Math.max(maxNodes, phase1Roots.length) * 6);
+
+    // PHASE 2: a caller already in the pool vouches for the handler it reaches across a module boundary.
+    //
+    // It has to be a second phase, not another root: the rule is "the CALLER is already in the pool", and there is
+    // no pool to test against until phase 1 has run. Exactly one round — a handler admitted here does not then
+    // propagate its own outgoing links, because reaching further is a decision for the readings rather than a
+    // default that arrives with the mechanism.
+    const crossrepoBlock = crossrepoRecall(
+      crossRepoLinks,
+      routes,
+      phase1.nodes.map((node: { id: unknown; filePath: unknown; startLine: unknown; endLine: unknown }) => ({
+        nodeId: String(node.id),
+        relativePath: String(node.filePath),
+        startLine: typeof node.startLine === "number" ? node.startLine : null,
+        endLine: typeof node.endLine === "number" ? node.endLine : null
+      })),
+      new Set(phase1Roots),
+      moduleDirs
+    );
+    const inPhase1 = new Set(phase1.nodes.map((node: { id: unknown }) => String(node.id)));
+    const phase2Roots = crossrepoBlock.admissionNodeIds.filter((id) => !inPhase1.has(id));
+    const phase2 = phase2Roots.length
+      ? graph.expand(phase2Roots, Math.min(depth, 2), Math.max(maxNodes, phase2Roots.length) * 6)
+      : { nodes: [], edges: [] };
+
+    const expanded = {
+      nodes: dedupeNodes([...phase1.nodes, ...phase2.nodes]),
+      edges: [...phase1.edges, ...phase2.edges]
+    };
+    const recall = { route: routeBlock, crossrepo: crossrepoBlock };
     const poolEdges = graph.edgesAmong(expanded.nodes.map((node) => node.id));
-    const pruned = allocateFeatureGraphRecorded(expanded.nodes, [...expanded.edges, ...poolEdges], seeds, anchorTerms, maxNodes);
+    const pruned = allocateFeatureGraphRecorded(expanded.nodes, [...expanded.edges, ...poolEdges], seeds, anchorTerms, maxNodes, recall);
     nodes = pruned.nodes;
     edges = pruned.edges;
     selectionTrace = pruned.trace;
@@ -512,7 +682,7 @@ async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], fea
   };
 }
 
-function renderSharedMarkdown(snapshot: Snapshot, graphSummary: unknown, coverage: { indexed: number; eligible: number; ratio: number }, docs: Array<Record<string, unknown>>, representativeNodes: any[], routes: any[], evidence: EvidenceItem[], warnings: string[]): string {
+function renderSharedMarkdown(snapshot: Snapshot, graphSummary: unknown, coverage: CodeGraphCoverage, docs: Array<Record<string, unknown>>, representativeNodes: any[], routes: any[], evidence: EvidenceItem[], warnings: string[]): string {
   const compactNodes = representativeNodes.map((node) => ({ id: node.id, kind: node.kind, name: node.name, file: node.filePath, lines: `${node.startLine}-${node.endLine}`, signature: node.signature ? truncate(String(node.signature), 180) : null }));
   const compactRoutes = routes.map((node) => ({ id: node.id, name: node.name, file: node.filePath, line: node.startLine }));
   const sourceEvidence = evidence.filter((item) => item.content).map((item) => ({ id: item.id, title: item.title, reason: item.reason, excerpt: truncate(item.content ?? "", 1_800) }));
@@ -526,7 +696,8 @@ ${stableJson({ id: snapshot.id, roots: snapshot.roots, scannerVersion: snapshot.
 
 ## Coverage
 
-- CodeGraph source coverage: ${(coverage.ratio * 100).toFixed(1)}% (${coverage.indexed}/${coverage.eligible}).
+- CodeGraph indexed ${coverage.indexed} of ${coverage.counted} counted files, by language:
+${renderCoverageRows(coverage)}
 - CodeGraph is a navigation index. Source excerpts remain authoritative for semantics.
 - Files absent from CodeGraph, extraction errors, unresolved relationships and ambiguous findings trigger source fallback.
 
@@ -784,8 +955,22 @@ function buildFeatureInventory(nodes: any[], files: string[]): FeatureInventoryE
   });
 }
 
+/**
+ * The cache identity of one feature's scope.
+ *
+ * The profile is part of it, and it has to be part of it BEFORE anything consumes profiles. Once a recall channel
+ * reads hypotheses, two intents differing only by their profile would produce different selections — and if they
+ * shared a cache key, the second run would silently serve the first one's scope. Adding the field afterwards
+ * means every cache written in between is a mine. Absent profile contributes nothing to the key, so every run
+ * that does not use them keeps its existing bytes (pinned by test).
+ */
 export function featureCacheKey(feature: FeatureRequest): string {
-  return `${slugify(feature.subject)}-${sha256(stableJson({ subject: feature.subject.toLowerCase(), aliases: [...feature.aliases].sort() })).slice(0, 10)}`;
+  const identity = {
+    subject: feature.subject.toLowerCase(),
+    aliases: [...feature.aliases].sort(),
+    ...(feature.profile === undefined ? {} : { profile: feature.profile })
+  };
+  return `${slugify(feature.subject)}-${sha256(stableJson(identity)).slice(0, 10)}`;
 }
 
 /** Exported so the freeze path can re-derive a run's anchor terms from its manifest (57B-400). */

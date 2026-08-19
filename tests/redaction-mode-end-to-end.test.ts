@@ -84,11 +84,52 @@ test("a run with redaction OFF records the source as written, and also audits it
   await searchSourceEvidence(runDir, ["API_TOKEN", "DB_PASSWORD"], "probe the search receipt path", { maxResults: 10 });
 
   const recorded = await allArtifactText(runDir);
-  assert.match(recorded, new RegExp(SECRET), "the default is verbatim: a local run reads code the operator already has");
+  assert.match(recorded, new RegExp(SECRET), "verbatim is what an explicit false asks for, and it is honoured exactly");
 
   assert.deepEqual(rederivationFindings(await auditRun(runDir)), [], "and the re-derivation follows the run's own mode");
 
   assert.equal((await runStatus(runDir)).sourceText, "verbatim", "the operator is told, whether or not they asked");
+});
+
+// THE DEFAULT ITSELF, PINNED — because flipping it moved no test.
+//
+// `redactSecrets` was `=== true` at the normalization point, so a request that never mentioned the field ran
+// verbatim. The whole suite was green before that flip and green after it: 1178 tests, and not one of them
+// asserted what a caller who says nothing gets. A security default nothing pins is a default that drifts back.
+//
+// The assertion is on the RECORDED BYTES, not on the manifest field. Reading the field back would pass even if
+// normalization set it and every recording site ignored it — which is the exact failure the two tests above
+// exist for. If `prepareRun` returns to `=== true`, the secret reappears in the run directory and this fails.
+test("a request that never mentions redaction is redacted, not verbatim", async () => {
+  const target = await targetWithSecret();
+  const { target: _omit, ...rest } = await request(target, true);
+  const silent = { ...rest, target } as ReportRequest;
+  delete (silent as { redactSecrets?: boolean }).redactSecrets;
+
+  const { runDir, manifest } = await prepareRun(silent);
+  await searchSourceEvidence(runDir, ["API_TOKEN", "DB_PASSWORD"], "probe the search receipt path", { maxResults: 10 });
+
+  const recorded = await allArtifactText(runDir);
+  assert.doesNotMatch(recorded, new RegExp(SECRET), "an undecided caller must not leak a credential into the run directory");
+  assert.match(recorded, /<redacted>/, "and the run redacted something, rather than the fixture simply lacking a secret");
+
+  assert.equal(manifest.request.redactSecrets, true, "the manifest records the resolved mode, never `undefined`");
+  assert.equal((await runStatus(runDir)).sourceText, "redacted", "and the mode it reports is the one it used");
+});
+
+// BOTH CLI REQUEST BUILDERS, because only one of them used to resolve the mode at all.
+//
+// `normalizeRequest` (prepare/report, from a request file) read the flags; `baseRequest` (overview/feature)
+// never mentioned `redactSecrets`, so `excavator overview --no-redact` parsed the flag and dropped it. The help
+// text promised a mode two of the three prepare commands could not reach. Source-level because `cli.ts` calls
+// `main()` at module scope and cannot be imported — which is exactly why the gap survived: nothing could call
+// the function to notice.
+test("every CLI request builder resolves the redaction mode, and off is the only thing that has to be asked for", async () => {
+  const source = await readFile(new URL("../src/cli.ts", import.meta.url), "utf8");
+  const resolutions = source.match(/redactSecrets:\s*args\.noRedact === "true" \? false :/g) ?? [];
+  assert.equal(resolutions.length, 2, "normalizeRequest and baseRequest both resolve the mode; a builder that omits it silently picks its own default");
+  assert.doesNotMatch(source, /redactSecrets:\s*args\.redact === "true" \|\| raw\.redactSecrets === true/,
+    "the retired `=== true` form meant an unstated request ran verbatim");
 });
 
 // What actually protects archived runs is NOT the version bump — `auditEvidenceCatalog` re-derives digests

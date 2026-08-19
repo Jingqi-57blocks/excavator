@@ -1,3 +1,17 @@
+import type { RouteRecallResult } from "./route-recall.ts";
+import { NO_CROSSREPO_RECALL, type CrossrepoRecallResult } from "./crossrepo-recall.ts";
+import { NO_ROUTE_RECALL } from "./route-recall.ts";
+
+/**
+ * The recall value for a caller that asked nothing of any channel.
+ *
+ * One name rather than a constant per channel, because the thing a call site is stating is singular: this run
+ * carried no hypotheses and no cross-module scan, so every recall channel has nothing to do. Replay tooling and
+ * ranking fixtures pass this; production never does. Each channel still records its own `not-run` cause, so the
+ * artifact keeps "nothing was asked" distinguishable from "something was asked and not found".
+ */
+export const NO_RECALL: { readonly route: RouteRecallResult; readonly crossrepo: CrossrepoRecallResult } =
+  Object.freeze({ route: NO_ROUTE_RECALL.route, crossrepo: NO_CROSSREPO_RECALL });
 import {
   CONTRIBUTION_CHANNELS, RANK_CONSTANT, WEIGHTS,
   type ChannelWeights, type ContributionChannel, type RanSelectionTrace,
@@ -149,7 +163,17 @@ function rankChannel(nodes: readonly any[], evidence: ReadonlyMap<string, Eviden
  * channel signals affect rank, never admission. Producers rank locally and only ordinal RRF values are fused.
  */
 export function allocateFeatureGraphRecorded(
-  nodes: any[], edges: any[], seeds: any[], anchorTerms: string[], maxNodes: number, options: AllocatorOptions = {}
+  nodes: any[], edges: any[], seeds: any[], anchorTerms: string[], maxNodes: number,
+  /**
+   * What each recall channel found. REQUIRED, with no default.
+   *
+   * An optional parameter here would be a channel that silently stops contributing: every existing call site
+   * would keep compiling while the route channel quietly went dark, and the only symptom would be a selection
+   * that used to include a handler and no longer does. Required means the compiler names every site that has to
+   * decide what it is passing.
+   */
+  recall: { readonly route: RouteRecallResult; readonly crossrepo: CrossrepoRecallResult },
+  options: AllocatorOptions = {}
 ): RecordedAllocation {
   const weights = options.weights ?? WEIGHTS;
   const useDf = options.documentFrequency !== false;
@@ -169,6 +193,32 @@ export function allocateFeatureGraphRecorded(
 
   const seedIds = new Set(seeds.map((node) => String(node.id)));
   for (const id of seedIds) if (nodeById.has(id)) put("seed", id, { strength: 2, reason: "query seed", anchor: id, propagationPath: [] });
+
+  // The route channel's claims. These nodes were admitted into the pool as EXPANSION ROOTS by the caller; here
+  // they earn a rank. Note what is NOT happening: they are not in `seedIds`, so they never enter
+  // `querySeedNodeIds` and never become `seedCells`. A node the channel recalled is not a node the query named,
+  // and layer 5's `seeded` relation means the second thing.
+  for (const claim of recall.route.evidence) {
+    if (!nodeById.has(claim.nodeId)) continue;
+    put("route", claim.nodeId, {
+      strength: claim.rule === "exact" ? 2 : 1,
+      reason: claim.reason,
+      anchor: claim.anchor,
+      propagationPath: [...claim.propagationPath]
+    });
+  }
+
+  // The cross-module channel. Same rule as above: these nodes were admitted as expansion roots by the caller and
+  // are NOT in `seeds`, so a link's vouching can never be read back as the query having named the handler.
+  for (const claim of recall.crossrepo.evidence) {
+    if (!nodeById.has(claim.nodeId)) continue;
+    put("crossrepo", claim.nodeId, {
+      strength: claim.rule === "R1" ? 2 : 1,
+      reason: claim.reason,
+      anchor: claim.anchor,
+      propagationPath: [...claim.propagationPath]
+    });
+  }
 
   for (const node of nodes) {
     const id = String(node.id);
@@ -280,7 +330,12 @@ export function allocateFeatureGraphRecorded(
     nodes: outputNodes,
     edges: dedupedEdges.filter((edge) => ids.has(String(edge.source)) && ids.has(String(edge.target))),
     trace: {
-      status: "ran", pool: tracePool, seedCount: seedIds.size, budgets: { maxNodes: cap },
+      status: "ran", pool: tracePool, seedCount: seedIds.size,
+      // From the seed id set, never from the `seed` channel: `put("seed", candidate, ...)` above also tags
+      // seed NEIGHBOURS, so the channel cannot tell "the query found this" from "this is next to what it found".
+      querySeedNodeIds: [...seedIds].filter((id) => nodeById.has(id)).sort(),
+      recall: { route: recall.route.block, crossrepo: recall.crossrepo.block },
+      budgets: { maxNodes: cap },
       fusion: {
         method: "weighted-reciprocal-rank", rankConstant: RANK_CONSTANT,
         rawScoresSummedAcrossChannels: false, tieBreak: ["relativePath", "name", "nodeId"], cutoffScore
@@ -290,8 +345,9 @@ export function allocateFeatureGraphRecorded(
 }
 
 export function allocateFeatureGraph(
-  nodes: any[], edges: any[], seeds: any[], anchorTerms: string[], maxNodes: number, options: AllocatorOptions = {}
+  nodes: any[], edges: any[], seeds: any[], anchorTerms: string[], maxNodes: number,
+  recall: { readonly route: RouteRecallResult; readonly crossrepo: CrossrepoRecallResult }, options: AllocatorOptions = {}
 ): { nodes: any[]; edges: any[] } {
-  const result = allocateFeatureGraphRecorded(nodes, edges, seeds, anchorTerms, maxNodes, options);
+  const result = allocateFeatureGraphRecorded(nodes, edges, seeds, anchorTerms, maxNodes, recall, options);
   return { nodes: result.nodes, edges: result.edges };
 }

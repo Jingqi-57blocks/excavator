@@ -1,0 +1,49 @@
+{
+  "corpus": {
+    "kind": "copy",
+    "sourceEnv": "EXCAVATOR_ANGELS_SOURCE",
+    "roots": [],
+    "excludeDirs": [
+      ".codegraph",
+      "node_modules",
+      "dist",
+      "build"
+    ],
+    "filesContentManifestDigest": "c16f9cc35605a2350c6d181440f90a4e2fad416c66ceb38f365e319647ebdf38",
+    "why": "Not under version control — none of its seven module directories is a git repository — so it cannot be pinned by commit. Frozen by copy and sealed by the layer-1 content digest, which is the assertion the git form also ultimately rests on. `.codegraph` is excluded so a stale index cannot make the no-graph arm accidentally find one; the build outputs are excluded because they are derived bytes that move without the source moving."
+  },
+  "language": "zh-CN",
+  "codegraphMode": "off",
+  "arm": "no-graph",
+  "why": "The second target, and the mandatory unavailability arm. Seven modules, JavaScript/Vue-dominant (480 .js, 123 .vue, 11 .ts) against wcp's Go/TSX — a different shape in module count, language mix and version-control status, all in mainstream languages. It is the only place `channel-unavailable{no-graph}` is exercised on real bytes, which is what keeps \"the producer was unavailable\" distinguishable from \"the query matched nothing\" — the distinction every later recall channel is measured against.",
+  "budgets": {
+    "prepareMs": 300000,
+    "authorMs": 180000,
+    "maxGraphQueries": 400,
+    "maxSourceWindows": 40,
+    "maxSourceCharacters": 150000,
+    "maxFiles": 20000,
+    "maxFeatureNodes": 180,
+    "maxExpansionDepth": 2
+  },
+  "ablation": {
+    "drops": [],
+    "why": "No ablation on this arm: with no graph there is no pool to ablate, and the assertions here are about the shape of unavailability rather than about vocabulary."
+  },
+  "features": [
+    {
+      "subject": "订单处理",
+      "aliases": [
+        "order",
+        "cart",
+        "checkout"
+      ]
+    }
+  ],
+  "anchors": [],
+  "moduleClasses": {
+    "hold": [],
+    "stayEmpty": [],
+    "notPinned": {}
+  }
+}

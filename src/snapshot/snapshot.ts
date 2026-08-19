@@ -404,6 +404,19 @@ export async function createSnapshot(targetInput: string, maxFiles = 100_000, op
   };
 }
 
+/**
+ * A SELECTION heuristic: which unindexed files are worth running a fallback search over.
+ *
+ * NOT A DENOMINATOR, and the distinction is the whole comment. This nine-extension denylist was the denominator
+ * of the CodeGraph coverage ratio until it was measured: it made that ratio's denominator a third taxonomy
+ * beside layer 1's `excluded{unsupported-extension}` and layer 2's per-mechanism extension sets, and published
+ * "1,639/1,719 = 95.3%" on wcp, where 1,719 is 1,999 counted minus 280 files this list happens to name and
+ * appears in no ledger. `CodeGraphCoverage.counted` is a ledger row count now; a ratio built on this predicate
+ * would be unaccountable again, and `tests/context.test.ts` fails if one comes back.
+ *
+ * As a search filter it is fine: picking which files to grep needs no denominator and answers to no conservation
+ * law. Being approximately right costs a wasted read, not a wrong published number.
+ */
 export function isLikelySource(file: ScannedFile): boolean {
   return ![".md", ".json", ".yaml", ".yml", ".toml", ".xml", ".html", ".css", ".scss"].includes(file.extension);
 }

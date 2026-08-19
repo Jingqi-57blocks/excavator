@@ -1,0 +1,174 @@
+{
+  "identity": {
+    "version": "attribution-v5",
+    "unitsContentDigest": "21a54ef23c11ca27ea1e40d83bc29fb70be0dc9c145a92324f2a3dcd1564ac20",
+    "filesContentManifestDigest": "c16f9cc35605a2350c6d181440f90a4e2fad416c66ceb38f365e319647ebdf38",
+    "mechanismsDigest": "f84d01549a66b755257dbb2ad9a9e98d8da623680278fde983293003b680cbc4",
+    "channels": [
+      "seed",
+      "route",
+      "crossrepo",
+      "lexical",
+      "derived",
+      "relation",
+      "convention",
+      "fallback",
+      "displaced"
+    ],
+    "channelConfigDigest": "6bdf9af40690b68046dc4e37c7ffc34f06d72c1de0422900cc3ddf3ad514b903",
+    "channelInputs": {
+      "moduleInventoryDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "codegraphEnvelopePresent": false
+    },
+    "budgets": {
+      "maxExpansionDepth": 2,
+      "maxFeatureNodes": 180,
+      "maxGraphQueries": 400
+    },
+    "runIntentVersion": "run-intent-v2",
+    "runIntentFeatureCount": 1,
+    "runIntentFeatures": [
+      {
+        "key": "订单处理-3771a94c14",
+        "subject": "订单处理",
+        "aliases": [
+          "cart",
+          "checkout",
+          "order"
+        ]
+      }
+    ]
+  },
+  "denominator": {
+    "artifact": "facts/units.json",
+    "cells": 7511,
+    "completeness": {
+      "capReached": false,
+      "droppedRoots": [],
+      "skippedByCap": 0
+    },
+    "contentDigest": "21a54ef23c11ca27ea1e40d83bc29fb70be0dc9c145a92324f2a3dcd1564ac20",
+    "producerVersion": "units-partition-v1",
+    "unitKind": "partition-cell"
+  },
+  "selections": [
+    {
+      "featureKey": "订单处理-3771a94c14",
+      "channels": {
+        "cause": "no-graph",
+        "status": "channel-unavailable"
+      },
+      "seats": [],
+      "displaced": [],
+      "seedCells": [],
+      "zeroScore": [
+        {
+          "cells": 1,
+          "language": "swift",
+          "reason": "channels-unavailable",
+          "rootName": "excavator-corpus-angels-pizza-nograph"
+        },
+        {
+          "cells": 123,
+          "language": "vue",
+          "reason": "channels-unavailable",
+          "rootName": "excavator-corpus-angels-pizza-nograph"
+        },
+        {
+          "cells": 184,
+          "language": "scss",
+          "reason": "channels-unavailable",
+          "rootName": "excavator-corpus-angels-pizza-nograph"
+        },
+        {
+          "cells": 2,
+          "language": "java",
+          "reason": "channels-unavailable",
+          "rootName": "excavator-corpus-angels-pizza-nograph"
+        },
+        {
+          "cells": 2,
+          "language": "shell",
+          "reason": "channels-unavailable",
+          "rootName": "excavator-corpus-angels-pizza-nograph"
+        },
+        {
+          "cells": 218,
+          "language": "typescript",
+          "reason": "channels-unavailable",
+          "rootName": "excavator-corpus-angels-pizza-nograph"
+        },
+        {
+          "cells": 24,
+          "language": "xml",
+          "reason": "channels-unavailable",
+          "rootName": "excavator-corpus-angels-pizza-nograph"
+        },
+        {
+          "cells": 37,
+          "language": "json",
+          "reason": "channels-unavailable",
+          "rootName": "excavator-corpus-angels-pizza-nograph"
+        },
+        {
+          "cells": 39,
+          "language": "css",
+          "reason": "channels-unavailable",
+          "rootName": "excavator-corpus-angels-pizza-nograph"
+        },
+        {
+          "cells": 6,
+          "language": "build-metadata",
+          "reason": "channels-unavailable",
+          "rootName": "excavator-corpus-angels-pizza-nograph"
+        },
+        {
+          "cells": 6,
+          "language": "html",
+          "reason": "channels-unavailable",
+          "rootName": "excavator-corpus-angels-pizza-nograph"
+        },
+        {
+          "cells": 6869,
+          "language": "javascript",
+          "reason": "channels-unavailable",
+          "rootName": "excavator-corpus-angels-pizza-nograph"
+        }
+      ],
+      "projection": {
+        "displaced": {
+          "missCounts": {
+            "envelope-unavailable": 0,
+            "file-not-counted": 0,
+            "kind-not-inventoried": 0,
+            "no-matching-fact": 0
+          },
+          "nodes": 0,
+          "seated": 0
+        },
+        "retained": {
+          "missCounts": {
+            "envelope-unavailable": 0,
+            "file-not-counted": 0,
+            "kind-not-inventoried": 0,
+            "no-matching-fact": 0
+          },
+          "nodes": 0,
+          "seated": 0
+        }
+      },
+      "modules": [],
+      "conservation": [
+        {
+          "totals": {
+            "counted": 7511,
+            "displaced": 0,
+            "seated": 0,
+            "zeroScore": 7511
+          },
+          "unitKind": "partition-cell"
+        }
+      ]
+    }
+  ]
+}

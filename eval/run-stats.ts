@@ -108,7 +108,8 @@ export interface Counters {
   traces: number | null;
   workItems: { complete: number; total: number } | null;
   timelineEvents: number | null;
-  codegraphCoverage: { indexed: number; eligible: number; ratio: number } | null;
+  /** `counted` is null on a run recorded before the denominator was renamed — NOT MEASURED, never 0. */
+  codegraphCoverage: { indexed: number; counted: number | null; ratio: number } | null;
 }
 
 /** One narrative row: a projection of a timeline event plus its opening gap. */
@@ -357,7 +358,12 @@ export function computeRunStats(runDir: string): RunStats {
       : null,
     timelineEvents: num(metrics.timelineEvents),
     codegraphCoverage: metrics.codegraphCoverage && typeof metrics.codegraphCoverage === "object"
-      ? { indexed: num(metrics.codegraphCoverage.indexed) ?? 0, eligible: num(metrics.codegraphCoverage.eligible) ?? 0, ratio: num(metrics.codegraphCoverage.ratio) ?? 0 }
+      // An archived run recorded before the rename carries `eligible` and no `counted`. Reading the absent
+      // field as 0 would render "1668/0", and would contradict this repository's own rule that an absent
+      // completeness field means NOT MEASURED (`src/base/types.ts`). Absent stays absent; the renderer says n/a.
+      // The old `eligible` is deliberately NOT substituted: it was a different denominator (a nine-extension
+      // denylist), so presenting it under the new name would silently compare two incomparable numbers.
+      ? { indexed: num(metrics.codegraphCoverage.indexed) ?? 0, counted: num(metrics.codegraphCoverage.counted), ratio: num(metrics.codegraphCoverage.ratio) ?? 0 }
       : null
   };
 

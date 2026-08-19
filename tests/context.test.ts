@@ -64,6 +64,56 @@ test("shared and feature contexts are reused across audiences and later runs", a
   assert.equal(second.stats.sourceWindows, 0, "cached contexts must not repeat source reads");
 });
 
+// THE COVERAGE DENOMINATOR IS THE LEDGER'S, NOT A LOCAL PREDICATE'S.
+//
+// `eligible` used to be `files.filter(isLikelySource)` — nine hardcoded extensions in `snapshot.ts`. The ratio
+// built on it was published in the model view and quoted in a real report as a fact: "1,639/1,719 = 95.3%" on
+// wcp, where 1,719 is 1,999 counted minus 280 files the denylist named and appears in no ledger at all.
+//
+// The fixture makes the difference visible rather than asserting an equality that both versions satisfy: the
+// `.scss` and `.md` files below are exactly what the old denylist removed. If the denominator goes back to a
+// predicate, `counted` drops by four and this fails.
+test("the CodeGraph coverage denominator counts every scanned file, not a hand-picked source subset", async () => {
+  const target = await copyFixture();
+  const workdir = await tempDir();
+  const db = join(workdir, "codegraph.db");
+  createCodeGraphFixture(db);
+
+  // Four files no code index would ever hold, in the extensions the retired denylist named.
+  await writeFile(join(target, "theme.scss"), "$brand: #123456;\n.button { color: $brand; }\n", "utf8");
+  await writeFile(join(target, "layout.css"), ".row { display: flex; }\n", "utf8");
+  await writeFile(join(target, "NOTES.md"), "# Notes\n\nNothing structural here.\n", "utf8");
+  await writeFile(join(target, "fixture.json"), JSON.stringify({ sample: true }) + "\n", "utf8");
+
+  const result = await buildContexts(request(target, db, workdir));
+  const coverage = result.stats.codegraphCoverage;
+  assert.ok(coverage, "a run with a graph publishes coverage");
+
+  // AGAINST THE LEDGER, not against a second scan. The first version of this test compared `coverage.counted`
+  // with a fresh `scanFiles()` — but both go through `scanWorkspace`, so a change that moved them together
+  // would keep it green while the denominator quietly stopped being the ledger's. The ledger artifact is the
+  // thing the denominator law names, so the ledger artifact is what the assertion reads.
+  assert.equal(coverage.counted, result.ledger.counted.length,
+    "the denominator is the ledger's counted rows; a predicate that drops non-source extensions would report fewer");
+  assert.equal(coverage.ledgerIdentity.contentDigest, result.ledger.contentManifestDigest,
+    "and it carries which ledger it is accountable to, rather than leaving that to be looked up later");
+  assert.equal(coverage.ratio, coverage.indexed / coverage.counted, "and the ratio is those two numbers");
+  assert.equal(coverage.unmatchedIndexRows, 0, "every index row matches a counted row on this fixture");
+
+  // The split is reported as observation, not asserted as a rule — the point of replacing the denylist. Each
+  // added file lands in its own language row rather than being removed from the denominator.
+  const byLanguage = new Map(coverage.byLanguage.map((row) => [row.language, row]));
+  for (const language of ["scss", "css", "markdown", "json"]) {
+    const row = byLanguage.get(language);
+    assert.ok(row && row.counted >= 1, `${language} is a visible row rather than a silent subtraction: ${JSON.stringify(coverage.byLanguage)}`);
+    assert.equal(row.indexed, 0, `${language} is genuinely unindexed here, which is what makes the row informative`);
+  }
+  assert.equal(coverage.byLanguage.reduce((sum, row) => sum + row.counted, 0), coverage.counted,
+    "the language rows partition the counted set exactly");
+  assert.equal(coverage.byLanguage.reduce((sum, row) => sum + row.indexed, 0), coverage.indexed,
+    "and their indexed counts add up to the aggregate");
+});
+
 test("source-only mode remains usable when CodeGraph is absent", async () => {
   const target = await copyFixture();
   const workdir = await tempDir();

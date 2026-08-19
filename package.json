@@ -19,7 +19,8 @@
     "test:unit": "node --experimental-strip-types --test tests/*.test.ts packages/excavator-html/tests/*.test.ts eval/tests/*.test.ts",
     "test:workspace": "node --experimental-strip-types tests/workspace-smoke.ts",
     "typecheck": "tsc --noEmit",
-    "check": "node --experimental-strip-types src/cli.ts help >/dev/null && npm test"
+    "check": "node --experimental-strip-types src/cli.ts help >/dev/null && npm test",
+    "test:intent-baseline": "node --experimental-strip-types tests/intent-baseline-smoke.ts"
   },
   "dependencies": {
     "@ast-grep/lang-go": "^0.0.6",

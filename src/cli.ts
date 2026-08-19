@@ -241,7 +241,10 @@ async function requestFromArgs(argv: string[]): Promise<ReportRequest> {
 
 function normalizeRequest(raw: Partial<ReportRequest>, args: Record<string, string>): ReportRequest {
   const overviewAudiences = (raw.overviewAudiences ?? []).flatMap((value) => audiences(String(value)));
-  const features = (raw.features ?? []).map((feature) => ({ subject: feature.subject, aliases: feature.aliases ?? [], audiences: feature.audiences?.flatMap((value) => audiences(String(value))) ?? ["product"] }));
+  // `profile` is passed through UNVALIDATED on purpose: `normalizeFeatureProfile` is the single validator, and a
+  // copy of its rules here would be a second one to drift. Spread conditionally so a request without hypotheses
+  // does not acquire a `profile: undefined` key and move its own contract digest.
+  const features = (raw.features ?? []).map((feature) => ({ subject: feature.subject, aliases: feature.aliases ?? [], audiences: feature.audiences?.flatMap((value) => audiences(String(value))) ?? ["product"], ...(feature.profile === undefined ? {} : { profile: feature.profile }) }));
   return {
     target: resolve(String(raw.target ?? required(args.target, "target"))),
     codegraph: raw.codegraph ? resolve(String(raw.codegraph)) : args.codegraph ? resolve(args.codegraph) : undefined,
@@ -252,7 +255,7 @@ function normalizeRequest(raw: Partial<ReportRequest>, args: Record<string, stri
     // Rebuilt field by field, so a field missing HERE cannot be set at all: `redactSecrets` was absent, and
     // that made the mode the request type documents unreachable from the CLI — the flag existed only for
     // callers using the library directly.
-    redactSecrets: args.redact === "true" || raw.redactSecrets === true,
+    redactSecrets: args.noRedact === "true" ? false : args.redact === "true" || raw.redactSecrets !== false,
     overviewAudiences,
     features,
     budgets: { ...defaultBudgets({ overviewAudiences, features }), ...(raw.budgets ?? {}), ...budgetOverrides(args) }
@@ -267,6 +270,10 @@ function baseRequest(args: Record<string, string>, docs: Pick<ReportRequest, "ov
     language: args.language ?? "en-US",
     detailLevel: args.detail === "standard" ? "standard" : "detailed",
     workdir: resolve(args.workdir ?? DEFAULT_WORKDIR),
+    // The same resolution `normalizeRequest` does. It was absent here, so `excavator overview --no-redact`
+    // parsed the flag and dropped it — the help text promised a mode two of the three prepare commands could
+    // not reach.
+    redactSecrets: args.noRedact === "true" ? false : true,
     ...docs,
     budgets: { ...defaultBudgets(docs), ...budgetOverrides(args) }
   };
@@ -382,11 +389,11 @@ Examples:
   excavator report --request request.json
 
 Secret redaction:
-  --redact            Blank secret-looking values in recorded source. Off by default, because redaction has a
-                      measured cost in destroyed evidence while its benefit depends on who receives the
-                      artifacts. Turn it on whenever the run directory or its HTML export will reach anyone
-                      who should not read the source verbatim. \`excavator status\` and each report's front
-                      matter state which mode a run used.
+  --redact            Blank secret-looking values in recorded source. ON BY DEFAULT; passing it changes nothing.
+  --no-redact         Record source verbatim. Redaction costs evidence, but a leaked credential cannot be
+                      recalled once the run directory or its HTML export is handed on, so verbatim is asked
+                      for rather than defaulted into. \`excavator status\` and each report's front matter
+                      state which mode a run used.
 
 Report detail:
   --detail detailed   Default. Requires a chapter inventory, fine-grained material work-item coverage and minimum report density.

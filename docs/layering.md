@@ -6,7 +6,7 @@
 
 | 输入 | 谁给 | 内容 |
 |---|---|---|
-| `run-intent.json` | 操作者 | target、feature subject + 排序后 aliases（**查询别名**）、预算 |
+| `run-intent.json` | 操作者 | target、feature subject + 排序后 aliases（**查询别名**）、预算、可选的 `FeatureProfile`（入口假设：method + path pattern，每条带 `origin: user / host-model / deterministic`）。**假设不是事实**：它只能匹配某个第 3 层生产者已独立观察到的东西才换来候选，自己绝不铸造成员资格、事实或席位；且它是 feature 词汇，故只能被第 4 层侧消费，生产者保持 feature-blind |
 | `requirements.json` | 报告侧（模板 / audience 在边界处翻译成需求行） | 本 run 必须回答的知识需求；每个请求文档的每个 `##` 模板章节恰好一行，另有无条件 run 级行；**知识需求的唯一通道** |
 | `contract-manifest.json` | **基座注册表 + 契约版本推导** | 本 run 预期哪些层产物与第 3 层生产者信封（必需 / 可选）、schema id、validator 版本、各检查族与版本 |
 
@@ -41,7 +41,7 @@
 
 **冻结的 epoch 模型（P0-4 的解法）。** 「不可变」与「允许冻结后补证」不能同时原地成立，而现行代码确实允许补证（`src/run/stages/investigation-stage.ts:35`：冻结后的写入必须携带一个能在 `workitems.json` 里解析到的 supplement）。裁定：**同世代内保留原地补证，但封存按 epoch 追加**——首次 `freeze` 把 `epoch 0` 写在兼容位置 `knowledge.json`；补证只追加到 `knowledge/supplements.json`；再次 `freeze` 把 `epoch N+1` 写到 `knowledge/epochs/epoch-N+1.json`，并钉住前一 epoch 摘要以及 evidence / timeline / supplement 三条流的 cutoff 与 tail。前一个 epoch 的字节和哈希链**只读不改**。报告与 authoring packet 绑定具体 epoch；有未封 supplement 时作者入口拒绝继续，旧 epoch 的 draft receipt 也不得被新 epoch 收集。这样：现有 supplement 机制不失效、而「补了什么」在产物上可见；v16 之前的旧 run 不改旧字节，重新 prepare。这个 epoch 模型不等于跨 schema 兼容读取。
 
-**事实的成员资格是一个闭合联合，不是一个 cell。** 第 2 层声明的 `UnitKind` 含模块、模块对、corpus，而「每条事实恰好指向一个 partition cell」对它们不成立——`src/crossrepo/link-match.ts:41` 的 `MatchedLink` 真的两端（`call` 在前端文件、`route` 在另一模块），class 跨 method cell 与 residual cell，corpus 域的词汇 df 没有任何 cell 可挑。挑一端就直接污染 seeded / retained / co-located：后端路由入席而前端文件未入席时，那条跨仓边会被读成 co-located 而丢弃，P17 换个粒度重演。裁定：成员资格是**必填的闭合联合**——`{unit, unitId}` / `{spanSet, unitIds[]}` / `{relation, endpoints[]}` / `{module, moduleId}` / `{corpus}`，没有可选字段、没有空集合合法态。**判定规则（任一端入席 / 全部覆盖入席 / 锚点入席 / 不参与席位判定）由基座的 kind 闭合注册表随 kind 一起声明**，不由第 5 层按 fact kind 选择——否则消费侧持有第二份语义表，正是「下游不得拥有第二份映射算法」禁的事。`{corpus}` 的席位判定是 `NotApplicable`：它是一个被写下的状态，不得塞进任一 cell，也不得以 null 进入事实包的逐条标注。事实不参与三态守恒（守恒的对象是 partition 行），不得为多单元成员资格补一条事实守恒律。
+**事实的成员资格是一个闭合联合，不是一个 cell。** 第 2 层声明的 `UnitKind` 含模块、模块对、corpus，而「每条事实恰好指向一个 partition cell」对它们不成立——`src/crossrepo/link-match.ts:42` 的 `MatchedLink` 真的两端（`call` 在前端文件、`route` 在另一模块），class 跨 method cell 与 residual cell，corpus 域的词汇 df 没有任何 cell 可挑。挑一端就直接污染 seeded / retained / co-located：后端路由入席而前端文件未入席时，那条跨仓边会被读成 co-located 而丢弃，P17 换个粒度重演。裁定：成员资格是**必填的闭合联合**——`{unit, unitId}` / `{spanSet, unitIds[]}` / `{relation, endpoints[]}` / `{module, moduleId}` / `{corpus}`，没有可选字段、没有空集合合法态。**判定规则（任一端入席 / 全部覆盖入席 / 锚点入席 / 不参与席位判定）由基座的 kind 闭合注册表随 kind 一起声明**，不由第 5 层按 fact kind 选择——否则消费侧持有第二份语义表，正是「下游不得拥有第二份映射算法」禁的事。`{corpus}` 的席位判定是 `NotApplicable`：它是一个被写下的状态，不得塞进任一 cell，也不得以 null 进入事实包的逐条标注。事实不参与三态守恒（守恒的对象是 partition 行），不得为多单元成员资格补一条事实守恒律。
 
 **分区由指定构建器产出，观察者不得改分区。** 契约自己撞了一次：分母法则要求「producer 增减不得改变既有分区」，而§六的粒度阶梯又写「有索引处投影到 partition、无索引处降至文件」——分区粒度成了生产者可用性的函数，一个可选工具一次可用一次不可用就换掉整个分母与大量 `UnitId`。裁定拆成两件事：(a) `partition[]` 由**每语言一个指定的分区构建器**产出，该构建器在 `contract-manifest` 中声明且**必需**——不可用时第 3 层信封是 `Unavailable`，绝不静默给一个更粗的分区；无构建器的语言按契约声明落文件级 partition（只有 residual），并在 `mechanisms.json` 记为已声明的覆盖缺口，而不是意外结果。(b) 普通事实生产者（framework pack、crossrepo、词汇）只能**观察并挂到既有 cell**，永不创建或切分 cell。补构建器或改其算法是**分区 schema 换代**：`UnitId` 跨版本不可比较，走 epoch，不做原地细化。验收是双向的：同一源码与契约下，可选生产者 available / unavailable 两次跑 `partition[]` 字节不变；构建器不可用时第 3 层返回 `Unavailable` 而非更粗分区。
 
@@ -49,7 +49,7 @@
 
 **`co-located` 不建立同 run 的反向提升环。** 关系标注本身不得授权 `ReadSpec`、进入模型视图或自动生成 fact evidence。第 7 层只有在**已有独立理由的第 5 层 `ReadSpec` 已覆盖该条目成员资格中的任一 `UnitId`**时，才可用所读 evidence id 与判者记录把它显式纳入调查结果；该判断不得回写第 5 层或补造一个追溯性的 `ReadSpec`。若没有独立授权，必须以新的 run-intent / 查询别名开启新 run，而不是从第 7 层反馈到第 5 或第 4 层。负向验收是默认 co-located 全部零消费；正向验收是已有独立 `ReadSpec` 时恰好一条具名判断可提升。
 
-**第 6/7 层的切法是从现状读出来的，不是排出来的。** 今天计划就在 prepare 铸出（`src/run/run.ts:328`），先于源码窗口阅读；而冻结后补证必须引用一个既有 work item（`src/run/stages/investigation-stage.ts:35`）——证据引义务、义务处置引证据，两个方向都真实存在。切成「声明在下（绝不引证据）、执行与处置同层在上」，环被声明侧的禁止输入列切断；调查在第 7 层内迭代生长，冻结是唯一封口。层序约束跨层依赖方向，不约束层内迭代。
+**第 6/7 层的切法是从现状读出来的，不是排出来的。** 今天计划就在 prepare 铸出（`src/run/run.ts:333`），先于源码窗口阅读；而冻结后补证必须引用一个既有 work item（`src/run/stages/investigation-stage.ts:35`）——证据引义务、义务处置引证据，两个方向都真实存在。切成「声明在下（绝不引证据）、执行与处置同层在上」，环被声明侧的禁止输入列切断；调查在第 7 层内迭代生长，冻结是唯一封口。层序约束跨层依赖方向，不约束层内迭代。
 
 ---
 
@@ -127,7 +127,7 @@ src/run/  src/cli.ts ✓ 编排
 **登记表今天与目标结构的两处差距，都是过渡而不是裁定：**
 
 - `src/facts/` 只有 `probe/`。另外六个生产者（codegraph、nativegraph、framework、schema、crossrepo、词汇）仍在自己的顶层目录里，各自登记 L3。层 3 的约束是「每生产者一个子目录」而不是「必须叫 `facts/x`」，所以这只是名字没搬。
-- 层 1 的目录名 `snapshot/` 尚未改。层 5 仍处于双目录过渡，但 57B-424 已把 census、`ReadSpec` 与唯一模型视图收束到 `src/workset/`；`src/context/` 只保留确定性收集与缓存。结构化源码预读的生产者已迁至 `src/facts/probe/`，层 5 不再持有 reader。**登记表是契约，目录名不是**。
+- 层 1 的目录名 `snapshot/` 尚未改。层 5 仍处于双目录过渡，但 57B-424 已把 census、`ReadSpec` 与唯一模型视图收束到 `src/workset/`；`src/context/` 只保留确定性收集与缓存。结构化源码预读的生产者已迁至 `src/facts/probe/`。**但层 5 仍在执行源码读取**：`src/context/context.ts:175` 构造 `SourceReader` 并在 prepare 期读出项目文档与回退搜索窗口，与本层禁止输入列的「源码读取器——本层只授权，不执行」直接冲突。这是**已计量的过渡违规**，不是已完成的迁移：第 8 层 `closure.sourceReadsWithoutObligation` 记录每次冻结时未被任何读取执行认领的读取条数（wcp overview 实测 10 条），并在 `investigation-closure` 族发劝告级 finding。层序测试抓不到它——L5→L1 是向下 import，方向合法，禁止输入列不由装置守着。迁移方案见该字段的定义注释。**登记表是契约，目录名不是**。
 
 探针三份（`decision-probe`、`condition-extract`、`condition-extract-perl`）与版本闸簇先迁至 `facts/probe/` 与 `base/`；57B-429 又把余下 21 份全部按已登记的侧归位：义务三份 → `obligation/`，调查五份 → `investigation/`，冻结三份 → `freeze/`，timeline → `base/`，报告九份 → `report/`。`src/assurance/` 不再存在，新文件不能再靠混装目录逃过层登记。
 
@@ -175,7 +175,7 @@ src/run/  src/cli.ts ✓ 编排
 
 1. **结构 / 约定 / 词汇三个事实层合并为一个。** 三者接口形状完全相同（输入台账与源文件，输出带完整度的信封），差异只是生产者。P1–P18 没有一条需要跨「结构 vs 约定 vs 词汇」的边界。词汇信封保留独立产物身份与字节稳定验收。
 2. **补一个工作集（消费）层（57B-424 已完成切片）。** `buildFactPack` 已被拆成第 5 层之前的确定性收集结果与 `src/workset/` 的关系标注 / 消费视图；机器分母保留全部行，自动消费只读 seeded / retained。census 只读 L1/L3 RowSet，`ReadSpec` 只表达授权，模型只读带源摘要与上界的 `context/workset.md`。
-3. **义务拆为「声明」与「处置」，处置与证据、读取执行合为一个调查结果层。** 上一版把义务整体放在证据之上，但冻结后补证必须引既有 work item（`src/run/stages/investigation-stage.ts:35`）——证据引义务在旧序下是向上引用，契约自己违序；而计划本就在 prepare 铸出（`src/run/run.ts:328`），先于窗口阅读。声明在下（绝不引证据 id），执行与处置同层迭代生长，冻结按 epoch 封口。
+3. **义务拆为「声明」与「处置」，处置与证据、读取执行合为一个调查结果层。** 上一版把义务整体放在证据之上，但冻结后补证必须引既有 work item（`src/run/stages/investigation-stage.ts:35`）——证据引义务在旧序下是向上引用，契约自己违序；而计划本就在 prepare 铸出（`src/run/run.ts:333`），先于窗口阅读。声明在下（绝不引证据 id），执行与处置同层迭代生长，冻结按 epoch 封口。
 
 十层 → **八层**（另有契约、基座、报告层、编排四个非层地层）。P5、P14、P17、P18 全部跨具名接口，检验闭合。
 
