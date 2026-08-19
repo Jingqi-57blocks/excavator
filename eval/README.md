@@ -246,12 +246,17 @@ The point of the harness is that most iterations never call a model:
   entries (union + dedupe), a `CG-NODES-*` decoy (must not be credited), a `CG-*` summary decoy, and two
   source windows, plus `gold-pass.json` / `gold-fail.json` exercising exit 0/1 and the
   `coveredBySourceWindow` true/false split.
-- `tests/fixtures/packet-twin-overviews/` & `packet-feature-blocks/` — two synthetic completed runs for
-  `packet-readings`. The twin holds two overview documents over the same work items, evidence and traces, so
-  its two packets differ only in the H1 document id and the duplication numbers are derivable by hand; the
-  feature fixture holds one document whose three blocks share an evidence id and a trace id, which is what
-  puts the renderer's cross-block back-reference lines into the `anchor-line` bucket. Their
-  `context/authoring/*.md` are real `buildAuthoringPacket` output over their own artifacts, so a renderer
-  change makes the projection lose those chunks instead of quietly reading zero.
+- `tests/fixtures/packet-twin-overviews/`, `packet-feature-blocks/` & `packet-feature-factpack/` — three
+  synthetic completed runs for `packet-readings`, each with one job. The twin holds two overview documents over
+  the same work items, evidence and traces, so its two packets differ only in the H1 document id and the
+  duplication numbers are derivable by hand. `packet-feature-blocks` holds one document whose three blocks share
+  an evidence id and a trace id and which has **no** fact pack, which is what puts the renderer's cross-block
+  back-reference lines into the `anchor-line` bucket and exercises the `factPack: absent` reading.
+  `packet-feature-factpack` holds the same feature for two audiences over one fact pack, with a category that two
+  section blocks both map to, so a fact listing is rendered twice per packet and once per audience. Their
+  `context/authoring/*.md` are real `buildAuthoringPacket` output over their own artifacts, so a renderer change
+  makes the projection lose those chunks instead of quietly reading zero. Each also carries a
+  `coverage/read-residual.json`, which the readings copy field for field — note that `.gitignore`'s unanchored
+  `coverage/` pattern is negated for exactly these directories.
 - `golden/assemble-canonical.txt` — the canonical projection of the model-free canned-draft chain's
   `reports/` output, pinned byte for byte by `tests/assemble-golden.test.ts`.
