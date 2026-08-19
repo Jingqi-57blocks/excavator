@@ -46,7 +46,7 @@ import { auditPendingDrafts } from "../report/parallel-authoring.ts";
 import { authorPrompt, makeDocumentPlan, referencePath, reportFileName } from "../report/authoring-plan.ts";
 import { projectCacheDir, reDeriveIdentities } from "./stages/runtime-identity.ts";
 import { readFrozenFactPacks, readRequiredInvestigationResults, readRequiredObligationDeclarations } from "./stages/investigation-read-model.ts";
-import { resolveCrossRepoLinks } from "./stages/crossrepo-stage.ts";
+import { resolveCrossRepoLinks } from "../crossrepo/resolve-links.ts";
 import { auditEvidenceStorage, evidenceStreamDigest, readEvidenceCatalog, writeEvidenceCatalog } from "../investigation/evidence-store.ts";
 
 export { assembleRun, beginDocument, checkpointSection, resumeRun, runStatus, scaffoldClaims } from "./stages/authoring-stage.ts";

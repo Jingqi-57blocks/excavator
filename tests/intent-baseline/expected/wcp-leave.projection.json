@@ -1,12 +1,13 @@
 {
   "identity": {
-    "version": "attribution-v4",
+    "version": "attribution-v5",
     "unitsContentDigest": "56dbe610c313660b6e6cf56cd4a146e6f70988b64140f1f26f045262167fc2f7",
     "filesContentManifestDigest": "39c56dc230cf16bfb04edcb601ae41a0a62998d5c0f95b6b08535d336a672af4",
     "mechanismsDigest": "d8228ee739fe7812e983a6bab1bb4a619c769069208fa1b80c3a8da4a9b0c16e",
     "channels": [
       "seed",
       "route",
+      "crossrepo",
       "lexical",
       "derived",
       "relation",
@@ -14,7 +15,7 @@
       "fallback",
       "displaced"
     ],
-    "channelConfigDigest": "bdc78a6a13a3b570bb2626489b5a0417cd217bd4632f68c485d9e1da868d4fac",
+    "channelConfigDigest": "6bdf9af40690b68046dc4e37c7ffc34f06d72c1de0422900cc3ddf3ad514b903",
     "channelInputs": {
       "moduleInventoryDigest": "baff3f533e942375a45cdb1dcf19dc34daedfa840b0f04b18addeb4758c49cd6",
       "codegraphEnvelopePresent": true
@@ -67,6 +68,7 @@
         },
         "byChannel": {
           "convention": 1,
+          "crossrepo": 0,
           "derived": 7,
           "displaced": 1613,
           "fallback": 0,
@@ -88,6 +90,19 @@
         },
         "poolNodes": 1793,
         "recall": {
+          "crossrepo": {
+            "admittedNodeIds": [],
+            "byOutcome": {
+              "admitted": 0,
+              "caller-not-in-pool": 375,
+              "caller-not-root": 8,
+              "handler-unresolved": 0,
+              "route-not-indexed": 0
+            },
+            "confirmedLinks": 383,
+            "probableLinks": 0,
+            "status": "ran"
+          },
           "route": {
             "cause": "no-hypotheses",
             "status": "not-run"
@@ -2666,6 +2681,7 @@
           "moduleId": "wcp_review_service",
           "poolNodes": 1,
           "recall": {
+            "crossrepo": "no-match",
             "route": "not-run"
           },
           "retainedNodes": 0,
@@ -2681,6 +2697,7 @@
           "moduleId": "wcp-auth",
           "poolNodes": 0,
           "recall": {
+            "crossrepo": "no-match",
             "route": "not-run"
           },
           "retainedNodes": 0,
@@ -2696,6 +2713,7 @@
           "moduleId": "wcp-service",
           "poolNodes": 210,
           "recall": {
+            "crossrepo": "no-match",
             "route": "not-run"
           },
           "retainedNodes": 28,
@@ -2711,6 +2729,7 @@
           "moduleId": "wcp-service-v2",
           "poolNodes": 1080,
           "recall": {
+            "crossrepo": "no-match",
             "route": "not-run"
           },
           "retainedNodes": 145,
@@ -2726,6 +2745,7 @@
           "moduleId": "wcp-ui",
           "poolNodes": 502,
           "recall": {
+            "crossrepo": "no-match",
             "route": "not-run"
           },
           "retainedNodes": 7,
@@ -2754,16 +2774,17 @@
         },
         "byChannel": {
           "convention": 2,
+          "crossrepo": 6,
           "derived": 1,
           "displaced": 1650,
           "fallback": 0,
-          "lexical": 70,
-          "relation": 60,
+          "lexical": 68,
+          "relation": 58,
           "route": 6,
-          "seed": 41
+          "seed": 39
         },
         "fusion": {
-          "cutoffScore": 0.011927786712959418,
+          "cutoffScore": 0.011967455825554087,
           "method": "weighted-reciprocal-rank",
           "rankConstant": 60,
           "rawScoresSummedAcrossChannels": false,
@@ -2775,6 +2796,26 @@
         },
         "poolNodes": 1830,
         "recall": {
+          "crossrepo": {
+            "admittedNodeIds": [
+              "wcp-service-v2\u0000function:0f964018cd7b0b0044f3554d3c1fef44",
+              "wcp-service-v2\u0000function:4e3bf6d274f0c78bd53a42ef83216f2c",
+              "wcp-service-v2\u0000function:9583df7a8f0fd66c511a887a747f7451",
+              "wcp-service-v2\u0000route:internal/handlers/handlers.go:121:GET:/:nation/:year",
+              "wcp-service-v2\u0000route:internal/handlers/handlers.go:473:GET:/changes",
+              "wcp-service-v2\u0000route:internal/handlers/handlers.go:474:GET:/export"
+            ],
+            "byOutcome": {
+              "admitted": 3,
+              "caller-not-in-pool": 72,
+              "caller-not-root": 307,
+              "handler-unresolved": 0,
+              "route-not-indexed": 1
+            },
+            "confirmedLinks": 383,
+            "probableLinks": 0,
+            "status": "ran"
+          },
           "route": {
             "admittedNodeIds": [
               "wcp-service-v2\u0000function:17b6f766dbf210f28377b461014c1eb3",
@@ -2926,7 +2967,7 @@
         {
           "unitId": "cell:structure:1223-1443:wcp-service-v2/internal/handlers/leaveHistory/router.go",
           "factId": "function:wcp-service-v2/internal/handlers/leaveHistory/router.go:51-57:ExportHolidayHour",
-          "channel": "lexical",
+          "channel": "crossrepo",
           "rootName": "wcp-service-v2"
         },
         {
@@ -3532,7 +3573,7 @@
         {
           "unitId": "cell:structure:631-1055:wcp-service-v2/internal/handlers/holiday/router.go",
           "factId": "function:wcp-service-v2/internal/handlers/holiday/router.go:25-42:ByNation",
-          "channel": "seed",
+          "channel": "crossrepo",
           "rootName": "wcp-service-v2"
         },
         {
@@ -3640,7 +3681,7 @@
         {
           "unitId": "cell:structure:867-1221:wcp-service-v2/internal/handlers/leaveHistory/router.go",
           "factId": "function:wcp-service-v2/internal/handlers/leaveHistory/router.go:39-49:GetHolidayHourChangeLog",
-          "channel": "lexical",
+          "channel": "crossrepo",
           "rootName": "wcp-service-v2"
         },
         {
@@ -5540,6 +5581,7 @@
           "moduleId": "wcp_review_service",
           "poolNodes": 0,
           "recall": {
+            "crossrepo": "no-match",
             "route": "no-match"
           },
           "retainedNodes": 0,
@@ -5555,6 +5597,7 @@
           "moduleId": "wcp-auth",
           "poolNodes": 0,
           "recall": {
+            "crossrepo": "no-match",
             "route": "no-match"
           },
           "retainedNodes": 0,
@@ -5566,13 +5609,14 @@
           "denominatorCells": 2609,
           "dir": "wcp-service",
           "displacedCells": 132,
-          "displacedNodes": 228,
+          "displacedNodes": 229,
           "moduleId": "wcp-service",
           "poolNodes": 264,
           "recall": {
+            "crossrepo": "no-match",
             "route": "no-match"
           },
-          "retainedNodes": 36,
+          "retainedNodes": 35,
           "seatedCells": 26,
           "soleSourceSeats": 0,
           "status": "seated"
@@ -5581,13 +5625,14 @@
           "denominatorCells": 5905,
           "dir": "wcp-service-v2",
           "displacedCells": 910,
-          "displacedNodes": 945,
+          "displacedNodes": 944,
           "moduleId": "wcp-service-v2",
           "poolNodes": 1080,
           "recall": {
+            "crossrepo": "contributed",
             "route": "contributed"
           },
-          "retainedNodes": 135,
+          "retainedNodes": 136,
           "seatedCells": 101,
           "soleSourceSeats": 3,
           "status": "seated"
@@ -5600,6 +5645,7 @@
           "moduleId": "wcp-ui",
           "poolNodes": 486,
           "recall": {
+            "crossrepo": "no-match",
             "route": "no-match"
           },
           "retainedNodes": 9,

@@ -14,6 +14,7 @@ import {
   type SelectionContribution, type SelectionFusion, type TraceNode
 } from "./selection-trace.ts";
 import type { RouteRecallTraceBlock } from "./route-recall.ts";
+import type { CrossrepoRecallTraceBlock } from "./crossrepo-recall.ts";
 
 /**
  * `attribution/attribution.json`: which partition cells this run's selection seated, and what happened to the rest.
@@ -44,7 +45,7 @@ import type { RouteRecallTraceBlock } from "./route-recall.ts";
  * layer deciding something no feature asked it to decide.
  */
 
-export const ATTRIBUTION_ARTIFACT_VERSION = "attribution-v4";
+export const ATTRIBUTION_ARTIFACT_VERSION = "attribution-v5";
 
 /** Where a retained node landed when it did NOT reach a cell. Closed: there is no fourth way to miss. */
 export const SEAT_PROJECTION_MISSES = ["envelope-unavailable", "file-not-counted", "kind-not-inventoried", "no-matching-fact"] as const;
@@ -143,7 +144,16 @@ export interface AttributionModuleRow {
    * nothing to do with the capability", which is the confusion the whole mechanism-ledger layer exists to prevent
    * one level down.
    */
-  readonly recall: { readonly route: "not-run" | "unavailable" | "no-match" | "contributed" };
+  readonly recall: {
+    readonly route: "not-run" | "unavailable" | "no-match" | "contributed";
+    /**
+     * `not-applicable` is this channel's own state and belongs to no other: a single-module target has no
+     * cross-repo edge to find, which is a DETERMINATION about the target rather than a gap in what was looked at.
+     * Collapsing it into `unavailable` would report "the tool could not see here" for a repository that has
+     * nothing there to see.
+     */
+    readonly crossrepo: "not-run" | "not-applicable" | "unavailable" | "no-match" | "contributed";
+  };
 }
 
 /** What the channels did, without the pool: the per-node record is republished as seats and displacements. */
@@ -165,7 +175,7 @@ export type SelectionSummary =
      * reached — never reaches anything an auditor or a later slice can read. A channel whose work is invisible in
      * the artifact is a channel whose contribution cannot be checked against the facts it claims to have used.
      */
-    readonly recall: { readonly route: RouteRecallTraceBlock };
+    readonly recall: { readonly route: RouteRecallTraceBlock; readonly crossrepo: CrossrepoRecallTraceBlock };
   }
   | { readonly status: "channel-unavailable"; readonly cause: "no-graph" | "empty-vocabulary" };
 
@@ -597,6 +607,16 @@ function buildModuleRows(
   }
   const routeRan = trace.status === "ran" && trace.recall.route.status === "ran";
 
+  const crossrepoContributed = new Set<string>();
+  if (trace.status === "ran") for (const node of trace.pool) {
+    if (!node.contributions.some((item) => item.sourceChannel === "crossrepo")) continue;
+    const owner = moduleForFile(inventory, node.relativePath);
+    if (owner) crossrepoContributed.add(owner.id);
+  }
+  const crossrepoBlock = trace.status === "ran" ? trace.recall.crossrepo : null;
+  const crossrepoRan = crossrepoBlock?.status === "ran";
+  const crossrepoNotApplicable = crossrepoBlock?.status === "not-run" && crossrepoBlock.cause === "single-module";
+
   return [...rows.values()].map((row): AttributionModuleRow => {
     const seated = row.seatedCells.size;
     const status: AttributionModuleRow["status"] = seated > 0 ? "seated"
@@ -619,6 +639,11 @@ function buildModuleRows(
       recall: {
         route: !routeRan ? "not-run"
           : contributedModules.has(row.moduleId) ? "contributed"
+          : modulesWithRouteFacts.has(row.moduleId) ? "no-match"
+          : "unavailable",
+        crossrepo: crossrepoNotApplicable ? "not-applicable"
+          : !crossrepoRan ? "not-run"
+          : crossrepoContributed.has(row.moduleId) ? "contributed"
           : modulesWithRouteFacts.has(row.moduleId) ? "no-match"
           : "unavailable"
       }

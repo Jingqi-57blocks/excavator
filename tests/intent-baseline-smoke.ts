@@ -136,9 +136,14 @@ async function runFixture(name: string): Promise<void> {
     const seat = ablSeatByCell.get(anchor.handlerCell);
     assert.ok(seat, `anchor ${anchor.handlerName} is not seated under the ablation; the route channel did not recall it`);
     assert.equal(seat.channel, "route", `anchor ${anchor.handlerName} was seated by ${seat.channel}, not by the structural channel`);
-    const lexicalFamily = seat.contributions.map((row) => row.sourceChannel).filter((channel) => channel !== "route" && channel !== "fallback");
+    // The property is "no WORD claimed this seat", not "exactly one channel did". Written first as a list of
+    // exclusions (`!== "route"`), which made the second structural channel read as contamination the moment S5
+    // landed and crossrepo corroborated the same handlers. Naming the structural set states the intent instead:
+    // two structural channels agreeing is evidence, and a lexical one appearing is the gap closing itself.
+    const structural = new Set(["route", "crossrepo", "fallback"]);
+    const lexicalFamily = seat.contributions.map((row) => row.sourceChannel).filter((channel) => !structural.has(channel));
     assert.deepEqual(lexicalFamily, [],
-      `anchor ${anchor.handlerName} also carries ${lexicalFamily.join(", ")}; it is no longer a sole-source structural recall, so it stops measuring the gap`);
+      `anchor ${anchor.handlerName} also carries ${lexicalFamily.join(", ")}; a word is claiming it, so it stops measuring the vocabulary gap`);
   }
   // SEED PURITY, ASSERTED AT THE WIRING. The unit tripwire covers the allocator's contract, but the corruption
   // this guards against lives one level up: `context.ts` could pass the recalled nodes as allocator `seeds`, and

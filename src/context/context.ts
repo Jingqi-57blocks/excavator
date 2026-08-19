@@ -8,7 +8,10 @@ import { channelUnavailable, SELECTION_TRACE_VERSION, type FeatureSelectionTrace
 import { createSnapshot, isLikelySource, type ScannedFile } from "../snapshot/snapshot.ts";
 import { corpusResolver, LANGUAGE_REGISTRY } from "../base/language-registry.ts";
 import { routeRecall } from "../attribution/route-recall.ts";
+import { crossrepoRecall } from "../attribution/crossrepo-recall.ts";
+import { resolveCrossRepoLinks } from "../crossrepo/resolve-links.ts";
 import { inventoryPathsOf, routeInventory, type RouteInventory } from "../codegraph/route-inventory.ts";
+import type { CrossRepoScan } from "../crossrepo/crossrepo-scan.ts";
 import { countedRowSet } from "../snapshot/file-ledger.ts";
 import type { RowSet } from "../base/row-set.ts";
 import type { FileLedger } from "../snapshot/file-ledger.ts";
@@ -24,7 +27,7 @@ import { legacyWorkspaceWarning } from "../snapshot/workspace-residue.ts";
 // selection built from it would publish an empty `seedCells` — layer 5's `seeded` relation silently back to
 // zero, which is precisely the defect this generation fixes and the shape a stale cache would restore.
 // Any change to a cached shape bumps this (57B-375).
-const BUILDER_VERSION = "excavator-context-v29-route-recall";
+const BUILDER_VERSION = "excavator-context-v30-crossrepo-recall";
 
 interface CachedShared {
   snapshotId: string;
@@ -241,9 +244,24 @@ export async function buildContextsFromBoundary(request: ReportRequest, boundary
   // Skipped when no feature carries a profile: the source verification reads files, and a run that cannot use the
   // result should not pay for it. `routeRecall` then reports `not-run{no-hypotheses}` per feature anyway.
   const wantsRouteRecall = request.features.some((feature) => (feature.profile?.possibleEntrypoints.length ?? 0) > 0);
-  const routes = graph && wantsRouteRecall
+  const moduleDirs = new Map((codegraphResolution.modules ?? []).map((module) => [module.id, module.dir]));
+  // Cross-module recall needs the inventory too — it joins a recovered route to the indexed registration by
+  // coordinates — so the inventory is built whenever EITHER channel can use it.
+  const wantsCrossrepo = moduleDirs.size >= 2;
+  const routes = graph && (wantsRouteRecall || wantsCrossrepo)
     ? await routeInventory(graph, inventoryPathsOf(ledger), request.target)
     : null;
+
+  // Resolved ONCE, before the feature loop, for the same reason the inventory is: admission happens inside this
+  // function, and the run-level stage that used to own this ran after prepare had already closed every pool.
+  // Advisory by contract — a resolver failure is a warning, never a failed preparation.
+  const crossRepo = wantsCrossrepo
+    ? await resolveCrossRepoLinks(request.target, codegraphResolution.modules, snapshot.id, warnings, sourceReader.redacts)
+    : null;
+  // `null`, not `[]`. A resolver that threw learned nothing about this target; an empty array is the finding
+  // "this target has no cross-repo links". Folding the first into the second publishes a determination the run
+  // never made — and `targetRelative`'s own comment names that as the wrong conclusion to let a reader draw.
+  const crossRepoLinks = wantsCrossrepo && crossRepo === null ? null : crossRepo?.scan.links ?? null;
 
   for (const feature of request.features) {
     deadline.check(`preparing feature ${feature.subject}`);
@@ -266,7 +284,7 @@ export async function buildContextsFromBoundary(request: ReportRequest, boundary
     } else {
       cache[`feature:${key}`] = "miss";
       const started = Date.now();
-      cached = await buildFeatureContext(snapshot, files, feature, graph, new Set(shared.graphFilePaths), sourceReader, deadline, request.budgets.maxFeatureNodes, request.budgets.maxExpansionDepth, routes);
+      cached = await buildFeatureContext(snapshot, files, feature, graph, new Set(shared.graphFilePaths), sourceReader, deadline, request.budgets.maxFeatureNodes, request.budgets.maxExpansionDepth, routes, crossRepoLinks, moduleDirs);
       timing[`feature:${key}Ms`] = Date.now() - started;
       await writeJson(cachePath, cached);
     }
@@ -501,7 +519,7 @@ async function buildSharedContext(snapshot: Snapshot, files: ScannedFile[], ledg
   return { snapshotId: snapshot.id, evidence: dedupeEvidence(evidence), markdown, graphFilePaths: [...graphPaths], metrics: { coverage, warnings } };
 }
 
-async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], feature: FeatureRequest, graph: GraphReader | null, graphPaths: Set<string>, sourceReader: SourceReader, deadline: Deadline, maxNodes: number, depth: number, routes: RouteInventory | null): Promise<CachedFeature> {
+async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], feature: FeatureRequest, graph: GraphReader | null, graphPaths: Set<string>, sourceReader: SourceReader, deadline: Deadline, maxNodes: number, depth: number, routes: RouteInventory | null, crossRepoLinks: CrossRepoScan["links"] | null, moduleDirs: ReadonlyMap<string, string>): Promise<CachedFeature> {
   const terms = [...new Set([feature.subject, ...feature.aliases].flatMap(tokenize))].filter(Boolean);
   const evidence: EvidenceItem[] = [];
   const warnings: string[] = [];
@@ -535,7 +553,7 @@ async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], fea
     // The structural door into the pool. Until now the only way in was a lexical seed, so a module matching no
     // term was skipped by `expand` and unreachable by anything downstream. A hypothesis that aligns with a
     // recorded route admits that route's node — and its source-verified handler — as an EXPANSION ROOT.
-    const recall = { route: routeRecall(feature.profile?.possibleEntrypoints ?? [], routes) };
+    const routeBlock = routeRecall(feature.profile?.possibleEntrypoints ?? [], routes);
 
     // THE RED LINE. Recalled nodes go into the expansion roots and NEVER into `seeds`.
     //
@@ -543,8 +561,38 @@ async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], fea
     // for the `seed` channel and for `attribution.seedCells`, which layer 5 reads as "the query named this". A
     // node this channel recalled was named by a HYPOTHESIS, not by the query. Merging the two would silently
     // relabel channel recall as query naming and corrupt the join S1 just landed — with no artifact saying so.
-    const expansionRoots = [...new Set([...seeds.map((node) => String(node.id)), ...recall.route.admissionNodeIds])].sort();
-    const expanded = graph.expand(expansionRoots, Math.min(depth, 2), Math.max(maxNodes, expansionRoots.length) * 6);
+    const phase1Roots = [...new Set([...seeds.map((node) => String(node.id)), ...routeBlock.admissionNodeIds])].sort();
+    const phase1 = graph.expand(phase1Roots, Math.min(depth, 2), Math.max(maxNodes, phase1Roots.length) * 6);
+
+    // PHASE 2: a caller already in the pool vouches for the handler it reaches across a module boundary.
+    //
+    // It has to be a second phase, not another root: the rule is "the CALLER is already in the pool", and there is
+    // no pool to test against until phase 1 has run. Exactly one round — a handler admitted here does not then
+    // propagate its own outgoing links, because reaching further is a decision for the readings rather than a
+    // default that arrives with the mechanism.
+    const crossrepoBlock = crossrepoRecall(
+      crossRepoLinks,
+      routes,
+      phase1.nodes.map((node: { id: unknown; filePath: unknown; startLine: unknown; endLine: unknown }) => ({
+        nodeId: String(node.id),
+        relativePath: String(node.filePath),
+        startLine: typeof node.startLine === "number" ? node.startLine : null,
+        endLine: typeof node.endLine === "number" ? node.endLine : null
+      })),
+      new Set(phase1Roots),
+      moduleDirs
+    );
+    const inPhase1 = new Set(phase1.nodes.map((node: { id: unknown }) => String(node.id)));
+    const phase2Roots = crossrepoBlock.admissionNodeIds.filter((id) => !inPhase1.has(id));
+    const phase2 = phase2Roots.length
+      ? graph.expand(phase2Roots, Math.min(depth, 2), Math.max(maxNodes, phase2Roots.length) * 6)
+      : { nodes: [], edges: [] };
+
+    const expanded = {
+      nodes: dedupeNodes([...phase1.nodes, ...phase2.nodes]),
+      edges: [...phase1.edges, ...phase2.edges]
+    };
+    const recall = { route: routeBlock, crossrepo: crossrepoBlock };
     const poolEdges = graph.edgesAmong(expanded.nodes.map((node) => node.id));
     const pruned = allocateFeatureGraphRecorded(expanded.nodes, [...expanded.edges, ...poolEdges], seeds, anchorTerms, maxNodes, recall);
     nodes = pruned.nodes;
