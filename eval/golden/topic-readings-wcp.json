@@ -1,0 +1,132 @@
+{
+  "bindings": 1988,
+  "catalogDigest": "7e628ab6fed5e8d3ecb9cb43606095da4068b39e59e91b2788142e56cf95188a",
+  "confidence": {
+    "grounded": 74,
+    "qualified": 4,
+    "unbound": 1492,
+    "unsettled": 0
+  },
+  "distinctBoundWorkItems": 917,
+  "facets": [
+    {
+      "facet": "coverage",
+      "material": 1,
+      "obligatedNonMaterial": 1,
+      "reason": "",
+      "state": "populated",
+      "topics": 56,
+      "unobligated": 54,
+      "verdictWithNoDispositions": "violations: 1 problem(s) over 1 material topic(s), 0 dispositioned"
+    },
+    {
+      "facet": "entity",
+      "material": 0,
+      "obligatedNonMaterial": 0,
+      "reason": "facts/producers/db-schema.json records status unavailable: policy: not-run-scoped — schema discovery runs as its own command and writes outside the run directory",
+      "state": "ledger-absent",
+      "topics": 0,
+      "unobligated": 0,
+      "verdictWithNoDispositions": "vacuous: the material-topic denominator is empty, so nothing was checked — the entity facet is empty because its ledger is absent: facts/producers/db-schema.json records status unavailable: policy: not-run-scoped — schema discovery runs as its own command and writes outside the run directory"
+    },
+    {
+      "facet": "external-system",
+      "material": 0,
+      "obligatedNonMaterial": 0,
+      "reason": "",
+      "state": "populated",
+      "topics": 4,
+      "unobligated": 4,
+      "verdictWithNoDispositions": "vacuous: the material-topic denominator is empty, so nothing was checked — the external-system facet holds 4 topic(s), none of them material (0 obligated-non-material, 4 unobligated)"
+    },
+    {
+      "facet": "feature",
+      "material": 2,
+      "obligatedNonMaterial": 0,
+      "reason": "",
+      "state": "populated",
+      "topics": 2,
+      "unobligated": 0,
+      "verdictWithNoDispositions": "violations: 2 problem(s) over 2 material topic(s), 0 dispositioned"
+    },
+    {
+      "facet": "route",
+      "material": 0,
+      "obligatedNonMaterial": 0,
+      "reason": "",
+      "state": "populated",
+      "topics": 1434,
+      "unobligated": 1434,
+      "verdictWithNoDispositions": "vacuous: the material-topic denominator is empty, so nothing was checked — the route facet holds 1434 topic(s), none of them material (0 obligated-non-material, 1434 unobligated)"
+    },
+    {
+      "facet": "work-item-dimension",
+      "material": 4,
+      "obligatedNonMaterial": 70,
+      "reason": "",
+      "state": "populated",
+      "topics": 74,
+      "unobligated": 0,
+      "verdictWithNoDispositions": "violations: 4 problem(s) over 4 material topic(s), 0 dispositioned"
+    }
+  ],
+  "factRouting": {
+    "mapped": 1434,
+    "unmapped": [
+      {
+        "facts": 6008,
+        "kind": "indexed-function",
+        "producer": "codegraph"
+      },
+      {
+        "facts": 430,
+        "kind": "frontend-call",
+        "producer": "crossrepo"
+      },
+      {
+        "facts": 383,
+        "kind": "http-link",
+        "producer": "crossrepo"
+      }
+    ]
+  },
+  "knowledgeDigest": "e70e928538b66f36de5dbd4fd37de4a53ac0422766a75efe4545992efcc4e15f",
+  "knowledgeEpoch": 0,
+  "materiality": {
+    "material": 7,
+    "obligatedNonMaterial": 71,
+    "unobligated": 1492
+  },
+  "namedEmptyFacets": [
+    {
+      "facet": "entity",
+      "reason": "facts/producers/db-schema.json records status unavailable: policy: not-run-scoped — schema discovery runs as its own command and writes outside the run directory",
+      "state": "ledger-absent"
+    }
+  ],
+  "obligationAccounting": {
+    "assigned": 917,
+    "total": 917,
+    "unassigned": 0,
+    "unassignedWorkItemIds": []
+  },
+  "overallVerdictWithNoDispositions": "violations: 7 problem(s) over 7 material topic(s), 0 dispositioned",
+  "readPaths": [
+    "context/boundary-functions.json",
+    "context/cross-feature.json",
+    "context/crossrepo-links.json",
+    "contract/run-intent.json",
+    "coverage/read-obligations.json",
+    "coverage/read-residual.json",
+    "facts/producers/codegraph.json",
+    "facts/producers/crossrepo.json",
+    "facts/producers/db-schema.json",
+    "knowledge.json",
+    "workitems.json"
+  ],
+  "runId": "run-2026_08_20_03_48-overview+请假管理+晋升管理-8abb4795-251cd3b2-740f3203",
+  "snapshotId": "8abb47953398270d7f0c",
+  "topics": 1570,
+  "unknownTopics": 54,
+  "version": "topic-readings-v1"
+}

@@ -1,0 +1,85 @@
+{
+  "status": "built",
+  "value": {
+    "completeness": {
+      "byKind": {
+        "indexed-function": 1,
+        "indexed-route": 2
+      },
+      "counted": 3,
+      "detailClipped": 0,
+      "detailMaxChars": 200,
+      "excluded": 0,
+      "total": 3,
+      "unexplained": 0
+    },
+    "facts": [
+      {
+        "detail": {
+          "handlerPath": "svc/routes/leave.js",
+          "handlerResolved": true,
+          "handlerStartLine": 14,
+          "method": "GET",
+          "name": "GET /leaves",
+          "registrationLine": 12,
+          "registrationPath": "svc/routes/leave.js",
+          "routePath": "/leaves"
+        },
+        "factId": "route:svc/routes/leave.js:12-12:GET /leaves",
+        "kind": "indexed-route",
+        "membership": {
+          "kind": "unit",
+          "unitId": "cell:structure:0-400:svc/routes/leave.js"
+        }
+      },
+      {
+        "detail": {
+          "handlerPath": null,
+          "handlerResolved": false,
+          "handlerStartLine": null,
+          "method": "GET",
+          "name": "GET /leaves",
+          "registrationLine": 12,
+          "registrationPath": "svc-v2/internal/handlers/legacy/router.go",
+          "routePath": "/leaves"
+        },
+        "factId": "route:svc-v2/internal/handlers/legacy/router.go:12-12:GET /leaves",
+        "kind": "indexed-route",
+        "membership": {
+          "kind": "unit",
+          "unitId": "cell:structure:0-300:svc-v2/internal/handlers/legacy/router.go"
+        }
+      },
+      {
+        "detail": {
+          "endLine": 40,
+          "language": "go",
+          "name": "approve",
+          "nodeKind": "function",
+          "qualifiedName": "approve",
+          "startLine": 10
+        },
+        "factId": "func:svc/leave/approve.go:10-40:approve",
+        "kind": "indexed-function",
+        "membership": {
+          "kind": "unit",
+          "unitId": "cell:structure:0-900:svc/leave/approve.go"
+        }
+      }
+    ],
+    "identity": {
+      "configDigest": "cfg-codegraph",
+      "filesContentManifestDigest": "cm-topic-mini",
+      "mappingVersion": "membership-map-v1",
+      "mechanismsDigest": "mech-topic-mini",
+      "producer": "codegraph",
+      "producerVersion": "codegraph-v1",
+      "unitsContentDigest": "units-topic-mini"
+    },
+    "membershipUnmapped": [],
+    "producer": "codegraph",
+    "producerCompleteness": {},
+    "unmappableFactIds": [],
+    "version": "producer-envelope-v1"
+  }
+}

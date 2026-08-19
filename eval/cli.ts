@@ -11,6 +11,7 @@
 //   packet-readings --run <dir> --mode <authored|frozen-not-authored> [--out <file>]
 //                                                           per-document packet byte readings + cross-packet duplication
 //   ledger-closeout --run <dir> [--out <file>] [--updates <file>]   transcribe unsettled read obligations to cannot-determine
+//   topic-readings --run <dir> [--out <file>]               Topic Catalog facet/materiality/conservation readings
 // diff exits 1 on any mustFind missing / forbidden violation / coverage failure; 0 otherwise.
 // boundary exits 1 on any mustFind miss; 0 otherwise (same honest-red contract as diff).
 // --prepare-only runs ONLY the anchor-in-scope containment check (zero model, sub-second).
@@ -43,6 +44,7 @@ import { artifactExists, buildCrossRepoReport, crossRepoExitCode, loadCrossRepoG
 import { attributionExitCode, buildAttributionReport, renderAttributionReport } from "./read-attribution.ts";
 import { extractPacketReadings, PACKET_READINGS_MODES, type PacketReadingsMode } from "./packet-readings.ts";
 import { buildLedgerCloseout } from "./ledger-closeout.ts";
+import { extractTopicReadings } from "./topic-readings.ts";
 import { stableJson } from "../src/base/util.ts";
 
 interface Flags {
@@ -107,7 +109,8 @@ const USAGE = `eval harness
   boundary (--run <dir> | --nodes <file>) --gold <file> [--layer fg|factpack|both] [--json]
   prune-replay (--pool <file> | --run <dir> --module <db> [--module <db>...]) --gold <file> [--emit-pool <file>] [--json]
   packet-readings --run <dir> --mode <authored|frozen-not-authored> [--out <file>]
-  ledger-closeout --run <dir> [--out <file>] [--updates <file>]`;
+  ledger-closeout --run <dir> [--out <file>] [--updates <file>]
+  topic-readings --run <dir> [--out <file>]`;
 
 function renderContainment(containment: Containment): string {
   const lines = [`=== prepare containment (${containment.contained.length}/${containment.contained.length + containment.missing.length} anchors in scope) ===`];
@@ -345,6 +348,22 @@ function runLedgerCloseout(flags: Flags): number {
   return closeout.untranscribable === 0 ? 0 : 1;
 }
 
+/**
+ * Project one frozen run's Topic Catalog into readings. Never writes into the run directory: the R0 baselines are
+ * archival and 57B-452 (a copied run splitting in two) is unfixed, so `--out` is the only place bytes land.
+ *
+ * Always exits 0. The disposition verdict it records is taken over an EMPTY disposition set, because nothing in
+ * the engine produces dispositions yet — a red exit here would be a gate that can only ever fail, which trains
+ * everyone to ignore it. The gate belongs where the plan is (the epic's R3).
+ */
+async function runTopicReadings(flags: Flags): Promise<number> {
+  const readings = await extractTopicReadings(requireFlag(flags.run, "--run"));
+  const text = stableJson(readings);
+  if (flags.out) writeFileSync(flags.out, `${text}\n`);
+  else process.stdout.write(`${text}\n`);
+  return 0;
+}
+
 function runDiff(flags: Flags): number {
   const knowledge = extractKnowledge(requireFlag(flags.run, "--run"));
   const expected = loadExpected(requireFlag(flags.expected, "--expected"));
@@ -379,7 +398,7 @@ function runCompare(flags: Flags): number {
   return 0;
 }
 
-function main(argv: string[]): number {
+function main(argv: string[]): number | Promise<number> {
   const [command, ...rest] = argv;
   if (!command || command === "help" || command === "--help" || command === "-h") {
     process.stdout.write(`${USAGE}\n`);
@@ -397,6 +416,7 @@ function main(argv: string[]): number {
   if (command === "read-attribution") return runReadAttribution(flags);
   if (command === "packet-readings") return runPacketReadings(flags);
   if (command === "ledger-closeout") return runLedgerCloseout(flags);
+  if (command === "topic-readings") return runTopicReadings(flags);
   throw new Error(`unknown command: ${command}`);
 }
 
@@ -404,7 +424,9 @@ function main(argv: string[]): number {
 // to a pipe is async, and process.exit() would truncate it at the pipe buffer.
 // With exitCode the process ends naturally once stdout has drained.
 try {
-  process.exitCode = main(process.argv.slice(2));
+  // One command reads its inputs asynchronously; awaiting inside the try keeps its rejection on the same path as
+  // every synchronous command's throw, so there is no second error contract.
+  process.exitCode = await main(process.argv.slice(2));
 } catch (error) {
   process.stderr.write(`error: ${(error as Error).message}\n`);
   process.exitCode = 2;

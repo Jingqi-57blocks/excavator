@@ -1,0 +1,69 @@
+{
+  "status": "built",
+  "value": {
+    "completeness": {
+      "byKind": {
+        "http-link": 1,
+        "recovered-route": 1
+      },
+      "counted": 2,
+      "detailClipped": 0,
+      "detailMaxChars": 200,
+      "excluded": 0,
+      "total": 2,
+      "unexplained": 0
+    },
+    "facts": [
+      {
+        "detail": {
+          "endLine": 30,
+          "framework": "express",
+          "method": "GET",
+          "module": "svc",
+          "path": "/leaves",
+          "startLine": 12
+        },
+        "factId": "route:svc:svc/routes/leave.js:12:GET /leaves",
+        "kind": "recovered-route",
+        "membership": {
+          "kind": "unit",
+          "unitId": "cell:structure:0-400:svc/routes/leave.js"
+        }
+      },
+      {
+        "detail": {
+          "confidence": "confirmed",
+          "fromModule": "ui",
+          "method": "GET",
+          "resolution": "static",
+          "route": "GET /leaves",
+          "rule": "R1",
+          "toModule": "svc"
+        },
+        "factId": "link:ui/src/api/leave.ts:4:svc:svc/routes/leave.js:12",
+        "kind": "http-link",
+        "membership": {
+          "endpoints": [
+            "cell:structure:0-120:ui/src/api/leave.ts",
+            "cell:structure:0-400:svc/routes/leave.js"
+          ],
+          "kind": "relation"
+        }
+      }
+    ],
+    "identity": {
+      "configDigest": "cfg-crossrepo",
+      "filesContentManifestDigest": "cm-topic-mini",
+      "mappingVersion": "membership-map-v1",
+      "mechanismsDigest": "mech-topic-mini",
+      "producer": "crossrepo",
+      "producerVersion": "crossrepo-v1",
+      "unitsContentDigest": "units-topic-mini"
+    },
+    "membershipUnmapped": [],
+    "producer": "crossrepo",
+    "producerCompleteness": {},
+    "unmappableFactIds": [],
+    "version": "producer-envelope-v1"
+  }
+}

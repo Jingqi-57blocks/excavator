@@ -1,0 +1,109 @@
+{
+  "createdAt": "2026-01-01T00:00:00.000Z",
+  "items": [
+    {
+      "dimension": "decision-function",
+      "evidenceIds": [
+        "S-bbbbbbbbbb",
+        "S-aaaaaaaaaa"
+      ],
+      "hypothesis": "Decision function approve must be dispositioned individually. EXCAVATOR-TOPIC-SENTINEL-HYPOTHESIS",
+      "id": "feature:leave-1a2b3c4d5e:logic:approve@svc/leave/approve.go:10",
+      "material": true,
+      "origin": "default",
+      "reason": "The authorized source span was fully read.",
+      "requiredFor": [
+        "feature-leave-product"
+      ],
+      "scope": "feature:leave-1a2b3c4d5e",
+      "searchScope": "svc/leave/approve.go:10-40",
+      "status": "found",
+      "traceIds": [
+        "T-1111111111"
+      ]
+    },
+    {
+      "dimension": "decision-function",
+      "evidenceIds": [
+        "S-cccccccccc"
+      ],
+      "hypothesis": "A second approve, in another file: the same symbol name must not collapse onto one topic.",
+      "id": "feature:leave-1a2b3c4d5e:logic:approve@svc/holiday/approve.go:20",
+      "material": true,
+      "origin": "default",
+      "requiredFor": [
+        "feature-leave-product"
+      ],
+      "scope": "feature:leave-1a2b3c4d5e",
+      "searchScope": "svc/holiday/approve.go:20-33",
+      "status": "found",
+      "traceIds": []
+    },
+    {
+      "dimension": "api-entrypoints",
+      "evidenceIds": [
+        "S-dddddddddd"
+      ],
+      "hypothesis": "Enumerate the feature's API entrypoints.",
+      "id": "feature:9f8e7d6c5b:api-entrypoints",
+      "material": false,
+      "origin": "default",
+      "requiredFor": [
+        "feature-promo-engineering"
+      ],
+      "scope": "feature:9f8e7d6c5b",
+      "status": "found",
+      "traceIds": []
+    },
+    {
+      "dimension": "open-investigation",
+      "evidenceIds": [],
+      "hypothesis": "Anything the investigation left open.",
+      "id": "project:open-investigation",
+      "material": false,
+      "origin": "open",
+      "reason": "No decisive source was reachable.",
+      "requiredFor": [
+        "overview-product"
+      ],
+      "scope": "project",
+      "status": "cannot-determine",
+      "traceIds": []
+    },
+    {
+      "dimension": "literal-secrets",
+      "evidenceIds": [
+        "S-aaaaaaaaaa"
+      ],
+      "hypothesis": "Look for literal secrets across the project.",
+      "id": "project:literal-secrets",
+      "material": false,
+      "origin": "default",
+      "requiredFor": [
+        "overview-product"
+      ],
+      "scope": "project",
+      "status": "found",
+      "traceIds": []
+    },
+    {
+      "dimension": "logic-disposition",
+      "evidenceIds": [
+        "S-eeeeeeeeee"
+      ],
+      "hypothesis": "Ranking rule for promotions.",
+      "id": "feature:promo-9f8e7d6c5b:logic:rank@svc/promo/rank.go:5",
+      "material": true,
+      "origin": "default",
+      "requiredFor": [
+        "feature-promo-engineering"
+      ],
+      "scope": "feature:promo-9f8e7d6c5b",
+      "searchScope": "svc/promo/rank.go:5-19",
+      "status": "searched-not-found",
+      "traceIds": []
+    }
+  ],
+  "runId": "run-topic-catalog-mini",
+  "version": 1
+}

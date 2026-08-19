@@ -1,0 +1,40 @@
+{
+  "budgets": {
+    "authorMs": 1000,
+    "maxExpansionDepth": 2,
+    "maxFeatureNodes": 10,
+    "maxFiles": 100,
+    "maxGraphQueries": 10,
+    "maxSourceCharacters": 1000,
+    "maxSourceWindows": 10,
+    "prepareMs": 1000
+  },
+  "digest": "intent-digest-topic-mini",
+  "documents": [
+    "feature-leave-product",
+    "feature-promo-engineering",
+    "overview-product"
+  ],
+  "features": [
+    {
+      "aliases": [
+        "approve",
+        "holiday",
+        "leave"
+      ],
+      "key": "leave-1a2b3c4d5e",
+      "subject": "leave"
+    },
+    {
+      "aliases": [
+        "promotion",
+        "rank"
+      ],
+      "key": "promo-9f8e7d6c5b",
+      "subject": "promotion"
+    }
+  ],
+  "outputLanguage": "en",
+  "target": "/fixtures/topic-catalog-mini",
+  "version": "run-intent-v2"
+}
