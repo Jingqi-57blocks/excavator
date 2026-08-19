@@ -1,0 +1,17 @@
+{
+  "claims": [
+    {
+      "confidence": "high",
+      "evidenceIds": [
+        "E-1"
+      ],
+      "id": "claim-1",
+      "marker": "fact",
+      "statement": "Leave requests hold a day count.",
+      "status": "verified"
+    }
+  ],
+  "documentId": "overview-engineering",
+  "section": 2,
+  "version": 2
+}

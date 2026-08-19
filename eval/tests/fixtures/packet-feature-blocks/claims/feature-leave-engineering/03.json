@@ -1,0 +1,17 @@
+{
+  "claims": [
+    {
+      "confidence": "high",
+      "evidenceIds": [
+        "E-1"
+      ],
+      "id": "claim-1",
+      "marker": "fact",
+      "statement": "Operations has no scheduled job.",
+      "status": "verified"
+    }
+  ],
+  "documentId": "feature-leave-engineering",
+  "section": 3,
+  "version": 2
+}

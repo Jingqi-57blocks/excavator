@@ -1,0 +1,17 @@
+{
+  "claims": [
+    {
+      "confidence": "high",
+      "evidenceIds": [
+        "E-1"
+      ],
+      "id": "claim-1",
+      "marker": "fact",
+      "statement": "The service exposes one leave route.",
+      "status": "verified"
+    }
+  ],
+  "documentId": "overview-product",
+  "section": 2,
+  "version": 2
+}

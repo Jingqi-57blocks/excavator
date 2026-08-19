@@ -263,7 +263,7 @@ function renderCompleteness(items: InvestigationWorkItem[]): string {
   return lines.join("\n");
 }
 
-function renderWorkItems(items: InvestigationWorkItem[]): string {
+export function renderWorkItems(items: InvestigationWorkItem[]): string {
   const lines = ["### Work items"];
   for (const item of items) {
     lines.push(`- \`${item.id}\` — ${item.dimension} · ${item.status} · ${item.material ? "material" : "non-material"} · ${item.hypothesis}`);
@@ -401,7 +401,7 @@ function renderEvidence(block: PacketSection, evidenceById: Map<string, Evidence
   return boundEvidenceModelView(lines.join("\n"));
 }
 
-function renderEvidenceItem(id: string, item: EvidenceItem | undefined): string[] {
+export function renderEvidenceItem(id: string, item: EvidenceItem | undefined): string[] {
   if (!item) return [`- \`${id}\` — (not present in the evidence catalog)`];
   if (id.startsWith("FACT-")) {
     const data = item.data as { category?: string; coverage?: FactPackCoverage } | undefined;
@@ -424,7 +424,7 @@ function renderEvidenceItem(id: string, item: EvidenceItem | undefined): string[
   return [`- \`${id}\` — ${item.kind}: ${item.title}`];
 }
 
-function renderTraces(block: PacketSection, tracesById: Map<string, TraceRecord>, seen: Map<string, string>): string | null {
+export function renderTraces(block: PacketSection, tracesById: Map<string, TraceRecord>, seen: Map<string, string>): string | null {
   const ids: string[] = [];
   const collected = new Set<string>();
   for (const item of block.workItems) for (const id of item.traceIds) if (!collected.has(id)) { collected.add(id); ids.push(id); }

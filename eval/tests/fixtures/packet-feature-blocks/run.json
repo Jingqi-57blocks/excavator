@@ -1,0 +1,68 @@
+{
+  "createdAt": "2026-01-01T00:00:00.000Z",
+  "documents": [
+    {
+      "audience": "engineering",
+      "contextPath": "context/feature-leave-engineering.md",
+      "id": "feature-leave-engineering",
+      "kind": "feature",
+      "sections": [
+        {
+          "claimsFile": "claims/feature-leave-engineering/01.json",
+          "complete": true,
+          "file": "sections/feature-leave-engineering/01.md",
+          "index": 1,
+          "title": "Entry points"
+        },
+        {
+          "claimsFile": "claims/feature-leave-engineering/02.json",
+          "complete": true,
+          "file": "sections/feature-leave-engineering/02.md",
+          "index": 2,
+          "title": "Data model"
+        },
+        {
+          "claimsFile": "claims/feature-leave-engineering/03.json",
+          "complete": true,
+          "file": "sections/feature-leave-engineering/03.md",
+          "index": 3,
+          "title": "Operations"
+        }
+      ],
+      "subject": "leave",
+      "templatePath": "templates/feature-engineering.md"
+    }
+  ],
+  "evidenceDigest": "fixture-evidence-digest",
+  "frozenAt": "2026-01-01T00:05:00.000Z",
+  "id": "run-fixture-feature",
+  "knowledgeDigest": "fixture-knowledge-digest",
+  "knowledgeEpoch": 0,
+  "metrics": {
+    "warnings": []
+  },
+  "request": {
+    "budgets": {
+      "authorMs": 1000,
+      "maxExpansionDepth": 1,
+      "maxFeatureNodes": 10,
+      "maxFiles": 10,
+      "maxGraphQueries": 1,
+      "maxSourceCharacters": 1000,
+      "maxSourceWindows": 1,
+      "prepareMs": 1000
+    },
+    "detailLevel": "standard",
+    "features": [],
+    "language": "en",
+    "overviewAudiences": [],
+    "target": "/fixture/target",
+    "workdir": "/fixture/work"
+  },
+  "snapshot": {
+    "id": "fixturesnapshot02"
+  },
+  "state": "complete",
+  "updatedAt": "2026-01-01T00:10:00.000Z",
+  "version": 3
+}

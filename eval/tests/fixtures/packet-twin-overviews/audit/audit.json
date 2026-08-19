@@ -1,0 +1,26 @@
+{
+  "createdAt": "2026-01-01T00:09:00.000Z",
+  "findings": [
+    {
+      "document": "overview-product",
+      "level": "error",
+      "message": "section 1 has an unclaimed substantive statement: fixture"
+    },
+    {
+      "document": "overview-product",
+      "level": "warning",
+      "message": "authoring packet project lists frozen evidence not consumed by any claim: E-3"
+    },
+    {
+      "document": "overview-engineering",
+      "level": "warning",
+      "message": "authoring packet project lists frozen evidence not consumed by any claim: E-2"
+    },
+    {
+      "document": "condition-coverage",
+      "level": "warning",
+      "message": "3 literal conditions were never stated by any claim"
+    }
+  ],
+  "runId": "run-fixture-twin"
+}

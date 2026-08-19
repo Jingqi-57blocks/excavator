@@ -24,6 +24,7 @@ npm run eval -- view --run <dir> [--json]
 npm run eval -- compare --a <dir> --b <dir> [--json]
 npm run eval -- boundary (--run <dir> | --nodes <file>) --gold <file> [--layer fg|factpack|both] [--json]
 npm run eval -- prune-replay (--pool <file> | --run <dir> --module <db>...) --gold <file> [--emit-pool <file>] [--json]
+npm run eval -- packet-readings --run <dir> [--out <file>]
 ```
 
 `diff` exits **1** on any mustFind missing, forbidden violation, or coverage failure; **0** otherwise.
@@ -245,3 +246,12 @@ The point of the harness is that most iterations never call a model:
   entries (union + dedupe), a `CG-NODES-*` decoy (must not be credited), a `CG-*` summary decoy, and two
   source windows, plus `gold-pass.json` / `gold-fail.json` exercising exit 0/1 and the
   `coveredBySourceWindow` true/false split.
+- `tests/fixtures/packet-twin-overviews/` & `packet-feature-blocks/` — two synthetic completed runs for
+  `packet-readings`. The twin holds two overview documents over the same work items, evidence and traces, so
+  its two packets differ only in the H1 document id and the duplication numbers are derivable by hand; the
+  feature fixture holds one document whose three blocks share an evidence id and a trace id, which is what
+  puts the renderer's cross-block back-reference lines into the `anchor-line` bucket. Their
+  `context/authoring/*.md` are real `buildAuthoringPacket` output over their own artifacts, so a renderer
+  change makes the projection lose those chunks instead of quietly reading zero.
+- `golden/assemble-canonical.txt` — the canonical projection of the model-free canned-draft chain's
+  `reports/` output, pinned byte for byte by `tests/assemble-golden.test.ts`.

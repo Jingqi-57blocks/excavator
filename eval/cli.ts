@@ -8,6 +8,7 @@
 //   read-denominator --run <dir> [--must <path:line>]... [--json]   what the boundary second source added
 //   crossrepo --run <dir> --gold <file> [--sample N] [--json]       cross-repo link gate + review sample
 //   read-attribution --gold <file> --anchors a,b,c [--json]         does the partitioned reading still point right
+//   packet-readings --run <dir> [--out <file>]              per-document packet byte readings + cross-packet duplication
 // diff exits 1 on any mustFind missing / forbidden violation / coverage failure; 0 otherwise.
 // boundary exits 1 on any mustFind miss; 0 otherwise (same honest-red contract as diff).
 // --prepare-only runs ONLY the anchor-in-scope containment check (zero model, sub-second).
@@ -38,6 +39,8 @@ import { buildPoolFromRun, loadPrunePool, prunePoolToNodes, writePrunePool } fro
 import { buildDenominatorReport, denominatorExitCode, parseMust, renderDenominator } from "./read-denominator.ts";
 import { artifactExists, buildCrossRepoReport, crossRepoExitCode, loadCrossRepoGold, renderCrossRepoReport } from "./crossrepo.ts";
 import { attributionExitCode, buildAttributionReport, renderAttributionReport } from "./read-attribution.ts";
+import { extractPacketReadings } from "./packet-readings.ts";
+import { stableJson } from "../src/base/util.ts";
 
 interface Flags {
   run?: string;
@@ -95,7 +98,8 @@ const USAGE = `eval harness
   view    --run <dir> [--json]
   compare --a <dir> --b <dir> [--json]
   boundary (--run <dir> | --nodes <file>) --gold <file> [--layer fg|factpack|both] [--json]
-  prune-replay (--pool <file> | --run <dir> --module <db> [--module <db>...]) --gold <file> [--emit-pool <file>] [--json]`;
+  prune-replay (--pool <file> | --run <dir> --module <db> [--module <db>...]) --gold <file> [--emit-pool <file>] [--json]
+  packet-readings --run <dir> [--out <file>]`;
 
 function renderContainment(containment: Containment): string {
   const lines = [`=== prepare containment (${containment.contained.length}/${containment.contained.length + containment.missing.length} anchors in scope) ===`];
@@ -300,6 +304,19 @@ function runExtract(flags: Flags): number {
   return 0;
 }
 
+/**
+ * Project one completed run's authoring packets into byte readings: per document sections / claims / packet
+ * bytes / audit findings, plus the run's cross-packet duplication. Key-sorted output, so re-running the
+ * extractor over the same run directory writes the same bytes.
+ */
+function runPacketReadings(flags: Flags): number {
+  const readings = extractPacketReadings(requireFlag(flags.run, "--run"));
+  const text = stableJson(readings);
+  if (flags.out) writeFileSync(flags.out, `${text}\n`);
+  else process.stdout.write(`${text}\n`);
+  return 0;
+}
+
 function runDiff(flags: Flags): number {
   const knowledge = extractKnowledge(requireFlag(flags.run, "--run"));
   const expected = loadExpected(requireFlag(flags.expected, "--expected"));
@@ -350,6 +367,7 @@ function main(argv: string[]): number {
   if (command === "read-denominator") return runReadDenominator(flags);
   if (command === "crossrepo") return runCrossRepoGate(flags);
   if (command === "read-attribution") return runReadAttribution(flags);
+  if (command === "packet-readings") return runPacketReadings(flags);
   throw new Error(`unknown command: ${command}`);
 }
 
