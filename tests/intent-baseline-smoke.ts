@@ -130,16 +130,26 @@ async function runFixture(name: string): Promise<void> {
   // these. Still passing after S4 means S4 did not do its job.
   for (const anchor of fixture.anchors) {
     assert.ok(!ablPlaced.has(anchor.handlerCell),
-      `anchor ${anchor.handlerName} survived the ablation; expansion reached it, so it does not measure the lexical gap`);
+      `anchor ${anchor.handlerName} survived the ablation; expansion reached it, so it does not measure the lexical gap. `
+      + `When S4 flips this, do not stop at "it is placed": assert the seat's channel is "route", or a lexical `
+      + `re-rank that happens to reach the anchor would read as the structural channel having worked.`);
   }
-  // HOLD SET — seated today, must STILL be seated after S4. S4 flips the block above, never this one.
-  for (const hold of fixture.moduleClasses.hold) {
-    assert.equal(moduleRow(ablSel, hold.module).status, "seated", `hold-set module ${hold.module} lost its seats`);
-  }
-  // STAY-EMPTY SET — empty today, must STAY empty after S4. The false-positive tripwire: turning these green
-  // means the new channel is admitting on the word rather than on the capability.
-  for (const empty of fixture.moduleClasses.stayEmpty) {
-    assert.equal(moduleRow(ablSel, empty.module).status, "zero-signal", `stay-empty module ${empty.module} gained signal`);
+  // HOLD and STAY-EMPTY are asserted on BOTH arms, because that is what the fixture claims about them and
+  // because the full arm is where a noisy channel does its damage: S4 could push wcp-ui's four seats out, or
+  // seat wcp-auth's /consent/approve, entirely within the full arm — the ablated-only version of these two
+  // loops would stay green, and the byte difference would be absorbed by the S4 author's own `--write-baseline`.
+  for (const [armName, selection] of [["full", fullSel], ["ablated", ablSel]] as const) {
+    // HOLD SET — seated today, must STILL be seated after S4. S4 flips the flip set, never this one.
+    for (const hold of fixture.moduleClasses.hold) {
+      assert.equal(moduleRow(selection, hold.module).status, "seated",
+        `hold-set module ${hold.module} lost its seats in the ${armName} arm`);
+    }
+    // STAY-EMPTY SET — empty today, must STAY empty after S4. The false-positive tripwire: turning these green
+    // means the new channel is admitting on the word rather than on the capability.
+    for (const empty of fixture.moduleClasses.stayEmpty) {
+      assert.equal(moduleRow(selection, empty.module).status, "zero-signal",
+        `stay-empty module ${empty.module} gained signal in the ${armName} arm`);
+    }
   }
 
   await pinProjection(name, value, fixture.anchors.length);

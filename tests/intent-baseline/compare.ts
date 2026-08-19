@@ -50,7 +50,3 @@ export function renderDiff(diffs: readonly BaselineDiff[], limit = 40): string {
   const rest = diffs.length - shown.length;
   return `${shown.join("\n")}${rest > 0 ? `\n  … ${rest} more differing field(s)` : ""}`;
 }
-
-export function baselineMatches(expected: BaselineProjection, actual: BaselineProjection): boolean {
-  return canonicalJson(expected) === canonicalJson(actual);
-}

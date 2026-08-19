@@ -4,6 +4,8 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { sha256, stableJson } from "../../src/base/util.ts";
 import { buildCodeGraph } from "../../src/codegraph/codegraph-command.ts";
+import { FUNCTION_INVENTORY_VERSION } from "../../src/codegraph/function-inventory.ts";
+import { ROUTE_INVENTORY_VERSION } from "../../src/codegraph/route-inventory.ts";
 
 const run = promisify(execFile);
 
@@ -24,8 +26,8 @@ export interface CorpusRoot {
  * How a corpus is frozen.
  *
  * `git` is the strong form: commits name the bytes, so an operator's uncommitted edits cannot leak in. But not
- * every real target is version-controlled — provital, the second target this baseline is required to cover, has
- * no `.git` anywhere — and refusing to pin such a target would mean dropping the only arm that exercises
+ * every real target is version-controlled — angels-pizza, this baseline's second target, has no `.git` in any of
+ * its seven module directories — and refusing to pin such a target would mean dropping the only arm exercising
  * `channel-unavailable`. `copy` freezes what is there today and leans entirely on the digest seal, which is what
  * actually catches drift in BOTH forms: the git checkout proves what was written, the seal proves what layer 1
  * counted, and only the second one is what the assertions rest on.
@@ -62,11 +64,19 @@ export async function materializeCorpus(pin: CorpusPin, destDir: string, buildIn
   // index is built below and costs minutes, so without reuse the baseline would be too slow to run and would
   // stop being run. Keyed by the pin's own content, so a re-pin cannot silently reuse the old bytes.
   const marker = join(destDir, ".corpus-pin");
-  const expectedKey = sha256(stableJson(pin));
+  // Keyed on the pin AND on the versions of the builders that derive the index from it. The seal covers source
+  // bytes, not derived ones, and `codegraphIdentity` is a (path, size, mtime) shape that will not notice a
+  // rebuild either — so without this a slice that changes the route or function inventory would measure its
+  // baseline against an index built by the previous builder, and the result would be "green on my machine".
+  const expectedKey = sha256(stableJson({ pin, builders: [FUNCTION_INVENTORY_VERSION, ROUTE_INVENTORY_VERSION] }));
   if (await readMarker(marker) === expectedKey) return destDir;
 
   await rm(destDir, { recursive: true, force: true });
-  await mkdir(destDir, { recursive: true });
+  // 0o700, not the default 0o755. `copy` mode transplants whatever the source tree holds — layer 1 refuses to
+  // READ a `.env`, but `cp` copies its bytes all the same — into a path under the shared temp directory whose
+  // name is predictable from the fixture. Owner-only is the difference between a private working copy and
+  // handing every local account a readable copy of someone's credentials.
+  await mkdir(destDir, { recursive: true, mode: 0o700 });
 
   if (pin.kind === "copy") {
     await cp(source, destDir, {

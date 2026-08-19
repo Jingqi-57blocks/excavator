@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { ATTRIBUTION_ARTIFACT_VERSION } from "../src/attribution/attribution-artifact.ts";
-import { CONTRIBUTION_CHANNELS, SELECTION_TRACE_VERSION } from "../src/attribution/selection-trace.ts";
+import { CONTRIBUTION_CHANNELS, SELECTION_CHANNELS, SELECTION_TRACE_VERSION } from "../src/attribution/selection-trace.ts";
 import { canonicalJson } from "../src/base/util.ts";
 import { diffBaseline } from "./intent-baseline/compare.ts";
 import { EXCLUDED, projectBaseline } from "./intent-baseline/projection.ts";
@@ -25,6 +25,28 @@ test("adding a recall channel forces the pinned baseline to be revisited", () =>
     + "polarities are not yours to move — turning those green means the new channel is admitting noise, not recalling.");
   assert.equal(ATTRIBUTION_ARTIFACT_VERSION, "attribution-v3", "S4 bumps this; re-pin the baseline with it");
   assert.equal(SELECTION_TRACE_VERSION, "selection-trace-v3", "S4 bumps this; re-pin the baseline with it");
+});
+
+// THE PINNED FILES MUST BE RE-PINNED, NOT JUST THE TEST ABOVE.
+//
+// Layer A forces the S4 author to open this file. It does not force them to re-measure `expected/`, and that gap
+// is the whole difference between a tripwire and a note: change the channel list and the two version strings,
+// `npm test` goes green again, and a baseline still claiming `attribution-v3` with no `route` channel merges to
+// main. The next person with a corpus gets a five-thousand-line diff and blames their own change.
+//
+// So the pinned files are checked against the live constants, with no corpus required. `SELECTION_CHANNELS` and
+// not `CONTRIBUTION_CHANNELS`: the artifact records the seventh, `displaced`, which is an outcome rather than a
+// producer.
+test("the pinned baselines were measured on the current artifact and channel versions", async () => {
+  for (const name of ["wcp-leave", "angels-pizza-nograph"]) {
+    const pinned = JSON.parse(await readFile(join(import.meta.dirname, "intent-baseline", "expected", `${name}.projection.json`), "utf8")) as {
+      identity: { version: string; channels: string[] };
+    };
+    assert.equal(pinned.identity.version, ATTRIBUTION_ARTIFACT_VERSION,
+      `${name} was pinned on a different artifact version — re-run \`npm run test:intent-baseline -- --write-baseline\` and review the field-level diff`);
+    assert.deepEqual(pinned.identity.channels, [...SELECTION_CHANNELS],
+      `${name} was pinned on a different channel set — re-pin it, and check that only the flip set moved`);
+  }
 });
 
 // The ablation must stay an ablation. If someone "fixes" a failing run by editing the ablated alias list, the
