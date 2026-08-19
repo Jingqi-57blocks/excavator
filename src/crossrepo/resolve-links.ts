@@ -1,10 +1,14 @@
-import type { EvidenceItem } from "../../base/types.ts";
-import { buildCrossRepoArtifact, mintCrossRepoEvidence, type CrossRepoArtifact } from "../../crossrepo/crossrepo-artifact.ts";
-import { scanCrossRepoLinks, type CrossRepoScan } from "../../crossrepo/crossrepo-scan.ts";
+import type { EvidenceItem } from "../base/types.ts";
+import { buildCrossRepoArtifact, mintCrossRepoEvidence, type CrossRepoArtifact } from "./crossrepo-artifact.ts";
+import { scanCrossRepoLinks, type CrossRepoScan } from "./crossrepo-scan.ts";
 
 /**
  * Resolve cross-repo HTTP links for a multi-module target. A single-repo run has no cross-repo edge to find;
  * an advisory resolver failure is recorded as a warning and cannot fail preparation.
+ *
+ * It lives in `src/crossrepo/` rather than under `src/run/stages/` because layer 5 now needs it: candidate
+ * admission happens inside `prepare`, and the orchestration tree sits ABOVE every layer — a layer importing from
+ * it is an upward edge the layer-order test refuses. Nothing about the logic moved; only its address did.
  */
 export async function resolveCrossRepoLinks(
   target: string,

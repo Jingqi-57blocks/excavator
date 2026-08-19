@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
 import { allocateFeatureGraphRecorded } from "../../src/attribution/allocator.ts";
-import { NO_ROUTE_RECALL } from "../../src/attribution/route-recall.ts";
+import { NO_RECALL } from "../../src/attribution/allocator.ts";
 import { WEIGHTS } from "../../src/attribution/selection-trace.ts";
 import { loadAllocatorProjectionFixture } from "../allocator-fixture.ts";
 import { loadAllocatorPreregistration } from "../allocator-preregistration.ts";
@@ -24,7 +24,7 @@ function measure(caseId: string, options: Parameters<typeof allocateFeatureGraph
   const spec = PREREG.cases.find((row) => row.id === caseId)!;
   const pool = loadPrunePool(spec.poolFile);
   const projection = loadAllocatorProjectionFixture(spec.projectionFile);
-  const allocation = allocateFeatureGraphRecorded(pool.nodes, pool.edges, pool.seeds, pool.anchorTerms, spec.budget.maxNodes, NO_ROUTE_RECALL, options);
+  const allocation = allocateFeatureGraphRecorded(pool.nodes, pool.edges, pool.seeds, pool.anchorTerms, spec.budget.maxNodes, NO_RECALL, options);
   const unitByNode = new Map(projection.rows.map((row) => [row.nodeId, row.unitId] as const));
   const selectedUnits = new Set(allocation.nodes.map((row) => unitByNode.get(String(row.id))).filter((id): id is string => typeof id === "string"));
   return { spec, allocation, projection, unitByNode, selectedUnits };
@@ -109,7 +109,7 @@ test("M6: zero-signal and alias-deletion fixtures preserve the declared module c
   for (const fixture of PREREG.gates.M6.fixtures) {
     const pool = loadPrunePool(fixture.poolFile);
     const projection = loadAllocatorProjectionFixture(fixture.projectionFile);
-    const allocation = allocateFeatureGraphRecorded(pool.nodes, pool.edges, pool.seeds, pool.anchorTerms, 250, NO_ROUTE_RECALL);
+    const allocation = allocateFeatureGraphRecorded(pool.nodes, pool.edges, pool.seeds, pool.anchorTerms, 250, NO_RECALL);
     const poolModules = new Set(projection.rows.map((row) => row.moduleId).filter(Boolean));
     assert.ok([...poolModules].every((moduleId) => fixture.expectedModules.includes(moduleId)), `${fixture.id}: undeclared module`);
     const selectedModules = new Set(allocation.nodes.map((row) => String(row.id).split("\0", 1)[0]));

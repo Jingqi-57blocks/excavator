@@ -1,12 +1,13 @@
 {
   "identity": {
-    "version": "attribution-v4",
+    "version": "attribution-v5",
     "unitsContentDigest": "21a54ef23c11ca27ea1e40d83bc29fb70be0dc9c145a92324f2a3dcd1564ac20",
     "filesContentManifestDigest": "c16f9cc35605a2350c6d181440f90a4e2fad416c66ceb38f365e319647ebdf38",
     "mechanismsDigest": "f84d01549a66b755257dbb2ad9a9e98d8da623680278fde983293003b680cbc4",
     "channels": [
       "seed",
       "route",
+      "crossrepo",
       "lexical",
       "derived",
       "relation",
@@ -14,7 +15,7 @@
       "fallback",
       "displaced"
     ],
-    "channelConfigDigest": "bdc78a6a13a3b570bb2626489b5a0417cd217bd4632f68c485d9e1da868d4fac",
+    "channelConfigDigest": "6bdf9af40690b68046dc4e37c7ffc34f06d72c1de0422900cc3ddf3ad514b903",
     "channelInputs": {
       "moduleInventoryDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
       "codegraphEnvelopePresent": false

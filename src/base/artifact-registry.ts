@@ -99,7 +99,7 @@ const SLOTS: RegistryEntry[] = [
     title: "Per-unit attribution outcome with seat conservation",
     pathTemplate: "attribution/attribution.json",
     cardinality: "run",
-    schemaId: "attribution-v4",
+    schemaId: "attribution-v5",
     validatorVersion: "attribution-validator-v2",
     enforced: true,
     enforcementNote: "Written by every prepare from the selector's own channel trace and the layer-3 memberships, and written as an Unavailable record when there was no partition to seat anything in; a run with no feature writes it with featureCount 0 rather than omitting it."

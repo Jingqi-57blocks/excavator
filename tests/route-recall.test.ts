@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { alignHypothesis, alignPaths, pathSegments } from "../src/base/path-align.ts";
 import { normalizeFeatureProfile } from "../src/base/feature-profile.ts";
-import { NO_ROUTE_RECALL, routeRecall } from "../src/attribution/route-recall.ts";
+import { routeRecall } from "../src/attribution/route-recall.ts";
+import { NO_RECALL } from "../src/attribution/allocator.ts";
 import { allocateFeatureGraphRecorded } from "../src/attribution/allocator.ts";
 import { ROUTE_INVENTORY_VERSION, type InventoryRoute, type RouteInventory } from "../src/codegraph/route-inventory.ts";
 
@@ -129,7 +130,7 @@ test("route-recalled nodes never become query seeds", () => {
     { id: "lexical-node", kind: "function", name: "leaveThing", filePath: "mod/other.go", startLine: 1, endLine: 2 }
   ];
   const seeds = [nodes[1]!];
-  const recall = { route: routeRecall(hypotheses({ pathPattern: "/leaves" }), inventory([route()])) };
+  const recall = { ...NO_RECALL, route: routeRecall(hypotheses({ pathPattern: "/leaves" }), inventory([route()])) };
 
   const recorded = allocateFeatureGraphRecorded(nodes, [], seeds, ["leave"], 10, recall);
   assert.equal(recorded.trace.status, "ran");
@@ -146,7 +147,7 @@ test("route-recalled nodes never become query seeds", () => {
 
 test("the recall block travels in the trace, including when the channel did not run", () => {
   const nodes = [{ id: "n1", kind: "function", name: "leaveThing", filePath: "mod/a.go", startLine: 1, endLine: 2 }];
-  const recorded = allocateFeatureGraphRecorded(nodes, [], nodes, ["leave"], 10, NO_ROUTE_RECALL);
+  const recorded = allocateFeatureGraphRecorded(nodes, [], nodes, ["leave"], 10, NO_RECALL);
   assert.equal(recorded.trace.status, "ran");
   if (recorded.trace.status !== "ran") return;
   assert.deepEqual(recorded.trace.recall.route, { status: "not-run", cause: "no-hypotheses" },
