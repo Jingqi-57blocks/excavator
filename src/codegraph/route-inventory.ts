@@ -15,7 +15,7 @@ import { inventoryFactIdFor, inventoryUnitKind } from "./function-inventory.ts";
  * a rejected or absent edge leaves the route visible at its registration line with `handlerResolved: false`.
  */
 
-export const ROUTE_INVENTORY_VERSION = "route-inventory-v1";
+export const ROUTE_INVENTORY_VERSION = "route-inventory-v2";
 export const ROUTE_INVENTORY_LIMIT = 50_000;
 export const ROUTE_REFERENCE_LIMIT = 50_000;
 
@@ -46,6 +46,20 @@ export const ROUTE_HANDLER_RESOLUTIONS = [
 
 export interface InventoryRoute {
   readonly factId: string;
+  /**
+   * The index's own node id for the route registration, and for its verified handler.
+   *
+   * Carried so a layer-4 consumer can admit these nodes into graph expansion by IDENTITY. The alternative —
+   * looking a node back up by path and line — would be a second mapping from coordinates to nodes, which is the
+   * thing the layering contract forbids downstream consumers from owning: the inventory decided which node this
+   * route is, and a re-derivation is free to disagree with it.
+   *
+   * These are index-internal ids and deliberately do NOT enter the layer-3 fact detail: a fact's identity is its
+   * `factId` plus its membership, and leaking an index id into it would make the fact unreproducible from source.
+   */
+  readonly nodeId: string;
+  /** The verified handler's node id, or `null` for every non-`resolved` resolution. */
+  readonly handlerNodeId: string | null;
   readonly name: string;
   readonly method: string | null;
   readonly routePath: string | null;
@@ -128,6 +142,8 @@ export async function routeInventory(
     used.set(base, seen);
     routes.push({
       factId: seen === 1 ? base : `${base}#${seen}`,
+      nodeId: node.id,
+      handlerNodeId: handler?.reference.target.id ?? null,
       name: node.name,
       method: parsed.method,
       routePath: parsed.path,

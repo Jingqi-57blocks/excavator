@@ -1,10 +1,15 @@
 import { sha256, stableJson } from "../base/util.ts";
+import type { RouteRecallTraceBlock } from "./route-recall.ts";
 
 /** The allocator trace is the accountable boundary between candidate discovery and layer-4 seats. */
-export const SELECTION_TRACE_VERSION = "selection-trace-v3";
+export const SELECTION_TRACE_VERSION = "selection-trace-v4";
 
 /** Producer channels never share a raw score. `displaced` is the named outcome of the one seat budget. */
-export const CONTRIBUTION_CHANNELS = ["seed", "lexical", "derived", "relation", "convention", "fallback"] as const;
+// `route` sits directly after `seed` because the channel order IS the decisive tie-break: when two contributions
+// normalise to the same value, `indexOf` decides which one names the seat. Structural evidence — a recorded route
+// aligning with a stated hypothesis — is a better answer to "why is this here" than a substring hit, so it ranks
+// above every lexical-derived channel.
+export const CONTRIBUTION_CHANNELS = ["seed", "route", "lexical", "derived", "relation", "convention", "fallback"] as const;
 export type ContributionChannel = typeof CONTRIBUTION_CHANNELS[number];
 export const SELECTION_CHANNELS = [...CONTRIBUTION_CHANNELS, "displaced"] as const;
 export type SelectionChannel = typeof SELECTION_CHANNELS[number];
@@ -12,6 +17,7 @@ export type DisplacingBudget = "seat-cap";
 
 export interface ChannelWeights {
   readonly seed: number;
+  readonly route: number;
   readonly lexical: number;
   readonly derived: number;
   readonly relation: number;
@@ -21,6 +27,7 @@ export interface ChannelWeights {
 
 export const WEIGHTS: ChannelWeights = Object.freeze({
   seed: 1,
+  route: 1,
   lexical: 1,
   derived: 1,
   relation: 1,
@@ -95,6 +102,14 @@ export interface RanSelectionTrace {
    * actually named.
    */
   readonly querySeedNodeIds: readonly string[];
+  /**
+   * What each recall channel did, including when it did nothing.
+   *
+   * Required, not optional: a channel whose record may be absent is a channel that can quietly stop running. The
+   * `not-run` arm is a written state with a cause, so "no hypotheses were given" stays distinguishable from "the
+   * hypotheses found nothing" — and the second one is a finding about the target.
+   */
+  readonly recall: { readonly route: RouteRecallTraceBlock };
   readonly budgets: SelectionBudgets;
   readonly fusion: SelectionFusion;
 }

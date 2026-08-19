@@ -4,6 +4,7 @@ import {
   allocateFeatureGraph, allocateFeatureGraphRecorded, consonantSkeleton, deriveAbbreviations, nameTokens
 } from "../src/attribution/allocator.ts";
 import { CONTRIBUTION_CHANNELS, WEIGHTS } from "../src/attribution/selection-trace.ts";
+import { NO_ROUTE_RECALL } from "../src/attribution/route-recall.ts";
 
 function node(id: string, name: string, filePath: string, kind = "function"): any {
   return { id, name, filePath, kind, signature: null, startLine: 1, endLine: 2 };
@@ -24,7 +25,7 @@ test("derived vocabulary remains deterministic and target-independent", () => {
 
 test("every pool node is eligible through fallback; no signal threshold admits candidates", () => {
   const nodes = Array.from({ length: 12 }, (_, index) => node(`N${index}`, "Unrelated", `src/z${index}.ts`));
-  const recorded = allocateFeatureGraphRecorded(nodes, [], [], ["leave"], 5);
+  const recorded = allocateFeatureGraphRecorded(nodes, [], [], ["leave"], 5, NO_ROUTE_RECALL);
   assert.equal(recorded.trace.pool.length, 12);
   assert.equal(recorded.nodes.length, 5);
   for (const row of recorded.trace.pool) {
@@ -38,7 +39,7 @@ test("producer raw strengths are ranked locally and only normalized ranks are fu
     node("MATCH", "approveLeave", "src/leave.ts"),
     node("CALLER", "execute", "src/flow.ts")
   ];
-  const recorded = allocateFeatureGraphRecorded(nodes, [edge("CALLER", "MATCH", 8)], [nodes[0]], ["leave"], 3);
+  const recorded = allocateFeatureGraphRecorded(nodes, [edge("CALLER", "MATCH", 8)], [nodes[0]], ["leave"], 3, NO_ROUTE_RECALL);
   assert.equal(recorded.trace.fusion.rawScoresSummedAcrossChannels, false);
   for (const row of recorded.trace.pool) for (const contribution of row.contributions) {
     assert.ok(CONTRIBUTION_CHANNELS.includes(contribution.sourceChannel));
@@ -52,7 +53,7 @@ test("producer raw strengths are ranked locally and only normalized ranks are fu
 
 test("each contribution carries source channel, reason, anchor and propagation path", () => {
   const nodes = [node("MATCH", "approveLeave", "src/leave.ts"), node("CALLER", "execute", "src/flow.ts")];
-  const recorded = allocateFeatureGraphRecorded(nodes, [edge("CALLER", "MATCH", 8)], [], ["leave"], 2);
+  const recorded = allocateFeatureGraphRecorded(nodes, [edge("CALLER", "MATCH", 8)], [], ["leave"], 2, NO_ROUTE_RECALL);
   const relation = recorded.trace.pool.find((row) => row.nodeId === "CALLER")!.contributions
     .find((item) => item.sourceChannel === "relation");
   assert.ok(relation);
@@ -73,7 +74,7 @@ test("relation propagation is directional: callers contribute, called hubs do no
   const recorded = allocateFeatureGraphRecorded(nodes, [
     edge("CALLER", "MATCH", 8),
     edge("MATCH", "HUB", 9)
-  ], [], ["leave"], 3);
+  ], [], ["leave"], 3, NO_ROUTE_RECALL);
   const channel = (id: string): string[] => recorded.trace.pool.find((row) => row.nodeId === id)!.contributions.map((row) => row.sourceChannel);
   assert.ok(channel("CALLER").includes("relation"));
   assert.ok(!channel("HUB").includes("relation"));
@@ -81,7 +82,7 @@ test("relation propagation is directional: callers contribute, called hubs do no
 
 test("the one seat cap produces total, named displacement and never over-allocates", () => {
   const nodes = Array.from({ length: 30 }, (_, index) => node(`N${index}`, index % 2 ? "LeaveThing" : "Other", `src/${index}.ts`));
-  const recorded = allocateFeatureGraphRecorded(nodes, [], [nodes[0]], ["leave"], 7);
+  const recorded = allocateFeatureGraphRecorded(nodes, [], [nodes[0]], ["leave"], 7, NO_ROUTE_RECALL);
   assert.equal(recorded.nodes.length, 7);
   assert.equal(recorded.trace.pool.filter((row) => row.outcome !== "displaced").length, 7);
   for (const row of recorded.trace.pool) assert.equal(row.displacedBy, row.outcome === "displaced" ? "seat-cap" : null);
@@ -90,8 +91,8 @@ test("the one seat cap produces total, named displacement and never over-allocat
 test("weight perturbations are counter-explainable by contribution deltas", () => {
   const nodes = Array.from({ length: 40 }, (_, index) =>
     node(`N${index}`, index % 3 === 0 ? `LeaveThing${index}` : `Helper${index}`, `src/${String(index).padStart(2, "0")}.ts`));
-  const base = allocateFeatureGraphRecorded(nodes, [], [], ["leave"], 10);
-  const moved = allocateFeatureGraphRecorded(nodes, [], [], ["leave"], 10, { weights: { ...WEIGHTS, lexical: 1.25 } });
+  const base = allocateFeatureGraphRecorded(nodes, [], [], ["leave"], 10, NO_ROUTE_RECALL);
+  const moved = allocateFeatureGraphRecorded(nodes, [], [], ["leave"], 10, NO_ROUTE_RECALL, { weights: { ...WEIGHTS, lexical: 1.25 } });
   const baseIds = new Set(base.nodes.map((row) => String(row.id)));
   const movedIds = new Set(moved.nodes.map((row) => String(row.id)));
   const gained = [...movedIds].filter((id) => !baseIds.has(id));
@@ -112,8 +113,8 @@ test("document-frequency and derived expansion are explicit ablations, not hidde
     node("B", "syncLvCompleted", "src/jobs/sync.ts"),
     node("C", "helper", "src/helper.ts")
   ];
-  const full = allocateFeatureGraphRecorded(nodes, [], [], ["leave"], 3);
-  const ablated = allocateFeatureGraphRecorded(nodes, [], [], ["leave"], 3, { documentFrequency: false, derivedTerms: false });
+  const full = allocateFeatureGraphRecorded(nodes, [], [], ["leave"], 3, NO_ROUTE_RECALL);
+  const ablated = allocateFeatureGraphRecorded(nodes, [], [], ["leave"], 3, NO_ROUTE_RECALL, { documentFrequency: false, derivedTerms: false });
   assert.equal(full.trace.pool.length, ablated.trace.pool.length);
   assert.ok(full.trace.pool.find((row) => row.nodeId === "B")!.contributions.some((row) => row.sourceChannel === "derived"));
   assert.ok(!ablated.trace.pool.find((row) => row.nodeId === "B")!.contributions.some((row) => row.sourceChannel === "derived"));
@@ -122,8 +123,8 @@ test("document-frequency and derived expansion are explicit ablations, not hidde
 test("trace-free and recorded paths are byte-identical and deterministic", () => {
   const nodes = Array.from({ length: 25 }, (_, index) => node(`N${index}`, `Leave${index}`, `src/${index}.ts`));
   const edges = nodes.slice(1).map((_, index) => edge(`N${index + 1}`, `N${index}`, index + 1));
-  const recorded = allocateFeatureGraphRecorded(nodes, edges, [nodes[0]], ["leave"], 10);
-  const plain = allocateFeatureGraph(nodes, edges, [nodes[0]], ["leave"], 10);
+  const recorded = allocateFeatureGraphRecorded(nodes, edges, [nodes[0]], ["leave"], 10, NO_ROUTE_RECALL);
+  const plain = allocateFeatureGraph(nodes, edges, [nodes[0]], ["leave"], 10, NO_ROUTE_RECALL);
   assert.equal(JSON.stringify({ nodes: recorded.nodes, edges: recorded.edges }), JSON.stringify(plain));
-  assert.equal(JSON.stringify(recorded), JSON.stringify(allocateFeatureGraphRecorded(nodes, edges, [nodes[0]], ["leave"], 10)));
+  assert.equal(JSON.stringify(recorded), JSON.stringify(allocateFeatureGraphRecorded(nodes, edges, [nodes[0]], ["leave"], 10, NO_ROUTE_RECALL)));
 });

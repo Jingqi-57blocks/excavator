@@ -38,7 +38,7 @@ interface Fixture {
   };
 }
 
-function moduleRow(selection: AttributionSelection, dir: string): { status: string } {
+function moduleRow(selection: AttributionSelection, dir: string): AttributionSelection["modules"][number] {
   const row = selection.modules.find((module) => module.dir === dir);
   assert.ok(row, `module ${dir} has no census row; the module inventory moved and the classification is stale`);
   return row;
@@ -118,7 +118,6 @@ async function runFixture(name: string): Promise<void> {
 
   // --- LAYER B: the assertions S4 is measured against. Code, not JSON — `--write-baseline` cannot absorb them.
   const fullPlaced = placedCells(fullSel);
-  const ablPlaced = placedCells(ablSel);
 
   // gold is real: every anchor IS placed under the full vocabulary. Without this the flip below would be
   // satisfied by an anchor that was never reachable at all, which measures nothing.
@@ -126,13 +125,34 @@ async function runFixture(name: string): Promise<void> {
     assert.ok(fullPlaced.has(anchor.handlerCell),
       `anchor ${anchor.handlerName} is not selected under the full vocabulary; it is not a valid gold anchor`);
   }
-  // FLIP SET — absent today, and absent BECAUSE the vocabulary bridge was removed. S4's route channel must seat
-  // these. Still passing after S4 means S4 did not do its job.
+  // FLIP SET — FLIPPED BY S4. These anchors were absent under the ablation because the vocabulary bridge was
+  // removed; the route channel now reaches them from a stated hypothesis instead of from a word.
+  //
+  // "Placed" is not the assertion. The decisive channel must be `route`, and no lexical-family channel may be
+  // claiming the seat: otherwise a re-rank that happens to reach the anchor would read as the structural channel
+  // having worked, and the gap this slice exists to close would look closed while still being open.
+  const ablSeatByCell = new Map(ablSel.seats.map((seat) => [seat.unitId, seat]));
   for (const anchor of fixture.anchors) {
-    assert.ok(!ablPlaced.has(anchor.handlerCell),
-      `anchor ${anchor.handlerName} survived the ablation; expansion reached it, so it does not measure the lexical gap. `
-      + `When S4 flips this, do not stop at "it is placed": assert the seat's channel is "route", or a lexical `
-      + `re-rank that happens to reach the anchor would read as the structural channel having worked.`);
+    const seat = ablSeatByCell.get(anchor.handlerCell);
+    assert.ok(seat, `anchor ${anchor.handlerName} is not seated under the ablation; the route channel did not recall it`);
+    assert.equal(seat.channel, "route", `anchor ${anchor.handlerName} was seated by ${seat.channel}, not by the structural channel`);
+    const lexicalFamily = seat.contributions.map((row) => row.sourceChannel).filter((channel) => channel !== "route" && channel !== "fallback");
+    assert.deepEqual(lexicalFamily, [],
+      `anchor ${anchor.handlerName} also carries ${lexicalFamily.join(", ")}; it is no longer a sole-source structural recall, so it stops measuring the gap`);
+  }
+  // SEED PURITY, ASSERTED AT THE WIRING. The unit tripwire covers the allocator's contract, but the corruption
+  // this guards against lives one level up: `context.ts` could pass the recalled nodes as allocator `seeds`, and
+  // every unit test would stay green while `seedCells` silently grew to include nodes the query never named —
+  // which layer 5 would then publish as `seeded`, authorising reads nobody asked for.
+  for (const anchor of fixture.anchors) {
+    assert.ok(!ablSel.seedCells.includes(anchor.handlerCell),
+      `anchor ${anchor.handlerName} appears in seedCells; it was recalled by a hypothesis, not named by the query, and layer 5 reads seedCells as the latter`);
+  }
+
+  // And the recall itself must be visible where a reader looks: the module that owns the anchors says so.
+  for (const anchor of fixture.anchors) {
+    assert.equal(moduleRow(ablSel, anchor.module).recall.route, "contributed",
+      `${anchor.module} seats a route-recalled anchor but its receipt does not say the channel contributed`);
   }
   // HOLD and STAY-EMPTY are asserted on BOTH arms, because that is what the fixture claims about them and
   // because the full arm is where a noisy channel does its damage: S4 could push wcp-ui's four seats out, or

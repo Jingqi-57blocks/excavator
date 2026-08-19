@@ -58,7 +58,26 @@
       "aliases": [
         "approve",
         "holiday"
-      ]
+      ],
+      "profile": {
+        "possibleEntrypoints": [
+          {
+            "method": "GET",
+            "pathPattern": "/:leave_id/approve-prompt",
+            "origin": "user"
+          },
+          {
+            "method": "GET",
+            "pathPattern": "/apply-prompt",
+            "origin": "user"
+          },
+          {
+            "method": "GET",
+            "pathPattern": "/remain-fully-paid-sick",
+            "origin": "user"
+          }
+        ]
+      }
     }
   ],
   "anchors": [
@@ -109,5 +128,6 @@
       "wcp_review_service": "Deliberately unclassified. It flips candidates-no-seat -> zero-signal under ablation, which would make an attractive module-level flip target, but its one regex match is POST /:promotion_id/application/:application_id -> Approve: a real approval workflow, for promotions rather than leave. Whether it belongs to 请假管理 is a judgement about the product, and pinning it wrongly is expensive in both directions — as stay-empty it would score a correct S4 recall as a false positive, as flip it would demand a recall that may be wrong. Fable ruled: when unsure, do not pin."
     }
   },
-  "budgetsNote": "maxGraphQueries is pinned generously (400) rather than at the production default. It is a CAP, so a larger value changes no selection — but the budget travels in the attribution identity, so a value that later has to be raised would move the baseline for a reason unrelated to recall. S4 adds route-inventory queries; the headroom is there so that slice moves the flip set and nothing else. Two features over five modules already exceeds 70."
+  "budgetsNote": "maxGraphQueries is pinned generously (400) rather than at the production default. It is a CAP, so a larger value changes no selection — but the budget travels in the attribution identity, so a value that later has to be raised would move the baseline for a reason unrelated to recall. S4 adds route-inventory queries; the headroom is there so that slice moves the flip set and nothing else. Two features over five modules already exceeds 70.",
+  "profileNote": "Only the ablated arm carries hypotheses; the full arm stays a pure lexical control. pathPattern is the inventory's own routePath verbatim — these are gin group-relative paths, and writing the public full path would align against nothing. Adding the profile changes this arm's featureCacheKey by design (S3), so its featureKey and identity.runIntentFeatures move with it."
 }

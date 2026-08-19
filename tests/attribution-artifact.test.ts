@@ -29,6 +29,7 @@ import { assembleUnitsArtifact, runObservationPass, unitsContentDigest, type Uni
 import type { CountedRow, FileLedger } from "../src/snapshot/file-ledger.ts";
 import { createSnapshot } from "../src/snapshot/snapshot.ts";
 import { tempDir } from "./helpers.ts";
+import { NO_ROUTE_RECALL } from "../src/attribution/route-recall.ts";
 
 /**
  * Layer 4: the seat projection, the five visible buckets, and the three-state selection law.
@@ -211,6 +212,7 @@ function ranTrace(pool: readonly TraceNode[], querySeedNodeIds: readonly string[
     pool: [...pool],
     seedCount: querySeedNodeIds.length || 1,
     querySeedNodeIds: [...querySeedNodeIds].sort(),
+    recall: { route: { status: "not-run", cause: "no-hypotheses" } },
     budgets: { maxNodes: 180 },
     fusion: {
       method: "weighted-reciprocal-rank",
@@ -752,15 +754,15 @@ function syntheticPool(): { nodes: any[]; edges: any[]; seeds: any[] } {
 test("the recorded kernel and the trace-free shell return byte-identical node and edge sets", () => {
   const pool = syntheticPool();
   for (const maxNodes of [12, 40, 200]) {
-    const shell = allocateFeatureGraph(pool.nodes, pool.edges, pool.seeds, ["leave", "request"], maxNodes);
-    const recorded = allocateFeatureGraphRecorded(pool.nodes, pool.edges, pool.seeds, ["leave", "request"], maxNodes);
+    const shell = allocateFeatureGraph(pool.nodes, pool.edges, pool.seeds, ["leave", "request"], maxNodes, NO_ROUTE_RECALL);
+    const recorded = allocateFeatureGraphRecorded(pool.nodes, pool.edges, pool.seeds, ["leave", "request"], maxNodes, NO_ROUTE_RECALL);
     assert.equal(JSON.stringify({ nodes: recorded.nodes, edges: recorded.edges }), JSON.stringify(shell), `allocator at ${maxNodes}`);
   }
 });
 
 test("the trace is a partition of the pool: every candidate carries exactly one channel", () => {
   const pool = syntheticPool();
-  const recorded = allocateFeatureGraphRecorded(pool.nodes, pool.edges, pool.seeds, ["leave", "request"], 30);
+  const recorded = allocateFeatureGraphRecorded(pool.nodes, pool.edges, pool.seeds, ["leave", "request"], 30, NO_ROUTE_RECALL);
   assert.equal(recorded.trace.pool.length, pool.nodes.length, "the pool is the INPUT set, not the retained one");
   assert.equal(new Set(recorded.trace.pool.map((node) => node.nodeId)).size, pool.nodes.length);
   const retained = new Set(recorded.nodes.map((node) => String(node.id)));
@@ -773,7 +775,7 @@ test("the trace is a partition of the pool: every candidate carries exactly one 
 
 test("every producer contribution carries the complete explanation contract", () => {
   const pool = syntheticPool();
-  const recorded = allocateFeatureGraphRecorded(pool.nodes, pool.edges, pool.seeds, ["leave", "request"], 30);
+  const recorded = allocateFeatureGraphRecorded(pool.nodes, pool.edges, pool.seeds, ["leave", "request"], 30, NO_ROUTE_RECALL);
   for (const row of recorded.trace.pool) for (const contribution of row.contributions) {
     assert.ok(contribution.sourceChannel);
     assert.ok(contribution.reason);
@@ -801,7 +803,7 @@ function crowdedPool(): { nodes: any[]; edges: any[]; seeds: any[] } {
 test("the allocator never adds a hidden additive seat beyond the one cap", () => {
   const pool = crowdedPool();
   const anchors = ["leave", "holiday"];
-  const recorded = allocateFeatureGraphRecorded(pool.nodes, pool.edges, pool.seeds, anchors, 16);
+  const recorded = allocateFeatureGraphRecorded(pool.nodes, pool.edges, pool.seeds, anchors, 16, NO_ROUTE_RECALL);
   assert.equal(recorded.nodes.length, 16);
   assert.equal(recorded.trace.pool.filter((node) => node.outcome !== "displaced").length, 16);
   for (const node of recorded.trace.pool) assert.equal(node.displacedBy, node.outcome === "displaced" ? "seat-cap" : null);
@@ -810,6 +812,10 @@ test("the allocator never adds a hidden additive seat beyond the one cap", () =>
 test("the preregistered fusion weights are pinned", () => {
   assert.deepEqual({ ...WEIGHTS }, {
     seed: 1,
+    // A structural match carries the same weight as a lexical one. It is deliberately NOT boosted: the channel
+    // earns its influence by admitting candidates nothing else could reach, and a thumb on the scale would let it
+    // reorder seats it did not discover. Changing this number is a planning decision, not an execution one.
+    route: 1,
     lexical: 1,
     derived: 1,
     relation: 1,
@@ -820,7 +826,7 @@ test("the preregistered fusion weights are pinned", () => {
 
 test("every displaced candidate names the single seat cap", () => {
   const pool = syntheticPool();
-  const recorded = allocateFeatureGraphRecorded(pool.nodes, pool.edges, pool.seeds, ["leave", "request"], 20);
+  const recorded = allocateFeatureGraphRecorded(pool.nodes, pool.edges, pool.seeds, ["leave", "request"], 20, NO_ROUTE_RECALL);
   const displaced = recorded.trace.pool.filter((node) => node.outcome === "displaced");
   assert.ok(displaced.length > 0, "the fixture really displaces something");
   for (const node of displaced) {

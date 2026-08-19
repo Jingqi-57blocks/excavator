@@ -21,6 +21,7 @@ import { join, dirname, basename } from "node:path";
 import { CodeGraphIndex } from "../src/codegraph/codegraph.ts";
 import { CodeGraphSet } from "../src/codegraph/codegraph-set.ts";
 import { allocateFeatureGraph } from "../src/attribution/allocator.ts";
+import { NO_ROUTE_RECALL } from "../src/attribution/route-recall.ts";
 import { Deadline } from "../src/base/util.ts";
 import type { BoundaryNode } from "./boundary.ts";
 
@@ -133,7 +134,8 @@ export function loadPrunePool(file: string): PrunePool {
 
 /** Run the allocator over a frozen candidate pool, optionally overriding the node budget. */
 export function prunePool(pool: PrunePool, maxNodes = pool.maxFeatureNodes): { nodes: any[]; edges: any[] } {
-  return allocateFeatureGraph(pool.nodes, pool.edges, pool.seeds, anchorTermsOf(pool), maxNodes);
+  // Replay of recorded pools, which predate hypotheses entirely: nothing was asked of the route channel.
+  return allocateFeatureGraph(pool.nodes, pool.edges, pool.seeds, anchorTermsOf(pool), maxNodes, NO_ROUTE_RECALL);
 }
 
 /** Project the pruned node set into boundary-recall nodes. */
