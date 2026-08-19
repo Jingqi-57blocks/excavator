@@ -34,16 +34,13 @@ export interface ReportRequest {
   /**
    * Whether recorded source is scanned for secrets and their values blanked.
    *
-   * OFF by default, and the reason is an asymmetry rather than a claim about where Excavator runs. The cost
-   * of ON is measured and certain: a real run recorded ten branches of a leave-balance calculation as
-   * `<redacted>` because the domain names an hours field `*Token`. The benefit of ON depends on who ends up
-   * holding the artifacts — which this process cannot know, since the same engine serves a workspace on the
-   * operator's own machine and a deployment that hands results to someone else.
+   * ON by default — only an explicit `false` (or `--no-redact`) turns it off. The costs are not symmetric:
+   * redaction loses evidence, which is measured and recoverable by re-running (a real run blanked ten branches
+   * of a leave calculation because the domain names an hours field `*Token`), while not redacting can leak a
+   * credential into artifacts that have already been handed on, which is neither.
    *
-   * So the engine does not guess. It defaults to preserving evidence, records the choice here, and reports
-   * it in `excavator status` and in every report's front matter, so whoever receives the artifacts can tell
-   * which of the two they are holding. Turn it ON whenever the run directory or its HTML export will reach
-   * anyone who should not read the source verbatim.
+   * `undefined` therefore means ON: an omitted field is a caller who did not decide. `prepareRun` normalises it
+   * to an explicit boolean, so the manifest never carries `undefined` and consumers can read `=== true`.
    */
   redactSecrets?: boolean;
 }
@@ -351,6 +348,21 @@ export interface KnowledgeCompleteness {
     decisions: { positive: number; negative: number; pending: number };
     probeResiduals: number;
     materialFlowsWithTraces: number;
+    /**
+     * Recorded source windows that no read execution accounts for.
+     *
+     * The closure check only ever asked the forward question — did every AUTHORIZED read complete — so a run
+     * that read without authorization closed clean. Measured on a real wcp overview: `read-specs.json` was
+     * `built` with `specs: 0`, 42 source windows were in the catalog, and freeze sealed
+     * `investigation-closure: passed, 0 findings`. `ReadSpec` carries a required `featureKey`, so a run with no
+     * feature authorizes nothing BY CONSTRUCTION and every one of its reads lands here.
+     *
+     * It is a number, not a finding. Making it an error would fail every overview run today, and the gap is a
+     * property of the current L5/L7 split rather than of any one run — so freeze states the size of the gap in
+     * the sealed record instead of asserting a closure it cannot justify. Whoever tightens the split later has
+     * the figure already sealed for every epoch behind them.
+     */
+    sourceReadsWithoutObligation: number;
   };
   checks: FreezeAuditCheck[];
   warnings: string[];
@@ -477,6 +489,26 @@ export interface RunManifest {
   error?: { stage: string; message: string; stack?: string };
 }
 
+/**
+ * CodeGraph's reach over the run's own corpus.
+ *
+ * `counted` is the layer-1 ledger's counted row count. That is the denominator law in one field: a published
+ * ratio's denominator comes from a ledger that records its own completeness, never from a local predicate.
+ * It used to be `files.filter(isLikelySource)` — a hardcoded nine-extension denylist — which made the ratio's
+ * denominator a THIRD taxonomy beside layer 1's `excluded{unsupported-extension}` and layer 2's per-mechanism
+ * extension sets, with nothing reconciling them. On wcp that published "1,639/1,719 = 95.3%" as a fact, and
+ * 1,719 appears in no ledger: it is 1,999 counted minus 280 files the denylist happened to name.
+ *
+ * `unindexedByExtension` is OBSERVED, never declared. It reports which extensions the index did not reach on
+ * THIS target, rather than asserting which extensions ought not to be reached.
+ */
+export interface CodeGraphCoverage {
+  indexed: number;
+  counted: number;
+  ratio: number;
+  unindexedByExtension: Record<string, number>;
+}
+
 export interface RunMetrics {
   startedAt: string;
   finishedAt?: string;
@@ -496,7 +528,7 @@ export interface RunMetrics {
   workItems?: { total: number; complete: number };
   /** Count of post-freeze supplement mutations recorded through the escape hatch. Present only on frozen runs. */
   supplements?: number;
-  codegraphCoverage?: { indexed: number; eligible: number; ratio: number };
+  codegraphCoverage?: CodeGraphCoverage;
   cache: Record<string, "hit" | "miss" | "unused">;
   warnings: string[];
 }

@@ -5,7 +5,7 @@ import {
   mechanismCoverageBasisName, mechanismCoverageValue, type CoverageBasisValue
 } from "../base/coverage-basis.ts";
 import type {
-  AuditFinding, CompletenessSource, DomainCompleteness, FreezeAuditCheck, InvestigationPlan,
+  AuditFinding, CompletenessSource, DomainCompleteness, EvidenceItem, FreezeAuditCheck, InvestigationPlan,
   KnowledgeCompleteness, RunManifest
 } from "../base/types.ts";
 import type { ContractManifest } from "../contract/contract-manifest.ts";
@@ -28,6 +28,9 @@ export interface FreezeCompletenessInput {
   readonly investigationResults: InvestigationResults | null;
   /** Result of the already-executed contract-instance check; reused, never silently rerun or skipped. */
   readonly contractFindings: readonly AuditFinding[];
+  /** The frozen catalog. Required: the closure figure below is the only place a recorded read is compared
+   *  against the authorizations, and an optional catalog would make that comparison silently skippable. */
+  readonly evidence: readonly EvidenceItem[];
 }
 
 export interface FreezeCompletenessResult {
@@ -79,7 +82,7 @@ export async function buildFreezeCompleteness(input: FreezeCompletenessInput): P
     completeness: {
       version: "knowledge-completeness-v2",
       domains,
-      closure: buildClosure(input.plan, input.investigationResults),
+      closure: buildClosure(input.plan, input.investigationResults, input.evidence),
       checks,
       warnings: domains.flatMap((domain) => domain.sources.flatMap((source) => source.limitations.map((limit) => `${source.id}: ${limit}`)))
     },
@@ -439,7 +442,20 @@ function auditInvestigationClosure(results: InvestigationResults | null): AuditF
   return findings;
 }
 
-function buildClosure(plan: InvestigationPlan, results: InvestigationResults | null): KnowledgeCompleteness["closure"] {
+/**
+ * Recorded source windows that no execution claims.
+ *
+ * Every `ReadExecutionRecord` names the evidence its authorized read produced, so the unclaimed remainder is
+ * exactly the reads that happened outside the authorization chain. With no results at all, every recorded
+ * source window is unaccounted — which is the honest reading, not a reason to report zero.
+ */
+function unauthorizedSourceReads(results: InvestigationResults | null, evidence: readonly EvidenceItem[]): number {
+  const claimed = new Set<string>();
+  for (const execution of results?.executions ?? []) for (const id of execution.evidenceIds) claimed.add(id);
+  return evidence.filter((item) => item.kind === "source" && !claimed.has(item.id)).length;
+}
+
+function buildClosure(plan: InvestigationPlan, results: InvestigationResults | null, evidence: readonly EvidenceItem[]): KnowledgeCompleteness["closure"] {
   const byStatus: Record<string, number> = {};
   for (const item of plan.items) byStatus[item.status] = (byStatus[item.status] ?? 0) + 1;
   return {
@@ -455,7 +471,8 @@ function buildClosure(plan: InvestigationPlan, results: InvestigationResults | n
       pending: results?.dispositions.filter((row) => row.status === "pending").length ?? 0
     },
     probeResiduals: results?.residuals.length ?? 0,
-    materialFlowsWithTraces: plan.items.filter((item) => item.material && item.status === "found" && MATERIAL_FLOW_DIMENSIONS.has(item.dimension) && item.traceIds.length > 0).length
+    materialFlowsWithTraces: plan.items.filter((item) => item.material && item.status === "found" && MATERIAL_FLOW_DIMENSIONS.has(item.dimension) && item.traceIds.length > 0).length,
+    sourceReadsWithoutObligation: unauthorizedSourceReads(results, evidence)
   };
 }
 

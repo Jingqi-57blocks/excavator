@@ -59,6 +59,36 @@ test("freeze publishes domain/kind conjunctions and keeps positive and negative 
   assert.ok(knowledge.completeness.checks.every((row) => row.status === "passed"));
 });
 
+// THE CLOSURE CHECK ONLY EVER ASKED THE FORWARD QUESTION.
+//
+// `auditInvestigationClosure` verifies that every AUTHORIZED read completed. Nothing asked the reverse — were
+// the reads that happened authorized at all — so a run could read freely and still seal `investigation-closure:
+// passed, 0 findings`. On a real wcp overview that is exactly what happened: `read-specs.json` was `built` with
+// `specs: 0`, 42 source windows sat in the catalog, and the epoch sealed clean.
+//
+// The cause is structural, not accidental: `ReadSpec.featureKey` is a required non-empty string, so a run with
+// no feature authorizes nothing BY CONSTRUCTION. Freeze therefore states the size of the gap rather than
+// asserting a closure it cannot justify — a number in every sealed epoch, available to gate on later.
+test("freeze counts the source reads no authorization covers instead of sealing over them", async () => {
+  const { runDir } = await prepareRun(await request([]));
+  await disposeAllWorkItems(runDir);
+  const result = await freezeRun(runDir);
+  assert.equal(result.frozen, true, JSON.stringify(result.findings, null, 2));
+
+  const knowledge = JSON.parse(await readFile(join(runDir, "knowledge.json"), "utf8")) as KnowledgeArtifact;
+  const evidence = JSON.parse(await readFile(join(runDir, "evidence.json"), "utf8")) as { evidence: Array<{ kind: string }> };
+  const recordedSourceReads = evidence.evidence.filter((item) => item.kind === "source").length;
+
+  assert.ok(recordedSourceReads > 0, "prepare records source windows even on an overview-only run");
+  assert.equal(knowledge.completeness.closure.sourceReadsWithoutObligation, recordedSourceReads,
+    "an overview run authorizes no read, so every recorded window is unaccounted — and the epoch says so");
+
+  // And the point of the figure: the check family still passes. A silent zero and an honest count are
+  // indistinguishable from the verdict alone, which is why the number has to be sealed next to it.
+  const closure = knowledge.completeness.checks.find((row) => row.family === "investigation-closure");
+  assert.equal(closure?.status, "passed", "the gap is stated, not converted into a freeze failure");
+});
+
 test("an overview-only run retains conserved file and partition domains without inventing a feature selection", async () => {
   const { runDir } = await prepareRun(await request([]));
   await disposeAllWorkItems(runDir);

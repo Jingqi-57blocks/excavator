@@ -73,7 +73,7 @@ export async function freezeRun(runDirInput: string): Promise<{ manifest: RunMan
   let completeness: Awaited<ReturnType<typeof buildFreezeCompleteness>>["completeness"] | null = null;
   try {
     const contract = await readJson<ContractManifest>(join(runDir, "contract", "contract-manifest.json"));
-    const result = await buildFreezeCompleteness({ runDir, manifest, contract, plan, investigationResults, contractFindings });
+    const result = await buildFreezeCompleteness({ runDir, manifest, contract, plan, investigationResults, contractFindings, evidence: evidenceCatalog.evidence });
     completeness = result.completeness;
     contractFindings.splice(0, contractFindings.length, ...result.findings);
   } catch (error) {

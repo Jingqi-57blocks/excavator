@@ -108,7 +108,7 @@ export interface Counters {
   traces: number | null;
   workItems: { complete: number; total: number } | null;
   timelineEvents: number | null;
-  codegraphCoverage: { indexed: number; eligible: number; ratio: number } | null;
+  codegraphCoverage: { indexed: number; counted: number; ratio: number } | null;
 }
 
 /** One narrative row: a projection of a timeline event plus its opening gap. */
@@ -357,7 +357,7 @@ export function computeRunStats(runDir: string): RunStats {
       : null,
     timelineEvents: num(metrics.timelineEvents),
     codegraphCoverage: metrics.codegraphCoverage && typeof metrics.codegraphCoverage === "object"
-      ? { indexed: num(metrics.codegraphCoverage.indexed) ?? 0, eligible: num(metrics.codegraphCoverage.eligible) ?? 0, ratio: num(metrics.codegraphCoverage.ratio) ?? 0 }
+      ? { indexed: num(metrics.codegraphCoverage.indexed) ?? 0, counted: num(metrics.codegraphCoverage.counted) ?? 0, ratio: num(metrics.codegraphCoverage.ratio) ?? 0 }
       : null
   };
 

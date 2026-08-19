@@ -16,7 +16,8 @@ const completeness: KnowledgeCompleteness = {
     workItems: { positive: 2, negative: 0, pending: 0, byStatus: { found: 2 } },
     decisions: { positive: 2, negative: 0, pending: 0 },
     probeResiduals: 0,
-    materialFlowsWithTraces: 2
+    materialFlowsWithTraces: 2,
+    sourceReadsWithoutObligation: 0
   },
   checks: [],
   warnings: []

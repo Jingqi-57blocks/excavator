@@ -1,6 +1,6 @@
 import { basename, join } from "node:path";
 import { readFile } from "node:fs/promises";
-import type { Audience, CollectedFeatureFactPack, EvidenceItem, FeatureRequest, GraphNode, ProviderRegistry, ReportRequest, Snapshot } from "../base/types.ts";
+import type { Audience, CodeGraphCoverage, CollectedFeatureFactPack, EvidenceItem, FeatureRequest, GraphNode, ProviderRegistry, ReportRequest, Snapshot } from "../base/types.ts";
 import { CodeGraphIndex, type GraphReader, type GraphSummary } from "../codegraph/codegraph.ts";
 import { CodeGraphSet } from "../codegraph/codegraph-set.ts";
 import { allocateFeatureGraphRecorded } from "../attribution/allocator.ts";
@@ -25,7 +25,7 @@ interface CachedShared {
   evidence: EvidenceItem[];
   markdown: string;
   graphFilePaths: string[];
-  metrics: { coverage?: { indexed: number; eligible: number; ratio: number }; warnings: string[] };
+  metrics: { coverage?: CodeGraphCoverage; warnings: string[] };
 }
 
 interface CachedFeature {
@@ -90,7 +90,7 @@ export interface ContextBuildResult {
     sourceWindowCacheHits: number;
     sourceCharacters: number;
     filesConsidered: number;
-    codegraphCoverage?: { indexed: number; eligible: number; ratio: number };
+    codegraphCoverage?: CodeGraphCoverage;
     codegraphPath?: string;
     codegraphModulePaths?: string[];
     codegraphModules?: Array<{ id: string; dir: string; path: string }>;
@@ -311,7 +311,7 @@ async function buildSharedContext(snapshot: Snapshot, files: ScannedFile[], grap
   const evidence: EvidenceItem[] = [];
   const warnings: string[] = [];
   let graphPaths = new Set<string>();
-  let coverage: { indexed: number; eligible: number; ratio: number } | undefined;
+  let coverage: CodeGraphCoverage | undefined;
   let graphSummary: GraphSummary | null = null;
   let representativeNodes: unknown[] = [];
   let routes: unknown[] = [];
@@ -330,21 +330,41 @@ async function buildSharedContext(snapshot: Snapshot, files: ScannedFile[], grap
     const metadata = graph.metadata();
     const graphFiles = graph.files();
     graphPaths = new Set(graphFiles.map((file) => file.path.replace(/^\.\//, "")));
-    const eligibleFiles = files.filter(isLikelySource);
-    const eligible = eligibleFiles.length;
-    const indexed = eligibleFiles.filter((file) => graphPaths.has(file.relativePath)).length;
-    coverage = { indexed, eligible, ratio: eligible ? indexed / eligible : 1 };
+    // DENOMINATOR: the layer-1 counted rows, and nothing else.
+    //
+    // It used to be `files.filter(isLikelySource)` — a hardcoded nine-extension denylist in `snapshot.ts`.
+    // That made the published ratio's denominator a THIRD taxonomy, alongside layer 1's
+    // `excluded{unsupported-extension}` and layer 2's per-mechanism extension sets, with nothing reconciling
+    // the three. On wcp it produced "1,639/1,719 = 95.3%", a number that appears in no ledger: 1,719 is
+    // 1,999 counted minus 280 files the denylist happened to name, and the report printed it as a fact.
+    //
+    // `counted` is a ledger row count, so the ratio is now checkable against `ledger/files.json`. It reads
+    // lower (82.0% on wcp) because it stops hiding its own exclusions; `unindexedByExtension` puts those back
+    // as observed data rather than as a rule, so a reader can see that `.scss` and `.html` dominate the gap
+    // without the engine having to assert which extensions "should" have been indexed.
+    const counted = files.length;
+    const indexed = files.filter((file) => graphPaths.has(file.relativePath)).length;
+    const unindexedByExtension: Record<string, number> = {};
+    for (const file of files) {
+      if (graphPaths.has(file.relativePath)) continue;
+      const key = file.extension || "(no extension)";
+      unindexedByExtension[key] = (unindexedByExtension[key] ?? 0) + 1;
+    }
+    coverage = { indexed, counted, ratio: counted ? indexed / counted : 1, unindexedByExtension };
     graphSummary = graph.summary();
     representativeNodes = graph.representativeNodes(60);
     routes = graph.routeSummary(60);
     const graphErrors = graphFiles.filter((file) => file.errors.length).slice(0, 50);
     if (graphErrors.length) warnings.push(`${graphErrors.length} CodeGraph file records include extraction errors in the sampled set; source fallback remains enabled.`);
-    if (coverage.ratio < 0.98) warnings.push(`CodeGraph indexed ${indexed}/${eligible} eligible source files; unindexed files are read through source fallback when relevant.`);
+    // Counted on the files themselves rather than tripped by a ratio against a phantom denominator: what the
+    // reader needs to know is that a fallback path exists and how much rides on it.
+    const unindexed = counted - indexed;
+    if (unindexed) warnings.push(`CodeGraph indexed ${indexed}/${counted} counted files; the remaining ${unindexed} are read through source fallback when relevant.`);
     evidence.push({ id: `CG-${snapshot.id}`, snapshotId: snapshot.id, kind: "graph", title: "CodeGraph census", data: { metadata, summary: graphSummary, coverage, graphErrors }, reason: "navigate the project without scanning every source file", digest: sha256(stableJson({ metadata, summary: graphSummary, coverage, graphErrors })) });
     evidence.push({ id: `CG-NODES-${snapshot.id}`, snapshotId: snapshot.id, kind: "graph", title: "Representative CodeGraph nodes", data: representativeNodes, reason: "identify likely entry points, components and implementation centers", digest: sha256(stableJson(representativeNodes)) });
     evidence.push({ id: `CG-ROUTES-${snapshot.id}`, snapshotId: snapshot.id, kind: "graph", title: "Route candidates", data: routes, reason: "identify user and system entry points; source confirmation is required for incomplete route semantics", digest: sha256(stableJson(routes)) });
   } else {
-    coverage = { indexed: 0, eligible: files.filter(isLikelySource).length, ratio: 0 };
+    coverage = { indexed: 0, counted: files.length, ratio: 0, unindexedByExtension: {} };
   }
 
   const projectDocs = selectProjectDocuments(files, 14);
@@ -512,7 +532,7 @@ async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], fea
   };
 }
 
-function renderSharedMarkdown(snapshot: Snapshot, graphSummary: unknown, coverage: { indexed: number; eligible: number; ratio: number }, docs: Array<Record<string, unknown>>, representativeNodes: any[], routes: any[], evidence: EvidenceItem[], warnings: string[]): string {
+function renderSharedMarkdown(snapshot: Snapshot, graphSummary: unknown, coverage: CodeGraphCoverage, docs: Array<Record<string, unknown>>, representativeNodes: any[], routes: any[], evidence: EvidenceItem[], warnings: string[]): string {
   const compactNodes = representativeNodes.map((node) => ({ id: node.id, kind: node.kind, name: node.name, file: node.filePath, lines: `${node.startLine}-${node.endLine}`, signature: node.signature ? truncate(String(node.signature), 180) : null }));
   const compactRoutes = routes.map((node) => ({ id: node.id, name: node.name, file: node.filePath, line: node.startLine }));
   const sourceEvidence = evidence.filter((item) => item.content).map((item) => ({ id: item.id, title: item.title, reason: item.reason, excerpt: truncate(item.content ?? "", 1_800) }));
@@ -526,7 +546,7 @@ ${stableJson({ id: snapshot.id, roots: snapshot.roots, scannerVersion: snapshot.
 
 ## Coverage
 
-- CodeGraph source coverage: ${(coverage.ratio * 100).toFixed(1)}% (${coverage.indexed}/${coverage.eligible}).
+- CodeGraph indexed ${coverage.indexed} of ${coverage.counted} counted files (${(coverage.ratio * 100).toFixed(1)}%). The denominator is \`ledger/files.json\`'s counted rows; unindexed files include documentation, styles and data that no code index covers.
 - CodeGraph is a navigation index. Source excerpts remain authoritative for semantics.
 - Files absent from CodeGraph, extraction errors, unresolved relationships and ambiguous findings trigger source fallback.
 

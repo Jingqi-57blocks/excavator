@@ -252,7 +252,7 @@ function normalizeRequest(raw: Partial<ReportRequest>, args: Record<string, stri
     // Rebuilt field by field, so a field missing HERE cannot be set at all: `redactSecrets` was absent, and
     // that made the mode the request type documents unreachable from the CLI — the flag existed only for
     // callers using the library directly.
-    redactSecrets: args.redact === "true" || raw.redactSecrets === true,
+    redactSecrets: args.noRedact === "true" ? false : args.redact === "true" || raw.redactSecrets !== false,
     overviewAudiences,
     features,
     budgets: { ...defaultBudgets({ overviewAudiences, features }), ...(raw.budgets ?? {}), ...budgetOverrides(args) }
@@ -382,11 +382,11 @@ Examples:
   excavator report --request request.json
 
 Secret redaction:
-  --redact            Blank secret-looking values in recorded source. Off by default, because redaction has a
-                      measured cost in destroyed evidence while its benefit depends on who receives the
-                      artifacts. Turn it on whenever the run directory or its HTML export will reach anyone
-                      who should not read the source verbatim. \`excavator status\` and each report's front
-                      matter state which mode a run used.
+  --redact            Blank secret-looking values in recorded source. ON BY DEFAULT; passing it changes nothing.
+  --no-redact         Record source verbatim. Redaction costs evidence, but a leaked credential cannot be
+                      recalled once the run directory or its HTML export is handed on, so verbatim is asked
+                      for rather than defaulted into. \`excavator status\` and each report's front matter
+                      state which mode a run used.
 
 Report detail:
   --detail detailed   Default. Requires a chapter inventory, fine-grained material work-item coverage and minimum report density.

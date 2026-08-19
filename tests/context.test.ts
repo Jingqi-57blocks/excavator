@@ -64,6 +64,45 @@ test("shared and feature contexts are reused across audiences and later runs", a
   assert.equal(second.stats.sourceWindows, 0, "cached contexts must not repeat source reads");
 });
 
+// THE COVERAGE DENOMINATOR IS THE LEDGER'S, NOT A LOCAL PREDICATE'S.
+//
+// `eligible` used to be `files.filter(isLikelySource)` — nine hardcoded extensions in `snapshot.ts`. The ratio
+// built on it was published in the model view and quoted in a real report as a fact: "1,639/1,719 = 95.3%" on
+// wcp, where 1,719 is 1,999 counted minus 280 files the denylist named and appears in no ledger at all.
+//
+// The fixture makes the difference visible rather than asserting an equality that both versions satisfy: the
+// `.scss` and `.md` files below are exactly what the old denylist removed. If the denominator goes back to a
+// predicate, `counted` drops by four and this fails.
+test("the CodeGraph coverage denominator counts every scanned file, not a hand-picked source subset", async () => {
+  const target = await copyFixture();
+  const workdir = await tempDir();
+  const db = join(workdir, "codegraph.db");
+  createCodeGraphFixture(db);
+
+  // Four files no code index would ever hold, in the extensions the retired denylist named.
+  await writeFile(join(target, "theme.scss"), "$brand: #123456;\n.button { color: $brand; }\n", "utf8");
+  await writeFile(join(target, "layout.css"), ".row { display: flex; }\n", "utf8");
+  await writeFile(join(target, "NOTES.md"), "# Notes\n\nNothing structural here.\n", "utf8");
+  await writeFile(join(target, "fixture.json"), JSON.stringify({ sample: true }) + "\n", "utf8");
+
+  const result = await buildContexts(request(target, db, workdir));
+  const coverage = result.stats.codegraphCoverage;
+  assert.ok(coverage, "a run with a graph publishes coverage");
+
+  const scanned = await scanFiles(target, 10_000);
+  assert.equal(coverage.counted, scanned.length,
+    "the denominator is the counted row set; a predicate that drops non-source extensions would report fewer");
+  assert.equal(coverage.ratio, coverage.indexed / coverage.counted, "and the ratio is those two numbers");
+
+  // The exclusions are reported as observation, not asserted as a rule — the point of replacing the denylist.
+  const unindexed = coverage.unindexedByExtension;
+  for (const extension of [".scss", ".css", ".md", ".json"]) {
+    assert.ok((unindexed[extension] ?? 0) >= 1, `${extension} is visible as unindexed rather than removed from the denominator: ${JSON.stringify(unindexed)}`);
+  }
+  const totalUnindexed = Object.values(unindexed).reduce((sum, value) => sum + value, 0);
+  assert.equal(totalUnindexed, coverage.counted - coverage.indexed, "and the breakdown accounts for every unindexed row");
+});
+
 test("source-only mode remains usable when CodeGraph is absent", async () => {
   const target = await copyFixture();
   const workdir = await tempDir();

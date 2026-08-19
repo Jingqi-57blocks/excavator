@@ -179,7 +179,7 @@ async function writePrepareFailureRecord(request: ReportRequest, contract: Bound
     state: "failed",
     createdAt: now,
     updatedAt: now,
-    request: { ...request, redactSecrets: request.redactSecrets === true },
+    request,
     snapshot: boundary?.snapshot ?? null,
     documents: [],
     evidenceDigest: sha256(stableJson([])),
@@ -260,7 +260,14 @@ async function writeContractArtifacts(runDir: string, contract: BoundRunContract
   await writeJson(join(runDir, "contract", "contract-manifest.json"), contractManifest);
 }
 
-export async function prepareRun(request: ReportRequest): Promise<{ runDir: string; manifest: RunManifest }> {
+export async function prepareRun(rawRequest: ReportRequest): Promise<{ runDir: string; manifest: RunManifest }> {
+  // The mode is resolved ONCE, here, before anything reads it. It used to be resolved at each site, and the
+  // sites disagreed: the failure-path manifest, the success-path `effectiveRequest` and the cross-repo scan
+  // each wrote their own `=== true` / `Boolean(...)`, so changing the default in one left the recording paths
+  // on the old one and a run whose manifest said "redacted" recorded the secret anyway. `!== false` because an
+  // absent field is a caller who did not decide; everything below sees an explicit boolean and never re-applies
+  // this rule.
+  const request: ReportRequest = { ...rawRequest, redactSecrets: rawRequest.redactSecrets !== false };
   // prd is a feature-only audience: no prd-overview template exists. This single Core guard covers the CLI
   // overview command, the report --overview arg and request.json, so the overview branch (buildContexts →
   // renderOverviewContext, and the referencePath("overview", "prd") document build below) never sees prd.
@@ -293,10 +300,7 @@ export async function prepareRun(request: ReportRequest): Promise<{ runDir: stri
     await recordPrepareFailure(request, contract, contractManifest, error as Error, boundary);
     throw error;
   }
-  // `redactSecrets` is normalised to an explicit boolean here, never left absent. Everything downstream —
-  // the audit's re-derivation, the cache keys, the operator-facing notice — reads the run's own mode, and a
-  // missing field would force each of them to assume one, which is how the same run gets read two ways.
-  const effectiveRequest: ReportRequest = { ...request, redactSecrets: request.redactSecrets === true, detailLevel: request.detailLevel ?? "detailed", codegraph: result.stats.codegraphPath, codegraphModules: result.stats.codegraphModulePaths };
+  const effectiveRequest: ReportRequest = { ...request, detailLevel: request.detailLevel ?? "detailed", codegraph: result.stats.codegraphPath, codegraphModules: result.stats.codegraphModulePaths };
   const timestamp = runIdTimestamp();
   const requestDigest = sha256(stableJson({ overview: request.overviewAudiences, features: request.features, language: request.language, detailLevel: effectiveRequest.detailLevel })).slice(0, 8);
   const runId = `run-${timestamp}-${runScopeSlug(request)}-${result.prepared.snapshot.id.slice(0, 8)}-${requestDigest}-${randomUUID().slice(0, 8)}`;
@@ -330,7 +334,7 @@ export async function prepareRun(request: ReportRequest): Promise<{ runDir: stri
   // Resolved BEFORE the evidence catalog is assembled: link evidence has to be IN the catalog, or a claim
   // citing it would fail audit for citing an evidence id that does not exist. Its kind is `derived`, never
   // `source` — resolving a route is not reading it (see crossrepo-artifact.ts).
-  const crossRepo = await resolveCrossRepoLinks(request.target, result.stats.codegraphModules, result.prepared.snapshot.id, result.stats.warnings, Boolean(request.redactSecrets));
+  const crossRepo = await resolveCrossRepoLinks(request.target, result.stats.codegraphModules, result.prepared.snapshot.id, result.stats.warnings, request.redactSecrets === true);
   const evidence: EvidenceItem[] = [
     ...result.prepared.evidence,
     ...(crossRepo?.evidence ?? []),
