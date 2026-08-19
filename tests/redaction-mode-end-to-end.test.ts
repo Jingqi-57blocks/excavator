@@ -117,6 +117,21 @@ test("a request that never mentions redaction is redacted, not verbatim", async 
   assert.equal((await runStatus(runDir)).sourceText, "redacted", "and the mode it reports is the one it used");
 });
 
+// BOTH CLI REQUEST BUILDERS, because only one of them used to resolve the mode at all.
+//
+// `normalizeRequest` (prepare/report, from a request file) read the flags; `baseRequest` (overview/feature)
+// never mentioned `redactSecrets`, so `excavator overview --no-redact` parsed the flag and dropped it. The help
+// text promised a mode two of the three prepare commands could not reach. Source-level because `cli.ts` calls
+// `main()` at module scope and cannot be imported — which is exactly why the gap survived: nothing could call
+// the function to notice.
+test("every CLI request builder resolves the redaction mode, and off is the only thing that has to be asked for", async () => {
+  const source = await readFile(new URL("../src/cli.ts", import.meta.url), "utf8");
+  const resolutions = source.match(/redactSecrets:\s*args\.noRedact === "true" \? false :/g) ?? [];
+  assert.equal(resolutions.length, 2, "normalizeRequest and baseRequest both resolve the mode; a builder that omits it silently picks its own default");
+  assert.doesNotMatch(source, /redactSecrets:\s*args\.redact === "true" \|\| raw\.redactSecrets === true/,
+    "the retired `=== true` form meant an unstated request ran verbatim");
+});
+
 // What actually protects archived runs is NOT the version bump — `auditEvidenceCatalog` re-derives digests
 // with no generation gate at all — it is this reading of the field. Before v9 redaction was unconditional,
 // so a pre-v9 manifest is redacted whatever its request happens to say; a stray `redactSecrets: false` on

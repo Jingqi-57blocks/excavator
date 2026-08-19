@@ -267,6 +267,10 @@ function baseRequest(args: Record<string, string>, docs: Pick<ReportRequest, "ov
     language: args.language ?? "en-US",
     detailLevel: args.detail === "standard" ? "standard" : "detailed",
     workdir: resolve(args.workdir ?? DEFAULT_WORKDIR),
+    // The same resolution `normalizeRequest` does. It was absent here, so `excavator overview --no-redact`
+    // parsed the flag and dropped it — the help text promised a mode two of the three prepare commands could
+    // not reach.
+    redactSecrets: args.noRedact === "true" ? false : true,
     ...docs,
     budgets: { ...defaultBudgets(docs), ...budgetOverrides(args) }
   };
