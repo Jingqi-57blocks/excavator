@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { readFile, readdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import type { Audience, DocumentPlan, EvidenceItem, InvestigationChecklist, InvestigationPlan, ReportRequest, RunManifest, SectionClaim, SectionClaimsFile, TraceCatalog } from "../base/types.ts";
+import type { Audience, DetailLevel, DocumentPlan, EvidenceItem, InvestigationChecklist, InvestigationPlan, ReportRequest, RunManifest, SectionClaim, SectionClaimsFile, TraceCatalog } from "../base/types.ts";
 import { auditAuthoringPacketConsumption } from "../report/authoring-packet.ts";
 import { buildContextsFromBoundary, featureCacheKey, readSourceBoundary, type ContextBuildResult, type SourceBoundary } from "../context/context.ts";
 import { FACT_PACK_CATEGORIES } from "../context/factpack.ts";
@@ -43,6 +43,7 @@ import { createAnalysisScope, emptyTraceCatalog } from "../investigation/investi
 import { appendTimeline, auditTimeline } from "../base/timeline.ts";
 import { runScopeSlug } from "./run-label.ts";
 import { auditPendingDrafts } from "../report/parallel-authoring.ts";
+import { writeReportRequests } from "../report/report-requests-artifact.ts";
 import { authorPrompt, makeDocumentPlan, referencePath, reportFileName } from "../report/authoring-plan.ts";
 import { projectCacheDir, reDeriveIdentities } from "./stages/runtime-identity.ts";
 import { readFrozenFactPacks, readRequiredInvestigationResults, readRequiredObligationDeclarations } from "./stages/investigation-read-model.ts";
@@ -301,7 +302,11 @@ export async function prepareRun(rawRequest: ReportRequest): Promise<{ runDir: s
     await recordPrepareFailure(request, contract, contractManifest, error as Error, boundary);
     throw error;
   }
-  const effectiveRequest: ReportRequest = { ...request, detailLevel: request.detailLevel ?? "detailed", codegraph: result.stats.codegraphPath, codegraphModules: result.stats.codegraphModulePaths };
+  // Resolved ONCE, here, for the same reason `redactSecrets` is resolved once at the top: the detail level reaches
+  // the manifest, the author prompts and the recorded v2 request, and three sites each applying `?? "detailed"` is
+  // how the redaction flag came to disagree with itself.
+  const detailLevel: DetailLevel = request.detailLevel ?? "detailed";
+  const effectiveRequest: ReportRequest = { ...request, detailLevel, codegraph: result.stats.codegraphPath, codegraphModules: result.stats.codegraphModulePaths };
   const timestamp = runIdTimestamp();
   const requestDigest = sha256(stableJson({ overview: request.overviewAudiences, features: request.features, language: request.language, detailLevel: effectiveRequest.detailLevel })).slice(0, 8);
   const runId = `run-${timestamp}-${runScopeSlug(request)}-${result.prepared.snapshot.id.slice(0, 8)}-${requestDigest}-${randomUUID().slice(0, 8)}`;
@@ -526,8 +531,21 @@ export async function prepareRun(rawRequest: ReportRequest): Promise<{ runDir: s
   await writeJson(join(runDir, "metrics.json"), manifest.metrics);
   await writeJson(join(runDir, "checklist.json"), workItemsToChecklist(plan));
 
+  // The v2 request each planned document was asked for, recorded beside the run's other report-side artifacts.
+  // A record, not a premise: authoring still runs off the bound contract's template sections, and the cutover to
+  // reading this back is a later slice. A document the mapping refuses is a hard error here — the same verdict
+  // the prd-overview guard at the top of prepare already gives that same fact.
+  await writeReportRequests(runDir, planned.map((document) => ({
+    documentId: document.id,
+    kind: document.kind,
+    audience: document.audience,
+    featureKey: document.featureKey,
+    detailLevel,
+    language: request.language
+  })));
+
   for (const document of documents) {
-    await atomicWrite(join(runDir, "prompts", `${document.id}.md`), authorPrompt(runDir, document, effectiveRequest.language, effectiveRequest.detailLevel ?? "detailed"));
+    await atomicWrite(join(runDir, "prompts", `${document.id}.md`), authorPrompt(runDir, document, effectiveRequest.language, detailLevel));
   }
   await appendTimeline(runDir, runId, { stage: "prepare", action: "run.prepared", data: { snapshotId: result.prepared.snapshot.id, documents: documents.map((document) => document.id), providerRegistryDigest: providerRegistry.digest, analysisScopeDigest: analysisScope.digest } });
   manifest.metrics.timelineEvents = 1;
