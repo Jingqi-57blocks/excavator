@@ -205,11 +205,12 @@ function traced(node: GraphNode, outcome: TraceNode["outcome"], score = 0): Trac
   };
 }
 
-function ranTrace(pool: readonly TraceNode[]): RanSelectionTrace {
+function ranTrace(pool: readonly TraceNode[], querySeedNodeIds: readonly string[] = []): RanSelectionTrace {
   return {
     status: "ran",
     pool: [...pool],
-    seedCount: 1,
+    seedCount: querySeedNodeIds.length || 1,
+    querySeedNodeIds: [...querySeedNodeIds].sort(),
     budgets: { maxNodes: 180 },
     fusion: {
       method: "weighted-reciprocal-rank",
@@ -267,6 +268,71 @@ const MODULE_GRANT = graphNode({ id: "active\0n1", kind: "function", name: "gran
 const ALL_NODES = [GRANT, REVOKE, GRANT_TWIN, PY_HANDLE, EJS_RENDER, ROUTE];
 
 // --- the projection: every retained node in exactly one visible bucket -----------------------------------------
+
+// SEED IDENTITY IS A RECORDED ID SET, NOT A CHANNEL LABEL.
+//
+// `allocator.ts` puts a query seed on the `seed` channel — and then puts every node ADJACENT to a seed on the
+// same channel, with reason `seed-neighbor`. So `outcome === "seed"` cannot tell "the query named this" from
+// "this sits next to something the query named". Layer 5's `seeded` relation authorises reading, so getting
+// that distinction wrong authorises reading a neighbour as if it had been asked for.
+//
+// GRANT is the query seed here; PY_HANDLE also rides the `seed` channel but is not in `querySeedNodeIds`.
+test("seedCells holds the query's own seeds and not the neighbours that share their channel", async () => {
+  const layer = await layer3(ALL_NODES);
+  const artifact = assemble(layer, [{
+    featureKey: "f1",
+    trace: ranTrace([
+      traced(GRANT, "seed", 1000),
+      traced(PY_HANDLE, "seed", 220)
+    ], [GRANT.id])
+  }]);
+  const selection = artifact.selections[0]!;
+
+  const seatOf = (id: string): string | undefined => selection.seats.find((seat) => seat.name === id)?.unitId;
+  const grantCell = seatOf(GRANT.name);
+  const neighbourCell = seatOf(PY_HANDLE.name);
+  assert.ok(grantCell && neighbourCell, `both nodes must be seated for this test to mean anything: ${JSON.stringify(selection.seats.map((s) => s.name))}`);
+
+  assert.deepEqual(selection.seedCells, [grantCell], "the query seed's cell, and only it");
+  assert.ok(!selection.seedCells.includes(neighbourCell!),
+    "a seed-neighbor rides the `seed` channel; reading the channel back as identity would put it here");
+});
+
+// A DISPLACED SEED HOLDS NO SEAT, SO IT AUTHORISES NO READ.
+//
+// `seedCells` feeds layer 5's `seeded` relation, which is a read authorisation. Publishing a cell this run
+// decided not to seat would authorise reading exactly what the budget rejected.
+test("a query seed that lost the budget contributes no seedCell", async () => {
+  const layer = await layer3(ALL_NODES);
+  const artifact = assemble(layer, [{
+    featureKey: "f1",
+    trace: ranTrace([
+      traced(GRANT, "seed", 1000),
+      traced(REVOKE, "displaced")
+    ], [GRANT.id, REVOKE.id])
+  }]);
+  const selection = artifact.selections[0]!;
+
+  assert.ok(selection.displacements.length >= 1, "the fixture must actually displace something");
+
+  // The guarantee is NOT "no seedCell appears among the displacements" — measured on wcp, 69 seedCells and
+  // 1,577 displacement rows overlap, and correctly so: a cell holds many nodes, and `buildSelection` documents
+  // that a cell holding any seat is seated even when another of its nodes lost the budget. Asserting the
+  // stronger property would have been asserting a promise the design never made, which `seat-floor.test.ts`
+  // already records as how a test starts lying about what is guaranteed.
+  //
+  // What IS guaranteed: the displaced branch never ADDS a seedCell. So a displaced query seed whose cell holds
+  // no seat must be absent — which this fixture arranges by seating GRANT in a different cell.
+  const seatedCells = new Set(selection.seats.map((seat) => seat.unitId));
+  const displacedOnly = selection.displacements.map((row) => row.unitId).filter((cell) => !seatedCells.has(cell));
+  assert.ok(displacedOnly.length >= 1, "the fixture must displace a cell that holds no seat, or it tests nothing");
+  for (const cell of displacedOnly) {
+    assert.ok(!selection.seedCells.includes(cell),
+      `a displaced query seed whose cell won no seat must not be published as seeded: ${cell}`);
+  }
+  assert.ok(selection.seedCells.every((cell) => seatedCells.has(cell)),
+    "and every seedCell holds a seat — the invariant the type comment relies on, asserted where it can fail");
+});
 
 test("every retained node lands in exactly one visible bucket, and each bucket has its own fixture", async () => {
   const layer = await layer3(ALL_NODES);

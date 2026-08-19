@@ -17,10 +17,11 @@ import { buildFactPack } from "./factpack.ts";
 import { BOUNDARY_FUNCTIONS_VERSION, BOUNDARY_FUNCTION_KINDS, enumerateBoundaryFunctions, type BoundaryFunctionsArtifact, type FeatureBoundaryFunctions } from "../facts/probe/boundary-functions.ts";
 import { legacyWorkspaceWarning } from "../snapshot/workspace-residue.ts";
 
-// v27: selection-trace-v2 is produced by the unique allocator. Reusing a v26 feature cache would feed the old
-// selector's channels and displacement vocabulary into attribution-v2, so both the cache path and the payload's
-// explicit trace version move together. Any change to a cached shape bumps this (57B-375).
-const BUILDER_VERSION = "excavator-context-v27-allocator";
+// v28: selection-trace-v3 records `querySeedNodeIds`. A v27 cache carries a trace WITHOUT that field, and a
+// selection built from it would publish an empty `seedCells` — layer 5's `seeded` relation silently back to
+// zero, which is precisely the defect this generation fixes and the shape a stale cache would restore.
+// Any change to a cached shape bumps this (57B-375).
+const BUILDER_VERSION = "excavator-context-v28-seed-identity";
 
 interface CachedShared {
   snapshotId: string;

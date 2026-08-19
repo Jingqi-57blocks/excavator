@@ -24,7 +24,9 @@ export interface WorksetStageInput {
   readonly producers: Readonly<Record<string, ArtifactResult<ProducerFactSet>>>;
   readonly ledger: FileLedger;
   readonly boundaryFunctions: BoundaryFunctionsArtifact;
-  /** Required; production passes one explicit empty set per feature until attribution records seed identity. */
+  /** Required, and now genuinely populated: `seedCellsByFeature` reads the cells layer 4 published. It stays
+   *  required rather than optional so the missing-key throw below remains reachable — an optional map would let
+   *  a caller omit a feature and lose its working set without anything going red. */
   readonly seedCellsByFeature: ReadonlyMap<string, ReadonlySet<string>>;
   readonly features: readonly { readonly key: string; readonly subject: string; readonly files: readonly string[] }[];
 }

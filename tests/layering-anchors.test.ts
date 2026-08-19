@@ -45,7 +45,7 @@ const ANCHORS: Record<string, Classification> = {
   "src/base/assurance-version.ts:91": { kind: "current", expect: "export function runUsesCurrentAssurance" },
   "src/run/stages/investigation-stage.ts:35": { kind: "current", expect: "plan.items.some((item) => item.id === normalized.workItemId)" },
   "src/crossrepo/link-match.ts:41": { kind: "current", expect: "export interface MatchedLink" },
-  "src/run/run.ts:332": { kind: "current", expect: "createInvestigationPlan(runId, effectiveRequest, documents)" },
+  "src/run/run.ts:333": { kind: "current", expect: "createInvestigationPlan(runId, effectiveRequest, documents)" },
 
   // --- §二: the seven edges, as a landing record --------------------------------------------------------------
   // The "before" column is where each violating import USED to sit. Several of those line numbers now happen to
@@ -63,7 +63,7 @@ const ANCHORS: Record<string, Classification> = {
   "src/base/executable.ts": { kind: "current-file" },
   "src/context/context.ts": { kind: "current-file" },
   // The layer-5 forbidden-input violation the contract now states instead of claiming it was already fixed.
-  "src/context/context.ts:168": { kind: "current", expect: "new SourceReader({" },
+  "src/context/context.ts:169": { kind: "current", expect: "new SourceReader({" },
   "src/report/checkpoint.ts": { kind: "current-file" },
   "src/base/assurance-version.ts": { kind: "current-file" },
   "src/report/section-audit.ts": { kind: "current-file" },

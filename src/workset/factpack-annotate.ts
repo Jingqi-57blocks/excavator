@@ -20,7 +20,8 @@ export interface FactPackAnnotationInput {
   readonly attribution: ArtifactResult<AttributionArtifact>;
   readonly units: ArtifactResult<UnitsArtifact>;
   readonly producers: Readonly<Record<string, ArtifactResult<ProducerFactSet>>>;
-  /** Required even though attribution-v2 cannot provide production seed identity and production passes empty. */
+  /** Required. attribution-v3 publishes `seedCells`, so this is the production seed set rather than an empty
+   *  placeholder; the `seeded` relation below is reachable on a real run for the first time. */
   readonly seedCells: ReadonlySet<string>;
 }
 
