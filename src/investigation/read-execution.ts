@@ -1,4 +1,4 @@
-import type { ArtifactResult } from "../base/artifact-result.ts";
+import { assertNever, type ArtifactResult } from "../base/artifact-result.ts";
 import type { EvidenceItem } from "../base/types.ts";
 import { canonicalJson, REDACTION_VERSION, sha256, stableJson } from "../base/util.ts";
 import {
@@ -11,7 +11,19 @@ import { EVIDENCE_BOUND_POLICY_VERSION } from "./evidence-store.ts";
 
 export const READ_EXECUTION_VERSION = "read-execution-v1";
 
-export type ReadExecutionOutcome = "source" | "empty" | "unavailable";
+/**
+ * How one authorized read ended.
+ *
+ * `budget-displaced` is a FOURTH bucket, not a softer spelling of `unavailable`, and the split is the one
+ * §四's output law asks for: freeze has to branch on it without reading a free-text `cause`, and merging the
+ * two flips an audit conclusion. `unavailable` means the read was attempted and the source would not yield
+ * (missing file, rejected path, a span the file does not have) — a defect in the authorization or the target.
+ * `budget-displaced` means THIS RUN declined to buy the window because a ceiling it recorded was already
+ * reached: the target is fine, the authorization is fine, and the fix is a number an operator can set. Held
+ * as one bucket, one budget-starved prepare made a run permanently unsealable — 43 of 83 archived runs, none
+ * of them ever frozen — while the same code with a larger ceiling sealed clean.
+ */
+export type ReadExecutionOutcome = "source" | "empty" | "unavailable" | "budget-displaced";
 
 export interface ReadExecutionRecord {
   readonly id: string;
@@ -29,7 +41,7 @@ export interface DecisionDisposition {
   readonly declarationId: string;
   readonly readSpecId: string;
   readonly executionId: string;
-  readonly status: "fulfilled" | "closed-negative" | "pending";
+  readonly status: "fulfilled" | "closed-negative" | "pending" | "displaced";
   readonly positiveKnowledge: boolean;
   readonly evidenceIds: readonly string[];
 }
@@ -66,6 +78,14 @@ export interface InvestigationResults {
     readonly closedNegative: number;
     readonly pending: number;
     readonly residuals: number;
+    /**
+     * Executions and dispositions a recorded budget ceiling displaced.
+     *
+     * OMITTED when zero, and that is deliberate rather than tidy: the summary is re-derived and compared byte
+     * for byte on every read, so a run that displaced nothing must reconcile exactly as it did before this
+     * field existed. Otherwise every archived run at this generation would fail its own execution contract.
+     */
+    readonly displaced?: { readonly executions: number; readonly dispositions: number };
   };
 }
 
@@ -268,15 +288,15 @@ async function executeOne(reader: SourceReader, snapshotId: string, spec: ReadSp
     }
     return { execution: executionRecord(id, spec, declaration, "source", evidence.map((item) => item.id), observedSpan), evidence };
   } catch (error) {
-    const cause = executionFailureCause(error);
-    const ledger = ledgerEvidence(snapshotId, spec, declaration, "unavailable", cause);
+    const failure = executionFailure(error);
+    const ledger = ledgerEvidence(snapshotId, spec, declaration, failure.outcome, failure.cause);
     evidence.push(ledger);
     const source = evidence.filter((item) => item.kind === "source");
     const observedSpan = source.length ? {
       startLine: Math.min(...source.map((item) => item.startLine ?? spec.span.startLine)),
       endLine: Math.max(...source.map((item) => item.endLine ?? spec.span.startLine))
     } : null;
-    return { execution: executionRecord(id, spec, declaration, "unavailable", evidence.map((item) => item.id), observedSpan, cause), evidence };
+    return { execution: executionRecord(id, spec, declaration, failure.outcome, evidence.map((item) => item.id), observedSpan, failure.cause), evidence };
   }
 }
 
@@ -302,7 +322,7 @@ function executionRecord(
   };
 }
 
-function ledgerEvidence(snapshotId: string, spec: ReadSpec, declaration: SourceReadingObligation, outcome: "empty" | "unavailable", cause: string): EvidenceItem {
+function ledgerEvidence(snapshotId: string, spec: ReadSpec, declaration: SourceReadingObligation, outcome: Exclude<ReadExecutionOutcome, "source">, cause: string): EvidenceItem {
   const data = {
     recordType: "read-execution",
     readSpecId: spec.id,
@@ -316,11 +336,17 @@ function ledgerEvidence(snapshotId: string, spec: ReadSpec, declaration: SourceR
     id: `LEDGER-READ-${sha256(stableJson(data)).slice(0, 16)}`,
     snapshotId,
     kind: "ledger",
-    title: outcome === "empty" ? `Empty authorized read: ${spec.path}` : `Unavailable authorized read: ${spec.path}`,
+    title: outcome === "empty"
+      ? `Empty authorized read: ${spec.path}`
+      : outcome === "budget-displaced"
+        ? `Budget-displaced authorized read: ${spec.path}`
+        : `Unavailable authorized read: ${spec.path}`,
     data,
     reason: outcome === "empty"
       ? `record that ${spec.id} produced no source bytes; empty is a referenceable fact, not a missing record`
-      : `record why ${spec.id} could not be fully executed without converting the gap into positive knowledge`,
+      : outcome === "budget-displaced"
+        ? `record that this run's own recorded budget ceiling displaced ${spec.id} before it could be read; the limitation is referenceable, and nothing behind it is knowledge`
+        : `record why ${spec.id} could not be fully executed without converting the gap into positive knowledge`,
     digest: sha256(stableJson(data))
   };
 }
@@ -337,9 +363,15 @@ function disposeDecision(declaration: DecisionObligation, execution: ReadExecuti
 }
 
 function dispositionFor(outcome: ReadExecutionOutcome): Pick<DecisionDisposition, "status" | "positiveKnowledge"> {
-  if (outcome === "source") return { status: "fulfilled", positiveKnowledge: true };
-  if (outcome === "empty") return { status: "closed-negative", positiveKnowledge: false };
-  return { status: "pending", positiveKnowledge: false };
+  // Exhaustive on purpose: a future outcome must be given a disposition here rather than silently inheriting
+  // `pending`, which is the state that blocks freeze.
+  switch (outcome) {
+    case "source": return { status: "fulfilled", positiveKnowledge: true };
+    case "empty": return { status: "closed-negative", positiveKnowledge: false };
+    case "budget-displaced": return { status: "displaced", positiveKnowledge: false };
+    case "unavailable": return { status: "pending", positiveKnowledge: false };
+    default: return assertNever(outcome, "read execution outcome");
+  }
 }
 
 function retainResidual(residual: ObligationResidual, execution: ReadExecutionRecord): ResidualRetention {
@@ -347,6 +379,10 @@ function retainResidual(residual: ObligationResidual, execution: ReadExecutionRe
 }
 
 function summarize(executions: readonly ReadExecutionRecord[], dispositions: readonly DecisionDisposition[], residuals: readonly ResidualRetention[]): InvestigationResults["summary"] {
+  const displaced = {
+    executions: executions.filter((row) => row.outcome === "budget-displaced").length,
+    dispositions: dispositions.filter((row) => row.status === "displaced").length
+  };
   return {
     authorized: executions.length,
     source: executions.filter((row) => row.outcome === "source").length,
@@ -355,7 +391,8 @@ function summarize(executions: readonly ReadExecutionRecord[], dispositions: rea
     fulfilled: dispositions.filter((row) => row.status === "fulfilled").length,
     closedNegative: dispositions.filter((row) => row.status === "closed-negative").length,
     pending: dispositions.filter((row) => row.status === "pending").length,
-    residuals: residuals.length
+    residuals: residuals.length,
+    ...(displaced.executions || displaced.dispositions ? { displaced } : {})
   };
 }
 
@@ -372,8 +409,8 @@ function validateEvidenceKinds(execution: ReadExecutionRecord, evidenceById: Rea
   if (execution.outcome === "empty" && items.some((item) => item.kind !== "ledger")) {
     throw new Error(`execution ${execution.id} does not record its empty result as ledger evidence`);
   }
-  if (execution.outcome === "unavailable" && !items.some((item) => item.kind === "ledger")) {
-    throw new Error(`execution ${execution.id} hides an unavailable read without ledger evidence`);
+  if ((execution.outcome === "unavailable" || execution.outcome === "budget-displaced") && !items.some((item) => item.kind === "ledger")) {
+    throw new Error(`execution ${execution.id} hides an ${execution.outcome} read without ledger evidence`);
   }
   const sources = items.filter((item) => item.kind === "source").sort((a, b) => Number(a.startLine) - Number(b.startLine));
   let nextLine = execution.requestedSpan.startLine;
@@ -389,6 +426,12 @@ function validateEvidenceKinds(execution: ReadExecutionRecord, evidenceById: Rea
   if (execution.outcome === "source" && nextLine - 1 !== execution.requestedSpan.endLine) {
     throw new Error(`execution ${execution.id} claims success without covering its full authorized span`);
   }
+  // The anti-abuse predicate for the new bucket, and the reason downgrading it is safe: displacement means
+  // windows were NOT bought, so evidence covering the whole authorized span contradicts the label. Without
+  // this, `budget-displaced` would be a way to relabel a completed read as an excused one.
+  if (execution.outcome === "budget-displaced" && sources.length && nextLine - 1 === execution.requestedSpan.endLine) {
+    throw new Error(`execution ${execution.id} claims a budget displacement while its evidence covers the full authorized span`);
+  }
   for (const item of items.filter((entry) => entry.kind === "ledger")) {
     const data = item.data as Record<string, unknown> | undefined;
     if (data?.recordType !== "read-execution" || data.readSpecId !== execution.readSpecId
@@ -399,14 +442,22 @@ function validateEvidenceKinds(execution: ReadExecutionRecord, evidenceById: Rea
   }
 }
 
-function executionFailureCause(error: unknown): string {
+/**
+ * Classify a failed read into its bucket and its cause.
+ *
+ * The two BUDGET causes are the only ones that land in `budget-displaced`: they are the run declining to buy
+ * a window against a ceiling it recorded itself, so nothing is wrong with the target and the remedy is a
+ * number. Every other cause — an errno, a rejected path, an unreadable file — is the source failing to
+ * yield, and stays `unavailable`, which still blocks freeze.
+ */
+function executionFailure(error: unknown): { outcome: Exclude<ReadExecutionOutcome, "source" | "empty">; cause: string } {
   const code = typeof error === "object" && error !== null && "code" in error ? String((error as { code?: unknown }).code ?? "") : "";
-  if (code) return `source-read-${code.toLowerCase()}`;
+  if (code) return { outcome: "unavailable", cause: `source-read-${code.toLowerCase()}` };
   const message = error instanceof Error ? error.message : String(error);
-  if (/window budget exceeded/i.test(message)) return "source-window-budget-exceeded";
-  if (/character budget exceeded/i.test(message)) return "source-character-budget-exceeded";
-  if (/escapes target/i.test(message)) return "source-path-rejected";
-  return "source-read-failed";
+  if (/window budget exceeded/i.test(message)) return { outcome: "budget-displaced", cause: "source-window-budget-exceeded" };
+  if (/character budget exceeded/i.test(message)) return { outcome: "budget-displaced", cause: "source-character-budget-exceeded" };
+  if (/escapes target/i.test(message)) return { outcome: "unavailable", cause: "source-path-rejected" };
+  return { outcome: "unavailable", cause: "source-read-failed" };
 }
 
 /** Narrow helper for orchestrators that need to preserve the shared ArtifactResult failure envelope. */
