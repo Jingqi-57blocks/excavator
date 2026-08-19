@@ -4,7 +4,7 @@ AI-first 可辩护代码调查引擎。Node >= 22.5，TypeScript 直跑（type s
 
 ## 命令
 
-- `npm test` — 全量测试（node:test，约 5 秒）
+- `npm test` — 全量测试（node:test，约 55 秒，含 `tsc --noEmit`）
 - `npm run test:workspace` — 真实工作区冒烟（需 `EXCAVATOR_TARGET`）
 - `./src/cli.ts help` — Excavator CLI
 
