@@ -1,0 +1,63 @@
+{
+  "createdAt": "2026-01-01T00:01:00.000Z",
+  "items": [
+    {
+      "dimension": "api-entrypoints",
+      "evidenceIds": [
+        "E-1",
+        "E-2"
+      ],
+      "hypothesis": "the leave route is the entry point",
+      "id": "W-1",
+      "material": true,
+      "origin": "default",
+      "reportSection": 1,
+      "requiredFor": [
+        "feature-leave-engineering"
+      ],
+      "scope": "fixture",
+      "status": "found",
+      "traceIds": [
+        "T-1"
+      ]
+    },
+    {
+      "dimension": "entities-and-fields",
+      "evidenceIds": [
+        "E-1"
+      ],
+      "hypothesis": "leave requests carry a day count",
+      "id": "W-2",
+      "material": true,
+      "origin": "default",
+      "reportSection": 2,
+      "requiredFor": [
+        "feature-leave-engineering"
+      ],
+      "scope": "fixture",
+      "status": "found",
+      "traceIds": [
+        "T-1"
+      ]
+    },
+    {
+      "dimension": "decision-flow",
+      "evidenceIds": [
+        "E-3"
+      ],
+      "hypothesis": "a rejected request can be resubmitted",
+      "id": "W-3",
+      "material": false,
+      "origin": "default",
+      "requiredFor": [
+        "feature-leave-engineering"
+      ],
+      "scope": "fixture",
+      "searchScope": "src/**/*.ts for resubmit and reopen",
+      "status": "searched-not-found",
+      "traceIds": []
+    }
+  ],
+  "runId": "run-fixture-feature",
+  "version": 1
+}

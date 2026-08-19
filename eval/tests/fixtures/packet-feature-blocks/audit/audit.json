@@ -1,0 +1,16 @@
+{
+  "createdAt": "2026-01-01T00:09:00.000Z",
+  "findings": [
+    {
+      "document": "feature-leave-engineering",
+      "level": "error",
+      "message": "section 2 has an unclaimed substantive statement: fixture"
+    },
+    {
+      "document": "feature-leave-engineering",
+      "level": "error",
+      "message": "section 3 cites no evidence"
+    }
+  ],
+  "runId": "run-fixture-feature"
+}

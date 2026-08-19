@@ -1,0 +1,90 @@
+{
+  "createdAt": "2026-01-01T00:00:00.000Z",
+  "documents": [
+    {
+      "audience": "product",
+      "contextPath": "context/overview-product.md",
+      "id": "overview-product",
+      "kind": "overview",
+      "sections": [
+        {
+          "claimsFile": "claims/overview-product/01.json",
+          "complete": true,
+          "file": "sections/overview-product/01.md",
+          "index": 1,
+          "title": "Purpose"
+        },
+        {
+          "claimsFile": "claims/overview-product/02.json",
+          "complete": true,
+          "file": "sections/overview-product/02.md",
+          "index": 2,
+          "title": "Parts"
+        }
+      ],
+      "templatePath": "templates/product-overview.md"
+    },
+    {
+      "audience": "engineering",
+      "contextPath": "context/overview-engineering.md",
+      "id": "overview-engineering",
+      "kind": "overview",
+      "sections": [
+        {
+          "claimsFile": "claims/overview-engineering/01.json",
+          "complete": true,
+          "file": "sections/overview-engineering/01.md",
+          "index": 1,
+          "title": "Architecture"
+        },
+        {
+          "claimsFile": "claims/overview-engineering/02.json",
+          "complete": true,
+          "file": "sections/overview-engineering/02.md",
+          "index": 2,
+          "title": "Data"
+        },
+        {
+          "claimsFile": "claims/overview-engineering/03.json",
+          "complete": true,
+          "file": "sections/overview-engineering/03.md",
+          "index": 3,
+          "title": "Operations"
+        }
+      ],
+      "templatePath": "templates/engineering-overview.md"
+    }
+  ],
+  "evidenceDigest": "fixture-evidence-digest",
+  "frozenAt": "2026-01-01T00:05:00.000Z",
+  "id": "run-fixture-twin",
+  "knowledgeDigest": "fixture-knowledge-digest",
+  "knowledgeEpoch": 0,
+  "metrics": {
+    "warnings": []
+  },
+  "request": {
+    "budgets": {
+      "authorMs": 1000,
+      "maxExpansionDepth": 1,
+      "maxFeatureNodes": 10,
+      "maxFiles": 10,
+      "maxGraphQueries": 1,
+      "maxSourceCharacters": 1000,
+      "maxSourceWindows": 1,
+      "prepareMs": 1000
+    },
+    "detailLevel": "standard",
+    "features": [],
+    "language": "en",
+    "overviewAudiences": [],
+    "target": "/fixture/target",
+    "workdir": "/fixture/work"
+  },
+  "snapshot": {
+    "id": "fixturesnapshot01"
+  },
+  "state": "complete",
+  "updatedAt": "2026-01-01T00:10:00.000Z",
+  "version": 3
+}

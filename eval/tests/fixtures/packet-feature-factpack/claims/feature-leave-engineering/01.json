@@ -1,0 +1,17 @@
+{
+  "claims": [
+    {
+      "confidence": "high",
+      "evidenceIds": [
+        "E-1"
+      ],
+      "id": "claim-1",
+      "marker": "fact",
+      "statement": "The leave route accepts a POST.",
+      "status": "verified"
+    }
+  ],
+  "documentId": "feature-leave-engineering",
+  "section": 1,
+  "version": 2
+}

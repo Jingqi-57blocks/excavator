@@ -1,0 +1,94 @@
+{
+  "consumptionEvaluated": true,
+  "items": [
+    {
+      "consumedBy": [],
+      "endLine": 80,
+      "gated": true,
+      "id": "R-1",
+      "kind": "decision-function",
+      "name": "approveLeave",
+      "openedLines": 0,
+      "openedWindows": [],
+      "path": "src/leave.ts",
+      "startLine": 40,
+      "status": "not-opened",
+      "tier": 0,
+      "uncovered": [
+        {
+          "end": 80,
+          "start": 40
+        }
+      ],
+      "uncoveredLines": 41
+    },
+    {
+      "consumedBy": [],
+      "endLine": 110,
+      "gated": true,
+      "id": "R-2",
+      "kind": "decision-function",
+      "name": "rejectLeave",
+      "openedLines": 10,
+      "openedWindows": [
+        "E-1"
+      ],
+      "path": "src/leave.ts",
+      "startLine": 90,
+      "status": "partial",
+      "tier": 0,
+      "uncovered": [
+        {
+          "end": 110,
+          "start": 101
+        }
+      ],
+      "uncoveredLines": 10
+    },
+    {
+      "consumedBy": [
+        "feature-leave-engineering#claim-1"
+      ],
+      "endLine": 12,
+      "gated": false,
+      "id": "R-3",
+      "kind": "decision-function",
+      "name": "listLeave",
+      "openedLines": 3,
+      "openedWindows": [
+        "E-1"
+      ],
+      "path": "src/leave.ts",
+      "startLine": 10,
+      "status": "covered",
+      "tier": 1,
+      "uncovered": [],
+      "uncoveredLines": 0
+    }
+  ],
+  "summary": {
+    "cannotDetermine": 0,
+    "counted": 3,
+    "covered": 1,
+    "gatedNotOpened": 1,
+    "notOpened": 1,
+    "notOpenedByAttribution": {
+      "anchorName": 0,
+      "anchorPath": 0,
+      "retained": 1,
+      "unclassified": 0
+    },
+    "notOpenedLinesByAttribution": {
+      "anchorName": 0,
+      "anchorPath": 0,
+      "retained": 41,
+      "unclassified": 0
+    },
+    "obligationLines": 65,
+    "openedLines": 13,
+    "openedNotConsumed": 1,
+    "partial": 1,
+    "uncoveredLines": 51
+  },
+  "version": "read-coverage-v1"
+}

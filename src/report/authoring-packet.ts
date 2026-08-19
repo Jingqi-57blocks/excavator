@@ -263,7 +263,7 @@ function renderCompleteness(items: InvestigationWorkItem[]): string {
   return lines.join("\n");
 }
 
-function renderWorkItems(items: InvestigationWorkItem[]): string {
+export function renderWorkItems(items: InvestigationWorkItem[]): string {
   const lines = ["### Work items"];
   for (const item of items) {
     lines.push(`- \`${item.id}\` — ${item.dimension} · ${item.status} · ${item.material ? "material" : "non-material"} · ${item.hypothesis}`);
@@ -295,7 +295,7 @@ function renderFacts(items: InvestigationWorkItem[], factPack: FeatureFactPack |
   return lines.join("\n");
 }
 
-function renderFactCategory(category: FactPackCategory, coverage: FactPackCoverage | undefined, items: FactPackItem[], featureKey: string): string {
+export function renderFactCategory(category: FactPackCategory, coverage: FactPackCoverage | undefined, items: FactPackItem[], featureKey: string): string {
   const truncated = coverage?.truncated ? "yes" : "no";
   const lines = [`#### ${category} — ${items.length} item${items.length === 1 ? "" : "s"}, truncated ${truncated}`];
   if (!items.length) {
@@ -401,7 +401,7 @@ function renderEvidence(block: PacketSection, evidenceById: Map<string, Evidence
   return boundEvidenceModelView(lines.join("\n"));
 }
 
-function renderEvidenceItem(id: string, item: EvidenceItem | undefined): string[] {
+export function renderEvidenceItem(id: string, item: EvidenceItem | undefined): string[] {
   if (!item) return [`- \`${id}\` — (not present in the evidence catalog)`];
   if (id.startsWith("FACT-")) {
     const data = item.data as { category?: string; coverage?: FactPackCoverage } | undefined;
@@ -424,7 +424,7 @@ function renderEvidenceItem(id: string, item: EvidenceItem | undefined): string[
   return [`- \`${id}\` — ${item.kind}: ${item.title}`];
 }
 
-function renderTraces(block: PacketSection, tracesById: Map<string, TraceRecord>, seen: Map<string, string>): string | null {
+export function renderTraces(block: PacketSection, tracesById: Map<string, TraceRecord>, seen: Map<string, string>): string | null {
   const ids: string[] = [];
   const collected = new Set<string>();
   for (const item of block.workItems) for (const id of item.traceIds) if (!collected.has(id)) { collected.add(id); ids.push(id); }
@@ -456,7 +456,7 @@ function unionEvidenceIds(items: InvestigationWorkItem[]): string[] {
 }
 
 /** The feature cache key embedded in a feature document id: `feature-<key>-<audience>`. */
-function featureKeyOf(document: DocumentPlan): string {
+export function featureKeyOf(document: DocumentPlan): string {
   return document.id.replace(/^feature-/, "").replace(new RegExp(`-${document.audience}$`), "");
 }
 

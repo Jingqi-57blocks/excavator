@@ -1,0 +1,522 @@
+===== file: companions/overview-product.claims.json =====
+{
+  "documentId": "overview-product",
+  "sections": [
+    {
+      "claims": [
+        {
+          "confidence": "high",
+          "evidenceIds": [
+            "<EVIDENCE source src/server.ts:1-7>"
+          ],
+          "id": "C-overview-product-1",
+          "marker": "fact",
+          "statement": "第 1 节记录当前状态。",
+          "status": "verified"
+        }
+      ],
+      "documentId": "overview-product",
+      "section": 1,
+      "version": 2
+    },
+    {
+      "claims": [
+        {
+          "confidence": "high",
+          "evidenceIds": [
+            "<EVIDENCE source src/server.ts:1-7>"
+          ],
+          "id": "C-overview-product-2",
+          "marker": "fact",
+          "statement": "第 2 节记录当前状态。",
+          "status": "verified"
+        }
+      ],
+      "documentId": "overview-product",
+      "section": 2,
+      "version": 2
+    },
+    {
+      "claims": [
+        {
+          "confidence": "high",
+          "evidenceIds": [
+            "<EVIDENCE source src/server.ts:1-7>"
+          ],
+          "id": "C-overview-product-3",
+          "marker": "fact",
+          "statement": "第 3 节记录当前状态。",
+          "status": "verified"
+        }
+      ],
+      "documentId": "overview-product",
+      "section": 3,
+      "version": 2
+    },
+    {
+      "claims": [
+        {
+          "confidence": "high",
+          "evidenceIds": [
+            "<EVIDENCE source src/server.ts:1-7>"
+          ],
+          "id": "C-overview-product-4",
+          "marker": "fact",
+          "statement": "第 4 节记录当前状态。",
+          "status": "verified"
+        }
+      ],
+      "documentId": "overview-product",
+      "section": 4,
+      "version": 2
+    },
+    {
+      "claims": [
+        {
+          "confidence": "high",
+          "evidenceIds": [
+            "<EVIDENCE source src/server.ts:1-7>"
+          ],
+          "id": "C-overview-product-5",
+          "marker": "fact",
+          "statement": "第 5 节记录当前状态。",
+          "status": "verified"
+        }
+      ],
+      "documentId": "overview-product",
+      "section": 5,
+      "version": 2
+    },
+    {
+      "claims": [
+        {
+          "confidence": "high",
+          "evidenceIds": [
+            "<EVIDENCE source src/server.ts:1-7>"
+          ],
+          "id": "C-overview-product-6",
+          "marker": "fact",
+          "statement": "第 6 节记录当前状态。",
+          "status": "verified"
+        }
+      ],
+      "documentId": "overview-product",
+      "section": 6,
+      "version": 2
+    },
+    {
+      "claims": [
+        {
+          "confidence": "high",
+          "evidenceIds": [
+            "<EVIDENCE source src/server.ts:1-7>"
+          ],
+          "id": "C-overview-product-7",
+          "marker": "fact",
+          "statement": "第 7 节记录当前状态。",
+          "status": "verified"
+        }
+      ],
+      "documentId": "overview-product",
+      "section": 7,
+      "version": 2
+    },
+    {
+      "claims": [
+        {
+          "confidence": "high",
+          "evidenceIds": [
+            "<EVIDENCE source src/server.ts:1-7>"
+          ],
+          "id": "C-overview-product-8",
+          "marker": "fact",
+          "statement": "第 8 节记录当前状态。",
+          "status": "verified"
+        }
+      ],
+      "documentId": "overview-product",
+      "section": 8,
+      "version": 2
+    },
+    {
+      "claims": [
+        {
+          "confidence": "high",
+          "evidenceIds": [
+            "<EVIDENCE source src/server.ts:1-7>"
+          ],
+          "id": "C-overview-product-9",
+          "marker": "fact",
+          "statement": "第 9 节记录当前状态。",
+          "status": "verified"
+        }
+      ],
+      "documentId": "overview-product",
+      "section": 9,
+      "version": 2
+    },
+    {
+      "claims": [
+        {
+          "confidence": "high",
+          "evidenceIds": [
+            "<EVIDENCE source src/server.ts:1-7>"
+          ],
+          "id": "C-overview-product-10",
+          "marker": "fact",
+          "statement": "第 10 节记录当前状态。",
+          "status": "verified"
+        }
+      ],
+      "documentId": "overview-product",
+      "section": 10,
+      "version": 2
+    }
+  ],
+  "version": 1
+}
+
+===== file: companions/overview-product.coverage.json =====
+{
+  "complete": 12,
+  "documentId": "overview-product",
+  "items": [
+    {
+      "completedAt": "<TIMESTAMP>",
+      "dimension": "literal-secrets",
+      "evidenceIds": [],
+      "hypothesis": "Credentials, private keys, tokens or cryptographic secrets are written as source literals.",
+      "id": "project:literal-secrets",
+      "material": false,
+      "origin": "default",
+      "reason": "Out of scope for the synthetic fixture snapshot.",
+      "requiredFor": [
+        "overview-product"
+      ],
+      "scope": "project",
+      "startedAt": "<TIMESTAMP>",
+      "status": "not-applicable",
+      "traceIds": []
+    },
+    {
+      "completedAt": "<TIMESTAMP>",
+      "dimension": "literal-identifiers",
+      "evidenceIds": [],
+      "hypothesis": "Business behavior compares against literal record, tenant, customer, office, project or role identifiers.",
+      "id": "project:literal-identifiers",
+      "material": false,
+      "origin": "default",
+      "reason": "Out of scope for the synthetic fixture snapshot.",
+      "requiredFor": [
+        "overview-product"
+      ],
+      "scope": "project",
+      "startedAt": "<TIMESTAMP>",
+      "status": "not-applicable",
+      "traceIds": []
+    },
+    {
+      "completedAt": "<TIMESTAMP>",
+      "dimension": "guard-polarity",
+      "evidenceIds": [],
+      "hypothesis": "Equivalent authorization checks use inconsistent negation or allow/deny polarity.",
+      "id": "project:guard-polarity",
+      "material": false,
+      "origin": "default",
+      "reason": "Out of scope for the synthetic fixture snapshot.",
+      "requiredFor": [
+        "overview-product"
+      ],
+      "scope": "project",
+      "startedAt": "<TIMESTAMP>",
+      "status": "not-applicable",
+      "traceIds": []
+    },
+    {
+      "completedAt": "<TIMESTAMP>",
+      "dimension": "shared-storage",
+      "evidenceIds": [],
+      "hypothesis": "Multiple independently operated parts write the same stored object or declare it with incompatible shapes.",
+      "id": "project:shared-storage",
+      "material": false,
+      "origin": "default",
+      "reason": "Out of scope for the synthetic fixture snapshot.",
+      "requiredFor": [
+        "overview-product"
+      ],
+      "scope": "project",
+      "startedAt": "<TIMESTAMP>",
+      "status": "not-applicable",
+      "traceIds": []
+    },
+    {
+      "completedAt": "<TIMESTAMP>",
+      "dimension": "duplicate-entrypoints",
+      "evidenceIds": [],
+      "hypothesis": "The same externally visible entry point is declared by more than one part.",
+      "id": "project:duplicate-entrypoints",
+      "material": false,
+      "origin": "default",
+      "reason": "Out of scope for the synthetic fixture snapshot.",
+      "requiredFor": [
+        "overview-product"
+      ],
+      "scope": "project",
+      "startedAt": "<TIMESTAMP>",
+      "status": "not-applicable",
+      "traceIds": []
+    },
+    {
+      "completedAt": "<TIMESTAMP>",
+      "dimension": "uncalled-entrypoints",
+      "evidenceIds": [],
+      "hypothesis": "Registered entry points have no caller inside the analyzed workspace.",
+      "id": "project:uncalled-entrypoints",
+      "material": false,
+      "origin": "default",
+      "reason": "Out of scope for the synthetic fixture snapshot.",
+      "requiredFor": [
+        "overview-product"
+      ],
+      "scope": "project",
+      "startedAt": "<TIMESTAMP>",
+      "status": "not-applicable",
+      "traceIds": []
+    },
+    {
+      "completedAt": "<TIMESTAMP>",
+      "dimension": "discarded-errors",
+      "evidenceIds": [],
+      "hypothesis": "Errors from external calls, persistence or asynchronous work are neither returned, logged nor persisted.",
+      "id": "project:discarded-errors",
+      "material": false,
+      "origin": "default",
+      "reason": "Out of scope for the synthetic fixture snapshot.",
+      "requiredFor": [
+        "overview-product"
+      ],
+      "scope": "project",
+      "startedAt": "<TIMESTAMP>",
+      "status": "not-applicable",
+      "traceIds": []
+    },
+    {
+      "completedAt": "<TIMESTAMP>",
+      "dimension": "deprecated-or-unfinished",
+      "evidenceIds": [],
+      "hypothesis": "Current paths contain explicit deprecated, disabled, unfinished or temporary behavior.",
+      "id": "project:deprecated-or-unfinished",
+      "material": false,
+      "origin": "default",
+      "reason": "Out of scope for the synthetic fixture snapshot.",
+      "requiredFor": [
+        "overview-product"
+      ],
+      "scope": "project",
+      "startedAt": "<TIMESTAMP>",
+      "status": "not-applicable",
+      "traceIds": []
+    },
+    {
+      "completedAt": "<TIMESTAMP>",
+      "dimension": "feature-switches",
+      "evidenceIds": [],
+      "hypothesis": "Configuration switches materially change which capabilities or background work are available.",
+      "id": "project:feature-switches",
+      "material": false,
+      "origin": "default",
+      "reason": "Out of scope for the synthetic fixture snapshot.",
+      "requiredFor": [
+        "overview-product"
+      ],
+      "scope": "project",
+      "startedAt": "<TIMESTAMP>",
+      "status": "not-applicable",
+      "traceIds": []
+    },
+    {
+      "completedAt": "<TIMESTAMP>",
+      "dimension": "documentation-drift",
+      "evidenceIds": [],
+      "hypothesis": "Repository documentation contradicts current manifests, entry points or implementation.",
+      "id": "project:documentation-drift",
+      "material": false,
+      "origin": "default",
+      "reason": "Out of scope for the synthetic fixture snapshot.",
+      "requiredFor": [
+        "overview-product"
+      ],
+      "scope": "project",
+      "startedAt": "<TIMESTAMP>",
+      "status": "not-applicable",
+      "traceIds": []
+    },
+    {
+      "completedAt": "<TIMESTAMP>",
+      "dimension": "external-call-in-transaction",
+      "evidenceIds": [],
+      "hypothesis": "An external call occurs while a persistence transaction remains open.",
+      "id": "project:external-call-in-transaction",
+      "material": false,
+      "origin": "default",
+      "reason": "Out of scope for the synthetic fixture snapshot.",
+      "requiredFor": [
+        "overview-product"
+      ],
+      "scope": "project",
+      "startedAt": "<TIMESTAMP>",
+      "status": "not-applicable",
+      "traceIds": []
+    },
+    {
+      "completedAt": "<TIMESTAMP>",
+      "dimension": "open-investigation",
+      "evidenceIds": [],
+      "hypothesis": "The observed facts suggest a material question not covered by the predefined hypotheses.",
+      "id": "project:open-investigation",
+      "material": false,
+      "origin": "open",
+      "reason": "Out of scope for the synthetic fixture snapshot.",
+      "requiredFor": [
+        "overview-product"
+      ],
+      "scope": "project",
+      "startedAt": "<TIMESTAMP>",
+      "status": "not-applicable",
+      "traceIds": []
+    }
+  ],
+  "material": 0,
+  "total": 12,
+  "version": 1
+}
+
+===== file: companions/overview-product.traces.json =====
+{
+  "documentId": "overview-product",
+  "traces": [],
+  "version": 1
+}
+
+===== file: product-overview.md =====
+---
+title: "<TARGET-NAME> — product overview"
+navTitle: "product overview"
+kind: overview
+audience: product
+language: zh-CN
+order: 1
+run: <RUN-ID>
+snapshot: <SNAPSHOT-ID>
+epoch: 0
+sourceText: redacted
+---
+
+## 1. Project purpose and boundary
+
+第 1 节记录当前状态。`事实`
+
+<details><summary>依据</summary>
+
+- <EVIDENCE source src/server.ts:1-7>
+
+</details>
+
+
+## 2. System parts and responsibilities
+
+第 2 节记录当前状态。`事实`
+
+<details><summary>依据</summary>
+
+- <EVIDENCE source src/server.ts:1-7>
+
+</details>
+
+
+## 3. Business domains and capability map
+
+第 3 节记录当前状态。`事实`
+
+<details><summary>依据</summary>
+
+- <EVIDENCE source src/server.ts:1-7>
+
+</details>
+
+
+## 4. Users, roles, and permission boundary
+
+第 4 节记录当前状态。`事实`
+
+<details><summary>依据</summary>
+
+- <EVIDENCE source src/server.ts:1-7>
+
+</details>
+
+
+## 5. Core business objects and lifecycles
+
+第 5 节记录当前状态。`事实`
+
+<details><summary>依据</summary>
+
+- <EVIDENCE source src/server.ts:1-7>
+
+</details>
+
+
+## 6. Data landscape and movement
+
+第 6 节记录当前状态。`事实`
+
+<details><summary>依据</summary>
+
+- <EVIDENCE source src/server.ts:1-7>
+
+</details>
+
+
+## 7. External dependencies and integrations
+
+第 7 节记录当前状态。`事实`
+
+<details><summary>依据</summary>
+
+- <EVIDENCE source src/server.ts:1-7>
+
+</details>
+
+
+## 8. Operations and back-office capabilities
+
+第 8 节记录当前状态。`事实`
+
+<details><summary>依据</summary>
+
+- <EVIDENCE source src/server.ts:1-7>
+
+</details>
+
+
+## 9. Current problems found
+
+第 9 节记录当前状态。`事实`
+
+<details><summary>依据</summary>
+
+- <EVIDENCE source src/server.ts:1-7>
+
+</details>
+
+
+## 10. Coverage and source snapshot
+
+第 10 节记录当前状态。`事实`
+
+<details><summary>依据</summary>
+
+- <EVIDENCE source src/server.ts:1-7>
+
+</details>

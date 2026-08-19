@@ -1,0 +1,31 @@
+{
+  "runId": "run-fixture",
+  "traces": [
+    {
+      "confidence": "high",
+      "createdAt": "2026-01-01T00:02:00.000Z",
+      "documentIds": [],
+      "id": "T-1",
+      "status": "verified",
+      "steps": [
+        {
+          "action": "employee posts /leave",
+          "evidenceIds": [
+            "E-1"
+          ],
+          "index": 1
+        },
+        {
+          "action": "manager approves",
+          "evidenceIds": [
+            "E-1"
+          ],
+          "index": 2
+        }
+      ],
+      "title": "employee submits a leave request",
+      "type": "business-flow"
+    }
+  ],
+  "version": 1
+}
