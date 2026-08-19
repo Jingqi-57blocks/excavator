@@ -63,7 +63,7 @@ const ANCHORS: Record<string, Classification> = {
   "src/base/executable.ts": { kind: "current-file" },
   "src/context/context.ts": { kind: "current-file" },
   // The layer-5 forbidden-input violation the contract now states instead of claiming it was already fixed.
-  "src/context/context.ts:169": { kind: "current", expect: "new SourceReader({" },
+  "src/context/context.ts:170": { kind: "current", expect: "new SourceReader({" },
   "src/report/checkpoint.ts": { kind: "current-file" },
   "src/base/assurance-version.ts": { kind: "current-file" },
   "src/report/section-audit.ts": { kind: "current-file" },

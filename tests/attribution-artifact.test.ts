@@ -334,6 +334,42 @@ test("a query seed that lost the budget contributes no seedCell", async () => {
     "and every seedCell holds a seat — the invariant the type comment relies on, asserted where it can fail");
 });
 
+// THE CELL WHOSE SEAT SOMEBODY ELSE WON.
+//
+// The two tests above leave one shape unpinned, and it is the shape that actually occurs at scale: on wcp, 69
+// seedCells and 1,577 displacement rows overlap, so "a query seed was displaced FROM a cell that holds a seat"
+// is the normal case, not a corner. An implementation reading
+// `if (querySeeds.has(id) && seatedCells.has(cell)) seedCells.add(cell)` passes both of them — the neighbour
+// test has no displacement, and the displaced test's cell holds no seat.
+//
+// What it would do on a real run: publish, as an explicit seed, a cell whose seat was won by a node the query
+// never named, because a node the query DID name was rejected by the budget. Layer 5 would authorise reading it
+// on the strength of a seed that lost.
+//
+// GRANT and GRANT_TWIN share a span, so they share a cell. The twin is seated and is not a query seed; GRANT is
+// a query seed and is displaced. Ordering is adversarial on purpose: the seated node comes first, so a
+// `seatedCells.has(...)` check would already be true when the displaced branch runs.
+test("a cell seated by a non-seed node is not published as seeded because a displaced seed shared it", async () => {
+  const layer = await layer3(ALL_NODES);
+  const artifact = assemble(layer, [{
+    featureKey: "f1",
+    trace: ranTrace([
+      traced(GRANT_TWIN, "lexical", 900),
+      traced(GRANT, "displaced")
+    ], [GRANT.id])
+  }]);
+  const selection = artifact.selections[0]!;
+
+  const twinSeat = selection.seats.find((seat) => seat.unitId);
+  assert.ok(twinSeat, "the twin must be seated for this fixture to exercise anything");
+  const shared = twinSeat.unitId;
+  assert.ok(selection.displacements.some((row) => row.unitId === shared),
+    `the displaced query seed must land in the same cell as the seated twin: ${JSON.stringify({ seats: selection.seats.map((s) => s.unitId), displaced: selection.displacements.map((d) => d.unitId) })}`);
+
+  assert.ok(!selection.seedCells.includes(shared),
+    "the seat was won by a node the query never named; a seed that lost the budget does not make its cell an explicit seed");
+});
+
 test("every retained node lands in exactly one visible bucket, and each bucket has its own fixture", async () => {
   const layer = await layer3(ALL_NODES);
   const artifact = assemble(layer, [{

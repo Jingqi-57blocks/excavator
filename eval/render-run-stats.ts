@@ -186,7 +186,11 @@ function renderCounters(stats: RunStats): string[] {
   lines.push(`  graph queries:   ${c.graphQueries} (counts only; ${c.graphQueryCacheHits} cache hits) — no per-query timeline events exist`);
   lines.push(`  source chars:    ${c.sourceCharacters}`);
   lines.push(`  files considered:${" "}${c.filesConsidered}`);
-  if (c.codegraphCoverage) lines.push(`  codegraph:       ${c.codegraphCoverage.indexed}/${c.codegraphCoverage.counted} indexed (ratio ${c.codegraphCoverage.ratio.toFixed(4)})`);
+  if (c.codegraphCoverage) {
+    // `n/a`, not `0`: a pre-rename archive did not measure this denominator, and "1668/0" is a lie about it.
+    const denominator = c.codegraphCoverage.counted === null ? "n/a (pre-rename archive)" : String(c.codegraphCoverage.counted);
+    lines.push(`  codegraph:       ${c.codegraphCoverage.indexed}/${denominator} indexed (ratio ${c.codegraphCoverage.ratio.toFixed(4)})`);
+  }
   lines.push(`  claims:          ${c.claims ?? "n/a"}`);
   lines.push(`  traces:          ${c.traces ?? "n/a"}`);
   lines.push(`  work items:      ${c.workItems ? `${c.workItems.complete}/${c.workItems.total} complete` : "n/a"}`);

@@ -143,3 +143,22 @@ test("computeRunStats throws on a missing run dir / missing metrics.json", () =>
   assert.throws(() => computeRunStats(join(RUN, "nope")), /run directory not found/);
   assert.throws(() => computeRunStats(import.meta.dirname), /metrics\.json not found/);
 });
+
+// A PRE-RENAME ARCHIVE MUST NOT READ AS ZERO.
+//
+// The coverage denominator was renamed `eligible` -> `counted` when it stopped being a nine-extension denylist
+// and became the layer-1 ledger's row count. Every archived run predates that, and the fixture below is one:
+// its metrics carry `eligible` and no `counted`. Reading the absent field as 0 rendered "20/0 indexed", which
+// contradicts this repository's own rule that an absent completeness field means NOT MEASURED, never 0.
+//
+// `eligible` is deliberately NOT substituted for `counted`: it was a different denominator, and presenting it
+// under the new name would silently compare two incomparable numbers.
+test("a run recorded before the coverage rename reports an unmeasured denominator, not zero", () => {
+  const stats = computeRunStats(RUN);
+  assert.equal(stats.counters.codegraphCoverage?.counted, null,
+    "the fixture carries `eligible` only; the new denominator was never measured on it");
+  const text = renderRunStats(stats);
+  assert.match(text, /codegraph: +\d+\/n\/a \(pre-rename archive\)/,
+    "and the renderer says so instead of printing a zero denominator");
+  assert.doesNotMatch(text, /codegraph: +\d+\/0 /, "0 would assert a measurement nobody made");
+});

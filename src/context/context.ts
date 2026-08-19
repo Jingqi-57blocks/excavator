@@ -8,6 +8,7 @@ import { channelUnavailable, SELECTION_TRACE_VERSION, type FeatureSelectionTrace
 import { createSnapshot, isLikelySource, type ScannedFile } from "../snapshot/snapshot.ts";
 import { corpusResolver, LANGUAGE_REGISTRY } from "../base/language-registry.ts";
 import { countedRowSet } from "../snapshot/file-ledger.ts";
+import type { RowSet } from "../base/row-set.ts";
 import type { FileLedger } from "../snapshot/file-ledger.ts";
 import { codegraphIdentity } from "../codegraph/codegraph-identity.ts";
 import { SourceReader, evidenceFromWindow, manifestSummary, selectProjectDocuments, sourceSearch } from "../snapshot/source.ts";
@@ -345,13 +346,19 @@ function renderCoverageRows(coverage: CodeGraphCoverage): string {
   return lines.join("\n");
 }
 
-function codegraphCoverage(ledger: FileLedger, graphPaths: ReadonlySet<string>): CodeGraphCoverage {
-  // Through the ledger's own door. `countedRowSet` is the single factory the denominator law names, and it
-  // demands the ledger's identity and completeness block — so what is counted here is the artifact, not an
-  // array that happens to equal it. `files.length` from `createSnapshot` IS equal today, and that is exactly
-  // the problem: it is equal by construction, not by consumption, and any filter added between the boundary
-  // and this call would diverge silently while a test comparing against a second `scanFiles()` stayed green.
-  const denominator = countedRowSet(ledger);
+function codegraphCoverage(denominator: RowSet, ledger: FileLedger, graphPaths: ReadonlySet<string>): CodeGraphCoverage {
+  // The denominator ARRIVES as a RowSet; this function cannot mint one. `RowSet`'s constructor is private and
+  // `countedRowSet` is the only door, so "the denominator came from the ledger" is carried by the signature
+  // rather than by a comment — the same shape `workset/census.ts` uses. Taking a `FileLedger` and counting
+  // `ledger.counted.length` inside would have been equal BY CONSTRUCTION rather than by consumption, and no
+  // black-box test can tell those two apart: they are the same number on every input.
+  //
+  // The ledger is still needed for the per-row language grouping, so the two are cross-checked here rather
+  // than trusted: a RowSet built over a different ledger than the rows being grouped would silently publish a
+  // denominator from one snapshot and a breakdown from another.
+  if (denominator.identity.contentDigest !== ledger.contentManifestDigest) {
+    throw new Error(`The coverage denominator was built over ledger ${denominator.identity.contentDigest} but the rows being grouped come from ${ledger.contentManifestDigest}; a ratio and its breakdown must describe one snapshot`);
+  }
   const resolver = corpusResolver(LANGUAGE_REGISTRY);
   const rows = new Map<string, { language: string; counted: number; indexed: number }>();
   let indexed = 0;
@@ -416,7 +423,7 @@ async function buildSharedContext(snapshot: Snapshot, files: ScannedFile[], ledg
     // lower (82.0% on wcp) because it stops hiding its own exclusions; `unindexedByExtension` puts those back
     // as observed data rather than as a rule, so a reader can see that `.scss` and `.html` dominate the gap
     // without the engine having to assert which extensions "should" have been indexed.
-    coverage = codegraphCoverage(ledger, graphPaths);
+    coverage = codegraphCoverage(countedRowSet(ledger), ledger, graphPaths);
     const { counted, indexed } = coverage;
     graphSummary = graph.summary();
     representativeNodes = graph.representativeNodes(60);
@@ -431,7 +438,7 @@ async function buildSharedContext(snapshot: Snapshot, files: ScannedFile[], ledg
     evidence.push({ id: `CG-NODES-${snapshot.id}`, snapshotId: snapshot.id, kind: "graph", title: "Representative CodeGraph nodes", data: representativeNodes, reason: "identify likely entry points, components and implementation centers", digest: sha256(stableJson(representativeNodes)) });
     evidence.push({ id: `CG-ROUTES-${snapshot.id}`, snapshotId: snapshot.id, kind: "graph", title: "Route candidates", data: routes, reason: "identify user and system entry points; source confirmation is required for incomplete route semantics", digest: sha256(stableJson(routes)) });
   } else {
-    coverage = { ...codegraphCoverage(ledger, new Set()), ratio: 0 };
+    coverage = { ...codegraphCoverage(countedRowSet(ledger), ledger, new Set()), ratio: 0 };
   }
 
   const projectDocs = selectProjectDocuments(files, 14);
