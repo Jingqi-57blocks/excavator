@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { ATTRIBUTION_ARTIFACT_VERSION } from "../src/attribution/attribution-artifact.ts";
 import { CONTRIBUTION_CHANNELS, SELECTION_CHANNELS, SELECTION_TRACE_VERSION } from "../src/attribution/selection-trace.ts";
+import { RUN_INTENT_VERSION } from "../src/contract/bound-run-contract.ts";
 import { canonicalJson } from "../src/base/util.ts";
 import { diffBaseline } from "./intent-baseline/compare.ts";
 import { EXCLUDED, projectBaseline } from "./intent-baseline/projection.ts";
@@ -40,12 +41,14 @@ test("adding a recall channel forces the pinned baseline to be revisited", () =>
 test("the pinned baselines were measured on the current artifact and channel versions", async () => {
   for (const name of ["wcp-leave", "angels-pizza-nograph"]) {
     const pinned = JSON.parse(await readFile(join(import.meta.dirname, "intent-baseline", "expected", `${name}.projection.json`), "utf8")) as {
-      identity: { version: string; channels: string[] };
+      identity: { version: string; channels: string[]; runIntentVersion: string };
     };
     assert.equal(pinned.identity.version, ATTRIBUTION_ARTIFACT_VERSION,
       `${name} was pinned on a different artifact version — re-run \`npm run test:intent-baseline -- --write-baseline\` and review the field-level diff`);
     assert.deepEqual(pinned.identity.channels, [...SELECTION_CHANNELS],
       `${name} was pinned on a different channel set — re-pin it, and check that only the flip set moved`);
+    assert.equal(pinned.identity.runIntentVersion, RUN_INTENT_VERSION,
+      `${name} was pinned on a different run-intent version — the v1 to v2 bump had to be re-pinned by hand, and this is what makes the next one go red instead`);
   }
 });
 

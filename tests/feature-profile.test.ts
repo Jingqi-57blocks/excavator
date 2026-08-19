@@ -63,7 +63,18 @@ test("every rejected shape is named, and none of them passes", () => {
     ["non-ASCII pathPattern", { possibleEntrypoints: [entry({ pathPattern: "/请假" })] }],
     ["non-alphabetic method", { possibleEntrypoints: [entry({ method: "P0ST" })] }],
     ["unknown origin", { possibleEntrypoints: [entry({ origin: "guess" })] }],
-    ["missing origin", { possibleEntrypoints: [entry({ origin: undefined })] }]
+    ["missing origin", { possibleEntrypoints: [entry({ origin: undefined })] }],
+    // The two that matter most, because they are the shape a REAL request takes: the epic plans `entities`,
+    // `possibleEvents` and `possibleStates` as later fields, so the likely mistake is a request written against a
+    // later engine than the one reading it. Silently dropping the key would start a run that answers a narrower
+    // question than it was asked and record a digest covering only the understood part — and by the time those
+    // fields land, the swallowing has already happened in runs nobody can revisit.
+    ["unknown profile key", { possibleEntrypoints: [entry()], possibleEvents: ["leave.approved"] }],
+    ["unknown entry key", { possibleEntrypoints: [entry({ params: { id: "x" } })] }],
+    // Dialect conversion can leave a brace behind, and a recorded route path never holds one: the hypothesis
+    // could never match, and the operator would read its silence as an absent route.
+    ["unclosed brace", { possibleEntrypoints: [entry({ pathPattern: "/leaves/{id" })] }],
+    ["nested braces", { possibleEntrypoints: [entry({ pathPattern: "/leaves/{a/{b}}" })] }]
   ];
   for (const [name, raw] of cases) {
     assert.throws(() => normalizeFeatureProfile(raw, "leave"), /leave/, `must reject: ${name}`);

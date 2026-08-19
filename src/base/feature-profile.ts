@@ -60,11 +60,35 @@ const PRINTABLE_ASCII = /^[!-~]+$/;
  * discarded — they would read the resulting report as evidence the capability is absent. No fourth state: an
  * entry is normalised, or the run refuses to start.
  */
+/**
+ * The only keys a profile may carry, and the only keys one of its entries may carry.
+ *
+ * Enumerated so an unknown key is REFUSED rather than dropped. The epic plans `entities`, `possibleEvents` and
+ * `possibleStates` as later fields, each arriving with its first consuming channel — which means the realistic
+ * request is one written against a later engine than the one reading it. Dropping the key silently would start a
+ * run that answers a narrower question than it was asked, record a digest covering only the part it understood,
+ * and leave the archive unable to show that the rest was ever requested. And by the time those fields do land,
+ * the swallowing has already happened in runs nobody can revisit.
+ *
+ * The same argument the entry-level validator already makes, one level up: this file's whole point is that a
+ * hypothesis is either normalised or refused.
+ */
+const PROFILE_KEYS = new Set(["possibleEntrypoints"]);
+const ENTRYPOINT_KEYS = new Set(["method", "pathPattern", "origin"]);
+
+function refuseUnknownKeys(value: object, allowed: ReadonlySet<string>, subject: string): void {
+  const unknown = Object.keys(value).filter((key) => !allowed.has(key)).sort();
+  if (unknown.length) {
+    throw new Error(`${subject} carries unrecognised key(s) ${unknown.map((key) => JSON.stringify(key)).join(", ")}; this engine would silently ignore them, so it refuses the request instead — supported keys are ${[...allowed].sort().join(", ")}`);
+  }
+}
+
 export function normalizeFeatureProfile(raw: unknown, featureKey: string): FeatureProfile {
   const where = (index: number): string => `feature ${JSON.stringify(featureKey)} profile entry ${index}`;
   if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
     throw new Error(`feature ${JSON.stringify(featureKey)} has a profile that is not an object`);
   }
+  refuseUnknownKeys(raw, PROFILE_KEYS, `feature ${JSON.stringify(featureKey)} profile`);
   const entries = (raw as { possibleEntrypoints?: unknown }).possibleEntrypoints;
   if (!Array.isArray(entries) || entries.length === 0) {
     // An empty profile is refused rather than read as "no hypotheses": the way to say that is to omit the field.
@@ -75,6 +99,7 @@ export function normalizeFeatureProfile(raw: unknown, featureKey: string): Featu
 
   const normalized = entries.map((entry, index) => {
     if (entry === null || typeof entry !== "object" || Array.isArray(entry)) throw new Error(`${where(index)} is not an object`);
+    refuseUnknownKeys(entry, ENTRYPOINT_KEYS, where(index));
     const { method, pathPattern, origin } = entry as { method?: unknown; pathPattern?: unknown; origin?: unknown };
 
     if (typeof pathPattern !== "string" || !pathPattern.length) throw new Error(`${where(index)} has no pathPattern`);
@@ -94,7 +119,7 @@ export function normalizeFeatureProfile(raw: unknown, featureKey: string): Featu
       method: typeof method === "string" ? method.toUpperCase() : null,
       // `{id}` and `:id` are the same hypothesis in two framework dialects. Normalising here is what keeps the
       // contract digest and the feature cache key from differing over a notation choice.
-      pathPattern: pathPattern.replace(/\{([^}/]+)\}/g, ":$1"),
+      pathPattern: requireNoResidualBraces(pathPattern.replace(/\{([^}/]+)\}/g, ":$1"), where(index)),
       origin
     } satisfies EntrypointHypothesis;
   });
@@ -107,4 +132,18 @@ export function normalizeFeatureProfile(raw: unknown, featureKey: string): Featu
     || a.origin.localeCompare(b.origin));
 
   return { possibleEntrypoints: unique };
+}
+
+/**
+ * Refuse a pattern that still holds a brace after dialect conversion.
+ *
+ * `/leaves/{id` and `/leaves/{a/{b}}` survive the substitution with braces intact, and a recorded route path never
+ * contains one — so the hypothesis is dead on arrival: it can never match anything, and the operator would read
+ * its silence as "that route is not there".
+ */
+function requireNoResidualBraces(pathPattern: string, subject: string): string {
+  if (/[{}]/.test(pathPattern)) {
+    throw new Error(`${subject} pathPattern ${JSON.stringify(pathPattern)} still contains a brace after "{name}" was converted to ":name"; a recorded route path never holds one, so this hypothesis could never match and its silence would read as an absent route`);
+  }
+  return pathPattern;
 }

@@ -30,8 +30,15 @@ export interface RunIntentFeature {
   profile?: FeatureProfile;
 }
 
+/**
+ * Exported so the pinned baselines can be checked against it without a corpus. The S3 bump from v1 to v2 had to
+ * be re-pinned by hand, and nothing would have gone red if it had been forgotten — which is the same
+ * remembered-flag failure the channel-set coupling already closes.
+ */
+export const RUN_INTENT_VERSION = "run-intent-v2" as const;
+
 export interface RunIntent {
-  version: "run-intent-v2";
+  version: typeof RUN_INTENT_VERSION;
   target: string;
   outputLanguage: string;
   features: RunIntentFeature[];
@@ -116,7 +123,7 @@ function materializeRunIntent(input: BoundRunContractInput): RunIntent {
     })
     .sort((a, b) => a.key.localeCompare(b.key));
   const unsigned = {
-    version: "run-intent-v2" as const,
+    version: RUN_INTENT_VERSION,
     target: input.request.target,
     outputLanguage: input.request.language,
     features,
