@@ -9,7 +9,7 @@ import {
   type ReportRequestV2
 } from "../src/report/report-request-v2.ts";
 
-// The v2 model is a RECORD format before it is a premise: every row in `report/requests.json` is parsed back
+// The v2 model is a RECORD format before it is a premise: every row in `plan/requests.json` is parsed back
 // through `parseReportRequestV2`, so what this file pins is which rows the parser refuses. A parser that accepted
 // a row with an unknown intent, or a project request carrying feature ids, would let a hand-edited artifact read
 // as a request nobody made.

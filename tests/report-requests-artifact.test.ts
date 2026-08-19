@@ -17,7 +17,7 @@ import {
 } from "../src/report/report-requests-artifact.ts";
 import { copyFixture, createCodeGraphFixture, tempDir } from "./helpers.ts";
 
-// `report/requests.json` is the audit trail for "which reader, which task, which boundary, under which policy
+// `plan/requests.json` is the audit trail for "which reader, which task, which boundary, under which policy
 // bytes". Two things have to hold for it to be worth anything: the bytes are a function of the request (so two
 // prepares of one request agree), and reading it back refuses anything that was edited (so a digest in the file
 // is evidence, not decoration).
@@ -161,6 +161,21 @@ test("prepare records one row per planned document; two prepares of one request 
   assert.deepEqual(engineering.intentPolicy, product.intentPolicy, "one boundary, one task: the intent policy is shared");
   assert.equal(product.request.scope, "project");
   assert.deepEqual(product.request.scopeIds, []);
+});
+
+test("prepare refuses a request that names one document twice — the one behaviour this slice tightens", async () => {
+  // `--overview product,product` (and `--overview both,product`) reaches prepare with two identical planned
+  // documents: `csv`/`audiences` in the CLI do not deduplicate, and neither `plannedDocuments`,
+  // `materializeBoundRunContract` nor `createInvestigationPlan` refuses the repeat. MEASURED on the base commit
+  // (`feat-434-report-authoring-dag`, 02153ed): that command prepared "successfully" and wrote a malformed run —
+  // `run.json` listed `overview-product` twice and `contract/requirements.json` carried 22 rows of which only 12
+  // are distinct once the `REQ-xx` id is ignored, i.e. every document row twice.
+  //
+  // The recorded request set is the first place that can see it, and it refuses BY NAME instead of collapsing the
+  // repeat: deduplicating here would trade one loud failure for a silent guess about what `product,product` meant.
+  // This is the one behaviour change in the slice, and it is deliberate.
+  const duplicated = await overviewRequest(["product", "product"]);
+  await assert.rejects(() => prepareRun(duplicated), /Two planned documents share the id "overview-product"/);
 });
 
 test("an overview-only request mints no feature rows", async () => {

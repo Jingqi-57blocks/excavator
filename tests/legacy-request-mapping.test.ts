@@ -120,3 +120,22 @@ test("every mapped row is a valid v2 request, and the mapping version is stated"
     assert.deepEqual(parseReportRequestV2(mapping.request).problems, [], JSON.stringify(combination));
   }
 });
+
+test("the six arms produce exactly five (audience, intent) pairs — the count the policy registry comment states", () => {
+  // The registry declares 7 x 8 = 56 pairs and says only five have a producer today. That sentence rotted once
+  // already (it said three), so the number is measured here rather than counted by eye.
+  const pairs = new Set<string>();
+  for (const kind of ["overview", "feature"] as const) {
+    for (const audience of ["product", "engineering", "prd"] as const) {
+      const mapping = mapLegacyDocumentRequest(request(kind, audience, kind === "feature" ? "leave-abc" : null));
+      if (mapping.outcome === "mapped") pairs.add(`${mapping.request.audience} x ${mapping.request.intent}`);
+    }
+  }
+  assert.deepEqual([...pairs].sort(), [
+    "engineer x deep-dive",
+    "engineer x overview",
+    "product-manager x deep-dive",
+    "product-manager x overview",
+    "product-manager x prd"
+  ]);
+});

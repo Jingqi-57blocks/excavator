@@ -320,6 +320,22 @@ export async function prepareRun(rawRequest: ReportRequest): Promise<{ runDir: s
   await ensureDir(join(runDir, "audit"));
   await ensureDir(join(runDir, "prompts"));
 
+  // The v2 request each planned document was asked for, written under the run's `plan/` directory BEFORE the work
+  // it describes: it is a function of the request alone, so a request that names one document twice has to fail
+  // here rather than after minutes of scanning, and it must not leave a run.json claiming `prepared`.
+  //
+  // A record, not a premise — authoring still runs off the bound contract's template sections, and the cutover to
+  // reading this back is a later slice. A document the mapping refuses is a hard error, the same verdict the
+  // prd-overview guard at the top of prepare gives that same fact.
+  await writeReportRequests(runDir, planned.map((document) => ({
+    documentId: document.id,
+    kind: document.kind,
+    audience: document.audience,
+    featureKey: document.featureKey,
+    detailLevel,
+    language: request.language
+  })));
+
   // Built from the SAME planned set the contract was materialized from, so the run's documents and its
   // requirement rows can never name different documents.
   const documents: DocumentPlan[] = [];
@@ -530,19 +546,6 @@ export async function prepareRun(rawRequest: ReportRequest): Promise<{ runDir: s
   await writeJson(join(runDir, "run.json"), manifest);
   await writeJson(join(runDir, "metrics.json"), manifest.metrics);
   await writeJson(join(runDir, "checklist.json"), workItemsToChecklist(plan));
-
-  // The v2 request each planned document was asked for, recorded beside the run's other report-side artifacts.
-  // A record, not a premise: authoring still runs off the bound contract's template sections, and the cutover to
-  // reading this back is a later slice. A document the mapping refuses is a hard error here — the same verdict
-  // the prd-overview guard at the top of prepare already gives that same fact.
-  await writeReportRequests(runDir, planned.map((document) => ({
-    documentId: document.id,
-    kind: document.kind,
-    audience: document.audience,
-    featureKey: document.featureKey,
-    detailLevel,
-    language: request.language
-  })));
 
   for (const document of documents) {
     await atomicWrite(join(runDir, "prompts", `${document.id}.md`), authorPrompt(runDir, document, effectiveRequest.language, detailLevel));

@@ -1,5 +1,9 @@
 /**
- * `report/requests.json` — the v2 request row prepare recorded for each planned document.
+ * `plan/requests.json` — the v2 request row prepare recorded for each planned document.
+ *
+ * `plan/` and not `report/`: the run directory already has `reports/` for the assembled markdown, and two
+ * directories separated only by a plural is a path nobody can read at a glance. The later slices' planning
+ * artifacts (`plan/topics.json`, `plan/catalog.json`, `plan/dag.json`) join this one here.
  *
  * A RECORD, not yet a premise: authoring still runs off the template sections the bound contract materialised,
  * and nothing reads this file back to steer it (that cutover is the epic's R3+). What the record buys now is the
@@ -50,7 +54,7 @@ export interface ReportRequestsArtifact {
 }
 
 export function reportRequestsPath(runDir: string): string {
-  return join(runDir, "report", "requests.json");
+  return join(runDir, "plan", "requests.json");
 }
 
 /**

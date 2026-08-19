@@ -45,7 +45,7 @@ const ANCHORS: Record<string, Classification> = {
   "src/base/assurance-version.ts:91": { kind: "current", expect: "export function runUsesCurrentAssurance" },
   "src/run/stages/investigation-stage.ts:35": { kind: "current", expect: "plan.items.some((item) => item.id === normalized.workItemId)" },
   "src/crossrepo/link-match.ts:42": { kind: "current", expect: "export interface MatchedLink" },
-  "src/run/run.ts:338": { kind: "current", expect: "createInvestigationPlan(runId, effectiveRequest, documents)" },
+  "src/run/run.ts:354": { kind: "current", expect: "createInvestigationPlan(runId, effectiveRequest, documents)" },
 
   // --- §二: the seven edges, as a landing record --------------------------------------------------------------
   // The "before" column is where each violating import USED to sit. Several of those line numbers now happen to

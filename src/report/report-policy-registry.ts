@@ -13,8 +13,8 @@
  * them by the enum type would move the forward check to the compiler and leave the backward one unwritten, and
  * the runtime check is the one an operator sees named.
  *
- * Only three of the fifty-six (audience, intent) pairs have a producer today — the legacy mapping's six arms use
- * `product-manager`/`engineer` with `overview`, `deep-dive` and `prd`. The remaining entries are declarations
+ * Only five of the fifty-six (audience, intent) pairs have a producer today: the legacy mapping's six arms yield
+ * `product-manager` x {overview, deep-dive, prd} and `engineer` x {overview, deep-dive}. The rest are declarations
  * awaiting the epic's planner slices; revising one is a version bump on that entry alone, which is why the
  * version sits on the entry and not only on the registry.
  */
