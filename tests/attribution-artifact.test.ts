@@ -206,13 +206,13 @@ function traced(node: GraphNode, outcome: TraceNode["outcome"], score = 0): Trac
   };
 }
 
-function ranTrace(pool: readonly TraceNode[], querySeedNodeIds: readonly string[] = []): RanSelectionTrace {
+function ranTrace(pool: readonly TraceNode[], querySeedNodeIds: readonly string[] = [], route: RanSelectionTrace["recall"]["route"] = { status: "not-run", cause: "no-hypotheses" }): RanSelectionTrace {
   return {
     status: "ran",
     pool: [...pool],
     seedCount: querySeedNodeIds.length || 1,
     querySeedNodeIds: [...querySeedNodeIds].sort(),
-    recall: { route: { status: "not-run", cause: "no-hypotheses" } },
+    recall: { route },
     budgets: { maxNodes: 180 },
     fusion: {
       method: "weighted-reciprocal-rank",
@@ -666,6 +666,37 @@ test("the conservation constructor refuses an imbalance, and the compressed zero
   const selection = artifact.selections[0]!;
   assert.equal(selection.zeroScore.reduce((sum, group) => sum + group.cells, 0), selection.conservation[0]!.totals.zeroScore);
   assert.ok(selection.zeroScore.every((group) => group.cells > 0), "a zero-count group is a row with no referent");
+});
+
+// THE ROUTE RECEIPT'S FOUR BUCKETS, EACH WITH AN INPUT THAT REACHES IT.
+//
+// `unavailable` had zero coverage in every layer — unit tests, smoke and pinned bytes — because all five modules of
+// the frozen corpus register routes. A bucket no input ever reaches is a bucket that can be wrong indefinitely.
+//
+// And the rule itself was wrong for a real topology. `unavailable` means "this channel has nothing to work with in
+// this module", and it was decided from registration paths alone — so a repository that registers routes in one
+// module and implements handlers in another (`routes/` beside `controllers/`, the shape framework-convention
+// recovery exists for) reported `unavailable` for the handler's module, while the channel demonstrably CAN admit
+// that handler through the other module's registration. The same module could go from `unavailable` straight to
+// `contributed`, which is a contradiction rather than a coarse answer.
+test("the route receipt distinguishes a module with no route facts from one whose handler lives there", async () => {
+  const layer = await layer3([MODULE_GRANT], moduleTarget);
+  const modules = [{ id: "active", dir: "active" }, { id: "silent", dir: "silent" }];
+
+  // No route facts anywhere: every module is `unavailable` — the bucket that had no input before this test.
+  const blind = assemble(layer, [{
+    featureKey: "f1",
+    trace: ranTrace([traced(MODULE_GRANT, "seed", 1)], [], { status: "ran", hypotheses: [], admittedNodeIds: [] })
+  }], { modules });
+  for (const row of blind.selections[0]!.modules) {
+    assert.equal(row.recall.route, "unavailable", `${row.moduleId} has no route fact of any kind, so the channel had nothing to work with there`);
+  }
+
+  // The channel did not run at all: distinguishable from having run and found nothing.
+  const idle = assemble(layer, [{ featureKey: "f1", trace: ranTrace([traced(MODULE_GRANT, "seed", 1)]) }], { modules });
+  for (const row of idle.selections[0]!.modules) {
+    assert.equal(row.recall.route, "not-run", "no hypotheses is not the same claim as no match");
+  }
 });
 
 test("the module census is total: a zero-signal module keeps its denominator row and receives no seat", async () => {

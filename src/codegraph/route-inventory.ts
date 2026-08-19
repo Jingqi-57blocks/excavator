@@ -103,6 +103,21 @@ type ReferenceVerdict =
   | { readonly status: "verified"; readonly value: VerifiedReference }
   | { readonly status: "rejected"; readonly reason: Exclude<RouteHandlerResolution, "resolved" | "multiple-verified-references" | "no-reference"> };
 
+/**
+ * The route inventory over a run's counted corpus — the ONE supplier both call sites use.
+ *
+ * A run builds this twice: once inside `prepare`, because pool admission happens there, and once in the facts
+ * stage, which writes the layer-3 envelope. Two call sites deriving their own path list is a drift surface, and the
+ * drift is silent in the worst way: a filter added on one side lets `prepare` admit a node whose route fact does
+ * not exist in the envelope, and the symptom is a fact-pack join reporting a missing membership — blamed on the
+ * wrong producer, with nothing red at commit time.
+ *
+ * So the path list is not a parameter either caller composes. Both pass the ledger and get the same rows.
+ */
+export function inventoryPathsOf(ledger: { readonly counted: readonly { readonly relativePath: string }[] }): string[] {
+  return ledger.counted.map((row) => row.relativePath);
+}
+
 /** Enumerate every indexed route in the counted corpus and attach only source-verified handler identities. */
 export async function routeInventory(
   reader: GraphReader,

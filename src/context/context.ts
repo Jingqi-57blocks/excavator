@@ -8,7 +8,7 @@ import { channelUnavailable, SELECTION_TRACE_VERSION, type FeatureSelectionTrace
 import { createSnapshot, isLikelySource, type ScannedFile } from "../snapshot/snapshot.ts";
 import { corpusResolver, LANGUAGE_REGISTRY } from "../base/language-registry.ts";
 import { routeRecall } from "../attribution/route-recall.ts";
-import { routeInventory, type RouteInventory } from "../codegraph/route-inventory.ts";
+import { inventoryPathsOf, routeInventory, type RouteInventory } from "../codegraph/route-inventory.ts";
 import { countedRowSet } from "../snapshot/file-ledger.ts";
 import type { RowSet } from "../base/row-set.ts";
 import type { FileLedger } from "../snapshot/file-ledger.ts";
@@ -242,7 +242,7 @@ export async function buildContextsFromBoundary(request: ReportRequest, boundary
   // result should not pay for it. `routeRecall` then reports `not-run{no-hypotheses}` per feature anyway.
   const wantsRouteRecall = request.features.some((feature) => (feature.profile?.possibleEntrypoints.length ?? 0) > 0);
   const routes = graph && wantsRouteRecall
-    ? await routeInventory(graph, ledger.counted.map((row) => row.relativePath), request.target)
+    ? await routeInventory(graph, inventoryPathsOf(ledger), request.target)
     : null;
 
   for (const feature of request.features) {

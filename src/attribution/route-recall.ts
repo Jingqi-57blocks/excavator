@@ -22,6 +22,18 @@ import type { InventoryRoute, RouteInventory } from "../codegraph/route-inventor
  *
  * WHY IT RUNS HERE AND NOT IN A PRODUCER: hypotheses are feature vocabulary, and the layering contract forbids
  * feature vocabulary as a layer-3 input. Producers stay feature-blind; this reads what they wrote.
+ *
+ * WHAT `no-match` DOES AND DOES NOT MEAN — read this before reporting one. It means the pattern did not align with
+ * any RECORDED route registration. It does not mean the capability is absent, and two spelling traps produce it
+ * routinely:
+ *
+ *  - Mount prefixes are invisible here. A route registered inside a group is recorded at its group-relative path
+ *    (`/apply-prompt`), so a hypothesis written as the public URL (`/v2/leaves/apply-prompt`) aligns with nothing.
+ *  - Concrete values are not absorbed. `/leaves/42` does not match `/leaves/:id`, because a pattern is not a call
+ *    (see `alignHypothesis` for why that rule had to differ from the crossrepo one).
+ *
+ * So a reader deciding whether this channel is worth having must separate "the hypotheses were wrong" from "the
+ * channel found nothing" — the per-hypothesis rows carry what was asked, which is what makes that separable at all.
  */
 
 export const ROUTE_RECALL_VERSION = "route-recall-v1";

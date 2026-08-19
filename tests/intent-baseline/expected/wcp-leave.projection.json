@@ -87,6 +87,12 @@
           ]
         },
         "poolNodes": 1793,
+        "recall": {
+          "route": {
+            "cause": "no-hypotheses",
+            "status": "not-run"
+          }
+        },
         "retainedNodes": 180,
         "seedCount": 144,
         "status": "ran"
@@ -2768,6 +2774,48 @@
           ]
         },
         "poolNodes": 1830,
+        "recall": {
+          "route": {
+            "admittedNodeIds": [
+              "wcp-service-v2\u0000function:17b6f766dbf210f28377b461014c1eb3",
+              "wcp-service-v2\u0000function:68e277155354c7310e77c415a121fad1",
+              "wcp-service-v2\u0000function:dc3a0363a6718420499670be6c608ae1",
+              "wcp-service-v2\u0000route:internal/handlers/handlers.go:112:GET:/:leave_id/approve-prompt",
+              "wcp-service-v2\u0000route:internal/handlers/handlers.go:113:GET:/apply-prompt",
+              "wcp-service-v2\u0000route:internal/handlers/handlers.go:114:GET:/remain-fully-paid-sick"
+            ],
+            "hypotheses": [
+              {
+                "matchedRouteFactIds": [
+                  "route:wcp-service-v2/internal/handlers/handlers.go:112-112:GET /:leave_id/approve-prompt"
+                ],
+                "method": "GET",
+                "origin": "user",
+                "outcome": "matched",
+                "pathPattern": "/:leave_id/approve-prompt"
+              },
+              {
+                "matchedRouteFactIds": [
+                  "route:wcp-service-v2/internal/handlers/handlers.go:113-113:GET /apply-prompt"
+                ],
+                "method": "GET",
+                "origin": "user",
+                "outcome": "matched",
+                "pathPattern": "/apply-prompt"
+              },
+              {
+                "matchedRouteFactIds": [
+                  "route:wcp-service-v2/internal/handlers/handlers.go:114-114:GET /remain-fully-paid-sick"
+                ],
+                "method": "GET",
+                "origin": "user",
+                "outcome": "matched",
+                "pathPattern": "/remain-fully-paid-sick"
+              }
+            ],
+            "status": "ran"
+          }
+        },
         "retainedNodes": 180,
         "seedCount": 122,
         "status": "ran"

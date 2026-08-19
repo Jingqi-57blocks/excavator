@@ -13,6 +13,7 @@ import {
   type FeatureSelectionTrace, type SelectionBudgets, type SelectionChannel,
   type SelectionContribution, type SelectionFusion, type TraceNode
 } from "./selection-trace.ts";
+import type { RouteRecallTraceBlock } from "./route-recall.ts";
 
 /**
  * `attribution/attribution.json`: which partition cells this run's selection seated, and what happened to the rest.
@@ -156,6 +157,15 @@ export type SelectionSummary =
     readonly fusion: SelectionFusion;
     /** Retained nodes per channel, so a channel that seated nobody is a zero and not an absence. */
     readonly byChannel: Readonly<Record<SelectionChannel, number>>;
+    /**
+     * What each recall channel did, carried through from the trace.
+     *
+     * It has to be HERE and not only in the trace, because the trace is a prepare-time cache entry and this is the
+     * published artifact: without it, `matchedRouteFactIds` — the only record of which recorded routes a hypothesis
+     * reached — never reaches anything an auditor or a later slice can read. A channel whose work is invisible in
+     * the artifact is a channel whose contribution cannot be checked against the facts it claims to have used.
+     */
+    readonly recall: { readonly route: RouteRecallTraceBlock };
   }
   | { readonly status: "channel-unavailable"; readonly cause: "no-graph" | "empty-vocabulary" };
 
@@ -290,8 +300,16 @@ function routeRegistrationPaths(codegraph: ArtifactResult<ProducerFactSet>): str
   const paths = new Set<string>();
   for (const fact of codegraph.value.facts) {
     if (fact.kind !== "indexed-route") continue;
-    const registrationPath = (fact.detail as { registrationPath?: unknown }).registrationPath;
-    if (typeof registrationPath === "string" && registrationPath.length) paths.add(registrationPath);
+    const detail = fact.detail as { registrationPath?: unknown; handlerPath?: unknown; handlerResolution?: unknown };
+    if (typeof detail.registrationPath === "string" && detail.registrationPath.length) paths.add(detail.registrationPath);
+    // The RESOLVED handler's module counts too, and leaving it out was self-contradictory: routes registered in
+    // one module with handlers in another — `routes/` beside `controllers/`, the shape framework-convention
+    // recovery targets — would read as `unavailable` ("the channel has nothing to work with here") for the
+    // handler's module, while the channel demonstrably CAN admit that handler through the other module's
+    // registration. The same module could go from `unavailable` straight to `contributed`.
+    if (detail.handlerResolution === "resolved" && typeof detail.handlerPath === "string" && detail.handlerPath.length) {
+      paths.add(detail.handlerPath);
+    }
   }
   return [...paths].sort();
 }
@@ -468,6 +486,7 @@ function buildSelection(
         status: "ran",
         poolNodes: trace.pool.length,
         retainedNodes,
+        recall: trace.recall,
         seedCount: trace.seedCount,
         budgets: trace.budgets,
         fusion: trace.fusion,
@@ -515,7 +534,12 @@ function buildModuleRows(
   seats: readonly AttributionSeat[],
   seatedCells: ReadonlySet<string>,
   displacedCells: ReadonlySet<string>,
-  /** Registration paths of every recorded route fact, so `unavailable` means "no route facts here". */
+  /**
+   * Every module path a recorded route fact touches: the registration, and the resolved handler's file.
+   *
+   * Both ends, because `unavailable` means "this channel has nothing to work with in this module" — and a module
+   * holding a resolved handler has something to work with even when it registers no route itself.
+   */
   routeFactPaths: readonly string[]
 ): AttributionModuleRow[] {
   const inventory = modules.map((module) => ({ ...module }));

@@ -106,7 +106,9 @@ test("every hypothesis gets a row whether or not it matched", () => {
   assert.equal(result.block.status, "ran");
   if (result.block.status !== "ran") return;
   assert.deepEqual(result.block.hypotheses.map((row) => row.outcome), ["matched", "no-match"],
-    "a hypothesis that found nothing is a finding about the target, not an absence of record");
+    "a hypothesis that found nothing is recorded as such — but read the module doc before reading it as a finding "
+    + "about the target: no-match means the PATTERN did not align with a recorded registration, which can equally "
+    + "be a spelling problem in the hypothesis");
 });
 
 test("no hypotheses and no inventory are distinguishable written states", () => {
@@ -151,11 +153,18 @@ test("the recall block travels in the trace, including when the channel did not 
     "a channel that did not run says so in the trace; an absent block would let it stop running unnoticed");
 });
 
-test("an exact match outranks a parameterised one for the same node", () => {
-  // Two hypotheses reach the same route; the recorded rule must be the stronger of the two regardless of order.
-  const result = routeRecall(hypotheses({ pathPattern: "/leaves/:x" }, { pathPattern: "/leaves/mine" }), inventory([
-    route({ routePath: "/leaves/mine", factId: "route:mod/router.go:1-1:GET /leaves/mine" })
-  ]));
-  const evidence = result.evidence.find((row) => row.nodeId === "route-node");
-  assert.equal(evidence?.rule, "exact");
+// The upgrade branch has exactly one reachable shape, and the first version of this test did not have it: on a
+// SINGLE route, exact and parameterised are mutually exclusive, so deleting the upgrade left the test green. It is
+// reachable only when two routes share one handler node — a literal route and a parameterised one both dispatching
+// to the same function — where the handler is claimed twice with different rules.
+test("a handler reached by both a literal and a parameterised route records the stronger rule", () => {
+  const shared = inventory([
+    route({ routePath: "/leaves/:id", factId: "route:mod/router.go:1-1:GET /leaves/:id", nodeId: "route-param" }),
+    route({ routePath: "/leaves/mine", factId: "route:mod/router.go:2-2:GET /leaves/mine", nodeId: "route-literal" })
+  ]);
+  // Order chosen adversarially: the parameterised claim on the shared handler lands first.
+  const result = routeRecall(hypotheses({ pathPattern: "/leaves/:x" }, { pathPattern: "/leaves/mine" }), shared);
+  const handler = result.evidence.find((row) => row.nodeId === "handler-node");
+  assert.ok(handler, "both routes dispatch to the same handler node, so it is claimed twice");
+  assert.equal(handler.rule, "exact", "the literal route's claim outranks the parameterised one");
 });
