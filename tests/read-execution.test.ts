@@ -13,6 +13,7 @@ import type { ObligationDeclarations } from "../src/obligation/declarations.ts";
 import { auditRun, freezeRun, prepareRun } from "../src/run/run.ts";
 import { applyInvestigationDispositions } from "../src/run/investigation-stage.ts";
 import type { ReadSpec, ReadSpecsArtifact } from "../src/workset/read-specs.ts";
+import { sha256, stableJson } from "../src/base/util.ts";
 import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, tempDir } from "./helpers.ts";
 
 function spec(id: string, path: string, startLine: number, endLine: number): ReadSpec {
@@ -156,7 +157,13 @@ test("L7 executes only authorized paths and records source, empty, unavailable a
   assert.equal(unavailableEvidence?.kind, "ledger");
 });
 
-test("an unavailable source-reading stays pending and blocks freeze even without a decision declaration", async () => {
+// This test used to assert the opposite, and it was the defect written down as a contract: it drove a read to
+// fail by STARVING THE BUDGET and then required that the run never freeze. Under that rule one exhausted
+// ceiling made a run permanently unsealable — no authoring packet, no knowledge epoch, ever — and across the
+// workspace 43 of 83 runs sat in that state with not one of them frozen. The freeze-blocking property it meant
+// to protect is a property of `unavailable` (the source would not yield), and that half is now pinned where it
+// can be driven directly, in `read-budget-cliff.test.ts`, alongside this half so neither can drift alone.
+test("a budget-displaced source-reading seals as a recorded limitation instead of making the run unfreezable", async () => {
   const target = await copyFixture();
   const workdir = await tempDir();
   const codegraph = join(workdir, "codegraph.db");
@@ -168,12 +175,26 @@ test("an unavailable source-reading stays pending and blocks freeze even without
   });
   const result = JSON.parse(await readFile(join(prepared.runDir, "investigation", "results.json"), "utf8")) as ArtifactResult<InvestigationResults>;
   assert.equal(result.status, "built");
-  assert.ok(result.value.executions.some((row) => row.outcome === "unavailable"));
+  assert.ok(result.value.executions.some((row) => row.outcome === "budget-displaced"));
+  assert.ok(!result.value.executions.some((row) => row.outcome === "unavailable"), "an exhausted ceiling is this run declining to buy a window, not the source failing to yield");
+  assert.equal(result.value.summary.displaced?.executions, result.value.executions.filter((row) => row.outcome === "budget-displaced").length);
   assert.equal(result.value.dispositions.length, 0, "this fixture isolates the source-reading gate from decision dispositions");
+
+  const demand = prepared.manifest.metrics.sourceWindowDemand;
+  assert.ok(demand, "prepare records the demand whether or not the ceiling met it");
+  assert.ok(demand.requiredWindows > 0);
+  assert.equal(demand.availableWindows, 0, "a ceiling of zero leaves nothing to spend");
+  assert.ok(demand.requiredRunWindowBudget >= demand.requiredWindows, "the number to re-prepare with covers prepare's own reads too");
+  assert.ok(prepared.manifest.metrics.warnings.some((warning) => warning.includes(`--max-source-windows ${demand.requiredRunWindowBudget}`)),
+    "the operator is given the number, not told to double the budget until it stops failing");
+
   await disposeAllWorkItems(prepared.runDir);
   const frozen = await freezeRun(prepared.runDir);
-  assert.equal(frozen.frozen, false);
-  assert.ok(frozen.findings.some((finding) => /source-reading .* remains pending/.test(finding.message)));
+  assert.equal(frozen.frozen, true, frozen.findings.filter((finding) => finding.level === "error").map((finding) => finding.message).join(" | "));
+  assert.ok(frozen.findings.some((finding) => finding.level === "warning" && /displaced by a recorded budget ceiling/.test(finding.message)));
+  assert.ok(!frozen.findings.some((finding) => /source-reading .* remains pending/.test(finding.message)));
+  assert.equal(frozen.knowledge?.completeness.closure.readsDisplacedByBudget, result.value.summary.displaced?.executions);
+  assert.equal(frozen.knowledge?.completeness.closure.authorizedReads, result.value.executions.length);
 });
 
 test("derived model content cannot masquerade as a successful source execution", async () => {
@@ -223,6 +244,96 @@ test("a closed-negative L7 disposition projects to limitation evidence, not a fa
   assert.deepEqual(auditWorkItems(plan, expected, new Map(result.evidence.map((item) => [item.id, item])), new Set()), []);
 });
 
+// The projection that makes a budget-starved run sealable. `cannot-determine` is not a softer `pending`: the
+// work-item audit demands a reason, a `settledBy` and limitation evidence for it, and a displaced read has all
+// three. `pending` demands that someone dispose it, and nothing in the run can — `investigation/results.json`
+// is written once at prepare and no runtime mutator reaches it.
+test("a budget-displaced L7 disposition projects to a recorded limitation the work-item gate accepts", async () => {
+  const target = await tempDir();
+  await writeFile(join(target, "allowed.ts"), "const first = 1;\nconst second = 2;\n");
+  const specs = [spec("READ-displaced", "allowed.ts", 1, 2)];
+  const { workset, obligations } = contracts(specs);
+  const result = await executeReadSpecs({
+    target, snapshotId: "snapshot", filesContentManifestDigest: "files", cacheDir: join(await tempDir(), "cache"),
+    maxWindows: 0, maxCharacters: 10_000, redact: false, workset, obligations
+  });
+  assert.equal(result.artifact.executions[0].outcome, "budget-displaced");
+  assert.equal(result.artifact.executions[0].cause, "source-window-budget-exceeded");
+  assert.deepEqual({ status: result.artifact.dispositions[0].status, positive: result.artifact.dispositions[0].positiveKnowledge }, { status: "displaced", positive: false });
+  assert.deepEqual(result.artifact.summary.displaced, { executions: 1, dispositions: 1 });
+  requireInvestigationResults(result.artifact, workset, obligations, result.evidence);
+  assert.equal(result.evidence.filter((item) => item.kind === "source").length, 0, "a displaced read records no source bytes");
+
+  const expected: InvestigationPlan = {
+    version: 1,
+    runId: "run",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    items: [{
+      id: "feature:feature-a:logic:decision0@allowed.ts:1",
+      dimension: "decision-function",
+      scope: "feature:feature-a",
+      hypothesis: "authorized decision read",
+      status: "pending",
+      material: true,
+      requiredFor: ["feature-feature-a-engineering"],
+      evidenceIds: [],
+      traceIds: [],
+      origin: "default"
+    }]
+  };
+  const plan = applyInvestigationDispositions(expected, built(result.artifact), built(obligations));
+  assert.equal(plan.items[0].status, "cannot-determine");
+  assert.equal(plan.items[0].material, false);
+  assert.match(plan.items[0].reason ?? "", /source-window-budget-exceeded/);
+  assert.deepEqual(auditWorkItems(plan, expected, new Map(result.evidence.map((item) => [item.id, item])), new Set()), []);
+});
+
+// The anti-abuse predicate for the new bucket. Displacement means windows were NOT bought, so evidence
+// covering the whole authorized span contradicts the label — without this check `budget-displaced` would be a
+// way to relabel a completed read as an excused one, which is exactly the ledger-lying class the downgrade is
+// not allowed to touch.
+test("an execution cannot claim a budget displacement while its evidence covers the whole authorized span", async () => {
+  const target = await tempDir();
+  await writeFile(join(target, "allowed.ts"), "const only = 1;\n");
+  const specs = [spec("READ-source", "allowed.ts", 1, 1)];
+  const { workset, obligations } = contracts(specs);
+  const result = await executeReadSpecs({
+    target, snapshotId: "snapshot", filesContentManifestDigest: "files", cacheDir: join(await tempDir(), "cache"),
+    maxWindows: 2, maxCharacters: 10_000, redact: false, workset, obligations
+  });
+  const [execution] = result.artifact.executions;
+  const data = {
+    recordType: "read-execution",
+    readSpecId: execution.readSpecId,
+    declarationId: execution.declarationId,
+    outcome: "budget-displaced",
+    path: execution.path,
+    requestedSpan: execution.requestedSpan,
+    cause: "source-window-budget-exceeded"
+  };
+  const ledger: EvidenceItem = {
+    id: `LEDGER-READ-${sha256(stableJson(data)).slice(0, 16)}`,
+    snapshotId: "snapshot",
+    kind: "ledger",
+    title: "forged displacement",
+    data,
+    reason: "forged displacement",
+    digest: sha256(stableJson(data))
+  };
+  const forged: InvestigationResults = {
+    ...result.artifact,
+    executions: [{ ...execution, outcome: "budget-displaced", cause: "source-window-budget-exceeded", evidenceIds: [...execution.evidenceIds, ledger.id] }],
+    dispositions: result.artifact.dispositions.map((row) => ({ ...row, status: "displaced" as const, positiveKnowledge: false, evidenceIds: [...row.evidenceIds, ledger.id] })),
+    summary: {
+      ...result.artifact.summary,
+      source: 0,
+      fulfilled: 0,
+      displaced: { executions: 1, dispositions: result.artifact.dispositions.length }
+    }
+  };
+  assert.throws(() => requireInvestigationResults(forged, workset, obligations, [...result.evidence, ledger]), /covers the full authorized span/);
+});
+
 test("prepare binds every execution to L5/L6, projects decision dispositions, and audit catches result rewrites", async () => {
   const target = await copyFixture();
   const workdir = await tempDir();
@@ -238,7 +349,9 @@ test("prepare binds every execution to L5/L6, projects decision dispositions, an
   assert.equal(result.status, "built");
   assert.ok(result.value.executions.length > 0);
   assert.equal(result.value.executions.length, result.value.summary.authorized);
-  assert.equal(result.value.dispositions.length, result.value.summary.fulfilled + result.value.summary.closedNegative + result.value.summary.pending);
+  assert.equal(result.value.dispositions.length,
+    result.value.summary.fulfilled + result.value.summary.closedNegative + result.value.summary.pending + (result.value.summary.displaced?.dispositions ?? 0),
+    "the four disposal buckets account for every decision-reading declaration");
   const plan = JSON.parse(await readFile(join(prepared.runDir, "workitems.json"), "utf8")) as InvestigationPlan;
   for (const disposition of result.value.dispositions.filter((row) => row.status === "fulfilled")) {
     const item = plan.items.find((row) => row.settledBy === disposition.executionId);

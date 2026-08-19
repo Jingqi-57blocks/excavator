@@ -352,22 +352,39 @@ export interface FreezeAuditCheck {
 /** Deterministic freeze-gate report, with no cross-domain or positive/negative aggregate ratio. */
 export interface KnowledgeCompleteness {
   /**
-   * v3 adds `closure.sourceReadsWithoutObligation`. The label moves with the shape because "the mode is part of
-   * the identity" is a ruling this repository has already paid for: a v2 tag over two different shapes lets a
-   * future consumer gate on a version that does not say what it holds. Cheap now (three test fixtures, no
-   * production reader); the cost of deferring is the `assurance-v9` generation-gate machinery, which exists
-   * precisely because a field once meant two things under one label.
+   * v3 adds `closure.sourceReadsWithoutObligation`. v4 adds `closure.authorizedReads`,
+   * `closure.readsDisplacedByBudget` and `closure.decisions.displaced`. The label moves with the shape because
+   * "the mode is part of the identity" is a ruling this repository has already paid for: a v2 tag over two
+   * different shapes lets a future consumer gate on a version that does not say what it holds. Cheap now
+   * (three test fixtures, no production reader); the cost of deferring is the `assurance-v9` generation-gate
+   * machinery, which exists precisely because a field once meant two things under one label.
    *
-   * ABSENCE of the field in an archived epoch means NOT MEASURED — never 0. No reader may treat a missing value
-   * as "no unclaimed reads".
+   * ABSENCE of a field in an archived epoch means NOT MEASURED — never 0. No reader may treat a missing value
+   * as "no unclaimed reads" or "nothing was displaced".
    */
-  version: "knowledge-completeness-v3";
+  version: "knowledge-completeness-v4";
   domains: DomainCompleteness[];
   closure: {
     workItems: { positive: number; negative: number; pending: number; byStatus: Record<string, number> };
-    decisions: { positive: number; negative: number; pending: number };
+    /**
+     * The four disposal buckets of the decision-reading declarations, which together account for all of them.
+     * `displaced` is here so the sum stays closed: a read a recorded budget ceiling displaced is neither
+     * positive, nor negative, nor pending, and folding it into any of the three would either claim knowledge
+     * that was never read or claim an obligation nobody disposed.
+     */
+    decisions: { positive: number; negative: number; pending: number; displaced: number };
     probeResiduals: number;
     materialFlowsWithTraces: number;
+    /**
+     * How many ReadSpecs this run executed, and how many of those a recorded budget ceiling displaced.
+     *
+     * `authorizedReads` is the denominator, and it is recorded because without it a sealed epoch cannot tell
+     * "this run authorized no reading" from "every authorized read completed": both leave the closure's other
+     * figures at zero. Present exactly when layer-7 results were available to the check — absent means the
+     * check could not see them, which the same family reports as an error, not a clean pass.
+     */
+    authorizedReads?: number;
+    readsDisplacedByBudget?: number;
     /**
      * Recorded source windows that no read execution accounts for.
      *
@@ -575,6 +592,15 @@ export interface RunMetrics {
   workItems?: { total: number; complete: number };
   /** Count of post-freeze supplement mutations recorded through the escape hatch. Present only on frozen runs. */
   supplements?: number;
+  /**
+   * What this run's authorized reads needed from the source-window ceiling, summed from layer 5's own
+   * per-spec authorizations at prepare (see `investigation/read-budget.ts`).
+   *
+   * ABSENCE means NOT MEASURED — never "nothing was needed". A run prepared before this figure existed has
+   * no demand to report, and reading its absence as 0 would render "892 windows were required and 60 were
+   * available" as "no reading was authorized", which is the opposite fact.
+   */
+  sourceWindowDemand?: { requiredWindows: number; availableWindows: number; requiredRunWindowBudget: number };
   codegraphCoverage?: CodeGraphCoverage;
   cache: Record<string, "hit" | "miss" | "unused">;
   warnings: string[];
