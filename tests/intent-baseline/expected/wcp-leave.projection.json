@@ -23,7 +23,7 @@
       "maxFeatureNodes": 180,
       "maxGraphQueries": 400
     },
-    "runIntentVersion": "run-intent-v1",
+    "runIntentVersion": "run-intent-v2",
     "runIntentFeatureCount": 2,
     "runIntentFeatures": [
       {

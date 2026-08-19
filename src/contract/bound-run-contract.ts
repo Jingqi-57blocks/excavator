@@ -1,5 +1,6 @@
 import type { Audience, BudgetConfig, DocumentKind, ReportRequest } from "../base/types.ts";
 import { sha256, stableJson } from "../base/util.ts";
+import { normalizeFeatureProfile, type FeatureProfile } from "../base/feature-profile.ts";
 
 /**
  * The bound run contract: two of the three external inputs that exist BEFORE any layer runs.
@@ -22,10 +23,15 @@ export interface RunIntentFeature {
   subject: string;
   /** Query aliases, sorted and de-duplicated. */
   aliases: string[];
+  /**
+   * Recorded hypotheses, normalised. Written ONLY when the request carried one, so a run without profiles
+   * produces the same bytes it did before the field existed — the digest then differs only by the version string.
+   */
+  profile?: FeatureProfile;
 }
 
 export interface RunIntent {
-  version: "run-intent-v1";
+  version: "run-intent-v2";
   target: string;
   outputLanguage: string;
   features: RunIntentFeature[];
@@ -97,10 +103,20 @@ export function materializeBoundRunContract(input: BoundRunContractInput): Bound
 
 function materializeRunIntent(input: BoundRunContractInput): RunIntent {
   const features = [...input.features]
-    .map((feature) => ({ key: feature.key, subject: feature.subject, aliases: [...new Set(feature.aliases)].sort((a, b) => a.localeCompare(b)) }))
+    .map((feature) => {
+      const raw = feature.profile;
+      return {
+        key: feature.key,
+        subject: feature.subject,
+        aliases: [...new Set(feature.aliases)].sort((a, b) => a.localeCompare(b)),
+        // Spread conditionally: a feature with no profile must not gain a `profile: undefined` key, or every
+        // run without hypotheses would move its own digest for a field it does not have.
+        ...(raw === undefined ? {} : { profile: normalizeFeatureProfile(raw, feature.key) })
+      };
+    })
     .sort((a, b) => a.key.localeCompare(b.key));
   const unsigned = {
-    version: "run-intent-v1" as const,
+    version: "run-intent-v2" as const,
     target: input.request.target,
     outputLanguage: input.request.language,
     features,

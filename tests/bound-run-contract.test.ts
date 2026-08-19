@@ -45,7 +45,7 @@ test("the run intent records the feature subject with sorted aliases and the run
   const contract = materializeBoundRunContract(input({
     features: [{ key: "leave-abc1234567", subject: "请假管理", aliases: ["leave", "annual", "leave"] }]
   }));
-  assert.equal(contract.runIntent.version, "run-intent-v1");
+  assert.equal(contract.runIntent.version, "run-intent-v2");
   assert.deepEqual(contract.runIntent.features, [{ key: "leave-abc1234567", subject: "请假管理", aliases: ["annual", "leave"] }],
     "query aliases are sorted and de-duplicated, so the same intent has one spelling");
   assert.deepEqual(contract.runIntent.budgets, budgets);

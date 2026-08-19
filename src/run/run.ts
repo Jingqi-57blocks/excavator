@@ -280,7 +280,7 @@ export async function prepareRun(rawRequest: ReportRequest): Promise<{ runDir: s
   const planned = await plannedDocuments(request);
   const contract = materializeBoundRunContract({
     request,
-    features: request.features.map((feature) => ({ key: featureCacheKey(feature), subject: feature.subject, aliases: feature.aliases })),
+    features: request.features.map((feature) => ({ key: featureCacheKey(feature), subject: feature.subject, aliases: feature.aliases, ...(feature.profile === undefined ? {} : { profile: feature.profile }) })),
     documents: planned
   });
   const contractManifest = deriveContractManifest(ARTIFACT_REGISTRY, contract.runIntent, contract.requirements);

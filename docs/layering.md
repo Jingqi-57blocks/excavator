@@ -6,7 +6,7 @@
 
 | 输入 | 谁给 | 内容 |
 |---|---|---|
-| `run-intent.json` | 操作者 | target、feature subject + 排序后 aliases（**查询别名**）、预算 |
+| `run-intent.json` | 操作者 | target、feature subject + 排序后 aliases（**查询别名**）、预算、可选的 `FeatureProfile`（入口假设：method + path pattern，每条带 `origin: user / host-model / deterministic`）。**假设不是事实**：它只能匹配某个第 3 层生产者已独立观察到的东西才换来候选，自己绝不铸造成员资格、事实或席位；且它是 feature 词汇，故只能被第 4 层侧消费，生产者保持 feature-blind |
 | `requirements.json` | 报告侧（模板 / audience 在边界处翻译成需求行） | 本 run 必须回答的知识需求；每个请求文档的每个 `##` 模板章节恰好一行，另有无条件 run 级行；**知识需求的唯一通道** |
 | `contract-manifest.json` | **基座注册表 + 契约版本推导** | 本 run 预期哪些层产物与第 3 层生产者信封（必需 / 可选）、schema id、validator 版本、各检查族与版本 |
 

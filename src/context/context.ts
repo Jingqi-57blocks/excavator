@@ -879,8 +879,22 @@ function buildFeatureInventory(nodes: any[], files: string[]): FeatureInventoryE
   });
 }
 
+/**
+ * The cache identity of one feature's scope.
+ *
+ * The profile is part of it, and it has to be part of it BEFORE anything consumes profiles. Once a recall channel
+ * reads hypotheses, two intents differing only by their profile would produce different selections — and if they
+ * shared a cache key, the second run would silently serve the first one's scope. Adding the field afterwards
+ * means every cache written in between is a mine. Absent profile contributes nothing to the key, so every run
+ * that does not use them keeps its existing bytes (pinned by test).
+ */
 export function featureCacheKey(feature: FeatureRequest): string {
-  return `${slugify(feature.subject)}-${sha256(stableJson({ subject: feature.subject.toLowerCase(), aliases: [...feature.aliases].sort() })).slice(0, 10)}`;
+  const identity = {
+    subject: feature.subject.toLowerCase(),
+    aliases: [...feature.aliases].sort(),
+    ...(feature.profile === undefined ? {} : { profile: feature.profile })
+  };
+  return `${slugify(feature.subject)}-${sha256(stableJson(identity)).slice(0, 10)}`;
 }
 
 /** Exported so the freeze path can re-derive a run's anchor terms from its manifest (57B-400). */
