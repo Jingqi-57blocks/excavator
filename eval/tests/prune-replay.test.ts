@@ -12,6 +12,7 @@ import { loadPrunePool, prunePool, prunePoolToNodes } from "../prune-replay.ts";
 import { boundaryRecall } from "../boundary.ts";
 import { loadBoundaryGold } from "../boundary-gold.ts";
 import { allocateFeatureGraph } from "../../src/attribution/allocator.ts";
+import { NO_ROUTE_RECALL } from "../../src/attribution/route-recall.ts";
 
 const WCP_LEAVE = join(import.meta.dirname, "..", "fixtures", "wcp-leave");
 const POOL = join(WCP_LEAVE, "prune-pool.json.gz");
@@ -56,7 +57,7 @@ test("57B-371 gate: node set fills to the cap exactly and never exceeds it", () 
   const pool = loadPrunePool(POOL); // 1726 pool nodes, far above every cap below
   const anchors = pool.anchorTerms ?? [];
   for (const cap of [100, 175, 250]) {
-    assert.equal(allocateFeatureGraph(pool.nodes, pool.edges, pool.seeds, anchors, cap).nodes.length, cap, `allocator cap ${cap}`);
+    assert.equal(allocateFeatureGraph(pool.nodes, pool.edges, pool.seeds, anchors, cap, NO_ROUTE_RECALL).nodes.length, cap, `allocator cap ${cap}`);
     assert.equal(prunePool(pool, cap).nodes.length, cap, `replay cap ${cap}`);
   }
 });

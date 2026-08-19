@@ -13,6 +13,7 @@ import {
   type FeatureSelectionTrace, type SelectionBudgets, type SelectionChannel,
   type SelectionContribution, type SelectionFusion, type TraceNode
 } from "./selection-trace.ts";
+import type { RouteRecallTraceBlock } from "./route-recall.ts";
 
 /**
  * `attribution/attribution.json`: which partition cells this run's selection seated, and what happened to the rest.
@@ -43,7 +44,7 @@ import {
  * layer deciding something no feature asked it to decide.
  */
 
-export const ATTRIBUTION_ARTIFACT_VERSION = "attribution-v3";
+export const ATTRIBUTION_ARTIFACT_VERSION = "attribution-v4";
 
 /** Where a retained node landed when it did NOT reach a cell. Closed: there is no fourth way to miss. */
 export const SEAT_PROJECTION_MISSES = ["envelope-unavailable", "file-not-counted", "kind-not-inventoried", "no-matching-fact"] as const;
@@ -133,6 +134,16 @@ export interface AttributionModuleRow {
   readonly displacedCells: number;
   readonly soleSourceSeats: number;
   readonly status: "seated" | "candidates-no-seat" | "zero-signal" | "outside-denominator";
+  /**
+   * What each recall channel did FOR THIS MODULE. Every module lands in exactly one bucket per channel.
+   *
+   * The distinction that matters is `unavailable` against `no-match`: the first says this module has no route
+   * facts at all, so the channel had nothing to work with here; the second says it has them and none aligned with
+   * what was asked. Collapsing the two would make "the tool cannot see this module" read as "this module has
+   * nothing to do with the capability", which is the confusion the whole mechanism-ledger layer exists to prevent
+   * one level down.
+   */
+  readonly recall: { readonly route: "not-run" | "unavailable" | "no-match" | "contributed" };
 }
 
 /** What the channels did, without the pool: the per-node record is republished as seats and displacements. */
@@ -146,6 +157,15 @@ export type SelectionSummary =
     readonly fusion: SelectionFusion;
     /** Retained nodes per channel, so a channel that seated nobody is a zero and not an absence. */
     readonly byChannel: Readonly<Record<SelectionChannel, number>>;
+    /**
+     * What each recall channel did, carried through from the trace.
+     *
+     * It has to be HERE and not only in the trace, because the trace is a prepare-time cache entry and this is the
+     * published artifact: without it, `matchedRouteFactIds` — the only record of which recorded routes a hypothesis
+     * reached — never reaches anything an auditor or a later slice can read. A channel whose work is invisible in
+     * the artifact is a channel whose contribution cannot be checked against the facts it claims to have used.
+     */
+    readonly recall: { readonly route: RouteRecallTraceBlock };
   }
   | { readonly status: "channel-unavailable"; readonly cause: "no-graph" | "empty-vocabulary" };
 
@@ -268,6 +288,32 @@ type SeatIndex =
   }
   | { readonly status: "unavailable" };
 
+/**
+ * Where the recorded routes were registered.
+ *
+ * `indexed-route` facts anchor to their handler's cell when the handler was verified and to the registration line
+ * otherwise, so the anchor alone does not say which module REGISTERED the route. The detail's `registrationPath`
+ * does, and it is the same field the inventory wrote — read, never recomputed.
+ */
+function routeRegistrationPaths(codegraph: ArtifactResult<ProducerFactSet>): string[] {
+  if (codegraph.status !== "built") return [];
+  const paths = new Set<string>();
+  for (const fact of codegraph.value.facts) {
+    if (fact.kind !== "indexed-route") continue;
+    const detail = fact.detail as { registrationPath?: unknown; handlerPath?: unknown; handlerResolution?: unknown };
+    if (typeof detail.registrationPath === "string" && detail.registrationPath.length) paths.add(detail.registrationPath);
+    // The RESOLVED handler's module counts too, and leaving it out was self-contradictory: routes registered in
+    // one module with handlers in another — `routes/` beside `controllers/`, the shape framework-convention
+    // recovery targets — would read as `unavailable` ("the channel has nothing to work with here") for the
+    // handler's module, while the channel demonstrably CAN admit that handler through the other module's
+    // registration. The same module could go from `unavailable` straight to `contributed`.
+    if (detail.handlerResolution === "resolved" && typeof detail.handlerPath === "string" && detail.handlerPath.length) {
+      paths.add(detail.handlerPath);
+    }
+  }
+  return [...paths].sort();
+}
+
 function seatIndex(codegraph: ArtifactResult<ProducerFactSet>, unitsDigest: string): SeatIndex {
   if (codegraph.status !== "built") return { status: "unavailable" };
   const envelope = codegraph.value;
@@ -359,7 +405,8 @@ function buildSelection(
   index: SeatIndex,
   counted: ReadonlySet<string>,
   unitKind: RowSetUnitKind,
-  modules: readonly DetectedModule[]
+  modules: readonly DetectedModule[],
+  routeFactPaths: readonly string[]
 ): AttributionSelection {
   const seats: AttributionSeat[] = [];
   const displacements: AttributionDisplacement[] = [];
@@ -429,7 +476,7 @@ function buildSelection(
 
   const zeroScore = groupZeroScore(cells, seatedCells, displacedCells, trace.status === "ran" ? null : "channels-unavailable", index);
   const zeroScoreCells = zeroScore.reduce((sum, group) => sum + group.cells, 0);
-  const moduleRows = buildModuleRows(modules, cells, trace, seats, seatedCells, displacedCells);
+  const moduleRows = buildModuleRows(modules, cells, trace, seats, seatedCells, displacedCells, routeFactPaths);
 
   return {
     featureKey,
@@ -439,6 +486,7 @@ function buildSelection(
         status: "ran",
         poolNodes: trace.pool.length,
         retainedNodes,
+        recall: trace.recall,
         seedCount: trace.seedCount,
         budgets: trace.budgets,
         fusion: trace.fusion,
@@ -485,7 +533,14 @@ function buildModuleRows(
   trace: FeatureSelectionTrace,
   seats: readonly AttributionSeat[],
   seatedCells: ReadonlySet<string>,
-  displacedCells: ReadonlySet<string>
+  displacedCells: ReadonlySet<string>,
+  /**
+   * Every module path a recorded route fact touches: the registration, and the resolved handler's file.
+   *
+   * Both ends, because `unavailable` means "this channel has nothing to work with in this module" — and a module
+   * holding a resolved handler has something to work with even when it registers no route itself.
+   */
+  routeFactPaths: readonly string[]
 ): AttributionModuleRow[] {
   const inventory = modules.map((module) => ({ ...module }));
   const rows = new Map<string, MutableModuleRow>(inventory.map((module) => [module.id, {
@@ -528,6 +583,20 @@ function buildModuleRows(
     if (nonFallback.length === 1) rowForPath(seat.relativePath)?.soleSourceSeats.add(seat.unitId);
   }
 
+  // Which modules the route channel actually contributed to, and which ones it could have.
+  const contributedModules = new Set<string>();
+  if (trace.status === "ran") for (const node of trace.pool) {
+    if (!node.contributions.some((item) => item.sourceChannel === "route")) continue;
+    const owner = moduleForFile(inventory, node.relativePath);
+    if (owner) contributedModules.add(owner.id);
+  }
+  const modulesWithRouteFacts = new Set<string>();
+  for (const path of routeFactPaths) {
+    const owner = moduleForFile(inventory, path);
+    if (owner) modulesWithRouteFacts.add(owner.id);
+  }
+  const routeRan = trace.status === "ran" && trace.recall.route.status === "ran";
+
   return [...rows.values()].map((row): AttributionModuleRow => {
     const seated = row.seatedCells.size;
     const status: AttributionModuleRow["status"] = seated > 0 ? "seated"
@@ -544,7 +613,15 @@ function buildModuleRows(
       seatedCells: seated,
       displacedCells: row.displacedCells.size,
       soleSourceSeats: row.soleSourceSeats.size,
-      status
+      status,
+      // The cause of `not-run` is recorded once on the trace rather than copied onto every module row: it is a
+      // property of the run, and duplicating it would invite the two records to disagree.
+      recall: {
+        route: !routeRan ? "not-run"
+          : contributedModules.has(row.moduleId) ? "contributed"
+          : modulesWithRouteFacts.has(row.moduleId) ? "no-match"
+          : "unavailable"
+      }
     };
   });
 }
@@ -596,6 +673,10 @@ function groupZeroScore(
 export function assembleAttributionArtifact(input: AttributionAssemblyInput): AttributionArtifact {
   const unitsDigest = unitsContentDigest(input.units);
   const index = seatIndex(input.codegraph, unitsDigest);
+  // Registration paths of every recorded route fact, read off the SAME envelope the seats are joined through.
+  // This is what separates "this module has no route facts" (`unavailable`) from "it has some and none matched"
+  // (`no-match`); deriving it from anywhere else would be a second answer to which routes exist.
+  const routeFactPaths = routeRegistrationPaths(input.codegraph);
   const rowSet = unitsRowSet(input.units);
   const counted = new Set(input.countedPaths);
   const modules = canonicalModuleInventory(input.modules);
@@ -644,7 +725,7 @@ export function assembleAttributionArtifact(input: AttributionAssemblyInput): At
     featureCount: input.selections.length,
     selections: [...input.selections]
       .sort((a, b) => a.featureKey.localeCompare(b.featureKey))
-      .map((selection) => buildSelection(selection.featureKey, selection.trace, cells, index, counted, rowSet.unitKind, modules))
+      .map((selection) => buildSelection(selection.featureKey, selection.trace, cells, index, counted, rowSet.unitKind, modules, routeFactPaths))
   };
 }
 

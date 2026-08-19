@@ -7,6 +7,8 @@ import { allocateFeatureGraphRecorded } from "../attribution/allocator.ts";
 import { channelUnavailable, SELECTION_TRACE_VERSION, type FeatureSelectionTrace } from "../attribution/selection-trace.ts";
 import { createSnapshot, isLikelySource, type ScannedFile } from "../snapshot/snapshot.ts";
 import { corpusResolver, LANGUAGE_REGISTRY } from "../base/language-registry.ts";
+import { routeRecall } from "../attribution/route-recall.ts";
+import { inventoryPathsOf, routeInventory, type RouteInventory } from "../codegraph/route-inventory.ts";
 import { countedRowSet } from "../snapshot/file-ledger.ts";
 import type { RowSet } from "../base/row-set.ts";
 import type { FileLedger } from "../snapshot/file-ledger.ts";
@@ -22,7 +24,7 @@ import { legacyWorkspaceWarning } from "../snapshot/workspace-residue.ts";
 // selection built from it would publish an empty `seedCells` — layer 5's `seeded` relation silently back to
 // zero, which is precisely the defect this generation fixes and the shape a stale cache would restore.
 // Any change to a cached shape bumps this (57B-375).
-const BUILDER_VERSION = "excavator-context-v28-seed-identity";
+const BUILDER_VERSION = "excavator-context-v29-route-recall";
 
 interface CachedShared {
   snapshotId: string;
@@ -229,6 +231,20 @@ export async function buildContextsFromBoundary(request: ReportRequest, boundary
     documentContexts.set(id, renderOverviewContext(audience, request.language));
   }
 
+  // Built ONCE, before the feature loop, and only when some feature actually has hypotheses.
+  //
+  // It has to happen here because pool admission happens here: the facts stage builds its own inventory
+  // (`facts-stage.ts`) but runs after prepare, by which point every pool is already closed. The two are the same
+  // pure function over the same counted row set, and a test asserts their outputs are byte-identical rather than
+  // this comment asserting it.
+  //
+  // Skipped when no feature carries a profile: the source verification reads files, and a run that cannot use the
+  // result should not pay for it. `routeRecall` then reports `not-run{no-hypotheses}` per feature anyway.
+  const wantsRouteRecall = request.features.some((feature) => (feature.profile?.possibleEntrypoints.length ?? 0) > 0);
+  const routes = graph && wantsRouteRecall
+    ? await routeInventory(graph, inventoryPathsOf(ledger), request.target)
+    : null;
+
   for (const feature of request.features) {
     deadline.check(`preparing feature ${feature.subject}`);
     const key = featureCacheKey(feature);
@@ -250,7 +266,7 @@ export async function buildContextsFromBoundary(request: ReportRequest, boundary
     } else {
       cache[`feature:${key}`] = "miss";
       const started = Date.now();
-      cached = await buildFeatureContext(snapshot, files, feature, graph, new Set(shared.graphFilePaths), sourceReader, deadline, request.budgets.maxFeatureNodes, request.budgets.maxExpansionDepth);
+      cached = await buildFeatureContext(snapshot, files, feature, graph, new Set(shared.graphFilePaths), sourceReader, deadline, request.budgets.maxFeatureNodes, request.budgets.maxExpansionDepth, routes);
       timing[`feature:${key}Ms`] = Date.now() - started;
       await writeJson(cachePath, cached);
     }
@@ -485,7 +501,7 @@ async function buildSharedContext(snapshot: Snapshot, files: ScannedFile[], ledg
   return { snapshotId: snapshot.id, evidence: dedupeEvidence(evidence), markdown, graphFilePaths: [...graphPaths], metrics: { coverage, warnings } };
 }
 
-async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], feature: FeatureRequest, graph: GraphReader | null, graphPaths: Set<string>, sourceReader: SourceReader, deadline: Deadline, maxNodes: number, depth: number): Promise<CachedFeature> {
+async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], feature: FeatureRequest, graph: GraphReader | null, graphPaths: Set<string>, sourceReader: SourceReader, deadline: Deadline, maxNodes: number, depth: number, routes: RouteInventory | null): Promise<CachedFeature> {
   const terms = [...new Set([feature.subject, ...feature.aliases].flatMap(tokenize))].filter(Boolean);
   const evidence: EvidenceItem[] = [];
   const warnings: string[] = [];
@@ -516,9 +532,21 @@ async function buildFeatureContext(snapshot: Snapshot, files: ScannedFile[], fea
     // maxNodes let level-0 exhaust before the depth-2 ring was ever visited). Then close the pool
     // over its own internal edges so hop2↔hop2 relationships (which layered BFS never captures) are
     // present for the allocator's relation channel and the retained edge set.
-    const expanded = graph.expand(seeds.map((node) => node.id), Math.min(depth, 2), Math.max(maxNodes, seeds.length) * 6);
+    // The structural door into the pool. Until now the only way in was a lexical seed, so a module matching no
+    // term was skipped by `expand` and unreachable by anything downstream. A hypothesis that aligns with a
+    // recorded route admits that route's node — and its source-verified handler — as an EXPANSION ROOT.
+    const recall = { route: routeRecall(feature.profile?.possibleEntrypoints ?? [], routes) };
+
+    // THE RED LINE. Recalled nodes go into the expansion roots and NEVER into `seeds`.
+    //
+    // `allocateFeatureGraphRecorded` derives `querySeedNodeIds` from `seeds`, and that set is the identity source
+    // for the `seed` channel and for `attribution.seedCells`, which layer 5 reads as "the query named this". A
+    // node this channel recalled was named by a HYPOTHESIS, not by the query. Merging the two would silently
+    // relabel channel recall as query naming and corrupt the join S1 just landed — with no artifact saying so.
+    const expansionRoots = [...new Set([...seeds.map((node) => String(node.id)), ...recall.route.admissionNodeIds])].sort();
+    const expanded = graph.expand(expansionRoots, Math.min(depth, 2), Math.max(maxNodes, expansionRoots.length) * 6);
     const poolEdges = graph.edgesAmong(expanded.nodes.map((node) => node.id));
-    const pruned = allocateFeatureGraphRecorded(expanded.nodes, [...expanded.edges, ...poolEdges], seeds, anchorTerms, maxNodes);
+    const pruned = allocateFeatureGraphRecorded(expanded.nodes, [...expanded.edges, ...poolEdges], seeds, anchorTerms, maxNodes, recall);
     nodes = pruned.nodes;
     edges = pruned.edges;
     selectionTrace = pruned.trace;

@@ -29,6 +29,7 @@ import { assembleUnitsArtifact, runObservationPass, unitsContentDigest, type Uni
 import type { CountedRow, FileLedger } from "../src/snapshot/file-ledger.ts";
 import { createSnapshot } from "../src/snapshot/snapshot.ts";
 import { tempDir } from "./helpers.ts";
+import { NO_ROUTE_RECALL } from "../src/attribution/route-recall.ts";
 
 /**
  * Layer 4: the seat projection, the five visible buckets, and the three-state selection law.
@@ -205,12 +206,13 @@ function traced(node: GraphNode, outcome: TraceNode["outcome"], score = 0): Trac
   };
 }
 
-function ranTrace(pool: readonly TraceNode[], querySeedNodeIds: readonly string[] = []): RanSelectionTrace {
+function ranTrace(pool: readonly TraceNode[], querySeedNodeIds: readonly string[] = [], route: RanSelectionTrace["recall"]["route"] = { status: "not-run", cause: "no-hypotheses" }): RanSelectionTrace {
   return {
     status: "ran",
     pool: [...pool],
     seedCount: querySeedNodeIds.length || 1,
     querySeedNodeIds: [...querySeedNodeIds].sort(),
+    recall: { route },
     budgets: { maxNodes: 180 },
     fusion: {
       method: "weighted-reciprocal-rank",
@@ -666,6 +668,37 @@ test("the conservation constructor refuses an imbalance, and the compressed zero
   assert.ok(selection.zeroScore.every((group) => group.cells > 0), "a zero-count group is a row with no referent");
 });
 
+// THE ROUTE RECEIPT'S FOUR BUCKETS, EACH WITH AN INPUT THAT REACHES IT.
+//
+// `unavailable` had zero coverage in every layer — unit tests, smoke and pinned bytes — because all five modules of
+// the frozen corpus register routes. A bucket no input ever reaches is a bucket that can be wrong indefinitely.
+//
+// And the rule itself was wrong for a real topology. `unavailable` means "this channel has nothing to work with in
+// this module", and it was decided from registration paths alone — so a repository that registers routes in one
+// module and implements handlers in another (`routes/` beside `controllers/`, the shape framework-convention
+// recovery exists for) reported `unavailable` for the handler's module, while the channel demonstrably CAN admit
+// that handler through the other module's registration. The same module could go from `unavailable` straight to
+// `contributed`, which is a contradiction rather than a coarse answer.
+test("the route receipt distinguishes a module with no route facts from one whose handler lives there", async () => {
+  const layer = await layer3([MODULE_GRANT], moduleTarget);
+  const modules = [{ id: "active", dir: "active" }, { id: "silent", dir: "silent" }];
+
+  // No route facts anywhere: every module is `unavailable` — the bucket that had no input before this test.
+  const blind = assemble(layer, [{
+    featureKey: "f1",
+    trace: ranTrace([traced(MODULE_GRANT, "seed", 1)], [], { status: "ran", hypotheses: [], admittedNodeIds: [] })
+  }], { modules });
+  for (const row of blind.selections[0]!.modules) {
+    assert.equal(row.recall.route, "unavailable", `${row.moduleId} has no route fact of any kind, so the channel had nothing to work with there`);
+  }
+
+  // The channel did not run at all: distinguishable from having run and found nothing.
+  const idle = assemble(layer, [{ featureKey: "f1", trace: ranTrace([traced(MODULE_GRANT, "seed", 1)]) }], { modules });
+  for (const row of idle.selections[0]!.modules) {
+    assert.equal(row.recall.route, "not-run", "no hypotheses is not the same claim as no match");
+  }
+});
+
 test("the module census is total: a zero-signal module keeps its denominator row and receives no seat", async () => {
   const layer = await layer3([MODULE_GRANT], moduleTarget);
   const artifact = assemble(layer, [{ featureKey: "f1", trace: ranTrace([traced(MODULE_GRANT, "seed", 1)]) }], {
@@ -752,15 +785,15 @@ function syntheticPool(): { nodes: any[]; edges: any[]; seeds: any[] } {
 test("the recorded kernel and the trace-free shell return byte-identical node and edge sets", () => {
   const pool = syntheticPool();
   for (const maxNodes of [12, 40, 200]) {
-    const shell = allocateFeatureGraph(pool.nodes, pool.edges, pool.seeds, ["leave", "request"], maxNodes);
-    const recorded = allocateFeatureGraphRecorded(pool.nodes, pool.edges, pool.seeds, ["leave", "request"], maxNodes);
+    const shell = allocateFeatureGraph(pool.nodes, pool.edges, pool.seeds, ["leave", "request"], maxNodes, NO_ROUTE_RECALL);
+    const recorded = allocateFeatureGraphRecorded(pool.nodes, pool.edges, pool.seeds, ["leave", "request"], maxNodes, NO_ROUTE_RECALL);
     assert.equal(JSON.stringify({ nodes: recorded.nodes, edges: recorded.edges }), JSON.stringify(shell), `allocator at ${maxNodes}`);
   }
 });
 
 test("the trace is a partition of the pool: every candidate carries exactly one channel", () => {
   const pool = syntheticPool();
-  const recorded = allocateFeatureGraphRecorded(pool.nodes, pool.edges, pool.seeds, ["leave", "request"], 30);
+  const recorded = allocateFeatureGraphRecorded(pool.nodes, pool.edges, pool.seeds, ["leave", "request"], 30, NO_ROUTE_RECALL);
   assert.equal(recorded.trace.pool.length, pool.nodes.length, "the pool is the INPUT set, not the retained one");
   assert.equal(new Set(recorded.trace.pool.map((node) => node.nodeId)).size, pool.nodes.length);
   const retained = new Set(recorded.nodes.map((node) => String(node.id)));
@@ -773,7 +806,7 @@ test("the trace is a partition of the pool: every candidate carries exactly one 
 
 test("every producer contribution carries the complete explanation contract", () => {
   const pool = syntheticPool();
-  const recorded = allocateFeatureGraphRecorded(pool.nodes, pool.edges, pool.seeds, ["leave", "request"], 30);
+  const recorded = allocateFeatureGraphRecorded(pool.nodes, pool.edges, pool.seeds, ["leave", "request"], 30, NO_ROUTE_RECALL);
   for (const row of recorded.trace.pool) for (const contribution of row.contributions) {
     assert.ok(contribution.sourceChannel);
     assert.ok(contribution.reason);
@@ -801,7 +834,7 @@ function crowdedPool(): { nodes: any[]; edges: any[]; seeds: any[] } {
 test("the allocator never adds a hidden additive seat beyond the one cap", () => {
   const pool = crowdedPool();
   const anchors = ["leave", "holiday"];
-  const recorded = allocateFeatureGraphRecorded(pool.nodes, pool.edges, pool.seeds, anchors, 16);
+  const recorded = allocateFeatureGraphRecorded(pool.nodes, pool.edges, pool.seeds, anchors, 16, NO_ROUTE_RECALL);
   assert.equal(recorded.nodes.length, 16);
   assert.equal(recorded.trace.pool.filter((node) => node.outcome !== "displaced").length, 16);
   for (const node of recorded.trace.pool) assert.equal(node.displacedBy, node.outcome === "displaced" ? "seat-cap" : null);
@@ -810,6 +843,10 @@ test("the allocator never adds a hidden additive seat beyond the one cap", () =>
 test("the preregistered fusion weights are pinned", () => {
   assert.deepEqual({ ...WEIGHTS }, {
     seed: 1,
+    // A structural match carries the same weight as a lexical one. It is deliberately NOT boosted: the channel
+    // earns its influence by admitting candidates nothing else could reach, and a thumb on the scale would let it
+    // reorder seats it did not discover. Changing this number is a planning decision, not an execution one.
+    route: 1,
     lexical: 1,
     derived: 1,
     relation: 1,
@@ -820,7 +857,7 @@ test("the preregistered fusion weights are pinned", () => {
 
 test("every displaced candidate names the single seat cap", () => {
   const pool = syntheticPool();
-  const recorded = allocateFeatureGraphRecorded(pool.nodes, pool.edges, pool.seeds, ["leave", "request"], 20);
+  const recorded = allocateFeatureGraphRecorded(pool.nodes, pool.edges, pool.seeds, ["leave", "request"], 20, NO_ROUTE_RECALL);
   const displaced = recorded.trace.pool.filter((node) => node.outcome === "displaced");
   assert.ok(displaced.length > 0, "the fixture really displaces something");
   for (const node of displaced) {

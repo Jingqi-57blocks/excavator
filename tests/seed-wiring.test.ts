@@ -69,7 +69,7 @@ test("a real prepare seats query seeds and layer 5 marks them seeded", async () 
 
   const attribution = JSON.parse(await readFile(join(runDir, "attribution", "attribution.json"), "utf8"));
   assert.equal(attribution.status, "built");
-  assert.equal(attribution.value.version, "attribution-v3");
+  assert.equal(attribution.value.version, "attribution-v4");
 
   const selection = attribution.value.selections[0];
   assert.ok(selection, "the run selected for its one feature");

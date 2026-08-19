@@ -11,7 +11,7 @@ import { CodeGraphSet } from "../codegraph/codegraph-set.ts";
 import { FUNCTION_INVENTORY_LIMIT, FUNCTION_INVENTORY_VERSION, functionInventory, INVENTORY_NODE_KINDS, inventoryObservations } from "../codegraph/function-inventory.ts";
 import {
   ROUTE_HANDLER_RESOLUTIONS, ROUTE_INVENTORY_LIMIT, ROUTE_INVENTORY_VERSION, ROUTE_REFERENCE_LIMIT,
-  routeInventory, routeObservations
+  inventoryPathsOf, routeInventory, routeObservations
 } from "../codegraph/route-inventory.ts";
 import {
   CROSSREPO_FACTS_VERSION, crossRepoCompleteness, crossRepoConfigDigest, crossRepoDetermination, crossRepoObservations,
@@ -205,7 +205,8 @@ async function collectCodegraph(input: FactsStageInput, facts: ObservedFact[], w
     return { status: "absent", envelope: unavailable("index-not-present: this run resolved no readable CodeGraph database, so no indexed function or route could be enumerated", true) };
   }
   try {
-    const paths = input.ledger.counted.map((row) => row.relativePath);
+    // Through the shared supplier, so this side and the prepare side cannot compose different lists.
+    const paths = inventoryPathsOf(input.ledger);
     const functions = functionInventory(graph.reader, paths);
     const routes = await routeInventory(graph.reader, paths, input.target);
     if (functions.completeness.truncated) {

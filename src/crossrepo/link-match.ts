@@ -27,6 +27,7 @@
 
 import type { FrontendCall } from "./frontend-calls.ts";
 import type { RecoveredRoute } from "./route-table.ts";
+import { alignPaths, pathSegments } from "../base/path-align.ts";
 
 export const LINK_MATCH_VERSION = "link-match-v1";
 
@@ -63,7 +64,7 @@ export type MatchOutcome =
 /** Match one call against every recovered route in the workspace. */
 export function matchCall(call: FrontendCall, candidates: RouteCandidate[]): MatchOutcome {
   if (!call.routePath) return { kind: "unresolved", nearMisses: [] };
-  const callSegments = segments(call.routePath);
+  const callSegments = pathSegments(call.routePath);
 
   const exact: RouteCandidate[] = [];
   const parameterised: RouteCandidate[] = [];
@@ -71,9 +72,9 @@ export function matchCall(call: FrontendCall, candidates: RouteCandidate[]): Mat
   const nearMisses: NearMiss[] = [];
 
   for (const candidate of candidates) {
-    const routeSegments = segments(candidate.route.path);
+    const routeSegments = pathSegments(candidate.route.path);
     const methodOk = candidate.route.method === call.method || candidate.route.method === "ANY";
-    const alignment = align(callSegments, routeSegments);
+    const alignment = alignPaths(callSegments, routeSegments);
     if (!alignment) continue;
     if (!methodOk) {
       // "The frontend calls PATCH where the backend only registers GET" is a finding about the system —
@@ -115,55 +116,10 @@ function link(call: FrontendCall, candidate: RouteCandidate, rule: MatchedLink["
   };
 }
 
-/**
- * Align a call path against a route path.
- *   `exact`         — every segment literal-equal;
- *   `parameterised` — literals equal and every frontend hole sits opposite a route parameter;
- *   `weak`          — a frontend hole sits opposite a LITERAL route segment (measured: always wrong);
- *   `null`          — different length, or two literals that differ.
- */
-function align(call: string[], route: string[]): "exact" | "parameterised" | "weak" | null {
-  // A wildcard route (`/*any`) absorbs the remainder, so it matches on its literal prefix.
-  const wildcard = route.findIndex((segment) => segment.startsWith("*"));
-  if (wildcard >= 0) {
-    if (call.length < wildcard) return null;
-    for (let index = 0; index < wildcard; index++) if (call[index] !== route[index]) return null;
-    return "parameterised";
-  }
-  if (call.length !== route.length) return null;
-  let sawHoleOnParam = false;
-  let sawHoleOnLiteral = false;
-  for (let index = 0; index < call.length; index++) {
-    const left = call[index];
-    const right = route[index];
-    const leftIsHole = left.startsWith(":p");
-    const rightIsParam = right.startsWith(":");
-    if (leftIsHole) {
-      if (rightIsParam) sawHoleOnParam = true;
-      else sawHoleOnLiteral = true;
-      continue;
-    }
-    if (rightIsParam) {
-      // A literal frontend segment against a backend parameter is a legitimate concrete call — but it is
-      // NOT a literal match, and calling it one would make `/v2/leaves/me` tie with `/v2/leaves/:id`. The
-      // router itself resolves that tie by trying the literal route first, so absorption ranks lower.
-      sawHoleOnParam = true;
-      continue;
-    }
-    if (left !== right) return null;
-  }
-  if (sawHoleOnLiteral) return "weak";
-  return sawHoleOnParam ? "parameterised" : "exact";
-}
-
 function describe(candidates: RouteCandidate[]): Array<{ module: string; route: string }> {
   return candidates
     .map((candidate) => ({ module: candidate.module, route: `${candidate.route.method} ${candidate.route.path}` }))
     .sort((a, b) => cmp(a.module, b.module) || cmp(a.route, b.route));
-}
-
-function segments(path: string): string[] {
-  return path.split("/").filter(Boolean);
 }
 
 function cmp(a: string, b: string): number {

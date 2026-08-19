@@ -20,12 +20,13 @@ const FIXTURES = join(import.meta.dirname, "intent-baseline", "fixtures");
 //
 // It asserts today's values, so it goes red the moment S4 lands — mechanically, without anyone remembering.
 test("adding a recall channel forces the pinned baseline to be revisited", () => {
-  assert.deepEqual([...CONTRIBUTION_CHANNELS], ["seed", "lexical", "derived", "relation", "convention", "fallback"],
-    "S4 adds \"route\" here. You are the S4 author: re-pin tests/intent-baseline/expected/ with --write-baseline, "
-    + "and flip ONLY the flip-set assertions in tests/intent-baseline-smoke.ts. The hold-set and stay-empty-set "
-    + "polarities are not yours to move — turning those green means the new channel is admitting noise, not recalling.");
-  assert.equal(ATTRIBUTION_ARTIFACT_VERSION, "attribution-v3", "S4 bumps this; re-pin the baseline with it");
-  assert.equal(SELECTION_TRACE_VERSION, "selection-trace-v3", "S4 bumps this; re-pin the baseline with it");
+  assert.deepEqual([...CONTRIBUTION_CHANNELS], ["seed", "route", "lexical", "derived", "relation", "convention", "fallback"],
+    "S5 adds \"crossrepo\" here. You are the next channel's author: re-pin tests/intent-baseline/expected/ with "
+    + "--write-baseline, and flip ONLY the flip-set assertions in tests/intent-baseline-smoke.ts. The hold-set and "
+    + "stay-empty-set polarities are not yours to move — turning those green means the new channel is admitting "
+    + "noise, not recalling. (S4 added \"route\" and flipped its own flip set; the same rules applied.)");
+  assert.equal(ATTRIBUTION_ARTIFACT_VERSION, "attribution-v4", "the next channel bumps this; re-pin the baseline with it");
+  assert.equal(SELECTION_TRACE_VERSION, "selection-trace-v4", "the next channel bumps this; re-pin the baseline with it");
 });
 
 // THE PINNED FILES MUST BE RE-PINNED, NOT JUST THE TEST ABOVE.

@@ -1,11 +1,12 @@
 {
   "identity": {
-    "version": "attribution-v3",
+    "version": "attribution-v4",
     "unitsContentDigest": "56dbe610c313660b6e6cf56cd4a146e6f70988b64140f1f26f045262167fc2f7",
     "filesContentManifestDigest": "39c56dc230cf16bfb04edcb601ae41a0a62998d5c0f95b6b08535d336a672af4",
     "mechanismsDigest": "d8228ee739fe7812e983a6bab1bb4a619c769069208fa1b80c3a8da4a9b0c16e",
     "channels": [
       "seed",
+      "route",
       "lexical",
       "derived",
       "relation",
@@ -13,7 +14,7 @@
       "fallback",
       "displaced"
     ],
-    "channelConfigDigest": "5a6169f22f463f79f925132d4539d323c4d66b89a75c09fc867181b454bf51ba",
+    "channelConfigDigest": "bdc78a6a13a3b570bb2626489b5a0417cd217bd4632f68c485d9e1da868d4fac",
     "channelInputs": {
       "moduleInventoryDigest": "baff3f533e942375a45cdb1dcf19dc34daedfa840b0f04b18addeb4758c49cd6",
       "codegraphEnvelopePresent": true
@@ -36,7 +37,7 @@
         ]
       },
       {
-        "key": "请假管理消融-d0f5562e79",
+        "key": "请假管理消融-dab654787d",
         "subject": "请假管理消融",
         "aliases": [
           "approve",
@@ -71,6 +72,7 @@
           "fallback": 0,
           "lexical": 45,
           "relation": 75,
+          "route": 0,
           "seed": 52
         },
         "fusion": {
@@ -85,6 +87,12 @@
           ]
         },
         "poolNodes": 1793,
+        "recall": {
+          "route": {
+            "cause": "no-hypotheses",
+            "status": "not-run"
+          }
+        },
         "retainedNodes": 180,
         "seedCount": 144,
         "status": "ran"
@@ -2657,6 +2665,9 @@
           "displacedNodes": 1,
           "moduleId": "wcp_review_service",
           "poolNodes": 1,
+          "recall": {
+            "route": "not-run"
+          },
           "retainedNodes": 0,
           "seatedCells": 0,
           "soleSourceSeats": 0,
@@ -2669,6 +2680,9 @@
           "displacedNodes": 0,
           "moduleId": "wcp-auth",
           "poolNodes": 0,
+          "recall": {
+            "route": "not-run"
+          },
           "retainedNodes": 0,
           "seatedCells": 0,
           "soleSourceSeats": 0,
@@ -2681,6 +2695,9 @@
           "displacedNodes": 182,
           "moduleId": "wcp-service",
           "poolNodes": 210,
+          "recall": {
+            "route": "not-run"
+          },
           "retainedNodes": 28,
           "seatedCells": 10,
           "soleSourceSeats": 0,
@@ -2693,6 +2710,9 @@
           "displacedNodes": 935,
           "moduleId": "wcp-service-v2",
           "poolNodes": 1080,
+          "recall": {
+            "route": "not-run"
+          },
           "retainedNodes": 145,
           "seatedCells": 121,
           "soleSourceSeats": 3,
@@ -2705,6 +2725,9 @@
           "displacedNodes": 495,
           "moduleId": "wcp-ui",
           "poolNodes": 502,
+          "recall": {
+            "route": "not-run"
+          },
           "retainedNodes": 7,
           "seatedCells": 4,
           "soleSourceSeats": 0,
@@ -2724,7 +2747,7 @@
       ]
     },
     {
-      "featureKey": "请假管理消融-d0f5562e79",
+      "featureKey": "请假管理消融-dab654787d",
       "channels": {
         "budgets": {
           "maxNodes": 180
@@ -2734,12 +2757,13 @@
           "derived": 1,
           "displaced": 1650,
           "fallback": 0,
-          "lexical": 72,
-          "relation": 61,
-          "seed": 44
+          "lexical": 70,
+          "relation": 60,
+          "route": 6,
+          "seed": 41
         },
         "fusion": {
-          "cutoffScore": 0.011399766710701765,
+          "cutoffScore": 0.011927786712959418,
           "method": "weighted-reciprocal-rank",
           "rankConstant": 60,
           "rawScoresSummedAcrossChannels": false,
@@ -2750,6 +2774,48 @@
           ]
         },
         "poolNodes": 1830,
+        "recall": {
+          "route": {
+            "admittedNodeIds": [
+              "wcp-service-v2\u0000function:17b6f766dbf210f28377b461014c1eb3",
+              "wcp-service-v2\u0000function:68e277155354c7310e77c415a121fad1",
+              "wcp-service-v2\u0000function:dc3a0363a6718420499670be6c608ae1",
+              "wcp-service-v2\u0000route:internal/handlers/handlers.go:112:GET:/:leave_id/approve-prompt",
+              "wcp-service-v2\u0000route:internal/handlers/handlers.go:113:GET:/apply-prompt",
+              "wcp-service-v2\u0000route:internal/handlers/handlers.go:114:GET:/remain-fully-paid-sick"
+            ],
+            "hypotheses": [
+              {
+                "matchedRouteFactIds": [
+                  "route:wcp-service-v2/internal/handlers/handlers.go:112-112:GET /:leave_id/approve-prompt"
+                ],
+                "method": "GET",
+                "origin": "user",
+                "outcome": "matched",
+                "pathPattern": "/:leave_id/approve-prompt"
+              },
+              {
+                "matchedRouteFactIds": [
+                  "route:wcp-service-v2/internal/handlers/handlers.go:113-113:GET /apply-prompt"
+                ],
+                "method": "GET",
+                "origin": "user",
+                "outcome": "matched",
+                "pathPattern": "/apply-prompt"
+              },
+              {
+                "matchedRouteFactIds": [
+                  "route:wcp-service-v2/internal/handlers/handlers.go:114-114:GET /remain-fully-paid-sick"
+                ],
+                "method": "GET",
+                "origin": "user",
+                "outcome": "matched",
+                "pathPattern": "/remain-fully-paid-sick"
+              }
+            ],
+            "status": "ran"
+          }
+        },
         "retainedNodes": 180,
         "seedCount": 122,
         "status": "ran"
@@ -2963,12 +3029,6 @@
           "unitId": "cell:structure:14452-14608:wcp-service/services/holidayService.js",
           "factId": "function:wcp-service/services/holidayService.js:439-446:getHolidayByUserIdIn",
           "channel": "lexical",
-          "rootName": "wcp-service"
-        },
-        {
-          "unitId": "cell:structure:14651-15985:wcp-service/services/holidayService.js",
-          "factId": "function:wcp-service/services/holidayService.js:448-495:caculateHoidayHourForEachUser",
-          "channel": "seed",
           "rootName": "wcp-service"
         },
         {
@@ -3290,12 +3350,6 @@
           "rootName": "wcp-service"
         },
         {
-          "unitId": "cell:structure:3488-3839:wcp-service/services/holidayService.js",
-          "factId": "function:wcp-service/services/holidayService.js:120-128:addTokenHoursByType",
-          "channel": "seed",
-          "rootName": "wcp-service"
-        },
-        {
           "unitId": "cell:structure:3605-3889:wcp-ui/src/utils/utils.ts",
           "factId": "function:wcp-ui/src/utils/utils.ts:127-132:isAHoliday",
           "channel": "relation",
@@ -3311,12 +3365,6 @@
           "unitId": "cell:structure:3831-4895:wcp-service-v2/internal/handlers/holiday/holiday_concrete.go",
           "factId": "method:wcp-service-v2/internal/handlers/holiday/holiday_concrete.go:163-203:MarkedDays",
           "channel": "seed",
-          "rootName": "wcp-service-v2"
-        },
-        {
-          "unitId": "cell:structure:39126-45541:wcp-service-v2/internal/handlers/leave/notification.go",
-          "factId": "method:wcp-service-v2/internal/handlers/leave/notification.go:1279-1485:handleSES",
-          "channel": "relation",
           "rootName": "wcp-service-v2"
         },
         {
@@ -3506,9 +3554,27 @@
           "rootName": "wcp-service-v2"
         },
         {
+          "unitId": "cell:structure:6575-6792:wcp-service-v2/internal/handlers/leave/router.go",
+          "factId": "function:wcp-service-v2/internal/handlers/leave/router.go:247-253:ApproveLeavePrompt",
+          "channel": "route",
+          "rootName": "wcp-service-v2"
+        },
+        {
           "unitId": "cell:structure:6783-7401:wcp-service-v2/internal/handlers/leaveHistory/service.go",
           "factId": "function:wcp-service-v2/internal/handlers/leaveHistory/service.go:216-232:maybeNotifyLatAmPTOCapOnHolidayHourUpdate",
           "channel": "lexical",
+          "rootName": "wcp-service-v2"
+        },
+        {
+          "unitId": "cell:structure:6794-7006:wcp-service-v2/internal/handlers/leave/router.go",
+          "factId": "function:wcp-service-v2/internal/handlers/leave/router.go:255-261:ApplyLeavePrompt",
+          "channel": "route",
+          "rootName": "wcp-service-v2"
+        },
+        {
+          "unitId": "cell:structure:7008-7131:wcp-service-v2/internal/handlers/leave/router.go",
+          "factId": "function:wcp-service-v2/internal/handlers/leave/router.go:263-265:GetUserRemainFullySickLeave",
+          "channel": "route",
           "rootName": "wcp-service-v2"
         },
         {
@@ -3611,6 +3677,9 @@
       "displaced": [
         "cell:residual:0-1086:wcp-service-v2/internal/handlers/leave/brdg_abst.go",
         "cell:residual:0-1210:wcp-service-v2/internal/handlers/leave/brdg_impl.go",
+        "cell:residual:0-1794:wcp-service-v2/internal/handlers/leave/service.go",
+        "cell:residual:0-1794:wcp-service-v2/internal/handlers/leave/service.go",
+        "cell:residual:0-1794:wcp-service-v2/internal/handlers/leave/service.go",
         "cell:residual:0-2268:wcp-service-v2/internal/handlers/application/general/service.go",
         "cell:residual:0-2354:wcp-ui/src/pages/personal-information/types.ts",
         "cell:residual:0-3303:wcp-service-v2/internal/handlers/support/service.go",
@@ -3627,11 +3696,9 @@
         "cell:residual:0-912:wcp-ui/src/pages/performance-appraisal/components/lastYearModal/LastYearModal.tsx",
         "cell:structure:1002-1149:wcp-ui/src/pages/reimbursement/reimbursement-service.ts",
         "cell:structure:10025-10227:wcp-ui/src/pages/billing/bill-service.ts",
-        "cell:structure:10039-12386:wcp-service-v2/internal/handlers/clientProj/service.go",
         "cell:structure:10080-10982:wcp-service/services/worklogServices.js",
         "cell:structure:10084-11249:wcp-service/services/leaveService.js",
         "cell:structure:10089-10302:wcp-ui/src/api/performanceReviewApi.ts",
-        "cell:structure:10090-11797:wcp-service-v2/internal/handlers/clientProj/task.go",
         "cell:structure:10108-10623:wcp-service-v2/internal/handlers/employee/service.go",
         "cell:structure:10174-10425:wcp-ui/src/project-source/project-service.ts",
         "cell:structure:10202-10560:wcp-service-v2/internal/handlers/management/router.go",
@@ -3854,7 +3921,6 @@
         "cell:structure:1416-1610:wcp-ui/src/pages/client-space/client-space-service.ts",
         "cell:structure:1416-2511:wcp-service/services/slackService.js",
         "cell:structure:1417-2407:wcp-service-v2/internal/third_party/cron/cron.go",
-        "cell:structure:1419-2055:wcp-service-v2/internal/handlers/employee/repr.go",
         "cell:structure:1422-1596:wcp-ui/src/pages/admin/admin-service.ts",
         "cell:structure:14252-15607:wcp-service-v2/internal/handlers/resourcepool/service.go",
         "cell:structure:14321-16900:wcp-service-v2/internal/handlers/clientProj/service.go",
@@ -3874,6 +3940,7 @@
         "cell:structure:14584-14687:wcp-service-v2/internal/handlers/support/utils.go",
         "cell:structure:1461-1935:wcp-service-v2/internal/handlers/mcp_token/service.go",
         "cell:structure:1463-1556:wcp-ui/src/api/promotionReviewApi.ts",
+        "cell:structure:14651-15985:wcp-service/services/holidayService.js",
         "cell:structure:14669-14891:wcp-ui/src/project-source/project-service.ts",
         "cell:structure:1470-12744:wcp-ui/src/pages/worklog/components/LogTimeModal.tsx",
         "cell:structure:1470-8344:wcp-service-v2/internal/handlers/worklog/service.go",
@@ -3952,7 +4019,6 @@
         "cell:structure:1669-1890:wcp-ui/src/project-source/project-service.ts",
         "cell:structure:167-318:wcp-ui/src/pages/public-features/public-service.ts",
         "cell:structure:16758-19642:wcp-service/services/export/workLogReportService.js",
-        "cell:structure:16784-19328:wcp-service-v2/internal/handlers/reimbursement/dto.go",
         "cell:structure:16791-16978:wcp-ui/src/api/performanceReviewApi.ts",
         "cell:structure:1683-1969:wcp-service-v2/internal/handlers/management/permission.go",
         "cell:structure:16835-17098:wcp-service/services/worklogServices.js",
@@ -4080,7 +4146,6 @@
         "cell:structure:2107-2222:wcp-ui/src/api/userApi.ts",
         "cell:structure:2108-2336:wcp-ui/src/api/aiApi.ts",
         "cell:structure:2113-2419:wcp-ui/src/project-source/project-service.ts",
-        "cell:structure:21189-25868:wcp-service-v2/internal/handlers/management/export.go",
         "cell:structure:21208-22843:wcp-service-v2/internal/handlers/leave/brdg_impl.go",
         "cell:structure:21247-21969:wcp-service-v2/internal/handlers/management/analytics.go",
         "cell:structure:2126-2586:wcp-service-v2/internal/cmd/root.go",
@@ -4308,7 +4373,6 @@
         "cell:structure:2988-3167:wcp-ui/src/pages/application/application-service.ts",
         "cell:structure:29968-30420:wcp-ui/src/pages/billing/bill-service.ts",
         "cell:structure:30017-31789:wcp-service-v2/internal/handlers/projectspace/service.go",
-        "cell:structure:30030-31952:wcp-service-v2/internal/handlers/clientProj/service.go",
         "cell:structure:3009-3689:wcp-service-v2/internal/handlers/leave/utils.go",
         "cell:structure:301-2572:wcp-service-v2/internal/cmd/sync_interview.go",
         "cell:structure:301-480:wcp-service-v2/internal/handlers/employee/permission.go",
@@ -4418,6 +4482,7 @@
         "cell:structure:347-597:wcp-ui/src/api/clockInApi.ts",
         "cell:structure:3474-7918:wcp-service-v2/internal/handlers/reimbursement/notifier.go",
         "cell:structure:34741-36426:wcp-service-v2/internal/handlers/management/notifier.go",
+        "cell:structure:3488-3839:wcp-service/services/holidayService.js",
         "cell:structure:349-2073:wcp-ui/src/common/useBreadcrumb.tsx",
         "cell:structure:349-492:wcp-ui/src/pages/reimbursement/reimbursement-service.ts",
         "cell:structure:3491-3979:wcp-ui/src/api/common-service.ts",
@@ -4485,7 +4550,6 @@
         "cell:structure:38144-38814:wcp-service-v2/internal/handlers/leave/notification.go",
         "cell:structure:38155-38382:wcp-service-v2/internal/handlers/resourcepool/openai_service.go",
         "cell:structure:383-788:wcp-service-v2/internal/tasks/annual_personal_info_reset/run_now.go",
-        "cell:structure:38306-40130:wcp-service-v2/internal/handlers/clientProj/service.go",
         "cell:structure:38334-42953:wcp-service-v2/internal/handlers/employee/service.go",
         "cell:structure:3836-3985:wcp-ui/src/api/aiApi.ts",
         "cell:structure:38384-38594:wcp-service-v2/internal/handlers/resourcepool/openai_service.go",
@@ -4506,6 +4570,7 @@
         "cell:structure:39069-39308:wcp-service-v2/internal/handlers/resourcepool/openai_service.go",
         "cell:structure:3909-4111:wcp-ui/src/pages/hr/hr-service.ts",
         "cell:structure:3912-4293:wcp-ui/src/pages/leave/leave-service.ts",
+        "cell:structure:39126-45541:wcp-service-v2/internal/handlers/leave/notification.go",
         "cell:structure:3925-4440:wcp-service-v2/internal/handlers/resourcepool/permission.go",
         "cell:structure:3927-7425:wcp-service-v2/internal/handlers/projectspace/hiring.go",
         "cell:structure:393-6117:wcp-service/services/reviewService.js",
@@ -4608,7 +4673,6 @@
         "cell:structure:4529-4772:wcp-service-v2/internal/model/permissions.go",
         "cell:structure:4534-4671:wcp-ui/src/project-source/project-service.ts",
         "cell:structure:45343-46868:wcp-service-v2/internal/handlers/projectspace/hiring.go",
-        "cell:structure:45384-46411:wcp-service-v2/internal/handlers/clientProj/service.go",
         "cell:structure:4540-5086:wcp-service-v2/internal/handlers/policy/representation.go",
         "cell:structure:455-3108:wcp-service-v2/internal/tasks/policy/task.go",
         "cell:structure:45516-45766:wcp-service-v2/internal/handlers/management/service.go",
@@ -4976,7 +5040,6 @@
         "cell:structure:8472-10634:wcp-service-v2/internal/handlers/leave/brdg_impl.go",
         "cell:structure:848-1609:wcp-service/common/emailTool.js",
         "cell:structure:849-2023:wcp-service-v2/internal/tasks/confirm_log/unpaid_bill_notify.go",
-        "cell:structure:8513-9199:wcp-service-v2/internal/handlers/beisen/service.go",
         "cell:structure:8522-13417:wcp-service-v2/internal/handlers/projectspace/utils.go",
         "cell:structure:853-1119:wcp-service-v2/internal/handlers/reimbursement/router.go",
         "cell:structure:8532-9002:wcp-service-v2/internal/handlers/projectspace/client.go",
@@ -5057,7 +5120,6 @@
         "cell:structure:968-1204:wcp-service/common/utilService.js",
         "cell:structure:970-1161:wcp-service-v2/internal/handlers/newsletter/notifier.go",
         "cell:structure:971-1189:wcp-service-v2/internal/handlers/management/notifier.go",
-        "cell:structure:9711-15594:wcp-service-v2/internal/handlers/application/general/notifier.go",
         "cell:structure:9715-9906:wcp-service-v2/internal/handlers/clientProj/task.go",
         "cell:structure:9737-11635:wcp-service-v2/internal/handlers/management/client_cover_expenses.go",
         "cell:structure:974-1415:wcp-service-v2/internal/third_party/cron/cron.go",
@@ -5106,7 +5168,6 @@
         "cell:structure:1411-1492:wcp-service-v2/internal/handlers/holiday/router.go",
         "cell:structure:14333-14834:wcp-service-v2/internal/handlers/leave/brdg_impl.go",
         "cell:structure:14452-14608:wcp-service/services/holidayService.js",
-        "cell:structure:14651-15985:wcp-service/services/holidayService.js",
         "cell:structure:1467-1677:wcp-service-v2/internal/handlers/holiday/holiday_component.go",
         "cell:structure:14689-14968:wcp-service-v2/internal/handlers/support/utils.go",
         "cell:structure:1494-1579:wcp-service-v2/internal/handlers/holiday/router.go",
@@ -5139,7 +5200,6 @@
         "cell:structure:3175-3343:wcp-ui/src/utils/utils.ts",
         "cell:structure:324-476:wcp-service-v2/internal/handlers/holiday/holiday_concrete.go",
         "cell:structure:333-383:wcp-ui/src/store/location/action.ts",
-        "cell:structure:3488-3839:wcp-service/services/holidayService.js",
         "cell:structure:3605-3889:wcp-ui/src/utils/utils.ts",
         "cell:structure:3831-4895:wcp-service-v2/internal/handlers/holiday/holiday_concrete.go",
         "cell:structure:41104-41376:wcp-service-v2/internal/handlers/management/service.go",
@@ -5329,7 +5389,7 @@
           "rootName": "wcp_review_service"
         },
         {
-          "cells": 1737,
+          "cells": 1744,
           "language": "go",
           "reason": "structure-not-in-pool",
           "rootName": "wcp-service-v2"
@@ -5371,7 +5431,7 @@
           "rootName": "wcp-ui"
         },
         {
-          "cells": 3058,
+          "cells": 3057,
           "language": "go",
           "reason": "residual-no-channel-contribution",
           "rootName": "wcp-service-v2"
@@ -5454,11 +5514,11 @@
           "missCounts": {
             "envelope-unavailable": 0,
             "file-not-counted": 0,
-            "kind-not-inventoried": 178,
+            "kind-not-inventoried": 182,
             "no-matching-fact": 0
           },
           "nodes": 1650,
-          "seated": 1472
+          "seated": 1468
         },
         "retained": {
           "missCounts": {
@@ -5479,6 +5539,9 @@
           "displacedNodes": 0,
           "moduleId": "wcp_review_service",
           "poolNodes": 0,
+          "recall": {
+            "route": "no-match"
+          },
           "retainedNodes": 0,
           "seatedCells": 0,
           "soleSourceSeats": 0,
@@ -5491,6 +5554,9 @@
           "displacedNodes": 0,
           "moduleId": "wcp-auth",
           "poolNodes": 0,
+          "recall": {
+            "route": "no-match"
+          },
           "retainedNodes": 0,
           "seatedCells": 0,
           "soleSourceSeats": 0,
@@ -5499,25 +5565,31 @@
         {
           "denominatorCells": 2609,
           "dir": "wcp-service",
-          "displacedCells": 130,
-          "displacedNodes": 224,
+          "displacedCells": 132,
+          "displacedNodes": 228,
           "moduleId": "wcp-service",
           "poolNodes": 264,
-          "retainedNodes": 40,
-          "seatedCells": 28,
+          "recall": {
+            "route": "no-match"
+          },
+          "retainedNodes": 36,
+          "seatedCells": 26,
           "soleSourceSeats": 0,
           "status": "seated"
         },
         {
           "denominatorCells": 5905,
           "dir": "wcp-service-v2",
-          "displacedCells": 918,
-          "displacedNodes": 949,
+          "displacedCells": 910,
+          "displacedNodes": 945,
           "moduleId": "wcp-service-v2",
           "poolNodes": 1080,
-          "retainedNodes": 131,
-          "seatedCells": 99,
-          "soleSourceSeats": 1,
+          "recall": {
+            "route": "contributed"
+          },
+          "retainedNodes": 135,
+          "seatedCells": 101,
+          "soleSourceSeats": 3,
           "status": "seated"
         },
         {
@@ -5527,6 +5599,9 @@
           "displacedNodes": 477,
           "moduleId": "wcp-ui",
           "poolNodes": 486,
+          "recall": {
+            "route": "no-match"
+          },
           "retainedNodes": 9,
           "seatedCells": 8,
           "soleSourceSeats": 0,
@@ -5537,9 +5612,9 @@
         {
           "totals": {
             "counted": 14443,
-            "displaced": 1467,
+            "displaced": 1461,
             "seated": 135,
-            "zeroScore": 12841
+            "zeroScore": 12847
           },
           "unitKind": "partition-cell"
         }
