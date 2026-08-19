@@ -33,7 +33,7 @@ interface Fixture {
   anchors: Array<{ routeFactId: string; handlerCell: string; handlerName: string; module: string }>;
   moduleClasses: {
     hold: Array<{ module: string; why: string }>;
-    stayEmpty: Array<{ module: string; why: string }>;
+    stayEmpty: Array<{ module: string; why: string; poolNodes: { full: number; ablated: number } }>;
     notPinned: Record<string, string>;
   };
 }
@@ -172,17 +172,27 @@ async function runFixture(name: string): Promise<void> {
     // STAY-EMPTY SET — empty today, must STAY empty. The false-positive tripwire: turning these green means the
     // new channel is admitting on the word rather than on the capability.
     //
-    // ASSERTED ON SEATS, NOT ON `status`. The claim this set makes is "nothing here gets selected", and `status`
-    // spells that two different ways: a module whose candidates all lose scoring reads `candidates-no-seat`, one
-    // whose vocabulary never matched reads `zero-signal`. Both are zero seats. wcp_review_service is literally
-    // both — `candidates-no-seat` in the full arm, `zero-signal` under ablation — so a literal comparison would
-    // have to encode per-arm expectations for a distinction that carries no meaning here, and would go red when
-    // an unrelated parameter (the generic action-term list, say) moves a module between two states that are
-    // equally empty. `seatedCells` is the quantity the set is actually about, and `status === "seated"` is
-    // derived from it being non-zero, so this is strictly tighter than the literal for the case that matters.
+    // ASSERTED ON THE THREE QUANTITIES, NOT ON `status`. This used to read `status === "zero-signal"`, which is
+    // exactly `seated === 0 && poolNodes === 0 && denominatorCells > 0` (see the derivation in
+    // attribution-artifact.ts). That single literal cannot describe wcp_review_service, which is `zero-signal`
+    // under ablation but `candidates-no-seat` in the full arm — its one lexical hit enters the pool and loses
+    // scoring. Both readings are zero seats, and the difference between them is not what this set is about.
+    //
+    // Naming the quantities directly is what the literal was standing in for, so nothing is given up: `poolNodes`
+    // is declared PER ARM in the fixture and pinned exactly, which is strictly more than the literal could say —
+    // it holds wcp_review_service to pool exactly 1 in the full arm, so a channel that widened its admission
+    // there would go red even though its status literal would not move. The declaration is required rather than
+    // optional: an optional expectation is one a future entry silently omits.
     for (const empty of fixture.moduleClasses.stayEmpty) {
-      assert.equal(moduleRow(selection, empty.module).seatedCells, 0,
+      const row = moduleRow(selection, empty.module);
+      assert.equal(row.seatedCells, 0,
         `stay-empty module ${empty.module} gained seats in the ${armName} arm`);
+      assert.equal(row.poolNodes, empty.poolNodes[armName],
+        `stay-empty module ${empty.module} changed its ${armName}-arm pool admission; the fixture declares ${empty.poolNodes[armName]} and this set's whole claim is about what is allowed in`);
+      // The literal also carried `denominatorCells > 0`. Without it, a module that fell out of the denominator
+      // entirely would satisfy every count above by vanishing rather than by staying empty.
+      assert.ok(row.denominatorCells > 0,
+        `stay-empty module ${empty.module} left the denominator in the ${armName} arm; zero seats then proves nothing`);
     }
   }
 
