@@ -1,0 +1,16 @@
+{
+  "createdAt": "2026-01-01T00:09:00.000Z",
+  "findings": [
+    {
+      "document": "feature-leave-product",
+      "level": "warning",
+      "message": "authoring packet section 2 lists frozen evidence not consumed by any claim: E-3"
+    },
+    {
+      "document": "feature-leave-engineering",
+      "level": "error",
+      "message": "section 1 has an unclaimed substantive statement: fixture"
+    }
+  ],
+  "runId": "run-fixture-factpack"
+}

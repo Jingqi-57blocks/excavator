@@ -70,6 +70,9 @@ excavator-work/
 
 # --- Test / tooling scratch ---
 coverage/
+# A run directory keeps its read-coverage residual under `coverage/`, so the unanchored pattern above also hid
+# the fixture runs that `eval packet-readings` reads it from — present locally, missing from a fresh clone.
+!eval/tests/fixtures/*/coverage/
 .nyc_output/
 tmp/
 .tmp/

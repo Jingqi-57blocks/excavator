@@ -30,9 +30,12 @@ import { stableJson } from "../../src/base/util.ts";
 
 const TWIN = join(import.meta.dirname, "fixtures", "packet-twin-overviews");
 const FEATURE = join(import.meta.dirname, "fixtures", "packet-feature-blocks");
+const FACTPACK = join(import.meta.dirname, "fixtures", "packet-feature-factpack");
 
 const twin = extractPacketReadings(TWIN);
 const feature = extractPacketReadings(FEATURE);
+const factpack = extractPacketReadings(FACTPACK);
+const ALL: Array<readonly [PacketReadings, string]> = [[twin, TWIN], [feature, FEATURE], [factpack, FACTPACK]];
 
 function document(readings: PacketReadings, id: string): DocumentPacketReading {
   const found = readings.documents.find((entry) => entry.documentId === id);
@@ -41,7 +44,11 @@ function document(readings: PacketReadings, id: string): DocumentPacketReading {
 }
 function bucketSum(reading: DocumentPacketReading): number {
   const b = reading.buckets;
-  return b["work-item"] + b.evidence + b.trace + b["anchor-line"] + b.unattributed;
+  return b["work-item"] + b.evidence + b.trace + b.factpack + b["anchor-line"] + b.unattributed;
+}
+function attributed(reading: DocumentPacketReading): number {
+  const b = reading.buckets;
+  return b["work-item"] + b.evidence + b.trace + b.factpack + b["anchor-line"];
 }
 async function copyFixture(source: string): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), "packet-readings-"));
@@ -95,11 +102,11 @@ test("twin overview packets differ by exactly the document id, so every attribut
 });
 
 test("every packet byte lands in exactly one bucket, and the buckets sum to the file's byte length", () => {
-  for (const readings of [twin, feature]) {
+  for (const [readings, dir] of ALL) {
     for (const reading of readings.documents) {
       assert.equal(bucketSum(reading), reading.packetBytes, `${reading.documentId} buckets must sum to packetBytes`);
       // The on-disk file is the authority for the denominator; nothing is inferred.
-      assert.equal(reading.packetBytes, readFileSync(packetPath(readings === twin ? TWIN : FEATURE, reading.documentId)).length);
+      assert.equal(reading.packetBytes, readFileSync(packetPath(dir, reading.documentId)).length);
     }
     assert.equal(readings.totals.packetBytes, readings.documents.reduce((sum, entry) => sum + entry.packetBytes, 0));
     assert.equal(readings.duplication.totalPacketBytes, readings.totals.packetBytes);
@@ -112,8 +119,10 @@ test("each packet's bytes are pinned by digest, so a same-length edit cannot sli
   assert.equal(document(twin, "overview-product").packetDigest, "e5475b215c28e752f23ac9f4f86ca78c630b5caf637b5b951ab65867c61391e3");
   assert.equal(document(twin, "overview-engineering").packetDigest, "619f125c427dbe7c4dd697a13b3c2039827b6a052a092965603540e85bfc19b2");
   assert.equal(document(feature, "feature-leave-engineering").packetDigest, "f91a9acda7e140571d4643a940771e14831fccb3310a0a23d9c8fb4e448b5eed");
+  assert.equal(document(factpack, "feature-leave-product").packetDigest, "f790f21b91c9f5b148c9ead951747a06c478c1e74ae413cab96c328979c6e3e0");
+  assert.equal(document(factpack, "feature-leave-engineering").packetDigest, "06779280fd20c18b15caf013508ff1046e177430ef83bb6f3b9310c787c2b93e");
   // And the digest is of the packet the projection actually read, computed here independently of it.
-  for (const [readings, dir] of [[twin, TWIN], [feature, FEATURE]] as const) {
+  for (const [readings, dir] of ALL) {
     for (const reading of readings.documents) {
       assert.equal(reading.packetDigest, createHash("sha256").update(readFileSync(packetPath(dir, reading.documentId))).digest("hex"));
     }
@@ -240,6 +249,93 @@ test("a chunk that occurs twice in one packet is a named failure, never a double
   }
 });
 
+// --- ③b fact listings: the one large packet region whose rows carry no id of their own ---
+
+test("a fact listing is attributed to factpack:<featureKey>:<category>, with every byte hand-derivable", () => {
+  const product = document(factpack, "feature-leave-product");
+  const engineering = document(factpack, "feature-leave-engineering");
+  assert.deepEqual([product.factPack, engineering.factPack], ["present", "present"]);
+  assert.deepEqual([product.blocks, engineering.blocks], [2, 2]);
+
+  // The two chunks `renderFactCategory` writes, spelled out. entrypoints: 42 + 40 + 39 bytes of text plus the two
+  // newlines joining them = 123. entities: 38 + 41 + 1 = 80.
+  const entrypoints = "#### entrypoints — 2 items, truncated no\n- `POST /leave` — `src/leave.ts:10-12`\n- `GET /leave` — `src/leave.ts:20-22`";
+  const entities = "#### entities — 1 item, truncated no\n- `LeaveRequest` — `src/leave.ts:30-32`";
+  assert.equal(Buffer.byteLength(entrypoints), 123);
+  assert.equal(Buffer.byteLength(entities), 80);
+  const packet = readFileSync(packetPath(FACTPACK, "feature-leave-product"), "utf8");
+  assert.ok(packet.includes(entrypoints) && packet.includes(entities), "the fixture must contain both listings verbatim");
+
+  // Section 1 maps to entrypoints; section 2's work items map to entrypoints AND entities. So the renderer writes
+  // the entrypoints listing TWICE into one packet and the entities listing once: 2 x 123 + 80 = 326.
+  assert.equal(product.buckets.factpack, 2 * 123 + 80);
+  assert.equal(product.buckets.factpack, 326);
+  assert.deepEqual(product.repeatedUnits, [{ kind: "factpack", id: "factpack:leave:entrypoints", occurrences: 2 }]);
+  assert.deepEqual(engineering.repeatedUnits, product.repeatedUnits);
+  assert.deepEqual(product.absentUnits, []);
+  assert.deepEqual(product.units, { total: 9, full: 9, anchorOnly: 0, absent: 0 }); // 3 work items + 3 evidence + 1 trace + 2 fact listings
+
+  // Same twin identity as the overview pair: the packets differ only in the H1 document id.
+  const idDelta = Buffer.byteLength("feature-leave-engineering") - Buffer.byteLength("feature-leave-product");
+  assert.equal(idDelta, 4);
+  assert.equal(engineering.packetBytes - product.packetBytes, idDelta);
+  assert.equal(engineering.buckets.unattributed - product.buckets.unattributed, idDelta);
+  assert.equal(attributed(product), attributed(engineering));
+
+  // The fact listings are therefore duplicated across packets exactly like everything else with an id.
+  const byId = new Map(factpack.duplication.duplicatedUnits.map((unit) => [unit.id, unit]));
+  assert.deepEqual(byId.get("factpack:leave:entrypoints")?.bytes, [246, 246]);
+  assert.deepEqual(byId.get("factpack:leave:entities")?.bytes, [80, 80]);
+  assert.equal(factpack.duplication.byKind.factpack.units, 2);
+  assert.equal(factpack.duplication.byKind.factpack.duplicateBytes, 326);
+  assert.equal(factpack.duplication.duplicateBytes, attributed(engineering));
+  assert.equal(factpack.duplication.duplicateBytes, 972);
+  assert.equal(factpack.duplication.duplicateRatio, Number((972 / 3460).toFixed(6)));
+});
+
+test("the fact-pack state is a named three-valued reading, never a silent zero", () => {
+  // An overview renders no fact listing at all; a feature document with no pack on disk says so in prose, and the
+  // projection says `absent` rather than reporting a zero-byte factpack bucket as if a pack had been rendered.
+  for (const reading of twin.documents) assert.equal(reading.factPack, "not-applicable");
+  const withoutPack = document(feature, "feature-leave-engineering");
+  assert.equal(withoutPack.factPack, "absent");
+  assert.equal(withoutPack.buckets.factpack, 0);
+  assert.equal(feature.duplication.byKind.factpack.units, 0);
+  const packet = readFileSync(packetPath(FEATURE, "feature-leave-engineering"), "utf8");
+  assert.ok(packet.includes("No fact pack was produced for this feature"), "the packet itself says the pack is absent");
+});
+
+// --- ③c the read-coverage residual: the "改动前" value for the epic's upstream-honesty gate ---
+
+test("the read-coverage residual is copied out field for field, items tallied by their own status", () => {
+  assert.deepEqual(factpack.readCoverage, {
+    version: "read-coverage-v1",
+    consumptionEvaluated: true,
+    items: 3,
+    itemsByStatus: { covered: 1, "not-opened": 1, partial: 1 },
+    summary: {
+      counted: 3, covered: 1, partial: 1, notOpened: 1, cannotDetermine: 0,
+      obligationLines: 65, openedLines: 13, uncoveredLines: 51, openedNotConsumed: 1, gatedNotOpened: 1
+    },
+    notOpenedByAttribution: { retained: 1, anchorName: 0, anchorPath: 0, unclassified: 0 },
+    notOpenedLinesByAttribution: { retained: 41, anchorName: 0, anchorPath: 0, unclassified: 0 }
+  });
+  // The tally is over the artifact's own items, not over the summary: 3 items, 3 distinct statuses.
+  const raw = JSON.parse(readFileSync(join(FACTPACK, "coverage", "read-residual.json"), "utf8")) as { items: Array<{ status: string }> };
+  assert.equal(factpack.readCoverage.items, raw.items.length);
+  assert.deepEqual(Object.keys(factpack.readCoverage.itemsByStatus), [...new Set(raw.items.map((item) => item.status))].sort());
+});
+
+test("an absent anchor-label split is reported as the literal \"absent\", never as an empty object", () => {
+  assert.equal(twin.readCoverage.notOpenedByAttribution, "absent");
+  assert.equal(twin.readCoverage.notOpenedLinesByAttribution, "absent");
+  assert.deepEqual(twin.readCoverage.itemsByStatus, {});
+  assert.equal(twin.readCoverage.items, 0);
+  // An all-zero residual is still a reading: the fields are present and the version is named.
+  assert.equal(twin.readCoverage.version, "read-coverage-v1");
+  assert.equal(twin.readCoverage.summary.counted, 0);
+});
+
 // --- ④ no silent empty: every unreadable input is a named failure ---
 
 test("a missing or unusable required artifact fails by name, with no zero-valued reading", async () => {
@@ -263,7 +359,12 @@ test("a missing or unusable required artifact fails by name, with no zero-valued
       audit.findings[0].level = "note";
       await writeFile(path, JSON.stringify(audit));
     }],
-    ["claims array", /packet readings: claims\/overview-product\/01.json has no claims array/, async (dir) => writeFile(join(dir, "claims", "overview-product", "01.json"), JSON.stringify({ version: 2, documentId: "overview-product", section: 1 }))]
+    ["claims array", /packet readings: claims\/overview-product\/01.json has no claims array/, async (dir) => writeFile(join(dir, "claims", "overview-product", "01.json"), JSON.stringify({ version: 2, documentId: "overview-product", section: 1 }))],
+    ["read residual", /packet readings: coverage\/read-residual.json is missing at/, async (dir) => rm(join(dir, "coverage", "read-residual.json"))],
+    ["residual summary field", /packet readings: coverage\/read-residual.json summary.uncoveredLines is undefined, not a number/, async (dir) => patchResidual(dir, (report) => { delete report.summary.uncoveredLines; })],
+    ["residual item status", /packet readings: coverage\/read-residual.json item 0 has no status/, async (dir) => patchResidual(dir, (report) => { report.items = [{ id: "R-1" }]; })],
+    ["residual attribution shape", /packet readings: coverage\/read-residual.json summary.notOpenedByAttribution is 7, not an object/, async (dir) => patchResidual(dir, (report) => { report.summary.notOpenedByAttribution = 7; })],
+    ["residual version", /packet readings: coverage\/read-residual.json has no version/, async (dir) => patchResidual(dir, (report) => { delete report.version; })]
   ];
   for (const [label, expected, mutate] of cases) {
     const dir = await copyFixture(TWIN);
@@ -283,12 +384,19 @@ test("a path that is not a run directory fails by name", () => {
 // --- ⑤ determinism: the same run directory projects to the same bytes ---
 
 test("re-running the extractor over the same run directory produces byte-identical output", () => {
-  for (const dir of [TWIN, FEATURE]) {
+  for (const dir of [TWIN, FEATURE, FACTPACK]) {
     const first = stableJson(extractPacketReadings(dir));
     const second = stableJson(extractPacketReadings(dir));
     assert.equal(Buffer.compare(Buffer.from(first), Buffer.from(second)), 0, `${dir} must project to the same bytes twice`);
   }
 });
+
+async function patchResidual(dir: string, mutate: (report: Record<string, any>) => void): Promise<void> {
+  const path = join(dir, "coverage", "read-residual.json");
+  const report = JSON.parse(readFileSync(path, "utf8")) as Record<string, any>;
+  mutate(report);
+  await writeFile(path, JSON.stringify(report, null, 2));
+}
 
 async function patchManifest(dir: string, mutate: (manifest: Record<string, any>) => void): Promise<void> {
   const path = join(dir, "run.json");

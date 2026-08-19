@@ -1,0 +1,17 @@
+{
+  "consumptionEvaluated": true,
+  "items": [],
+  "summary": {
+    "cannotDetermine": 0,
+    "counted": 0,
+    "covered": 0,
+    "gatedNotOpened": 0,
+    "notOpened": 0,
+    "obligationLines": 0,
+    "openedLines": 0,
+    "openedNotConsumed": 0,
+    "partial": 0,
+    "uncoveredLines": 0
+  },
+  "version": "read-coverage-v1"
+}

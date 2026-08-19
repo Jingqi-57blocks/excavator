@@ -295,7 +295,7 @@ function renderFacts(items: InvestigationWorkItem[], factPack: FeatureFactPack |
   return lines.join("\n");
 }
 
-function renderFactCategory(category: FactPackCategory, coverage: FactPackCoverage | undefined, items: FactPackItem[], featureKey: string): string {
+export function renderFactCategory(category: FactPackCategory, coverage: FactPackCoverage | undefined, items: FactPackItem[], featureKey: string): string {
   const truncated = coverage?.truncated ? "yes" : "no";
   const lines = [`#### ${category} — ${items.length} item${items.length === 1 ? "" : "s"}, truncated ${truncated}`];
   if (!items.length) {
@@ -456,7 +456,7 @@ function unionEvidenceIds(items: InvestigationWorkItem[]): string[] {
 }
 
 /** The feature cache key embedded in a feature document id: `feature-<key>-<audience>`. */
-function featureKeyOf(document: DocumentPlan): string {
+export function featureKeyOf(document: DocumentPlan): string {
   return document.id.replace(/^feature-/, "").replace(new RegExp(`-${document.audience}$`), "");
 }
 

@@ -1,0 +1,17 @@
+{
+  "claims": [
+    {
+      "confidence": "high",
+      "evidenceIds": [
+        "E-1"
+      ],
+      "id": "claim-1",
+      "marker": "fact",
+      "statement": "A leave request stores a day count.",
+      "status": "verified"
+    }
+  ],
+  "documentId": "feature-leave-product",
+  "section": 2,
+  "version": 2
+}
