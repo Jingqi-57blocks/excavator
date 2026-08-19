@@ -7,6 +7,7 @@ import { archiveCheckpoint, normalizeSection } from "./checkpoint.ts";
 import { appendTimeline } from "../base/timeline.ts";
 import { atomicWrite, exists, listDirectories, nowIso, readJson, writeJson } from "../base/util.ts";
 import { assertCurrentKnowledgeEpochForAuthoring } from "../freeze/freeze.ts";
+import { sectionPaths } from "./section-paths.ts";
 
 /**
  * Parallel section authoring: "write in parallel, account serially."
@@ -44,9 +45,10 @@ export async function draftSection(runDirInput: string, documentId: string, sect
   if (!section) throw new Error(`Unknown section ${sectionIndex} for ${documentId}`);
   const normalized = normalizeSection(content, section.title);
   const validated = claims ? validateClaimsInput(documentId, sectionIndex, claims) : undefined;
-  const revision = await archiveCheckpoint(runDir, documentId, section.file, section.claimsFile);
-  await atomicWrite(section.file, normalized);
-  if (validated) await writeJson(section.claimsFile, validated);
+  const paths = sectionPaths(runDir, documentId, section);
+  const revision = await archiveCheckpoint(runDir, documentId, paths.file, paths.claimsFile);
+  await atomicWrite(paths.file, normalized);
+  if (validated) await writeJson(paths.claimsFile, validated);
   const receipt: DraftReceipt = {
     version: 1,
     runId: manifest.id,
@@ -127,8 +129,9 @@ export async function collectDrafts(runDirInput: string): Promise<{ manifest: Ru
     if (!section) throw new Error(`Draft receipt references unknown section ${receipt.section} for ${receipt.documentId}`);
     // Fail closed: a receipt is a promise that the section (and its claims) are on disk. If the drafted
     // artifacts are gone, refuse rather than record a checkpoint for a section that is not there.
-    if (!await exists(section.file)) throw new Error(`Draft receipt for ${receipt.documentId} section ${receipt.section} has no section file on disk`);
-    if (receipt.hasClaims && !await exists(section.claimsFile)) throw new Error(`Draft receipt for ${receipt.documentId} section ${receipt.section} claims a sidecar that is not on disk`);
+    const paths = sectionPaths(runDir, document.id, section);
+    if (!await exists(paths.file)) throw new Error(`Draft receipt for ${receipt.documentId} section ${receipt.section} has no section file on disk`);
+    if (receipt.hasClaims && !await exists(paths.claimsFile)) throw new Error(`Draft receipt for ${receipt.documentId} section ${receipt.section} claims a sidecar that is not on disk`);
 
     const revisingCompletedDocument = preCompletedDocuments.has(document.id);
     if (!document.startedAt) document.startedAt = nowIso();

@@ -4,6 +4,7 @@ import type {
   DocumentPlan, InvestigationPlan, SectionClaim, SectionClaimsFile, TraceCatalog
 } from "../base/types.ts";
 import { exists, writeJson } from "../base/util.ts";
+import { sectionPaths } from "./section-paths.ts";
 
 /**
  * Every claim in the run, keyed by document + section + claim id.
@@ -19,8 +20,9 @@ export async function collectClaims(runDir: string, documents: DocumentPlan[]): 
   const claims = new Map<string, SectionClaim>();
   for (const document of documents) {
     for (const section of document.sections) {
-      if (!await exists(section.claimsFile)) continue;
-      const file = await readJsonFile<SectionClaimsFile>(section.claimsFile);
+      const claimsPath = sectionPaths(runDir, document.id, section).claimsFile;
+      if (!await exists(claimsPath)) continue;
+      const file = await readJsonFile<SectionClaimsFile>(claimsPath);
       for (const claim of file.claims) claims.set(`${document.id}#${section.index}#${claim.id}`, claim);
     }
   }
@@ -29,7 +31,10 @@ export async function collectClaims(runDir: string, documents: DocumentPlan[]): 
 
 export async function writeReportCompanions(runDir: string, document: DocumentPlan, plan: InvestigationPlan, traces: TraceCatalog): Promise<void> {
   const claims: Array<SectionClaimsFile> = [];
-  for (const section of document.sections) if (await exists(section.claimsFile)) claims.push(await readJsonFile<SectionClaimsFile>(section.claimsFile));
+  for (const section of document.sections) {
+    const claimsPath = sectionPaths(runDir, document.id, section).claimsFile;
+    if (await exists(claimsPath)) claims.push(await readJsonFile<SectionClaimsFile>(claimsPath));
+  }
   const documentClaimIds = new Set(claims.flatMap((file) => file.claims.map((claim) => claim.id)));
   const documentTraces = traces.traces.filter((trace) => trace.documentIds.includes(document.id) || trace.steps.some((step) => (step.claimIds ?? []).some((id) => documentClaimIds.has(id))));
   const workItems = plan.items.filter((item) => item.requiredFor.includes(document.id));

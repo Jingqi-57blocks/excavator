@@ -75,19 +75,25 @@ test("a claim disposing a different item does not cover this one", () => {
 
 // --- claim counting ---
 
+// The layout is the one `makeDocumentPlan` builds — `sections/<documentId>/` and `claims/<documentId>/` —
+// because `collectClaims` resolves a section's sidecar under the run directory it is given (57B-452), and a
+// fixture inventing its own layout would be testing a shape the product never writes.
+const DOCUMENT_ID = "feature-k-engineering";
+
 async function runWithClaims(sections: Array<{ index: number; claims: SectionClaim[] }>): Promise<{ documents: DocumentPlan[]; runDir: string }> {
   const runDir = await tempDir();
-  await mkdir(join(runDir, "claims"), { recursive: true });
+  await mkdir(join(runDir, "claims", DOCUMENT_ID), { recursive: true });
   const document = {
-    id: "feature-k-engineering", kind: "feature", audience: "engineering", subject: "Leave",
+    id: DOCUMENT_ID, kind: "feature", audience: "engineering", subject: "Leave",
     templatePath: "/tmp/t.md", contextPath: "/tmp/c.md",
     sections: sections.map((section) => ({
-      index: section.index, title: `S${section.index}`, file: join(runDir, `${section.index}.md`),
-      claimsFile: join(runDir, "claims", `${section.index}.json`), complete: true,
+      index: section.index, title: `S${section.index}`,
+      file: join(runDir, "sections", DOCUMENT_ID, `${section.index}.md`),
+      claimsFile: join(runDir, "claims", DOCUMENT_ID, `${section.index}.json`), complete: true,
     })),
   } as unknown as DocumentPlan;
   for (const section of sections) {
-    await writeFile(join(runDir, "claims", `${section.index}.json`), JSON.stringify({ version: 2, documentId: document.id, section: section.index, claims: section.claims }));
+    await writeFile(join(runDir, "claims", DOCUMENT_ID, `${section.index}.json`), JSON.stringify({ version: 2, documentId: document.id, section: section.index, claims: section.claims }));
   }
   return { documents: [document], runDir };
 }
