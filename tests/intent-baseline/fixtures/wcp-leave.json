@@ -1,0 +1,113 @@
+{
+  "corpus": {
+    "kind": "git",
+    "sourceEnv": "EXCAVATOR_WCP_SOURCE",
+    "roots": [
+      {
+        "relPath": "wcp-auth",
+        "sha": "76e958d51b802c0a0619d11f21984fcf6ea6c895"
+      },
+      {
+        "relPath": "wcp-service",
+        "sha": "9df6897542a15025dbda798f0c30d769c59c36ed"
+      },
+      {
+        "relPath": "wcp-service-v2",
+        "sha": "7db2ee8d2670993fe185d7293d6a315753602acd"
+      },
+      {
+        "relPath": "wcp-ui",
+        "sha": "b86dfa27e95f2109dcd9bcbdec147b62dbc8312d"
+      },
+      {
+        "relPath": "wcp_review_service",
+        "sha": "272bbe725fe84d15973fff50b606184c88743fe6"
+      }
+    ],
+    "filesContentManifestDigest": "39c56dc230cf16bfb04edcb601ae41a0a62998d5c0f95b6b08535d336a672af4"
+  },
+  "language": "zh-CN",
+  "codegraphMode": "auto",
+  "budgets": {
+    "prepareMs": 180000,
+    "authorMs": 180000,
+    "maxGraphQueries": 400,
+    "maxSourceWindows": 40,
+    "maxSourceCharacters": 150000,
+    "maxFiles": 20000,
+    "maxFeatureNodes": 180,
+    "maxExpansionDepth": 2
+  },
+  "ablation": {
+    "drops": [
+      "leave"
+    ],
+    "why": "The dominant term for this capability. Dropping it leaves a live background (other modules still seat on approve/holiday) while removing the vocabulary bridge to the leave handlers — which is the gap a structural channel is supposed to close."
+  },
+  "features": [
+    {
+      "subject": "请假管理",
+      "aliases": [
+        "approve",
+        "holiday",
+        "leave"
+      ]
+    },
+    {
+      "subject": "请假管理消融",
+      "aliases": [
+        "approve",
+        "holiday"
+      ]
+    }
+  ],
+  "anchors": [
+    {
+      "routeFactId": "route:wcp-service-v2/internal/handlers/handlers.go:112-112:GET /:leave_id/approve-prompt",
+      "handlerCell": "cell:structure:6575-6792:wcp-service-v2/internal/handlers/leave/router.go",
+      "handlerFactId": "function:wcp-service-v2/internal/handlers/leave/router.go:247-253:ApproveLeavePrompt",
+      "handlerName": "ApproveLeavePrompt",
+      "module": "wcp-service-v2"
+    },
+    {
+      "routeFactId": "route:wcp-service-v2/internal/handlers/handlers.go:113-113:GET /apply-prompt",
+      "handlerCell": "cell:structure:6794-7006:wcp-service-v2/internal/handlers/leave/router.go",
+      "handlerFactId": "function:wcp-service-v2/internal/handlers/leave/router.go:255-261:ApplyLeavePrompt",
+      "handlerName": "ApplyLeavePrompt",
+      "module": "wcp-service-v2"
+    },
+    {
+      "routeFactId": "route:wcp-service-v2/internal/handlers/handlers.go:114-114:GET /remain-fully-paid-sick",
+      "handlerCell": "cell:structure:7008-7131:wcp-service-v2/internal/handlers/leave/router.go",
+      "handlerFactId": "function:wcp-service-v2/internal/handlers/leave/router.go:263-265:GetUserRemainFullySickLeave",
+      "handlerName": "GetUserRemainFullySickLeave",
+      "module": "wcp-service-v2"
+    }
+  ],
+  "moduleClasses": {
+    "hold": [
+      {
+        "module": "wcp-service-v2",
+        "why": "seated in BOTH arms (143 -> 113). S4 must not cost it its seats: a channel that pushes the module that owns the capability out of the selection has moved noise in, not signal."
+      },
+      {
+        "module": "wcp-service",
+        "why": "seated in both arms (17 -> 32)."
+      },
+      {
+        "module": "wcp-ui",
+        "why": "seated in both arms (4 -> 13)."
+      }
+    ],
+    "stayEmpty": [
+      {
+        "module": "wcp-auth",
+        "why": "zero-signal in BOTH arms, pool=0 under the FULL vocabulary. Its only route matching /leave|holiday|approv/i is POST /consent/approve -> OAuthConsentApprovePOST, an OAuth consent grant: the regex matches, the domain does not. If S4 seats anything here, the route channel is matching on the word rather than on the capability."
+      }
+    ],
+    "notPinned": {
+      "wcp_review_service": "Deliberately unclassified. It flips candidates-no-seat -> zero-signal under ablation, which would make an attractive module-level flip target, but its one regex match is POST /:promotion_id/application/:application_id -> Approve: a real approval workflow, for promotions rather than leave. Whether it belongs to 请假管理 is a judgement about the product, and pinning it wrongly is expensive in both directions — as stay-empty it would score a correct S4 recall as a false positive, as flip it would demand a recall that may be wrong. Fable ruled: when unsure, do not pin."
+    }
+  },
+  "budgetsNote": "maxGraphQueries is pinned generously (400) rather than at the production default. It is a CAP, so a larger value changes no selection — but the budget travels in the attribution identity, so a value that later has to be raised would move the baseline for a reason unrelated to recall. S4 adds route-inventory queries; the headroom is there so that slice moves the flip set and nothing else. Two features over five modules already exceeds 70."
+}
