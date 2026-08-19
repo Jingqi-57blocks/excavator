@@ -94,13 +94,18 @@ test("the CodeGraph coverage denominator counts every scanned file, not a hand-p
     "the denominator is the counted row set; a predicate that drops non-source extensions would report fewer");
   assert.equal(coverage.ratio, coverage.indexed / coverage.counted, "and the ratio is those two numbers");
 
-  // The exclusions are reported as observation, not asserted as a rule — the point of replacing the denylist.
-  const unindexed = coverage.unindexedByExtension;
-  for (const extension of [".scss", ".css", ".md", ".json"]) {
-    assert.ok((unindexed[extension] ?? 0) >= 1, `${extension} is visible as unindexed rather than removed from the denominator: ${JSON.stringify(unindexed)}`);
+  // The split is reported as observation, not asserted as a rule — the point of replacing the denylist. Each
+  // added file lands in its own language row rather than being removed from the denominator.
+  const byLanguage = new Map(coverage.byLanguage.map((row) => [row.language, row]));
+  for (const language of ["scss", "css", "markdown", "json"]) {
+    const row = byLanguage.get(language);
+    assert.ok(row && row.counted >= 1, `${language} is a visible row rather than a silent subtraction: ${JSON.stringify(coverage.byLanguage)}`);
+    assert.equal(row.indexed, 0, `${language} is genuinely unindexed here, which is what makes the row informative`);
   }
-  const totalUnindexed = Object.values(unindexed).reduce((sum, value) => sum + value, 0);
-  assert.equal(totalUnindexed, coverage.counted - coverage.indexed, "and the breakdown accounts for every unindexed row");
+  assert.equal(coverage.byLanguage.reduce((sum, row) => sum + row.counted, 0), coverage.counted,
+    "the language rows partition the counted set exactly");
+  assert.equal(coverage.byLanguage.reduce((sum, row) => sum + row.indexed, 0), coverage.indexed,
+    "and their indexed counts add up to the aggregate");
 });
 
 test("source-only mode remains usable when CodeGraph is absent", async () => {

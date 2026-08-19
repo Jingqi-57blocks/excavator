@@ -6,6 +6,7 @@ import { CodeGraphSet } from "../codegraph/codegraph-set.ts";
 import { allocateFeatureGraphRecorded } from "../attribution/allocator.ts";
 import { channelUnavailable, SELECTION_TRACE_VERSION, type FeatureSelectionTrace } from "../attribution/selection-trace.ts";
 import { createSnapshot, isLikelySource, type ScannedFile } from "../snapshot/snapshot.ts";
+import { corpusResolver, LANGUAGE_REGISTRY } from "../base/language-registry.ts";
 import type { FileLedger } from "../snapshot/file-ledger.ts";
 import { codegraphIdentity } from "../codegraph/codegraph-identity.ts";
 import { SourceReader, evidenceFromWindow, manifestSummary, selectProjectDocuments, sourceSearch } from "../snapshot/source.ts";
@@ -307,6 +308,35 @@ export async function buildContextsFromBoundary(request: ReportRequest, boundary
   };
 }
 
+/**
+ * Index reach over the counted corpus, split by the registry's own language vocabulary.
+ *
+ * DENOMINATOR: the counted rows, and nothing else — see `CodeGraphCoverage` for what the retired predicate
+ * cost. The per-language rows are the part worth reading; the aggregate ratio is depressed by however many
+ * stylesheets a project happens to contain, which is a fact about the file mix rather than about the index.
+ */
+function codegraphCoverage(files: readonly ScannedFile[], graphPaths: ReadonlySet<string>): CodeGraphCoverage {
+  const resolver = corpusResolver(LANGUAGE_REGISTRY);
+  const rows = new Map<string, { language: string; counted: number; indexed: number }>();
+  for (const file of files) {
+    const name = file.relativePath.slice(file.relativePath.lastIndexOf("/") + 1);
+    // Same expression and same fallback as `workset/census.ts`, so a language that is a row there is the same
+    // row here. A second spelling of "what language is this" is a second census that can disagree with layer 2.
+    const language = resolver.languageOf(name, file.extension) ?? `unregistered:${file.extension || "(none)"}`;
+    const row = rows.get(language) ?? { language, counted: 0, indexed: 0 };
+    row.counted += 1;
+    if (graphPaths.has(file.relativePath)) row.indexed += 1;
+    rows.set(language, row);
+  }
+  const indexed = files.filter((file) => graphPaths.has(file.relativePath)).length;
+  return {
+    indexed,
+    counted: files.length,
+    ratio: files.length ? indexed / files.length : 1,
+    byLanguage: [...rows.values()].sort((a, b) => b.counted - a.counted || a.language.localeCompare(b.language))
+  };
+}
+
 async function buildSharedContext(snapshot: Snapshot, files: ScannedFile[], graph: GraphReader | null, sourceReader: SourceReader, deadline: Deadline): Promise<CachedShared> {
   const evidence: EvidenceItem[] = [];
   const warnings: string[] = [];
@@ -342,29 +372,22 @@ async function buildSharedContext(snapshot: Snapshot, files: ScannedFile[], grap
     // lower (82.0% on wcp) because it stops hiding its own exclusions; `unindexedByExtension` puts those back
     // as observed data rather than as a rule, so a reader can see that `.scss` and `.html` dominate the gap
     // without the engine having to assert which extensions "should" have been indexed.
-    const counted = files.length;
-    const indexed = files.filter((file) => graphPaths.has(file.relativePath)).length;
-    const unindexedByExtension: Record<string, number> = {};
-    for (const file of files) {
-      if (graphPaths.has(file.relativePath)) continue;
-      const key = file.extension || "(no extension)";
-      unindexedByExtension[key] = (unindexedByExtension[key] ?? 0) + 1;
-    }
-    coverage = { indexed, counted, ratio: counted ? indexed / counted : 1, unindexedByExtension };
+    coverage = codegraphCoverage(files, graphPaths);
+    const { counted, indexed } = coverage;
     graphSummary = graph.summary();
     representativeNodes = graph.representativeNodes(60);
     routes = graph.routeSummary(60);
     const graphErrors = graphFiles.filter((file) => file.errors.length).slice(0, 50);
     if (graphErrors.length) warnings.push(`${graphErrors.length} CodeGraph file records include extraction errors in the sampled set; source fallback remains enabled.`);
-    // Counted on the files themselves rather than tripped by a ratio against a phantom denominator: what the
-    // reader needs to know is that a fallback path exists and how much rides on it.
-    const unindexed = counted - indexed;
-    if (unindexed) warnings.push(`CodeGraph indexed ${indexed}/${counted} counted files; the remaining ${unindexed} are read through source fallback when relevant.`);
+    // Named per language: "331 files unindexed" is not actionable, "javascript 415/484" is. Only languages the
+    // index reached at all are worth naming — a language it never covers is a classification, not a gap.
+    const partial = coverage.byLanguage.filter((row) => row.indexed > 0 && row.indexed < row.counted);
+    if (partial.length) warnings.push(`CodeGraph indexed only part of ${partial.map((row) => `${row.language} (${row.indexed}/${row.counted})`).join(", ")}; the rest are read through source fallback when relevant.`);
     evidence.push({ id: `CG-${snapshot.id}`, snapshotId: snapshot.id, kind: "graph", title: "CodeGraph census", data: { metadata, summary: graphSummary, coverage, graphErrors }, reason: "navigate the project without scanning every source file", digest: sha256(stableJson({ metadata, summary: graphSummary, coverage, graphErrors })) });
     evidence.push({ id: `CG-NODES-${snapshot.id}`, snapshotId: snapshot.id, kind: "graph", title: "Representative CodeGraph nodes", data: representativeNodes, reason: "identify likely entry points, components and implementation centers", digest: sha256(stableJson(representativeNodes)) });
     evidence.push({ id: `CG-ROUTES-${snapshot.id}`, snapshotId: snapshot.id, kind: "graph", title: "Route candidates", data: routes, reason: "identify user and system entry points; source confirmation is required for incomplete route semantics", digest: sha256(stableJson(routes)) });
   } else {
-    coverage = { indexed: 0, counted: files.length, ratio: 0, unindexedByExtension: {} };
+    coverage = { ...codegraphCoverage(files, new Set()), ratio: 0 };
   }
 
   const projectDocs = selectProjectDocuments(files, 14);
@@ -546,7 +569,8 @@ ${stableJson({ id: snapshot.id, roots: snapshot.roots, scannerVersion: snapshot.
 
 ## Coverage
 
-- CodeGraph indexed ${coverage.indexed} of ${coverage.counted} counted files (${(coverage.ratio * 100).toFixed(1)}%). The denominator is \`ledger/files.json\`'s counted rows; unindexed files include documentation, styles and data that no code index covers.
+- CodeGraph indexed ${coverage.indexed} of ${coverage.counted} counted files (${(coverage.ratio * 100).toFixed(1)}%). The denominator is \`ledger/files.json\`'s counted rows, so it includes file types no code index covers; read the per-language rows rather than this ratio.
+${coverage.byLanguage.map((row) => `  - ${row.language}: ${row.indexed}/${row.counted} indexed`).join("\n")}
 - CodeGraph is a navigation index. Source excerpts remain authoritative for semantics.
 - Files absent from CodeGraph, extraction errors, unresolved relationships and ambiguous findings trigger source fallback.
 

@@ -490,23 +490,34 @@ export interface RunManifest {
 }
 
 /**
- * CodeGraph's reach over the run's own corpus.
+ * CodeGraph's reach over the run's own corpus, per language.
  *
  * `counted` is the layer-1 ledger's counted row count. That is the denominator law in one field: a published
- * ratio's denominator comes from a ledger that records its own completeness, never from a local predicate.
- * It used to be `files.filter(isLikelySource)` — a hardcoded nine-extension denylist — which made the ratio's
- * denominator a THIRD taxonomy beside layer 1's `excluded{unsupported-extension}` and layer 2's per-mechanism
- * extension sets, with nothing reconciling them. On wcp that published "1,639/1,719 = 95.3%" as a fact, and
- * 1,719 appears in no ledger: it is 1,999 counted minus 280 files the denylist happened to name.
+ * ratio's denominator comes from a ledger recording its own completeness, never from a local predicate. It used
+ * to be `files.filter(isLikelySource)` — a hardcoded nine-extension denylist — which made the denominator a
+ * THIRD taxonomy beside layer 1's `excluded{unsupported-extension}` and layer 2's per-mechanism extension sets,
+ * with nothing reconciling them. On wcp that published "1,639/1,719 = 95.3%" as a fact, and 1,719 appears in no
+ * ledger: it is 1,999 counted minus 280 files the denylist happened to name.
  *
- * `unindexedByExtension` is OBSERVED, never declared. It reports which extensions the index did not reach on
- * THIS target, rather than asserting which extensions ought not to be reached.
+ * `byLanguage` is why the aggregate ratio is not the interesting number. The gap it measures is two unrelated
+ * things added together: files no code index covers, and files it should have reached and did not. On wcp the
+ * 331 unindexed rows are 251 stylesheets/markup/data plus 69 `.js` files — and the index holds 415 OTHER `.js`
+ * files, so those 69 are a real gap that no single ratio can show. Split by language it is one row: JavaScript
+ * 415/484 next to SCSS 0/109, and the reader draws the conclusion instead of the engine asserting it.
+ *
+ * The split deliberately carries no "should have been indexed" judgement. Every candidate for one failed on a
+ * second target: `partition-ast`'s declared support covers 1,704 of wcp's files but only 192 of provital's
+ * 3,005, where the index itself holds 346 — a denominator smaller than its own numerator. Language is a
+ * property of the corpus that both targets have; indexability is a property of a tool that varies per run.
+ *
+ * The grouping uses `corpusResolver().languageOf` with the same `unregistered:<ext>` fallback as
+ * `workset/census.ts`, so these rows and the layer-2 `byLanguage` census agree by construction, not by luck.
  */
 export interface CodeGraphCoverage {
   indexed: number;
   counted: number;
   ratio: number;
-  unindexedByExtension: Record<string, number>;
+  byLanguage: Array<{ language: string; counted: number; indexed: number }>;
 }
 
 export interface RunMetrics {
