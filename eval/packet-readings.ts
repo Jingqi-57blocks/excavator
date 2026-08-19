@@ -463,9 +463,21 @@ function unitsOf(
       }
     }
     // A block renders a fact category iff one of its work items maps to that category. That one predicate is
-    // mirrored here (over the renderer's own exported dimension table) rather than the whole selection: a listing
-    // the renderer stopped writing shows up in `absentUnits`, and one it started writing shows up as a drop in
-    // the `factpack` bucket, so drift in either direction is visible rather than silent.
+    // mirrored here, over the renderer's own exported dimension table, rather than the whole selection. What the
+    // readings then show if the renderer and this mirror diverge, stated as measured, not as hoped:
+    //
+    //   - the renderer STOPS writing a listing this still enumerates -> the unit lands in `absentUnits` and the
+    //     `factpack` bucket falls;
+    //   - the renderer writes an EXTRA copy of a category some block already maps to -> every copy is attributed,
+    //     so the bucket RISES and that unit's `repeatedUnits` occurrence count goes up;
+    //   - the renderer writes a listing for a category NO block maps to -> this never enumerates it, so those
+    //     bytes land in `unattributed` and nothing is named.
+    //
+    // All three are visible in the readings. Visible is not the same as red: on a frozen fixture packet a
+    // divergence in the SELECTION predicate moves no number here at all, because the checked-in bytes were
+    // rendered by the older renderer and both sides of the disagreement still agree with each other. That blind
+    // spot is covered by `packet-fixture-freshness.test.ts`, which re-renders each fixture packet with the
+    // current renderer and compares bytes — the layer where this rot actually happens.
     if (!pack) continue;
     const key = featureKeyOf(document);
     for (const category of categoriesOf(block)) {
