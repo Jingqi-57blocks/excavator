@@ -14,6 +14,7 @@
 //   topic-readings --run <dir> [--out <file>]               Topic Catalog facet/materiality/conservation readings
 //   plan-readings --run <dir> [--out <file>]                planner packet bytes, fixture plan, plan verdicts, gate-1b obligation buckets
 //   unit-packet-readings --run <dir> [--out <file>]         per-unit packet bytes + the 57B-453 closure reading (absent evidence bindings)
+//   unit-cache-identity-readings --run <dir> [--out <file>]       per-unit cache identity + the four-bucket invalidation plan of five scenarios
 // diff exits 1 on any mustFind missing / forbidden violation / coverage failure; 0 otherwise.
 // boundary exits 1 on any mustFind miss; 0 otherwise (same honest-red contract as diff).
 // --prepare-only runs ONLY the anchor-in-scope containment check (zero model, sub-second).
@@ -49,6 +50,7 @@ import { buildLedgerCloseout } from "./ledger-closeout.ts";
 import { extractTopicReadings } from "./topic-readings.ts";
 import { extractPlanReadings } from "./plan-readings.ts";
 import { extractUnitPacketReadings } from "./unit-packet-readings.ts";
+import { extractUnitIdentityReadings } from "./unit-cache-identity-readings.ts";
 import { stableJson } from "../src/base/util.ts";
 
 interface Flags {
@@ -116,7 +118,8 @@ const USAGE = `eval harness
   ledger-closeout --run <dir> [--out <file>] [--updates <file>]
   topic-readings --run <dir> [--out <file>]
   plan-readings --run <dir> [--out <file>]
-  unit-packet-readings --run <dir> [--out <file>]`;
+  unit-packet-readings --run <dir> [--out <file>]
+  unit-cache-identity-readings --run <dir> [--out <file>]`;
 
 function renderContainment(containment: Containment): string {
   const lines = [`=== prepare containment (${containment.contained.length}/${containment.contained.length + containment.missing.length} anchors in scope) ===`];
@@ -385,6 +388,14 @@ async function runUnitPacketReadings(flags: Flags): Promise<number> {
   return 0;
 }
 
+async function runUnitIdentityReadings(flags: Flags): Promise<number> {
+  const readings = await extractUnitIdentityReadings(requireFlag(flags.run, "--run"));
+  const text = stableJson(readings);
+  if (flags.out) writeFileSync(flags.out, `${text}\n`);
+  else process.stdout.write(`${text}\n`);
+  return 0;
+}
+
 async function runPlanReadings(flags: Flags): Promise<number> {
   const readings = await extractPlanReadings(requireFlag(flags.run, "--run"));
   const text = stableJson(readings);
@@ -448,6 +459,7 @@ function main(argv: string[]): number | Promise<number> {
   if (command === "topic-readings") return runTopicReadings(flags);
   if (command === "plan-readings") return runPlanReadings(flags);
   if (command === "unit-packet-readings") return runUnitPacketReadings(flags);
+  if (command === "unit-cache-identity-readings") return runUnitIdentityReadings(flags);
   throw new Error(`unknown command: ${command}`);
 }
 

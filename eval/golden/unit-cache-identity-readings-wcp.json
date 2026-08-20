@@ -1,0 +1,1469 @@
+{
+  "authorship": "model-free generator eval-unit-cache-identity-readings",
+  "identified": [
+    {
+      "documentId": "feature-晋升管理-01e5065d19-engineering",
+      "identityDigest": "d241aba47e737597ce82e53ec1dd483f687fcb9faf05ae7357f0dd95c0284668",
+      "kind": "appendix",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 188828,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (2 obligation(s), 0 material, 2 written here, 0 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (2 record(s), all rendered in full)",
+        "## Facet census of this run's Topic Catalog",
+        "## Evidence this run captured that no obligation binds (931 record(s))"
+      ],
+      "sections": 9,
+      "unitId": "feature-晋升管理-01e5065d19-engineering::appendix::coverage",
+      "viewBytes": 188729
+    },
+    {
+      "documentId": "feature-晋升管理-01e5065d19-engineering",
+      "identityDigest": "08a4260bb0a42e866fa99e59d58fecf1ec70530386841d0dcbe142be2e5fcb8f",
+      "kind": "leaf",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 55207,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (164 obligation(s), 164 material, 0 written here, 164 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (0 record(s), all rendered in full)"
+      ],
+      "sections": 7,
+      "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::coverage",
+      "viewBytes": 55108
+    },
+    {
+      "documentId": "feature-晋升管理-01e5065d19-engineering",
+      "identityDigest": "d817207ba7a485409df5c76649d359e3749644603a4662efb48ab1193516aab7",
+      "kind": "leaf",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 755971,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (327 obligation(s), 298 material, 286 written here, 41 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (313 record(s), all rendered in full)"
+      ],
+      "sections": 7,
+      "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+      "viewBytes": 755872
+    },
+    {
+      "documentId": "feature-晋升管理-01e5065d19-engineering",
+      "identityDigest": "a28ad0028bf1aff748251754f7a1137bdad734c9bfb901fa7001b07279718d2b",
+      "kind": "leaf",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 292738,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (327 obligation(s), 298 material, 41 written here, 286 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (103 record(s), all rendered in full)"
+      ],
+      "sections": 7,
+      "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+      "viewBytes": 292639
+    },
+    {
+      "documentId": "feature-晋升管理-01e5065d19-engineering",
+      "identityDigest": "56e1ba8a0005b8cef575e773545f7b812fa5d34f47320a8df3fe6405c1c2568f",
+      "kind": "leaf",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 227748,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (578 obligation(s), 549 material, 12 written here, 566 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (63 record(s), all rendered in full)"
+      ],
+      "sections": 7,
+      "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+      "viewBytes": 227649
+    },
+    {
+      "documentId": "feature-晋升管理-01e5065d19-engineering",
+      "identityDigest": "a65f97cdc25a87849d35999af11fa754d0fb138df0af05cabdff2c829b42637f",
+      "kind": "leaf",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 491570,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (578 obligation(s), 549 material, 271 written here, 307 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (277 record(s), all rendered in full)"
+      ],
+      "sections": 7,
+      "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+      "viewBytes": 491471
+    },
+    {
+      "documentId": "feature-晋升管理-01e5065d19-engineering",
+      "identityDigest": "a29221f65dccd9d85b1a51b939546f594dda9111cafc87db6c6e3843bc4d49c3",
+      "kind": "leaf",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 493001,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (578 obligation(s), 549 material, 254 written here, 324 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (262 record(s), all rendered in full)"
+      ],
+      "sections": 7,
+      "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+      "viewBytes": 492902
+    },
+    {
+      "documentId": "feature-晋升管理-01e5065d19-engineering",
+      "identityDigest": "d3785f7e274b6f7aca1f06df9c817e3268597f2e74ada98580c1c5c1a45bb15a",
+      "kind": "leaf",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 190513,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (578 obligation(s), 549 material, 41 written here, 537 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (105 record(s), all rendered in full)"
+      ],
+      "sections": 7,
+      "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+      "viewBytes": 190414
+    },
+    {
+      "documentId": "feature-晋升管理-01e5065d19-engineering",
+      "identityDigest": "bd812c882a0d1e184dc97cf1e9cbc8636e924ccc683279dc9f8de920a9b48e43",
+      "kind": "leaf",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 258973,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (847 obligation(s), 847 material, 0 written here, 847 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (0 record(s), all rendered in full)"
+      ],
+      "sections": 7,
+      "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::work-item-dimension",
+      "viewBytes": 258874
+    },
+    {
+      "documentId": "feature-请假管理-8c2d685d81-product",
+      "identityDigest": "f16698ec3a04a67fc2915e42f24388645da74034e6db6cee4e99d0999022c13d",
+      "kind": "appendix",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 188807,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (2 obligation(s), 0 material, 2 written here, 0 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (2 record(s), all rendered in full)",
+        "## Facet census of this run's Topic Catalog",
+        "## Evidence this run captured that no obligation binds (931 record(s))"
+      ],
+      "sections": 9,
+      "unitId": "feature-请假管理-8c2d685d81-product::appendix::coverage",
+      "viewBytes": 188708
+    },
+    {
+      "documentId": "feature-请假管理-8c2d685d81-product",
+      "identityDigest": "e437751aee4f8086f5560ad3c9059a4969b7cbdd186feb90dc90b67e7a9dae37",
+      "kind": "leaf",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 54526,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (164 obligation(s), 164 material, 0 written here, 164 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (0 record(s), all rendered in full)"
+      ],
+      "sections": 7,
+      "unitId": "feature-请假管理-8c2d685d81-product::leaf::coverage",
+      "viewBytes": 54427
+    },
+    {
+      "documentId": "feature-请假管理-8c2d685d81-product",
+      "identityDigest": "6703334206554e9a7e3b38d486dbe57a9d40db90aa207cd92be12c5d832485da",
+      "kind": "leaf",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 755942,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (327 obligation(s), 298 material, 286 written here, 41 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (313 record(s), all rendered in full)"
+      ],
+      "sections": 7,
+      "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+      "viewBytes": 755843
+    },
+    {
+      "documentId": "feature-请假管理-8c2d685d81-product",
+      "identityDigest": "31e9318ddcffe4b88a21168719e9f3c4e0af1f0a3acc98e9e3f98bcf7d28f8a6",
+      "kind": "leaf",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 292709,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (327 obligation(s), 298 material, 41 written here, 286 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (103 record(s), all rendered in full)"
+      ],
+      "sections": 7,
+      "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+      "viewBytes": 292610
+    },
+    {
+      "documentId": "feature-请假管理-8c2d685d81-product",
+      "identityDigest": "5a7144fe7aec275a5f8a4ebe4dd795a82ca44d9810f8bdac6bc6d38b06053dbb",
+      "kind": "leaf",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 227711,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (578 obligation(s), 549 material, 12 written here, 566 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (63 record(s), all rendered in full)"
+      ],
+      "sections": 7,
+      "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+      "viewBytes": 227612
+    },
+    {
+      "documentId": "feature-请假管理-8c2d685d81-product",
+      "identityDigest": "1de670a4c1301161894c07fe61c16fde5fed4eeafb0085bbd06ff74904a4b6a6",
+      "kind": "leaf",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 491533,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (578 obligation(s), 549 material, 271 written here, 307 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (277 record(s), all rendered in full)"
+      ],
+      "sections": 7,
+      "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+      "viewBytes": 491434
+    },
+    {
+      "documentId": "feature-请假管理-8c2d685d81-product",
+      "identityDigest": "8241325e15635aef7cfdf72a0ac693bc441659acb61a22ad3da0cd9df7c6e549",
+      "kind": "leaf",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 492964,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (578 obligation(s), 549 material, 254 written here, 324 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (262 record(s), all rendered in full)"
+      ],
+      "sections": 7,
+      "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+      "viewBytes": 492865
+    },
+    {
+      "documentId": "feature-请假管理-8c2d685d81-product",
+      "identityDigest": "c453b48ffe045cbf75b1b15835d986fa51bad7153e646e7568685141a64a25b6",
+      "kind": "leaf",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 190476,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (578 obligation(s), 549 material, 41 written here, 537 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (105 record(s), all rendered in full)"
+      ],
+      "sections": 7,
+      "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+      "viewBytes": 190377
+    },
+    {
+      "documentId": "feature-请假管理-8c2d685d81-product",
+      "identityDigest": "d5f2c797e39db08fee6ce01022cdb2250a1afde789808635255dd19e81bdf02d",
+      "kind": "leaf",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 255548,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (847 obligation(s), 847 material, 0 written here, 847 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (0 record(s), all rendered in full)"
+      ],
+      "sections": 7,
+      "unitId": "feature-请假管理-8c2d685d81-product::leaf::work-item-dimension",
+      "viewBytes": 255449
+    },
+    {
+      "documentId": "overview-engineering",
+      "identityDigest": "570d3a71fe48bf45eaa7ebdf6b04102dedc6a5e805bd40c7c2a13c4975e424a7",
+      "kind": "appendix",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 188646,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (2 obligation(s), 0 material, 2 written here, 0 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (2 record(s), all rendered in full)",
+        "## Facet census of this run's Topic Catalog",
+        "## Evidence this run captured that no obligation binds (931 record(s))"
+      ],
+      "sections": 9,
+      "unitId": "overview-engineering::appendix::coverage",
+      "viewBytes": 188547
+    },
+    {
+      "documentId": "overview-engineering",
+      "identityDigest": "d7611cba8d2837190d8a3419a1ac200295f15abe765d0247fb407c39f062b1cd",
+      "kind": "leaf",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 51230,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (164 obligation(s), 164 material, 0 written here, 164 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (0 record(s), all rendered in full)"
+      ],
+      "sections": 7,
+      "unitId": "overview-engineering::leaf::coverage",
+      "viewBytes": 51131
+    },
+    {
+      "documentId": "overview-engineering",
+      "identityDigest": "9955037a9982ca7e46b9e526dced39391231cca39256d68bbf2745ae945037a6",
+      "kind": "leaf",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 755743,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (327 obligation(s), 298 material, 286 written here, 41 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (313 record(s), all rendered in full)"
+      ],
+      "sections": 7,
+      "unitId": "overview-engineering::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+      "viewBytes": 755644
+    },
+    {
+      "documentId": "overview-engineering",
+      "identityDigest": "5e75ee118c41347747ede178a98cf25ea8ea477d0674118bc3c23c36dc861a00",
+      "kind": "leaf",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 292510,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (327 obligation(s), 298 material, 41 written here, 286 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (103 record(s), all rendered in full)"
+      ],
+      "sections": 7,
+      "unitId": "overview-engineering::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+      "viewBytes": 292411
+    },
+    {
+      "documentId": "overview-engineering",
+      "identityDigest": "f344460c22dbaad27e437991d1ed4f737be888d700b06a3319e71c9f83bf7ff2",
+      "kind": "leaf",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 227474,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (578 obligation(s), 549 material, 12 written here, 566 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (63 record(s), all rendered in full)"
+      ],
+      "sections": 7,
+      "unitId": "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+      "viewBytes": 227375
+    },
+    {
+      "documentId": "overview-engineering",
+      "identityDigest": "ae81484ca16e9026aba4567c1117ca5125df2b13c0cf5a20700b1090e6adad26",
+      "kind": "leaf",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 491296,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (578 obligation(s), 549 material, 271 written here, 307 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (277 record(s), all rendered in full)"
+      ],
+      "sections": 7,
+      "unitId": "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+      "viewBytes": 491197
+    },
+    {
+      "documentId": "overview-engineering",
+      "identityDigest": "e114d77e4a46c16780223c7b5b26507dd2a470b98808e3a6454a7f3d2291c2da",
+      "kind": "leaf",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 492727,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (578 obligation(s), 549 material, 254 written here, 324 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (262 record(s), all rendered in full)"
+      ],
+      "sections": 7,
+      "unitId": "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+      "viewBytes": 492628
+    },
+    {
+      "documentId": "overview-engineering",
+      "identityDigest": "d089ee660f3dd431018108868e819166fb4c9d4d4d1087c0d43bf9b05b9e8efa",
+      "kind": "leaf",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 190239,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (578 obligation(s), 549 material, 41 written here, 537 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (105 record(s), all rendered in full)"
+      ],
+      "sections": 7,
+      "unitId": "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+      "viewBytes": 190140
+    },
+    {
+      "documentId": "overview-engineering",
+      "identityDigest": "5b5ed92c19f146f539282a2dea7d88e6c52a69233a48b3370ce54ecfdfcc903f",
+      "kind": "leaf",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 239218,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (847 obligation(s), 847 material, 0 written here, 847 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (0 record(s), all rendered in full)"
+      ],
+      "sections": 7,
+      "unitId": "overview-engineering::leaf::work-item-dimension",
+      "viewBytes": 239119
+    },
+    {
+      "documentId": "overview-product",
+      "identityDigest": "1352d6d8164f555c3416c60ea1b09bfef0829ac439ce4aca74bab81d44628246",
+      "kind": "appendix",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 188625,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (2 obligation(s), 0 material, 2 written here, 0 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (2 record(s), all rendered in full)",
+        "## Facet census of this run's Topic Catalog",
+        "## Evidence this run captured that no obligation binds (931 record(s))"
+      ],
+      "sections": 9,
+      "unitId": "overview-product::appendix::coverage",
+      "viewBytes": 188526
+    },
+    {
+      "documentId": "overview-product",
+      "identityDigest": "a12ffdb6e0df679b6f3693847f9e1f42fc3f022ac93d74c950b4c40e9f0a9b06",
+      "kind": "leaf",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 50549,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (164 obligation(s), 164 material, 0 written here, 164 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (0 record(s), all rendered in full)"
+      ],
+      "sections": 7,
+      "unitId": "overview-product::leaf::coverage",
+      "viewBytes": 50450
+    },
+    {
+      "documentId": "overview-product",
+      "identityDigest": "915cbf26a816a235e6c6a1c59cb71a365a5a7fb98062cce322b31109050fe1ef",
+      "kind": "leaf",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 755714,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (327 obligation(s), 298 material, 286 written here, 41 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (313 record(s), all rendered in full)"
+      ],
+      "sections": 7,
+      "unitId": "overview-product::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+      "viewBytes": 755615
+    },
+    {
+      "documentId": "overview-product",
+      "identityDigest": "e85c2d2c47cfad542a88f15e7cc400b792cf8ff31dacf30396d827e63cc4f7ac",
+      "kind": "leaf",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 292481,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (327 obligation(s), 298 material, 41 written here, 286 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (103 record(s), all rendered in full)"
+      ],
+      "sections": 7,
+      "unitId": "overview-product::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+      "viewBytes": 292382
+    },
+    {
+      "documentId": "overview-product",
+      "identityDigest": "ec0cbc2ba702052da0273cb730d5e713b36d6e20854548d22ea0be43b560e075",
+      "kind": "leaf",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 227437,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (578 obligation(s), 549 material, 12 written here, 566 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (63 record(s), all rendered in full)"
+      ],
+      "sections": 7,
+      "unitId": "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+      "viewBytes": 227338
+    },
+    {
+      "documentId": "overview-product",
+      "identityDigest": "37eb946c919ac7d7d8ce1028e677af7949d69ba7a488cc4a5e001908d83c9481",
+      "kind": "leaf",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 491259,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (578 obligation(s), 549 material, 271 written here, 307 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (277 record(s), all rendered in full)"
+      ],
+      "sections": 7,
+      "unitId": "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+      "viewBytes": 491160
+    },
+    {
+      "documentId": "overview-product",
+      "identityDigest": "808b216d056f5903271824ecf91852e723bc41ea8f122f9bc06bd3d62e154d50",
+      "kind": "leaf",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 492690,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (578 obligation(s), 549 material, 254 written here, 324 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (262 record(s), all rendered in full)"
+      ],
+      "sections": 7,
+      "unitId": "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+      "viewBytes": 492591
+    },
+    {
+      "documentId": "overview-product",
+      "identityDigest": "2d00b5f8957dfaf3db6f9d9adbb346c786e8232e1be30c0cf515caec547c80dd",
+      "kind": "leaf",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 190202,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (578 obligation(s), 549 material, 41 written here, 537 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (105 record(s), all rendered in full)"
+      ],
+      "sections": 7,
+      "unitId": "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+      "viewBytes": 190103
+    },
+    {
+      "documentId": "overview-product",
+      "identityDigest": "12ebabacb8307c9fb3ccd7f9c1206b2b4dcf4212a7cdd373bd01778f4a99d709",
+      "kind": "leaf",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 235793,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (847 obligation(s), 847 material, 0 written here, 847 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (0 record(s), all rendered in full)"
+      ],
+      "sections": 7,
+      "unitId": "overview-product::leaf::work-item-dimension",
+      "viewBytes": 235694
+    }
+  ],
+  "knowledgeDigest": "e70e928538b66f36de5dbd4fd37de4a53ac0422766a75efe4545992efcc4e15f",
+  "knowledgeEpoch": 0,
+  "planCatalogDigest": "1b389e7d2b99c32e6f90eae9add966113853dc3dac87d70e7bfc6c3f629c74db",
+  "readPaths": [
+    "context/boundary-functions.json",
+    "context/cross-feature.json",
+    "context/crossrepo-links.json",
+    "contract/run-intent.json",
+    "coverage/read-obligations.json",
+    "coverage/read-residual.json",
+    "evidence.json",
+    "facts/producers/codegraph.json",
+    "facts/producers/crossrepo.json",
+    "facts/producers/db-schema.json",
+    "knowledge.json",
+    "run.json",
+    "workitems.json"
+  ],
+  "runId": "run-2026_08_20_03_48-overview+请假管理+晋升管理-8abb4795-251cd3b2-740f3203",
+  "scenarios": [
+    {
+      "outcome": {
+        "candidateStatement": "0 prior verified units: this projection offers no prior verified unit: an archival run has authored none",
+        "candidateUnits": 0,
+        "conservation": [
+          "planned = reusable + rebuild + new: 40 = 0 + 0 + 40",
+          "candidates = reusable + rebuild + retired: 0 = 0 + 0 + 0"
+        ],
+        "new": [
+          "feature-晋升管理-01e5065d19-engineering::appendix::coverage",
+          "feature-晋升管理-01e5065d19-engineering::leaf::coverage",
+          "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+          "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+          "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+          "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+          "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+          "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+          "feature-晋升管理-01e5065d19-engineering::leaf::work-item-dimension",
+          "feature-晋升管理-01e5065d19-engineering::synthesis::document",
+          "feature-请假管理-8c2d685d81-product::appendix::coverage",
+          "feature-请假管理-8c2d685d81-product::leaf::coverage",
+          "feature-请假管理-8c2d685d81-product::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+          "feature-请假管理-8c2d685d81-product::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+          "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+          "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+          "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+          "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+          "feature-请假管理-8c2d685d81-product::leaf::work-item-dimension",
+          "feature-请假管理-8c2d685d81-product::synthesis::document",
+          "overview-engineering::appendix::coverage",
+          "overview-engineering::leaf::coverage",
+          "overview-engineering::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+          "overview-engineering::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+          "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+          "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+          "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+          "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+          "overview-engineering::leaf::work-item-dimension",
+          "overview-engineering::synthesis::document",
+          "overview-product::appendix::coverage",
+          "overview-product::leaf::coverage",
+          "overview-product::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+          "overview-product::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+          "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+          "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+          "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+          "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+          "overview-product::leaf::work-item-dimension",
+          "overview-product::synthesis::document"
+        ],
+        "plannedUnits": 40,
+        "rebuild": [],
+        "retired": [],
+        "reusable": [],
+        "state": "derived"
+      },
+      "perturbation": "nothing is changed; the candidate set is empty, as it is on a run that has collected no unit",
+      "scenario": "first-run"
+    },
+    {
+      "outcome": {
+        "candidateStatement": "36 prior verified unit(s) offered by run run-2026_08_20_03_48-overview+请假管理+晋升管理-8abb4795-251cd3b2-740f3203, knowledge epoch 0, plan catalog 1b389e7d2b99c32e6f90eae9add966113853dc3dac87d70e7bfc6c3f629c74db",
+        "candidateUnits": 36,
+        "conservation": [
+          "planned = reusable + rebuild + new: 40 = 36 + 0 + 4",
+          "candidates = reusable + rebuild + retired: 36 = 36 + 0 + 0"
+        ],
+        "new": [
+          "feature-晋升管理-01e5065d19-engineering::synthesis::document",
+          "feature-请假管理-8c2d685d81-product::synthesis::document",
+          "overview-engineering::synthesis::document",
+          "overview-product::synthesis::document"
+        ],
+        "plannedUnits": 40,
+        "rebuild": [],
+        "retired": [],
+        "reusable": [
+          "feature-晋升管理-01e5065d19-engineering::appendix::coverage",
+          "feature-晋升管理-01e5065d19-engineering::leaf::coverage",
+          "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+          "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+          "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+          "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+          "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+          "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+          "feature-晋升管理-01e5065d19-engineering::leaf::work-item-dimension",
+          "feature-请假管理-8c2d685d81-product::appendix::coverage",
+          "feature-请假管理-8c2d685d81-product::leaf::coverage",
+          "feature-请假管理-8c2d685d81-product::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+          "feature-请假管理-8c2d685d81-product::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+          "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+          "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+          "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+          "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+          "feature-请假管理-8c2d685d81-product::leaf::work-item-dimension",
+          "overview-engineering::appendix::coverage",
+          "overview-engineering::leaf::coverage",
+          "overview-engineering::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+          "overview-engineering::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+          "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+          "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+          "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+          "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+          "overview-engineering::leaf::work-item-dimension",
+          "overview-product::appendix::coverage",
+          "overview-product::leaf::coverage",
+          "overview-product::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+          "overview-product::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+          "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+          "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+          "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+          "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+          "overview-product::leaf::work-item-dimension"
+        ],
+        "state": "derived"
+      },
+      "perturbation": "nothing is changed; the plan is compared with the identities of its own units",
+      "scenario": "unchanged"
+    },
+    {
+      "outcome": {
+        "candidateStatement": "36 prior verified unit(s) offered by run run-2026_08_20_03_48-overview+请假管理+晋升管理-8abb4795-251cd3b2-740f3203, knowledge epoch 0, plan catalog 1b389e7d2b99c32e6f90eae9add966113853dc3dac87d70e7bfc6c3f629c74db",
+        "candidateUnits": 36,
+        "conservation": [
+          "planned = reusable + rebuild + new: 50 = 36 + 0 + 14",
+          "candidates = reusable + rebuild + retired: 36 = 36 + 0 + 0"
+        ],
+        "new": [
+          "feature-晋升管理-01e5065d19-engineering::synthesis::document",
+          "feature-请假管理-8c2d685d81-engineering::appendix::coverage",
+          "feature-请假管理-8c2d685d81-engineering::leaf::coverage",
+          "feature-请假管理-8c2d685d81-engineering::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+          "feature-请假管理-8c2d685d81-engineering::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+          "feature-请假管理-8c2d685d81-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+          "feature-请假管理-8c2d685d81-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+          "feature-请假管理-8c2d685d81-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+          "feature-请假管理-8c2d685d81-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+          "feature-请假管理-8c2d685d81-engineering::leaf::work-item-dimension",
+          "feature-请假管理-8c2d685d81-engineering::synthesis::document",
+          "feature-请假管理-8c2d685d81-product::synthesis::document",
+          "overview-engineering::synthesis::document",
+          "overview-product::synthesis::document"
+        ],
+        "plannedUnits": 50,
+        "rebuild": [],
+        "retired": [],
+        "reusable": [
+          "feature-晋升管理-01e5065d19-engineering::appendix::coverage",
+          "feature-晋升管理-01e5065d19-engineering::leaf::coverage",
+          "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+          "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+          "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+          "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+          "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+          "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+          "feature-晋升管理-01e5065d19-engineering::leaf::work-item-dimension",
+          "feature-请假管理-8c2d685d81-product::appendix::coverage",
+          "feature-请假管理-8c2d685d81-product::leaf::coverage",
+          "feature-请假管理-8c2d685d81-product::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+          "feature-请假管理-8c2d685d81-product::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+          "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+          "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+          "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+          "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+          "feature-请假管理-8c2d685d81-product::leaf::work-item-dimension",
+          "overview-engineering::appendix::coverage",
+          "overview-engineering::leaf::coverage",
+          "overview-engineering::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+          "overview-engineering::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+          "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+          "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+          "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+          "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+          "overview-engineering::leaf::work-item-dimension",
+          "overview-product::appendix::coverage",
+          "overview-product::leaf::coverage",
+          "overview-product::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+          "overview-product::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+          "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+          "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+          "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+          "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+          "overview-product::leaf::work-item-dimension"
+        ],
+        "state": "derived"
+      },
+      "perturbation": "one document added to the recorded requests: feature-请假管理-8c2d685d81-engineering (feature, audience engineering)",
+      "scenario": "second-audience-document"
+    },
+    {
+      "outcome": {
+        "candidateStatement": "36 prior verified unit(s) offered by run run-2026_08_20_03_48-overview+请假管理+晋升管理-8abb4795-251cd3b2-740f3203, knowledge epoch 0, plan catalog 1b389e7d2b99c32e6f90eae9add966113853dc3dac87d70e7bfc6c3f629c74db",
+        "candidateUnits": 36,
+        "conservation": [
+          "planned = reusable + rebuild + new: 40 = 32 + 4 + 4",
+          "candidates = reusable + rebuild + retired: 36 = 32 + 4 + 0"
+        ],
+        "new": [
+          "feature-晋升管理-01e5065d19-engineering::synthesis::document",
+          "feature-请假管理-8c2d685d81-product::synthesis::document",
+          "overview-engineering::synthesis::document",
+          "overview-product::synthesis::document"
+        ],
+        "plannedUnits": 40,
+        "rebuild": [
+          {
+            "cause": "identity-changed",
+            "changedSections": [
+              "section 1 (packet header)",
+              "section 6 ## Obligations bound to this unit's topics (847 obligation(s), 847 material, 0 written here, 847 carried by another unit of this document)"
+            ],
+            "changedTerms": [],
+            "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::work-item-dimension"
+          },
+          {
+            "cause": "identity-changed",
+            "changedSections": [
+              "section 1 (packet header)",
+              "section 6 ## Obligations bound to this unit's topics (847 obligation(s), 847 material, 0 written here, 847 carried by another unit of this document)"
+            ],
+            "changedTerms": [],
+            "unitId": "feature-请假管理-8c2d685d81-product::leaf::work-item-dimension"
+          },
+          {
+            "cause": "identity-changed",
+            "changedSections": [
+              "section 1 (packet header)",
+              "section 6 ## Obligations bound to this unit's topics (847 obligation(s), 847 material, 0 written here, 847 carried by another unit of this document)"
+            ],
+            "changedTerms": [],
+            "unitId": "overview-engineering::leaf::work-item-dimension"
+          },
+          {
+            "cause": "identity-changed",
+            "changedSections": [
+              "section 1 (packet header)",
+              "section 6 ## Obligations bound to this unit's topics (847 obligation(s), 847 material, 0 written here, 847 carried by another unit of this document)"
+            ],
+            "changedTerms": [],
+            "unitId": "overview-product::leaf::work-item-dimension"
+          }
+        ],
+        "retired": [],
+        "reusable": [
+          "feature-晋升管理-01e5065d19-engineering::appendix::coverage",
+          "feature-晋升管理-01e5065d19-engineering::leaf::coverage",
+          "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+          "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+          "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+          "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+          "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+          "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+          "feature-请假管理-8c2d685d81-product::appendix::coverage",
+          "feature-请假管理-8c2d685d81-product::leaf::coverage",
+          "feature-请假管理-8c2d685d81-product::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+          "feature-请假管理-8c2d685d81-product::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+          "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+          "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+          "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+          "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+          "overview-engineering::appendix::coverage",
+          "overview-engineering::leaf::coverage",
+          "overview-engineering::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+          "overview-engineering::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+          "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+          "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+          "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+          "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+          "overview-product::appendix::coverage",
+          "overview-product::leaf::coverage",
+          "overview-product::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+          "overview-product::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+          "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+          "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+          "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+          "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift"
+        ],
+        "state": "derived"
+      },
+      "perturbation": "binding-preserving: the title of topic work-item-dimension:34fcd3cb942604c7 (facet work-item-dimension, 24 binding(s), owner of an obligation somewhere: no) changed; its binding set, its evidence and every other topic are untouched",
+      "scenario": "content-change-smallest-topic"
+    },
+    {
+      "outcome": {
+        "candidateStatement": "36 prior verified unit(s) offered by run run-2026_08_20_03_48-overview+请假管理+晋升管理-8abb4795-251cd3b2-740f3203, knowledge epoch 0, plan catalog 1b389e7d2b99c32e6f90eae9add966113853dc3dac87d70e7bfc6c3f629c74db",
+        "candidateUnits": 36,
+        "conservation": [
+          "planned = reusable + rebuild + new: 40 = 28 + 8 + 4",
+          "candidates = reusable + rebuild + retired: 36 = 28 + 8 + 0"
+        ],
+        "new": [
+          "feature-晋升管理-01e5065d19-engineering::synthesis::document",
+          "feature-请假管理-8c2d685d81-product::synthesis::document",
+          "overview-engineering::synthesis::document",
+          "overview-product::synthesis::document"
+        ],
+        "plannedUnits": 40,
+        "rebuild": [
+          {
+            "cause": "identity-changed",
+            "changedSections": [
+              "section 1 (packet header)",
+              "section 6 ## Obligations bound to this unit's topics (327 obligation(s), 298 material, 286 written here, 41 carried by another unit of this document)"
+            ],
+            "changedTerms": [],
+            "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints"
+          },
+          {
+            "cause": "identity-changed",
+            "changedSections": [
+              "section 1 (packet header)",
+              "section 6 ## Obligations bound to this unit's topics (327 obligation(s), 298 material, 41 written here, 286 carried by another unit of this document)"
+            ],
+            "changedTerms": [],
+            "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-28bd6c37c830540a#d-documentation-drift"
+          },
+          {
+            "cause": "identity-changed",
+            "changedSections": [
+              "section 1 (packet header)",
+              "section 6 ## Obligations bound to this unit's topics (327 obligation(s), 298 material, 286 written here, 41 carried by another unit of this document)"
+            ],
+            "changedTerms": [],
+            "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints"
+          },
+          {
+            "cause": "identity-changed",
+            "changedSections": [
+              "section 1 (packet header)",
+              "section 6 ## Obligations bound to this unit's topics (327 obligation(s), 298 material, 41 written here, 286 carried by another unit of this document)"
+            ],
+            "changedTerms": [],
+            "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature#t-28bd6c37c830540a#d-documentation-drift"
+          },
+          {
+            "cause": "identity-changed",
+            "changedSections": [
+              "section 1 (packet header)",
+              "section 6 ## Obligations bound to this unit's topics (327 obligation(s), 298 material, 286 written here, 41 carried by another unit of this document)"
+            ],
+            "changedTerms": [],
+            "unitId": "overview-engineering::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints"
+          },
+          {
+            "cause": "identity-changed",
+            "changedSections": [
+              "section 1 (packet header)",
+              "section 6 ## Obligations bound to this unit's topics (327 obligation(s), 298 material, 41 written here, 286 carried by another unit of this document)"
+            ],
+            "changedTerms": [],
+            "unitId": "overview-engineering::leaf::feature#t-28bd6c37c830540a#d-documentation-drift"
+          },
+          {
+            "cause": "identity-changed",
+            "changedSections": [
+              "section 1 (packet header)",
+              "section 6 ## Obligations bound to this unit's topics (327 obligation(s), 298 material, 286 written here, 41 carried by another unit of this document)"
+            ],
+            "changedTerms": [],
+            "unitId": "overview-product::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints"
+          },
+          {
+            "cause": "identity-changed",
+            "changedSections": [
+              "section 1 (packet header)",
+              "section 6 ## Obligations bound to this unit's topics (327 obligation(s), 298 material, 41 written here, 286 carried by another unit of this document)"
+            ],
+            "changedTerms": [],
+            "unitId": "overview-product::leaf::feature#t-28bd6c37c830540a#d-documentation-drift"
+          }
+        ],
+        "retired": [],
+        "reusable": [
+          "feature-晋升管理-01e5065d19-engineering::appendix::coverage",
+          "feature-晋升管理-01e5065d19-engineering::leaf::coverage",
+          "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+          "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+          "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+          "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+          "feature-晋升管理-01e5065d19-engineering::leaf::work-item-dimension",
+          "feature-请假管理-8c2d685d81-product::appendix::coverage",
+          "feature-请假管理-8c2d685d81-product::leaf::coverage",
+          "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+          "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+          "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+          "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+          "feature-请假管理-8c2d685d81-product::leaf::work-item-dimension",
+          "overview-engineering::appendix::coverage",
+          "overview-engineering::leaf::coverage",
+          "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+          "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+          "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+          "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+          "overview-engineering::leaf::work-item-dimension",
+          "overview-product::appendix::coverage",
+          "overview-product::leaf::coverage",
+          "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+          "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+          "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+          "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+          "overview-product::leaf::work-item-dimension"
+        ],
+        "state": "derived"
+      },
+      "perturbation": "binding-preserving: the title of topic feature:28bd6c37c830540a (facet feature, 327 binding(s), owner of an obligation somewhere: yes) changed; its binding set, its evidence and every other topic are untouched",
+      "scenario": "content-change-owner-topic"
+    },
+    {
+      "outcome": {
+        "candidateStatement": "36 prior verified unit(s) offered by run run-2026_08_20_03_48-overview+请假管理+晋升管理-8abb4795-251cd3b2-740f3203, knowledge epoch 0, plan catalog 1b389e7d2b99c32e6f90eae9add966113853dc3dac87d70e7bfc6c3f629c74db",
+        "candidateUnits": 36,
+        "conservation": [
+          "planned = reusable + rebuild + new: 40 = 20 + 12 + 8",
+          "candidates = reusable + rebuild + retired: 36 = 20 + 12 + 4"
+        ],
+        "new": [
+          "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-28bd6c37c830540a#d-authorization",
+          "feature-晋升管理-01e5065d19-engineering::synthesis::document",
+          "feature-请假管理-8c2d685d81-product::leaf::feature#t-28bd6c37c830540a#d-authorization",
+          "feature-请假管理-8c2d685d81-product::synthesis::document",
+          "overview-engineering::leaf::feature#t-28bd6c37c830540a#d-authorization",
+          "overview-engineering::synthesis::document",
+          "overview-product::leaf::feature#t-28bd6c37c830540a#d-authorization",
+          "overview-product::synthesis::document"
+        ],
+        "plannedUnits": 40,
+        "rebuild": [
+          {
+            "cause": "identity-changed",
+            "changedSections": [
+              "section 1 (packet header)",
+              "section 6 ## Obligations bound to this unit's topics (164 obligation(s), 164 material, 0 written here, 164 carried by another unit of this document)"
+            ],
+            "changedTerms": [],
+            "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::coverage"
+          },
+          {
+            "cause": "identity-changed",
+            "changedSections": [
+              "section 1 (packet header)",
+              "section 6 ## Obligations bound to this unit's topics (327 obligation(s), 298 material, 41 written here, 286 carried by another unit of this document) -> ## Obligations bound to this unit's topics (326 obligation(s), 298 material, 41 written here, 285 carried by another unit of this document)"
+            ],
+            "changedTerms": [],
+            "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-28bd6c37c830540a#d-documentation-drift"
+          },
+          {
+            "cause": "identity-changed",
+            "changedSections": [
+              "section 1 (packet header)",
+              "section 6 ## Obligations bound to this unit's topics (847 obligation(s), 847 material, 0 written here, 847 carried by another unit of this document)"
+            ],
+            "changedTerms": [],
+            "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::work-item-dimension"
+          },
+          {
+            "cause": "identity-changed",
+            "changedSections": [
+              "section 1 (packet header)",
+              "section 6 ## Obligations bound to this unit's topics (164 obligation(s), 164 material, 0 written here, 164 carried by another unit of this document)"
+            ],
+            "changedTerms": [],
+            "unitId": "feature-请假管理-8c2d685d81-product::leaf::coverage"
+          },
+          {
+            "cause": "identity-changed",
+            "changedSections": [
+              "section 1 (packet header)",
+              "section 6 ## Obligations bound to this unit's topics (327 obligation(s), 298 material, 41 written here, 286 carried by another unit of this document) -> ## Obligations bound to this unit's topics (326 obligation(s), 298 material, 41 written here, 285 carried by another unit of this document)"
+            ],
+            "changedTerms": [],
+            "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature#t-28bd6c37c830540a#d-documentation-drift"
+          },
+          {
+            "cause": "identity-changed",
+            "changedSections": [
+              "section 1 (packet header)",
+              "section 6 ## Obligations bound to this unit's topics (847 obligation(s), 847 material, 0 written here, 847 carried by another unit of this document)"
+            ],
+            "changedTerms": [],
+            "unitId": "feature-请假管理-8c2d685d81-product::leaf::work-item-dimension"
+          },
+          {
+            "cause": "identity-changed",
+            "changedSections": [
+              "section 1 (packet header)",
+              "section 6 ## Obligations bound to this unit's topics (164 obligation(s), 164 material, 0 written here, 164 carried by another unit of this document)"
+            ],
+            "changedTerms": [],
+            "unitId": "overview-engineering::leaf::coverage"
+          },
+          {
+            "cause": "identity-changed",
+            "changedSections": [
+              "section 1 (packet header)",
+              "section 6 ## Obligations bound to this unit's topics (327 obligation(s), 298 material, 41 written here, 286 carried by another unit of this document) -> ## Obligations bound to this unit's topics (326 obligation(s), 298 material, 41 written here, 285 carried by another unit of this document)"
+            ],
+            "changedTerms": [],
+            "unitId": "overview-engineering::leaf::feature#t-28bd6c37c830540a#d-documentation-drift"
+          },
+          {
+            "cause": "identity-changed",
+            "changedSections": [
+              "section 1 (packet header)",
+              "section 6 ## Obligations bound to this unit's topics (847 obligation(s), 847 material, 0 written here, 847 carried by another unit of this document)"
+            ],
+            "changedTerms": [],
+            "unitId": "overview-engineering::leaf::work-item-dimension"
+          },
+          {
+            "cause": "identity-changed",
+            "changedSections": [
+              "section 1 (packet header)",
+              "section 6 ## Obligations bound to this unit's topics (164 obligation(s), 164 material, 0 written here, 164 carried by another unit of this document)"
+            ],
+            "changedTerms": [],
+            "unitId": "overview-product::leaf::coverage"
+          },
+          {
+            "cause": "identity-changed",
+            "changedSections": [
+              "section 1 (packet header)",
+              "section 6 ## Obligations bound to this unit's topics (327 obligation(s), 298 material, 41 written here, 286 carried by another unit of this document) -> ## Obligations bound to this unit's topics (326 obligation(s), 298 material, 41 written here, 285 carried by another unit of this document)"
+            ],
+            "changedTerms": [],
+            "unitId": "overview-product::leaf::feature#t-28bd6c37c830540a#d-documentation-drift"
+          },
+          {
+            "cause": "identity-changed",
+            "changedSections": [
+              "section 1 (packet header)",
+              "section 6 ## Obligations bound to this unit's topics (847 obligation(s), 847 material, 0 written here, 847 carried by another unit of this document)"
+            ],
+            "changedTerms": [],
+            "unitId": "overview-product::leaf::work-item-dimension"
+          }
+        ],
+        "retired": [
+          "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+          "feature-请假管理-8c2d685d81-product::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+          "overview-engineering::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+          "overview-product::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints"
+        ],
+        "reusable": [
+          "feature-晋升管理-01e5065d19-engineering::appendix::coverage",
+          "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+          "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+          "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+          "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+          "feature-请假管理-8c2d685d81-product::appendix::coverage",
+          "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+          "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+          "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+          "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+          "overview-engineering::appendix::coverage",
+          "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+          "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+          "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+          "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+          "overview-product::appendix::coverage",
+          "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+          "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+          "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+          "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift"
+        ],
+        "state": "derived"
+      },
+      "perturbation": "binding-set: topic feature:28bd6c37c830540a (facet feature, 327 binding(s)) stops binding obligation feature:8c2d685d81:api-entrypoints; the obligation itself is untouched and still bound by whatever other topics bind it",
+      "scenario": "binding-dropped-owner-topic"
+    }
+  ],
+  "unidentified": [
+    {
+      "reason": "a synthesis unit is written from its children's COLLECTED summaries, and this archival run has authored no unit, so there is no verified summary to compute an identity from",
+      "unitId": "feature-晋升管理-01e5065d19-engineering::synthesis::document"
+    },
+    {
+      "reason": "a synthesis unit is written from its children's COLLECTED summaries, and this archival run has authored no unit, so there is no verified summary to compute an identity from",
+      "unitId": "feature-请假管理-8c2d685d81-product::synthesis::document"
+    },
+    {
+      "reason": "a synthesis unit is written from its children's COLLECTED summaries, and this archival run has authored no unit, so there is no verified summary to compute an identity from",
+      "unitId": "overview-engineering::synthesis::document"
+    },
+    {
+      "reason": "a synthesis unit is written from its children's COLLECTED summaries, and this archival run has authored no unit, so there is no verified summary to compute an identity from",
+      "unitId": "overview-product::synthesis::document"
+    }
+  ],
+  "units": 40,
+  "unitsByKind": [
+    {
+      "kind": "appendix",
+      "units": 4
+    },
+    {
+      "kind": "bridge",
+      "units": 0
+    },
+    {
+      "kind": "leaf",
+      "units": 32
+    },
+    {
+      "kind": "synthesis",
+      "units": 4
+    }
+  ],
+  "version": "unit-cache-identity-readings-v1"
+}

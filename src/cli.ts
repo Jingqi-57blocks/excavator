@@ -9,6 +9,8 @@ import { collectUnits } from "./report/unit-collect.ts";
 import { checkpointUnit } from "./report/unit-checkpoint.ts";
 import { resumeUnits, unitStatus } from "./report/unit-status.ts";
 import { renderUnitPacketForRun } from "./report/unit-packet-source.ts";
+import { loadRunUnitIdentities } from "./report/unit-cache-identity-source.ts";
+import { describeAuthorship, type UnitAuthorship } from "./report/unit-cache-identity.ts";
 import { readUnitGroundingForRun, summariseUnitGroundingReading } from "./report/unit-grounding-reading.ts";
 import { planRun, renderPlannerPacketForRun, DEFAULT_PLANNER_PACKET_BYTE_LIMIT, type PlanProposalSource } from "./run/stages/plan-stage.ts";
 import { PACKET_OVER_BUDGET_MODES, type PacketOverBudgetMode } from "./report/planner-packet.ts";
@@ -146,6 +148,31 @@ async function main(): Promise<void> {
           await writeFile(resolve(args.out), packet.markdown);
           print({ out: resolve(args.out), bytes: packet.bytes, byteLimit: packet.byteLimit, limitations: packet.limitations });
         } else process.stdout.write(packet.markdown);
+        break;
+      }
+      case "unit-cache-identity": {
+        // Read-only: the CACHE IDENTITY of every unit of this run's plan — the packet's own bytes with the three
+        // plan-global digest lines normalized, digested. It admits nothing and writes nothing; it answers "which
+        // units of this plan would a verified draft still be an answer for" one unit at a time.
+        const args = parseArgs(argv);
+        const identities = await loadRunUnitIdentities(required(args.run, "--run"), authorshipOf(required(args.authorship, "--authorship")));
+        print({
+          run: identities.runId,
+          knowledgeEpoch: identities.knowledgeEpoch,
+          planCatalogDigest: identities.planCatalogDigest,
+          authorship: describeAuthorship(identities.authorship),
+          units: identities.rows.map((row) => row.state === "identified"
+            ? {
+                unit: row.identity.unitId,
+                document: row.identity.documentId,
+                kind: row.identity.kind,
+                identityDigest: row.identity.digest,
+                viewBytes: row.identity.viewBytes,
+                sections: row.identity.sections
+              }
+            : { unit: row.unitId, document: row.documentId, kind: row.kind, identity: "unavailable", reason: row.reason }),
+          readPaths: identities.readPaths
+        });
         break;
       }
       case "plan": {
@@ -485,6 +512,26 @@ function overBudgetMode(value: string): PacketOverBudgetMode {
   if ((PACKET_OVER_BUDGET_MODES as readonly string[]).includes(value)) return value as PacketOverBudgetMode;
   throw new Error(`--over-budget ${JSON.stringify(value)} is not one of: ${PACKET_OVER_BUDGET_MODES.join(", ")}`);
 }
+/**
+ * `--authorship model-family:<name>` or `--authorship model-free:<name>`. Required, closed, and never defaulted.
+ *
+ * A cache identity says "a verified draft of THIS is still an answer", and a draft written by one model family is
+ * not evidence about another. A default here would answer that question on the operator's behalf.
+ */
+function authorshipOf(value: string): UnitAuthorship {
+  const separator = value.indexOf(":");
+  const kind = separator < 0 ? value : value.slice(0, separator);
+  // Trimmed HERE, at the boundary where a shell quoted the argument: "model-family: opus" and
+  // "model-family:opus" name one author, and letting the space through would produce a different digest — a total
+  // cache miss that reads as a real change. Core refuses an untrimmed name rather than normalizing it silently.
+  const name = separator < 0 ? "" : value.slice(separator + 1).trim();
+  if (name !== "") {
+    if (kind === "model-family") return { kind: "model-family", family: name };
+    if (kind === "model-free") return { kind: "model-free", generator: name };
+  }
+  throw new Error(`--authorship ${JSON.stringify(value)} must be model-family:<name> or model-free:<name>; an identity has to name who would have written the draft it stands for, and there is no default author`);
+}
+
 function print(value: unknown): void { console.log(stableJson(value)); }
 
 function help(): string {
@@ -501,6 +548,7 @@ Commands:
   native-graph  Build a symbol+call navigation graph for CodeGraph-unsupported languages (Perl, Zope templates)
   framework  Recover routes/components from framework conventions (Catalyst, …) — for dynamically-dispatched apps
   plan-packet   Render the deterministic, bounded planner view of one frozen run; --unit <id> renders one authoring unit's view instead (read-only, zero model)
+  unit-cache-identity Print the cache identity of every authoring unit of one planned run (read-only, zero model)
   plan          Validate a plan proposal against the frozen epoch and record plan/catalog.json + plan/dag.json
   begin      Start or restart one document authoring timer
   reading    Show which in-boundary decision code no source window covers yet — run it before freeze, where opening one is free
@@ -541,6 +589,7 @@ Examples:
   excavator trace --run <run> --file traces.json
   excavator checklist --run <run> --file checklist-updates.json
   excavator plan-packet --run <run> --unit <unit-id> --over-budget record-limitation --out unit-packet.md
+  excavator unit-cache-identity --run <run> --authorship model-family:example
   excavator audit --run <run> --document <id>
   excavator audit --run <run> --units
   excavator report --request request.json
@@ -576,6 +625,15 @@ const COMMAND_HELP: Record<string, CommandHelp> = {
     ],
     example: "excavator plan-packet --run <run> --over-budget refuse --out packet.md",
     notes: "Read-only and deterministic: it writes nothing into the run and never truncates. Over the bound it either refuses by name or records the overrun as a limitation. With --unit every obligation gets its own row with its own evidence and trace ids and every bound record is rendered in full — nothing clipped, capped or truncated — and a synthesis unit is rendered from its collected children's summaries with no topic dossier at all."
+  },
+  "unit-cache-identity": {
+    synopsis: "unit-cache-identity --run <dir> --authorship model-family:<name>|model-free:<name>",
+    flags: [
+      "--run <dir>          Planned run directory (required)",
+      "--authorship <who>   model-family:<name> or model-free:<name> — required, no default"
+    ],
+    example: "excavator unit-cache-identity --run <run> --authorship model-free:fixture-plan",
+    notes: "Read-only and deterministic: it writes nothing and calls no model. Each unit's identity is its own packet, composed with the three plan-global digest lines (topics catalog, plan catalog, recorded requests) normalized, then digested — so the epoch, the audience lens, the obligation scope, the ownership stubs and the budget rows are all in it, while a change to one topic does not move every unit of the run. A synthesis whose children are not collected has no identity yet and says so by name."
   },
   plan: {
     synopsis: "plan --run <dir> (--fixture-plan | --proposal <file>)",
