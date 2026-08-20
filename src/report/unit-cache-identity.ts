@@ -21,9 +21,18 @@
  *     write the same thing. A closed union: a model family, or a NAMED model-free generator (the fixture plan is
  *     the only one today). There is no "unknown" arm, because an unknown author is the one case where reuse must
  *     not be considered at all.
- *   * `contract` — the claims, summary and receipt schema versions this build records a unit in. A
- *     `unit-claims-v1` draft is not admissible under `unit-claims-v2`, and the packet says nothing about the shape
- *     of the output it will be turned into.
+ *   * `contract` — the claims and summary schema versions this build records a unit in. A `unit-claims-v1` draft is
+ *     not admissible under `unit-claims-v2`, and the packet says nothing about the shape of the output it will be
+ *     turned into. THE RECEIPT SCHEMA VERSION IS DELIBERATELY NOT HERE (R6c), and the reason is a rule about what
+ *     belongs in a key at all: the bytes a reuse hands back are the content, the claims and the summary, so those
+ *     two schema versions are the shape of the thing being reused. A receipt is never reused — it is deleted when
+ *     the draft it vouched for is collected, and an admission mints a NEW one by going back through `draftUnit` and
+ *     `collectUnits` with every existing gate (`unit-cache-admission-run.ts`). Keeping its version in the key
+ *     bought one whole-ledger invalidation per receipt schema bump and no protection at all: bad bytes are stopped
+ *     by the gates, not by the key. BOUNDARY CONDITION, and it is the only thing holding this up: the day any
+ *     admission path starts trusting a receipt's or a ledger row's recorded VERDICT instead of re-verifying through
+ *     the gates, the version of the record it trusts belongs back in the key.
+ *     `tests/unit-cache-admission-record-trust.test.ts` is that premise as a check that goes red.
  *   * `request` — THIS document's recorded request row. The packet header prints the audience, intent, language and
  *     detail budget, but not the request's KNOWLEDGE BOUNDARY (`scope`, `scopeIds`) nor its `policyVersion` and
  *     `mappingVersion`. A document whose boundary moved from one feature to two renders byte-identical packets
@@ -45,31 +54,74 @@
  */
 
 import { canonicalJson, sha256 } from "../base/util.ts";
+import { LEGACY_REQUEST_MAPPING_VERSION } from "./legacy-request-mapping.ts";
 import type { AuthoringUnitKind } from "./plan-proposal.ts";
+import { REPORT_POLICY_VERSION } from "./report-policy-registry.ts";
 import type { ReportRequestRecord } from "./report-requests-artifact.ts";
 import { UNIT_CLAIMS_VERSION, UNIT_SUMMARY_VERSION } from "./unit-output.ts";
 import { authorshipValue, describeAuthorship, type UnitAuthorship } from "./unit-provenance.ts";
-import { UNIT_RECEIPT_VERSION } from "./unit-receipt.ts";
-import { composeUnitPacketMarkdown, type UnitPacketInput } from "./unit-packet.ts";
+import { UNIT_PACKET_VERSION, composeUnitPacketMarkdown, type UnitPacketInput } from "./unit-packet.ts";
 
-export const UNIT_CACHE_IDENTITY_VERSION = "unit-cache-identity-v1";
+/** v2 (R6c): the receipt schema version left the key. Any change to the formula below moves this. */
+export const UNIT_CACHE_IDENTITY_VERSION = "unit-cache-identity-v2";
 
 /**
- * The output contract a reused draft must still satisfy — the three schema versions a recorded unit is made of.
+ * The output contract a reused draft must still satisfy — the schema versions of the BYTES a reuse hands back.
  *
  * Read from the code's own constants rather than passed in: they are properties of THIS build, and a caller that
  * could state them would be able to claim a draft is admissible under a schema it was never written for.
+ *
+ * Two members, and the receipt version's absence is the ruling of R6c (the file header carries the argument and the
+ * boundary condition). What is reused is a unit's content, claims and summary; the receipt is minted fresh by the
+ * admission's own trip through `draftUnit`.
  */
 export interface UnitOutputContract {
   readonly claimsVersion: typeof UNIT_CLAIMS_VERSION;
   readonly summaryVersion: typeof UNIT_SUMMARY_VERSION;
-  readonly receiptVersion: typeof UNIT_RECEIPT_VERSION;
 }
 
 export const UNIT_OUTPUT_CONTRACT: UnitOutputContract = {
   claimsVersion: UNIT_CLAIMS_VERSION,
-  summaryVersion: UNIT_SUMMARY_VERSION,
-  receiptVersion: UNIT_RECEIPT_VERSION
+  summaryVersion: UNIT_SUMMARY_VERSION
+};
+
+/**
+ * THE SCHEMA VERSIONS THAT ENTER THE KEY, as one value an artifact can record and a test can pin.
+ *
+ * It exists because of what R6b did without anyone noticing: the receipt schema went v1 → v2 while it was in the
+ * key, so every `identityDigest` checked into `eval/golden/` became a number the code could no longer produce — and
+ * the suite stayed green, because nothing recomputed those digests and nothing recorded the versions they were
+ * minted under. A reading that carries this value turns the next such bump into a red test in the same batch.
+ *
+ * FIVE MEMBERS, ONE PER MECHANISM BY WHICH A BUILD CONSTANT REACHES THE DIGEST: the formula's own version, the
+ * output contract it composes, the packet version the VIEW prints in its first line, and the two versions this
+ * document's request row carries (the legacy mapping's, and the policy registry's). `tests/unit-cache-identity.test.ts`
+ * asserts each one against the identity record itself, so a member that stopped being in the key is a red test
+ * rather than a stale line in a golden.
+ *
+ * WHAT IT IS NOT: a proof of completeness. A list cannot be one — the registry's policy CONTENT digests reach the
+ * view too, and tomorrow's key may compose something nobody added here. Completeness is carried by the other nail:
+ * `eval/golden/unit-cache-identity-readings-mini.json` is a whole reading over an in-repo fixture, recomputed and
+ * byte-compared on every run, so anything that moves an identity at all moves it. This value is what makes the two
+ * ARCHIVAL readings — whose inputs are not in this repository — say out loud what they were minted under.
+ */
+export interface UnitIdentityKeyVersions {
+  readonly identity: typeof UNIT_CACHE_IDENTITY_VERSION;
+  readonly output: UnitOutputContract;
+  /** Printed by the view's own first line, so it is inside the digested bytes. */
+  readonly view: typeof UNIT_PACKET_VERSION;
+  /** `terms.request.mappingVersion`: the shape of the recorded request row the key carries. */
+  readonly requestMapping: typeof LEGACY_REQUEST_MAPPING_VERSION;
+  /** `terms.request.request.policyVersion`: the registry the lens and intent references were taken from. */
+  readonly policy: typeof REPORT_POLICY_VERSION;
+}
+
+export const UNIT_IDENTITY_KEY_VERSIONS: UnitIdentityKeyVersions = {
+  identity: UNIT_CACHE_IDENTITY_VERSION,
+  output: UNIT_OUTPUT_CONTRACT,
+  view: UNIT_PACKET_VERSION,
+  requestMapping: LEGACY_REQUEST_MAPPING_VERSION,
+  policy: REPORT_POLICY_VERSION
 };
 
 /*
