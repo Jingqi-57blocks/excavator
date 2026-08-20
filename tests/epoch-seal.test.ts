@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import type { EvidenceItem, InvestigationPlan, KnowledgeCompleteness, RunManifest, TraceCatalog } from "../src/base/types.ts";
 import { auditFrozenKnowledge, buildKnowledge, judgementDigest, knowledgeDigest } from "../src/freeze/freeze.ts";
+import { CURRENT_JUDGEMENT_SEAL } from "../src/freeze/judgement-seal.ts";
 import { canonicalJson, sha256, stableJson } from "../src/base/util.ts";
 import { appendTimeline } from "../src/base/timeline.ts";
 import { APPEND_STREAM_VERSION, nextStreamDigest, writeCheckpoint } from "../src/base/single-writer.ts";
@@ -89,7 +90,7 @@ test("knowledge sealing is byte-deterministic under work-item, evidence, trace a
 test("the judgement identity changes when a reason changes even if the status does not", () => {
   const before: InvestigationPlan = { version: 1, runId: "run", createdAt: "fixed", items: [workItem("a")] };
   const after: InvestigationPlan = { ...before, items: [{ ...before.items[0], reason: "a materially different rationale" }] };
-  assert.notEqual(judgementDigest(before, null), judgementDigest(after, null));
+  assert.notEqual(judgementDigest(before, null, CURRENT_JUDGEMENT_SEAL), judgementDigest(after, null, CURRENT_JUDGEMENT_SEAL));
 });
 
 test("epoch zero rejects a predecessor and later epochs require one", () => {
