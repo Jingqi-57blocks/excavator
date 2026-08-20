@@ -1,9 +1,11 @@
 #!/usr/bin/env -S node --experimental-strip-types --no-warnings
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { Audience, BudgetConfig, ChecklistItem, FeatureRequest, InvestigationWorkItem, ReportRequest, SectionClaim, TraceRecord } from "./base/types.ts";
 import { addSourceEvidence, assembleRun, auditRun, beginDocument, checkpointSection, freezeRun, prepareRun, readingCheck, resumeRun, runStatus, scaffoldClaims, searchSourceEvidence, updateChecklist, updateTraces, updateWorkItems, type SupplementInput } from "./run/run.ts";
 import { collectDrafts, draftSection } from "./report/parallel-authoring.ts";
+import { planRun, renderPlannerPacketForRun, DEFAULT_PLANNER_PACKET_BYTE_LIMIT, type PlanProposalSource } from "./run/stages/plan-stage.ts";
+import { PACKET_OVER_BUDGET_MODES, type PacketOverBudgetMode } from "./report/planner-packet.ts";
 import { stableJson } from "./base/util.ts";
 import { buildCodeGraph, codeGraphStatus } from "./codegraph/codegraph-command.ts";
 import { runDbSchema } from "./schema/db-schema-command.ts";
@@ -111,6 +113,31 @@ async function main(): Promise<void> {
         const manifest = await beginDocument(required(args.run, "--run"), required(args.document, "--document"));
         const notice = manifest.frozenAt ? {} : { notice: "This run is not frozen; freeze the investigation before authoring so knowledge is stable: excavator freeze --run <run-dir>." };
         print({ state: manifest.state, document: args.document, startedAt: manifest.documents.find((item) => item.id === args.document)?.startedAt, ...notice });
+        break;
+      }
+      case "plan-packet": {
+        // Read-only. Renders the model-facing planner view; the model itself is called from the skill, never here.
+        const args = parseArgs(argv);
+        const packet = await renderPlannerPacketForRun(required(args.run, "--run"), {
+          overBudget: overBudgetMode(required(args.overBudget, "--over-budget")),
+          byteLimit: args.byteLimit ? Number(args.byteLimit) : DEFAULT_PLANNER_PACKET_BYTE_LIMIT
+        });
+        if (args.out) {
+          await writeFile(resolve(args.out), packet.markdown);
+          print({ out: resolve(args.out), bytes: packet.bytes, byteLimit: packet.byteLimit, limitations: packet.limitations });
+        } else process.stdout.write(packet.markdown);
+        break;
+      }
+      case "plan": {
+        const args = parseArgs(argv);
+        const result = await planRun(required(args.run, "--run"), proposalSource(args));
+        print({
+          topics: result.topicsPath,
+          catalog: result.planCatalogPath,
+          dag: result.planDagPath,
+          verdicts: result.verdicts,
+          obligations: result.artifacts.planCatalog.obligationAccounting
+        });
         break;
       }
       case "freeze": {
@@ -334,6 +361,21 @@ function supplementFrom(args: Record<string, string>): SupplementInput {
 function csv(value?: string): string[] { return (value ?? "").split(",").map((item) => item.trim()).filter(Boolean); }
 function camel(value: string): string { return value.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()); }
 function required(value: string | undefined, name: string): string { if (!value) throw new Error(`Missing ${name}`); return value; }
+
+/** Exactly one proposal source, stated. Neither flag has a default: a plan nobody chose a source for is not a plan. */
+function proposalSource(args: Record<string, string>): PlanProposalSource {
+  const fixture = args.fixturePlan === "true";
+  if (fixture && args.proposal) throw new Error("Pass either --fixture-plan or --proposal <file>, not both; a plan has exactly one source");
+  if (fixture) return { mode: "fixture" };
+  if (args.proposal) return { mode: "file", path: args.proposal };
+  throw new Error("Missing --fixture-plan or --proposal <file>; a plan proposal comes from the deterministic generator or from a file");
+}
+
+/** The over-budget mode, named. There is no default: truncation is not one of the options, and neither is guessing. */
+function overBudgetMode(value: string): PacketOverBudgetMode {
+  if ((PACKET_OVER_BUDGET_MODES as readonly string[]).includes(value)) return value as PacketOverBudgetMode;
+  throw new Error(`--over-budget ${JSON.stringify(value)} is not one of: ${PACKET_OVER_BUDGET_MODES.join(", ")}`);
+}
 function print(value: unknown): void { console.log(stableJson(value)); }
 
 function help(): string {
@@ -349,6 +391,8 @@ Commands:
   crossrepo     Resolve frontend HTTP calls to the backend routes that serve them (deterministic, zero model)
   native-graph  Build a symbol+call navigation graph for CodeGraph-unsupported languages (Perl, Zope templates)
   framework  Recover routes/components from framework conventions (Catalyst, …) — for dynamically-dispatched apps
+  plan-packet   Render the deterministic, bounded planner view of one frozen run (read-only, zero model)
+  plan          Validate a plan proposal against the frozen epoch and record plan/catalog.json + plan/dag.json
   begin      Start or restart one document authoring timer
   reading    Show which in-boundary decision code no source window covers yet — run it before freeze, where opening one is free
   freeze     Seal epoch 0, or re-seal justified supplements as epoch N+1; renders epoch-bound authoring packets
@@ -408,6 +452,27 @@ interface CommandHelp { synopsis: string; flags: string[]; example: string; note
 // One entry per command (and per subcommand for the ones that take a subcommand). Keys with a space
 // are `<command> <subcommand>`; they take priority over the bare command when the subcommand matches.
 const COMMAND_HELP: Record<string, CommandHelp> = {
+  "plan-packet": {
+    synopsis: "plan-packet --run <dir> --over-budget refuse|record-limitation [--byte-limit N] [--out <file>]",
+    flags: [
+      "--run <dir>          Frozen run directory (required)",
+      "--over-budget <how>  refuse (name it at the entry) or record-limitation (keep the whole packet) — required",
+      "--byte-limit <n>     Declared byte bound (default 524288)",
+      "--out <file>         Write the packet here instead of stdout"
+    ],
+    example: "excavator plan-packet --run <run> --over-budget refuse --out packet.md",
+    notes: "Read-only and deterministic: it writes nothing into the run and never truncates. Over the bound it either refuses by name or records the overrun as a limitation."
+  },
+  plan: {
+    synopsis: "plan --run <dir> (--fixture-plan | --proposal <file>)",
+    flags: [
+      "--run <dir>          Frozen run directory (required)",
+      "--fixture-plan       Derive the proposal deterministically from the catalog",
+      "--proposal <file>    Validate a proposal produced elsewhere (a model, through the skill)"
+    ],
+    example: "excavator plan --run <run> --proposal proposal.json",
+    notes: "Writes plan/topics.json, plan/catalog.json and plan/dag.json, each once. A proposal that does not validate is refused by name and writes nothing; correct it and run again."
+  },
   overview: {
     synopsis: "overview --target <dir> [--audience product|engineering|both] [--detail standard|detailed] [--no-codegraph]",
     flags: [

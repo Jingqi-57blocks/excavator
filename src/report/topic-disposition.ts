@@ -141,7 +141,7 @@ export function validateTopicDispositions(
     problems.push(`the disposition document is ${JSON.stringify(dispositions)}, not an array of dispositions`);
   } else {
     for (const [index, row] of dispositions.entries()) {
-      const parsed = parseDisposition(row);
+      const parsed = parseTopicDisposition(row);
       if (parsed.disposition === null) {
         for (const problem of parsed.problems) record(null, `dispositions[${index}] ${problem}`);
         continue;
@@ -225,12 +225,17 @@ function facetVacuousSource(catalog: TopicCatalogArtifact, facet: TopicFacet): s
   return assertNever(census.outcome, "topic facet outcome");
 }
 
-interface DispositionParse {
+/**
+ * Exported so the plan validator can hold the SAME parsed rows this validator judged — the obligation accounting
+ * has to know which topic carries which state, and a second parser there would be a second copy of the six-state
+ * rules. One parser, one set of rows, one place the rules live.
+ */
+export interface TopicDispositionParse {
   readonly disposition: TopicDisposition | null;
   readonly problems: readonly string[];
 }
 
-function parseDisposition(value: unknown): DispositionParse {
+export function parseTopicDisposition(value: unknown): TopicDispositionParse {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return { disposition: null, problems: [`is ${Array.isArray(value) ? "an array" : JSON.stringify(value)}, not a disposition object`] };
   }

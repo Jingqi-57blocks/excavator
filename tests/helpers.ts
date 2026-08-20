@@ -5,6 +5,7 @@ import { join, resolve } from "node:path";
 import { readFile } from "node:fs/promises";
 import type { InvestigationPlan } from "../src/base/types.ts";
 import { updateWorkItems } from "../src/run/run.ts";
+import { planRun } from "../src/run/stages/plan-stage.ts";
 
 export async function tempDir(prefix = "excavator-test-"): Promise<string> { return mkdtemp(join(tmpdir(), prefix)); }
 
@@ -21,6 +22,17 @@ export async function disposeAllWorkItems(runDir: string): Promise<void> {
     material: false,
     reason: "Out of scope for the synthetic fixture snapshot."
   })));
+}
+
+/**
+ * Put a validated plan in place after freeze, so authoring can start.
+ *
+ * The plan is derived from the run's own catalog by `buildFixturePlan` and goes through the same validator a
+ * model's proposal has to pass — so no test depends on a model for its preconditions, and the authoring
+ * precondition is exercised rather than bypassed.
+ */
+export async function installFixturePlan(runDir: string): Promise<void> {
+  await planRun(runDir, { mode: "fixture" });
 }
 
 export async function copyFixture(name = "sample-target"): Promise<string> {

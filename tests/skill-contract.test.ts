@@ -7,7 +7,7 @@ import type { ReportRequest } from "../src/base/types.ts";
 import { assembleRun, checkpointSection, freezeRun, prepareRun } from "../src/run/run.ts";
 import { collectDrafts, draftSection } from "../src/report/parallel-authoring.ts";
 import { slugify } from "../src/base/util.ts";
-import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, tempDir } from "./helpers.ts";
+import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, installFixturePlan, tempDir } from "./helpers.ts";
 
 // SKILL.md tells the model which `excavator` commands and flags to run. When it drifts from the real
 // CLI the skill breaks silently, so this test pins the two together: every command/subcommand/flag the
@@ -191,6 +191,8 @@ test("SKILL.md run-directory layout matches what the CLI produces", async () => 
   // Dispose the plan and freeze so the run produces knowledge.json, the frozen record the tree documents.
   await disposeAllWorkItems(runDir);
   await freezeRun(runDir);
+  // The plan precondition of authoring, derived from this run's own catalog (zero model calls).
+  await installFixturePlan(runDir);
   for (const section of document.sections) await checkpointSection(runDir, document.id, section.index, body(section.title));
   // Re-checkpoint the first section so archiveCheckpoint writes the documented history/ directory.
   await checkpointSection(runDir, document.id, document.sections[0].index, body(document.sections[0].title));

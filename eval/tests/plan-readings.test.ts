@@ -1,0 +1,155 @@
+// Plan readings of the two R0 baselines (57B-434 R3).
+//
+// `eval/golden/plan-readings-{wcp,cebreo}.json` are produced by
+// `npm run eval -- plan-readings --run <dir> --out <file>` against the archival run directories (which are NOT in
+// this repository). They are records, not assertions about a run this suite can re-derive — so what is asserted
+// here is their INTERNAL consistency plus the readings this slice exists to produce:
+//
+//   * gate 1b conserves: material obligations = in units + waived + unplaced + undispositioned, with no residue,
+//     and every count has its id list beside it;
+//   * the packet fits its declared bound, or says by name that it did not — never silently;
+//   * the three bucket definitions are in the packet VERBATIM, including the sentence that says `unobligated` is a
+//     missing join rather than an unreachable subject (wcp: 1,434 route topics);
+//   * every verdict is one of the three states, and cebreo's empty denominators read `vacuous`, never `complete`;
+//   * the fixture plan mints no leaf for a facet with no material topic — it does not forge cebreo's absent
+//     features into units.
+//
+// A hand-edited number in either file breaks one of those identities.
+
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+import { AUTHORING_UNIT_KINDS } from "../../src/report/plan-proposal.ts";
+import { WAIVING_DISPOSITION_STATES } from "../../src/report/plan-obligation-conservation.ts";
+import { MATERIALITY_BUCKET_DEFINITIONS } from "../../src/report/planner-packet.ts";
+import { FORBIDDEN_INPUT_PREFIXES } from "../../src/report/topic-catalog-source.ts";
+import { TOPIC_FACETS } from "../../src/report/topic-candidate.ts";
+import { PLAN_READINGS_VERSION, type PlanReadings } from "../plan-readings.ts";
+
+const HERE = import.meta.dirname;
+const READINGS = ["wcp", "cebreo"].map((target) => ({ target, path: join(HERE, "..", "golden", `plan-readings-${target}.json`) }));
+
+async function readings(path: string): Promise<PlanReadings> {
+  return JSON.parse(await readFile(path, "utf8")) as PlanReadings;
+}
+
+test("every checked-in plan reading is internally consistent", async () => {
+  for (const { target, path } of READINGS) {
+    const row = await readings(path);
+    assert.equal(row.version, PLAN_READINGS_VERSION, `${target}: version`);
+
+    // Gate 1b: the four buckets are exhaustive over the material obligation denominator.
+    const { obligations } = row;
+    assert.equal(
+      obligations.inUnits + obligations.waived + obligations.unplaced + obligations.undispositioned,
+      obligations.materialObligations,
+      `${target}: the obligation buckets must conserve, with no unexplained residue`
+    );
+    assert.equal(obligations.waivedObligations.length, obligations.waived, `${target}: every waived obligation is listed by id`);
+    assert.equal(obligations.unplacedObligations.length, obligations.unplaced, `${target}: every unplaced obligation is listed by id`);
+    assert.equal(obligations.undispositionedObligations.length, obligations.undispositioned, `${target}: every undispositioned obligation is listed by id`);
+    assert.deepEqual(obligations.waivedByState.map((entry) => entry.state), [...WAIVING_DISPOSITION_STATES], `${target}: one row per waiving state, always`);
+    assert.equal(obligations.waivedByState.reduce((total, entry) => total + entry.obligations, 0), obligations.waived,
+      `${target}: the per-state census must sum to the waived count`);
+
+    // The packet's bound: fits, or says so.
+    assert.ok(row.packetByteLimit > 0, `${target}: the packet declares a bound`);
+    if (row.packetBytes <= row.packetByteLimit) assert.deepEqual(row.packetLimitations, [], `${target}: a packet within its bound records no limitation`);
+    else assert.equal(row.packetLimitations.length, 1, `${target}: a packet over its bound records the overrun rather than truncating`);
+
+    // The bucket definitions, verbatim, all three.
+    assert.deepEqual([...row.bucketDefinitions], [...MATERIALITY_BUCKET_DEFINITIONS], `${target}: the three bucket definitions must be rendered verbatim`);
+
+    // Verdicts: one row per facet, in order, each one of the three states.
+    assert.deepEqual(row.facetVerdicts.map((entry) => entry.facet), [...TOPIC_FACETS], `${target}: one verdict row per facet, in order`);
+    for (const entry of [...row.facetVerdicts.map((facet) => facet.verdict), row.overallVerdict]) {
+      assert.match(entry, /^(complete|vacuous|violations): /, `${target}: every verdict is one of the three states`);
+    }
+
+    // Units and documents.
+    assert.deepEqual(row.unitsByKind.map((entry) => entry.kind), [...AUTHORING_UNIT_KINDS], `${target}: one row per unit kind`);
+    assert.equal(row.unitsByKind.reduce((total, entry) => total + entry.units, 0), row.units, `${target}: the kinds must sum to the unit count`);
+    assert.equal(row.documents.reduce((total, document) => total + document.units, 0), row.units, `${target}: the documents must hold every unit`);
+    for (const document of row.documents) {
+      assert.ok(document.inputBytes <= document.totalInputBytes, `${target}: ${document.documentId} must fit its document budget`);
+      assert.ok(document.rootUnitId.endsWith("::synthesis::document"), `${target}: ${document.documentId} assembles from one synthesis root`);
+      assert.ok(document.units >= 2, `${target}: a document has at least an appendix and a root`);
+    }
+
+    for (const entry of row.namedEmptyFacets) {
+      assert.ok(entry.reason.trim() !== "", `${target}: the ${entry.facet} facet is ${entry.state} and must say why`);
+      assert.ok(["ledger-absent", "ledger-empty"].includes(entry.state), `${target}: ${entry.state} is not one of the two empty states`);
+    }
+    for (const readPath of row.readPaths) {
+      for (const prefix of FORBIDDEN_INPUT_PREFIXES) {
+        assert.ok(!readPath.startsWith(prefix), `${target}: ${readPath} is an authoring-side input`);
+      }
+    }
+  }
+});
+
+test("the wcp reading records 847 material obligations, all of them in units, and the 1,434 unobligated routes", async () => {
+  const row = await readings(READINGS[0]!.path);
+  // The epic's two denominators, side by side: 7 topic-granular rows carry 847 obligation-granular ones. Reading
+  // the 7 green rows as "847 obligations handled" is exactly what splitting gate 1 into 1a and 1b forbids.
+  assert.equal(row.materialTopics, 7);
+  assert.equal(row.obligations.materialObligations, 847);
+  assert.equal(row.obligations.inUnits, 847);
+  assert.equal(row.obligations.waived, 0);
+  assert.deepEqual(row.obligations.waivedObligations, [], "the tripwire list is empty on a plan that waives nothing");
+  assert.equal(row.overallVerdict, "complete: all 7 material topic(s) carry a disposition");
+  assert.match(row.obligationSummary, /^847 material obligation\(s\): 847 in units, 0 waived \(cannot-determine=0, not-applicable=0, omitted-for-audience=0\), 0 claimed but unplaced, 0 undispositioned$/);
+
+  // The route facet: 1,434 topics no obligation binds to, with the definition that says what that means.
+  assert.equal(row.routeFacetUnobligated, 1434);
+  assert.ok(row.bucketDefinitions.some((definition) => definition.includes("nobody computes the join between the route ledger and the obligation ledger")));
+  assert.ok(row.bucketDefinitions.some((definition) => definition.includes("`route-handler` and `recovered-route-handler`")));
+
+  // The entity facet's absence, in the producer's own words.
+  const entity = row.namedEmptyFacets.find((entry) => entry.facet === "entity")!;
+  assert.equal(entity.state, "ledger-absent");
+  assert.match(entity.reason, /facts\/producers\/db-schema\.json records status unavailable: policy: not-run-scoped/);
+
+  // Four documents, and the packet fits its bound with room to spare — the measured number the bound was set from.
+  assert.equal(row.documents.length, 4);
+  assert.equal(row.packetBytes, 394778);
+  assert.equal(row.packetByteLimit, 524288);
+  assert.deepEqual(row.packetLimitations, []);
+  assert.deepEqual(row.unitsByKind, [
+    { kind: "appendix", units: 4 },
+    { kind: "bridge", units: 0 },
+    { kind: "leaf", units: 12 },
+    { kind: "synthesis", units: 4 }
+  ]);
+});
+
+test("the cebreo reading is the zero-feature shape: vacuous, no forged feature unit, both empty states visible", async () => {
+  const row = await readings(READINGS[1]!.path);
+  assert.equal(row.materialTopics, 0);
+  assert.equal(row.obligations.materialObligations, 0);
+  assert.match(row.overallVerdict, /^vacuous: the material-topic denominator is empty, so nothing was checked — /);
+  assert.ok(!row.overallVerdict.startsWith("complete"));
+  for (const entry of row.facetVerdicts) assert.match(entry.verdict, /^vacuous: /, `${entry.facet} must be vacuous, never complete`);
+
+  // The fixture plan mints no leaf at all here: there is no material topic to write from, and it does not invent
+  // a feature the run does not have. What it does mint is the deterministic appendix — gate 10's path.
+  assert.deepEqual(row.unitsByKind, [
+    { kind: "appendix", units: 1 },
+    { kind: "bridge", units: 0 },
+    { kind: "leaf", units: 0 },
+    { kind: "synthesis", units: 1 }
+  ]);
+  assert.equal(row.documents.length, 1);
+  assert.equal(row.documents[0]!.units, 2);
+
+  // `ledger-absent` and `ledger-empty` are two different sentences, and this run has both.
+  const states = new Set(row.namedEmptyFacets.map((entry) => entry.state));
+  assert.deepEqual([...states].sort(), ["ledger-absent", "ledger-empty"]);
+  const feature = row.namedEmptyFacets.find((entry) => entry.facet === "feature")!;
+  assert.equal(feature.state, "ledger-empty");
+  assert.match(feature.reason, /contract\/run-intent\.json binds no feature to this run/);
+  const route = row.namedEmptyFacets.find((entry) => entry.facet === "route")!;
+  assert.equal(route.state, "ledger-absent");
+  assert.match(route.reason, /facts\/producers\/codegraph\.json records status unavailable: index-not-present/);
+});

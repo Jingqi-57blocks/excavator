@@ -6,7 +6,7 @@ import type { EvidenceItem, InvestigationPlan, KnowledgeArtifact, ReportRequest,
 import { addSourceEvidence, assembleRun, auditRun, beginDocument, checkpointSection, freezeRun, prepareRun, searchSourceEvidence, updateChecklist, updateTraces, updateWorkItems } from "../src/run/run.ts";
 import { canonicalInvestigationResults, knowledgeDigest } from "../src/freeze/freeze.ts";
 import { canonicalJson, exists, sha256 } from "../src/base/util.ts";
-import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, tempDir } from "./helpers.ts";
+import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, installFixturePlan, tempDir } from "./helpers.ts";
 
 const BUDGETS = { prepareMs: 30_000, authorMs: 30_000, maxGraphQueries: 40, maxSourceWindows: 50, maxSourceCharacters: 120_000, maxFiles: 10_000, maxFeatureNodes: 80, maxExpansionDepth: 2 };
 
@@ -218,6 +218,8 @@ test("a supplement re-freezes N to immutable N+1, pins the prior digest and cons
     assert.match(await readFile(join(runDir, "context", "authoring", `${document.id}.md`), "utf8"), /Sealed knowledge epoch: 1/);
   }
   const evidenceId = await firstEvidence(runDir);
+  // Epoch 1 needs its own plan: the catalog projects the epoch, so a re-freeze is re-planned, not inherited.
+  await installFixturePlan(runDir);
   await authorAll(runDir, manifest, evidenceId);
   await assembleRun(runDir);
   assert.match(await readFile(join(runDir, "reports", "product-overview.md"), "utf8"), /^epoch: 1$/m, "the report binds its sealed epoch");
@@ -275,6 +277,7 @@ test("a frozen run with a recorded supplement audits without a frozen-knowledge 
   const evidenceId = await firstEvidence(runDir);
   await disposeAllWorkItems(runDir);
   assert.equal((await freezeRun(runDir)).frozen, true);
+  await installFixturePlan(runDir);
   await authorAll(runDir, manifest, evidenceId);
   await assembleRun(runDir);
 
@@ -292,6 +295,7 @@ test("changing a work item's disposition after freeze without a supplement fails
   const evidenceId = await firstEvidence(runDir);
   await disposeAllWorkItems(runDir);
   assert.equal((await freezeRun(runDir)).frozen, true);
+  await installFixturePlan(runDir);
   await authorAll(runDir, manifest, evidenceId);
   await assembleRun(runDir);
 
@@ -341,6 +345,7 @@ test("a scoped single-document audit downgrades a frozen-knowledge violation to 
   const evidenceId = await firstEvidence(runDir);
   await disposeAllWorkItems(runDir);
   assert.equal((await freezeRun(runDir)).frozen, true);
+  await installFixturePlan(runDir);
   const document = manifest.documents[0];
   await authorAll(runDir, manifest, evidenceId);
 

@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { readFile, writeFile } from "node:fs/promises";
 import type { EvidenceItem, InvestigationPlan, ReportRequest, RunManifest, SectionClaim, TraceCatalog, TraceRecord } from "../src/base/types.ts";
 import { assembleRun, auditRun, beginDocument, checkpointSection, freezeRun, prepareRun, updateTraces } from "../src/run/run.ts";
-import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, tempDir } from "./helpers.ts";
+import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, installFixturePlan, tempDir } from "./helpers.ts";
 
 // The freeze-before-authoring HARD gate (assurance v3). Two enforcement points move in lock-step: `begin`
 // refuses to start authoring an unfrozen current-version run, and the full audit fails a run that was
@@ -60,6 +60,7 @@ test("begin refuses an unfrozen current-version run; dispose + freeze then admit
 
   await disposeAllWorkItems(runDir);
   assert.equal((await freezeRun(runDir)).frozen, true);
+  await installFixturePlan(runDir);
   const begun = await beginDocument(runDir, documentId);
   assert.equal(begun.state, "authoring");
 });
@@ -105,6 +106,7 @@ test("freezing after a section is already authored succeeds yet still fails the 
   await disposeAllWorkItems(runDir);
   // Freeze itself is version-agnostic and permits a late freeze: it succeeds even though a section exists.
   assert.equal((await freezeRun(runDir)).frozen, true);
+  await installFixturePlan(runDir);
   for (const section of document.sections.slice(1)) await checkpointSection(runDir, document.id, section.index, sectionText(section.title, section.index, evidenceId), sectionClaims(section.index, evidenceId));
   await assembleRun(runDir);
 

@@ -10,12 +10,17 @@ import { scaffoldSectionClaims } from "../../report/claims-scaffold.ts";
 import { sectionPaths } from "../../report/section-paths.ts";
 import { validateClaimsInput } from "../../report/section-audit.ts";
 import { assertCurrentKnowledgeEpochForAuthoring } from "../../freeze/freeze.ts";
+import { runUsesCurrentAssurance } from "../../base/assurance-version.ts";
+import { assertValidatedPlanForAuthoring } from "../../report/plan-gate.ts";
 
 export async function beginDocument(runDirInput: string, documentId: string): Promise<RunManifest> {
   const runDir = resolve(runDirInput);
   const path = join(runDir, "run.json");
   const manifest = await readJson<RunManifest>(path);
   await assertCurrentKnowledgeEpochForAuthoring(runDir, manifest);
+  // The plan precondition stands exactly where the epoch precondition stands, and it is grandfathered by the same
+  // gate: a run recorded before plan artifacts existed keeps being authored under the contract it wrote.
+  if (runUsesCurrentAssurance(manifest)) await assertValidatedPlanForAuthoring(runDir);
   const document = manifest.documents.find((item) => item.id === documentId);
   if (!document) throw new Error(`Unknown document: ${documentId}`);
   if (!document.startedAt || document.completedAt) {
@@ -36,7 +41,10 @@ export async function checkpointSection(runDirInput: string, documentId: string,
   const runDir = resolve(runDirInput);
   const path = join(runDir, "run.json");
   const manifest = await readJson<RunManifest>(path);
-  if (manifest.frozenAt) await assertCurrentKnowledgeEpochForAuthoring(runDir, manifest);
+  if (manifest.frozenAt) {
+    await assertCurrentKnowledgeEpochForAuthoring(runDir, manifest);
+    if (runUsesCurrentAssurance(manifest)) await assertValidatedPlanForAuthoring(runDir);
+  }
   const document = manifest.documents.find((item) => item.id === documentId);
   if (!document) throw new Error(`Unknown document: ${documentId}`);
   const section = document.sections.find((item) => item.index === sectionIndex);

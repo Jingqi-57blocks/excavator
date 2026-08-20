@@ -1,0 +1,158 @@
+{
+  "bucketDefinitions": [
+    "`material` — at least one obligation bound to this topic is material: the report owes the reader an account of it.",
+    "`obligated-non-material` — obligations bind to this topic and none of them is material.",
+    "`unobligated` — NO obligation in this run's ledger binds to this topic. It does not mean the subject is out of scope, and it does not mean nothing needs explaining: it is a reading of how far the obligation ledger reaches. For the route facet it means nobody computes the join between the route ledger and the obligation ledger — the obligation ledger does carry route-identified rows (the `route-handler` and `recovered-route-handler` kinds name a method and a path), so a route topic being unobligated is a missing join, not an unreachable subject."
+  ],
+  "dagDigest": "4d77bc1562567d34cd2ad05c745b8b670d1013756a91343dec1d4a11c7f8847b",
+  "documents": [
+    {
+      "audience": "engineer",
+      "detailBudget": "standard",
+      "documentId": "feature-晋升管理-01e5065d19-engineering",
+      "inputBytes": 504127,
+      "intent": "deep-dive",
+      "perUnitInputBytes": 786432,
+      "rootUnitId": "feature-晋升管理-01e5065d19-engineering::synthesis::document",
+      "totalInputBytes": 3145728,
+      "units": 5
+    },
+    {
+      "audience": "product-manager",
+      "detailBudget": "standard",
+      "documentId": "feature-请假管理-8c2d685d81-product",
+      "inputBytes": 504127,
+      "intent": "deep-dive",
+      "perUnitInputBytes": 786432,
+      "rootUnitId": "feature-请假管理-8c2d685d81-product::synthesis::document",
+      "totalInputBytes": 3145728,
+      "units": 5
+    },
+    {
+      "audience": "engineer",
+      "detailBudget": "standard",
+      "documentId": "overview-engineering",
+      "inputBytes": 504127,
+      "intent": "overview",
+      "perUnitInputBytes": 786432,
+      "rootUnitId": "overview-engineering::synthesis::document",
+      "totalInputBytes": 3145728,
+      "units": 5
+    },
+    {
+      "audience": "product-manager",
+      "detailBudget": "standard",
+      "documentId": "overview-product",
+      "inputBytes": 504127,
+      "intent": "overview",
+      "perUnitInputBytes": 786432,
+      "rootUnitId": "overview-product::synthesis::document",
+      "totalInputBytes": 3145728,
+      "units": 5
+    }
+  ],
+  "facetVerdicts": [
+    {
+      "facet": "coverage",
+      "verdict": "complete: all 1 material topic(s) carry a disposition"
+    },
+    {
+      "facet": "entity",
+      "verdict": "vacuous: the material-topic denominator is empty, so nothing was checked — the entity facet is empty because its ledger is absent: facts/producers/db-schema.json records status unavailable: policy: not-run-scoped — schema discovery runs as its own command and writes outside the run directory"
+    },
+    {
+      "facet": "external-system",
+      "verdict": "vacuous: the material-topic denominator is empty, so nothing was checked — the external-system facet holds 4 topic(s), none of them material (0 obligated-non-material, 4 unobligated)"
+    },
+    {
+      "facet": "feature",
+      "verdict": "complete: all 2 material topic(s) carry a disposition"
+    },
+    {
+      "facet": "route",
+      "verdict": "vacuous: the material-topic denominator is empty, so nothing was checked — the route facet holds 1434 topic(s), none of them material (0 obligated-non-material, 1434 unobligated)"
+    },
+    {
+      "facet": "work-item-dimension",
+      "verdict": "complete: all 4 material topic(s) carry a disposition"
+    }
+  ],
+  "knowledgeDigest": "e70e928538b66f36de5dbd4fd37de4a53ac0422766a75efe4545992efcc4e15f",
+  "knowledgeEpoch": 0,
+  "materialTopics": 7,
+  "namedEmptyFacets": [
+    {
+      "facet": "entity",
+      "reason": "facts/producers/db-schema.json records status unavailable: policy: not-run-scoped — schema discovery runs as its own command and writes outside the run directory",
+      "state": "ledger-absent"
+    }
+  ],
+  "obligations": {
+    "inUnits": 847,
+    "materialObligations": 847,
+    "undispositioned": 0,
+    "undispositionedObligations": [],
+    "unplaced": 0,
+    "unplacedObligations": [],
+    "unplacedTopicIds": [],
+    "waived": 0,
+    "waivedByState": [
+      {
+        "obligations": 0,
+        "state": "cannot-determine"
+      },
+      {
+        "obligations": 0,
+        "state": "not-applicable"
+      },
+      {
+        "obligations": 0,
+        "state": "omitted-for-audience"
+      }
+    ],
+    "waivedObligations": []
+  },
+  "obligationSummary": "847 material obligation(s): 847 in units, 0 waived (cannot-determine=0, not-applicable=0, omitted-for-audience=0), 0 claimed but unplaced, 0 undispositioned",
+  "overallVerdict": "complete: all 7 material topic(s) carry a disposition",
+  "packetByteLimit": 524288,
+  "packetBytes": 394778,
+  "packetLimitations": [],
+  "planCatalogDigest": "9b5e861758bfc5a9cdf4582a7b5451acb83469b4b70c5acdb41c01a747a91515",
+  "readPaths": [
+    "context/boundary-functions.json",
+    "context/cross-feature.json",
+    "context/crossrepo-links.json",
+    "contract/run-intent.json",
+    "coverage/read-obligations.json",
+    "coverage/read-residual.json",
+    "facts/producers/codegraph.json",
+    "facts/producers/crossrepo.json",
+    "facts/producers/db-schema.json",
+    "knowledge.json",
+    "workitems.json"
+  ],
+  "requestsDigest": "cf4aa18abc60b37d66e036887417a9eff8abbca191f595c9509809bfe36acf6c",
+  "routeFacetUnobligated": 1434,
+  "runId": "run-2026_08_20_03_48-overview+请假管理+晋升管理-8abb4795-251cd3b2-740f3203",
+  "topicsDigest": "7e628ab6fed5e8d3ecb9cb43606095da4068b39e59e91b2788142e56cf95188a",
+  "units": 20,
+  "unitsByKind": [
+    {
+      "kind": "appendix",
+      "units": 4
+    },
+    {
+      "kind": "bridge",
+      "units": 0
+    },
+    {
+      "kind": "leaf",
+      "units": 12
+    },
+    {
+      "kind": "synthesis",
+      "units": 4
+    }
+  ],
+  "version": "plan-readings-v1"
+}

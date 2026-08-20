@@ -7,7 +7,7 @@ import { readFile, writeFile, readdir } from "node:fs/promises";
 import type { Audience, EvidenceItem, FeatureRequest, ReportRequest, RunManifest, SectionClaim } from "../src/base/types.ts";
 import { assembleRun, auditRun, checkpointSection, freezeRun, prepareRun, resumeRun, searchSourceEvidence, updateChecklist } from "../src/run/run.ts";
 import { featureCacheKey } from "../src/context/context.ts";
-import { copyFixture, createCodeGraphFixture, tempDir } from "./helpers.ts";
+import { copyFixture, createCodeGraphFixture, installFixturePlan, tempDir } from "./helpers.ts";
 
 async function makeRequest(authorMs = 30_000): Promise<ReportRequest> {
   const target = await copyFixture();
@@ -67,6 +67,8 @@ async function completeRun(runDir: string, manifest: Awaited<ReturnType<typeof p
   await dispositionChecklist(runDir, id);
   const frozen = await freezeRun(runDir);
   assert.equal(frozen.frozen, true, JSON.stringify(frozen.findings, null, 2));
+  // The plan precondition of authoring, derived from this run's own catalog (zero model calls).
+  await installFixturePlan(runDir);
   for (const document of manifest.documents) {
     for (const section of document.sections) {
       await checkpointSection(runDir, document.id, section.index, sectionText(section.title, section.index, id), sectionClaims(section.index, id));
