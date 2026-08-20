@@ -422,7 +422,7 @@ export async function writePlanArtifacts(runDir: string, artifacts: PlanArtifact
       await writeOnce(planDagPath(runDir), artifacts.dag, async () => readPlanDag(runDir, artifacts.planCatalog), "authoring DAG");
       return artifacts;
     case "supersede": {
-      await assertSupersedes(artifacts.planCatalog, mode.superseded.planCatalog);
+      assertSupersedes(artifacts.planCatalog, mode.superseded.planCatalog);
       await assertArchived(mode.archivedCatalogPath, mode.superseded.planCatalog, "plan catalog");
       await assertArchived(mode.archivedDagPath, mode.superseded.dag, "authoring DAG");
       await writeJson(planCatalogPath(runDir), artifacts.planCatalog);
@@ -434,7 +434,7 @@ export async function writePlanArtifacts(runDir: string, artifacts: PlanArtifact
 }
 
 /** The successor must be the next revision of the same epoch and must name its predecessor's digest. Both, always. */
-async function assertSupersedes(next: PlanCatalogArtifact, superseded: PlanCatalogArtifact): Promise<void> {
+function assertSupersedes(next: PlanCatalogArtifact, superseded: PlanCatalogArtifact): void {
   if (next.knowledgeEpoch !== superseded.knowledgeEpoch) {
     throw new Error(`A plan revision supersedes a plan of its own epoch: this one is epoch ${next.knowledgeEpoch} and the plan it would replace is epoch ${superseded.knowledgeEpoch}. A re-frozen run is re-planned, not revised.`);
   }
