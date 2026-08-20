@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { basename, join, resolve } from "node:path";
 import { redactSecrets, runIdTimestamp } from "../src/base/util.ts";
+import { tempDir } from "./temp-dir.ts";
 
 test("secret redaction covers typed declarations, JSON, YAML and environment assignments", () => {
   const input = [
@@ -44,7 +45,7 @@ test("source window cache ignores legacy unversioned excerpts", async () => {
   const { join } = await import("node:path");
   const { SourceReader } = await import("../src/snapshot/source.ts");
   const { sha256 } = await import("../src/base/util.ts");
-  const root = await mkdtemp(join(tmpdir(), "excavator-cache-version-"));
+  const root = await tempDir("excavator-cache-version-");
   await mkdir(join(root, "src"), { recursive: true });
   await writeFile(join(root, "src", "config.go"), 'AESKey string = "real-value"\n');
   const cacheDir = join(root, "cache");
@@ -75,7 +76,7 @@ test("a window cached in one redaction mode is not served to the other", async (
   const { tmpdir } = await import("node:os");
   const { join } = await import("node:path");
   const { SourceReader } = await import("../src/snapshot/source.ts");
-  const root = await mkdtemp(join(tmpdir(), "excavator-cache-mode-"));
+  const root = await tempDir("excavator-cache-mode-");
   await mkdir(join(root, "src"), { recursive: true });
   await writeFile(join(root, "src", "config.go"), 'AESKey string = "real-value"\n');
   const cacheDir = join(root, "cache");

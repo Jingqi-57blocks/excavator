@@ -14,9 +14,9 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { cp, mkdtemp, readFile, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { cp, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { tempDir } from "../../tests/temp-dir.ts";
 import type { RunManifest } from "../../src/base/types.ts";
 import { readJson, stableJson } from "../../src/base/util.ts";
 import { buildTopicCatalog } from "../../src/report/topic-catalog.ts";
@@ -36,7 +36,7 @@ async function fixtureManifest(runDir: string): Promise<RunManifest> {
 }
 
 async function fixtureCopy(): Promise<string> {
-  const runDir = await mkdtemp(join(tmpdir(), "topic-catalog-"));
+  const runDir = await tempDir("topic-catalog-");
   await cp(FIXTURE, runDir, { recursive: true });
   return runDir;
 }

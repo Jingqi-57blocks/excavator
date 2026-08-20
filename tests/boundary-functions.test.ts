@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
+import { tempDir } from "./temp-dir.ts";
 import { BOUNDARY_FUNCTION_KINDS, enumerateBoundaryFunctions } from "../src/facts/probe/boundary-functions.ts";
 import type { GraphReader } from "../src/codegraph/codegraph.ts";
 
@@ -26,7 +27,7 @@ const GO_FILE = [
 ].join("\n");
 
 async function workspace(): Promise<{ root: string; absolutePathFor: (path: string) => string | undefined }> {
-  const root = await mkdtemp(join(tmpdir(), "excavator-boundary-"));
+  const root = await tempDir("excavator-boundary-");
   const write = async (relative: string, content: string): Promise<void> => {
     await mkdir(dirname(join(root, relative)), { recursive: true });
     await writeFile(join(root, relative), content);
