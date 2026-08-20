@@ -4,6 +4,10 @@ import { resolve } from "node:path";
 import type { Audience, BudgetConfig, ChecklistItem, FeatureRequest, InvestigationWorkItem, ReportRequest, SectionClaim, TraceRecord } from "./base/types.ts";
 import { addSourceEvidence, assembleRun, auditRun, beginDocument, checkpointSection, freezeRun, prepareRun, readingCheck, resumeRun, runStatus, scaffoldClaims, searchSourceEvidence, updateChecklist, updateTraces, updateWorkItems, type SupplementInput } from "./run/run.ts";
 import { collectDrafts, draftSection } from "./report/parallel-authoring.ts";
+import { draftUnit, type UnitDraftInput } from "./report/unit-draft.ts";
+import { collectUnits } from "./report/unit-collect.ts";
+import { checkpointUnit } from "./report/unit-checkpoint.ts";
+import { resumeUnits, unitStatus } from "./report/unit-status.ts";
 import { planRun, renderPlannerPacketForRun, DEFAULT_PLANNER_PACKET_BYTE_LIMIT, type PlanProposalSource } from "./run/stages/plan-stage.ts";
 import { PACKET_OVER_BUDGET_MODES, type PacketOverBudgetMode } from "./report/planner-packet.ts";
 import { stableJson } from "./base/util.ts";
@@ -180,6 +184,11 @@ async function main(): Promise<void> {
       }
       case "checkpoint": {
         const args = parseArgs(argv);
+        if (unitKeyed(args, "checkpoint")) {
+          const result = await checkpointUnit(required(args.run, "--run"), await unitDraftInput(args));
+          print({ checkpointed: unitReceiptLine(result.receipt), collected: result.collected.collected.map(unitReceiptLine) });
+          break;
+        }
         const content = await readFile(required(args.file, "--file"), "utf8");
         let claims: SectionClaim[] | undefined;
         if (args.claims) {
@@ -192,6 +201,10 @@ async function main(): Promise<void> {
       }
       case "draft": {
         const args = parseArgs(argv);
+        if (unitKeyed(args, "draft")) {
+          print({ drafted: unitReceiptLine(await draftUnit(required(args.run, "--run"), await unitDraftInput(args))) });
+          break;
+        }
         const content = await readFile(required(args.file, "--file"), "utf8");
         let claims: SectionClaim[] | undefined;
         if (args.claims) {
@@ -204,6 +217,11 @@ async function main(): Promise<void> {
       }
       case "collect": {
         const args = parseArgs(argv);
+        if (args.units === "true") {
+          const units = await collectUnits(required(args.run, "--run"));
+          print({ collected: units.collected.length, units: units.collected.map(unitReceiptLine) });
+          break;
+        }
         const result = await collectDrafts(required(args.run, "--run"));
         print({ state: result.manifest.state, collected: result.collected.length, sections: result.collected.map((receipt) => ({ document: receipt.documentId, section: receipt.section, revision: receipt.revision })) });
         break;
@@ -235,8 +253,20 @@ async function main(): Promise<void> {
         if (result.findings.some((finding) => finding.level === "error")) process.exitCode = 1;
         break;
       }
-      case "resume": print(await resumeRun(required(parseArgs(argv).run, "--run"))); break;
-      case "status": print(await runStatus(required(parseArgs(argv).run, "--run"))); break;
+      case "resume": {
+        const args = parseArgs(argv);
+        print(args.units === "true"
+          ? await resumeUnits(required(args.run, "--run"))
+          : await resumeRun(required(args.run, "--run")));
+        break;
+      }
+      case "status": {
+        const args = parseArgs(argv);
+        print(args.units === "true"
+          ? await unitStatus(required(args.run, "--run"))
+          : await runStatus(required(args.run, "--run")));
+        break;
+      }
       case "help":
       case "--help":
       case "-h": console.log(help()); break;
@@ -371,6 +401,39 @@ function proposalSource(args: Record<string, string>): PlanProposalSource {
   throw new Error("Missing --fixture-plan or --proposal <file>; a plan proposal comes from the deterministic generator or from a file");
 }
 
+/**
+ * True when this invocation is keyed by authoring unit, false when it is keyed by (document, section).
+ *
+ * There is no default and no inference: `--unit` selects the unit path, its absence selects the section path, and
+ * passing both keyings is a named refusal rather than a precedence rule nobody would remember. The section path
+ * behaves exactly as it did — the only invocations that reach the unit machinery are the ones that asked for it.
+ */
+function unitKeyed(args: Record<string, string>, command: string): boolean {
+  if (!args.unit) return false;
+  if (args.document || args.section) {
+    throw new Error(`excavator ${command} takes either --unit <id> or --document <id> --section <n>, not both; a draft is keyed one way`);
+  }
+  return true;
+}
+
+/**
+ * The three files a unit draft is made of. All required: the claims sidecar and the summary are part of a unit's
+ * output contract, so a unit drafted without them is not a unit that is missing extras — it is a refusal.
+ */
+async function unitDraftInput(args: Record<string, string>): Promise<UnitDraftInput> {
+  const raw = JSON.parse(await readFile(required(args.claims, "--claims"), "utf8")) as SectionClaim[] | { claims: SectionClaim[] };
+  return {
+    unitId: required(args.unit, "--unit"),
+    content: await readFile(required(args.file, "--file"), "utf8"),
+    claims: Array.isArray(raw) ? raw : raw.claims,
+    summary: JSON.parse(await readFile(required(args.summary, "--summary"), "utf8")) as unknown
+  };
+}
+
+function unitReceiptLine(receipt: { unitId: string; documentId: string; kind: string; revision: boolean }): Record<string, unknown> {
+  return { unit: receipt.unitId, document: receipt.documentId, kind: receipt.kind, revision: receipt.revision };
+}
+
 /** The over-budget mode, named. There is no default: truncation is not one of the options, and neither is guessing. */
 function overBudgetMode(value: string): PacketOverBudgetMode {
   if ((PACKET_OVER_BUDGET_MODES as readonly string[]).includes(value)) return value as PacketOverBudgetMode;
@@ -398,17 +461,17 @@ Commands:
   freeze     Seal epoch 0, or re-seal justified supplements as epoch N+1; renders epoch-bound authoring packets
   source     Record a bounded source excerpt as evidence
   search     Search source under the run snapshot and record a reusable receipt
-  checkpoint Save one completed section and its claims atomically
-  draft      Draft one section in parallel-safe isolation; leaves a receipt for collect
-  collect    Serially record all pending section drafts into the timeline and manifest
+  checkpoint Save one completed section and its claims atomically; --unit <id> saves one authoring unit
+  draft      Draft one section in parallel-safe isolation; leaves a receipt for collect (--unit <id> for a unit)
+  collect    Serially record all pending section drafts into the timeline and manifest (--units for unit drafts)
   claims     Scaffold a claims skeleton from a section's markdown
   checklist  Record compatibility checklist dispositions
   workitem   Update the investigation plan and coverage ledger
   trace      Record call, data, business, state or cross-repository traces
-  resume     List incomplete sections and resume a stopped run
+  resume     List incomplete sections and resume a stopped run; --units lists what is left on the unit path
   assemble   Join completed sections into Markdown reports
   audit      Validate snapshot, evidence, claims, checklist and report structure; --document <id> scopes to one document
-  status     Show progress and timing
+  status     Show progress and timing; --units shows the authoring-unit view of the plan
 
 Examples:
   excavator overview --target ./workspace --audience both
@@ -425,7 +488,9 @@ Examples:
   excavator claims scaffold --run <run> --document <id> --section 1 --file section.md
   excavator checkpoint --run <run> --document <id> --section 1 --file section.md --claims claims.json
   excavator draft --run <run> --document <id> --section 1 --file section.md --claims claims.json
+  excavator draft --run <run> --unit <unit-id> --file content.md --claims claims.json --summary summary.json
   excavator collect --run <run>
+  excavator collect --run <run> --units
   excavator workitem --run <run> --file workitem-updates.json
   excavator trace --run <run> --file traces.json
   excavator checklist --run <run> --file checklist-updates.json
@@ -630,33 +695,41 @@ const COMMAND_HELP: Record<string, CommandHelp> = {
     example: 'excavator search --run <run> --query "\\bTODO\\b" --regex --reason "find unfinished work"'
   },
   checkpoint: {
-    synopsis: "checkpoint --run <dir> --document <id> --section <n> --file <md> [--claims <json>]",
+    synopsis: "checkpoint --run <dir> (--document <id> --section <n> | --unit <id>) --file <md> [--claims <json>] [--summary <json>]",
     flags: [
       "--run <dir>          Run directory (required)",
-      "--document <id>      Document being authored (required)",
-      "--section <n>        Section index (required)",
-      "--file <md>          Section markdown to save (required)",
-      "--claims <json>      Claims sidecar (array or {claims:[...]})"
+      "--document <id>      Document being authored (section keying)",
+      "--section <n>        Section index (section keying)",
+      "--unit <id>          Authoring unit id from plan/catalog.json (unit keying)",
+      "--file <md>          Markdown to save (required)",
+      "--claims <json>      Claims sidecar (array or {claims:[...]}); required with --unit",
+      "--summary <json>     Unit summary (required with --unit)"
     ],
-    example: "excavator checkpoint --run <run> --document <id> --section 1 --file section.md --claims claims.json"
+    example: "excavator checkpoint --run <run> --document <id> --section 1 --file section.md --claims claims.json",
+    notes: "One keying or the other, never both. With --unit it is exactly `draft --unit` followed by `collect --units`."
   },
   draft: {
-    synopsis: "draft --run <dir> --document <id> --section <n> --file <md> [--claims <json>]",
+    synopsis: "draft --run <dir> (--document <id> --section <n> | --unit <id>) --file <md> [--claims <json>] [--summary <json>]",
     flags: [
       "--run <dir>          Run directory (required)",
-      "--document <id>      Document being authored (required)",
-      "--section <n>        Section index (required)",
-      "--file <md>          Section markdown to draft (required)",
-      "--claims <json>      Claims sidecar (array or {claims:[...]})"
+      "--document <id>      Document being authored (section keying)",
+      "--section <n>        Section index (section keying)",
+      "--unit <id>          Authoring unit id from plan/catalog.json (unit keying)",
+      "--file <md>          Markdown to draft (required)",
+      "--claims <json>      Claims sidecar (array or {claims:[...]}); required with --unit",
+      "--summary <json>     Unit summary: covered topics, key statements, unknowns, terminology and the content/claims digests (required with --unit)"
     ],
-    example: "excavator draft --run <run> --document <id> --section 1 --file section.md --claims claims.json",
-    notes: "Parallel-safe: writes only this section's files and a receipt, never the shared timeline or manifest. Run one draft per section concurrently, then a single `collect`."
+    example: "excavator draft --run <run> --unit <unit-id> --file content.md --claims claims.json --summary summary.json",
+    notes: "Parallel-safe either way: a draft writes only its own artifacts and a receipt, never the shared timeline or manifest. One keying or the other, never both. A unit draft is refused unless its summary covers exactly the plan's topics for that unit and records the digests of the very bytes being written."
   },
   collect: {
-    synopsis: "collect --run <dir>",
-    flags: ["--run <dir>          Run directory (required)"],
-    example: "excavator collect --run <run>",
-    notes: "Serial barrier: records every pending section draft into the timeline and manifest in a deterministic order. A no-op when nothing is pending, so it is safe to rerun."
+    synopsis: "collect --run <dir> [--units]",
+    flags: [
+      "--run <dir>          Run directory (required)",
+      "--units              Collect pending authoring-unit drafts instead of section drafts"
+    ],
+    example: "excavator collect --run <run> --units",
+    notes: "Serial barrier: records every pending draft into the timeline in a deterministic order — section drafts by default, unit drafts with --units. A no-op when nothing is pending, so it is safe to rerun."
   },
   claims: {
     synopsis: "claims scaffold --run <dir> --document <id> --section <n> --file <md>",
@@ -723,14 +796,20 @@ const COMMAND_HELP: Record<string, CommandHelp> = {
     example: "excavator audit --run <run> --document <id>"
   },
   resume: {
-    synopsis: "resume --run <dir>",
-    flags: ["--run <dir>          Run directory (required)"],
-    example: "excavator resume --run <run>"
+    synopsis: "resume --run <dir> [--units]",
+    flags: [
+      "--run <dir>          Run directory (required)",
+      "--units              List what is left on the authoring-unit path (read-only)"
+    ],
+    example: "excavator resume --run <run> --units"
   },
   status: {
-    synopsis: "status --run <dir>",
-    flags: ["--run <dir>          Run directory (required)"],
-    example: "excavator status --run <run>"
+    synopsis: "status --run <dir> [--units]",
+    flags: [
+      "--run <dir>          Run directory (required)",
+      "--units              Show the authoring-unit view: every planned unit as collected, drafted or not yet written"
+    ],
+    example: "excavator status --run <run> --units"
   }
 };
 
