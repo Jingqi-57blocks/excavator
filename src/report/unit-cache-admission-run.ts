@@ -31,7 +31,7 @@
  * would make every later collect refuse the same unit again. The units not reached are reported as such by name.
  */
 
-import { readFile } from "node:fs/promises";
+import { readFile, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { RunManifest, SectionClaim } from "../base/types.ts";
 import { readJson } from "../base/util.ts";
@@ -117,7 +117,7 @@ export async function admitUnits(runDirInput: string, authorship: UnitAuthorship
         outcome: "fell-to-rebuild",
         unit: intent.unit,
         cause: "halted-by-earlier-refusal",
-        statement: `unit ${unitId} was admissible, but this pass stopped at ${halted}: that unit's receipt is left on disk, so every later collect would refuse it again. Fix ${halted} and re-run the admission.`
+        statement: `unit ${unitId} was admissible, but this pass stopped at ${halted}: that unit's receipt is left on disk, and every later collect would refuse it again for the same reason. Re-draft ${halted} so it passes, collect it, and then run the admission again — a re-run before that is refused by name, because a pending draft would land in an account that did not admit it.`
       });
       continue;
     }
@@ -149,7 +149,7 @@ async function admitOne(state: AdmissionState, intent: UnitAdmissionIntent & { r
     authorship: state.authorship,
     provenance: { kind: "cache-admitted", source }
   });
-  assertReEntryChangedNothing(receipt, source);
+  await assertReEntryChangedNothingOrDiscard(state, receipt, source);
   let collected: UnitCollectResult;
   try {
     collected = await collectUnits(state.runDir);
@@ -162,7 +162,7 @@ async function admitOne(state: AdmissionState, intent: UnitAdmissionIntent & { r
       outcome: "fell-to-rebuild",
       unit: intent.unit,
       cause: "collect-refused",
-      statement: `unit ${unitId} was re-entered with the bytes its candidate row verified, and collect refused to record it: ${(error as Error).message}`
+      statement: `unit ${unitId} was re-entered with the bytes its candidate row verified, and collect refused to record it: ${(error as Error).message} Its receipt is left in place: re-draft this unit so it passes, collect it, and run the admission again for the rest.`
     };
   }
   // Not a refusal and not an outcome: the one pending draft was this unit's, so a barrier that returned without it
@@ -200,12 +200,27 @@ function admissionSourceOf(row: CollectedUnit): UnitCacheAdmissionSource {
 }
 
 /**
- * The re-entry tripwire: the new receipt must record exactly what the candidate row promised.
+ * The re-entry tripwire, AND the removal of the receipt it rejects.
  *
- * Four comparisons, and the fourth is the one a reader would forget: the identity the fresh draft COMPUTED must be
- * the identity the decision was made on. If it is not, the admission decided on inputs the draft did not see.
+ * The receipt is written last by `draftUnit`, so by the time this runs the draft is already collectable: a valid
+ * receipt for this run, this epoch and this plan is sitting on disk, and the next `collect` would record the very
+ * bytes this tripwire just declared unfit — as `cache-admitted`, no less. So the refusal DELETES the receipt before
+ * it throws. The three artifacts stay where they are (their previous version is in `history/`, archived by the draft
+ * that replaced it) and the candidate's ledger row is untouched, so the unit reads as a drifted candidate on the
+ * next pass: named, re-drawable, and not recorded.
  */
-function assertReEntryChangedNothing(receipt: UnitDraftReceipt, source: UnitCacheAdmissionSource): void {
+async function assertReEntryChangedNothingOrDiscard(state: AdmissionState, receipt: UnitDraftReceipt, source: UnitCacheAdmissionSource): Promise<void> {
+  const problems = reEntryProblems(receipt, source);
+  if (problems.length === 0) return;
+  await rm(unitPaths(state.runDir, receipt.unitId).receipt, { force: true });
+  throw new Error(`Cache admission of unit ${JSON.stringify(receipt.unitId)} did not re-enter the verified bytes unchanged: ${problems.join("; ")}. The receipt of that draft has been removed so nothing can collect it; the previous artifacts are in this unit's history/. An admission may only record the draft it admitted; nothing here re-draws a unit.`);
+}
+
+/**
+ * The four comparisons, and the fourth is the one a reader would forget: the identity the fresh draft COMPUTED must
+ * be the identity the decision was made on. If it is not, the admission decided on inputs the draft did not see.
+ */
+function reEntryProblems(receipt: UnitDraftReceipt, source: UnitCacheAdmissionSource): readonly string[] {
   const problems: string[] = [];
   for (const [what, minted, promised] of [
     ["content", receipt.contentDigest, source.contentDigest],
@@ -215,8 +230,7 @@ function assertReEntryChangedNothing(receipt: UnitDraftReceipt, source: UnitCach
   ] as const) {
     if (minted !== promised) problems.push(`${what} came out as ${minted} where the candidate row recorded ${promised}`);
   }
-  if (problems.length === 0) return;
-  throw new Error(`Cache admission of unit ${JSON.stringify(receipt.unitId)} did not re-enter the verified bytes unchanged: ${problems.join("; ")}. An admission may only record the draft it admitted; nothing here re-draws a unit.`);
+  return problems;
 }
 
 /**
@@ -265,12 +279,18 @@ async function loadAdmissionState(runDirInput: string, authorship: UnitAuthorshi
     const read = await verifyCandidate(runDir, row);
     if (read.verification.state === "verified") vouching.set(row.unitId, row);
     if (row.planCatalogDigest === view.planCatalogDigest) {
+      // The byte check was performed for this row too (its summary may vouch for a parent's identity), so its
+      // result is REPORTED rather than dropped: a measurement taken and discarded is the one thing an account that
+      // promises to say what happened to every row may not do. Drift here is not this command's business to fix —
+      // the unit is already recorded — but it is a fact about the run, and R7's cross-unit checker owns it.
       ledgerRows.push({
         ...shared,
         disposition: {
           state: "excluded",
           cause: "collected-under-this-plan",
-          statement: "already collected under the plan now in force, so there is nothing to admit for it"
+          statement: read.verification.state === "verified"
+            ? "already collected under the plan now in force, so there is nothing to admit for it"
+            : `already collected under the plan now in force, so there is nothing to admit for it — but its artifacts on disk are no longer the bytes that row promised: ${read.verification.problems.join("; ")}`
         }
       });
       continue;

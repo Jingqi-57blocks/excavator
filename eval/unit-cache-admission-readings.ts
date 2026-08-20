@@ -18,6 +18,7 @@
 // Nothing here writes into the run it reads: every plan state is built in memory, exactly as R6a's reading does.
 
 import { join } from "node:path";
+import { assertNever } from "../src/base/artifact-result.ts";
 import type { RunManifest } from "../src/base/types.ts";
 import { canonicalJson, readJson, sha256 } from "../src/base/util.ts";
 import { planCatalogDigest } from "../src/report/plan-artifacts.ts";
@@ -108,7 +109,7 @@ function namesSections(reason: RebuildReason): boolean {
     case "children-unavailable":
       return false;
   }
-  return false;
+  return assertNever(reason, "unit cache rebuild reason cause");
 }
 
 function causeCensus(plan: UnitCachePlan, form: "whole-identities" | "recorded-digests"): readonly { readonly form: "whole-identities" | "recorded-digests"; readonly cause: string; readonly units: number }[] {

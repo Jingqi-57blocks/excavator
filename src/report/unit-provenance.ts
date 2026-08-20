@@ -33,7 +33,7 @@ export type UnitAuthorship =
   | { readonly kind: "model-family"; readonly family: string }
   | { readonly kind: "model-free"; readonly generator: string };
 
-export const UNIT_AUTHORSHIP_KINDS = ["model-family", "model-free"] as const;
+const UNIT_AUTHORSHIP_KINDS = ["model-family", "model-free"] as const;
 
 /** One sentence naming the author, for a reading or a refusal. Exhaustive over the two arms. */
 export function describeAuthorship(authorship: UnitAuthorship): string {
@@ -78,7 +78,7 @@ export type UnitProvenance =
   | { readonly kind: "fresh" }
   | { readonly kind: "cache-admitted"; readonly source: UnitCacheAdmissionSource };
 
-export const UNIT_PROVENANCE_KINDS = ["cache-admitted", "fresh"] as const;
+const UNIT_PROVENANCE_KINDS = ["cache-admitted", "fresh"] as const;
 
 /** One sentence naming the origin of these bytes. Exhaustive over the two arms. */
 export function describeProvenance(provenance: UnitProvenance): string {

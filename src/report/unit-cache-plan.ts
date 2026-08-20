@@ -87,7 +87,7 @@ export type CandidateIdentity =
     };
 
 /** The unit id of one candidate, whichever form it is. */
-export function candidateUnitId(candidate: CandidateIdentity): string {
+function candidateUnitId(candidate: CandidateIdentity): string {
   switch (candidate.form) {
     case "identity":
       return candidate.identity.unitId;

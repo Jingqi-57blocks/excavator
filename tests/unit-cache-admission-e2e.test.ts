@@ -22,9 +22,9 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { auditTimeline, readTimeline } from "../src/base/timeline.ts";
-import { exists, writeJson } from "../src/base/util.ts";
+import { exists, sha256, writeJson } from "../src/base/util.ts";
 import { admitUnits, planUnitAdmission } from "../src/report/unit-cache-admission-run.ts";
 import { cachePlanIds, type UnitAdmissionOutcome, type UnitAdmissionPlan, type UnitAdmissionReport } from "../src/report/unit-cache-admission.ts";
 import { readUnitLedger, writeUnitLedger, type CollectedUnit } from "../src/report/unit-ledger.ts";
@@ -331,4 +331,86 @@ test("nothing to admit, everything admitted, and it is all already recorded are 
   // The read-only pass wrote nothing: the ledger still records the two units under the superseded plan.
   const ledger = await readUnitLedger(fresh.runDir, fresh.manifest.id);
   assert.deepEqual(ledger.units.map((row) => row.planCatalogDigest === replanned.view.planCatalogDigest), [false, false]);
+});
+
+// --- (3c) the re-entry tripwire leaves nothing collectable, and an unreadable artifact downgrades ------
+
+test("a candidate whose recorded bytes are not the normalized ones is refused before anything is written", async () => {
+  const run = await admissionRun();
+  await authorEveryUnit(run);
+  const before = await readUnitLedger(run.runDir, run.manifest.id);
+  /*
+   * A candidate whose recorded bytes are NOT normalized: on disk, verified by its own row, and impossible to
+   * re-enter unchanged because `draftUnit` normalizes what it is handed.
+   *
+   * WHICH GATE CATCHES IT IS THE FINDING. Not the admission's own byte-identity tripwire — `draftUnit` refuses
+   * first, when the summary it is handed disagrees with the bytes about to land, and it refuses BEFORE writing
+   * anything. So this state costs the run nothing: no artifact is replaced, no receipt exists to be collected, and
+   * the ledger row still points at the bytes it always did. The tripwire behind that gate (which also compares the
+   * identity digest, something no other gate looks at) removes its receipt before throwing, so a refusal there
+   * cannot leave a collectable draft either; there is no legal state that reaches it, which is why this test pins
+   * the gate that does.
+   */
+  const paths = unitPaths(run.runDir, APPENDIX);
+  const unnormalized = (await readFile(paths.content, "utf8")).trimEnd();
+  await writeFile(paths.content, unnormalized);
+  const summary = parseUnitSummary(JSON.parse(await readFile(paths.summary, "utf8")) as unknown);
+  if (!summary.summary) throw new Error(`the fixture's own summary does not parse: ${summary.problems.join("; ")}`);
+  const retold: UnitSummary = { ...summary.summary, contentDigest: sha256(unnormalized) };
+  await writeJson(paths.summary, retold);
+  await writeUnitLedger(run.runDir, {
+    ...before,
+    units: before.units.map((row) => (row.unitId === APPENDIX
+      ? { ...row, contentDigest: sha256(unnormalized), summaryDigest: unitSummaryDigest(retold) }
+      : row))
+  });
+
+  await requestSecondDocument(run);
+  await recordPlan(run, "two-documents", withExtraLeaf(FIRST_DOCUMENT));
+  await assert.rejects(() => admitUnits(run.runDir, ADMISSION_AUTHORSHIP),
+    /disagrees with this run: records contentDigest [0-9a-f]{64} but the content beside it digests to [0-9a-f]{64}/);
+  // THE POINT: nothing is collectable afterwards, so the bytes no gate accepted cannot become a record.
+  assert.equal(await exists(paths.receipt), false, "a refused re-entry must not leave a collectable receipt");
+  assert.equal(await readFile(paths.content, "utf8"), unnormalized, "the candidate's own artifact was not rewritten");
+  const collected = await collectUnits(run.runDir);
+  assert.deepEqual(collected.collected.map((receipt) => receipt.unitId), [], "there is nothing to collect");
+  const after = await readUnitLedger(run.runDir, run.manifest.id);
+  const current = await loadUnitPlanView(run.runDir);
+  assert.equal(after.units.some((row) => row.planCatalogDigest === current.planCatalogDigest), false,
+    "no unit was recorded under the plan now in force");
+});
+
+test("an artifact that exists but cannot be read downgrades one candidate instead of aborting the pass", async () => {
+  const run = await admissionRun();
+  await authorEveryUnit(run);
+  await requestSecondDocument(run);
+  await recordPlan(run, "two-documents", withExtraLeaf(FIRST_DOCUMENT));
+  // `exists` is true and `readFile` is not: the shape a directory (or a permission change) at content.md takes.
+  const paths = unitPaths(run.runDir, LEAF);
+  await rm(paths.content);
+  await mkdir(paths.content);
+
+  const plan = await planUnitAdmission(run.runDir, ADMISSION_AUTHORSHIP);
+  const row = plan.ledgerRows.find((entry) => entry.unitId === LEAF);
+  assert.equal(row?.disposition.state, "offered");
+  assert.equal(row?.disposition.state === "offered" ? row.disposition.verification.state : "", "drifted");
+  assert.match(row?.disposition.state === "offered" && row.disposition.verification.state === "drifted"
+    ? row.disposition.verification.problems.join("; ") : "", /content\.md could not be read: /);
+  assert.deepEqual(intentIds(plan, "admit"), [APPENDIX], "the readable candidate is decided on its own");
+});
+
+// --- (3d) a drift on a row already collected under this plan is reported, not discarded ----------------
+
+test("a drift on a unit already collected under the plan in force is named in the reading rather than measured and dropped", async () => {
+  const run = await admissionRun();
+  await authorEveryUnit(run);
+  const paths = unitPaths(run.runDir, APPENDIX);
+  await writeFile(paths.content, `${await readFile(paths.content, "utf8")}edited after collect\n`);
+
+  const plan = await planUnitAdmission(run.runDir, ADMISSION_AUTHORSHIP);
+  const row = plan.ledgerRows.find((entry) => entry.unitId === APPENDIX);
+  assert.equal(row?.disposition.state, "excluded");
+  assert.equal(row?.disposition.state === "excluded" ? row.disposition.cause : "", "collected-under-this-plan");
+  assert.match(row?.disposition.state === "excluded" ? row.disposition.statement : "",
+    /there is nothing to admit for it — but its artifacts on disk are no longer the bytes that row promised: Unit ".*" has content digesting to [0-9a-f]{64}, but its ledger row promises [0-9a-f]{64}/);
 });

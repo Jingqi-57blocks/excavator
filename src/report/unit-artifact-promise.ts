@@ -53,8 +53,20 @@ export async function promisedArtifactProblems(
     if (!await exists(path)) problems.push({ what, state: "absent", path });
   }
   if (problems.length > 0) return problems;
-  const content = sha256(await readFile(paths.content, "utf8"));
-  if (content !== promised.contentDigest) problems.push({ what: "content", state: "mismatch", digest: content, promised: promised.contentDigest });
+  // Guarded like the two JSON reads below it, and for the same reason: `exists` says a path is there, not that it
+  // can be read as a file. A directory or a permission change at `content.md` would otherwise escape as a raw
+  // EISDIR/EACCES and abort a whole admission pass — including the read-only one — instead of downgrading one
+  // candidate, which is the one thing this function exists to make possible.
+  let content: string | null = null;
+  try {
+    content = await readFile(paths.content, "utf8");
+  } catch (error) {
+    problems.push({ what: "content", state: "unreadable", path: paths.content, reason: (error as Error).message });
+  }
+  if (content !== null) {
+    const digest = sha256(content);
+    if (digest !== promised.contentDigest) problems.push({ what: "content", state: "mismatch", digest, promised: promised.contentDigest });
+  }
   for (const [path, recorded, what] of [[paths.claims, promised.claimsDigest, "claims"], [paths.summary, promised.summaryDigest, "summary"]] as const) {
     let parsed: unknown;
     try {
@@ -75,7 +87,9 @@ export function describePromisedArtifactProblem(subject: PromiseSubject, problem
     case "absent":
       return `${subject.record} for ${JSON.stringify(subject.unitId)} promises ${problem.what} that is not on disk: ${problem.path}`;
     case "unreadable":
-      return `${problem.path} could not be read as JSON: ${problem.reason}`;
+      return problem.what === "content"
+        ? `${problem.path} could not be read: ${problem.reason}`
+        : `${problem.path} could not be read as JSON: ${problem.reason}`;
     case "mismatch":
       return `Unit ${JSON.stringify(subject.unitId)} has ${problem.what} digesting to ${problem.digest}, but ${subject.possessive} promises ${problem.promised}; re-draft the unit`;
   }

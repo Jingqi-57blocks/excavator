@@ -11,7 +11,7 @@ import { resumeUnits, unitStatus } from "./report/unit-status.ts";
 import { renderUnitPacketForRun } from "./report/unit-packet-source.ts";
 import { loadRunUnitIdentities } from "./report/unit-cache-identity-source.ts";
 import { admitUnits, planUnitAdmission } from "./report/unit-cache-admission-run.ts";
-import { summariseAdmission } from "./report/unit-cache-admission.ts";
+import { summariseAdmission, type CandidateLedgerRow } from "./report/unit-cache-admission.ts";
 import { describeAuthorship, describeProvenance, type UnitAuthorship, type UnitProvenance } from "./report/unit-provenance.ts";
 import { readUnitGroundingForRun, summariseUnitGroundingReading } from "./report/unit-grounding-reading.ts";
 import { planRun, renderPlannerPacketForRun, DEFAULT_PLANNER_PACKET_BYTE_LIMIT, type PlanProposalSource } from "./run/stages/plan-stage.ts";
@@ -593,16 +593,27 @@ async function unitAdmissionOutput(runDir: string, authorship: UnitAuthorship, m
   return assertNever(mode, "unit admission mode");
 }
 
-/** One prior ledger row and what the admission did with it. Every row is printed; nothing is capped. */
-function admissionLedgerLine(row: { unitId: string; knowledgeEpoch: number; disposition: { state: string; cause?: string; statement?: string; verification?: { state: string; problems?: readonly string[] } } }): Record<string, unknown> {
-  return {
-    unit: row.unitId,
-    knowledgeEpoch: row.knowledgeEpoch,
-    disposition: row.disposition.state,
-    ...(row.disposition.cause ? { cause: row.disposition.cause } : {}),
-    ...(row.disposition.verification ? { bytes: row.disposition.verification.state, ...(row.disposition.verification.problems ? { problems: row.disposition.verification.problems } : {}) } : {}),
-    ...(row.disposition.statement ? { why: row.disposition.statement } : {})
-  };
+/**
+ * One prior ledger row and what the admission did with it. Every row is printed; nothing is capped.
+ *
+ * Typed as the row itself and exhaustive over its disposition, so a new arm of `CandidateDisposition` fails the
+ * typecheck here instead of printing nothing — which is how a hand-written structural type loses a field in silence.
+ */
+function admissionLedgerLine(row: CandidateLedgerRow): Record<string, unknown> {
+  const shared = { unit: row.unitId, knowledgeEpoch: row.knowledgeEpoch, disposition: row.disposition.state };
+  switch (row.disposition.state) {
+    case "offered": {
+      const verification = row.disposition.verification;
+      return {
+        ...shared,
+        bytes: verification.state,
+        ...(verification.state === "drifted" ? { problems: verification.problems } : {})
+      };
+    }
+    case "excluded":
+      return { ...shared, cause: row.disposition.cause, why: row.disposition.statement };
+  }
+  return assertNever(row.disposition, "unit admission candidate disposition");
 }
 
 /**
