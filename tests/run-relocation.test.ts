@@ -13,6 +13,7 @@ import { sectionPaths } from "../src/report/section-paths.ts";
 import { exists, sha256 } from "../src/base/util.ts";
 import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, installFixturePlan, tempDir } from "./helpers.ts";
 import { planRun, renderPlannerPacketForRun } from "../src/run/stages/plan-stage.ts";
+import { loadRunUnitIdentities, rowUnitId } from "../src/report/unit-cache-identity-source.ts";
 
 /**
  * 57B-452 — a run directory must be movable.
@@ -283,14 +284,18 @@ test("relocated run: freeze seals the copy's knowledge epoch", async () => {
   assert.equal(await exists(join(base.runDir, "knowledge.json")), false);
 });
 
-test("relocated run: plan and plan-packet read and write the copy's plan directory", async () => {
+test("relocated run: plan, plan-packet and unit-cache-identity read and write the copy's plan directory", async () => {
   const base = await investigatingBase();
-  const runDir = await onRelocatedRun(base, ["plan", "plan-packet"], async (dir) => {
+  const runDir = await onRelocatedRun(base, ["plan", "plan-packet", "unit-cache-identity"], async (dir) => {
     assert.equal((await freezeRun(dir)).frozen, true);
     const packet = await renderPlannerPacketForRun(dir, { overBudget: "refuse", byteLimit: 524_288 });
     assert.ok(packet.markdown.includes("# Planner packet"));
     const result = await planRun(dir, { mode: "fixture" });
     assert.equal(result.runDir, dir);
+    // R6a's identity reading is read-only, and it reads the COPY's plan: an identity computed from the recorded
+    // location would be the identity of a plan this run no longer holds.
+    const identities = await loadRunUnitIdentities(dir, { kind: "model-free", generator: "relocation-fixture" });
+    assert.deepEqual(identities.rows.map(rowUnitId).sort(), result.artifacts.planCatalog.units.map((unit) => unit.unitId).sort());
   });
   for (const relative of ["plan/topics.json", "plan/catalog.json", "plan/dag.json"]) {
     assert.ok(await exists(join(runDir, relative)), `${relative} must land in the copy`);

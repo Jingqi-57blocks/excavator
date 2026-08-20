@@ -88,6 +88,38 @@ import { compareUnitIds } from "./unit-paths.ts";
 export const UNIT_PACKET_VERSION = "unit-packet-v3";
 
 /**
+ * WHICH VIEW OF ONE UNIT'S INPUTS IS BEING COMPOSED (R6a). Same renderer, one required flag, two readings.
+ *
+ * `packet` is the bytes an author is handed. `identity` is the SAME composition with the three plan-global digest
+ * lines below normalized — the cache identity of this unit. It is a view rather than a second list of key inputs
+ * for the reason R5b's 9x measurement gap already paid for: a hand-written enumeration of "what a unit's identity
+ * depends on" drifts the moment the renderer reads one more input, and it drifts SILENTLY towards reusing a stale
+ * draft. Derived from the renderer, a new input line changes the identity by construction, and the drift direction
+ * flips to over-invalidation.
+ */
+export type PacketRenderView = "packet" | "identity";
+
+/**
+ * THE THREE HEADER LINES A CACHE IDENTITY NORMALIZES, and the only three. A closed, exported list.
+ *
+ * Each of these is a digest over the WHOLE plan or the WHOLE topic catalog, so any local change to either one
+ * changes every packet's bytes: edit one topic and all 40 wcp packets differ; add a second audience document and
+ * `requestsDigest` moves under every existing document. Keeping them in the identity would make the epic's own
+ * acceptance arithmetically unsatisfiable — "rebuild the leaf and its ancestors" and "the other audience's
+ * documents are reused" both require an identity that is LOCAL to a unit.
+ *
+ * Excluding them is not self-certified: R6b's admission has to pass `draftUnit` and `collect` unchanged (the
+ * grounding audit, the synthesis backlink check, the digest checks), so a draft admitted on a wrong identity still
+ * cannot be recorded without those gates agreeing. A FOURTH line normalized here is a planning-level decision, not
+ * an edit — `tests/unit-cache-identity.test.ts` pins the length and the members of this list.
+ */
+export const IDENTITY_NORMALIZED_HEADER_LABELS = ["topics catalog digest", "plan catalog digest", "recorded requests digest"] as const;
+export type IdentityNormalizedHeaderLabel = (typeof IDENTITY_NORMALIZED_HEADER_LABELS)[number];
+
+/** What the identity view prints instead of a plan-global digest. Never appears in a packet an author reads. */
+export const IDENTITY_NORMALIZED_VALUE = "(normalized for cache identity)";
+
+/**
  * What one unit writes from. A union, so the synthesis arm has no place for a topic or an evidence record.
  *
  * `evidence` is keyed by id and must hold every id the bindings name; a missing one is a named refusal at the entry
@@ -215,7 +247,7 @@ export function renderUnitPacket(input: UnitPacketInput): UnitPacket {
   const unit = requireUnit(input);
   assertOwnershipIsThisDocument(unit, input.ownership);
   assertDossierMatchesUnit(unit, input.dossier);
-  const withoutLimitation = composePacketMarkdown(unit, input, []);
+  const withoutLimitation = composePacketMarkdown(unit, input, [], "packet");
   const bytes = Buffer.byteLength(withoutLimitation, "utf8");
   const rendered = renderedIds(unit, input);
   if (bytes <= input.byteLimit) {
@@ -226,7 +258,7 @@ export function renderUnitPacket(input: UnitPacketInput): UnitPacket {
     case "refuse":
       throw new Error(overrun);
     case "record-limitation": {
-      const markdown = composePacketMarkdown(unit, input, [overrun]);
+      const markdown = composePacketMarkdown(unit, input, [overrun], "packet");
       return {
         ...rendered,
         version: UNIT_PACKET_VERSION,
@@ -252,16 +284,50 @@ export function renderUnitPacket(input: UnitPacketInput): UnitPacket {
  * both R0 baselines and every fixture — the tripwire that stops a second, drifting estimate from being introduced.
  */
 export function unitPacketBytes(input: UnitPacketInput): number {
+  return Buffer.byteLength(composeUnitPacketMarkdown(input, "packet"), "utf8");
+}
+
+/**
+ * The one composition, exposed: the packet an author reads, or the cache identity view of the same inputs (R6a).
+ *
+ * The entry checks and the composition are the packet's own, so the identity view cannot be a second renderer that
+ * drifts from this one. `unitPacketBytes` and `renderUnitPacket` (when the packet fits) return exactly the bytes of
+ * `view: "packet"`, and `tests/unit-cache-identity.test.ts` diffs the two views line by line: everything they disagree on
+ * must be one of `IDENTITY_NORMALIZED_HEADER_LABELS`.
+ */
+export function composeUnitPacketMarkdown(input: UnitPacketInput, view: PacketRenderView): string {
   const unit = requireUnit(input);
   assertOwnershipIsThisDocument(unit, input.ownership);
   assertDossierMatchesUnit(unit, input.dossier);
-  return Buffer.byteLength(composePacketMarkdown(unit, input, []), "utf8");
+  return composePacketMarkdown(unit, input, [], view);
+}
+
+/**
+ * The three plan-global digest lines, printed in a packet and normalized in an identity view.
+ *
+ * Emitted FROM the closed label list rather than written out three times, so normalizing a fourth line means
+ * editing that list — which is where the closure is asserted — instead of adding a quiet special case here.
+ */
+function planGlobalDigestLines(planCatalog: PlanCatalogArtifact, view: PacketRenderView): readonly string[] {
+  switch (view) {
+    case "packet": {
+      const values: Record<IdentityNormalizedHeaderLabel, string> = {
+        "topics catalog digest": planCatalog.topicsDigest,
+        "plan catalog digest": planCatalogDigest(planCatalog),
+        "recorded requests digest": planCatalog.requestsDigest
+      };
+      return IDENTITY_NORMALIZED_HEADER_LABELS.map((label) => `- ${label}: ${values[label]}`);
+    }
+    case "identity":
+      return IDENTITY_NORMALIZED_HEADER_LABELS.map((label) => `- ${label}: ${IDENTITY_NORMALIZED_VALUE}`);
+  }
+  return assertNever(view, "unit packet render view");
 }
 
 /** The one composition: header then body. Both `renderUnitPacket` and `unitPacketBytes` go through it. */
-function composePacketMarkdown(unit: PlanCatalogUnit, input: UnitPacketInput, limitations: readonly string[]): string {
+function composePacketMarkdown(unit: PlanCatalogUnit, input: UnitPacketInput, limitations: readonly string[], view: PacketRenderView): string {
   const body = renderBody(unit, input);
-  return `${renderHeader(unit, input, body, limitations)}\n${body}`;
+  return `${renderHeader(unit, input, body, limitations, view)}\n${body}`;
 }
 
 /** Ownership is per document; rendering a unit against another document's row is a bug in the caller, and named. */
@@ -548,7 +614,7 @@ export function outputBoundSentence(budget: PlanDocumentBudget): string {
   return `output budget (plan, per unit for ${budget.documentId}): ${budget.perUnitOutputBytes} bytes of \`content.md\` plus canonical claims, and ${budget.perUnitSummaryBytes} bytes for the summary block a parent unit reads. Both are ENFORCED when this unit is drafted: over-budget is a named refusal, and the way to satisfy it is to WRITE MORE TIGHTLY — never to drop an obligation, an unknown or a terminology entry. Core does not delete content to fit.`;
 }
 
-function renderHeader(unit: PlanCatalogUnit, input: UnitPacketInput, body: string, limitations: readonly string[]): string {
+function renderHeader(unit: PlanCatalogUnit, input: UnitPacketInput, body: string, limitations: readonly string[], view: PacketRenderView): string {
   const { planCatalog, requests, registry, dag, reach } = input;
   const record = requests.requests.find((entry) => entry.documentId === unit.documentId);
   if (!record) throw new Error(`No recorded request for document ${JSON.stringify(unit.documentId)}; a unit packet is rendered under the request that asked for its document`);
@@ -572,9 +638,7 @@ function renderHeader(unit: PlanCatalogUnit, input: UnitPacketInput, body: strin
     `- document: ${unit.documentId}`,
     `- run: ${planCatalog.runId}`,
     `- knowledge epoch: ${planCatalog.knowledgeEpoch} (digest ${planCatalog.knowledgeDigest})`,
-    `- topics catalog digest: ${planCatalog.topicsDigest}`,
-    `- plan catalog digest: ${planCatalogDigest(planCatalog)}`,
-    `- recorded requests digest: ${planCatalog.requestsDigest}`,
+    ...planGlobalDigestLines(planCatalog, view),
     `- policy registry: ${registry.version}; proposal schema: ${planCatalog.proposalVersion}`,
     `- audience: ${record.request.audience} — lens ${lens.id}@${lens.version} (digest ${lens.digest})`,
     `- intent: ${record.request.intent} — intent policy ${intent.id}@${intent.version} (digest ${intent.digest})`,
