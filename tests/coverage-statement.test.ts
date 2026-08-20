@@ -128,6 +128,40 @@ test("one defective entry decides the arm, and the withheld entries ride along i
   assert.equal(coverageStatementEntries(statement).length, 2);
   assert.ok(lines[1]!.includes("no source window covers"), lines[1]);
   assert.ok(lines[2]!.includes("a plan disposition took OUT"), lines[2]);
+  // The sentence says the withholding happened; the bullets say what it was.
+  assert.match(coverageStatementSentence(statement), /beside 27 rows 1 recorded decision held back/);
+});
+
+// Found by review: the defective sentence used to append "beside 0 rows a recorded decision held back" on the
+// COMMON path, where nothing is withheld. That is a zero-row entry rendered in prose, which is what this module
+// refuses to do for entries — and the sentence lands in every appendix packet, so a printed zero pads the bytes
+// that ARE a unit's cache identity.
+test("a defective statement with nothing withheld does not print a zero-row clause", () => {
+  const bare = coverageStatement({
+    subject: "read obligations",
+    denominator: { state: "present", ledger: LEDGER, rows: 946, counted: 900 },
+    entries: [unread(46)]
+  });
+  assert.equal(bare.state, "defective");
+  assert.deepEqual(bare.state === "defective" ? bare.withheld : null, [], "the empty list is still carried on the value");
+  const sentence = coverageStatementSentence(bare);
+  assert.ok(!sentence.includes("beside"), sentence);
+  assert.doesNotMatch(sentence, /\b0 rows?\b/, `a zero is dropped, never printed: ${sentence}`);
+  assert.ok(sentence.endsWith("46 rows this run still owes across 1 named gap."), sentence);
+});
+
+// Found by review: an entry whose kind the table does not classify would fall into NEITHER list, and its rows
+// would then reappear as a conservation residue blaming the CALLER's arithmetic. Reachable only past the type,
+// which is exactly how the sentence switch's `assertNever` is reached too.
+test("an entry of an unclassified kind is a named refusal, not a conservation residue", () => {
+  assert.throws(
+    () => coverageStatement({
+      subject: "rows",
+      denominator: { state: "present", ledger: LEDGER, rows: 10, counted: 6 },
+      entries: [{ kind: "invented-kind" as CoverageEntry["kind"], rows: 4, ids: [], detail: "d" }]
+    }),
+    /carries 1 entry\/entries of kind "invented-kind", which COVERAGE_KIND_CATEGORY does not classify/
+  );
 });
 
 // --- the four arms, and which inputs can reach them ------------------------------------------------------------

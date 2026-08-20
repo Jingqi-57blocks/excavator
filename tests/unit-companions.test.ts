@@ -136,9 +136,10 @@ test("an empty trace catalog produces an empty companion that still names its de
 });
 
 test("a traceIds that is not a list of ids is refused rather than iterated character by character", () => {
-  // `assertValidClaim` never checks this field and `parseUnitClaims` ends in a cast, so a model-written sidecar can
-  // hand over a bare string. Iterating it would turn one citation into three one-character ones — and would pull a
-  // one-character catalog trace in with a reason nobody wrote.
+  // `assertValidClaim` now refuses this shape at the two claims doors (`claim-id-shape.ts`), and this aggregator
+  // still refuses it too: it is handed claim VALUES, and nothing in its input type says they came through a door.
+  // Iterating a bare string would turn one citation into three one-character ones — and would pull a one-character
+  // catalog trace in with a reason nobody wrote.
   const bare = { ...aggregation(), units: [{ unitId: LEAF, kind: "leaf" as const, claims: [{ ...claim("claim-1", "s"), traceIds: "T-cited" as unknown as string[] }] }] };
   assert.throws(
     () => aggregateUnitTraces({ ...bare, traces: TRACES }),

@@ -17,12 +17,15 @@
  * `traceIds`. Both are equality against the trace catalog's primary key, and each row records which reason(s) put
  * it there.
  *
- * `traceIds` IS READ AS UNTRUSTED, because nothing upstream checks its shape. `parseUnitClaims` ends in a cast and
- * defers per-claim rules to `assertValidClaim`, which checks `id`, `statement`, `marker` and comparison sides and
- * never this field — and a claims sidecar is model-written JSON. A `"traceIds": "T-1"` would be ITERATED, turning
- * one citation into three one-character ones and pulling any one-character catalog trace into the companion with a
- * reason nobody wrote. So the aggregator refuses that shape by name. It is not a second definition of "a valid
- * claim": it is this file declining to key a companion on the characters of a string.
+ * `traceIds` IS STILL READ AS UNTRUSTED HERE, and the reason changed rather than went away. It used to be that
+ * NOTHING upstream checked the field's shape; `assertValidClaim` now does, through `claim-id-shape.ts`, so this is
+ * the second of two defences instead of the only one. It stays because the two have different inputs: the upstream
+ * check runs at the two claims DOORS (a draft handing claims over, a sidecar parsed back off disk), and this
+ * aggregator is handed claim VALUES by its caller — `unit-assembly-source.ts` passes what `parseUnitClaims`
+ * returned, but nothing in the type of this function's input says so. A `"traceIds": "T-1"` reaching here would be
+ * ITERATED, turning one citation into three one-character ones and pulling any one-character catalog trace into the
+ * companion with a reason nobody wrote. So the aggregator refuses that shape by name. It is not a second definition
+ * of "a valid claim": it is this file declining to key a companion on the characters of a string.
  *
  * A CITED TRACE THE CATALOG DOES NOT HOLD IS A NAMED BUCKET, NOT A SILENT DROP. Claim validation does not check
  * trace-catalog membership, so a dangling citation is reachable; reporting it as "no traces" would be the silent

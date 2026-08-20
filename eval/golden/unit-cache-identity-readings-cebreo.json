@@ -13,14 +13,14 @@
   "identified": [
     {
       "documentId": "overview-product",
-      "identityDigest": "ae1841b5bf72ab4d3137b5507fb6759097778832b003e6151b55d4be1c35547d",
+      "identityDigest": "9e7d312268fb05782665f1f7989b0b3d76163e8c3d1834df965f03c12b50123f",
       "kind": "appendix",
       "normalizedLabels": [
         "topics catalog digest",
         "plan catalog digest",
         "recorded requests digest"
       ],
-      "packetBytes": 27805,
+      "packetBytes": 27760,
       "sectionHeadings": [
         "(packet header)",
         "## What this packet is not",
@@ -35,7 +35,7 @@
       ],
       "sections": 10,
       "unitId": "overview-product::appendix::coverage",
-      "viewBytes": 27706
+      "viewBytes": 27661
     }
   ],
   "knowledgeDigest": "b576ab30545c0c8d6a32f44dde68a2c28f89179593e0e836e63ad0b58b100f6b",

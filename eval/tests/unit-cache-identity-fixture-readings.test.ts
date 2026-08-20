@@ -94,7 +94,7 @@ function derived(readings: UnitIdentityProjection, scenario: string): ScenarioRe
  * through that change — the contract pin was green — which is precisely the hole this constant was built to cover.
  * The two archival readings were re-derived from their archival run directories in the same batch.
  */
-const FORMULA_WITNESS = "088cb24303903dd721fb505a5930660cccf0c9d6d33dd6ca08ef64467c837596";
+const FORMULA_WITNESS = "bd764ae299d1138e905955c1552b62e4e484b5a2be97a7c52b44abdac00fb438";
 
 test("the two archival readings were minted by the formula this in-repo fixture still witnesses", async () => {
   const readings = await projection();

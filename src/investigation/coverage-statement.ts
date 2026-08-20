@@ -285,6 +285,16 @@ export function coverageStatement(input: CoverageStatementInput): CoverageStatem
     .sort((a, b) => COVERAGE_ENTRY_KINDS.indexOf(a.kind) - COVERAGE_ENTRY_KINDS.indexOf(b.kind) || compare(a.detail, b.detail));
   const defects = entries.filter((entry) => COVERAGE_KIND_CATEGORY[entry.kind] === "defective");
   const withheld = entries.filter((entry) => COVERAGE_KIND_CATEGORY[entry.kind] === "withheld");
+  // A kind the table does not classify would fall into NEITHER list, and its rows would then surface as a
+  // conservation residue blaming the caller's arithmetic for an unregistered kind. `satisfies` makes that
+  // unreachable from typed code — and so does `assertNever`, which this file still spells out for the sentence
+  // switch, because both are reached the same way: a value cast past the type. So the partition names it too.
+  if (defects.length + withheld.length !== entries.length) {
+    const unclassified = entries
+      .filter((entry) => !defects.includes(entry) && !withheld.includes(entry))
+      .map((entry) => JSON.stringify(entry.kind));
+    throw new Error(`The coverage statement about ${subject} carries ${unclassified.length} entry/entries of kind ${unclassified.join(", ")}, which COVERAGE_KIND_CATEGORY does not classify as withheld or defective; a kind decides an arm, so an unclassified one has no arm to go in`);
+  }
   // The conservation is taken over the SUM OF THE TWO LISTS rather than over `entries`, so a row that fell out
   // between the partition and an arm shows up as a residue the constructor refuses instead of as a smaller total.
   const excluded = rowsOf(defects) + rowsOf(withheld);
@@ -407,8 +417,17 @@ export function coverageStatementSentence(statement: CoverageStatement): string 
       return `${COVERAGE_STATEMENT_PREFIXES.vacuous}${statement.source}): this run has no ${statement.subject} at all, so no coverage statement about them applies — ${statement.reason}.`;
     case "withheld":
       return `${COVERAGE_STATEMENT_PREFIXES.withheld} of the ${statement.conservation.total} ${statement.subject} in ${statement.ledger}, ${statement.conservation.counted} ${isAre(statement.conservation.counted)} accounted for and ${statement.conservation.excluded} ${isAre(statement.conservation.excluded)} held back by ${statement.withheld.length} recorded decision${plural(statement.withheld.length)} — nobody owes them, and this is not a statement about the rest.`;
-    case "defective":
-      return `${COVERAGE_STATEMENT_PREFIXES.defective} of the ${statement.conservation.total} ${statement.subject} in ${statement.ledger}, ${statement.conservation.counted} ${isAre(statement.conservation.counted)} accounted for and ${statement.conservation.excluded} ${isAre(statement.conservation.excluded)} not: ${rowsOf(statement.defects)} row${plural(rowsOf(statement.defects))} this run still owes across ${statement.defects.length} named gap${plural(statement.defects.length)}, beside ${rowsOf(statement.withheld)} row${plural(rowsOf(statement.withheld))} a recorded decision held back.`;
+    case "defective": {
+      // The withheld clause is printed only when there IS something withheld. `beside 0 rows a recorded decision
+      // held back` would be a zero-row entry in prose, and this file's rule for entries is that a zero is dropped
+      // rather than listed — and that sentence lands in every appendix packet, where it would also pad the bytes
+      // that ARE a unit's cache identity. Nothing is lost: the withheld entries are bulleted under the sentence.
+      const withheldRows = rowsOf(statement.withheld);
+      const beside = withheldRows === 0
+        ? ""
+        : `, beside ${withheldRows} row${plural(withheldRows)} ${statement.withheld.length} recorded decision${plural(statement.withheld.length)} held back`;
+      return `${COVERAGE_STATEMENT_PREFIXES.defective} of the ${statement.conservation.total} ${statement.subject} in ${statement.ledger}, ${statement.conservation.counted} ${isAre(statement.conservation.counted)} accounted for and ${statement.conservation.excluded} ${isAre(statement.conservation.excluded)} not: ${rowsOf(statement.defects)} row${plural(rowsOf(statement.defects))} this run still owes across ${statement.defects.length} named gap${plural(statement.defects.length)}${beside}.`;
+    }
   }
   return assertNever(statement, "coverage statement state");
 }

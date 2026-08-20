@@ -13,7 +13,8 @@
  * DEPENDENCY — a synthesis may not depend on a unit that depends on it — and it is checked as such by
  * `unitDagOrder`. The DOCUMENT is a tree: collection order, the contents table, the heading depth and every
  * `childSummaryDigest` assume one parent per unit, and no epic scenario asks for a unit to be written into two
- * places at once (a unit needed by two parents is what a `reference` is for). So the acyclicity check and this one
+ * places at once — a topic more than one place needs is handled by the `referenced` TOPIC DISPOSITION (one unit is
+ * its primary owner, the others cite it), not by giving one unit two parents. So the acyclicity check and this one
  * are two different laws and neither implies the other.
  *
  * IT IS THE FIRST OF TWO DEFENCES, ON PURPOSE. `parentUnitIdByChild` refuses the same shape at assembly time, over
