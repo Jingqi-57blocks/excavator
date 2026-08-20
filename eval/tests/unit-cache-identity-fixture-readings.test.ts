@@ -86,8 +86,15 @@ function derived(readings: UnitIdentityProjection, scenario: string): ScenarioRe
  *
  * It over-triggers in exactly one direction — editing the mini FIXTURE moves it without invalidating anything — and
  * that is the safe direction: a deliberate fixture change re-pins one constant, in the open.
+ *
+ * IT HAS NOW FIRED FOR REAL, ONCE, and the record of that is why the value below moved. Splitting the coverage
+ * statement's `violations` arm into `withheld` and `defective` changed the SENTENCE the appendix packet's coverage
+ * block prints; the appendix packet's bytes are its unit's identity; so four wcp appendices, one cebreo appendix
+ * and three mini appendices moved their `identityDigest`. Every name in `UNIT_IDENTITY_KEY_VERSIONS` stayed put
+ * through that change — the contract pin was green — which is precisely the hole this constant was built to cover.
+ * The two archival readings were re-derived from their archival run directories in the same batch.
  */
-const FORMULA_WITNESS = "c07ca4c4af3178d50be501842ec556c02f4ab0edef5ebec508c4f8b9c3baeac2";
+const FORMULA_WITNESS = "088cb24303903dd721fb505a5930660cccf0c9d6d33dd6ca08ef64467c837596";
 
 test("the two archival readings were minted by the formula this in-repo fixture still witnesses", async () => {
   const readings = await projection();

@@ -35,6 +35,7 @@ import { appendTimeline } from "../../base/timeline.ts";
 import { atomicWrite, nowIso, readJson, stableJson, writeJson } from "../../base/util.ts";
 import { runRelativePath } from "../../report/unit-assembly-paths.ts";
 import { loadUnitAssembly } from "../../report/unit-assembly-source.ts";
+import type { ShippedCoverageArm } from "../../report/unit-assembly-coverage.ts";
 
 /** The two arms. No default: see the file header. */
 export const UNIT_ASSEMBLE_MODES = ["plan-only", "write"] as const;
@@ -56,7 +57,8 @@ export interface UnitAssembleResult {
   readonly knowledgeEpoch: number;
   readonly planCatalogDigest: string;
   readonly documents: readonly AssembledDocumentReading[];
-  readonly coverageCompanion: { readonly path: string; readonly bytes: number };
+  /** The companion, and the arm every coverage statement in it took — see `unit-assembly-coverage.ts`. */
+  readonly coverageCompanion: { readonly path: string; readonly bytes: number; readonly arms: readonly ShippedCoverageArm[] };
   readonly readPaths: readonly string[];
 }
 
@@ -97,7 +99,7 @@ export async function assembleUnits(runDirInput: string, mode: UnitAssembleMode)
     knowledgeEpoch: assembly.knowledgeEpoch,
     planCatalogDigest: assembly.planCatalogDigest,
     documents,
-    coverageCompanion: { path: assembly.coverage.path, bytes: Buffer.byteLength(assembly.coverage.markdown, "utf8") },
+    coverageCompanion: { path: assembly.coverage.path, bytes: Buffer.byteLength(assembly.coverage.markdown, "utf8"), arms: assembly.coverage.arms },
     readPaths: assembly.readPaths
   };
 
