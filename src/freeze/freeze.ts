@@ -12,6 +12,9 @@ import {
 import {
   auditEvidenceStorage, canonicalEvidenceDigest, EVIDENCE_BOUND_POLICY_VERSION, evidenceStreamDigest
 } from "../investigation/evidence-store.ts";
+import {
+  CURRENT_JUDGEMENT_SEAL, judgementSeal, readJudgementSeal, type JudgementSealVersion, type RecordedJudgementSeal
+} from "./judgement-seal.ts";
 
 /**
  * "First freeze, then write." This module owns the deterministic, model-free machinery that turns a
@@ -141,18 +144,28 @@ export function canonicalInvestigationResults(value: unknown): unknown {
   };
 }
 
-/** Seal dispositions, reasons and grounding — the status-only workitems digest is not a judgement identity. */
-export function judgementDigest(plan: InvestigationPlan, investigationResults: unknown | null): string {
-  const workitems = plan.items.map((item) => ({
-    id: item.id,
-    status: item.status,
-    ...(item.reason !== undefined ? { reason: item.reason } : {}),
-    ...(item.settledBy !== undefined ? { settledBy: item.settledBy } : {}),
-    ...(item.searchScope !== undefined ? { searchScope: item.searchScope } : {}),
-    evidenceIds: [...item.evidenceIds].sort((a, b) => a.localeCompare(b)),
-    traceIds: [...item.traceIds].sort((a, b) => a.localeCompare(b))
-  })).sort((a, b) => a.id.localeCompare(b.id));
-  return sha256(canonicalJson({ workitems, investigationResults: canonicalInvestigationResults(investigationResults) }));
+/**
+ * Seal the work-item ledger and the L7 judgements — the status-only workitems digest is not a judgement
+ * identity. `version` is required, not defaulted: freeze writes the current seal while audit must recompute
+ * under the version the archive recorded, and a default would let either site drift into the other's job.
+ * The field set per version lives in `judgement-seal.ts`.
+ */
+export function judgementDigest(plan: InvestigationPlan, investigationResults: unknown | null, version: JudgementSealVersion): string {
+  return judgementSeal(plan.items, canonicalInvestigationResults(investigationResults), version);
+}
+
+/**
+ * Reconcile a recorded seal with the current ledger under the version the record itself names, so an epoch
+ * sealed by an older build is checked against the field set it actually sealed and never false-fails.
+ * An unreadable label is reported rather than guessed at: recomputing under an assumed field set would yield
+ * a mismatch that says nothing about whether the ledger changed.
+ */
+function auditSealedJudgement(seal: RecordedJudgementSeal, plan: InvestigationPlan, investigationResults: unknown): AuditFinding[] {
+  if (seal.version === "unreadable") return [error("knowledge", `latest sealed judgement digest does not name a readable seal version: ${seal.value}`)];
+  if (seal.value !== judgementDigest(plan, investigationResults, seal.version)) {
+    return [error("knowledge", "current work-item and L7 judgements do not match the latest sealed judgement digest")];
+  }
+  return [];
 }
 
 /** Build the knowledge-v1 record: frozen fingerprints of the run's artifacts plus a completeness report. */
@@ -188,7 +201,7 @@ export function buildKnowledge(input: BuildKnowledgeInput): KnowledgeArtifact {
     ...(crossRepoLinks != null ? { crossRepoLinksDigest: sha256(stableJson(crossRepoLinks)) } : {}),
     ...(mechanismsLedger != null ? { mechanismsLedgerDigest: sha256(stableJson(mechanismsLedger)) } : {}),
     ...(investigationResults != null ? { investigationResultsDigest: sha256(canonicalJson(canonicalResults)) } : {}),
-    judgementDigest: judgementDigest(plan, investigationResults),
+    judgementDigest: judgementDigest(plan, investigationResults, CURRENT_JUDGEMENT_SEAL),
     truncationPolicy: {
       evidenceBounds: EVIDENCE_BOUND_POLICY_VERSION,
       redactionVersion: `${REDACTION_VERSION}${manifest.request.redactSecrets === true ? "-redacted" : "-plain"}`
@@ -484,8 +497,8 @@ export async function auditFrozenKnowledge(
   }
   if (knowledgeDigest(knowledge) !== manifest.knowledgeDigest) findings.push(error("knowledge", "latest frozen knowledge digest does not match the run manifest"));
   if (modern && knowledge.frozenAt !== manifest.frozenAt) findings.push(error("knowledge", "latest knowledge epoch timestamp does not match the run manifest"));
-  if (knowledge.judgementDigest && investigationResults !== undefined && knowledge.judgementDigest !== judgementDigest(plan, investigationResults)) {
-    findings.push(error("knowledge", "current work-item and L7 judgements do not match the latest sealed judgement digest"));
+  if (knowledge.judgementDigest && investigationResults !== undefined) {
+    findings.push(...auditSealedJudgement(readJudgementSeal(knowledge.judgementDigest), plan, investigationResults));
   }
   // Symmetric to the "added after freeze" checks below: the frozen set must remain a subset of the
   // current artifacts. A legitimate supplement only ever adds; a frozen evidence id, work item or trace
