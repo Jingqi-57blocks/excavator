@@ -13,7 +13,7 @@ import { recoveredRouteObligations, routeHandlerObligations, type CrossRepoArtif
 import { goImportAliases, parseHandlerTarget, resolveHandler } from "../../crossrepo/handler-resolve.ts";
 import { CodeGraphIndex } from "../../codegraph/codegraph.ts";
 import { reconcileReadCoverage, type ReadCoverageReport } from "../../investigation/read-coverage.ts";
-import { FROZEN_READ_LEDGER, readingExposure, renderAbsentReadingCheck, renderReadingCheck, type ReadingExposure } from "../../investigation/read-residual-exposure.ts";
+import { DERIVED_READ_LEDGER, FROZEN_READ_LEDGER, readingExposure, renderAbsentReadingCheck, renderReadingCheck, type ReadingExposure } from "../../investigation/read-residual-exposure.ts";
 import type { BoundaryFunctionsArtifact } from "../../facts/probe/boundary-functions.ts";
 import type { UnitsArtifact } from "../../facts/units/units-artifact.ts";
 import type { ArtifactResult } from "../../base/artifact-result.ts";
@@ -145,12 +145,15 @@ export async function readingCheck(runDirInput: string): Promise<{ frozen: boole
     // BOTH ARMS GO THROUGH THE ONE WORDING AUTHORITY (57B-449). These are `ledger-absent`, and the arm the
     // exposure below produces over an empty ledger is `ledger-empty`; they are two facts — "nobody can tell" and
     // "the run genuinely recorded none" — and the reason clause is the only part this file knows.
+    // The second arm is reachable from BOTH branches — a frozen legacy run with no coverage file, and an unfrozen
+    // one whose assurance generation predates read accountability — so it names the ledger this branch would have
+    // had rather than a path an unfrozen run will never hold.
     return {
       frozen,
       exposure: null,
       report: denominatorLost
         ? renderAbsentReadingCheck(FROZEN_READ_LEDGER, "the frozen denominator is missing from this run, and re-deriving one after freeze would answer from inputs this run is no longer accountable to")
-        : renderAbsentReadingCheck(FROZEN_READ_LEDGER, "this run was prepared before reading accountability existed, so no denominator was ever recorded for it"),
+        : renderAbsentReadingCheck(frozen ? FROZEN_READ_LEDGER : DERIVED_READ_LEDGER, "this run was prepared before reading accountability existed, so no denominator was ever recorded for it"),
     };
   }
   const exposure = readingExposure({ obligations: accountability.obligations.obligations, items: accountability.residual.items, annotated: accountability.annotated });

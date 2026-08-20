@@ -80,8 +80,22 @@ export interface UnclassifiedFile {
 export interface ReadingDenominator {
   /** Read obligations in scope. Zero is the 449 shape: an overview-only run mints none. */
   readonly rows: number;
+  /** Rows a source window covers, fully or partly. The ONLY bucket a coverage statement may call covered. */
+  readonly withWindowRows: number;
   /** Obligations in scope that no source window covers — the strong partition plus the unplaceable one. */
   readonly notOpened: number;
+  /** Counted rows whose coverage could not be reconciled at all: a counted obligation with no end line. */
+  readonly unreconcilableRows: number;
+  /**
+   * Rows the LEDGER removed from its own counted denominator before anything was measured — declaration-only, or
+   * contained in another obligation. They are neither read nor unread.
+   *
+   * Carried because `rows - notOpened` is NOT the covered count and the first version of this file computed it that
+   * way: on wcp that folds 27 of 946 rows (26 declaration-only + 1 contained) into "covered" and lets the console
+   * print the covered wording over rows nothing ever measured — the exact mis-fold `coverage-statement.ts`'s own
+   * header forbids, and a direct contradiction of what the companion says about the same ledger.
+   */
+  readonly ledgerExcludedRows: number;
 }
 
 export interface ReadingExposure {
@@ -162,9 +176,18 @@ export function readingExposure(input: ReadingExposureInput): ReadingExposure {
   const inScope = input.featureKey === undefined
     ? input.obligations
     : input.obligations.filter((obligation) => obligation.featureKey === input.featureKey);
+  const inScopeIds = new Set(inScope.map((obligation) => obligation.id));
+  const scopedItems = input.items.filter((item) => inScopeIds.has(item.id));
+  const withStatus = (status: ReadCoverageItem["status"]): number => scopedItems.filter((item) => item.status === status).length;
   return {
     annotated: input.annotated,
-    denominator: { rows: inScope.length, notOpened: totals.functions + unclassifiedCount },
+    denominator: {
+      rows: inScope.length,
+      withWindowRows: withStatus("covered") + withStatus("partial"),
+      notOpened: totals.functions + unclassifiedCount,
+      unreconcilableRows: withStatus("cannot-determine"),
+      ledgerExcludedRows: inScope.filter((obligation) => obligation.excluded !== undefined).length
+    },
     files,
     totals,
     unclassified: {
@@ -206,16 +229,22 @@ export const DERIVED_READ_LEDGER = "this run's derived read-obligation set (not 
  * yet. Both are the run's read-obligation ledger; only one of them is a path.
  */
 export function readingCoverageStatement(exposure: ReadingExposure, ledger: string): CoverageStatement {
-  const { rows, notOpened } = exposure.denominator;
+  const { rows, withWindowRows, notOpened, unreconcilableRows, ledgerExcludedRows } = exposure.denominator;
   return coverageStatement({
     subject: READ_OBLIGATION_SUBJECT,
-    denominator: { state: "present", ledger, rows, counted: rows - notOpened },
-    entries: [coverageViolation(
-      "unread-residual",
-      notOpened,
-      [],
-      `${exposure.totals.functions} inside this feature's boundary or carrying its vocabulary, ${exposure.unclassified.count} carrying neither`
-    )]
+    // `withWindowRows`, not `rows - notOpened`: the three buckets below are the rest of the partition, and a
+    // subtraction would put every one of them on the covered side of the sentence.
+    denominator: { state: "present", ledger, rows, counted: withWindowRows },
+    entries: [
+      coverageViolation(
+        "unread-residual",
+        notOpened,
+        [],
+        `${exposure.totals.functions} inside this feature's boundary or carrying its vocabulary, ${exposure.unclassified.count} carrying neither`
+      ),
+      coverageViolation("cannot-determine", unreconcilableRows, [], "counted read obligations with no end line, so their coverage cannot be reconciled"),
+      coverageViolation("ledger-excluded", ledgerExcludedRows, [], "declaration-only or contained in another obligation, per the ledger's own exclusion reason")
+    ]
   });
 }
 

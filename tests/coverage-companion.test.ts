@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile, writeFile } from "node:fs/promises";
+import { exists } from "../src/base/util.ts";
 import { join } from "node:path";
 import { COVERAGE_STATEMENT_PREFIXES, coverageStatementSentence, readsAsCovered } from "../src/investigation/coverage-statement.ts";
 import {
@@ -222,6 +223,23 @@ test("every statement names one of the declared ledgers, and the packet's absenc
   assert.ok(renderCoverageStateBlock({ ...facts, statedUnknowns: PACKET_STATED_UNKNOWNS }).includes(reason), reason);
 });
 
+// Found by review: `readUnitLedger` returns a synthetic empty ledger for a missing file — right for `collect`,
+// wrong here. Reported as `present` it asserts the existence of a file that is not there, and publishes a path the
+// load never opened. That is 449's own conflation one level up, so it gets its own test.
+test("an absent unit ledger is ledger-absent, not a present empty one", async () => {
+  const run = await miniRun(MINI_DOCUMENTS);
+  await installFixturePlan(run.runDir);
+  assert.equal(await exists(join(run.runDir, "units", "collected.json")), false, "the fixture must actually lack the file");
+  const { facts, readPaths } = await loadCoverageStateFacts(run.runDir);
+  assert.equal(facts.statedUnknowns.state, "absent");
+  assert.match(facts.statedUnknowns.state === "absent" ? facts.statedUnknowns.reason : "", /is absent from this run/);
+  const stated = statement(facts, "Written units");
+  assert.equal(stated.state === "vacuous" && stated.source, "ledger-absent");
+  assert.ok(!readPaths.includes("units/collected.json"), "a path this load did not open may not be published as read");
+  const rendered = renderCoverageCompanion(facts);
+  assert.ok(!rendered.includes("units/collected.json is present"), rendered.split("\n").filter((line) => line.includes("collected.json")).join("\n"));
+});
+
 // --- the CLI door ----------------------------------------------------------------------------------------------
 
 test("the read-only CLI command renders the companion and writes nothing into the run", async () => {
@@ -238,7 +256,8 @@ test("the read-only CLI command renders the companion and writes nothing into th
       assert.ok(!path.startsWith(forbidden), `${path} is an authoring artifact and the companion may not read it`);
     }
   }
-  assert.ok(first.readPaths.includes("units/collected.json"), first.readPaths.join(", "));
+  assert.ok(first.readPaths.includes("plan/catalog.json"), first.readPaths.join(", "));
+  assert.ok(first.readPaths.includes("workitems.json"), first.readPaths.join(", "));
 });
 
 test("a collected unit's stated unknowns reach the companion, and a drifted summary is refused", async () => {
@@ -249,7 +268,9 @@ test("a collected unit's stated unknowns reach the companion, and a drifted summ
   const draft = await unitDraftFor(run, unitId, { unknowns: ["how the promotion window is chosen is not recorded"] });
   await checkpointUnit(run.runDir, draft);
 
-  const { facts } = await loadCoverageStateFacts(run.runDir);
+  const loaded = await loadCoverageStateFacts(run.runDir);
+  const facts = loaded.facts;
+  assert.ok(loaded.readPaths.includes("units/collected.json"), "the ledger this load DID open is published");
   assert.equal(facts.statedUnknowns.state, "present");
   const stated = facts.statedUnknowns.state === "present" ? facts.statedUnknowns : null;
   assert.equal(stated!.collectedUnits, 1);

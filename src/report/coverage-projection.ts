@@ -1,5 +1,11 @@
 /**
- * The read-coverage denominators one frozen epoch sealed, projected from the ledgers the plan gate already checked.
+ * Every coverage denominator one frozen epoch sealed, projected from the ledgers the plan gate already checked.
+ *
+ * FOUR PROJECTIONS, SPLIT BY WHAT CAN MOVE THEM. `projectEpochCoverage` is the epoch-only half a unit packet may
+ * render — read coverage, the closure, and the obligation ledger's determination census — and it is threaded
+ * unchanged to four callers. `projectTopicCoverage` and `projectDocumentCoverage` are the catalog- and
+ * plan-dependent halves, which only the companion command may hold; the header of `coverage-companion.ts` argues
+ * why that split is forced rather than chosen.
  *
  * WHY IT IS ITS OWN FILE. `unit-plan-view.ts` carries this projection so the packet source and the companion source
  * read ONE of it, and the companion source imports the view — so the projection cannot live in either of them
@@ -41,6 +47,11 @@ export const WORK_ITEM_LEDGER = "workitems.json";
 export const TOPIC_CATALOG_LEDGER = "plan/topics.json";
 /** The unit ledger the companion path reads and a packet deliberately does not. */
 export const UNIT_LEDGER_RELATIVE_PATH = "units/collected.json";
+
+/** One total ordering for every id list this file sorts, so no two of them can be ordered two ways. */
+function ascending(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
 
 /**
  * The read family, projected from the two coverage ledgers' OWN summaries.
@@ -130,7 +141,6 @@ export const PACKET_STATED_UNKNOWNS: CollectedUnknownsReading = {
  * is the packet constant for the same reason; the companion command replaces exactly that one field.
  */
 export function projectEpochCoverage(source: TopicCatalogSource): PacketCoverageFacts {
-  const ascending = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
   const rows = source.workItems;
   const ofDetermination = (which: "determined" | "undetermined" | "open"): string[] => rows
     .filter((row) => statusDetermination(row.status) === which)
@@ -151,7 +161,6 @@ export function projectEpochCoverage(source: TopicCatalogSource): PacketCoverage
 
 /** The catalog family: companion-only, because it moves whenever a topic does. */
 export function projectTopicCoverage(catalog: TopicCatalogArtifact): TopicCoverageFacts {
-  const ascending = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
   return {
     ledger: TOPIC_CATALOG_LEDGER,
     topics: catalog.topics.length,
@@ -179,7 +188,6 @@ export function projectDocumentCoverage(
   documents: readonly DocumentObligationOwnership[],
   workItems: ReadonlyMap<string, InvestigationWorkItem>
 ): readonly DocumentCoverageOwnership[] {
-  const ascending = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
   return documents.map((document) => ({
     documentId: document.documentId,
     reachedObligations: document.reachedObligations,

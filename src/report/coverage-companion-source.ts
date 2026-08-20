@@ -1,9 +1,9 @@
 /**
  * What the coverage companion is derived FROM: the validated plan view, and nothing this file recounts.
  *
- * ONE DERIVATION, TWO CALLERS, AND EXACTLY ONE PARAMETER BETWEEN THEM. The appendix packet's coverage block and the
- * standalone companion are the same facts; the only input that differs is the unit-stated unknowns, and that
- * difference is forced rather than chosen:
+ * ONE DERIVATION, AND EXACTLY ONE FIELD BETWEEN THE TWO CONSUMERS. The appendix packet's coverage block and the
+ * standalone companion share the epoch-only families byte for byte; the only input that differs is the unit-stated
+ * unknowns, and that difference is forced rather than chosen:
  *
  *   A UNIT PACKET'S COVERAGE BLOCK MUST NOT DEPEND ON WHAT SIBLING UNITS HAVE BEEN COLLECTED. The packet's bytes
  *   ARE the unit's cache identity (R6a), so if the appendix block quoted the unknowns other units had stated, then
@@ -18,7 +18,7 @@
 
 import { join, resolve } from "node:path";
 import type { RunManifest } from "../base/types.ts";
-import { readJson } from "../base/util.ts";
+import { exists, readJson } from "../base/util.ts";
 import { COVERAGE_COMPANION_VERSION, type CollectedUnknownsReading, type CoverageStateFacts } from "./coverage-companion.ts";
 import { UNIT_LEDGER_RELATIVE_PATH, projectDocumentCoverage, projectTopicCoverage } from "./coverage-projection.ts";
 import { collectedUnitsFor, readUnitLedger } from "./unit-ledger.ts";
@@ -39,7 +39,23 @@ export async function loadCoverageStateFacts(runDirInput: string): Promise<{ rea
   const knowledgeEpoch = requireKnowledgeEpoch(manifest, "given a coverage companion");
   const view = await loadUnitPlanView(runDir, manifest);
   assertPlanEpoch(view, knowledgeEpoch);
-  const readPaths = ["run.json", "plan/requests.json", "plan/topics.json", "plan/catalog.json", "plan/dag.json", ...view.sourceReadPaths, UNIT_LEDGER_RELATIVE_PATH];
+  const readPaths = ["run.json", "plan/requests.json", "plan/topics.json", "plan/catalog.json", "plan/dag.json", ...view.sourceReadPaths];
+
+  // A LEDGER THAT IS NOT THERE IS `ledger-absent`, NOT A PRESENT EMPTY ONE. `readUnitLedger` returns a synthetic
+  // empty ledger for a missing file, which is the right answer for `collect` and the wrong one here: reported as
+  // `present` it would say "units/collected.json is present and records no collected unit" about a file that does
+  // not exist, and would publish a path this load never opened — 57B-449's conflation, one level up.
+  if (!await exists(join(runDir, UNIT_LEDGER_RELATIVE_PATH))) {
+    return {
+      facts: coverageFacts(view, {
+        state: "absent",
+        ledger: UNIT_LEDGER_RELATIVE_PATH,
+        reason: `${UNIT_LEDGER_RELATIVE_PATH} is absent from this run, so no unit has been collected under any plan and nothing vouches for a summary yet`
+      }),
+      readPaths: [...new Set(readPaths)].sort(ascending)
+    };
+  }
+  readPaths.push(UNIT_LEDGER_RELATIVE_PATH);
 
   const ledger = await readUnitLedger(runDir, manifest.id);
   const collected = [...collectedUnitsFor(ledger, knowledgeEpoch, view.planCatalogDigest)].sort((a, b) => compareUnitIds(a.unitId, b.unitId));
@@ -58,15 +74,20 @@ export async function loadCoverageStateFacts(runDirInput: string): Promise<{ rea
 
   return {
     facts: coverageFacts(view, { state: "present", ledger: UNIT_LEDGER_RELATIVE_PATH, collectedUnits: collected.length, units }),
-    readPaths: [...new Set(readPaths)].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
+    readPaths: [...new Set(readPaths)].sort(ascending)
   };
+}
+
+/** One total ordering for the published path list. */
+function ascending(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
 }
 
 /**
  * The one assembly. Every number is a field selection over the view; nothing is recounted.
  *
- * The epoch-only half comes from `projectPacketCoverage` — the same call the packet loader and the plan-time measure
- * make — and the two plan/catalog-dependent families are added here, where nothing is a cache key.
+ * The epoch-only half is the plan view's own `epochCoverage` — the same value the packet loader and the plan-time
+ * measure are handed — and the two plan/catalog-dependent families are added here, where nothing is a cache key.
  */
 function coverageFacts(view: UnitPlanView, statedUnknowns: CollectedUnknownsReading): CoverageStateFacts {
   return {
