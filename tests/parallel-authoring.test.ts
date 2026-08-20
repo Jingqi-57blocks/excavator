@@ -7,7 +7,7 @@ import { assembleRun, auditRun, beginDocument, checkpointSection, freezeRun, pre
 import { collectDrafts, draftSection } from "../src/report/parallel-authoring.ts";
 import { auditTimeline, readTimeline } from "../src/base/timeline.ts";
 import { exists } from "../src/base/util.ts";
-import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, tempDir } from "./helpers.ts";
+import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, installFixturePlan, tempDir } from "./helpers.ts";
 
 // 57B-367 parallel section authoring — "write in parallel, account serially". These tests validate the
 // two-command split: `draft` is provably isolated from the shared ledger (so any number run concurrently),
@@ -53,6 +53,9 @@ async function frozenRun(request: Awaited<ReturnType<typeof overviewRequest>>): 
   const evidenceId = await firstEvidence(runDir);
   await disposeAllWorkItems(runDir);
   assert.equal((await freezeRun(runDir)).frozen, true);
+  // The plan precondition of authoring: derived from this run's own catalog, through the same validator a model's
+  // proposal has to pass. Nothing about the epoch or the concurrency assertions below changes.
+  await installFixturePlan(runDir);
   for (const document of manifest.documents) await beginDocument(runDir, document.id);
   return { runDir, manifest: await readManifest(runDir), evidenceId };
 }

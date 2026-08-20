@@ -5,7 +5,7 @@ import { readFile } from "node:fs/promises";
 import type { DocumentPlan, EvidenceItem, InvestigationPlan, InvestigationWorkItem, ReportRequest, SectionClaim } from "../src/base/types.ts";
 import { auditWorkItemClaimCoverage } from "../src/report/section-audit.ts";
 import { assembleRun, auditRun, checkpointSection, freezeRun, prepareRun, searchSourceEvidence, updateWorkItems } from "../src/run/run.ts";
-import { copyFixture, createCodeGraphFixture, tempDir } from "./helpers.ts";
+import { copyFixture, createCodeGraphFixture, installFixturePlan, tempDir } from "./helpers.ts";
 
 // --- 1. the ONE substantive prd relaxation: the section-link check, with a hard negative control ---
 
@@ -81,6 +81,8 @@ test("a prd feature run prepares, freezes, authors and audits with zero errors (
   await disposeSearchedNotFound(runDir);
   const frozen = await freezeRun(runDir);
   assert.equal(frozen.frozen, true, JSON.stringify(frozen.findings, null, 2));
+  // The plan precondition of authoring, derived from this run's own catalog (zero model calls).
+  await installFixturePlan(runDir);
 
   const evidenceId = await firstEvidence(runDir);
   for (const section of prd!.sections) {

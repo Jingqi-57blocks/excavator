@@ -5,7 +5,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import type { DocumentPlan, EvidenceItem, ReportRequest, RunManifest, SectionClaim } from "../src/base/types.ts";
 import { auditReadabilityTables } from "../src/report/section-audit.ts";
 import { assembleRun, auditRun, checkpointSection, freezeRun, prepareRun, searchSourceEvidence, updateChecklist } from "../src/run/run.ts";
-import { copyFixture, createCodeGraphFixture, tempDir } from "./helpers.ts";
+import { copyFixture, createCodeGraphFixture, installFixturePlan, tempDir } from "./helpers.ts";
 
 // 57B-379 appends `## 13. Database design` to engineering-overview.md and adds index 13 to the advisory
 // READABILITY_TABLE_SECTIONS["overview:engineering"] set. This suite pins both halves of that change:
@@ -93,6 +93,8 @@ test("a 12-section engineering-overview run is unaffected by the appended §13 (
   await dispositionChecklist(runDir);
   const frozen = await freezeRun(runDir);
   assert.equal(frozen.frozen, true, JSON.stringify(frozen.findings, null, 2));
+  // The plan precondition of authoring, derived from this run's own catalog (zero model calls).
+  await installFixturePlan(runDir);
   for (const section of persistedOverview.sections) {
     await checkpointSection(runDir, "overview-engineering", section.index, sectionText(section.title, section.index, id), sectionClaims(section.index, id));
   }

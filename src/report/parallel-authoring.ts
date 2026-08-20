@@ -7,6 +7,8 @@ import { archiveCheckpoint, normalizeSection } from "./checkpoint.ts";
 import { appendTimeline } from "../base/timeline.ts";
 import { atomicWrite, exists, listDirectories, nowIso, readJson, writeJson } from "../base/util.ts";
 import { assertCurrentKnowledgeEpochForAuthoring } from "../freeze/freeze.ts";
+import { runUsesCurrentAssurance } from "../base/assurance-version.ts";
+import { assertValidatedPlanForAuthoring } from "./plan-gate.ts";
 import { sectionPaths } from "./section-paths.ts";
 
 /**
@@ -39,6 +41,9 @@ export async function draftSection(runDirInput: string, documentId: string, sect
   const runDir = resolve(runDirInput);
   const manifest = await readJson<RunManifest>(join(runDir, "run.json"));
   await assertCurrentKnowledgeEpochForAuthoring(runDir, manifest);
+  // Read-only, like the freeze gate beside it: the plan is a premise of drafting, and checking it here keeps a
+  // draft from being the one write path that does not need one.
+  if (runUsesCurrentAssurance(manifest)) await assertValidatedPlanForAuthoring(runDir);
   const document = manifest.documents.find((item) => item.id === documentId);
   if (!document) throw new Error(`Unknown document: ${documentId}`);
   const section = document.sections.find((item) => item.index === sectionIndex);

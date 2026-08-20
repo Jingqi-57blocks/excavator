@@ -24,7 +24,7 @@ import { join } from "node:path";
 import type { EvidenceItem, ReportRequest, RunManifest, SectionClaim } from "../../src/base/types.ts";
 import { assembleRun, beginDocument, freezeRun, prepareRun } from "../../src/run/run.ts";
 import { collectDrafts, draftSection } from "../../src/report/parallel-authoring.ts";
-import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, tempDir } from "../../tests/helpers.ts";
+import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, installFixturePlan, tempDir } from "../../tests/helpers.ts";
 import { canonicalAssembleProjection, canonicalizeText, type VolatileIdentity } from "../report-canonical.ts";
 
 const GOLDEN = join(import.meta.dirname, "..", "golden", "assemble-canonical.txt");
@@ -54,6 +54,8 @@ async function assembledRun(): Promise<{ runDir: string; manifest: RunManifest }
   const evidenceId = catalog.evidence.find((item) => item.kind === "source")?.id ?? catalog.evidence[0].id;
   await disposeAllWorkItems(runDir);
   assert.equal((await freezeRun(runDir)).frozen, true);
+  // The plan precondition of authoring, in place before `begin`: derived from this run's own catalog, zero model.
+  await installFixturePlan(runDir);
   const manifest = JSON.parse(await readFile(join(runDir, "run.json"), "utf8")) as RunManifest;
   for (const document of manifest.documents) await beginDocument(runDir, document.id);
   await Promise.all(manifest.documents.flatMap((document) =>

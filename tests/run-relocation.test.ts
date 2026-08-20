@@ -11,7 +11,8 @@ import {
 import { collectDrafts, draftSection } from "../src/report/parallel-authoring.ts";
 import { sectionPaths } from "../src/report/section-paths.ts";
 import { exists, sha256 } from "../src/base/util.ts";
-import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, tempDir } from "./helpers.ts";
+import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, installFixturePlan, tempDir } from "./helpers.ts";
+import { planRun, renderPlannerPacketForRun } from "../src/run/stages/plan-stage.ts";
 
 /**
  * 57B-452 — a run directory must be movable.
@@ -80,6 +81,7 @@ async function buildInvestigating(): Promise<Base> {
 async function buildAuthoring(): Promise<Base> {
   const base = await buildInvestigating();
   assert.equal((await freezeRun(base.runDir)).frozen, true);
+  await installFixturePlan(base.runDir);
   await beginDocument(base.runDir, base.documentId);
   return base;
 }
@@ -279,6 +281,21 @@ test("relocated run: freeze seals the copy's knowledge epoch", async () => {
   assert.ok(await exists(join(runDir, "knowledge.json")));
   assert.ok((await filesIn(join(runDir, "context", "authoring"))).length > 0);
   assert.equal(await exists(join(base.runDir, "knowledge.json")), false);
+});
+
+test("relocated run: plan and plan-packet read and write the copy's plan directory", async () => {
+  const base = await investigatingBase();
+  const runDir = await onRelocatedRun(base, ["plan", "plan-packet"], async (dir) => {
+    assert.equal((await freezeRun(dir)).frozen, true);
+    const packet = await renderPlannerPacketForRun(dir, { overBudget: "refuse", byteLimit: 524_288 });
+    assert.ok(packet.markdown.includes("# Planner packet"));
+    const result = await planRun(dir, { mode: "fixture" });
+    assert.equal(result.runDir, dir);
+  });
+  for (const relative of ["plan/topics.json", "plan/catalog.json", "plan/dag.json"]) {
+    assert.ok(await exists(join(runDir, relative)), `${relative} must land in the copy`);
+    assert.equal(await exists(join(base.runDir, relative)), false, `${relative} must not land in the recorded location`);
+  }
 });
 
 test("relocated run: source and search append evidence to the copy", async () => {

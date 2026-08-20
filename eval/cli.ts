@@ -12,6 +12,7 @@
 //                                                           per-document packet byte readings + cross-packet duplication
 //   ledger-closeout --run <dir> [--out <file>] [--updates <file>]   transcribe unsettled read obligations to cannot-determine
 //   topic-readings --run <dir> [--out <file>]               Topic Catalog facet/materiality/conservation readings
+//   plan-readings --run <dir> [--out <file>]                planner packet bytes, fixture plan, plan verdicts, gate-1b obligation buckets
 // diff exits 1 on any mustFind missing / forbidden violation / coverage failure; 0 otherwise.
 // boundary exits 1 on any mustFind miss; 0 otherwise (same honest-red contract as diff).
 // --prepare-only runs ONLY the anchor-in-scope containment check (zero model, sub-second).
@@ -45,6 +46,7 @@ import { attributionExitCode, buildAttributionReport, renderAttributionReport } 
 import { extractPacketReadings, PACKET_READINGS_MODES, type PacketReadingsMode } from "./packet-readings.ts";
 import { buildLedgerCloseout } from "./ledger-closeout.ts";
 import { extractTopicReadings } from "./topic-readings.ts";
+import { extractPlanReadings } from "./plan-readings.ts";
 import { stableJson } from "../src/base/util.ts";
 
 interface Flags {
@@ -110,7 +112,8 @@ const USAGE = `eval harness
   prune-replay (--pool <file> | --run <dir> --module <db> [--module <db>...]) --gold <file> [--emit-pool <file>] [--json]
   packet-readings --run <dir> --mode <authored|frozen-not-authored> [--out <file>]
   ledger-closeout --run <dir> [--out <file>] [--updates <file>]
-  topic-readings --run <dir> [--out <file>]`;
+  topic-readings --run <dir> [--out <file>]
+  plan-readings --run <dir> [--out <file>]`;
 
 function renderContainment(containment: Containment): string {
   const lines = [`=== prepare containment (${containment.contained.length}/${containment.contained.length + containment.missing.length} anchors in scope) ===`];
@@ -364,6 +367,21 @@ async function runTopicReadings(flags: Flags): Promise<number> {
   return 0;
 }
 
+/**
+ * Plan readings for one frozen run: what the planner packet costs, what a model-free fixture plan looks like on
+ * this catalog, what validation concludes per facet, and where every material OBLIGATION goes under that plan.
+ *
+ * Always exits 0, and never writes into the run: it builds the plan artifacts in memory, so an archival baseline
+ * can be projected without a `plan/` directory appearing inside it.
+ */
+async function runPlanReadings(flags: Flags): Promise<number> {
+  const readings = await extractPlanReadings(requireFlag(flags.run, "--run"));
+  const text = stableJson(readings);
+  if (flags.out) writeFileSync(flags.out, `${text}\n`);
+  else process.stdout.write(`${text}\n`);
+  return 0;
+}
+
 function runDiff(flags: Flags): number {
   const knowledge = extractKnowledge(requireFlag(flags.run, "--run"));
   const expected = loadExpected(requireFlag(flags.expected, "--expected"));
@@ -417,6 +435,7 @@ function main(argv: string[]): number | Promise<number> {
   if (command === "packet-readings") return runPacketReadings(flags);
   if (command === "ledger-closeout") return runLedgerCloseout(flags);
   if (command === "topic-readings") return runTopicReadings(flags);
+  if (command === "plan-readings") return runPlanReadings(flags);
   throw new Error(`unknown command: ${command}`);
 }
 

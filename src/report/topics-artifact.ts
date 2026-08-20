@@ -14,9 +14,10 @@
  * A hand-edited catalog therefore fails by name instead of reading as a plan the generator produced, and that is
  * what lets a later slice treat the file as a premise rather than as a hint.
  *
- * NO RUN-STAGE CALLER YET, deliberately: the first in-run consumer is R3's planner, and the placement plus the
- * command surface land with it. An entry point with no consumer is an optional path, and an optional path is the
- * remembered flag this codebase keeps paying for.
+ * THE RUN-STAGE CALLER IS THE PLAN STAGE (`src/run/stages/plan-stage.ts`), which writes this file before it looks
+ * at a proposal, and the authoring gate (`plan-gate.ts`), which refuses to start writing without it. Freeze is
+ * deliberately NOT the writer: this is a projection OF the sealed epoch, so it is produced after the seal, and a
+ * seal cannot enforce what comes after it.
  */
 
 import { join } from "node:path";
@@ -48,15 +49,23 @@ export function topicCatalogDigest(catalog: TopicCatalogArtifact): string {
   return sha256(canonicalJson(catalog));
 }
 
-/** Write the catalog once. Identical bytes are a no-op; different bytes for the same run are a named refusal. */
+/**
+ * Write the catalog once per EPOCH. Identical bytes are a no-op; different bytes for the SAME epoch are a named
+ * refusal.
+ *
+ * A NEW epoch supersedes: a justified supplement plus a re-freeze produces epoch N+1 whose catalog legitimately
+ * differs, and the run has to be re-plannable against it. Refusing that would make one supplement a permanent
+ * write-off of the run's authoring path — the failure form 57B-451 ruled out. Which epoch a catalog projects is
+ * recorded in the artifact itself, so the succession is checked, not assumed.
+ */
 export async function writeTopicCatalog(runDir: string, catalog: TopicCatalogArtifact): Promise<TopicCatalogArtifact> {
   const path = topicsPath(runDir);
   if (await exists(path)) {
     const recorded = await readTopicCatalog(runDir);
-    if (stableJson(recorded) !== stableJson(catalog)) {
+    if (stableJson(recorded) === stableJson(catalog)) return catalog;
+    if (recorded.knowledgeEpoch === catalog.knowledgeEpoch) {
       throw new Error(`${path} already records a different Topic Catalog (recorded digest ${topicCatalogDigest(recorded)}, offered ${topicCatalogDigest(catalog)}); the catalog is written once per epoch`);
     }
-    return catalog;
   }
   await writeJson(path, catalog);
   return catalog;

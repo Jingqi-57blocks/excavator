@@ -5,7 +5,7 @@ import { join, resolve } from "node:path";
 import { readFile, writeFile } from "node:fs/promises";
 import type { EvidenceItem, ReportRequest, SectionClaim } from "../src/base/types.ts";
 import { assembleRun, checkpointSection, prepareRun, updateChecklist } from "../src/run/run.ts";
-import { copyFixture, createCodeGraphFixture, tempDir } from "./helpers.ts";
+import { copyFixture, createCodeGraphFixture, installFixturePlan, tempDir } from "./helpers.ts";
 
 async function cli(args: string[]): Promise<{ code: number | null; stdout: string; stderr: string }> {
   const child = spawn(process.execPath, ["--experimental-strip-types", "src/cli.ts", ...args], {
@@ -73,6 +73,8 @@ test("audit CLI exits non-zero on errors and zero after complete assurance", asy
   })));
   const frozen = await cli(["freeze", "--run", runDir]);
   assert.equal(frozen.code, 0, frozen.stderr || frozen.stdout);
+  const planned = await cli(["plan", "--run", runDir, "--fixture-plan"]);
+  assert.equal(planned.code, 0, planned.stderr || planned.stdout);
 
   // Authoring the sections without claims leaves the run un-auditable: the audit CLI exits non-zero.
   for (const section of document.sections) await checkpointSection(runDir, document.id, section.index, text(section.title, id));
