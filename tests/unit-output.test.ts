@@ -149,7 +149,9 @@ test("a receipt without an epoch is refused - the field is required, unlike the 
   const receipt = {
     version: UNIT_RECEIPT_VERSION, runId: "run-1", knowledgeEpoch: 0, planCatalogDigest: DIGEST,
     unitId: "u::1", documentId: "overview-product", kind: "appendix", draftedAt: "2026-08-20T00:00:00.000Z",
-    revision: false, contentDigest: DIGEST, claimsDigest: DIGEST, summaryDigest: DIGEST,
+    revision: false, authorship: { kind: "model-free" as const, generator: "fixture" },
+    packetIdentityDigest: DIGEST, provenance: { kind: "fresh" as const },
+    contentDigest: DIGEST, claimsDigest: DIGEST, summaryDigest: DIGEST,
     evidenceIds: [], traceIds: []
   };
   assert.deepEqual(parseUnitReceipt(receipt).problems, []);
@@ -165,7 +167,9 @@ test("the ledger is per-epoch and per-plan: a row from another epoch is not a co
   const row = (overrides: Partial<CollectedUnit> = {}): CollectedUnit => ({
     unitId: "u::1", documentId: "overview-product", kind: "appendix", knowledgeEpoch: 0,
     planCatalogDigest: DIGEST, collectedAt: "2026-08-20T00:00:00.000Z", revision: false,
-    contentDigest: DIGEST, claimsDigest: DIGEST, summaryDigest: DIGEST, timelineSequence: 12, ...overrides
+    authorship: { kind: "model-free", generator: "fixture" }, packetIdentityDigest: DIGEST,
+    provenance: { kind: "fresh" }, contentDigest: DIGEST, claimsDigest: DIGEST, summaryDigest: DIGEST,
+    timelineSequence: 12, ...overrides
   });
   const ledger: UnitLedger = { version: UNIT_LEDGER_VERSION, runId: "run-1", units: [row(), row({ unitId: "u::2", knowledgeEpoch: 1 })] };
   assert.deepEqual(unitLedgerProblems(ledger, "run-1"), []);
@@ -198,7 +202,9 @@ test("a ledger holding a collate-equal pair round-trips through its own validato
   const row = (unitId: string): CollectedUnit => ({
     unitId, documentId: "overview-product", kind: "leaf", knowledgeEpoch: 0,
     planCatalogDigest: DIGEST, collectedAt: "2026-08-20T00:00:00.000Z", revision: false,
-    contentDigest: DIGEST, claimsDigest: DIGEST, summaryDigest: DIGEST, timelineSequence: 4
+    authorship: { kind: "model-free", generator: "fixture" }, packetIdentityDigest: DIGEST,
+    provenance: { kind: "fresh" }, contentDigest: DIGEST, claimsDigest: DIGEST, summaryDigest: DIGEST,
+    timelineSequence: 4
   });
   // Inserted in the order a collator would LEAVE UNCHANGED (it returns 0, and `sort` is stable) but that the
   // total order forbids, so both halves of the fix are load-bearing: the writer's sort and the reader's check.

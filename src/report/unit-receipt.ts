@@ -14,12 +14,28 @@
  * `planCatalogDigest` IS THE SECOND HALF OF THAT IDENTITY. The epoch says which knowledge the draft read; the
  * plan digest says which plan gave the unit its title, its topics and its children. A receipt written against a
  * superseded plan is refused by name rather than collected into a ledger that then disagrees with the plan.
+ *
+ * v2 ADDS THE THREE FIELDS A CACHE CAN BE AUDITED FROM (R6b), all required:
+ *
+ *   * `authorship` — who would have written these bytes. A cache that does not record the author cannot refuse to
+ *     hand one family's draft to another.
+ *   * `packetIdentityDigest` — the cache identity of the packet this unit was written FROM, computed by `draftUnit`
+ *     itself and never accepted from a caller. It is what makes a later admission decidable at all: after a re-plan
+ *     the plan the candidate was drafted under is no longer on disk, so the recorded digest is the ONLY thing the
+ *     candidate's identity can be known from.
+ *   * `provenance` — `fresh`, or `cache-admitted` carrying the ledger row it re-entered.
+ *
+ * THE VERSION BUMP IS NOT COSMETIC: the three fields are required, so a v1 receipt is not a v2 receipt with fields
+ * missing — it is a record from a build whose cache had no provenance at all, and admitting it would be the silent
+ * stale reuse this slice exists to make impossible. The feat branch holds no real unit run, so there is nothing to
+ * migrate; a v1 receipt on disk is refused by name.
  */
 
 import { AUTHORING_UNIT_KINDS, type AuthoringUnitKind } from "./plan-proposal.ts";
 import { isSha256Digest } from "./unit-output.ts";
+import { authorshipProblems, provenanceProblems, type UnitAuthorship, type UnitProvenance } from "./unit-provenance.ts";
 
-export const UNIT_RECEIPT_VERSION = "unit-receipt-v1";
+export const UNIT_RECEIPT_VERSION = "unit-receipt-v2";
 
 export interface UnitDraftReceipt {
   readonly version: typeof UNIT_RECEIPT_VERSION;
@@ -32,6 +48,17 @@ export interface UnitDraftReceipt {
   readonly draftedAt: string;
   /** True when this draft replaced a version that was already on disk; the replaced one is in `history/`. */
   readonly revision: boolean;
+  /** Who would have written these bytes. Required: a cache with no author cannot refuse a foreign one's draft. */
+  readonly authorship: UnitAuthorship;
+  /**
+   * The cache identity of the packet this unit was written from, computed by `draftUnit` at the moment it wrote.
+   *
+   * Never accepted as an argument. A caller able to state it could claim a draft is admissible under an identity
+   * it was never written for, which is the one assertion a cache key may not take on trust.
+   */
+  readonly packetIdentityDigest: string;
+  /** Written for this record, or admitted from a prior verified unit — carrying the row it came from. */
+  readonly provenance: UnitProvenance;
   readonly contentDigest: string;
   readonly claimsDigest: string;
   readonly summaryDigest: string;
@@ -46,8 +73,9 @@ export interface UnitReceiptParse {
 }
 
 const RECEIPT_FIELDS = [
-  "claimsDigest", "contentDigest", "documentId", "draftedAt", "evidenceIds", "kind", "knowledgeEpoch",
-  "planCatalogDigest", "revision", "runId", "summaryDigest", "traceIds", "unitId", "version"
+  "authorship", "claimsDigest", "contentDigest", "documentId", "draftedAt", "evidenceIds", "kind", "knowledgeEpoch",
+  "packetIdentityDigest", "planCatalogDigest", "provenance", "revision", "runId", "summaryDigest", "traceIds",
+  "unitId", "version"
 ] as const;
 
 /** Parse an untrusted receipt. Every problem as data; the caller names the file. */
@@ -75,9 +103,13 @@ export function parseUnitReceipt(value: unknown): UnitReceiptParse {
     problems.push(`kind ${JSON.stringify(row.kind)} is not one of: ${AUTHORING_UNIT_KINDS.join(", ")}`);
   }
   if (typeof row.revision !== "boolean") problems.push(`revision ${JSON.stringify(row.revision)} is not a boolean`);
-  for (const key of ["planCatalogDigest", "contentDigest", "claimsDigest", "summaryDigest"] as const) {
+  for (const key of ["planCatalogDigest", "contentDigest", "claimsDigest", "summaryDigest", "packetIdentityDigest"] as const) {
     if (!isSha256Digest(row[key])) problems.push(`${key} ${JSON.stringify(row[key])} is not a sha256 digest`);
   }
+  // The two v2 provenance terms, checked through the one spelling `unit-ledger.ts` also uses. A receipt missing
+  // either is not a receipt with a gap: it is a record whose cache cannot be audited, and it is refused as one.
+  for (const problem of authorshipProblems(row.authorship)) problems.push(`authorship ${problem}`);
+  for (const problem of provenanceProblems(row.provenance)) problems.push(`provenance ${problem}`);
   for (const key of ["evidenceIds", "traceIds"] as const) {
     const value_ = row[key];
     if (!Array.isArray(value_) || value_.some((id) => typeof id !== "string" || id.trim() === "")) {

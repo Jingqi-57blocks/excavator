@@ -55,9 +55,11 @@ import {
   type RunEvidenceReach,
   type UnitPacketInput
 } from "../src/report/unit-packet.ts";
-import { describeAuthorship, unitIdentityOf, type UnitAuthorship, type UnitIdentity } from "../src/report/unit-cache-identity.ts";
+import { unitIdentityOf, type UnitIdentity } from "../src/report/unit-cache-identity.ts";
+import { describeAuthorship, type UnitAuthorship } from "../src/report/unit-provenance.ts";
 import {
   deriveUnitCachePlan,
+  type CandidateIdentity,
   type CandidateSource,
   type PlannedUnitIdentity,
   type UnitCacheEntry,
@@ -65,6 +67,12 @@ import {
 } from "../src/report/unit-cache-plan.ts";
 
 export const UNIT_CACHE_IDENTITY_READINGS_VERSION = "unit-cache-identity-readings-v1";
+
+/*
+ * SEVERAL HELPERS BELOW ARE EXPORTED FOR `unit-cache-admission-readings.ts` — the plan-state projection, the two
+ * perturbations and the second-audience document. R6b's reading has to compare the SAME states this one measures;
+ * building a second projection beside it is the drift this whole slice is about, one level up.
+ */
 
 /**
  * The author every identity in this projection is computed for.
@@ -147,7 +155,7 @@ export interface UnitIdentityReadings {
 }
 
 /** Recover the v2 request rows from the run manifest, the way prepare records them. */
-function legacyDocuments(manifest: RunManifest): readonly LegacyDocumentRequest[] {
+export function legacyDocuments(manifest: RunManifest): readonly LegacyDocumentRequest[] {
   return manifest.documents.map((document: DocumentPlan) => ({
     documentId: document.id,
     kind: document.kind,
@@ -158,7 +166,7 @@ function legacyDocuments(manifest: RunManifest): readonly LegacyDocumentRequest[
   }));
 }
 
-interface StateProjection {
+export interface StateProjection {
   readonly planCatalog: PlanCatalogArtifact;
   readonly dag: PlanDagArtifact;
   readonly ownership: ObligationOwnershipIndex;
@@ -177,7 +185,7 @@ const SYNTHESIS_UNAVAILABLE = "a synthesis unit is written from its children's C
  * has no `plan/` on disk and may not be written to. The identity and the packet come out of ONE call each into the
  * renderer, so the tripwire below compares two views of the same composition rather than two compositions.
  */
-function projectState(
+export function projectState(
   label: string,
   catalog: TopicCatalogArtifact,
   requests: ReportRequestsArtifact,
@@ -279,7 +287,7 @@ function normalizedLabelsOf(input: UnitPacketInput, unit: PlanCatalogUnit): read
 }
 
 /** One topic replaced, with every derived field re-derived by Core's own functions and the digest re-minted. */
-function withTopic(catalog: TopicCatalogArtifact, topic: TopicCandidate): TopicCatalogArtifact {
+export function withTopic(catalog: TopicCatalogArtifact, topic: TopicCandidate): TopicCatalogArtifact {
   const topics = catalog.topics.map((row) => (row.topicId === topic.topicId ? topic : row));
   const assigned = new Set<string>();
   for (const row of topics) for (const binding of row.bindings) assigned.add(binding.workItemId);
@@ -289,7 +297,7 @@ function withTopic(catalog: TopicCatalogArtifact, topic: TopicCandidate): TopicC
   return { ...catalog, topics };
 }
 
-function reminted(topic: TopicCandidate, next: { readonly title: string; readonly bindings: readonly TopicObligationBinding[] }): TopicCandidate {
+export function reminted(topic: TopicCandidate, next: { readonly title: string; readonly bindings: readonly TopicObligationBinding[] }): TopicCandidate {
   const bindings = [...next.bindings].sort((a, b) => a.workItemId.localeCompare(b.workItemId));
   const { digest: _replaced, ...rest } = topic;
   const withoutDigest = {
@@ -321,14 +329,14 @@ function reminted(topic: TopicCandidate, next: { readonly title: string; readonl
  * Both a content change and a binding-set change are applied to the SECOND target, so the two shapes are compared
  * on one topic rather than across two.
  */
-function smallestMaterialTopic(topics: readonly TopicCandidate[]): TopicCandidate | null {
+export function smallestMaterialTopic(topics: readonly TopicCandidate[]): TopicCandidate | null {
   const material = topics.filter((topic) => topic.materiality === "material" && topic.bindings.length > 0);
   if (material.length === 0) return null;
   return [...material].sort((a, b) => a.bindings.length - b.bindings.length || a.topicId.localeCompare(b.topicId))[0]!;
 }
 
 /** Every topic that is the OWNER of at least one obligation in at least one document, by id. */
-function ownerTopicIds(planCatalog: PlanCatalogArtifact, ownership: ObligationOwnershipIndex): ReadonlySet<string> {
+export function ownerTopicIds(planCatalog: PlanCatalogArtifact, ownership: ObligationOwnershipIndex): ReadonlySet<string> {
   const owners = new Set<string>();
   for (const document of new Set(planCatalog.units.map((unit) => unit.documentId))) {
     for (const owner of documentOwnership(ownership, document).ownerByObligation.values()) owners.add(owner.ownerTopicId);
@@ -369,12 +377,15 @@ export async function extractUnitIdentityReadings(runDir: string): Promise<UnitI
   const evidence = await loadRunEvidenceReach(runDir, source);
   const base = projectState("base", catalog, requests, evidence.evidenceById, evidence.reach);
 
-  const candidates: readonly UnitIdentity[] = base.planned.flatMap((row) => (row.derivation === "children-unavailable" ? [] : [row.identity]));
+  // Held as WHOLE identities: this projection has both plan states in memory, which is the one situation where a
+  // candidate's sections can be diffed. A re-planned run on disk holds only the digest its ledger recorded, and the
+  // admission reading exercises that form.
+  const candidates: readonly CandidateIdentity[] = base.planned.flatMap((row) => (row.derivation === "children-unavailable" ? [] : [{ form: "identity" as const, identity: row.identity }]));
   const priorRun: CandidateSource = {
     origin: "prior-verified-units",
     runId: catalog.runId,
     knowledgeEpoch: catalog.knowledgeEpoch,
-    planCatalogDigest: planCatalogDigest(base.planCatalog)
+    planCatalogDigests: [planCatalogDigest(base.planCatalog)]
   };
   const scenarios: ScenarioReading[] = [];
 
@@ -472,7 +483,7 @@ export async function extractUnitIdentityReadings(runDir: string): Promise<UnitI
  * Returns null — and the scenario says so by name — when there is nothing left to add. The point of the scenario is
  * that an ADDED document must not invalidate the ones already planned, so it needs a document that is genuinely new.
  */
-function secondAudienceDocument(documents: readonly LegacyDocumentRequest[]): LegacyDocumentRequest | null {
+export function secondAudienceDocument(documents: readonly LegacyDocumentRequest[]): LegacyDocumentRequest | null {
   const taken = new Set(documents.map((document) => document.documentId));
   for (const document of documents) {
     const audience = document.audience === "product" ? "engineering" as const : "product" as const;

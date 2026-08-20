@@ -48,7 +48,7 @@ import { collectedUnitsFor, readUnitLedger } from "../src/report/unit-ledger.ts"
 import { UNIT_SUMMARY_VERSION, unitClaimsDigest, unitContentDigest, validateUnitClaims, type UnitSummary } from "../src/report/unit-output.ts";
 import type { UnitDraftInput } from "../src/report/unit-draft.ts";
 import { miniRun } from "./plan-fixture.ts";
-import { unitRequest } from "./unit-fixture.ts";
+import { FIXTURE_DRAFT_AUTHORSHIP, unitRequest } from "./unit-fixture.ts";
 
 /** The three material obligation ids of the mini fixture, pinned so a test can name one and stay readable. */
 export const MINI_FOUND_TWO_EVIDENCE = "feature:leave-1a2b3c4d5e:logic:approve@svc/leave/approve.go:10";
@@ -220,7 +220,7 @@ export async function unitDraftWithClaims(run: MaterialisedRun, unitId: string, 
       return { childUnitId, summaryDigest: row.summaryDigest };
     })
   };
-  return { unitId, content, claims: [...claims], summary };
+  return { unitId, content, claims: [...claims], summary, authorship: FIXTURE_DRAFT_AUTHORSHIP, provenance: { kind: "fresh" } };
 }
 
 export interface MaterialisedRun {

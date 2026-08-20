@@ -43,8 +43,9 @@ import {
 import type { TopicCatalogArtifact } from "../src/report/topic-catalog.ts";
 import { UNIT_SUMMARY_VERSION, type UnitSummary } from "../src/report/unit-output.ts";
 import { topicDossier, type UnitDossier, type UnitPacketInput } from "../src/report/unit-packet.ts";
-import { unitIdentityOf, type UnitAuthorship, type UnitIdentity } from "../src/report/unit-cache-identity.ts";
-import type { PlannedUnitIdentity } from "../src/report/unit-cache-plan.ts";
+import { unitIdentityOf, type UnitIdentity } from "../src/report/unit-cache-identity.ts";
+import type { UnitAuthorship } from "../src/report/unit-provenance.ts";
+import type { CandidateIdentity, PlannedUnitIdentity } from "../src/report/unit-cache-plan.ts";
 import { MINI_DOCUMENTS, miniRun, type MiniRun } from "./plan-fixture.ts";
 
 /** The mini catalog rows these fixtures name, pinned so a test can be read without running it. */
@@ -327,6 +328,16 @@ export function plannedIdentities(
       childUnitIds: unit.childUnitIds
     } as const;
   });
+}
+
+/**
+ * Candidates held as WHOLE identities — the form only a caller with both plan states can produce.
+ *
+ * The other form (a ledger row's recorded digest) is what a re-planned run on disk actually has, and it is exercised
+ * by the admission tests against a real run directory. Stated as a helper here so the wrapping is one spelling.
+ */
+export function heldCandidates(identities: readonly UnitIdentity[]): readonly CandidateIdentity[] {
+  return identities.map((identity) => ({ form: "identity", identity }));
 }
 
 /** The dossier for one unit: its topics, or the verified summaries of its children. */

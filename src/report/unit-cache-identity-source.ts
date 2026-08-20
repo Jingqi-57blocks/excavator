@@ -23,7 +23,8 @@
 import { assertNever } from "../base/artifact-result.ts";
 import type { PlanCatalogUnit } from "./plan-artifacts.ts";
 import { collectedUnitsFor, readUnitLedger } from "./unit-ledger.ts";
-import { unitIdentityOf, type UnitAuthorship, type UnitIdentity } from "./unit-cache-identity.ts";
+import { unitIdentityOf, type UnitIdentity } from "./unit-cache-identity.ts";
+import type { UnitAuthorship } from "./unit-provenance.ts";
 import { loadUnitPacketSource, planReadPaths } from "./unit-packet-source.ts";
 import { compareUnitIds } from "./unit-paths.ts";
 import { loadUnitPlanView } from "./unit-plan-view.ts";
@@ -90,7 +91,7 @@ export async function loadRunUnitIdentities(runDir: string, authorship: UnitAuth
     }
     // `overBudget` decides what happens to a packet that does not fit its bound; an identity is a measurement over
     // the same composition and never consults it, so the mode here changes nothing about what is digested.
-    const source = await loadUnitPacketSource(runDir, { unitId: unit.unitId, overBudget: "record-limitation" });
+    const source = await loadUnitPacketSource(runDir, { unitId: unit.unitId, overBudget: "record-limitation", childSummaries: { from: "collected-for-this-plan" } });
     for (const path of source.readPaths) readPaths.add(path);
     rows.push({ state: "identified", identity: unitIdentityOf(source.input, authorship) });
   }

@@ -27,7 +27,14 @@ import { unitClaimsDigest, unitContentDigest, validateUnitClaims, UNIT_SUMMARY_V
 import { loadUnitPlanView, type UnitPlanView } from "../src/report/unit-plan-view.ts";
 import { compareUnitIds } from "../src/report/unit-paths.ts";
 import type { UnitDraftInput } from "../src/report/unit-draft.ts";
+import type { UnitAuthorship } from "../src/report/unit-provenance.ts";
 import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, tempDir } from "./helpers.ts";
+
+/**
+ * The author every draft in these fixtures is written by. Model-FREE and named: the fixture is a generator, and a
+ * test that claimed a model family wrote its content would be putting a false provenance into a cache key.
+ */
+export const FIXTURE_DRAFT_AUTHORSHIP: UnitAuthorship = { kind: "model-free", generator: "unit-test-fixture" };
 
 export const UNIT_BUDGETS = {
   prepareMs: 30_000, authorMs: 30_000, maxGraphQueries: 40, maxSourceWindows: 50,
@@ -128,7 +135,7 @@ export async function unitDraftFor(run: PlannedRun, unitId: string, overrides: P
     childSummaryDigests,
     ...overrides
   };
-  return { unitId, content, claims, summary };
+  return { unitId, content, claims, summary, authorship: FIXTURE_DRAFT_AUTHORSHIP, provenance: { kind: "fresh" } };
 }
 
 /**

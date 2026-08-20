@@ -53,6 +53,7 @@ import { parseUnitSummary, type UnitChildSummaryDigest } from "./unit-output.ts"
 import { summariseUnitGrounding } from "./unit-grounding-audit.ts";
 import { auditUnitFromDisk } from "./unit-grounding-reading.ts";
 import { auditSynthesisBacklinkFromDisk, requiresChildClaimBacklink, summariseSynthesisBacklink } from "./synthesis-claim-backlink.ts";
+import { describePromisedArtifactProblem, promisedArtifactProblems, type PromiseSubject } from "./unit-artifact-promise.ts";
 import { parseUnitReceipt, type UnitDraftReceipt } from "./unit-receipt.ts";
 
 export interface UnitCollectResult {
@@ -164,7 +165,10 @@ export async function collectUnits(runDirInput: string): Promise<UnitCollectResu
       documentId: receipt.documentId,
       evidenceIds: [...receipt.evidenceIds],
       traceIds: [...receipt.traceIds],
-      data: { unitId, kind: receipt.kind, revision: receipt.revision, draftedAt: receipt.draftedAt, collected: true }
+      // `provenance` is in the event because the chain is the tamper-evident half of the account: a unit that
+      // entered the ledger by cache admission rather than by being written should say so where nothing can be
+      // rewritten afterwards, not only in a file a later write could replace.
+      data: { unitId, kind: receipt.kind, revision: receipt.revision, draftedAt: receipt.draftedAt, collected: true, provenance: receipt.provenance.kind }
     });
     const row: CollectedUnit = {
       unitId,
@@ -174,6 +178,11 @@ export async function collectUnits(runDirInput: string): Promise<UnitCollectResu
       planCatalogDigest: view.planCatalogDigest,
       collectedAt: nowIso(),
       revision: receipt.revision,
+      // Copied verbatim from the receipt, which is deleted below: the ledger is the lasting account of who wrote
+      // this unit, what identity it was written under, and whether it was written or admitted (R6b).
+      authorship: receipt.authorship,
+      packetIdentityDigest: receipt.packetIdentityDigest,
+      provenance: receipt.provenance,
       contentDigest: receipt.contentDigest,
       claimsDigest: receipt.claimsDigest,
       summaryDigest: receipt.summaryDigest,
@@ -211,7 +220,7 @@ async function recordedChildDigests(summaryPath: string, unitId: string): Promis
  * it needs to refuse. Each receipt's directory is checked against the key its own unit id encodes to — a receipt
  * filed under someone else's directory is the shape a path-collapse bug would take, and it is named here.
  */
-async function pendingUnitReceipts(runDir: string): Promise<readonly UnitDraftReceipt[]> {
+export async function pendingUnitReceipts(runDir: string): Promise<readonly UnitDraftReceipt[]> {
   const root = unitsDir(runDir);
   if (!await exists(root)) return [];
   const receipts: UnitDraftReceipt[] = [];
@@ -237,27 +246,10 @@ async function pendingUnitReceipts(runDir: string): Promise<readonly UnitDraftRe
 
 /** Every artifact the receipt promised, present and still the bytes it digested. Any miss is a named refusal. */
 async function assertPromisedArtifacts(receipt: UnitDraftReceipt, paths: { content: string; claims: string; summary: string }): Promise<void> {
-  for (const [path, what] of [[paths.content, "content"], [paths.claims, "claims"], [paths.summary, "summary"]] as const) {
-    if (!await exists(path)) {
-      throw new Error(`Unit draft receipt for ${JSON.stringify(receipt.unitId)} promises ${what} that is not on disk: ${path}`);
-    }
-  }
-  const content = sha256(await readFile(paths.content, "utf8"));
-  if (content !== receipt.contentDigest) {
-    throw new Error(`Unit ${JSON.stringify(receipt.unitId)} has content digesting to ${content}, but its receipt promises ${receipt.contentDigest}; re-draft the unit`);
-  }
-  for (const [path, recorded, what] of [[paths.claims, receipt.claimsDigest, "claims"], [paths.summary, receipt.summaryDigest, "summary"]] as const) {
-    let parsed: unknown;
-    try {
-      parsed = await readJson<unknown>(path);
-    } catch (error) {
-      throw new Error(`${path} could not be read as JSON: ${(error as Error).message}`);
-    }
-    const digest = sha256(canonicalJson(parsed));
-    if (digest !== recorded) {
-      throw new Error(`Unit ${JSON.stringify(receipt.unitId)} has ${what} digesting to ${digest}, but its receipt promises ${recorded}; re-draft the unit`);
-    }
-  }
+  const problems = await promisedArtifactProblems(paths, receipt);
+  if (problems.length === 0) return;
+  const subject: PromiseSubject = { unitId: receipt.unitId, record: "Unit draft receipt", possessive: "its receipt" };
+  throw new Error(problems.map((problem) => describePromisedArtifactProblem(subject, problem)).join("; "));
 }
 
 /** Weak concurrency guard, the same shape the section barrier uses: best-effort, and never a lock. */

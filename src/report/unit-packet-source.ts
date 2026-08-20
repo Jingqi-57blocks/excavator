@@ -26,7 +26,7 @@ import type { PlanCatalogUnit } from "./plan-artifacts.ts";
 import { documentOwnership } from "./plan-obligation-conservation.ts";
 import type { PacketOverBudgetMode } from "./planner-packet.ts";
 import { REPORT_POLICY_REGISTRY } from "./report-policy-registry.ts";
-import { collectedUnitsFor, readUnitLedger } from "./unit-ledger.ts";
+import { collectedUnitsFor, readUnitLedger, type CollectedUnit } from "./unit-ledger.ts";
 import { parseUnitSummary, unitSummaryDigest, type UnitSummary } from "./unit-output.ts";
 import { evidenceReachOf, renderUnitPacket, topicDossier, unitInputBound, type RunEvidenceReach, type UnitDossier, type UnitPacket, type UnitPacketInput } from "./unit-packet.ts";
 import { unitPaths } from "./unit-paths.ts";
@@ -34,6 +34,26 @@ import { assertPlanEpoch, loadUnitPlanView, planUnit, requireKnowledgeEpoch, typ
 
 /** Run-relative directories a unit packet may never read. Asserted against `readPaths` in test. */
 export const UNIT_PACKET_FORBIDDEN_INPUT_PREFIXES = ["claims/", "context/authoring/", "prompts/", "reports/", "sections/"] as const;
+
+/**
+ * WHICH RECORDED ROWS a synthesis's child summaries must verify against. Required, closed, and never defaulted.
+ *
+ * `collected-for-this-plan` is the authoring case: a synthesis may only be written from children this run has
+ * collected UNDER THE PLAN NOW IN FORCE, which is what `draftUnit` and the read-only packet command need.
+ *
+ * `verified-candidates` is R6b's admission case, and it exists because of an ordering fact rather than a
+ * preference: a candidate synthesis is decided BEFORE its children are re-collected, so under the plan now in force
+ * none of them is collected yet. Its identity is the one its CANDIDATE was written from — the children's summaries
+ * as the rows that verified them recorded them. The digest check is the same check either way: the bytes on disk
+ * must still digest to what a recorded row promised. Nothing here ever reads a summary no row vouches for.
+ *
+ * Making it a required parameter rather than an option with a default is the point: a mode that could be omitted
+ * would be omitted, and the omission would silently mean "the current plan" at the one call site where that answer
+ * is wrong.
+ */
+export type UnitChildSummarySource =
+  | { readonly from: "collected-for-this-plan" }
+  | { readonly from: "verified-candidates"; readonly rows: ReadonlyMap<string, CollectedUnit> };
 
 export interface UnitPacketSource {
   readonly view: UnitPlanView;
@@ -46,6 +66,8 @@ export interface UnitPacketSource {
 export interface UnitPacketOptions {
   readonly unitId: string;
   readonly overBudget: PacketOverBudgetMode;
+  /** Which recorded rows a synthesis's children must verify against. Required: there is no default. */
+  readonly childSummaries: UnitChildSummarySource;
   /** Defaults to the plan's `perUnitInputBytes` for this unit's document — the only authority for an input bound. */
   readonly byteLimit?: number;
 }
@@ -66,7 +88,7 @@ export async function loadUnitPacketSource(runDirInput: string, options: UnitPac
   const evidenceById = new Map(evidence.evidence.map((item) => [item.id, item]));
   const reach = evidenceReach(view, evidenceById);
 
-  const { dossier, paths } = await dossierFor(runDir, view, unit, manifest, knowledgeEpoch, evidenceById);
+  const { dossier, paths } = await dossierFor(runDir, view, unit, manifest, knowledgeEpoch, evidenceById, options.childSummaries);
   readPaths.push(...paths);
 
   return {
@@ -121,7 +143,8 @@ async function dossierFor(
   unit: PlanCatalogUnit,
   manifest: RunManifest,
   knowledgeEpoch: number,
-  evidenceById: ReadonlyMap<string, EvidenceItem>
+  evidenceById: ReadonlyMap<string, EvidenceItem>,
+  childSummaries: UnitChildSummarySource
 ): Promise<{ readonly dossier: UnitDossier; readonly paths: readonly string[] }> {
   switch (unit.kind) {
     case "leaf":
@@ -129,14 +152,13 @@ async function dossierFor(
     case "appendix":
       return { dossier: topicDossier(unit, view.topicsById, evidenceById), paths: [] };
     case "synthesis": {
-      const ledger = await readUnitLedger(runDir, manifest.id);
-      const collected = new Map(collectedUnitsFor(ledger, knowledgeEpoch, view.planCatalogDigest).map((row) => [row.unitId, row]));
-      const paths = ["units/collected.json"];
+      const vouched = await vouchedChildRows(runDir, view, manifest, knowledgeEpoch, childSummaries);
+      const paths = [...vouched.paths];
       const children: UnitSummary[] = [];
       for (const childUnitId of [...unit.childUnitIds].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))) {
-        const row = collected.get(childUnitId);
+        const row = vouched.rows.get(childUnitId);
         if (!row) {
-          throw new Error(`Synthesis unit ${JSON.stringify(unit.unitId)} cannot be given a packet yet: its child ${JSON.stringify(childUnitId)} is not collected, and a synthesis is written from collected child summaries only`);
+          throw new Error(`Synthesis unit ${JSON.stringify(unit.unitId)} cannot be given a packet yet: its child ${JSON.stringify(childUnitId)} ${vouched.missing}, and a synthesis is written from child summaries a recorded row vouches for`);
         }
         const childPaths = unitPaths(runDir, childUnitId);
         paths.push(`units/${childPaths.key}/summary.json`);
@@ -154,6 +176,34 @@ async function dossierFor(
     }
   }
   return assertNever(unit.kind, "authoring unit kind");
+}
+
+/**
+ * The recorded rows that vouch for the child summaries this packet may read — exhaustive over the two sources.
+ *
+ * Each arm publishes the paths IT opened: the candidate arm opens nothing, because the caller that assembled the
+ * candidate rows is the one that read the ledger and the one that publishes having done so.
+ */
+async function vouchedChildRows(
+  runDir: string,
+  view: UnitPlanView,
+  manifest: RunManifest,
+  knowledgeEpoch: number,
+  childSummaries: UnitChildSummarySource
+): Promise<{ readonly rows: ReadonlyMap<string, CollectedUnit>; readonly paths: readonly string[]; readonly missing: string }> {
+  switch (childSummaries.from) {
+    case "collected-for-this-plan": {
+      const ledger = await readUnitLedger(runDir, manifest.id);
+      return {
+        rows: new Map(collectedUnitsFor(ledger, knowledgeEpoch, view.planCatalogDigest).map((row) => [row.unitId, row])),
+        paths: ["units/collected.json"],
+        missing: "is not collected under the plan now in force"
+      };
+    }
+    case "verified-candidates":
+      return { rows: childSummaries.rows, paths: [], missing: "is not offered as a verified candidate" };
+  }
+  return assertNever(childSummaries, "unit child summary source");
 }
 
 /** The plan files the gate read, as run-relative paths, plus the knowledge-side ledgers it projected. */
