@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, writeFileSync, mkdtempSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
+import { tempDirSync } from "../../tests/temp-dir.ts";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -24,7 +25,7 @@ const ARTIFACT = join(HERE, "fixtures", "wcp-crossrepo", "crossrepo-links.json")
 function withArtifact(mutate: (artifact: Record<string, unknown>) => void): string {
   const artifact = JSON.parse(readFileSync(ARTIFACT, "utf8")) as Record<string, unknown>;
   mutate(artifact);
-  const path = join(mkdtempSync(join(tmpdir(), "xr-gate-")), "crossrepo-links.json");
+  const path = join(tempDirSync("xr-gate-"), "crossrepo-links.json");
   writeFileSync(path, JSON.stringify(artifact));
   return path;
 }
@@ -124,7 +125,7 @@ test("the review sample excludes gold, is bounded, and is the same every time", 
 function goldWithFloors(floors: Record<string, unknown> | undefined): ReturnType<typeof loadCrossRepoGold> {
   const gold = JSON.parse(readFileSync(GOLD, "utf8")) as Record<string, unknown>;
   if (floors) gold.floors = floors; else delete gold.floors;
-  const path = join(mkdtempSync(join(tmpdir(), "xr-gold-")), "gold.json");
+  const path = join(tempDirSync("xr-gold-"), "gold.json");
   writeFileSync(path, JSON.stringify(gold));
   return loadCrossRepoGold(path);
 }
@@ -186,7 +187,7 @@ test("a mistyped floor key or a non-numeric floor is rejected at load, not skipp
 });
 
 test("a gold file of the wrong version is rejected rather than half-read", () => {
-  const path = join(mkdtempSync(join(tmpdir(), "xr-gold-")), "gold.json");
+  const path = join(tempDirSync("xr-gold-"), "gold.json");
   writeFileSync(path, JSON.stringify({ version: "crossrepo-gold-v99", links: [] }));
   assert.throws(() => loadCrossRepoGold(path), /unsupported gold version/);
 });

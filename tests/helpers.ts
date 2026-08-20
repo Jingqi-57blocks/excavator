@@ -1,13 +1,14 @@
 import { DatabaseSync } from "node:sqlite";
-import { cp, mkdir, mkdtemp, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { cp, mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { readFile } from "node:fs/promises";
 import type { InvestigationPlan, RunManifest } from "../src/base/types.ts";
 import { updateWorkItems } from "../src/run/run.ts";
 import { planRun } from "../src/run/stages/plan-stage.ts";
 
-export async function tempDir(prefix = "excavator-test-"): Promise<string> { return mkdtemp(join(tmpdir(), prefix)); }
+import { tempDir } from "./temp-dir.ts";
+
+export { tempDir };
 
 /**
  * Dispose every work item as `not-applicable` with a reason so a synthetic run satisfies the freeze
