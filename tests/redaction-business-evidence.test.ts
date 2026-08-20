@@ -366,11 +366,39 @@ test("a skipped pattern never hides an assignment that follows it", () => {
 // so a crafted file that crashes it crashes prepare. A recursive rescan overflowed the stack at 5000 chained
 // comparisons; the loop that replaced it also fixed the leak the rescan was added for.
 test("a line of chained operators is handled without recursion", () => {
-  const chained = `x ${"== a ".repeat(5000)}`;
-  const started = Date.now();
-  assert.doesNotThrow(() => redactSecrets(chained));
+  assert.doesNotThrow(() => redactSecrets(`x ${"== a ".repeat(5000)}`));
   assert.doesNotThrow(() => redactSecrets("=".repeat(30000)));
-  assert.ok(Date.now() - started < 5000, "and in linear time");
+});
+
+// THE COST GUARD IS A RATIO, NOT A CLOCK. This used to read `Date.now() - started < 5000`, which failed in a
+// loaded suite and passed on a rerun — and a gate that goes red for a reason outside the code under test teaches
+// everyone to rerun until green, which is how a real red gets discarded next time. It was also mislabelled "in
+// linear time": measured here, doubling the input multiplies the cost by ~3.8, so this function is roughly
+// QUADRATIC in the length of one line, and the old budget only held because 5000 is small enough that quadratic
+// still fits in five seconds (at 20000 it already takes ~5.1s).
+//
+// A ratio is load-robust where a budget is not: machine load scales both measurements, so it divides out.
+//
+// WHAT THIS GUARD CAN AND CANNOT DO, measured rather than assumed. It catches a worsening EXPONENT that still
+// returns: quadratic doubles to ~3.7-4.2x here, cubic would be 8x, so the bound of 6 sits between them with
+// margin on both sides. It deliberately does not pin today's ~3.8 — pinning the exponent would turn an
+// optimisation into a red test. It does NOT catch a true hang, and neither did the wall-clock budget it
+// replaces: a synchronous loop that never returns never reaches an assertion line. Nor would `{ timeout }`
+// help — node:test cannot interrupt a blocked event loop (probed: a 300ms timeout let a 3s synchronous spin
+// pass). Catching non-termination needs process isolation with a hard kill, which is a capability this test
+// never had; it is recorded here rather than left as a thing the name seems to promise.
+test("doubling a pathological line keeps the cost near quadratic, not worse", () => {
+  const line = (repeats: number) => `x ${"== a ".repeat(repeats)}`;
+  const costOf = (repeats: number): number => {
+    const started = process.hrtime.bigint();
+    redactSecrets(line(repeats));
+    return Number(process.hrtime.bigint() - started);
+  };
+  redactSecrets(line(1000)); // warm up: the first call through a cold JIT is not a measurement of the algorithm
+  const small = costOf(1000);
+  const doubled = costOf(2000);
+  const ratio = doubled / small;
+  assert.ok(ratio < 6, `doubling the input multiplied the cost by ${ratio.toFixed(1)}x; this function measures ~3.8x (quadratic) and a cubic one would measure 8x, so 6x means the exponent got worse`);
 });
 
 // A sensitive word inside a string is not the name of what an operator assigns. This SQL was measured being
