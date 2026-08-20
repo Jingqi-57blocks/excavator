@@ -40,7 +40,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { stableJson } from "../../src/base/util.ts";
+import { canonicalJson, sha256, stableJson } from "../../src/base/util.ts";
 import { UNIT_IDENTITY_KEY_VERSIONS } from "../../src/report/unit-cache-identity.ts";
 import { MINI_DOCUMENTS, miniRun } from "../../tests/plan-fixture.ts";
 import {
@@ -69,6 +69,31 @@ function derived(readings: UnitIdentityProjection, scenario: string): ScenarioRe
   if (row.outcome.state !== "derived") throw new Error(`the mini fixture must be able to derive ${scenario}: ${row.outcome.reason}`);
   return row.outcome;
 }
+
+/**
+ * THE FORMULA WITNESS: the mini fixture's identity digests, as one value, AT THE MOMENT the two ARCHIVAL readings
+ * in `eval/golden/unit-cache-identity-readings-{wcp,cebreo}.json` were generated.
+ *
+ * It is the answer to the one thing a recorded version list cannot do. Those two files hold 37 digests whose inputs
+ * are not in this repository, so nothing can recompute them — and a build constant can reach the identity through
+ * the VIEW (the packet version in its first line, the policy content digests) or through the request row, without
+ * any name in `UNIT_IDENTITY_KEY_VERSIONS` moving. Measured, both ways: bumping `unit-packet-v3` and bumping
+ * `legacy-request-mapping-v1` each moved every identity while a version-only pin stayed green. So the pin is not
+ * the staleness detector; THIS is. Any change that moves an identity at all moves the fixture's digests, and then
+ * the two archival records are stale by construction: regenerate them from their archival run directories, or say
+ * in the same batch that they no longer describe this code.
+ *
+ * It over-triggers in exactly one direction — editing the mini FIXTURE moves it without invalidating anything — and
+ * that is the safe direction: a deliberate fixture change re-pins one constant, in the open.
+ */
+const FORMULA_WITNESS = "c04ea6479a3b3c394758aab8b7485cd105d6086d78a68800a1edc67f25819d7c";
+
+test("the two archival readings were minted by the formula this in-repo fixture still witnesses", async () => {
+  const readings = await projection();
+  const witness = sha256(canonicalJson(readings.identified.map((row) => [row.unitId, row.identityDigest])));
+  assert.equal(witness, FORMULA_WITNESS,
+    "the identity formula has moved since eval/golden/unit-cache-identity-readings-{wcp,cebreo}.json were generated, so their 37 identityDigest values are numbers this code can no longer produce: re-generate both from their archival run directories and re-pin this witness in the same batch");
+});
 
 test("the mini fixture's whole identity reading is byte-identical to the checked-in golden", async () => {
   const readings = await projection();
@@ -106,7 +131,7 @@ test("the fixture still exercises what this nail is for: identities, both pertur
   const bindings = derived(readings, "binding-dropped-owner-topic");
   assert.ok(content.rebuild.length > 0, "a content change on an owning topic must invalidate the units that name it");
   assert.ok(bindings.rebuild.length + bindings.retired.length > content.rebuild.length + content.retired.length,
-    `a binding-set change must invalidate strictly more: ${bindings.rebuild.length} against ${content.rebuild.length}`);
+    `a binding-set change must invalidate strictly more: ${bindings.rebuild.length} rebuilt + ${bindings.retired.length} retired against ${content.rebuild.length} + ${content.retired.length}`);
   for (const scenario of [content, bindings, derived(readings, "unchanged"), derived(readings, "first-run")]) {
     assert.deepEqual(scenario.conservation, [
       `planned = reusable + rebuild + new: ${scenario.plannedUnits} = ${scenario.reusable.length} + ${scenario.rebuild.length} + ${scenario.new.length}`,

@@ -54,11 +54,13 @@
  */
 
 import { canonicalJson, sha256 } from "../base/util.ts";
+import { LEGACY_REQUEST_MAPPING_VERSION } from "./legacy-request-mapping.ts";
 import type { AuthoringUnitKind } from "./plan-proposal.ts";
+import { REPORT_POLICY_VERSION } from "./report-policy-registry.ts";
 import type { ReportRequestRecord } from "./report-requests-artifact.ts";
 import { UNIT_CLAIMS_VERSION, UNIT_SUMMARY_VERSION } from "./unit-output.ts";
 import { authorshipValue, describeAuthorship, type UnitAuthorship } from "./unit-provenance.ts";
-import { composeUnitPacketMarkdown, type UnitPacketInput } from "./unit-packet.ts";
+import { UNIT_PACKET_VERSION, composeUnitPacketMarkdown, type UnitPacketInput } from "./unit-packet.ts";
 
 /** v2 (R6c): the receipt schema version left the key. Any change to the formula below moves this. */
 export const UNIT_CACHE_IDENTITY_VERSION = "unit-cache-identity-v2";
@@ -84,23 +86,42 @@ export const UNIT_OUTPUT_CONTRACT: UnitOutputContract = {
 };
 
 /**
- * EVERY VERSION THAT ENTERS THE KEY, as one value an artifact can record and a test can pin.
+ * THE SCHEMA VERSIONS THAT ENTER THE KEY, as one value an artifact can record and a test can pin.
  *
  * It exists because of what R6b did without anyone noticing: the receipt schema went v1 → v2 while it was in the
  * key, so every `identityDigest` checked into `eval/golden/` became a number the code could no longer produce — and
  * the suite stayed green, because nothing recomputed those digests and nothing recorded the versions they were
- * minted under. A reading that carries this value turns the next such bump into a red test in the same batch as the
- * bump. It is not a third list: the two members are the two constants `unitIdentityOf` actually digests, and
- * `tests/unit-cache-identity.test.ts` asserts an identity's own record equals them.
+ * minted under. A reading that carries this value turns the next such bump into a red test in the same batch.
+ *
+ * FIVE MEMBERS, ONE PER MECHANISM BY WHICH A BUILD CONSTANT REACHES THE DIGEST: the formula's own version, the
+ * output contract it composes, the packet version the VIEW prints in its first line, and the two versions this
+ * document's request row carries (the legacy mapping's, and the policy registry's). `tests/unit-cache-identity.test.ts`
+ * asserts each one against the identity record itself, so a member that stopped being in the key is a red test
+ * rather than a stale line in a golden.
+ *
+ * WHAT IT IS NOT: a proof of completeness. A list cannot be one — the registry's policy CONTENT digests reach the
+ * view too, and tomorrow's key may compose something nobody added here. Completeness is carried by the other nail:
+ * `eval/golden/unit-cache-identity-readings-mini.json` is a whole reading over an in-repo fixture, recomputed and
+ * byte-compared on every run, so anything that moves an identity at all moves it. This value is what makes the two
+ * ARCHIVAL readings — whose inputs are not in this repository — say out loud what they were minted under.
  */
 export interface UnitIdentityKeyVersions {
   readonly identity: typeof UNIT_CACHE_IDENTITY_VERSION;
   readonly output: UnitOutputContract;
+  /** Printed by the view's own first line, so it is inside the digested bytes. */
+  readonly view: typeof UNIT_PACKET_VERSION;
+  /** `terms.request.mappingVersion`: the shape of the recorded request row the key carries. */
+  readonly requestMapping: typeof LEGACY_REQUEST_MAPPING_VERSION;
+  /** `terms.request.request.policyVersion`: the registry the lens and intent references were taken from. */
+  readonly policy: typeof REPORT_POLICY_VERSION;
 }
 
 export const UNIT_IDENTITY_KEY_VERSIONS: UnitIdentityKeyVersions = {
   identity: UNIT_CACHE_IDENTITY_VERSION,
-  output: UNIT_OUTPUT_CONTRACT
+  output: UNIT_OUTPUT_CONTRACT,
+  view: UNIT_PACKET_VERSION,
+  requestMapping: LEGACY_REQUEST_MAPPING_VERSION,
+  policy: REPORT_POLICY_VERSION
 };
 
 /*

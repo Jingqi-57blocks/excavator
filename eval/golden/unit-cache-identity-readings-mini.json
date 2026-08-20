@@ -5,7 +5,10 @@
     "output": {
       "claimsVersion": "unit-claims-v1",
       "summaryVersion": "unit-summary-v1"
-    }
+    },
+    "policy": "report-policy-v1",
+    "requestMapping": "legacy-request-mapping-v1",
+    "view": "unit-packet-v3"
   },
   "identified": [
     {

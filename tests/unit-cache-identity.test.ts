@@ -153,16 +153,23 @@ test("an identity carries the output contract, the authorship and one section pe
   // The receipt schema version is NOT (R6c). A receipt is minted fresh by the admission's own trip through
   // `draftUnit`; keeping its version here bought a whole-ledger invalidation per bump and no protection.
   assert.deepEqual(Object.keys(UNIT_OUTPUT_CONTRACT).sort(), ["claimsVersion", "summaryVersion"]);
-  // And the version set a reading records IS these two constants, not a third list beside them: the pinned record
-  // and the digested record are one value, so a golden's `contract` field cannot drift from the key it names.
-  assert.deepEqual(UNIT_IDENTITY_KEY_VERSIONS, { identity: identity.version, output: identity.terms.contract });
+  // EVERY MEMBER of the version set a reading records is checked against the identity itself, by the mechanism it
+  // reaches the digest through. A member that stopped being in the key would otherwise sit in a golden's `contract`
+  // certifying something that is no longer true — which is the R6c failure one level up.
+  const view = unitIdentityView(identityInput(fix, fix.base, unitId));
+  assert.deepEqual(Object.keys(UNIT_IDENTITY_KEY_VERSIONS).sort(), ["identity", "output", "policy", "requestMapping", "view"]);
+  assert.equal(UNIT_IDENTITY_KEY_VERSIONS.identity, identity.version);
+  assert.deepEqual(UNIT_IDENTITY_KEY_VERSIONS.output, identity.terms.contract);
+  assert.ok(view.split("\n")[0]!.includes(`(${UNIT_IDENTITY_KEY_VERSIONS.view})`),
+    `the packet version enters the key through the view's first line: ${JSON.stringify(view.split("\n")[0])}`);
+  assert.equal(UNIT_IDENTITY_KEY_VERSIONS.requestMapping, identity.terms.request.mappingVersion);
+  assert.equal(UNIT_IDENTITY_KEY_VERSIONS.policy, identity.terms.request.request.policyVersion);
   assert.deepEqual(identity.terms.authorship, FIXTURE_AUTHORSHIP);
   assert.equal(identity.terms.request.documentId, OVERVIEW_PRODUCT, "and THIS document's recorded request row, which the packet does not print in full");
   // The terms are a CLOSED list, and every member is per-document or per-build: a plan-global member here would put
   // back the coupling the three normalized header lines exist to remove.
   assert.deepEqual(Object.keys(identity.terms).sort(), ["authorship", "contract", "request"]);
   assert.equal(describeAuthorship(FIXTURE_AUTHORSHIP), "model-free generator fixture-plan");
-  const view = unitIdentityView(identityInput(fix, fix.base, unitId));
   assert.equal(identity.viewBytes, Buffer.byteLength(view, "utf8"));
   const headings = view.split("\n").filter((line) => line.startsWith("## "));
   assert.equal(identity.sections.length, headings.length + 1, "one section per heading plus the header above the first one");
