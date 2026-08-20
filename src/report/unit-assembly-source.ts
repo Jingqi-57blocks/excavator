@@ -49,6 +49,7 @@ import {
   UNIT_COVERAGE_COMPANION_PATH,
   unitDocumentCompanionPaths,
   unitDocumentReportPath,
+  unitDocumentTargets,
   type SectionReportTarget,
   type UnitAssemblyTarget
 } from "./unit-assembly-paths.ts";
@@ -104,6 +105,18 @@ export async function loadUnitAssembly(runDirInput: string): Promise<UnitAssembl
   const anyEpoch = new Map(ledger.units.map((row) => [row.unitId, row]));
   assertEveryPlannedUnitCollected(view, current, anyEpoch, knowledgeEpoch);
 
+  if (view.planCatalog.documents.length === 0) {
+    throw new Error(`Run ${JSON.stringify(view.runId)} has a validated plan holding no document, so there is nothing to assemble; a successful assemble over zero documents would report the same thing as a successful one over every document`);
+  }
+  // The path conflict is decided BEFORE a unit byte is read: it is a pure function of the recorded plan and the
+  // section plan on the manifest, so an operator whose two report worlds collide hears that first rather than
+  // after the whole assembly was computed. The three names checked per document are the three a document id can
+  // reach; the run-scoped coverage companion is a `.md` and every section-path name in that directory ends in
+  // `.json`, so no document id can produce it.
+  const targets: UnitAssemblyTarget[] = view.planCatalog.documents.flatMap((document) =>
+    unitDocumentTargets(document.documentId).map((path) => ({ documentId: document.documentId, path })));
+  assertNoSectionPathConflict(targets, sectionReportTargets(manifest));
+
   const traces = await readJson<TraceCatalog>(join(runDir, "traces.json"));
   const parents = parentUnitIds(view);
   const identity: AssemblyIdentity = {
@@ -115,11 +128,7 @@ export async function loadUnitAssembly(runDirInput: string): Promise<UnitAssembl
     sourceText: manifest.request.redactSecrets === true ? "redacted" : "verbatim"
   };
 
-  if (view.planCatalog.documents.length === 0) {
-    throw new Error(`Run ${JSON.stringify(view.runId)} has a validated plan holding no document, so there is nothing to assemble; a successful assemble over zero documents would report the same thing as a successful one over every document`);
-  }
   const documents: AssembledUnitDocument[] = [];
-  const targets: UnitAssemblyTarget[] = [];
   for (const document of view.planCatalog.documents) {
     const planned = assemblyUnitsInOrder(
       document.documentId,
@@ -178,12 +187,7 @@ export async function loadUnitAssembly(runDirInput: string): Promise<UnitAssembl
       claims: { path: companions.claims, companion: aggregateUnitClaims(aggregation, unitClaimKey) },
       traces: { path: companions.traces, companion: aggregateUnitTraces({ ...aggregation, traces: traces.traces }) }
     });
-    for (const target of [path, companions.claims, companions.traces]) {
-      targets.push({ documentId: document.documentId, path: target });
-    }
   }
-
-  assertNoSectionPathConflict(targets, sectionReportTargets(manifest));
 
   const coverage = await loadCoverageStateFacts(runDir);
   for (const path of coverage.readPaths) readPaths.add(path);

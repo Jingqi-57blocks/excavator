@@ -96,13 +96,14 @@ export async function assembleUnits(runDirInput: string, mode: UnitAssembleMode)
     case "plan-only":
       return reading;
     case "write": {
+      // The weak concurrency guard the collect barrier uses, on both sides of the writes: best-effort, never a
+      // lock. Checked BEFORE as well as after so the common case — someone is drafting while this runs — is caught
+      // while the deliverable is still whatever it was, rather than after it has been replaced by stale bytes.
       const manifest = await readJson<RunManifest>(runPath);
       const expected = manifest.updatedAt;
+      await assertNotConcurrentlyModified(runPath, expected);
       for (const file of files) await atomicWrite(runRelativePath(runDir, file.path), file.content);
-      const onDisk = await readJson<RunManifest>(runPath);
-      if (onDisk.updatedAt !== expected) {
-        throw new Error("Run was modified concurrently during unit assemble (run.json updatedAt changed); rerun assemble after the concurrent command finishes.");
-      }
+      await assertNotConcurrentlyModified(runPath, expected);
       await appendTimeline(runDir, manifest.id, {
         stage: "assemble",
         action: "units.assembled",
@@ -116,6 +117,14 @@ export async function assembleUnits(runDirInput: string, mode: UnitAssembleMode)
     }
   }
   return assertNever(mode, "unit assemble mode");
+}
+
+/** Best-effort, never a lock: the same shape and the same message family the collect barrier uses. */
+async function assertNotConcurrentlyModified(runPath: string, expectedUpdatedAt: string): Promise<void> {
+  const onDisk = await readJson<RunManifest>(runPath);
+  if (onDisk.updatedAt !== expectedUpdatedAt) {
+    throw new Error("Run was modified concurrently during unit assemble (run.json updatedAt changed); rerun assemble after the concurrent command finishes.");
+  }
 }
 
 /**

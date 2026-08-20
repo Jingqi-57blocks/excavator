@@ -263,7 +263,8 @@ export function assemblyUnitsInOrder<T extends { readonly unitId: string }>(
   const byId = new Map(units.map((unit) => [unit.unitId, unit]));
   const ordered = collectionOrder.filter((unitId) => byId.has(unitId)).map((unitId) => byId.get(unitId)!);
   if (ordered.length !== units.length) {
-    const missing = [...byId.keys()].filter((unitId) => !collectionOrder.includes(unitId)).sort(compareUnitIds);
+    const named = new Set(collectionOrder);
+    const missing = [...byId.keys()].filter((unitId) => !named.has(unitId)).sort(compareUnitIds);
     throw new Error(`Document ${JSON.stringify(documentId)} has ${missing.length} unit(s) the plan's collection order does not name (${missing.join(", ")}); assembling from an order that misses a unit would leave it out in silence`);
   }
   return ordered;

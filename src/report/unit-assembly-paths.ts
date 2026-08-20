@@ -21,7 +21,8 @@
  * document id from the command line, so the id reaching this function is not always one Core minted.
  */
 
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { safeRelative } from "../base/util.ts";
 import { assertUsableUnitId } from "./unit-paths.ts";
 
 /** The run-relative directory both report worlds write into. */
@@ -89,9 +90,24 @@ export function unitDocumentTargets(documentId: string): readonly string[] {
   return [unitDocumentReportPath(documentId), companions.claims, companions.traces];
 }
 
-/** An absolute path from a run-relative one. Every write goes through here, so nothing rebuilds `reports/` by hand. */
+/**
+ * An absolute path from a run-relative one. Every write goes through here, so nothing rebuilds `reports/` by hand.
+ *
+ * The containment assertion is a CONSTRUCTION tripwire, the same one `unitPaths` carries: every input reaching it
+ * today is built by the functions above from an id they already refused traversal in, so it cannot fire — and it is
+ * here because the day one of those changes, this is the difference between a named refusal and a write outside the
+ * run. `safeRelative` is the base's own containment primitive; a second spelling of the rule would be a second
+ * place to fix.
+ */
 export function runRelativePath(runDir: string, relative: string): string {
-  return join(runDir, ...relative.split("/"));
+  const root = resolve(runDir);
+  const path = join(root, ...relative.split("/"));
+  try {
+    safeRelative(root, path);
+  } catch {
+    throw new Error(`Unit-path artifact ${JSON.stringify(relative)} resolves to ${JSON.stringify(path)}, which is outside the run directory ${JSON.stringify(root)}`);
+  }
+  return path;
 }
 
 /**

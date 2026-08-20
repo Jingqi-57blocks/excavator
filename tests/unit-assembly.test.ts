@@ -19,6 +19,7 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
+import { join } from "node:path";
 import type { DocumentPlan } from "../src/base/types.ts";
 import { reportFileName } from "../src/report/authoring-plan.ts";
 import { plannedDocumentId } from "../src/report/legacy-request-mapping.ts";
@@ -26,9 +27,11 @@ import { reportRequestRecordFor } from "../src/report/report-requests-artifact.t
 import {
   assertNoSectionPathConflict,
   assertUsableUnitDocumentId,
+  runRelativePath,
   UNIT_COVERAGE_COMPANION_PATH,
   unitDocumentCompanionPaths,
-  unitDocumentReportPath
+  unitDocumentReportPath,
+  unitDocumentTargets
 } from "../src/report/unit-assembly-paths.ts";
 import {
   assemblyUnitsInOrder,
@@ -286,4 +289,17 @@ test("the conflict guard covers companions too, and reports the first section ow
     /would assemble into "reports\/companions\/x\.unit-claims\.json", which the section path already names for document "y"/
   );
   assert.doesNotThrow(() => assertNoSectionPathConflict([], []));
+});
+
+test("the write-path builder resolves inside the run and refuses anything that climbs out", () => {
+  // A construction tripwire is only worth having if its shape is known, so it is made to fire here: today every
+  // input comes from `unitDocumentTargets`, which refused traversal in the document id already.
+  const run = "/tmp/excavator-assembly-root";
+  assert.equal(runRelativePath(run, "reports/overview-product.md"), join(run, "reports", "overview-product.md"));
+  assert.equal(runRelativePath(run, UNIT_COVERAGE_COMPANION_PATH), join(run, "reports", "companions", "unit-coverage.md"));
+  for (const path of unitDocumentTargets(DOCUMENT_ID)) {
+    assert.ok(runRelativePath(run, path).startsWith(join(run, "reports")), path);
+  }
+  assert.throws(() => runRelativePath(run, "../escape.md"), /which is outside the run directory/);
+  assert.throws(() => runRelativePath(run, "reports/../../escape.md"), /which is outside the run directory/);
 });
