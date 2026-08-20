@@ -395,10 +395,19 @@ test("doubling a pathological line keeps the cost near quadratic, not worse", ()
     return Number(process.hrtime.bigint() - started);
   };
   redactSecrets(line(1000)); // warm up: the first call through a cold JIT is not a measurement of the algorithm
-  const small = costOf(1000);
-  const doubled = costOf(2000);
-  const ratio = doubled / small;
-  assert.ok(ratio < 6, `doubling the input multiplied the cost by ${ratio.toFixed(1)}x; this function measures ~3.8x (quadratic) and a cubic one would measure 8x, so 6x means the exponent got worse`);
+  // THE MEDIAN, NOT ONE SAMPLE. The first version of this took one pair and divided, on the argument that load
+  // scales both measurements so it cancels — which is true only while the load is STEADY. A load that arrives
+  // between the two measurements scales them by different factors and the ratio keeps the difference: measured
+  // here at 30.7x against a bound of 6, twice, both times while another full suite was running. The verification
+  // that missed it was four steady busy-loops, i.e. exactly the condition the cancellation argument assumes —
+  // so it confirmed the premise instead of testing the claim. A median over independent pairs survives both
+  // shapes: a burst spoils individual samples and is discarded, while sustained load moves every sample together
+  // and still cancels.
+  const ratios: number[] = [];
+  for (let sample = 0; sample < 5; sample += 1) ratios.push(costOf(2000) / costOf(1000));
+  ratios.sort((a, b) => a - b);
+  const ratio = ratios[2]!;
+  assert.ok(ratio < 6, `doubling the input multiplied the cost by a median ${ratio.toFixed(1)}x over 5 pairs (${ratios.map((r) => r.toFixed(1)).join(", ")}); this function measures ~3.8x (quadratic) and a cubic one would measure 8x, so 6x means the exponent got worse`);
 });
 
 // A sensitive word inside a string is not the name of what an operator assigns. This SQL was measured being
