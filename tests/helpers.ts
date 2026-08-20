@@ -3,7 +3,7 @@ import { cp, mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { readFile } from "node:fs/promises";
-import type { InvestigationPlan } from "../src/base/types.ts";
+import type { InvestigationPlan, RunManifest } from "../src/base/types.ts";
 import { updateWorkItems } from "../src/run/run.ts";
 import { planRun } from "../src/run/stages/plan-stage.ts";
 
@@ -33,6 +33,17 @@ export async function disposeAllWorkItems(runDir: string): Promise<void> {
  */
 export async function installFixturePlan(runDir: string): Promise<void> {
   await planRun(runDir, { mode: "fixture" });
+}
+
+/**
+ * One run's manifest, off disk.
+ *
+ * Every load that projects a knowledge epoch takes the manifest — it is what selects WHICH epoch — so tests read
+ * the run's own `run.json` rather than building a manifest beside it. A hand-built one would let a test project an
+ * epoch the run on disk is not at, which is the exact confusion the required parameter exists to prevent.
+ */
+export async function manifestOf(runDir: string): Promise<RunManifest> {
+  return JSON.parse(await readFile(join(runDir, "run.json"), "utf8")) as RunManifest;
 }
 
 export async function copyFixture(name = "sample-target"): Promise<string> {

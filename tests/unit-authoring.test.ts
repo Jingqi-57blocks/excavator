@@ -4,7 +4,7 @@ import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { TimelineEvent } from "../src/base/types.ts";
 import { auditTimeline, readTimeline } from "../src/base/timeline.ts";
-import { exists } from "../src/base/util.ts";
+import { canonicalJson, exists, sha256 } from "../src/base/util.ts";
 import { freezeRun, searchSourceEvidence } from "../src/run/run.ts";
 import { planRun } from "../src/run/stages/plan-stage.ts";
 import { checkpointUnit } from "../src/report/unit-checkpoint.ts";
@@ -283,7 +283,7 @@ test("a bad unit is refused at draft time, and each refusal names what is wrong"
 test("a leaf plan gives all three unit states at once, and the leaf covers exactly its plan topics", async () => {
   const base = await frozenRun();
   const leafId = await planWithLeaf(base.runDir, base.workdir, "work-item-dimension", 3);
-  const run: PlannedRun = { ...base, view: await loadUnitPlanView(base.runDir) };
+  const run: PlannedRun = { ...base, view: await loadUnitPlanView(base.runDir, base.manifest) };
   assert.equal(run.view.units.length, 3);
   assert.deepEqual(run.view.byId.get(leafId)!.topics.length, 3);
 
@@ -407,7 +407,7 @@ test("a leaf plan gives all three unit states at once, and the leaf covers exact
 test("collect refuses a synthesis whose child summary has moved since it was written", async () => {
   const base = await frozenRun();
   const leafId = await planWithLeaf(base.runDir, base.workdir, "work-item-dimension", 2);
-  const run: PlannedRun = { ...base, view: await loadUnitPlanView(base.runDir) };
+  const run: PlannedRun = { ...base, view: await loadUnitPlanView(base.runDir, base.manifest) };
   const appendixId = run.view.collectionOrder.find((unitId) => run.view.byId.get(unitId)!.kind === "appendix")!;
   const synthesisId = run.view.collectionOrder.at(-1)!;
 
@@ -432,9 +432,9 @@ test("collect refuses a synthesis whose child summary has moved since it was wri
   assert.deepEqual(await auditTimeline(run.runDir, run.manifest.id), []);
 });
 
-// --- (9) the epoch tripwires ---------------------------------------------------------------------------
+// --- (9) the epoch tripwires, and the way out of them --------------------------------------------------
 
-test("an unsealed supplement stops collect, and a superseded epoch stops the receipt by name", async () => {
+test("an unsealed supplement stops collect, a superseded receipt is refused, and a re-plan onto the new epoch closes the chain", async () => {
   const run = await plannedRun();
   const appendixId = unitsOfKind(run, "appendix")[0]!;
   await draftUnit(run.runDir, await unitDraftFor(run, appendixId));
@@ -451,30 +451,42 @@ test("an unsealed supplement stops collect, and a superseded epoch stops the rec
   assert.ok(await exists(unitPaths(run.runDir, appendixId).receipt), "the refused receipt stays, so a re-draw can replace it");
 
   /*
-   * WHERE THIS FIXTURE STOPS, AND WHY IT IS NOT A GAP IN THIS SLICE.
+   * AND THEN THE WAY OUT: RE-PLAN ONTO THE NEW EPOCH, RE-DRAW, COLLECT.
    *
-   * The epic's acceptance asks for "re-plan after the re-freeze, re-draw, whole chain green". It is not
-   * reachable: `loadTopicCatalogSource` reads `knowledge.json`, and `knowledgeEpochRelativePath`
-   * (`src/freeze/freeze.ts:223`) keeps epoch 0 there while every later epoch lives under
-   * `knowledge/epochs/epoch-N.json`. So after a re-freeze the Topic Catalog still projects EPOCH 0, a re-plan
-   * records epoch 0 again (write-once sees identical bytes and no-ops), and no plan of epoch 1 can be produced
-   * at all. Measured on this fixture, not inferred: the assertion below is the recorded plan's own epoch.
+   * This is the epic's acceptance for the supplement loop, and it runs on the real chain rather than a synthetic
+   * perturbation: the epoch above was produced by `searchSourceEvidence` + `freezeRun` on this fixture. The
+   * Topic Catalog projects the epoch the run MANIFEST selects, so after the re-freeze a re-plan records epoch 1
+   * and every refusal above becomes reachable-again work.
    *
-   * The unit path's answer to that is a NAMED refusal rather than authoring against a superseded projection,
-   * which is the only fail-closed answer available. When the catalog source starts reading the manifest's
-   * epoch, these three refusals turn into the green chain the epic asks for - and this test goes red, which is
-   * the right way for it to ask to be finished.
+   * `plan/catalog.json` is write-once PER EPOCH, so the re-plan does not collide with the epoch-0 plan it
+   * supersedes - a new epoch is a new set of recorded bytes, which is what makes "re-plan after a re-freeze" an
+   * operation and not a hand edit.
    */
   await planRun(run.runDir, { mode: "fixture" });
   const recorded = JSON.parse(await readFile(join(run.runDir, "plan", "catalog.json"), "utf8")) as { knowledgeEpoch: number };
-  assert.equal(recorded.knowledgeEpoch, 0, "upstream: the Topic Catalog projects knowledge.json, which is epoch 0");
-  const epochRefusal = /The recorded plan projects knowledge epoch 0 but the run manifest is at epoch 1; re-plan this run before authoring units/;
-  await assert.rejects(async () => draftUnit(run.runDir, await unitDraftFor(run, appendixId)), epochRefusal);
-  await assert.rejects(() => unitStatus(run.runDir), epochRefusal);
-  // The barrier still answers with the RECEIPT's epoch first, which is the order this file's header argues for:
-  // the draft in hand belongs to superseded knowledge, and that is the fact the operator acts on.
+  assert.equal(recorded.knowledgeEpoch, 1, "the re-plan projects the epoch the manifest selects, not epoch 0");
+  // The catalog's own input identity is the canonical bytes of the epoch-1 RECORD, read from the epoch-1 file.
+  // Asserted against the file rather than against `manifest.knowledgeDigest`: freeze digests a supplement-stripped
+  // normalization of the record, so the two numbers are deliberately not comparable, and the manifest-to-record
+  // agreement is `assertCurrentKnowledgeEpochForAuthoring`'s check, not this one's.
+  const epochOne = JSON.parse(await readFile(join(run.runDir, "knowledge", "epochs", "epoch-1.json"), "utf8")) as { epoch: number };
+  assert.equal(epochOne.epoch, 1, "the fixture really did seal a second epoch under knowledge/epochs/");
+  const catalog = JSON.parse(await readFile(join(run.runDir, "plan", "topics.json"), "utf8")) as { knowledgeEpoch: number; knowledgeDigest: string };
+  assert.equal(catalog.knowledgeEpoch, 1);
+  assert.equal(catalog.knowledgeDigest, sha256(canonicalJson(epochOne)),
+    "the recorded catalog's input identity is the canonical bytes of the epoch-1 record");
+
+  // The epoch-0 receipt is STILL refused - the fix is "the plan can move on", never "a stale draft becomes valid".
   await assert.rejects(() => collectUnits(run.runDir),
     /Unit draft receipt for .* was written from knowledge epoch 0; re-draft it from current epoch 1/);
+
+  // Re-draw from epoch 1 and the whole chain closes: status reports, the barrier records, the timeline audits.
+  const replanned: PlannedRun = { ...run, manifest: await manifestOf(run.runDir), view: await loadUnitPlanView(run.runDir, await manifestOf(run.runDir)) };
+  assert.equal(replanned.view.knowledgeEpoch, 1);
+  await draftUnit(replanned.runDir, await unitDraftFor(replanned, appendixId));
+  assert.equal((await unitStatus(replanned.runDir)).knowledgeEpoch, 1);
+  assert.deepEqual((await collectUnits(replanned.runDir)).collected.map((receipt) => receipt.unitId), [appendixId]);
+  assert.deepEqual(await auditTimeline(replanned.runDir, replanned.manifest.id), []);
 });
 
 // --- (10) fail closed, and never permanently ----------------------------------------------------------

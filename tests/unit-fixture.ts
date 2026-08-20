@@ -28,7 +28,9 @@ import { loadUnitPlanView, type UnitPlanView } from "../src/report/unit-plan-vie
 import { compareUnitIds } from "../src/report/unit-paths.ts";
 import type { UnitDraftInput } from "../src/report/unit-draft.ts";
 import type { UnitAuthorship } from "../src/report/unit-provenance.ts";
-import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, tempDir } from "./helpers.ts";
+import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, manifestOf, tempDir } from "./helpers.ts";
+
+export { manifestOf };
 
 /**
  * The author every draft in these fixtures is written by. Model-FREE and named: the fixture is a generator, and a
@@ -77,12 +79,9 @@ export async function frozenRun(audiences: Array<"product" | "engineering"> = ["
 export async function plannedRun(audiences: Array<"product" | "engineering"> = ["product"]): Promise<PlannedRun> {
   const base = await frozenRun(audiences);
   await planRun(base.runDir, { mode: "fixture" });
-  return { ...base, view: await loadUnitPlanView(base.runDir) };
+  return { ...base, view: await loadUnitPlanView(base.runDir, base.manifest) };
 }
 
-export async function manifestOf(runDir: string): Promise<RunManifest> {
-  return JSON.parse(await readFile(join(runDir, "run.json"), "utf8")) as RunManifest;
-}
 
 export function unitContent(unit: PlanCatalogUnit): string {
   return `## ${unit.title}\n\n${unit.unitId} 记录当前状态。\`事实\`\n`;
@@ -144,7 +143,7 @@ export async function unitDraftFor(run: PlannedRun, unitId: string, overrides: P
  * id be a non-empty string, which is exactly why the path module has to be the one that refuses it.
  */
 export async function planWithRenamedUnits(runDir: string, workdir: string, rename: (unitId: string) => string): Promise<void> {
-  const catalog = buildTopicCatalog(await loadTopicCatalogSource(runDir));
+  const catalog = buildTopicCatalog(await loadTopicCatalogSource(runDir, await manifestOf(runDir)));
   const requests = await readReportRequests(runDir);
   const base = buildFixturePlan(catalog, requests, PLAN_BUDGET_TABLE);
   const units: ProposedUnit[] = base.units.map((unit) => unit.kind === "synthesis"
@@ -161,7 +160,7 @@ export async function planWithRenamedUnits(runDir: string, workdir: string, rena
  * appendix the sample target's zero-material catalog yields on its own.
  */
 export async function planWithLeaf(runDir: string, workdir: string, facet: string, topicCount: number): Promise<string> {
-  const catalog = buildTopicCatalog(await loadTopicCatalogSource(runDir));
+  const catalog = buildTopicCatalog(await loadTopicCatalogSource(runDir, await manifestOf(runDir)));
   const requests = await readReportRequests(runDir);
   const base = buildFixturePlan(catalog, requests, PLAN_BUDGET_TABLE);
   const documentId = [...requests.requests].sort((a, b) => a.documentId.localeCompare(b.documentId))[0]!.documentId;

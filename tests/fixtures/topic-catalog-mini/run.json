@@ -1,0 +1,48 @@
+{
+  "assuranceVersion": "assurance-v5",
+  "createdAt": "2026-01-01T00:00:00.000Z",
+  "documents": [],
+  "evidenceDigest": "d3ce897060370e11bf5d074cdd206001b9d85244e1c6cd50831e52e03e792fa8",
+  "frozenAt": "2026-01-01T01:00:00.000Z",
+  "id": "run-topic-catalog-mini",
+  "knowledgeDigest": "fixture-knowledge-digest-epoch-0",
+  "knowledgeEpoch": 0,
+  "metrics": {
+    "cache": {},
+    "filesConsidered": 0,
+    "graphQueries": 0,
+    "graphQueryCacheHits": 0,
+    "sourceCharacters": 0,
+    "sourceFilesSearched": 0,
+    "sourceSearchCacheHits": 0,
+    "sourceSearches": 0,
+    "sourceWindowCacheHits": 0,
+    "sourceWindows": 0,
+    "startedAt": "2026-01-01T00:00:00.000Z",
+    "timing": {},
+    "warnings": []
+  },
+  "request": {
+    "budgets": {
+      "authorMs": 1000,
+      "maxExpansionDepth": 2,
+      "maxFeatureNodes": 10,
+      "maxFiles": 100,
+      "maxGraphQueries": 10,
+      "maxSourceCharacters": 1000,
+      "maxSourceWindows": 10,
+      "prepareMs": 1000
+    },
+    "detailLevel": "standard",
+    "features": [],
+    "language": "en",
+    "overviewAudiences": [],
+    "redactSecrets": true,
+    "target": "/fixtures/topic-catalog-mini",
+    "workdir": "/fixtures/topic-catalog-mini-workdir"
+  },
+  "snapshot": null,
+  "state": "prepared",
+  "updatedAt": "2026-01-01T01:00:00.000Z",
+  "version": 3
+}

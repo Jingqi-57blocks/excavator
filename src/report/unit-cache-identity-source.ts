@@ -20,7 +20,10 @@
  * never be.
  */
 
+import { join } from "node:path";
 import { assertNever } from "../base/artifact-result.ts";
+import type { RunManifest } from "../base/types.ts";
+import { readJson } from "../base/util.ts";
 import type { PlanCatalogUnit } from "./plan-artifacts.ts";
 import { collectedUnitsFor, readUnitLedger } from "./unit-ledger.ts";
 import { unitIdentityOf, type UnitIdentity } from "./unit-cache-identity.ts";
@@ -69,7 +72,11 @@ export function rowUnitId(row: RunUnitIdentityRow): string {
  * silently assumed an author would report identities admissible for a draft nobody said was written by anyone.
  */
 export async function loadRunUnitIdentities(runDir: string, authorship: UnitAuthorship): Promise<RunUnitIdentities> {
-  const view = await loadUnitPlanView(runDir);
+  // The manifest is read here rather than taken as a parameter because this IS the entry point of a read-only
+  // command: it selects the epoch the plan view is re-derived at, so a re-frozen run's identities are computed over
+  // its current knowledge. `run.json` was already in the published `readPaths` below, and now the load opens it.
+  const manifest = await readJson<RunManifest>(join(runDir, "run.json"));
+  const view = await loadUnitPlanView(runDir, manifest);
   const ledger = await readUnitLedger(runDir, view.runId);
   const collected = new Set(collectedUnitsFor(ledger, view.knowledgeEpoch, view.planCatalogDigest).map((row) => row.unitId));
   // Seeded with what the plan view and the ledger opened, so the published contract is complete even when no unit

@@ -12,7 +12,7 @@ import {
   topicsPath,
   writeTopicCatalog
 } from "../src/report/topics-artifact.ts";
-import { copyFixture } from "./helpers.ts";
+import { copyFixture, manifestOf } from "./helpers.ts";
 
 // `plan/topics.json` is meant to be a PREMISE for the slices after this one, not a hint. Two things make it one:
 // the write is once-per-epoch with a read-back, and the read re-derives every topic's id, materiality, confidence
@@ -23,7 +23,7 @@ const FIXTURE = "topic-catalog-mini";
 
 async function fixtureCatalog(): Promise<{ runDir: string; catalog: TopicCatalogArtifact }> {
   const runDir = await copyFixture(FIXTURE);
-  return { runDir, catalog: buildTopicCatalog(await loadTopicCatalogSource(runDir)) };
+  return { runDir, catalog: buildTopicCatalog(await loadTopicCatalogSource(runDir, await manifestOf(runDir))) };
 }
 
 /** Round-trip a catalog through the canonical bytes, then mutate it the way a hand edit would. */

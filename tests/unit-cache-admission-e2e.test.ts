@@ -176,7 +176,7 @@ test("one unit's title moves: exactly it and its ancestor fall to rebuild, its s
 
   // Only the admitted unit moved in the ledger; the two rebuilt ones still sit under the superseded plan.
   const after = await readUnitLedger(run.runDir, run.manifest.id);
-  const current = await loadUnitPlanView(run.runDir);
+  const current = await loadUnitPlanView(run.runDir, run.manifest);
   assert.deepEqual(after.units.filter((row) => row.planCatalogDigest === current.planCatalogDigest).map((row) => row.unitId), [APPENDIX]);
   assert.equal(rowOf(after.units, APPENDIX).provenance.kind, "cache-admitted");
   assert.equal(rowOf(after.units, LEAF).provenance.kind, "fresh", "a unit that fell to rebuild is not recorded again by the admission");
@@ -260,7 +260,7 @@ test("a candidate whose claims stopped grounding its obligations is refused by c
   assert.deepEqual(outcomeIds(report, "admitted").filter((unitId) => unitId === owner.unitId), [], "nothing ungrounded reaches the ledger");
   assert.ok(await exists(paths.receipt), "the refused receipt stays on disk so a correction can be collected");
   const afterRefusal = await readUnitLedger(run.runDir, run.manifest.id);
-  const current = await loadUnitPlanView(run.runDir);
+  const current = await loadUnitPlanView(run.runDir, run.manifest);
   assert.equal(afterRefusal.units.some((row) => row.unitId === owner.unitId && row.planCatalogDigest === current.planCatalogDigest), false,
     "the refused unit has no row under the plan now in force");
 
@@ -375,7 +375,7 @@ test("a candidate whose recorded bytes are not the normalized ones is refused be
   const collected = await collectUnits(run.runDir);
   assert.deepEqual(collected.collected.map((receipt) => receipt.unitId), [], "there is nothing to collect");
   const after = await readUnitLedger(run.runDir, run.manifest.id);
-  const current = await loadUnitPlanView(run.runDir);
+  const current = await loadUnitPlanView(run.runDir, run.manifest);
   assert.equal(after.units.some((row) => row.planCatalogDigest === current.planCatalogDigest), false,
     "no unit was recorded under the plan now in force");
 });

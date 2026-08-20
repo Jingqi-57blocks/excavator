@@ -82,7 +82,7 @@ export async function draftUnit(runDirInput: string, input: UnitDraftInput): Pro
   const manifest = await readJson<RunManifest>(join(runDir, "run.json"));
   await assertCurrentKnowledgeEpochForAuthoring(runDir, manifest);
   const knowledgeEpoch = requireKnowledgeEpoch(manifest, "drafted");
-  const view = await loadUnitPlanView(runDir);
+  const view = await loadUnitPlanView(runDir, manifest);
   assertPlanEpoch(view, knowledgeEpoch);
   const unit = planUnit(view, input.unitId);
   // Before any write, and before the content is even looked at: the id becomes a directory name here, and a

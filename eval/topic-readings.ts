@@ -19,6 +19,9 @@
 // Zero model calls. Any input it cannot project is a named throw from the loader — there is no path here that
 // reports a zero because a file was missing.
 
+import { join } from "node:path";
+import type { RunManifest } from "../src/base/types.ts";
+import { readJson } from "../src/base/util.ts";
 import { loadTopicCatalogSource } from "../src/report/topic-catalog-source.ts";
 import { buildTopicCatalog, type TopicCatalogArtifact, type TopicFacetCensus } from "../src/report/topic-catalog.ts";
 import { topicCatalogDigest } from "../src/report/topics-artifact.ts";
@@ -60,13 +63,20 @@ export interface TopicReadings {
   /** The facets that hold no topic, with the ledger reason — the "named empty" list, as a list. */
   readonly namedEmptyFacets: readonly { readonly facet: string; readonly state: string; readonly reason: string }[];
   readonly overallVerdictWithNoDispositions: string;
-  /** Every run-relative path the projection opened. The input contract, recorded next to the numbers. */
+  /**
+   * The CATALOG PROJECTION's input contract, recorded next to the numbers: every run-relative path
+   * `loadTopicCatalogSource` opened, and no others. `run.json` is not among them — the extractor reads the
+   * manifest to choose which epoch to project, and the epoch file it chose IS in the list, by its own name.
+   */
   readonly readPaths: readonly string[];
 }
 
 /** Project one frozen run directory. Never writes; every failure is a named throw from the loader. */
 export async function extractTopicReadings(runDir: string): Promise<TopicReadings> {
-  const source = await loadTopicCatalogSource(runDir);
+  // The manifest selects WHICH sealed epoch gets projected. Read here, before the load, so a re-frozen baseline
+  // reads at its current epoch instead of forever at epoch 0.
+  const manifest = await readJson<RunManifest>(join(runDir, "run.json"));
+  const source = await loadTopicCatalogSource(runDir, manifest);
   const catalog = buildTopicCatalog(source);
   const report = validateTopicDispositions(catalog, []);
   const verdictByFacet = new Map(report.facets.map((row) => [row.facet as string, summariseVerdict(row.verdict)]));

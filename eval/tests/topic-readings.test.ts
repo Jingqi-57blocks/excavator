@@ -17,7 +17,8 @@ import assert from "node:assert/strict";
 import { cp, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { stableJson } from "../../src/base/util.ts";
+import type { RunManifest } from "../../src/base/types.ts";
+import { readJson, stableJson } from "../../src/base/util.ts";
 import { buildTopicCatalog } from "../../src/report/topic-catalog.ts";
 import { FORBIDDEN_INPUT_PREFIXES, loadTopicCatalogSource } from "../../src/report/topic-catalog-source.ts";
 import { topicsPath, writeTopicCatalog } from "../../src/report/topics-artifact.ts";
@@ -29,6 +30,11 @@ const FIXTURE = join(HERE, "..", "..", "tests", "fixtures", "topic-catalog-mini"
 const GOLDEN = join(HERE, "..", "golden", "topics-mini.json");
 const READINGS = ["wcp", "cebreo"].map((target) => ({ target, path: join(HERE, "..", "golden", `topic-readings-${target}.json`) }));
 
+/** The fixture's own manifest: the epoch selector every catalog load takes. */
+async function fixtureManifest(runDir: string): Promise<RunManifest> {
+  return readJson<RunManifest>(join(runDir, "run.json"));
+}
+
 async function fixtureCopy(): Promise<string> {
   const runDir = await mkdtemp(join(tmpdir(), "topic-catalog-"));
   await cp(FIXTURE, runDir, { recursive: true });
@@ -37,7 +43,7 @@ async function fixtureCopy(): Promise<string> {
 
 test("the fixture catalog is byte-identical to the checked-in golden, through the artifact writer", async () => {
   const runDir = await fixtureCopy();
-  const catalog = buildTopicCatalog(await loadTopicCatalogSource(runDir));
+  const catalog = buildTopicCatalog(await loadTopicCatalogSource(runDir, await fixtureManifest(runDir)));
   await writeTopicCatalog(runDir, catalog);
   const written = await readFile(topicsPath(runDir), "utf8");
   const golden = await readFile(GOLDEN, "utf8");
@@ -56,7 +62,7 @@ test("a one-byte edit to the fixture moves the catalog off the golden", async ()
   assert.equal(after.length, before.length, "exactly one byte differs");
   assert.notEqual(after, before, "the edit must actually apply");
   await writeFile(path, after);
-  const catalog = buildTopicCatalog(await loadTopicCatalogSource(runDir));
+  const catalog = buildTopicCatalog(await loadTopicCatalogSource(runDir, await fixtureManifest(runDir)));
   const golden = await readFile(GOLDEN, "utf8");
   assert.notEqual(`${stableJson(catalog)}\n`, golden, "an edited fixture byte must not be invisible to the golden");
 });
@@ -70,7 +76,7 @@ test("a fact's detail beyond its name is not part of topic identity, and the gol
   const path = join(runDir, "facts", "producers", "codegraph.json");
   const before = await readFile(path, "utf8");
   await writeFile(path, before.replace('"registrationLine": 12', '"registrationLine": 13'));
-  const catalog = buildTopicCatalog(await loadTopicCatalogSource(runDir));
+  const catalog = buildTopicCatalog(await loadTopicCatalogSource(runDir, await fixtureManifest(runDir)));
   assert.equal(`${stableJson(catalog)}\n`, await readFile(GOLDEN, "utf8"));
 });
 

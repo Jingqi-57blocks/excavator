@@ -96,7 +96,7 @@ export async function unitStatus(runDirInput: string): Promise<UnitStatusView> {
   const runDir = resolve(runDirInput);
   const manifest = await readJson<RunManifest>(join(runDir, "run.json"));
   const knowledgeEpoch = requireKnowledgeEpoch(manifest, "reported");
-  const view = await loadUnitPlanView(runDir);
+  const view = await loadUnitPlanView(runDir, manifest);
   // The same premise draft and collect stand on: a view derived from a plan that projects a superseded epoch
   // would report units as writable when nothing can be written, so it is refused with the reason instead.
   assertPlanEpoch(view, knowledgeEpoch);

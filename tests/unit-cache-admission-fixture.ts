@@ -52,7 +52,7 @@ export async function admissionRun(): Promise<PlannedRun> {
 
 /** Reload the plan view after anything that re-plans the run. */
 export async function reloadPlan(run: PlannedRun): Promise<PlannedRun> {
-  return { ...run, view: await loadUnitPlanView(run.runDir) };
+  return { ...run, view: await loadUnitPlanView(run.runDir, run.manifest) };
 }
 
 /**
@@ -70,7 +70,7 @@ export async function reloadPlan(run: PlannedRun): Promise<PlannedRun> {
  * The missing piece (an explicit re-plan operation) is reported with the slice, not worked around in `src/`.
  */
 export async function recordPlan(run: PlannedRun, label: string, mutate: ProposalMutation): Promise<PlannedRun> {
-  const catalog = buildTopicCatalog(await loadTopicCatalogSource(run.runDir));
+  const catalog = buildTopicCatalog(await loadTopicCatalogSource(run.runDir, run.manifest));
   const requests = await readReportRequests(run.runDir);
   const base = buildFixturePlan(catalog, requests, PLAN_BUDGET_TABLE);
   const units = [...mutate(base.units, catalog)].sort((a, b) => a.unitId.localeCompare(b.unitId));

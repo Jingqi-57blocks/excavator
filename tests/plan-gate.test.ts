@@ -11,7 +11,7 @@ import { assertValidatedPlanForAuthoring, PLAN_ARTIFACT_PATHS } from "../src/rep
 import { planCatalogPath, planDagPath } from "../src/report/plan-artifacts.ts";
 import { reportRequestsPath } from "../src/report/report-requests-artifact.ts";
 import { topicsPath } from "../src/report/topics-artifact.ts";
-import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, tempDir } from "./helpers.ts";
+import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, manifestOf, tempDir } from "./helpers.ts";
 
 // The enforcer. `plan/requests.json` shipped in R1 as a record nobody read; this file is the test that the whole
 // `plan/` family now has a consumer that refuses to proceed without it. Every refusal names the file, and the
@@ -64,11 +64,11 @@ test("each of the four plan files is named individually when it is the one that 
     const bytes = await readFile(path, "utf8");
     await rm(path);
     const relative = path.slice(runDir.length + 1).split("/").join("/");
-    await assert.rejects(() => assertValidatedPlanForAuthoring(runDir), new RegExp(`${relative.replace(".", "\\.")} is missing from`));
+    await assert.rejects(async () => assertValidatedPlanForAuthoring(runDir, await manifestOf(runDir)), new RegExp(`${relative.replace(".", "\\.")} is missing from`));
     await writeFile(path, bytes);
   }
   // Restored, the gate passes again — a missing file is a refusal, never a run that has been written off.
-  const result = await assertValidatedPlanForAuthoring(runDir);
+  const result = await assertValidatedPlanForAuthoring(runDir, await manifestOf(runDir));
   assert.equal(result.report.overall.conclusion, "vacuous",
     "the sample target has no material topic, so the plan's verdict is vacuous — and vacuous opens the gate");
 });
@@ -82,7 +82,7 @@ test("the gate re-validates: a plan that no longer matches its epoch, or a tampe
   // A topics catalog that does not match the epoch it claims to project.
   const topics = JSON.parse(recordedTopics) as Record<string, unknown>;
   await writeFile(topicsPath(runDir), `${stableJson({ ...topics, snapshotId: "another-snapshot" })}\n`);
-  await assert.rejects(() => assertValidatedPlanForAuthoring(runDir),
+  await assert.rejects(async () => assertValidatedPlanForAuthoring(runDir, await manifestOf(runDir)),
     /is not what this run's frozen knowledge derives; the recorded Topic Catalog and the epoch disagree/);
   await writeFile(topicsPath(runDir), recordedTopics);
 
@@ -93,9 +93,9 @@ test("the gate re-validates: a plan that no longer matches its epoch, or a tampe
     units: plan.units.map((unit, index) => index === 0 ? { ...unit, topics: [{ topicId: "feature:0000000000000000", topicDigest: "0".repeat(64), obligationScope: { kind: "all" } }] } : unit)
   };
   await writeFile(planCatalogPath(runDir), `${stableJson(withPhantom)}\n`);
-  await assert.rejects(() => assertValidatedPlanForAuthoring(runDir), /is not a valid plan catalog: .*which is not in this run's topics catalog/);
+  await assert.rejects(async () => assertValidatedPlanForAuthoring(runDir, await manifestOf(runDir)), /is not a valid plan catalog: .*which is not in this run's topics catalog/);
   await writeFile(planCatalogPath(runDir), recordedPlan);
-  assert.equal((await assertValidatedPlanForAuthoring(runDir)).report.overall.conclusion, "vacuous");
+  assert.equal((await assertValidatedPlanForAuthoring(runDir, await manifestOf(runDir))).report.overall.conclusion, "vacuous");
 });
 
 test("the plan stage refuses a run with no recorded request set, and names it", async () => {

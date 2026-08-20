@@ -172,7 +172,7 @@ export async function readUnitGroundingForRun(runDirInput: string): Promise<Unit
   const runDir = resolve(runDirInput);
   const manifest = await readJson<RunManifest>(join(runDir, "run.json"));
   const knowledgeEpoch = requireKnowledgeEpoch(manifest, "audited");
-  const view = await loadUnitPlanView(runDir);
+  const view = await loadUnitPlanView(runDir, manifest);
   assertPlanEpoch(view, knowledgeEpoch);
   return readUnitGrounding(runDir, view);
 }
