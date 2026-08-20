@@ -31,10 +31,14 @@ import { canonicalJson, exists, readJson, sha256, stableJson, writeJson } from "
 import {
   PLAN_REVISION_FIELDS,
   planCatalogDigest,
+  planDagPath,
+  planDagProblems,
   planRevisionProblems,
+  readPlanDag,
   writePlanArtifacts,
   type PlanArtifacts,
   type PlanCatalogArtifact,
+  type PlanDagArtifact,
   type PlanRevisionRef
 } from "./plan-artifacts.ts";
 import type { TopicCatalogArtifact } from "./topic-catalog.ts";
@@ -174,6 +178,30 @@ async function readArchivedPlanCatalog(path: string): Promise<PlanCatalogArtifac
   return raw as PlanCatalogArtifact;
 }
 
+/**
+ * The plan a revise supersedes, read from the run — completing an interrupted revise rather than wedging on it.
+ *
+ * THE ORDINARY CASE is the pair on disk. The other case exists because the pair is two files: a revise interrupted
+ * after the DAG landed leaves the recorded catalog at revision N beside the DAG of revision N+1, which does not
+ * read against it. That state is not a tampered graph and must not be treated as one, and it is told apart
+ * STRUCTURALLY rather than by guessing: revision N's own archive exists only once a revise of N has begun (a run
+ * sitting at revision N archives 0…N-1 and not N), so when it is there, its DAG — write-once, verified equal to
+ * the on-disk one when it was written — is the graph of the revision being superseded. With no such archive, an
+ * unreadable graph is exactly what it looks like and the refusal stands.
+ */
+export async function planToSupersede(runDir: string, planCatalog: PlanCatalogArtifact): Promise<PlanArtifacts> {
+  const onDisk = await readPlanDag(runDir, planCatalog).catch((error: Error) => error);
+  if (!(onDisk instanceof Error)) return { planCatalog, dag: onDisk };
+  const archive = planRevisionArchive(runDir, planCatalog.knowledgeEpoch, planCatalog.planRevision);
+  if (!await exists(archive.dag)) throw onDisk;
+  const archived = await readJson<unknown>(archive.dag).catch(() => null);
+  const problems = archived === null ? ["could not be read as JSON"] : planDagProblems(archived, planCatalog);
+  if (problems.length > 0) {
+    throw new Error(`${planDagPath(runDir)} does not read against the recorded plan revision ${planCatalog.planRevision} (${onDisk.message}), and the graph archived for that revision at ${archive.dag} does not either: ${problems.join("; ")}`);
+  }
+  return { planCatalog, dag: archived as PlanDagArtifact };
+}
+
 /** What one recorded revision produced: where the superseded one went, and the succession as it now reads. */
 export interface RecordedPlanRevision {
   readonly artifacts: PlanArtifacts;
@@ -185,9 +213,10 @@ export interface RecordedPlanRevision {
  * Record one revision: refuse an empty one, archive what it replaces, check the chain, then replace the plan.
  *
  * THE ORDER IS THE POINT. Nothing on the current path is touched until the revision it replaces is on disk in the
- * archive and the whole chain back to revision 0 has been re-computed. A crash between the two leaves the archive
- * holding the plan the current files still hold — re-running the same revise is then a no-op archive followed by
- * the same write.
+ * archive and the whole chain back to revision 0 has been re-computed. Every step is idempotent, so an interrupted
+ * revise is completed by re-running the same one: the archive write is a no-op on identical bytes, the chain walk
+ * is a read, and the pair write accepts both the state it started from and the state it would leave (see
+ * `writePlanArtifacts`, which also refuses a pair that moved under it).
  */
 export async function recordPlanRevision(
   runDir: string,

@@ -109,6 +109,18 @@ test("appending to a run that records no request set at all is refused, not crea
     /is missing, so there is no recorded request set to append to. Re-prepare the run under the current version./);
 });
 
+test("a FEATURE document may not be appended: the door refuses a boundary it cannot check", () => {
+  const recorded = buildReportRequestsArtifact([FIRST]);
+  // The hole this closes was measured: with the append allowed, a mistyped feature key produced a request row with
+  // `scope: feature, scopeIds: ["this-feature-does-not-exist"]`, the plan validated `complete`, and five authoring
+  // units were minted for a feature the run never investigated — `buildFixturePlan` reads neither field, so nothing
+  // downstream catches it. The key prepare records came from the FeatureRequest that drove the investigation.
+  assert.throws(() => appendedRequestSet(recorded, {
+    documentId: plannedDocumentId("feature", "product", "leave-management"),
+    kind: "feature", audience: "product", featureKey: "leave-management", detailLevel: "standard", language: "zh-CN"
+  }), /is a feature document, and this door appends project-scope documents only: a feature request names a knowledge boundary \("leave-management"\) that nothing here can check against what this run investigated/);
+});
+
 test("a document whose kind and audience have no v2 request is refused by the same mapping prepare goes through", () => {
   const recorded = buildReportRequestsArtifact([FIRST]);
   assert.throws(() => appendedRequestSet(recorded, {

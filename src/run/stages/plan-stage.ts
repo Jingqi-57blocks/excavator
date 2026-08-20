@@ -31,13 +31,12 @@ import {
   planCatalogPath,
   planDagPath,
   readPlanCatalog,
-  readPlanDag,
   writePlanArtifacts,
   type PlanArtifacts,
   type PlanCatalogArtifact,
   type PlanRevisionRef
 } from "../../report/plan-artifacts.ts";
-import { nextPlanRevision, recordPlanRevision, type PlanRevisionArchive } from "../../report/plan-revision.ts";
+import { nextPlanRevision, planToSupersede, recordPlanRevision, type PlanRevisionArchive } from "../../report/plan-revision.ts";
 import { parsePlanProposal, type PlanProposal } from "../../report/plan-proposal.ts";
 import { summarisePlanValidation, type PlanValidationReport } from "../../report/plan-validation.ts";
 import { planThroughBudgetRefinement, type PlanUnitDivision } from "../../report/plan-unit-split.ts";
@@ -238,7 +237,7 @@ async function planRevisionFor(
       } catch (error) {
         throw new Error(`--revise cannot supersede the plan this run records: ${(error as Error).message}. A plan that does not read against this run's epoch is re-planned (plain \`plan\`), not revised.`);
       }
-      const superseded = { planCatalog, dag: await readPlanDag(runDir, planCatalog) };
+      const superseded = await planToSupersede(runDir, planCatalog);
       return { revision: nextPlanRevision(planCatalog, recording.reason), superseded };
     }
   }

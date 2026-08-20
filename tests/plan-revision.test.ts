@@ -41,6 +41,7 @@ import {
 import {
   archivePlanRevision,
   nextPlanRevision,
+  planToSupersede,
   planContentDigest,
   planRevisionArchive,
   readPlanRevisionSuccession,
@@ -233,6 +234,52 @@ test("the current plan may not be replaced by a revision whose predecessor was n
   await assert.rejects(async () => writePlanArtifacts(runDir, forged, catalog, {
     kind: "supersede", superseded: artifacts, archivedCatalogPath: archive.catalog, archivedDagPath: archive.dag
   }), /names predecessor "b{64}", but the plan it would replace digests to [0-9a-f]{64}; a succession is checked, never assumed/);
+});
+
+test("a revision derived from a predecessor the run has moved past is refused instead of dropping one", async () => {
+  const { runDir, catalog, artifacts } = await planned();
+  // TWO revisions derived from the SAME recorded plan — what two concurrent `plan --revise` runs produce, since
+  // nothing in src/ locks a run directory. The first one lands; the second must not overwrite it, because the plan
+  // it would replace is no longer on disk and nothing archived it.
+  const first = retitled(artifacts, "the first revision to land");
+  const second: PlanArtifacts = {
+    planCatalog: { ...first.planCatalog, revisionReason: "the second revision, derived from the same predecessor" },
+    dag: first.dag
+  };
+  await recordPlanRevision(runDir, first, catalog, artifacts);
+  await assert.rejects(async () => recordPlanRevision(runDir, second, catalog, artifacts),
+    /no longer holds the plan catalog this revision supersedes \(nor the one it would write\); the recorded plan moved after this revision was derived/);
+  const recorded = await readPlanCatalog(runDir, catalog);
+  assert.equal(recorded.revisionReason, "the first revision to land", "the revision that landed is the one on disk");
+  assert.equal(stableJson(recorded), stableJson(first.planCatalog));
+});
+
+test("a revise interrupted after the graph landed is completed by re-running it, not wedged", async () => {
+  const { runDir, catalog, artifacts } = await planned();
+  const revision1 = retitled(artifacts, "one unit was retitled");
+  // The exact state an interrupted revise leaves: the revision it replaces archived, the NEW graph written, and the
+  // catalog still the old one (the write order is graph first, catalog second, so the anchor moves last).
+  await archivePlanRevision(runDir, artifacts);
+  await writeJson(planDagPath(runDir), revision1.dag);
+  // Every door refuses to read this run, by name, rather than reading a mismatched pair.
+  await assert.rejects(async () => readPlanDag(runDir, artifacts.planCatalog),
+    /planCatalogDigest "[0-9a-f]{64}" is not the digest of this run's plan\/catalog\.json/);
+
+  // Re-running the same revision completes it: the archive write is a no-op, the graph is already the new one, and
+  // the catalog moves last. Nothing had to be repaired by hand and nothing was silently rewritten.
+  const completed = await recordPlanRevision(runDir, revision1, catalog, await planToSupersede(runDir, artifacts.planCatalog));
+  assert.deepEqual(completed.succession, [`revision 1 supersedes revision 0 (${planCatalogDigest(artifacts.planCatalog)})`]);
+  const current = await readPlanCatalog(runDir, catalog);
+  assert.equal(current.planRevision, 1);
+  assert.equal(stableJson(await readPlanDag(runDir, current)), stableJson(revision1.dag));
+});
+
+test("an unreadable graph with no revision in progress stays a named refusal, not a repair", async () => {
+  const { runDir, artifacts } = await planned();
+  // Same broken pair, WITHOUT the archive that says a revise of this revision began. This is a graph somebody
+  // edited, and the reader's refusal is the whole point of re-deriving it — nothing may quietly rewrite it.
+  await writeJson(planDagPath(runDir), { ...artifacts.dag, edges: [{ parentUnitId: "a", childUnitId: "b" }] });
+  await assert.rejects(async () => planToSupersede(runDir, artifacts.planCatalog), /edges is not the edge set its units derive/);
 });
 
 // --- ③ a revision that supersedes nothing ------------------------------------------------------------

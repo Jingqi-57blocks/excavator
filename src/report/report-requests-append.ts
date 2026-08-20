@@ -22,8 +22,16 @@
  * is what the legacy section path authors from; the authoring-DAG path takes its document set from THIS file (see
  * `validatePlan`: "the requests are the document set"). An appended document is therefore plannable and
  * authorable on the unit path, and invisible to the section path — which is where the cutover puts it anyway.
+ *
+ * ONLY A PROJECT-SCOPE DOCUMENT MAY BE APPENDED, and that is a refusal rather than a gap left open. A feature
+ * document's request names a knowledge BOUNDARY — `scope: feature`, `scopeIds: [key]` — and nothing downstream
+ * re-checks that key against the run: `buildFixturePlan` reads neither field, so a mistyped key would mint a whole
+ * document of authoring units for a feature this run never investigated. The key prepare records came from the
+ * `FeatureRequest` that drove the investigation; this door has no such tie and does not pretend to one. Appending a
+ * feature document therefore fails by name, saying what to do instead (re-prepare with the feature requested).
  */
 
+import { assertNever } from "../base/artifact-result.ts";
 import { canonicalJson, exists, stableJson, writeJson } from "../base/util.ts";
 import type { LegacyDocumentRequest } from "./legacy-request-mapping.ts";
 import { REPORT_POLICY_REGISTRY, type ReportPolicyRegistry } from "./report-policy-registry.ts";
@@ -53,6 +61,7 @@ export function appendedRequestSet(
   document: LegacyDocumentRequest,
   registry: ReportPolicyRegistry = REPORT_POLICY_REGISTRY
 ): ReportRequestsArtifact {
+  assertAppendableKind(document);
   if (recorded.requests.some((row) => row.documentId === document.documentId)) {
     throw new Error(`Document ${JSON.stringify(document.documentId)} is already in the recorded request set; a request row is appended once and never edited`);
   }
@@ -61,6 +70,22 @@ export function appendedRequestSet(
     version: recorded.version,
     requests: [...recorded.requests, appended].sort((a, b) => a.documentId.localeCompare(b.documentId))
   };
+}
+
+/**
+ * Exhaustive over the document kinds: a third kind has to say whether this door can verify its boundary.
+ *
+ * The `feature` arm is a refusal for the reason in the header — an unverifiable knowledge boundary — and it is
+ * stated here, in the door itself, rather than only in the CLI, so no API caller has a quieter way in.
+ */
+function assertAppendableKind(document: LegacyDocumentRequest): void {
+  switch (document.kind) {
+    case "overview":
+      return;
+    case "feature":
+      throw new Error(`Document ${JSON.stringify(document.documentId)} is a feature document, and this door appends project-scope documents only: a feature request names a knowledge boundary (${JSON.stringify(document.featureKey)}) that nothing here can check against what this run investigated. Re-prepare the run with that feature requested.`);
+  }
+  return assertNever(document.kind, "appended document kind");
 }
 
 /**

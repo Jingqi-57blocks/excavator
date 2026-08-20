@@ -499,10 +499,16 @@ function proposalSource(args: Record<string, string>): PlanProposalSource {
  * is not. Both halves missing is the default path, which behaves exactly as it always has.
  */
 function planRecording(args: Record<string, string>): PlanRecording {
-  const revise = args.revise === "true";
-  if (!revise && args.reason) throw new Error("--reason applies to --revise; a plain `plan` records the first revision of this epoch and supersedes nothing");
-  if (!revise) return { kind: "record" };
-  if (args.revise !== "true") throw new Error(`excavator plan takes --revise as a bare flag; ${JSON.stringify(args.revise)} is not a value it accepts`);
+  // The VALUE is tested before the flag is read as a boolean. `parseArgs` hands a flag the next non-`--` token, so
+  // `--revise yes` arrives as `revise: "yes"`, and a `=== "true"` test alone would fall through to the recording
+  // path — the revise silently dropped, and the refusal the operator then gets telling them to use `--revise`.
+  if (args.revise !== undefined && args.revise !== "true") {
+    throw new Error(`excavator plan takes --revise as a bare flag; ${JSON.stringify(args.revise)} is not a value it accepts`);
+  }
+  if (args.revise === undefined) {
+    if (args.reason) throw new Error("--reason applies to --revise; a plain `plan` records the first revision of this epoch and supersedes nothing");
+    return { kind: "record" };
+  }
   return { kind: "revise", reason: required(args.reason, "--reason (a plan revision states why the plan it supersedes was replaced)") };
 }
 
@@ -512,24 +518,33 @@ function planRecording(args: Record<string, string>): PlanRecording {
  * The id is not a flag: `plannedDocumentId` is the same function prepare names its documents with, and letting a
  * caller invent one would let a document id that no convention produces into the recorded request set — where the
  * feature key is recovered from the id.
+ *
+ * `--feature-key` is REFUSED rather than ignored. The door appends project-scope documents only (a feature
+ * document's boundary is unverifiable here — see `report-requests-append.ts`), and a flag silently dropped is how
+ * an operator who meant `--kind feature` gets a project-scope document and a duplicate-id refusal two commands later.
  */
 function appendedDocument(args: Record<string, string>): LegacyDocumentRequest {
+  if (args.featureKey !== undefined) {
+    throw new Error("--feature-key names a knowledge boundary this command cannot verify against what the run investigated; only project-scope documents (--kind overview) may be appended. Re-prepare the run with that feature requested.");
+  }
   const kind = documentKind(required(args.kind, "--kind"));
   const audience = singleAudience(required(args.audience, "--audience"));
-  const featureKey = kind === "feature" ? required(args.featureKey, "--feature-key (a feature document's knowledge boundary)") : null;
   return {
-    documentId: plannedDocumentId(kind, audience, featureKey),
+    documentId: plannedDocumentId(kind, audience, null),
     kind,
     audience,
-    featureKey,
+    featureKey: null,
     detailLevel: detailLevel(required(args.detail, "--detail")),
     language: required(args.language, "--language")
   };
 }
 
 function documentKind(value: string): DocumentKind {
-  if (value === "overview" || value === "feature") return value;
-  throw new Error(`--kind ${JSON.stringify(value)} is not one of: overview, feature`);
+  if (value === "overview") return value;
+  if (value === "feature") {
+    throw new Error('--kind "feature" is not appendable: a feature document names a knowledge boundary this command cannot check against what the run investigated, and nothing downstream re-checks it either. Re-prepare the run with that feature requested.');
+  }
+  throw new Error(`--kind ${JSON.stringify(value)} is not one of: overview`);
 }
 
 function singleAudience(value: string): Audience {
@@ -853,17 +868,16 @@ const COMMAND_HELP: Record<string, CommandHelp> = {
     notes: "Writes plan/topics.json, plan/catalog.json and plan/dag.json. A recorded plan is identified by (knowledge epoch, plan revision) and written once: identical bytes are a no-op, different bytes for a revision already recorded are refused. --revise is the explicit way past that — it records revision N+1, naming revision N's digest, and archives revision N under plan/revisions/ before replacing the current files; a proposed revision that says exactly what the recorded plan says is refused as superseding nothing. A proposal that does not validate is refused by name and writes nothing; correct it and run again."
   },
   "request-append": {
-    synopsis: "request-append --run <dir> --kind overview|feature --audience product|engineering|prd --detail standard|detailed --language <tag> [--feature-key <key>]",
+    synopsis: "request-append --run <dir> --kind overview --audience product|engineering --detail standard|detailed --language <tag>",
     flags: [
       "--run <dir>          Run directory whose plan/requests.json is appended to (required)",
-      "--kind <what>        overview or feature (required)",
-      "--audience <who>     One reader: product, engineering or prd (required)",
+      "--kind <what>        overview — the only appendable kind (required)",
+      "--audience <who>     One reader: product or engineering (required)",
       "--detail <level>     standard or detailed (required)",
-      "--language <tag>     Output language of the appended document (required)",
-      "--feature-key <key>  The feature this document is bounded to (required for --kind feature)"
+      "--language <tag>     Output language of the appended document (required)"
     ],
     example: "excavator request-append --run <run> --kind overview --audience engineering --detail standard --language zh-CN",
-    notes: "APPEND ONLY: the recorded rows are copied byte for byte and one row is added, so a duplicate document id and any change to a row already recorded are named refusals. The document id is derived from kind/audience/feature key, the same way prepare derives it. Appending leaves the recorded plan not covering the request set: authoring refuses by name until `plan --revise --reason <why>` records the next revision."
+    notes: "APPEND ONLY: the recorded rows are copied byte for byte and one row is added, so a duplicate document id and any change to a row already recorded are named refusals. The document id is derived from kind and audience, the same way prepare derives it. A FEATURE document may not be appended: its request names a knowledge boundary nothing here can check against what the run investigated — re-prepare the run with that feature requested. Appending leaves the recorded plan not covering the request set: authoring refuses by name until `plan --revise --reason <why>` records the next revision."
   },
   overview: {
     synopsis: "overview --target <dir> [--audience product|engineering|both] [--detail standard|detailed] [--no-codegraph]",

@@ -412,8 +412,20 @@ export type PlanWriteMode =
 /**
  * Write both artifacts, under the law the mode names.
  *
- * The DAG is written second and read back against the catalog in hand, so a half-written pair cannot pass: a graph
- * whose `planCatalogDigest` does not match the catalog beside it is refused by the reader.
+ * THE PAIR IS TWO FILES AND THERE IS NO TWO-FILE ATOMIC WRITE, so the ORDER is chosen for what an interrupted
+ * write leaves behind. The DAG goes first and the catalog second, because the catalog is the anchor: every receipt,
+ * every ledger row and every candidate names `planCatalogDigest`, so as long as the catalog has not moved the run
+ * still reads as the revision it was — with a graph that does not match it, which the reader refuses by name. The
+ * other order would leave a catalog nobody can pair a graph with, and the next revise would then archive a
+ * mismatched pair. Re-running the same revise completes the interrupted one: both writes are idempotent, and the
+ * preconditions below accept the state a completed write leaves as well as the state it started from.
+ *
+ * THE SUPERSEDE ARM CHECKS BOTH SIDES OF THE REPLACEMENT: the revision being replaced is archived (verified at the
+ * archive paths, byte for byte) AND the files about to be overwritten still hold that revision. Without the second
+ * check, two revisions derived from the same predecessor would both write — the archive is immutable, so its check
+ * passes forever — and the first one would vanish with nothing archived, while any row minted against it named a
+ * plan that is nowhere on disk. That is a lost update, not a race nobody can reach: nothing in `src/` locks a run
+ * directory.
  */
 export async function writePlanArtifacts(runDir: string, artifacts: PlanArtifacts, catalog: TopicCatalogArtifact, mode: PlanWriteMode): Promise<PlanArtifacts> {
   switch (mode.kind) {
@@ -425,12 +437,31 @@ export async function writePlanArtifacts(runDir: string, artifacts: PlanArtifact
       assertSupersedes(artifacts.planCatalog, mode.superseded.planCatalog);
       await assertArchived(mode.archivedCatalogPath, mode.superseded.planCatalog, "plan catalog");
       await assertArchived(mode.archivedDagPath, mode.superseded.dag, "authoring DAG");
-      await writeJson(planCatalogPath(runDir), artifacts.planCatalog);
+      await assertReplaceable(planDagPath(runDir), [mode.superseded.dag, artifacts.dag], "authoring DAG");
+      await assertReplaceable(planCatalogPath(runDir), [mode.superseded.planCatalog, artifacts.planCatalog], "plan catalog");
       await writeJson(planDagPath(runDir), artifacts.dag);
+      await writeJson(planCatalogPath(runDir), artifacts.planCatalog);
       return artifacts;
     }
   }
   return assertNever(mode, "plan write mode");
+}
+
+/**
+ * The file about to be replaced must hold either the revision being superseded or the one being written.
+ *
+ * Two accepted values rather than one, and each for its own reason: the SUPERSEDED bytes are the normal case, and
+ * the NEW bytes are what an interrupted or repeated write of this very revision left — re-running it must complete
+ * rather than refuse. Anything else on disk means the run moved under this write, and replacing it would drop a
+ * revision nobody archived.
+ */
+async function assertReplaceable(path: string, accepted: readonly unknown[], what: string): Promise<void> {
+  const recorded = await readJson<unknown>(path).catch(() => null);
+  if (recorded === null) {
+    throw new Error(`${path} could not be read, so this revision cannot know what it would replace; a superseded ${what} is verified on disk before it is overwritten`);
+  }
+  if (accepted.some((value) => stableJson(recorded) === stableJson(value))) return;
+  throw new Error(`${path} no longer holds the ${what} this revision supersedes (nor the one it would write); the recorded plan moved after this revision was derived — re-read the plan and revise again`);
 }
 
 /** The successor must be the next revision of the same epoch and must name its predecessor's digest. Both, always. */
