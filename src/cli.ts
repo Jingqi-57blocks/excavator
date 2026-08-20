@@ -8,6 +8,8 @@ import { draftUnit, type UnitDraftInput } from "./report/unit-draft.ts";
 import { collectUnits } from "./report/unit-collect.ts";
 import { checkpointUnit } from "./report/unit-checkpoint.ts";
 import { resumeUnits, unitStatus } from "./report/unit-status.ts";
+import { renderUnitPacketForRun } from "./report/unit-packet-source.ts";
+import { readUnitGroundingForRun, summariseUnitGroundingReading } from "./report/unit-grounding-reading.ts";
 import { planRun, renderPlannerPacketForRun, DEFAULT_PLANNER_PACKET_BYTE_LIMIT, type PlanProposalSource } from "./run/stages/plan-stage.ts";
 import { PACKET_OVER_BUDGET_MODES, type PacketOverBudgetMode } from "./report/planner-packet.ts";
 import { stableJson } from "./base/util.ts";
@@ -120,8 +122,22 @@ async function main(): Promise<void> {
         break;
       }
       case "plan-packet": {
-        // Read-only. Renders the model-facing planner view; the model itself is called from the skill, never here.
+        // Read-only, both keyings. Without `--unit` it renders the planner view of the whole run; with `--unit <id>`
+        // it renders the bounded view ONE authoring unit is written from — obligation rows carrying their own
+        // evidence and trace ids, and every bound record in full. The model is called from the skill, never here.
         const args = parseArgs(argv);
+        if (unitKeyed(args, "plan-packet")) {
+          const { packet, readPaths } = await renderUnitPacketForRun(required(args.run, "--run"), {
+            unitId: required(args.unit, "--unit"),
+            overBudget: overBudgetMode(required(args.overBudget, "--over-budget")),
+            ...(args.byteLimit ? { byteLimit: Number(args.byteLimit) } : {})
+          });
+          if (args.out) {
+            await writeFile(resolve(args.out), packet.markdown);
+            print({ out: resolve(args.out), unit: packet.unitId, kind: packet.kind, bytes: packet.bytes, byteLimit: packet.byteLimit, obligations: packet.obligationIds.length, evidence: packet.renderedEvidenceIds.length, limitations: packet.limitations, readPaths });
+          } else process.stdout.write(packet.markdown);
+          break;
+        }
         const packet = await renderPlannerPacketForRun(required(args.run, "--run"), {
           overBudget: overBudgetMode(required(args.overBudget, "--over-budget")),
           byteLimit: args.byteLimit ? Number(args.byteLimit) : DEFAULT_PLANNER_PACKET_BYTE_LIMIT
@@ -252,6 +268,13 @@ async function main(): Promise<void> {
       case "assemble": print(await assembleRun(required(parseArgs(argv).run, "--run"))); break;
       case "audit": {
         const args = parseArgs(argv);
+        if (unitScoped(args, "audit")) {
+          // The read-only rerun of the grounding verdict `collect` already applied. Same rules, same denominator.
+          const reading = await readUnitGroundingForRun(required(args.run, "--run"));
+          print({ ...reading, lines: summariseUnitGroundingReading(reading) });
+          if (reading.units.some((row) => row.verdict.conclusion === "violations")) process.exitCode = 1;
+          break;
+        }
         const result = await auditRun(required(args.run, "--run"), args.document ? { documentId: args.document } : {});
         print(result);
         if (result.findings.some((finding) => finding.level === "error")) process.exitCode = 1;
@@ -477,7 +500,7 @@ Commands:
   crossrepo     Resolve frontend HTTP calls to the backend routes that serve them (deterministic, zero model)
   native-graph  Build a symbol+call navigation graph for CodeGraph-unsupported languages (Perl, Zope templates)
   framework  Recover routes/components from framework conventions (Catalyst, …) — for dynamically-dispatched apps
-  plan-packet   Render the deterministic, bounded planner view of one frozen run (read-only, zero model)
+  plan-packet   Render the deterministic, bounded planner view of one frozen run; --unit <id> renders one authoring unit's view instead (read-only, zero model)
   plan          Validate a plan proposal against the frozen epoch and record plan/catalog.json + plan/dag.json
   begin      Start or restart one document authoring timer
   reading    Show which in-boundary decision code no source window covers yet — run it before freeze, where opening one is free
@@ -493,7 +516,7 @@ Commands:
   trace      Record call, data, business, state or cross-repository traces
   resume     List incomplete sections and resume a stopped run; --units lists what is left on the unit path
   assemble   Join completed sections into Markdown reports
-  audit      Validate snapshot, evidence, claims, checklist and report structure; --document <id> scopes to one document
+  audit      Validate snapshot, evidence, claims, checklist and report structure; --document <id> scopes to one document, --units reruns the unit grounding audit
   status     Show progress and timing; --units shows the authoring-unit view of the plan
 
 Examples:
@@ -517,7 +540,9 @@ Examples:
   excavator workitem --run <run> --file workitem-updates.json
   excavator trace --run <run> --file traces.json
   excavator checklist --run <run> --file checklist-updates.json
+  excavator plan-packet --run <run> --unit <unit-id> --over-budget record-limitation --out unit-packet.md
   excavator audit --run <run> --document <id>
+  excavator audit --run <run> --units
   excavator report --request request.json
 
 Secret redaction:
@@ -541,15 +566,16 @@ interface CommandHelp { synopsis: string; flags: string[]; example: string; note
 // are `<command> <subcommand>`; they take priority over the bare command when the subcommand matches.
 const COMMAND_HELP: Record<string, CommandHelp> = {
   "plan-packet": {
-    synopsis: "plan-packet --run <dir> --over-budget refuse|record-limitation [--byte-limit N] [--out <file>]",
+    synopsis: "plan-packet --run <dir> [--unit <id>] --over-budget refuse|record-limitation [--byte-limit N] [--out <file>]",
     flags: [
       "--run <dir>          Frozen run directory (required)",
+      "--unit <id>          Render the view ONE authoring unit is written from (plan/catalog.json unit id) instead of the planner view",
       "--over-budget <how>  refuse (name it at the entry) or record-limitation (keep the whole packet) — required",
-      "--byte-limit <n>     Declared byte bound (default 524288)",
+      "--byte-limit <n>     Declared byte bound (default 524288; with --unit, the plan's perUnitInputBytes for that unit's document)",
       "--out <file>         Write the packet here instead of stdout"
     ],
     example: "excavator plan-packet --run <run> --over-budget refuse --out packet.md",
-    notes: "Read-only and deterministic: it writes nothing into the run and never truncates. Over the bound it either refuses by name or records the overrun as a limitation."
+    notes: "Read-only and deterministic: it writes nothing into the run and never truncates. Over the bound it either refuses by name or records the overrun as a limitation. With --unit every obligation gets its own row with its own evidence and trace ids and every bound record is rendered in full — nothing clipped, capped or truncated — and a synthesis unit is rendered from its collected children's summaries with no topic dossier at all."
   },
   plan: {
     synopsis: "plan --run <dir> (--fixture-plan | --proposal <file>)",
@@ -811,12 +837,14 @@ const COMMAND_HELP: Record<string, CommandHelp> = {
     example: "excavator assemble --run <run>"
   },
   audit: {
-    synopsis: "audit --run <dir> [--document <id>]",
+    synopsis: "audit --run <dir> [--document <id>] [--units]",
     flags: [
       "--run <dir>          Run directory (required)",
-      "--document <id>      Scope the audit to one document (advisory run-wide checks)"
+      "--document <id>      Scope the audit to one document (advisory run-wide checks)",
+      "--units              Rerun the authoring-unit grounding audit (read-only): every material obligation a unit reaches, grounded by that unit's own claims"
     ],
-    example: "excavator audit --run <run> --document <id>"
+    example: "excavator audit --run <run> --document <id>",
+    notes: "With --units it reports the plan's own obligation accounting, one three-state verdict per written unit, the open-origin exemptions by id, and the units nothing has been written for. It writes nothing; collect already applied the same verdict when each unit was recorded."
   },
   resume: {
     synopsis: "resume --run <dir> [--units]",

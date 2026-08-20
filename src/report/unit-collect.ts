@@ -16,6 +16,12 @@
  * otherwise answer first — with a true statement about the plan that hides the fact the operator needs: the draft
  * in hand belongs to knowledge that has been superseded, and re-drawing it is the fix.
  *
+ * IT IS ALSO WHERE GATE 1b LANDS. Before a unit is recorded, its claims are audited against every material
+ * obligation reachable through its topics (`unit-grounding-reading.ts`). A unit that leaves one ungrounded is
+ * refused by name, with the obligation ids, and nothing is written — which is what closes the window 57B-453
+ * measured on the section path, where `audit --document` skipped the grounding loop until the last section landed
+ * and 28% of one section's obligations were mis-grounded the whole time.
+ *
  * FAIL CLOSED, AND NEVER PERMANENTLY. A receipt is a promise that content, claims and summary are on disk and are
  * the bytes it digested. If any of that is untrue the barrier refuses by name and LEAVES THE RECEIPT, so a
  * corrected re-draft is collected on the next run: there is no state a bad draft can put a run into for good.
@@ -38,6 +44,8 @@ import {
 import { compareUnitIds, unitPathKey, unitPaths, unitsDir } from "./unit-paths.ts";
 import { assertPlanEpoch, loadUnitPlanView, planUnit, requireKnowledgeEpoch } from "./unit-plan-view.ts";
 import { parseUnitSummary, type UnitChildSummaryDigest } from "./unit-output.ts";
+import { summariseUnitGrounding } from "./unit-grounding-audit.ts";
+import { auditUnitFromDisk } from "./unit-grounding-reading.ts";
 import { parseUnitReceipt, type UnitDraftReceipt } from "./unit-receipt.ts";
 
 export interface UnitCollectResult {
@@ -122,6 +130,15 @@ export async function collectUnits(runDirInput: string): Promise<UnitCollectResu
       if (referenced !== row.summaryDigest) {
         throw new Error(`Unit ${JSON.stringify(unitId)} was written from summary ${String(referenced)} of child ${JSON.stringify(childUnitId)}, but that child's recorded summary digests to ${row.summaryDigest}; re-draft ${JSON.stringify(unitId)} from the child's current summary`);
       }
+    }
+
+    // GATE 1b, AT THE MOMENT THE UNIT IS COMPLETED. Every material obligation this unit can reach must be grounded
+    // by this unit's own claims. It runs BEFORE the timeline append, so a refused unit leaves no event and no
+    // ledger row, and the receipt stays on disk — the same fail-closed-but-never-permanent contract as every other
+    // refusal here. This is the only thing R4b changes in this barrier.
+    const grounding = await auditUnitFromDisk(runDir, view, unit);
+    if (grounding.verdict.conclusion === "violations") {
+      throw new Error(`Unit ${JSON.stringify(unitId)} cannot be collected: ${summariseUnitGrounding(grounding)}. ${grounding.verdict.problems.join("; ")}. Fix the claims and re-draft this unit; its receipt is left in place.`);
     }
 
     const event = await appendTimeline(runDir, manifest.id, {

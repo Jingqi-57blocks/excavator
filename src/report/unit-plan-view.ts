@@ -24,15 +24,40 @@
  * every caller.
  */
 
-import type { RunManifest } from "../base/types.ts";
+import type { InvestigationWorkItem, RunManifest } from "../base/types.ts";
 import { assertValidatedPlanForAuthoring } from "./plan-gate.ts";
-import { planCatalogDigest, type PlanCatalogUnit } from "./plan-artifacts.ts";
+import { planCatalogDigest, type PlanCatalogArtifact, type PlanCatalogUnit, type PlanDagArtifact } from "./plan-artifacts.ts";
+import { materialObligationTopics, type MaterialObligationTopics } from "./plan-obligation-conservation.ts";
+import type { ReportRequestsArtifact } from "./report-requests-artifact.ts";
+import type { TopicCandidate } from "./topic-candidate.ts";
+import type { TopicCatalogArtifact } from "./topic-catalog.ts";
 import { assertDistinctUnitPathKeys, compareUnitIds, unitPathKey } from "./unit-paths.ts";
 
 export interface UnitPlanView {
   readonly runId: string;
   readonly knowledgeEpoch: number;
   readonly planCatalogDigest: string;
+  /** The recorded plan, as the gate re-validated it. */
+  readonly planCatalog: PlanCatalogArtifact;
+  readonly dag: PlanDagArtifact;
+  readonly requests: ReportRequestsArtifact;
+  /** The topics catalog re-derived from the epoch, and its rows by id. */
+  readonly catalog: TopicCatalogArtifact;
+  readonly topicsById: ReadonlyMap<string, TopicCandidate>;
+  /**
+   * This run's obligation ledger, keyed by the ids the catalog's bindings copied.
+   *
+   * Carried so the grounding audit's `origin` lookup is an EQUALITY LOOKUP IN THIS SAME LEDGER — the bytes the gate
+   * already digest-checked against the sealed epoch — and not a second, unchecked read of `workitems.json` (nor,
+   * ever, an id join across two ledgers: 57B-458 measured 665 of 946 rows silently lost to one).
+   */
+  readonly workItems: ReadonlyMap<string, InvestigationWorkItem>;
+  /** The shared material-obligation index: the same rows gate 1b's plan accounting is computed from. */
+  readonly obligations: readonly MaterialObligationTopics[];
+  /** The evidence ids the epoch sealed. The denominator of "how far does the obligation ledger reach". */
+  readonly frozenEvidenceIds: readonly string[];
+  /** Every run-relative path the catalog projection opened, sorted. A caller republishes it, never re-derives it. */
+  readonly sourceReadPaths: readonly string[];
   /** Every unit of the plan, ascending by unit id. */
   readonly units: readonly PlanCatalogUnit[];
   readonly byId: ReadonlyMap<string, PlanCatalogUnit>;
@@ -50,6 +75,15 @@ export async function loadUnitPlanView(runDir: string): Promise<UnitPlanView> {
     runId: gate.planCatalog.runId,
     knowledgeEpoch: gate.planCatalog.knowledgeEpoch,
     planCatalogDigest: planCatalogDigest(gate.planCatalog),
+    planCatalog: gate.planCatalog,
+    dag: gate.dag,
+    requests: gate.requests,
+    catalog: gate.catalog,
+    topicsById: new Map(gate.catalog.topics.map((topic) => [topic.topicId, topic])),
+    workItems: new Map(gate.source.workItems.map((item) => [item.id, item])),
+    obligations: materialObligationTopics(gate.catalog),
+    frozenEvidenceIds: gate.source.knowledge.evidenceIds ?? [],
+    sourceReadPaths: gate.source.readPaths,
     units,
     byId: new Map(units.map((unit) => [unit.unitId, unit])),
     collectionOrder

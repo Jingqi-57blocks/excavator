@@ -13,6 +13,7 @@
 //   ledger-closeout --run <dir> [--out <file>] [--updates <file>]   transcribe unsettled read obligations to cannot-determine
 //   topic-readings --run <dir> [--out <file>]               Topic Catalog facet/materiality/conservation readings
 //   plan-readings --run <dir> [--out <file>]                planner packet bytes, fixture plan, plan verdicts, gate-1b obligation buckets
+//   unit-packet-readings --run <dir> [--out <file>]         per-unit packet bytes + the 57B-453 closure reading (absent evidence bindings)
 // diff exits 1 on any mustFind missing / forbidden violation / coverage failure; 0 otherwise.
 // boundary exits 1 on any mustFind miss; 0 otherwise (same honest-red contract as diff).
 // --prepare-only runs ONLY the anchor-in-scope containment check (zero model, sub-second).
@@ -47,6 +48,7 @@ import { extractPacketReadings, PACKET_READINGS_MODES, type PacketReadingsMode }
 import { buildLedgerCloseout } from "./ledger-closeout.ts";
 import { extractTopicReadings } from "./topic-readings.ts";
 import { extractPlanReadings } from "./plan-readings.ts";
+import { extractUnitPacketReadings } from "./unit-packet-readings.ts";
 import { stableJson } from "../src/base/util.ts";
 
 interface Flags {
@@ -113,7 +115,8 @@ const USAGE = `eval harness
   packet-readings --run <dir> --mode <authored|frozen-not-authored> [--out <file>]
   ledger-closeout --run <dir> [--out <file>] [--updates <file>]
   topic-readings --run <dir> [--out <file>]
-  plan-readings --run <dir> [--out <file>]`;
+  plan-readings --run <dir> [--out <file>]
+  unit-packet-readings --run <dir> [--out <file>]`;
 
 function renderContainment(containment: Containment): string {
   const lines = [`=== prepare containment (${containment.contained.length}/${containment.contained.length + containment.missing.length} anchors in scope) ===`];
@@ -374,6 +377,14 @@ async function runTopicReadings(flags: Flags): Promise<number> {
  * Always exits 0, and never writes into the run: it builds the plan artifacts in memory, so an archival baseline
  * can be projected without a `plan/` directory appearing inside it.
  */
+async function runUnitPacketReadings(flags: Flags): Promise<number> {
+  const readings = await extractUnitPacketReadings(requireFlag(flags.run, "--run"));
+  const text = stableJson(readings);
+  if (flags.out) writeFileSync(flags.out, `${text}\n`);
+  else process.stdout.write(`${text}\n`);
+  return 0;
+}
+
 async function runPlanReadings(flags: Flags): Promise<number> {
   const readings = await extractPlanReadings(requireFlag(flags.run, "--run"));
   const text = stableJson(readings);
@@ -436,6 +447,7 @@ function main(argv: string[]): number | Promise<number> {
   if (command === "ledger-closeout") return runLedgerCloseout(flags);
   if (command === "topic-readings") return runTopicReadings(flags);
   if (command === "plan-readings") return runPlanReadings(flags);
+  if (command === "unit-packet-readings") return runUnitPacketReadings(flags);
   throw new Error(`unknown command: ${command}`);
 }
 

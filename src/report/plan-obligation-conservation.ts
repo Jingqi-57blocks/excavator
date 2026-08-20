@@ -36,7 +36,7 @@
 
 import { assertNever } from "../base/artifact-result.ts";
 import { unitTopicIds, type ProposedUnit } from "./plan-proposal.ts";
-import type { TopicCandidate } from "./topic-candidate.ts";
+import type { TopicCandidate, TopicObligationBinding } from "./topic-candidate.ts";
 import type { TopicCatalogArtifact } from "./topic-catalog.ts";
 import { TOPIC_DISPOSITION_STATES, type TopicDisposition, type TopicDispositionState } from "./topic-disposition.ts";
 
@@ -79,6 +79,26 @@ export interface WaivedObligation {
   readonly topicIds: readonly string[];
 }
 
+/**
+ * One material obligation, the topics that carry it, and the binding the catalog copied from the ledger.
+ *
+ * THE INDEX IS THE SHARED DERIVATION, and that is the whole reason it is exported. Gate 1b's plan-side reading
+ * (below) and R4b's per-unit grounding audit both need "which topics carry THIS obligation", and two spellings of
+ * that question are two denominators — the exact fork the epic forbids. So the one pass over the catalog's
+ * bindings lives here, and both callers read the same rows.
+ *
+ * `binding` is carried whole rather than reduced to a dimension: the audit needs the obligation's status and its
+ * own evidence/trace ids, and they are already in the row the catalog copied verbatim. Two topics binding one work
+ * item copy the SAME ledger row, so the first-seen binding is not a choice between disagreeing values.
+ */
+export interface MaterialObligationTopics {
+  readonly workItemId: string;
+  readonly dimension: string;
+  /** Ascending; every topic whose bindings include this obligation. */
+  readonly topicIds: readonly string[];
+  readonly binding: TopicObligationBinding;
+}
+
 /** One obligation a plan claims to cover but no unit writes, or that no disposition mentions at all. */
 export interface UnaccountedObligation {
   readonly workItemId: string;
@@ -104,6 +124,33 @@ export interface PlanObligationAccounting {
 }
 
 /**
+ * The one pass over the catalog's bindings: every material obligation, its topics and its binding.
+ *
+ * Ascending by work item id, topics ascending inside each row, so two callers reading it see one order. It joins
+ * NOTHING: an obligation is reached because a binding names it, which is the reference R2 preserved, and 57B-458 is
+ * what the alternative costs (a naive id join across two ledgers silently dropped 665 of 946 rows).
+ */
+export function materialObligationTopics(catalog: TopicCatalogArtifact): readonly MaterialObligationTopics[] {
+  const byObligation = new Map<string, { binding: TopicObligationBinding; topicIds: string[] }>();
+  for (const topic of catalog.topics) {
+    for (const binding of topic.bindings) {
+      if (!binding.material) continue;
+      const entry = byObligation.get(binding.workItemId);
+      if (entry) entry.topicIds.push(topic.topicId);
+      else byObligation.set(binding.workItemId, { binding, topicIds: [topic.topicId] });
+    }
+  }
+  return [...byObligation.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([workItemId, entry]) => ({
+      workItemId,
+      dimension: entry.binding.dimension,
+      topicIds: [...entry.topicIds].sort((a, b) => a.localeCompare(b)),
+      binding: entry.binding
+    }));
+}
+
+/**
  * Account for every material obligation under one plan.
  *
  * `dispositions` is the ALREADY PARSED map; a row that failed to parse is simply absent, which lands its topics'
@@ -119,16 +166,7 @@ export function accountPlanObligations(
   const unitTopics = new Set<string>();
   for (const unit of units) for (const topicId of unitTopicIds(unit)) unitTopics.add(topicId);
 
-  // One pass over the catalog's bindings: which topics carry each material obligation, and its dimension.
-  const topicsByObligation = new Map<string, { dimension: string; topicIds: string[] }>();
-  for (const topic of catalog.topics) {
-    for (const binding of topic.bindings) {
-      if (!binding.material) continue;
-      const entry = topicsByObligation.get(binding.workItemId);
-      if (entry) entry.topicIds.push(topic.topicId);
-      else topicsByObligation.set(binding.workItemId, { dimension: binding.dimension, topicIds: [topic.topicId] });
-    }
-  }
+  const index = materialObligationTopics(catalog);
 
   const inUnits: string[] = [];
   const waivedObligations: WaivedObligation[] = [];
@@ -136,8 +174,7 @@ export function accountPlanObligations(
   const undispositionedObligations: UnaccountedObligation[] = [];
   const unplacedTopicIds = new Set<string>();
 
-  for (const [workItemId, { dimension, topicIds }] of [...topicsByObligation.entries()].sort(([a], [b]) => a.localeCompare(b))) {
-    const sortedTopicIds = [...topicIds].sort((a, b) => a.localeCompare(b));
+  for (const { workItemId, dimension, topicIds: sortedTopicIds } of index) {
     if (sortedTopicIds.some((topicId) => unitTopics.has(topicId))) {
       inUnits.push(workItemId);
       continue;
@@ -164,7 +201,7 @@ export function accountPlanObligations(
   }
 
   const accounting: PlanObligationAccounting = {
-    materialObligations: topicsByObligation.size,
+    materialObligations: index.length,
     inUnits: inUnits.length,
     waived: waivedObligations.length,
     unplaced: unplacedObligations.length,
