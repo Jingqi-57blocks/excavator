@@ -264,6 +264,8 @@ export interface IdentityInputOptions {
   readonly registry?: ReportPolicyRegistry;
   /** For the synthesis arm: the verified child summaries a candidate holds. */
   readonly summaries?: ReadonlyMap<string, UnitSummary>;
+  /** For the terms fixtures: the author this identity stands for. Defaults to the fixture plan's own. */
+  readonly authorship?: UnitAuthorship;
 }
 
 /** The packet input of one unit of one plan state — the same values `renderUnitPacket` is given anywhere else. */
@@ -288,7 +290,7 @@ export function identityInput(fixture: IdentityFixture, state: PlanState, unitId
 
 /** The identity of one unit of one plan state. */
 export function identityOf(fixture: IdentityFixture, state: PlanState, unitId: string, options: IdentityInputOptions = {}): UnitIdentity {
-  return unitIdentityOf(identityInput(fixture, state, unitId, options), FIXTURE_AUTHORSHIP);
+  return unitIdentityOf(identityInput(fixture, state, unitId, options), options.authorship ?? FIXTURE_AUTHORSHIP);
 }
 
 /**
@@ -298,10 +300,15 @@ export function identityOf(fixture: IdentityFixture, state: PlanState, unitId: s
  * summary, and by `children-unavailable` when one does not — which is exactly what a division that renamed a part
  * produces. The arm is chosen from what the candidate side HOLDS, never from what the plan wishes were there.
  */
-export function plannedIdentities(fixture: IdentityFixture, state: PlanState, summaries: ReadonlyMap<string, UnitSummary> = fixture.summaries): readonly PlannedUnitIdentity[] {
+export function plannedIdentities(
+  fixture: IdentityFixture,
+  state: PlanState,
+  summaries: ReadonlyMap<string, UnitSummary> = fixture.summaries,
+  authorship: UnitAuthorship = FIXTURE_AUTHORSHIP
+): readonly PlannedUnitIdentity[] {
   return state.planCatalog.units.map((unit) => {
     if (unit.kind !== "synthesis") {
-      return { derivation: "own-inputs", identity: identityOf(fixture, state, unit.unitId, { summaries }) } as const;
+      return { derivation: "own-inputs", identity: identityOf(fixture, state, unit.unitId, { summaries, authorship }) } as const;
     }
     const missing = [...unit.childUnitIds].filter((childUnitId) => !summaries.has(childUnitId)).sort((a, b) => a.localeCompare(b));
     if (missing.length > 0) {
@@ -316,7 +323,7 @@ export function plannedIdentities(fixture: IdentityFixture, state: PlanState, su
     }
     return {
       derivation: "candidate-children-summaries",
-      identity: identityOf(fixture, state, unit.unitId, { summaries }),
+      identity: identityOf(fixture, state, unit.unitId, { summaries, authorship }),
       childUnitIds: unit.childUnitIds
     } as const;
   });

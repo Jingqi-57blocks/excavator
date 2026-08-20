@@ -13,12 +13,23 @@
  * remembering to update a list. The residual drift direction is over-invalidation, which costs a rewrite; the
  * direction a hand-written list drifts in costs a silent stale reuse.
  *
- * TWO THINGS THE VIEW CANNOT SEE, AND BOTH ARE REQUIRED HERE. The packet says nothing about the shape of the
- * OUTPUT it will be turned into, and nothing about WHO wrote it. A `unit-claims-v1` draft is not admissible under
- * `unit-claims-v2`, and a draft written by one model family is not evidence that another family would write the
- * same thing — so the output contract versions and an `authorship` with no default are part of the digest.
- * Authorship is a closed union: a model family, or a NAMED model-free generator (the fixture plan is the only one
- * today). There is no "unknown" arm, because an unknown author is the one case where reuse must not be considered.
+ * AND THE THREE THINGS THE VIEW CANNOT SEE — a CLOSED list, `UnitIdentityTerms`, every member of which is
+ * per-document or per-build and none of which is plan-global. That last clause is the whole discipline: a
+ * plan-global field in the key would put back exactly the coupling the three normalized lines exist to remove.
+ *
+ *   * `authorship`, with no default. A draft written by one model family is not evidence that another family would
+ *     write the same thing. A closed union: a model family, or a NAMED model-free generator (the fixture plan is
+ *     the only one today). There is no "unknown" arm, because an unknown author is the one case where reuse must
+ *     not be considered at all.
+ *   * `contract` — the claims, summary and receipt schema versions this build records a unit in. A
+ *     `unit-claims-v1` draft is not admissible under `unit-claims-v2`, and the packet says nothing about the shape
+ *     of the output it will be turned into.
+ *   * `request` — THIS document's recorded request row. The packet header prints the audience, intent, language and
+ *     detail budget, but not the request's KNOWLEDGE BOUNDARY (`scope`, `scopeIds`) nor its `policyVersion` and
+ *     `mappingVersion`. A document whose boundary moved from one feature to two renders byte-identical packets
+ *     under a plan that does not divide by scope, so without this the identity would call it unchanged. The row is
+ *     per document: adding another document to the request set does not touch it, which is what keeps the
+ *     second-audience reuse intact.
  *
  * SCOPE AND OWNERSHIP ARE THE COLLAPSE THIS FILE EXISTS TO AVOID. Two parts of one divided topic name the same
  * topic id with the same digest and differ ONLY in `obligationScope`; the epic's own key sketch would give them
@@ -36,6 +47,7 @@
 import { assertNever } from "../base/artifact-result.ts";
 import { canonicalJson, sha256 } from "../base/util.ts";
 import type { AuthoringUnitKind } from "./plan-proposal.ts";
+import type { ReportRequestRecord } from "./report-requests-artifact.ts";
 import { UNIT_CLAIMS_VERSION, UNIT_SUMMARY_VERSION } from "./unit-output.ts";
 import { UNIT_RECEIPT_VERSION } from "./unit-receipt.ts";
 import { composeUnitPacketMarkdown, type UnitPacketInput } from "./unit-packet.ts";
@@ -107,13 +119,23 @@ export interface UnitIdentitySection {
   readonly digest: string;
 }
 
+/**
+ * The part of the key the packet does not render. Closed by construction: three fields, all per-document or
+ * per-build. A member that varied with the whole plan or the whole catalog would belong in the view or nowhere.
+ */
+export interface UnitIdentityTerms {
+  readonly authorship: UnitAuthorship;
+  readonly contract: UnitOutputContract;
+  /** This document's own recorded request row — its boundary, its policies and the mapping that produced it. */
+  readonly request: ReportRequestRecord;
+}
+
 export interface UnitIdentity {
   readonly version: typeof UNIT_CACHE_IDENTITY_VERSION;
   readonly unitId: string;
   readonly documentId: string;
   readonly kind: AuthoringUnitKind;
-  readonly authorship: UnitAuthorship;
-  readonly contract: UnitOutputContract;
+  readonly terms: UnitIdentityTerms;
   /** The identity view's own byte count. Recorded so a reading can say how big the thing being digested was. */
   readonly viewBytes: number;
   /** The view split at its `## ` headings, in the view's own order. */
@@ -135,23 +157,50 @@ export function unitIdentityView(input: UnitPacketInput): string {
  * ownership row and a dossier that does not match the kind before this line runs.
  */
 export function unitIdentityOf(input: UnitPacketInput, authorship: UnitAuthorship): UnitIdentity {
-  if (authorshipValue(authorship).trim() === "") {
-    throw new Error(`The authorship of unit ${JSON.stringify(input.unitId)} is stated as ${JSON.stringify(authorshipValue(authorship))}; a cache identity must name who would have written the draft it stands for, and an empty name is not a name`);
+  const author = authorshipValue(authorship);
+  if (author.trim() === "" || author.trim() !== author) {
+    throw new Error(`The authorship of unit ${JSON.stringify(input.unitId)} is stated as ${JSON.stringify(author)}; a cache identity must name who would have written the draft it stands for, and neither an empty name nor one with surrounding whitespace is a name — two spellings of one author would be two identities, which is a cache miss that reads as a real change`);
   }
   const view = unitIdentityView(input);
   const unit = input.planCatalog.units.find((row) => row.unitId === input.unitId);
   if (!unit) throw new Error(`Unit ${JSON.stringify(input.unitId)} is not in this plan catalog, so it has no identity to compute`);
+  const request = input.requests.requests.find((row) => row.documentId === unit.documentId);
+  if (!request) {
+    throw new Error(`Unit ${JSON.stringify(unit.unitId)} is written into document ${JSON.stringify(unit.documentId)}, for which this run records no request; its identity cannot state the boundary it was written under`);
+  }
+  const terms: UnitIdentityTerms = { authorship, contract: UNIT_OUTPUT_CONTRACT, request };
   return {
     version: UNIT_CACHE_IDENTITY_VERSION,
     unitId: unit.unitId,
     documentId: unit.documentId,
     kind: unit.kind,
-    authorship,
-    contract: UNIT_OUTPUT_CONTRACT,
+    terms,
     viewBytes: Buffer.byteLength(view, "utf8"),
     sections: unitIdentitySections(view),
-    digest: sha256(canonicalJson({ version: UNIT_CACHE_IDENTITY_VERSION, authorship, contract: UNIT_OUTPUT_CONTRACT, view }))
+    digest: sha256(canonicalJson({ version: UNIT_CACHE_IDENTITY_VERSION, terms, view }))
   };
+}
+
+/**
+ * Which TERMS of two identities differ, as the sentences a rebuild reason is made of.
+ *
+ * The companion of `identitySectionDifferences`, and it exists because the digest covers more than the view: an
+ * authorship change, a schema bump or a moved request boundary changes the digest while every section stays
+ * byte-identical. Without this the invalidation plan would find a difference it could not explain and refuse the
+ * whole plan — which is what a switch of model family, or a `unit-claims-v2`, would have done to every unit at once.
+ */
+export function identityTermDifferences(before: UnitIdentity, after: UnitIdentity): readonly string[] {
+  const differences: string[] = [];
+  if (canonicalJson(before.terms.authorship) !== canonicalJson(after.terms.authorship)) {
+    differences.push(`authorship: ${describeAuthorship(before.terms.authorship)} -> ${describeAuthorship(after.terms.authorship)}`);
+  }
+  if (canonicalJson(before.terms.contract) !== canonicalJson(after.terms.contract)) {
+    differences.push(`output contract: ${canonicalJson(before.terms.contract)} -> ${canonicalJson(after.terms.contract)}`);
+  }
+  if (canonicalJson(before.terms.request) !== canonicalJson(after.terms.request)) {
+    differences.push(`recorded request for ${after.documentId}: ${canonicalJson(before.terms.request)} -> ${canonicalJson(after.terms.request)}`);
+  }
+  return differences;
 }
 
 /**

@@ -521,8 +521,11 @@ function overBudgetMode(value: string): PacketOverBudgetMode {
 function authorshipOf(value: string): UnitAuthorship {
   const separator = value.indexOf(":");
   const kind = separator < 0 ? value : value.slice(0, separator);
-  const name = separator < 0 ? "" : value.slice(separator + 1);
-  if (name.trim() !== "") {
+  // Trimmed HERE, at the boundary where a shell quoted the argument: "model-family: opus" and
+  // "model-family:opus" name one author, and letting the space through would produce a different digest — a total
+  // cache miss that reads as a real change. Core refuses an untrimmed name rather than normalizing it silently.
+  const name = separator < 0 ? "" : value.slice(separator + 1).trim();
+  if (name !== "") {
     if (kind === "model-family") return { kind: "model-family", family: name };
     if (kind === "model-free") return { kind: "model-free", generator: name };
   }

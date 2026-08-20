@@ -116,8 +116,10 @@ test("every checked-in unit identity reading is internally consistent", async ()
       for (const entry of outcome.rebuild) {
         assert.ok(REBUILD_CAUSES.includes(entry.cause), `${target}: ${scenario.scenario} - ${entry.cause} is not a rebuild cause`);
         if (entry.cause !== "identity-changed") continue;
-        assert.ok(entry.changedSections.length > 0,
-          `${target}: ${scenario.scenario} - ${entry.unitId} rebuilt for a changed identity with no section naming what moved`);
+        assert.ok(entry.changedSections.length + entry.changedTerms.length > 0,
+          `${target}: ${scenario.scenario} - ${entry.unitId} rebuilt for a changed identity with neither a section nor a term naming what moved`);
+        assert.deepEqual([...entry.changedTerms], [],
+          `${target}: ${scenario.scenario} - ${entry.unitId}: this projection perturbs the CATALOG, so no term it was written under may move`);
       }
       // Every synthesis is unidentifiable here, so no scenario may ever call one reusable.
       for (const unitId of outcome.reusable) {

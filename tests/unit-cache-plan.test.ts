@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { canonicalJson, stableJson } from "../src/base/util.ts";
+import { canonicalJson, sha256, stableJson } from "../src/base/util.ts";
 import { buildFixturePlan } from "../src/report/fixture-plan.ts";
 import { FULL_OBLIGATION_SCOPE } from "../src/report/obligation-scope.ts";
 import { PLAN_BUDGET_TABLE } from "../src/report/plan-budget.ts";
@@ -14,7 +14,7 @@ import {
   type UnitCacheEntry,
   type UnitCachePlan
 } from "../src/report/unit-cache-plan.ts";
-import type { UnitIdentity } from "../src/report/unit-cache-identity.ts";
+import type { UnitAuthorship, UnitIdentity } from "../src/report/unit-cache-identity.ts";
 import {
   BRIDGE_UNIT,
   FEATURE_TOPIC,
@@ -266,6 +266,54 @@ test("dividing a topic across two parts retires the undivided unit and brings th
     partB.unitId,
     `${OVERVIEW_PRODUCT}::leaf::work-item-dimension`
   ].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)));
+});
+
+// --- (5b) the TERMS half of the key: same packet, different terms is a rebuild, never a refusal -------
+
+test("a candidate written by another model family is rebuilt with the authorship named, not refused as unexplained", async () => {
+  const fix = await fixture();
+  const prior: UnitAuthorship = { kind: "model-family", family: "prior-family" };
+  // Same plan, same packets, a different author. Every section of every identity view is byte-identical, so the
+  // ONLY thing that moved is a term — and before the terms were compared this threw for every unit at once,
+  // reporting a section-coverage bug that did not exist. A switch of model family and any bump of
+  // `unit-claims-v1` / `unit-summary-v1` / `unit-receipt-v1` are exactly the cases the digest carries them for.
+  const plan = deriveUnitCachePlan({
+    planned: plannedIdentities(fix, fix.base),
+    candidates: plannedIdentities(fix, fix.base, fix.summaries, prior).flatMap((row) => (row.derivation === "children-unavailable" ? [] : [row.identity])),
+    candidateSource: priorRun(fix)
+  });
+  assertConserves(plan);
+  assert.equal(plan.conservation.reusable, 0, "nothing another family wrote is a verified answer here");
+  assert.equal(plan.conservation.rebuild, 16);
+  const leaf = entryOf(plan, `${OVERVIEW_PRODUCT}::leaf::feature`);
+  if (leaf.status !== "rebuild" || leaf.reason.cause !== "identity-changed") throw new Error(canonicalJson(leaf));
+  assert.deepEqual([...leaf.reason.changedSections], [], "no section moved: the packet is the same packet");
+  assert.deepEqual([...leaf.reason.changedTerms], ["authorship: model family prior-family -> model-free generator fixture-plan"]);
+  assert.match(leaf.reason.statement, /differs from its candidate in 1 term\(s\) it was written under/);
+});
+
+test("a candidate recorded under an older output contract is rebuilt with the contract named", async () => {
+  const fix = await fixture();
+  const unitId = `${OVERVIEW_PRODUCT}::appendix::coverage`;
+  const identity = identityOf(fix, fix.base, unitId);
+  // What R6b will read off disk after a schema bump: a stored identity whose contract is last version's. Its digest
+  // is whatever was stored — that is the point of a stored key — so it is synthetic here on purpose.
+  const stale: UnitIdentity = {
+    ...identity,
+    terms: { ...identity.terms, contract: { ...identity.terms.contract, claimsVersion: "unit-claims-v0" as typeof identity.terms.contract.claimsVersion } },
+    digest: sha256("a candidate recorded under unit-claims-v0")
+  };
+  const plan = deriveUnitCachePlan({
+    planned: [{ derivation: "own-inputs", identity }],
+    candidates: [stale],
+    candidateSource: priorRun(fix)
+  });
+  assertConserves(plan);
+  const entry = entryOf(plan, unitId);
+  if (entry.status !== "rebuild" || entry.reason.cause !== "identity-changed") throw new Error(canonicalJson(entry));
+  assert.equal(entry.reason.changedTerms.length, 1, entry.reason.changedTerms.join(" | "));
+  assert.match(entry.reason.changedTerms[0]!, /^output contract: /);
+  assert.match(entry.reason.changedTerms[0]!, /unit-claims-v0/);
 });
 
 // --- (6) the first run: an empty candidate set is a reading, not an anomaly ----------------------------

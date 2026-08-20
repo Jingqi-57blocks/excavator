@@ -157,6 +157,6 @@ async function dossierFor(
 }
 
 /** The plan files the gate read, as run-relative paths, plus the knowledge-side ledgers it projected. */
-function planReadPaths(view: UnitPlanView): readonly string[] {
+export function planReadPaths(view: UnitPlanView): readonly string[] {
   return ["plan/requests.json", "plan/topics.json", "plan/catalog.json", "plan/dag.json", ...view.sourceReadPaths];
 }

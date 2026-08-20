@@ -16,11 +16,14 @@ import {
   topicDossier,
   unitPacketBytes
 } from "../src/report/unit-packet.ts";
+import { buildReportRequestsArtifact } from "../src/report/report-requests-artifact.ts";
+import { MINI_DOCUMENTS } from "./plan-fixture.ts";
 import {
   UNIT_CACHE_IDENTITY_VERSION,
   UNIT_OUTPUT_CONTRACT,
   describeAuthorship,
   identitySectionDifferences,
+  identityTermDifferences,
   unitIdentityOf,
   unitIdentitySections,
   unitIdentityView
@@ -145,8 +148,12 @@ test("an identity carries the output contract, the authorship and one section pe
   const unitId = `${OVERVIEW_PRODUCT}::leaf::feature`;
   const identity = identityOf(fix, fix.base, unitId);
   assert.equal(identity.version, UNIT_CACHE_IDENTITY_VERSION);
-  assert.deepEqual(identity.contract, UNIT_OUTPUT_CONTRACT, "the claims/summary/receipt schema versions are part of the key");
-  assert.deepEqual(identity.authorship, FIXTURE_AUTHORSHIP);
+  assert.deepEqual(identity.terms.contract, UNIT_OUTPUT_CONTRACT, "the claims/summary/receipt schema versions are part of the key");
+  assert.deepEqual(identity.terms.authorship, FIXTURE_AUTHORSHIP);
+  assert.equal(identity.terms.request.documentId, OVERVIEW_PRODUCT, "and THIS document's recorded request row, which the packet does not print in full");
+  // The terms are a CLOSED list, and every member is per-document or per-build: a plan-global member here would put
+  // back the coupling the three normalized header lines exist to remove.
+  assert.deepEqual(Object.keys(identity.terms).sort(), ["authorship", "contract", "request"]);
   assert.equal(describeAuthorship(FIXTURE_AUTHORSHIP), "model-free generator fixture-plan");
   const view = unitIdentityView(identityInput(fix, fix.base, unitId));
   assert.equal(identity.viewBytes, Buffer.byteLength(view, "utf8"));
@@ -157,7 +164,7 @@ test("an identity carries the output contract, the authorship and one section pe
   assert.deepEqual(identity.sections.map((section) => section.ordinal), identity.sections.map((_, index) => index + 1));
   // Same values, same digest, twice — and the digest is over the view, not over the record.
   assert.equal(identityOf(fix, fix.base, unitId).digest, identity.digest);
-  assert.equal(identity.digest, sha256(canonicalJson({ version: UNIT_CACHE_IDENTITY_VERSION, authorship: FIXTURE_AUTHORSHIP, contract: UNIT_OUTPUT_CONTRACT, view })));
+  assert.equal(identity.digest, sha256(canonicalJson({ version: UNIT_CACHE_IDENTITY_VERSION, terms: identity.terms, view })));
 });
 
 test("an authorship with an empty name is a named refusal, not an anonymous identity", async () => {
@@ -171,6 +178,35 @@ test("an authorship with an empty name is a named refusal, not an anonymous iden
   const free = unitIdentityOf(input, { kind: "model-free", generator: "family-a" });
   assert.notEqual(a.digest, b.digest, "two model families are two authors");
   assert.notEqual(a.digest, free.digest, "and a model-free generator is not a model family with the same name");
+  // Two spellings of one author would be two identities: a cache miss that reads as a real change. Core refuses it
+  // rather than trimming silently — `src/cli.ts` trims at the boundary, where the shell put the space.
+  assert.throws(() => unitIdentityOf(input, { kind: "model-family", family: " family-a" }), /nor one with surrounding whitespace is a name/);
+});
+
+test("a moved request BOUNDARY for the same document is a different identity, even when the packet is byte-identical", async () => {
+  const fix = await fixture();
+  // The same documentId, the same audience, intent, language and detail budget — and a different feature key, so
+  // the request's knowledge boundary (`scope`/`scopeIds`) moved. The fixture plan does not divide by scope, so the
+  // PACKET is byte-identical: the header prints the audience and the intent, never the boundary. Without the
+  // recorded request row in the terms, this reads as reusable.
+  const moved = buildReportRequestsArtifact(MINI_DOCUMENTS.map((document) => document.documentId === "feature-leave-product"
+    ? { ...document, featureKey: "promo-9f8e7d6c5b" }
+    : document));
+  const state = stateOverCatalog(fix.run, "boundary-moved", fix.base.catalog, moved);
+  const unitId = "feature-leave-product::leaf::feature";
+  assert.equal(unitIdentityView(identityInput(fix, state, unitId)), unitIdentityView(identityInput(fix, fix.base, unitId)),
+    "the premise: the rendered packet cannot see the boundary move at all");
+  const before = identityOf(fix, fix.base, unitId);
+  const after = identityOf(fix, state, unitId);
+  assert.notEqual(after.digest, before.digest, "a unit written for one feature is not a verified answer for another");
+  assert.deepEqual(identitySectionDifferences(before, after), [], "and no section moved, which is why the terms have to be compared too");
+  const terms = identityTermDifferences(before, after);
+  assert.equal(terms.length, 1, terms.join(" | "));
+  assert.match(terms[0]!, /^recorded request for feature-leave-product: /);
+  // Every OTHER document is untouched: the row is per document, so this is not the plan-global coupling again.
+  for (const other of unitIds(fix.base).filter((row) => !row.startsWith("feature-leave-product"))) {
+    assert.equal(identityOf(fix, state, other).digest, identityOf(fix, fix.base, other).digest, other);
+  }
 });
 
 // --- (3) IDENTITY COLLAPSE: what a hand-written key list would fold together ----------------------------

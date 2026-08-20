@@ -24,7 +24,7 @@ import { assertNever } from "../base/artifact-result.ts";
 import type { PlanCatalogUnit } from "./plan-artifacts.ts";
 import { collectedUnitsFor, readUnitLedger } from "./unit-ledger.ts";
 import { unitIdentityOf, type UnitAuthorship, type UnitIdentity } from "./unit-cache-identity.ts";
-import { loadUnitPacketSource } from "./unit-packet-source.ts";
+import { loadUnitPacketSource, planReadPaths } from "./unit-packet-source.ts";
 import { compareUnitIds } from "./unit-paths.ts";
 import { loadUnitPlanView } from "./unit-plan-view.ts";
 
@@ -71,7 +71,10 @@ export async function loadRunUnitIdentities(runDir: string, authorship: UnitAuth
   const view = await loadUnitPlanView(runDir);
   const ledger = await readUnitLedger(runDir, view.runId);
   const collected = new Set(collectedUnitsFor(ledger, view.knowledgeEpoch, view.planCatalogDigest).map((row) => row.unitId));
-  const readPaths = new Set<string>(["units/collected.json"]);
+  // Seeded with what the plan view and the ledger opened, so the published contract is complete even when no unit
+  // could be identified: a `readPaths` that only listed what the per-unit loads happened to open would under-report
+  // exactly on the run where nothing was identifiable.
+  const readPaths = new Set<string>(["run.json", "units/collected.json", ...planReadPaths(view)]);
   const rows: RunUnitIdentityRow[] = [];
   for (const unit of [...view.planCatalog.units].sort((a, b) => compareUnitIds(a.unitId, b.unitId))) {
     const missing = [...unit.childUnitIds].filter((childUnitId) => !collected.has(childUnitId)).sort(compareUnitIds);

@@ -102,7 +102,14 @@ export type ScenarioOutcome =
       readonly plannedUnits: number;
       readonly candidateUnits: number;
       readonly reusable: readonly string[];
-      readonly rebuild: readonly { readonly unitId: string; readonly cause: string; readonly changedSections: readonly string[] }[];
+      readonly rebuild: readonly {
+        readonly unitId: string;
+        readonly cause: string;
+        /** The terms that moved (authorship, output contract, this document's request row). Empty in every scenario
+         * here: the projection holds authorship and the build's contract constant, and it perturbs the CATALOG. */
+        readonly changedTerms: readonly string[];
+        readonly changedSections: readonly string[];
+      }[];
       readonly new: readonly string[];
       readonly retired: readonly string[];
       readonly conservation: readonly string[];
@@ -343,6 +350,7 @@ function outcomeOf(plan: UnitCachePlan): ScenarioOutcome {
     rebuild: plan.entries.flatMap((entry) => entry.status !== "rebuild" ? [] : [{
       unitId: entry.unitId,
       cause: entry.reason.cause,
+      changedTerms: entry.reason.cause === "identity-changed" ? entry.reason.changedTerms : [],
       changedSections: entry.reason.cause === "identity-changed" ? entry.reason.changedSections : []
     }]),
     new: entriesOf(plan, "new"),

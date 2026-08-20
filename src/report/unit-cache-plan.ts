@@ -33,7 +33,7 @@
 import { assertNever } from "../base/artifact-result.ts";
 import type { AuthoringUnitKind } from "./plan-proposal.ts";
 import { compareUnitIds } from "./unit-paths.ts";
-import { identitySectionDifferences, type UnitIdentity } from "./unit-cache-identity.ts";
+import { identitySectionDifferences, identityTermDifferences, type UnitIdentity } from "./unit-cache-identity.ts";
 
 export const UNIT_CACHE_PLAN_VERSION = "unit-cache-plan-v1";
 
@@ -81,7 +81,19 @@ export function describeCandidateSource(source: CandidateSource, candidates: num
 
 /** Why a planned unit must be written again. Closed; each arm carries what it names. */
 export type RebuildReason =
-  | { readonly cause: "identity-changed"; readonly changedSections: readonly string[]; readonly statement: string }
+  | {
+      readonly cause: "identity-changed";
+      /**
+       * The TERMS that moved: the authorship, the output contract, or this document's recorded request row.
+       *
+       * Kept apart from the sections because they answer different questions — "the same packet, written under
+       * different terms" and "a different packet". Either list may be empty; both empty is impossible for a
+       * changed digest, and `entryFor` refuses that rather than reporting an unexplained rebuild.
+       */
+      readonly changedTerms: readonly string[];
+      readonly changedSections: readonly string[];
+      readonly statement: string;
+    }
   | { readonly cause: "child-not-reusable"; readonly blockingChildUnitIds: readonly string[]; readonly statement: string }
   | { readonly cause: "children-unavailable"; readonly statement: string };
 
@@ -98,7 +110,11 @@ export type UnitCacheEntry =
       readonly unitId: string;
       readonly documentId: string;
       readonly kind: AuthoringUnitKind;
-      /** Empty when the identity could not be computed at all; the reason says which case this is. */
+      /**
+       * Empty whenever there is no identity worth recording for the plan side: either it could not be computed
+       * (`children-unavailable`) or it was computed from summaries a moved child has made stale
+       * (`child-not-reusable`). The reason says which. A non-empty value means the two digests were compared.
+       */
       readonly identityDigest: string;
       readonly candidateIdentityDigest: string;
       readonly reason: RebuildReason;
@@ -303,14 +319,14 @@ function entryFor(
 ): UnitCacheEntry {
   const { unitId, documentId, kind } = plannedRow(planned);
   const blocking = plannedChildren(planned).filter((childUnitId) => decided.get(childUnitId)!.status !== "reusable").sort(compareUnitIds);
-  const identity = planned.derivation === "children-unavailable" ? null : planned.identity;
   if (!candidate) {
+    const digest = planned.derivation === "children-unavailable" ? "" : planned.identity.digest;
     return {
       status: "new",
       unitId,
       documentId,
       kind,
-      identityDigest: identity?.digest ?? "",
+      identityDigest: digest,
       reason: `no candidate holds unit ${unitId}: ${describeCandidateSource(source, candidateUnits)}`
     };
   }
@@ -329,7 +345,7 @@ function entryFor(
       }
     };
   }
-  if (!identity) {
+  if (planned.derivation === "children-unavailable") {
     return {
       status: "rebuild",
       unitId,
@@ -339,17 +355,26 @@ function entryFor(
       candidateIdentityDigest: candidate.digest,
       reason: {
         cause: "children-unavailable",
-        statement: `unit ${unitId} has no identity to compare: ${planned.derivation === "children-unavailable" ? planned.reason : ""}`
+        statement: `unit ${unitId} has no identity to compare: ${planned.reason}`
       }
     };
   }
+  const identity = planned.identity;
   if (identity.digest === candidate.digest) {
     return { status: "reusable", unitId, documentId, kind, identityDigest: identity.digest };
   }
+  // The digest covers the view AND the terms, so the reason has to be able to name either. An authorship change or
+  // a schema bump moves the digest with every section byte-identical; reporting that as "no section differs" would
+  // have turned a model-family switch — and any `unit-claims-v2` — into a refusal of the whole plan.
+  const changedTerms = identityTermDifferences(candidate, identity);
   const changedSections = identitySectionDifferences(candidate, identity);
-  if (changedSections.length === 0) {
-    throw new Error(`Unit ${JSON.stringify(unitId)} has a different identity digest from its candidate but no section of its identity view differs; the sections do not cover the view, so no rebuild reason could be given`);
+  if (changedTerms.length === 0 && changedSections.length === 0) {
+    throw new Error(`Unit ${JSON.stringify(unitId)} has a different identity digest from its candidate but neither a term nor a section of its identity differs; the record does not cover what the digest covers, so no rebuild reason could be given`);
   }
+  const parts = [
+    ...(changedTerms.length > 0 ? [`${changedTerms.length} term(s) it was written under (${changedTerms.join("; ")})`] : []),
+    ...(changedSections.length > 0 ? [`${changedSections.length} section(s) of its identity view (${changedSections.join("; ")})`] : [])
+  ];
   return {
     status: "rebuild",
     unitId,
@@ -359,8 +384,9 @@ function entryFor(
     candidateIdentityDigest: candidate.digest,
     reason: {
       cause: "identity-changed",
+      changedTerms,
       changedSections,
-      statement: `unit ${unitId} differs from its candidate in ${changedSections.length} section(s) of its identity view: ${changedSections.join("; ")}`
+      statement: `unit ${unitId} differs from its candidate in ${parts.join(" and ")}`
     }
   };
 }
