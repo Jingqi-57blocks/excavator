@@ -28,6 +28,7 @@ import type {
   CollectedUnknownsReading,
   DocumentCoverageOwnership,
   PacketCoverageFacts,
+  ReadCoverageFacts,
   TopicCoverageFacts
 } from "./coverage-companion.ts";
 import type { DocumentObligationOwnership } from "./plan-obligation-conservation.ts";
@@ -41,26 +42,15 @@ export const TOPIC_CATALOG_LEDGER = "plan/topics.json";
 /** The unit ledger the companion path reads and a packet deliberately does not. */
 export const UNIT_LEDGER_RELATIVE_PATH = "units/collected.json";
 
-export interface SealedReadCoverage {
-  readonly ledger: string;
-  /** Every row of the ledger. `summary.total`, cross-checked against the array it summarises. */
-  readonly obligationRows: number;
-  readonly withWindowRows: number;
-  readonly notOpenedRows: number;
-  readonly unreconcilableRows: number;
-  readonly ledgerExcludedRows: number;
-  readonly uncoveredLines: number;
-  readonly closure: ClosureReadReading;
-}
-
 /**
- * Project one loaded catalog source's read-coverage numbers.
+ * The read family, projected from the two coverage ledgers' OWN summaries.
  *
- * The row count is taken from the ARRAY and cross-checked against the ledger's own `summary.total`: a disagreement
- * means the summary and the rows are not about the same set, which would make every statement built on either of
- * them unfalsifiable. It is a named throw rather than a preference for one of the two.
+ * The row count is taken from the ARRAY and cross-checked against the ledger's own `summary.total`, and the
+ * residual's reconciled count plus the ledger's exclusions is cross-checked against the same number: a
+ * disagreement means the summary and the rows are not about the same set, which would make every statement built
+ * on either of them unfalsifiable. Both are named throws rather than a preference for one of the two.
  */
-function projectSealedReadCoverage(source: TopicCatalogSource): SealedReadCoverage {
+function projectSealedReadCoverage(source: TopicCatalogSource): ReadCoverageFacts {
   const obligations = source.obligations;
   const rows = obligations.obligations.length;
   const summary = obligations.summary;

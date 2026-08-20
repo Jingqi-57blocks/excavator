@@ -11,6 +11,7 @@ import {
   type CoverageStateFacts
 } from "../src/report/coverage-companion.ts";
 import { loadCoverageStateFacts } from "../src/report/coverage-companion-source.ts";
+import { PACKET_STATED_UNKNOWNS, TOPIC_CATALOG_LEDGER, UNIT_LEDGER_RELATIVE_PATH, WORK_ITEM_LEDGER } from "../src/report/coverage-projection.ts";
 import { accountPlanObligations } from "../src/report/plan-obligation-conservation.ts";
 import { parsePlanProposal } from "../src/report/plan-proposal.ts";
 import { readUnitGroundingForRun } from "../src/report/unit-grounding-reading.ts";
@@ -204,6 +205,21 @@ test("the packet block renders the epoch-only statements and nothing the plan or
     topics: { ...facts.topics, topics: facts.topics.topics + 7, unknownTopicIds: ["invented:topic"], topicResidual: [] }
   };
   assert.equal(renderCoverageStateBlock(perturbed), block, "a topic edit or a plan division may not move an appendix's cache identity");
+});
+
+test("every statement names one of the declared ledgers, and the packet's absence reason is the pinned constant", async () => {
+  const { facts } = await plannedMiniRun();
+  const named = new Set(coverageStatements(facts).map((row) => row.statement.ledger));
+  // The two ledgers whose names are constants must be the names the statements actually print: a statement and its
+  // source drifting into two spellings is how a reader ends up unable to check either.
+  assert.ok(named.has(WORK_ITEM_LEDGER), [...named].join(" | "));
+  assert.ok(named.has(TOPIC_CATALOG_LEDGER), [...named].join(" | "));
+  assert.ok(named.has(UNIT_LEDGER_RELATIVE_PATH), [...named].join(" | "));
+  // The packet's stated-unknowns absence is a CONSTANT, and the block prints it verbatim: a reworded explanation
+  // would move every appendix's cache identity, which is the one thing the constant exists to prevent.
+  assert.equal(PACKET_STATED_UNKNOWNS.state, "absent");
+  const reason = PACKET_STATED_UNKNOWNS.state === "absent" ? PACKET_STATED_UNKNOWNS.reason : "";
+  assert.ok(renderCoverageStateBlock({ ...facts, statedUnknowns: PACKET_STATED_UNKNOWNS }).includes(reason), reason);
 });
 
 // --- the CLI door ----------------------------------------------------------------------------------------------
