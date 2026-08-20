@@ -32,7 +32,7 @@ import { validatePlan, type PlanValidationReport } from "./plan-validation.ts";
 import { REPORT_POLICY_REGISTRY } from "./report-policy-registry.ts";
 import { readReportRequests, reportRequestsPath, type ReportRequestsArtifact } from "./report-requests-artifact.ts";
 import { buildTopicCatalog, type TopicCatalogArtifact } from "./topic-catalog.ts";
-import { loadTopicCatalogSource } from "./topic-catalog-source.ts";
+import { loadTopicCatalogSource, type TopicCatalogSource } from "./topic-catalog-source.ts";
 import { readTopicCatalog, topicsPath } from "./topics-artifact.ts";
 
 /** The run-relative files a plan is made of, in the order the gate needs them. Named individually when missing. */
@@ -41,6 +41,14 @@ export const PLAN_ARTIFACT_PATHS = ["plan/requests.json", "plan/topics.json", "p
 export interface PlanGateResult {
   readonly requests: ReportRequestsArtifact;
   readonly catalog: TopicCatalogArtifact;
+  /**
+   * The knowledge-side ledgers the catalog was projected from, digest-checked against the sealed epoch.
+   *
+   * Returned rather than dropped so a caller that needs the OBLIGATION LEDGER ITSELF — R4b's grounding audit reads
+   * each obligation's `origin` from it — reads the same bytes this gate already verified, instead of opening
+   * `workitems.json` a second time with no seal check.
+   */
+  readonly source: TopicCatalogSource;
   readonly planCatalog: PlanCatalogArtifact;
   readonly dag: PlanDagArtifact;
   readonly report: PlanValidationReport;
@@ -62,7 +70,8 @@ export async function assertValidatedPlanForAuthoring(runDir: string): Promise<P
   const recordedCatalog = await readTopicCatalog(runDir);
   // Re-derived from the epoch, not read from the file it is compared against: a topics catalog that no longer
   // matches its own knowledge is the one thing reading the file alone could never catch.
-  const catalog = buildTopicCatalog(await loadTopicCatalogSource(runDir));
+  const source = await loadTopicCatalogSource(runDir);
+  const catalog = buildTopicCatalog(source);
   if (stableJson(recordedCatalog) !== stableJson(catalog)) {
     throw new Error(`${topicsPath(runDir)} is not what this run's frozen knowledge derives; the recorded Topic Catalog and the epoch disagree`);
   }
@@ -78,7 +87,7 @@ export async function assertValidatedPlanForAuthoring(runDir: string): Promise<P
   if (report.overall.conclusion === "violations") {
     throw new Error(`The recorded plan in ${runDir} does not validate against its own epoch: ${report.overall.problems.join("; ")}`);
   }
-  return { requests, catalog, planCatalog, dag, report };
+  return { requests, catalog, source, planCatalog, dag, report };
 }
 
 /** Where the recorded request set lives, for a caller that wants to name it without reading it. */

@@ -139,6 +139,53 @@ export function validateUnitClaims(unitId: string, documentId: string, claims: r
   return { version: UNIT_CLAIMS_VERSION, unitId, documentId, claims: [...claims] };
 }
 
+export interface UnitClaimsParse {
+  /** Non-null exactly when `problems` is empty. */
+  readonly claims: UnitClaimsFile | null;
+  readonly problems: readonly string[];
+}
+
+const CLAIMS_FIELDS = ["claims", "documentId", "unitId", "version"] as const;
+
+/**
+ * Parse an untrusted claims sidecar back off disk.
+ *
+ * The WRITE side (`validateUnitClaims`) throws, because a draft handing over a bad claim is a refusal at the entry.
+ * The READ side returns problems as data, because its caller — the grounding audit, running inside the collect
+ * barrier — names the file it read. Per-claim rules come from `assertValidClaim` either way: one spelling of "this
+ * claim is valid", so the reader cannot be weaker than the writer.
+ */
+export function parseUnitClaims(value: unknown): UnitClaimsParse {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return { claims: null, problems: [`is ${Array.isArray(value) ? "an array" : JSON.stringify(value)}, not a claims sidecar object`] };
+  }
+  const row = value as Record<string, unknown>;
+  const problems: string[] = [];
+  const known = new Set<string>(CLAIMS_FIELDS);
+  for (const key of Object.keys(row).sort()) {
+    if (!known.has(key)) problems.push(`has unknown field ${JSON.stringify(key)}`);
+  }
+  for (const key of CLAIMS_FIELDS) {
+    if (!(key in row)) problems.push(`is missing field ${JSON.stringify(key)}`);
+  }
+  if (row.version !== UNIT_CLAIMS_VERSION) problems.push(`version ${JSON.stringify(row.version)} is not ${UNIT_CLAIMS_VERSION}`);
+  for (const key of ["unitId", "documentId"] as const) {
+    if (typeof row[key] !== "string" || (row[key] as string).trim() === "") problems.push(`${key} ${JSON.stringify(row[key])} is not a non-empty string`);
+  }
+  if (!Array.isArray(row.claims)) problems.push(`claims ${JSON.stringify(row.claims)} is not an array`);
+  else {
+    for (const [index, claim] of (row.claims as unknown[]).entries()) {
+      try {
+        assertValidClaim(claim as SectionClaim, `claims[${index}]`);
+      } catch (error) {
+        problems.push((error as Error).message);
+      }
+    }
+  }
+  if (problems.length > 0) return { claims: null, problems };
+  return { claims: row as unknown as UnitClaimsFile, problems: [] };
+}
+
 /** Parse an untrusted summary. Every problem is returned as data; the caller names the source. */
 export function parseUnitSummary(value: unknown): UnitSummaryParse {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
