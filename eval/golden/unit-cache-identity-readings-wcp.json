@@ -13,14 +13,14 @@
   "identified": [
     {
       "documentId": "feature-晋升管理-01e5065d19-engineering",
-      "identityDigest": "367a2647ee025d93a648890a27476520e99836d2104a1fec1cd1812d72ce76a3",
+      "identityDigest": "68703f3bdba4dfa0496fe72b87e0d378854d705f74000237e5cd39fc5c1c61c8",
       "kind": "appendix",
       "normalizedLabels": [
         "topics catalog digest",
         "plan catalog digest",
         "recorded requests digest"
       ],
-      "packetBytes": 188828,
+      "packetBytes": 191931,
       "sectionHeadings": [
         "(packet header)",
         "## What this packet is not",
@@ -30,11 +30,12 @@
         "## Obligations bound to this unit's topics (2 obligation(s), 0 material, 2 written here, 0 carried by another unit of this document)",
         "## Evidence bound to the obligations this unit writes (2 record(s), all rendered in full)",
         "## Facet census of this run's Topic Catalog",
+        "## Coverage state of this run (from the sealed ledgers, not from this document)",
         "## Evidence this run captured that no obligation binds (931 record(s))"
       ],
-      "sections": 9,
+      "sections": 10,
       "unitId": "feature-晋升管理-01e5065d19-engineering::appendix::coverage",
-      "viewBytes": 188729
+      "viewBytes": 191832
     },
     {
       "documentId": "feature-晋升管理-01e5065d19-engineering",
@@ -222,14 +223,14 @@
     },
     {
       "documentId": "feature-请假管理-8c2d685d81-product",
-      "identityDigest": "108fd3ecb4703cd52072f754934c3e95eb8f9bfe3f8a4d554e1372f2c255bd1e",
+      "identityDigest": "00b8f8218d2ddbbdc6ef972cec908b3a5782687e7bad2a252748be6f7190866e",
       "kind": "appendix",
       "normalizedLabels": [
         "topics catalog digest",
         "plan catalog digest",
         "recorded requests digest"
       ],
-      "packetBytes": 188807,
+      "packetBytes": 191910,
       "sectionHeadings": [
         "(packet header)",
         "## What this packet is not",
@@ -239,11 +240,12 @@
         "## Obligations bound to this unit's topics (2 obligation(s), 0 material, 2 written here, 0 carried by another unit of this document)",
         "## Evidence bound to the obligations this unit writes (2 record(s), all rendered in full)",
         "## Facet census of this run's Topic Catalog",
+        "## Coverage state of this run (from the sealed ledgers, not from this document)",
         "## Evidence this run captured that no obligation binds (931 record(s))"
       ],
-      "sections": 9,
+      "sections": 10,
       "unitId": "feature-请假管理-8c2d685d81-product::appendix::coverage",
-      "viewBytes": 188708
+      "viewBytes": 191811
     },
     {
       "documentId": "feature-请假管理-8c2d685d81-product",
@@ -431,14 +433,14 @@
     },
     {
       "documentId": "overview-engineering",
-      "identityDigest": "8f79c11df6a09898ed7b5ebdd5e24b5edefb772ff80f11404687c0400fd709cd",
+      "identityDigest": "d50e9ab3931a0cfa3236571c125234398a75af7778235c0f74fff40844f71d72",
       "kind": "appendix",
       "normalizedLabels": [
         "topics catalog digest",
         "plan catalog digest",
         "recorded requests digest"
       ],
-      "packetBytes": 188646,
+      "packetBytes": 191749,
       "sectionHeadings": [
         "(packet header)",
         "## What this packet is not",
@@ -448,11 +450,12 @@
         "## Obligations bound to this unit's topics (2 obligation(s), 0 material, 2 written here, 0 carried by another unit of this document)",
         "## Evidence bound to the obligations this unit writes (2 record(s), all rendered in full)",
         "## Facet census of this run's Topic Catalog",
+        "## Coverage state of this run (from the sealed ledgers, not from this document)",
         "## Evidence this run captured that no obligation binds (931 record(s))"
       ],
-      "sections": 9,
+      "sections": 10,
       "unitId": "overview-engineering::appendix::coverage",
-      "viewBytes": 188547
+      "viewBytes": 191650
     },
     {
       "documentId": "overview-engineering",
@@ -640,14 +643,14 @@
     },
     {
       "documentId": "overview-product",
-      "identityDigest": "dd6c327ff9c18c554dd791719e08923514f0a3237e819ddda516eb25a3f6aaf5",
+      "identityDigest": "956bf7eb339084c030da802a0dd811029def51f224a9adc5d136eadea0e121b5",
       "kind": "appendix",
       "normalizedLabels": [
         "topics catalog digest",
         "plan catalog digest",
         "recorded requests digest"
       ],
-      "packetBytes": 188625,
+      "packetBytes": 191728,
       "sectionHeadings": [
         "(packet header)",
         "## What this packet is not",
@@ -657,11 +660,12 @@
         "## Obligations bound to this unit's topics (2 obligation(s), 0 material, 2 written here, 0 carried by another unit of this document)",
         "## Evidence bound to the obligations this unit writes (2 record(s), all rendered in full)",
         "## Facet census of this run's Topic Catalog",
+        "## Coverage state of this run (from the sealed ledgers, not from this document)",
         "## Evidence this run captured that no obligation binds (931 record(s))"
       ],
-      "sections": 9,
+      "sections": 10,
       "unitId": "overview-product::appendix::coverage",
-      "viewBytes": 188526
+      "viewBytes": 191629
     },
     {
       "documentId": "overview-product",

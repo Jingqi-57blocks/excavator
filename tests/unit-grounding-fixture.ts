@@ -41,6 +41,7 @@ import type { ReportRequestsArtifact } from "../src/report/report-requests-artif
 import type { TopicCandidate } from "../src/report/topic-candidate.ts";
 import type { TopicCatalogArtifact } from "../src/report/topic-catalog.ts";
 import { renderUnitPacket, type RunEvidenceReach, type UnitDossier, type UnitPacket, type UnitPacketInput } from "../src/report/unit-packet.ts";
+import type { PacketCoverageFacts } from "../src/report/coverage-companion.ts";
 import type { PacketOverBudgetMode } from "../src/report/planner-packet.ts";
 import { loadUnitPlanView, type UnitPlanView } from "../src/report/unit-plan-view.ts";
 import { normalizeSection } from "../src/report/checkpoint.ts";
@@ -67,6 +68,8 @@ export interface MiniPlan {
   readonly workItems: ReadonlyMap<string, InvestigationWorkItem>;
   readonly evidence: ReadonlyMap<string, EvidenceItem>;
   readonly unitsById: ReadonlyMap<string, PlanCatalogUnit>;
+  /** The epoch-only coverage families (R7a) the appendix packet renders. From the fixture run, not invented. */
+  readonly epochCoverage: PacketCoverageFacts;
 }
 
 async function workItemsOf(runDir: string): Promise<Map<string, InvestigationWorkItem>> {
@@ -79,7 +82,7 @@ export async function miniPlan(): Promise<MiniPlan> {
   const run = await miniRun();
   const { runDir, catalog, requests } = run;
   const proposal = buildFixturePlan(catalog, requests, PLAN_BUDGET_TABLE);
-  const report = validatePlan({ catalog, requests, proposal, registry: REPORT_POLICY_REGISTRY, budgetTable: PLAN_BUDGET_TABLE, evidence: run.evidenceById, reach: run.reach });
+  const report = validatePlan({ catalog, requests, proposal, registry: REPORT_POLICY_REGISTRY, budgetTable: PLAN_BUDGET_TABLE, evidence: run.evidenceById, reach: run.reach, epochCoverage: run.epochCoverage });
   const artifacts = buildPlanArtifacts({ catalog, requests, proposal, budgetTable: PLAN_BUDGET_TABLE, verdict: report.overall, revision: FIRST_PLAN_REVISION });
   const evidence = await readEvidenceCatalog(runDir);
   return {
@@ -92,7 +95,8 @@ export async function miniPlan(): Promise<MiniPlan> {
     ownership: report.ownership,
     workItems: await workItemsOf(runDir),
     evidence: new Map(evidence.evidence.map((item) => [item.id, item])),
-    unitsById: new Map(artifacts.planCatalog.units.map((unit) => [unit.unitId, unit]))
+    unitsById: new Map(artifacts.planCatalog.units.map((unit) => [unit.unitId, unit])),
+    epochCoverage: run.epochCoverage
   };
 }
 
@@ -166,6 +170,7 @@ export function packetInput(plan: MiniPlan, unitId: string, options: MiniPacketO
     unitId,
     dossier: options.dossier ?? dossierOf(plan, unit),
     ownership: options.ownership ?? ownershipOf(plan, unit),
+    coverage: plan.epochCoverage,
     reach: options.reach ?? reachOf(plan),
     byteLimit: options.byteLimit ?? 1_048_576,
     overBudget: options.overBudget ?? "refuse"

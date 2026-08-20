@@ -52,6 +52,8 @@ import {
 } from "../src/report/topic-candidate.ts";
 import { buildTopicCatalog, type TopicCatalogArtifact } from "../src/report/topic-catalog.ts";
 import { loadTopicCatalogSource } from "../src/report/topic-catalog-source.ts";
+import { projectEpochCoverage } from "../src/report/coverage-projection.ts";
+import type { PacketCoverageFacts } from "../src/report/coverage-companion.ts";
 import {
   IDENTITY_NORMALIZED_HEADER_LABELS,
   composeUnitPacketMarkdown,
@@ -219,7 +221,8 @@ export function projectState(
   catalog: TopicCatalogArtifact,
   requests: ReportRequestsArtifact,
   evidenceById: ReadonlyMap<string, EvidenceItem>,
-  reach: RunEvidenceReach
+  reach: RunEvidenceReach,
+  epochCoverage: PacketCoverageFacts
 ): StateProjection {
   const planned = planThroughBudgetRefinement({
     catalog,
@@ -228,7 +231,8 @@ export function projectState(
     registry: REPORT_POLICY_REGISTRY,
     budgetTable: PLAN_BUDGET_TABLE,
     evidence: evidenceById,
-    reach
+    reach,
+    epochCoverage
   });
   if (planned.state === "rejected") {
     throw new Error(`the ${label} plan state cannot be recorded: ${planned.problems.join("; ")}`);
@@ -268,6 +272,7 @@ export function projectState(
       unitId: unit.unitId,
       dossier: topicDossier(unit, topicsById, evidenceById),
       ownership: documentOwnership(planned.report.ownership, unit.documentId),
+      coverage: epochCoverage,
       reach,
       byteLimit: unitInputBound(planCatalog, unit),
       // A measurement, not a verdict: the identity is composed with no limitation line either way, and the packet
@@ -408,7 +413,8 @@ export async function extractUnitIdentityReadings(runDir: string): Promise<UnitI
       catalog,
       documents: legacyDocuments(manifest),
       evidenceById: evidence.evidenceById,
-      reach: evidence.reach
+      reach: evidence.reach,
+      epochCoverage: projectEpochCoverage(source)
     }),
     readPaths: [...new Set([...source.readPaths, "run.json", "evidence.json"])].sort((a, b) => a.localeCompare(b))
   };
@@ -420,13 +426,21 @@ export interface UnitIdentityProjectionInput {
   readonly documents: readonly LegacyDocumentRequest[];
   readonly evidenceById: ReadonlyMap<string, EvidenceItem>;
   readonly reach: RunEvidenceReach;
+  /**
+   * The epoch-only coverage families (R7a). Required, because the appendix packet renders them and this projection
+   * digests the packet: an omitted one would produce identities for a packet nobody is handed.
+   *
+   * It is a function of the SEALED EPOCH, so it is the same value in every perturbed plan state below — which is
+   * exactly why the coverage block cannot move an identity that only a topic perturbation should move.
+   */
+  readonly epochCoverage: PacketCoverageFacts;
 }
 
 /** The whole reading, from values. Deterministic: two calls on one input produce one byte sequence. */
 export function projectUnitIdentityReadings(input: UnitIdentityProjectionInput): UnitIdentityProjection {
-  const { catalog, documents, evidenceById, reach } = input;
+  const { catalog, documents, evidenceById, reach, epochCoverage } = input;
   const requests = buildReportRequestsArtifact(documents);
-  const base = projectState("base", catalog, requests, evidenceById, reach);
+  const base = projectState("base", catalog, requests, evidenceById, reach, epochCoverage);
 
   // Held as WHOLE identities: this projection has both plan states in memory, which is the one situation where a
   // candidate's sections can be diffed. A re-planned run on disk holds only the digest its ledger recorded, and the
@@ -468,7 +482,7 @@ export function projectUnitIdentityReadings(input: UnitIdentityProjectionInput):
     outcome: second === null
       ? { state: "not-applicable", reason: "this run's manifest already requests every document the legacy mapping can express for it" }
       : outcomeOf(deriveUnitCachePlan({
-          planned: projectState("second-audience", catalog, buildReportRequestsArtifact([...documents, second]), evidenceById, reach).planned,
+          planned: projectState("second-audience", catalog, buildReportRequestsArtifact([...documents, second]), evidenceById, reach, epochCoverage).planned,
           candidates,
           candidateSource: priorRun
         }))
@@ -484,7 +498,7 @@ export function projectUnitIdentityReadings(input: UnitIdentityProjectionInput):
     scenario: name,
     perturbation: `binding-preserving: the title of topic ${target.topicId} (facet ${target.facet}, ${target.bindings.length} binding(s), owner of an obligation somewhere: ${owners.has(target.topicId) ? "yes" : "no"}) changed; its binding set, its evidence and every other topic are untouched`,
     outcome: outcomeOf(deriveUnitCachePlan({
-      planned: projectState(name, withTopic(catalog, reminted(target, { title: `${target.title} (perturbed by eval)`, bindings: target.bindings })), requests, evidenceById, reach).planned,
+      planned: projectState(name, withTopic(catalog, reminted(target, { title: `${target.title} (perturbed by eval)`, bindings: target.bindings })), requests, evidenceById, reach, epochCoverage).planned,
       candidates,
       candidateSource: priorRun
     }))
@@ -505,7 +519,7 @@ export function projectUnitIdentityReadings(input: UnitIdentityProjectionInput):
       scenario: "binding-dropped-owner-topic",
       perturbation: `binding-set: topic ${owner.topicId} (facet ${owner.facet}, ${owner.bindings.length} binding(s)) stops binding obligation ${dropped}; the obligation itself is untouched and still bound by whatever other topics bind it`,
       outcome: outcomeOf(deriveUnitCachePlan({
-        planned: projectState("binding-dropped-owner-topic", withTopic(catalog, reminted(owner, { title: owner.title, bindings: owner.bindings.filter((binding) => binding.workItemId !== dropped) })), requests, evidenceById, reach).planned,
+        planned: projectState("binding-dropped-owner-topic", withTopic(catalog, reminted(owner, { title: owner.title, bindings: owner.bindings.filter((binding) => binding.workItemId !== dropped) })), requests, evidenceById, reach, epochCoverage).planned,
         candidates,
         candidateSource: priorRun
       }))

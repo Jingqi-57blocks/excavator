@@ -172,7 +172,8 @@ export function planStateOf(
     registry: REPORT_POLICY_REGISTRY,
     budgetTable: PLAN_BUDGET_TABLE,
     evidence: run.evidenceById,
-    reach: run.reach
+    reach: run.reach,
+    epochCoverage: run.epochCoverage
   });
   if (report.overall.conclusion === "violations") {
     throw new Error(`plan state ${JSON.stringify(label)} does not validate: ${report.overall.problems.join("; ")}`);
@@ -283,6 +284,7 @@ export function identityInput(fixture: IdentityFixture, state: PlanState, unitId
     unitId,
     dossier: dossierFor(fixture, state, unit, options.summaries ?? fixture.summaries),
     ownership: documentOwnership(state.ownership, unit.documentId),
+    coverage: fixture.run.epochCoverage,
     reach: fixture.run.reach,
     byteLimit: 4_194_304,
     overBudget: "refuse"

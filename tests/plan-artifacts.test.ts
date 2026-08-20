@@ -37,7 +37,7 @@ async function planned(): Promise<{ runDir: string; catalog: TopicCatalogArtifac
   const { runDir, catalog, requests } = run;
   await writeTopicCatalog(runDir, catalog);
   const proposal = buildFixturePlan(catalog, requests, PLAN_BUDGET_TABLE);
-  const report = validatePlan({ catalog, requests, proposal, registry: REPORT_POLICY_REGISTRY, budgetTable: PLAN_BUDGET_TABLE, evidence: run.evidenceById, reach: run.reach });
+  const report = validatePlan({ catalog, requests, proposal, registry: REPORT_POLICY_REGISTRY, budgetTable: PLAN_BUDGET_TABLE, evidence: run.evidenceById, reach: run.reach, epochCoverage: run.epochCoverage });
   const artifacts = buildPlanArtifacts({ catalog, requests, proposal, budgetTable: PLAN_BUDGET_TABLE, verdict: report.overall, revision: FIRST_PLAN_REVISION });
   await writePlanArtifacts(runDir, artifacts, catalog, { kind: "record" });
   return { runDir, catalog, artifacts };
@@ -255,7 +255,7 @@ test("a plan whose validation found violations cannot be recorded at all", async
   void runDir;
   const proposal = buildFixturePlan(catalog, requests, PLAN_BUDGET_TABLE);
   const broken = { ...proposal, units: proposal.units.filter((unit) => unit.documentId !== "overview-product") };
-  const report = validatePlan({ catalog, requests, proposal: broken, registry: REPORT_POLICY_REGISTRY, budgetTable: PLAN_BUDGET_TABLE, evidence: run.evidenceById, reach: run.reach });
+  const report = validatePlan({ catalog, requests, proposal: broken, registry: REPORT_POLICY_REGISTRY, budgetTable: PLAN_BUDGET_TABLE, evidence: run.evidenceById, reach: run.reach, epochCoverage: run.epochCoverage });
   assert.throws(
     () => buildPlanArtifacts({ catalog, requests, proposal: broken, budgetTable: PLAN_BUDGET_TABLE, verdict: report.overall, revision: FIRST_PLAN_REVISION }),
     /The plan cannot be recorded: validation found 1 problem\(s\)/

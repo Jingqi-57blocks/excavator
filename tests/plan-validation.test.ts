@@ -54,7 +54,8 @@ function validate(
     registry: REPORT_POLICY_REGISTRY,
     budgetTable,
     evidence: mini.evidenceById,
-    reach: mini.reach
+    reach: mini.reach,
+    epochCoverage: mini.epochCoverage
   });
 }
 

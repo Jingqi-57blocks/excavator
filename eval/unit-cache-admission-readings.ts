@@ -26,6 +26,7 @@ import { loadRunEvidenceReach } from "../src/report/run-evidence-reach.ts";
 import { buildReportRequestsArtifact } from "../src/report/report-requests-artifact.ts";
 import { buildTopicCatalog } from "../src/report/topic-catalog.ts";
 import { loadTopicCatalogSource } from "../src/report/topic-catalog-source.ts";
+import { projectEpochCoverage } from "../src/report/coverage-projection.ts";
 import { describeAuthorship, type UnitAuthorship } from "../src/report/unit-provenance.ts";
 import {
   deriveUnitCachePlan,
@@ -179,7 +180,8 @@ export async function extractUnitAdmissionReadings(runDir: string): Promise<Unit
   const documents = legacyDocuments(manifest);
   const requests = buildReportRequestsArtifact(documents);
   const evidence = await loadRunEvidenceReach(runDir, source);
-  const base = projectState("base", catalog, requests, evidence.evidenceById, evidence.reach);
+  const epochCoverage = projectEpochCoverage(source);
+  const base = projectState("base", catalog, requests, evidence.evidenceById, evidence.reach, epochCoverage);
   const candidates = base.planned.map((identity) => ({ identity }));
   const priorRun: CandidateSource = {
     origin: "prior-verified-units",
@@ -205,7 +207,7 @@ export async function extractUnitAdmissionReadings(runDir: string): Promise<Unit
       ? { state: "not-applicable", reason: "this run's manifest already requests every document the legacy mapping can express for it" }
       : outcomeOf(
           "second-audience-document",
-          projectState("second-audience", catalog, buildReportRequestsArtifact([...documents, second]), evidence.evidenceById, evidence.reach).planned,
+          projectState("second-audience", catalog, buildReportRequestsArtifact([...documents, second]), evidence.evidenceById, evidence.reach, epochCoverage).planned,
           candidates,
           priorRun
         )
@@ -228,7 +230,8 @@ export async function extractUnitAdmissionReadings(runDir: string): Promise<Unit
             withTopic(catalog, reminted(smallest, { title: `${smallest.title} (perturbed by eval)`, bindings: smallest.bindings })),
             requests,
             evidence.evidenceById,
-            evidence.reach
+            evidence.reach,
+            epochCoverage
           ).planned,
           candidates,
           priorRun

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { COVERAGE_STATEMENT_PREFIXES } from "../src/investigation/coverage-statement.ts";
 import { readingExposure, renderReadingBoundary, renderReadingCheck, type ReadingExposureInput } from "../src/investigation/read-residual-exposure.ts";
 import { anchorHitFor } from "../src/obligation/relevance-annotation.ts";
 import type { ReadCoverageItem } from "../src/investigation/read-coverage.ts";
@@ -230,10 +231,54 @@ test("the console frames an investment, never a quota", () => {
   assert.match(report, /nothing counts how many entries you clear/);
 });
 
-// The opposite rule to the packet's: a direct question answered with silence reads as a malfunction.
-test("an empty console result is printed out loud", () => {
-  const report = renderReadingCheck(readingExposure({ obligations: [], items: [], annotated: true }), { frozen: false });
-  assert.match(report, /No feature-associated read residual/);
+// The opposite rule to the packet's: a direct question answered with silence reads as a malfunction. So an
+// empty result is printed — but 57B-449 is which empty result. An empty DENOMINATOR and an empty RESIDUAL are
+// two facts, and the old code printed the second sentence for both.
+test("an empty console result is printed out loud, and an empty denominator is not the covered one", () => {
+  const empty = renderReadingCheck(readingExposure({ obligations: [], items: [], annotated: true }), { frozen: false });
+  // THE 449 REGRESSION GUARD. Measured on the cebreo baseline: 2,142 counted files, `obligations: []`, 22 usable
+  // windows, and the sentence below asserting every obligation had a window. Restoring either wording reddens.
+  assert.ok(!empty.includes(COVERAGE_STATEMENT_PREFIXES.complete), `an empty denominator must not read as covered:\n${empty}`);
+  assert.doesNotMatch(empty, /No feature-associated read residual/, "the true-over-the-empty-set sentence needs a denominator to be about");
+  assert.ok(empty.includes(`${COVERAGE_STATEMENT_PREFIXES.vacuous}ledger-empty)`), empty);
+  assert.match(empty, /requested no feature has none by construction/, "and it says what produces an empty denominator");
+
+  // The positive half, which is what stops this from being a test that only ever passes: with a real denominator
+  // and every row covered by a window, the covered wording IS printed, along with the strong-partition sentence.
+  const golden = fromGolden();
+  const allCovered = readingExposure({
+    ...golden,
+    items: golden.items.map((row) => ({ ...row, status: "covered" as const, uncovered: [], uncoveredLines: 0, openedLines: row.endLine! - row.startLine + 1 }))
+  });
+  const covered = renderReadingCheck(allCovered, { frozen: false });
+  assert.ok(covered.includes(COVERAGE_STATEMENT_PREFIXES.complete), covered);
+  assert.match(covered, /No feature-associated read residual/);
+  assert.ok(!covered.includes("vacuous ("), "a present, non-empty ledger is never vacuous");
+
+  // AND THE MIS-FOLD GUARD (found by review, verified red before the fix): "covered" is the WINDOWED bucket, never
+  // `rows - notOpened`. A ledger-excluded row and an unreconcilable row are neither read nor unread, and folding
+  // either into the covered count is how 27 of wcp's 946 rows would print as covered.
+  const mixed = readingExposure({
+    obligations: [
+      { ...golden.obligations[0]!, id: "covered-1" },
+      { ...golden.obligations[1]!, id: "excluded-1", excluded: "declaration-only" },
+      { ...golden.obligations[2]!, id: "nospan-1", endLine: undefined }
+    ],
+    items: [
+      { ...golden.items[0]!, id: "covered-1", status: "covered", uncovered: [], uncoveredLines: 0 },
+      { ...golden.items[2]!, id: "nospan-1", status: "cannot-determine", uncovered: [], uncoveredLines: 0 }
+    ],
+    annotated: true
+  });
+  assert.deepEqual(
+    { ...mixed.denominator },
+    { rows: 3, withWindowRows: 1, notOpened: 0, unreconcilableRows: 1, ledgerExcludedRows: 1 },
+    "the four buckets partition the ledger's rows; `rows - notOpened` would have called all three covered"
+  );
+  const mixedReport = renderReadingCheck(mixed, { frozen: true });
+  assert.ok(!mixedReport.includes(COVERAGE_STATEMENT_PREFIXES.complete), mixedReport);
+  assert.ok(mixedReport.includes("declaration-only or contained in another obligation"), mixedReport);
+  assert.ok(mixedReport.includes("no end line"), mixedReport);
 });
 
 test("the console keeps every span but lists the unplaceable partition per file only", () => {

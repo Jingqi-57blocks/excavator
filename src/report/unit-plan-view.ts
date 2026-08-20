@@ -25,6 +25,8 @@
  */
 
 import type { InvestigationWorkItem, RunManifest } from "../base/types.ts";
+import type { PacketCoverageFacts } from "./coverage-companion.ts";
+import { projectEpochCoverage } from "./coverage-projection.ts";
 import { assertValidatedPlanForAuthoring } from "./plan-gate.ts";
 import { planCatalogDigest, type PlanCatalogArtifact, type PlanCatalogUnit, type PlanDagArtifact } from "./plan-artifacts.ts";
 import {
@@ -70,6 +72,16 @@ export interface UnitPlanView {
   readonly ownership: ObligationOwnershipIndex;
   /** The evidence ids the epoch sealed. The denominator of "how far does the obligation ledger reach". */
   readonly frozenEvidenceIds: readonly string[];
+  /**
+   * The epoch-only coverage families the projected epoch sealed (R7a): read coverage, the closure, and the
+   * obligation ledger's determination census.
+   *
+   * Carried here for the same reason `ownership` is: the coverage companion and the appendix packet's coverage
+   * block must read ONE projection of them, and the only other way to reach the gate's loaded ledgers from the
+   * packet loader would be to run the plan gate a second time. It is a field selection over bytes the gate has
+   * already digest-checked against the sealed epoch, never a re-derivation.
+   */
+  readonly epochCoverage: PacketCoverageFacts;
   /** Every run-relative path the catalog projection opened, sorted. A caller republishes it, never re-derives it. */
   readonly sourceReadPaths: readonly string[];
   /** Every unit of the plan, ascending by unit id. */
@@ -98,6 +110,7 @@ export async function loadUnitPlanView(runDir: string, manifest: RunManifest): P
     obligations: materialObligationTopics(gate.catalog),
     ownership: deriveObligationOwnership(gate.catalog, ownershipUnitsOfPlanCatalog(units)),
     frozenEvidenceIds: gate.source.knowledge.evidenceIds ?? [],
+    epochCoverage: projectEpochCoverage(gate.source),
     sourceReadPaths: gate.source.readPaths,
     units,
     byId: new Map(units.map((unit) => [unit.unitId, unit])),

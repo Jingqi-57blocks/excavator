@@ -13,14 +13,14 @@
   "identified": [
     {
       "documentId": "feature-leave-product",
-      "identityDigest": "e188fd10b600605660cacd90e316a15f046185e4c9af55f235157cb3041e1e60",
+      "identityDigest": "4f1f894076b7592d16f436b947156b1b8ac6aa707e7b21939c7d54fe046a910a",
       "kind": "appendix",
       "normalizedLabels": [
         "topics catalog digest",
         "plan catalog digest",
         "recorded requests digest"
       ],
-      "packetBytes": 14863,
+      "packetBytes": 17879,
       "sectionHeadings": [
         "(packet header)",
         "## What this packet is not",
@@ -30,11 +30,12 @@
         "## Obligations bound to this unit's topics (1 obligation(s), 0 material, 1 written here, 0 carried by another unit of this document)",
         "## Evidence bound to the obligations this unit writes (0 record(s), all rendered in full)",
         "## Facet census of this run's Topic Catalog",
+        "## Coverage state of this run (from the sealed ledgers, not from this document)",
         "## Evidence this run captured that no obligation binds (0 record(s))"
       ],
-      "sections": 9,
+      "sections": 10,
       "unitId": "feature-leave-product::appendix::coverage",
-      "viewBytes": 14764
+      "viewBytes": 17780
     },
     {
       "documentId": "feature-leave-product",
@@ -107,14 +108,14 @@
     },
     {
       "documentId": "overview-engineering",
-      "identityDigest": "249519b184a3a50cd3fcbf63b941ff5d1e7473b6a65c813730d13eb439f43614",
+      "identityDigest": "2712b7a2956fbd265494295ede84105e4b837b78c277fc958821f22a56824ad2",
       "kind": "appendix",
       "normalizedLabels": [
         "topics catalog digest",
         "plan catalog digest",
         "recorded requests digest"
       ],
-      "packetBytes": 14828,
+      "packetBytes": 17844,
       "sectionHeadings": [
         "(packet header)",
         "## What this packet is not",
@@ -124,11 +125,12 @@
         "## Obligations bound to this unit's topics (1 obligation(s), 0 material, 1 written here, 0 carried by another unit of this document)",
         "## Evidence bound to the obligations this unit writes (0 record(s), all rendered in full)",
         "## Facet census of this run's Topic Catalog",
+        "## Coverage state of this run (from the sealed ledgers, not from this document)",
         "## Evidence this run captured that no obligation binds (0 record(s))"
       ],
-      "sections": 9,
+      "sections": 10,
       "unitId": "overview-engineering::appendix::coverage",
-      "viewBytes": 14729
+      "viewBytes": 17745
     },
     {
       "documentId": "overview-engineering",
@@ -201,14 +203,14 @@
     },
     {
       "documentId": "overview-product",
-      "identityDigest": "2554f0d28fae3830022045bbf091c234bec59e6b33c92f474f18e08170ecbfe8",
+      "identityDigest": "a7aaf108b6fbb6571832be6011387bf41a796d68da1cb5428f58790259316216",
       "kind": "appendix",
       "normalizedLabels": [
         "topics catalog digest",
         "plan catalog digest",
         "recorded requests digest"
       ],
-      "packetBytes": 14807,
+      "packetBytes": 17823,
       "sectionHeadings": [
         "(packet header)",
         "## What this packet is not",
@@ -218,11 +220,12 @@
         "## Obligations bound to this unit's topics (1 obligation(s), 0 material, 1 written here, 0 carried by another unit of this document)",
         "## Evidence bound to the obligations this unit writes (0 record(s), all rendered in full)",
         "## Facet census of this run's Topic Catalog",
+        "## Coverage state of this run (from the sealed ledgers, not from this document)",
         "## Evidence this run captured that no obligation binds (0 record(s))"
       ],
-      "sections": 9,
+      "sections": 10,
       "unitId": "overview-product::appendix::coverage",
-      "viewBytes": 14708
+      "viewBytes": 17724
     },
     {
       "documentId": "overview-product",

@@ -66,7 +66,8 @@ function validate(catalog: TopicCatalogArtifact, requests: ReportRequestsArtifac
     registry: REPORT_POLICY_REGISTRY,
     budgetTable: PLAN_BUDGET_TABLE,
     evidence: mini.evidenceById,
-    reach: mini.reach
+    reach: mini.reach,
+    epochCoverage: mini.epochCoverage
   });
 }
 

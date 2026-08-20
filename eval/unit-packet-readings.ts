@@ -46,6 +46,7 @@ import { loadRunEvidenceReach } from "../src/report/run-evidence-reach.ts";
 import { REPORT_POLICY_REGISTRY } from "../src/report/report-policy-registry.ts";
 import { buildReportRequestsArtifact, type ReportRequestsArtifact } from "../src/report/report-requests-artifact.ts";
 import { buildTopicCatalog } from "../src/report/topic-catalog.ts";
+import { projectEpochCoverage } from "../src/report/coverage-projection.ts";
 import { loadTopicCatalogSource } from "../src/report/topic-catalog-source.ts";
 import { auditUnitGrounding } from "../src/report/unit-grounding-audit.ts";
 import { renderUnitPacket, topicDossier, unitInputBound, unitPacketBytes, unitPacketDigest, type UnitPacket } from "../src/report/unit-packet.ts";
@@ -192,6 +193,9 @@ export async function extractUnitPacketReadings(runDir: string): Promise<UnitPac
   const requests = requestsFor(manifest);
   const evidence = await loadRunEvidenceReach(runDir, source);
   const evidenceById = evidence.evidenceById;
+  // Projected once: the appendix packet renders it, so the plan-time measure and the packets below must be given
+  // the same value or the R5b same-source tripwire is comparing two different compositions.
+  const epochCoverage = projectEpochCoverage(source);
   // The same door the plan stage uses: validate, divide whatever is over budget, validate the divided plan. The
   // packets below are therefore rendered from the plan an operator would actually get.
   const planned = planThroughBudgetRefinement({
@@ -201,7 +205,8 @@ export async function extractUnitPacketReadings(runDir: string): Promise<UnitPac
     registry: REPORT_POLICY_REGISTRY,
     budgetTable: PLAN_BUDGET_TABLE,
     evidence: evidenceById,
-    reach: evidence.reach
+    reach: evidence.reach,
+    epochCoverage
   });
   if (planned.state === "rejected") {
     throw new Error(`the fixture plan for ${runDir} cannot be recorded: ${planned.problems.join("; ")}`);
@@ -259,6 +264,7 @@ export async function extractUnitPacketReadings(runDir: string): Promise<UnitPac
       unitId: unit.unitId,
       dossier,
       ownership,
+      coverage: epochCoverage,
       reach,
       byteLimit: unitInputBound(planCatalog, unit),
       // Recorded, not refused: a baseline reading that threw would report nothing at all, and what this projection
