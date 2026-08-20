@@ -36,7 +36,6 @@
 import { readFile, rm } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import type { RunManifest } from "../base/types.ts";
-import { assertNever } from "../base/artifact-result.ts";
 import { appendTimeline } from "../base/timeline.ts";
 import { canonicalJson, exists, listDirectories, nowIso, readJson, sha256, writeJson } from "../base/util.ts";
 import { assertCurrentKnowledgeEpochForAuthoring } from "../freeze/freeze.ts";
@@ -54,6 +53,7 @@ import { parseUnitSummary, type UnitChildSummaryDigest } from "./unit-output.ts"
 import { summariseUnitGrounding } from "./unit-grounding-audit.ts";
 import { auditUnitFromDisk } from "./unit-grounding-reading.ts";
 import { auditSynthesisBacklinkFromDisk, requiresChildClaimBacklink, summariseSynthesisBacklink } from "./synthesis-claim-backlink.ts";
+import { describePromisedArtifactProblem, promisedArtifactProblems, type PromiseSubject } from "./unit-artifact-promise.ts";
 import { parseUnitReceipt, type UnitDraftReceipt } from "./unit-receipt.ts";
 
 export interface UnitCollectResult {
@@ -250,72 +250,6 @@ async function assertPromisedArtifacts(receipt: UnitDraftReceipt, paths: { conte
   if (problems.length === 0) return;
   const subject: PromiseSubject = { unitId: receipt.unitId, record: "Unit draft receipt", possessive: "its receipt" };
   throw new Error(problems.map((problem) => describePromisedArtifactProblem(subject, problem)).join("; "));
-}
-
-/** Which of the three artifacts a promise covers. */
-export type PromisedArtifact = "content" | "claims" | "summary";
-
-/**
- * ONE artifact that is not what a record promised. Structured rather than a sentence, because two callers name the
- * record differently — a draft receipt here, a ledger row in the admission — and only the WORDS differ.
- */
-export type PromisedArtifactProblem =
-  | { readonly what: PromisedArtifact; readonly state: "absent"; readonly path: string }
-  | { readonly what: PromisedArtifact; readonly state: "unreadable"; readonly path: string; readonly reason: string }
-  | { readonly what: PromisedArtifact; readonly state: "mismatch"; readonly digest: string; readonly promised: string };
-
-/** How a caller names the record that made the promise, for the sentences below. */
-export interface PromiseSubject {
-  readonly unitId: string;
-  /** The record, as a noun phrase: "Unit draft receipt", "The ledger row". */
-  readonly record: string;
-  /** The same record possessively: "its receipt", "its ledger row". */
-  readonly possessive: string;
-}
-
-/**
- * THE ONE CHECK of "are the three artifacts on disk still the bytes a record promised".
- *
- * It answers for a RECEIPT here and for a LEDGER ROW in `unit-cache-admission-run.ts`, which needs exactly these
- * three comparisons and must DOWNGRADE a drifted candidate rather than abort a pass. Two spellings of this would be
- * two definitions of "still the verified bytes", and a cache would end up built on the looser one.
- */
-export async function promisedArtifactProblems(
-  paths: { readonly content: string; readonly claims: string; readonly summary: string },
-  promised: { readonly contentDigest: string; readonly claimsDigest: string; readonly summaryDigest: string }
-): Promise<readonly PromisedArtifactProblem[]> {
-  const problems: PromisedArtifactProblem[] = [];
-  for (const [path, what] of [[paths.content, "content"], [paths.claims, "claims"], [paths.summary, "summary"]] as const) {
-    if (!await exists(path)) problems.push({ what, state: "absent", path });
-  }
-  if (problems.length > 0) return problems;
-  const content = sha256(await readFile(paths.content, "utf8"));
-  if (content !== promised.contentDigest) problems.push({ what: "content", state: "mismatch", digest: content, promised: promised.contentDigest });
-  for (const [path, recorded, what] of [[paths.claims, promised.claimsDigest, "claims"], [paths.summary, promised.summaryDigest, "summary"]] as const) {
-    let parsed: unknown;
-    try {
-      parsed = await readJson<unknown>(path);
-    } catch (error) {
-      problems.push({ what, state: "unreadable", path, reason: (error as Error).message });
-      continue;
-    }
-    const digest = sha256(canonicalJson(parsed));
-    if (digest !== recorded) problems.push({ what, state: "mismatch", digest, promised: recorded });
-  }
-  return problems;
-}
-
-/** One problem as the sentence its caller's refusal is made of. Exhaustive over the three states. */
-export function describePromisedArtifactProblem(subject: PromiseSubject, problem: PromisedArtifactProblem): string {
-  switch (problem.state) {
-    case "absent":
-      return `${subject.record} for ${JSON.stringify(subject.unitId)} promises ${problem.what} that is not on disk: ${problem.path}`;
-    case "unreadable":
-      return `${problem.path} could not be read as JSON: ${problem.reason}`;
-    case "mismatch":
-      return `Unit ${JSON.stringify(subject.unitId)} has ${problem.what} digesting to ${problem.digest}, but ${subject.possessive} promises ${problem.promised}; re-draft the unit`;
-  }
-  return assertNever(problem, "promised unit artifact problem state");
 }
 
 /** Weak concurrency guard, the same shape the section barrier uses: best-effort, and never a lock. */

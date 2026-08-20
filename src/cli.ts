@@ -12,7 +12,7 @@ import { renderUnitPacketForRun } from "./report/unit-packet-source.ts";
 import { loadRunUnitIdentities } from "./report/unit-cache-identity-source.ts";
 import { admitUnits, planUnitAdmission } from "./report/unit-cache-admission-run.ts";
 import { summariseAdmission } from "./report/unit-cache-admission.ts";
-import { describeAuthorship, type UnitAuthorship } from "./report/unit-provenance.ts";
+import { describeAuthorship, describeProvenance, type UnitAuthorship, type UnitProvenance } from "./report/unit-provenance.ts";
 import { readUnitGroundingForRun, summariseUnitGroundingReading } from "./report/unit-grounding-reading.ts";
 import { planRun, renderPlannerPacketForRun, DEFAULT_PLANNER_PACKET_BYTE_LIMIT, type PlanProposalSource } from "./run/stages/plan-stage.ts";
 import { PACKET_OVER_BUDGET_MODES, type PacketOverBudgetMode } from "./report/planner-packet.ts";
@@ -605,8 +605,14 @@ function admissionLedgerLine(row: { unitId: string; knowledgeEpoch: number; disp
   };
 }
 
-function unitReceiptLine(receipt: { unitId: string; documentId: string; kind: string; revision: boolean }): Record<string, unknown> {
-  return { unit: receipt.unitId, document: receipt.documentId, kind: receipt.kind, revision: receipt.revision };
+/**
+ * One drafted or collected unit, as a line.
+ *
+ * `provenance` is printed because it is the one thing an operator cannot see any other way: a unit whose bytes were
+ * re-entered from a prior verified draft and one a model just wrote are otherwise the same line.
+ */
+function unitReceiptLine(receipt: { unitId: string; documentId: string; kind: string; revision: boolean; provenance: UnitProvenance }): Record<string, unknown> {
+  return { unit: receipt.unitId, document: receipt.documentId, kind: receipt.kind, revision: receipt.revision, provenance: describeProvenance(receipt.provenance) };
 }
 
 /** The over-budget mode, named. There is no default: truncation is not one of the options, and neither is guessing. */

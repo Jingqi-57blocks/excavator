@@ -37,7 +37,8 @@ import type { RunManifest, SectionClaim } from "../base/types.ts";
 import { readJson } from "../base/util.ts";
 import { assertCurrentKnowledgeEpochForAuthoring } from "../freeze/freeze.ts";
 import { draftUnit } from "./unit-draft.ts";
-import { collectUnits, describePromisedArtifactProblem, pendingUnitReceipts, promisedArtifactProblems } from "./unit-collect.ts";
+import { collectUnits, pendingUnitReceipts, type UnitCollectResult } from "./unit-collect.ts";
+import { describePromisedArtifactProblem, promisedArtifactProblems } from "./unit-artifact-promise.ts";
 import { readUnitLedger, type CollectedUnit } from "./unit-ledger.ts";
 import { unitIdentityOf } from "./unit-cache-identity.ts";
 import {
@@ -121,8 +122,8 @@ export async function admitUnits(runDirInput: string, authorship: UnitAuthorship
       continue;
     }
     const admitted = await admitOne(state, intent);
-    outcomes.push(admitted.outcome);
-    if (admitted.outcome.outcome !== "admitted") halted = unitId;
+    outcomes.push(admitted);
+    if (admitted.outcome !== "admitted") halted = unitId;
   }
   return admissionReportOf(state.plan, outcomes, state.ledgerRows);
 }
@@ -134,7 +135,7 @@ export async function admitUnits(runDirInput: string, authorship: UnitAuthorship
  * write; bytes that came out different from what went in mean the draft path rewrote a verified artifact, and there
  * is no reading of that which is safe to record as "this unit was re-drawn".
  */
-async function admitOne(state: AdmissionState, intent: UnitAdmissionIntent & { readonly intent: "admit" }): Promise<{ readonly outcome: UnitAdmissionOutcome }> {
+async function admitOne(state: AdmissionState, intent: UnitAdmissionIntent & { readonly intent: "admit" }): Promise<UnitAdmissionOutcome> {
   const unitId = intent.unit.unitId;
   const row = state.offered.get(unitId);
   const artifacts = state.artifacts.get(unitId);
@@ -149,30 +150,41 @@ async function admitOne(state: AdmissionState, intent: UnitAdmissionIntent & { r
     provenance: { kind: "cache-admitted", source }
   });
   assertReEntryChangedNothing(receipt, source);
+  let collected: UnitCollectResult;
   try {
-    const collected = await collectUnits(state.runDir);
-    if (!collected.collected.some((entry) => entry.unitId === unitId)) {
-      throw new Error(`collect recorded ${collected.collected.length} unit(s) and none of them is ${JSON.stringify(unitId)}`);
-    }
+    collected = await collectUnits(state.runDir);
   } catch (error) {
+    // A refusal is only reportable as a rebuild while nothing was recorded. `collect` refuses BEFORE it appends, so
+    // this holds — and it is checked rather than assumed, because a report that called a recorded unit a rebuild
+    // would be the one lie this account cannot afford.
+    await assertNotRecorded(state, unitId, error as Error);
     return {
-      outcome: {
-        outcome: "fell-to-rebuild",
-        unit: intent.unit,
-        cause: "collect-refused",
-        statement: `unit ${unitId} was re-entered with the bytes its candidate row verified, and collect refused to record it: ${(error as Error).message}`
-      }
+      outcome: "fell-to-rebuild",
+      unit: intent.unit,
+      cause: "collect-refused",
+      statement: `unit ${unitId} was re-entered with the bytes its candidate row verified, and collect refused to record it: ${(error as Error).message}`
     };
   }
+  // Not a refusal and not an outcome: the one pending draft was this unit's, so a barrier that returned without it
+  // has recorded something nobody asked for. It is named rather than folded into `collect-refused`.
+  if (!collected.collected.some((entry) => entry.unitId === unitId)) {
+    throw new Error(`Cache admission drafted unit ${JSON.stringify(unitId)} and collect returned ${collected.collected.length} recorded unit(s), none of them this one; the admission cannot say what happened to it`);
+  }
   return {
-    outcome: {
-      outcome: "admitted",
-      unit: intent.unit,
-      identityDigest: intent.identityDigest,
-      source,
-      statement: `unit ${unitId} was re-entered from the draft verified under plan ${source.planCatalogDigest.slice(0, 16)} and recorded again, byte for byte, with a new receipt`
-    }
+    outcome: "admitted",
+    unit: intent.unit,
+    identityDigest: intent.identityDigest,
+    source,
+    statement: `unit ${unitId} was re-entered from the draft verified under plan ${source.planCatalogDigest.slice(0, 16)} and recorded again, byte for byte, with a new receipt`
   };
+}
+
+/** After a refusal: the unit must have no row under the plan in force, or the refusal is not what happened. */
+async function assertNotRecorded(state: AdmissionState, unitId: string, refusal: Error): Promise<void> {
+  const ledger = await readUnitLedger(state.runDir, state.manifest.id);
+  const recorded = ledger.units.find((row) => row.unitId === unitId && row.planCatalogDigest === state.view.planCatalogDigest);
+  if (!recorded) return;
+  throw new Error(`Cache admission of unit ${JSON.stringify(unitId)} was refused by collect (${refusal.message}) AFTER a row for it was recorded under the plan now in force; the admission cannot report a recorded unit as one that must be re-drawn`);
 }
 
 /** The ledger row an admission re-entered, as the provenance a new record carries. */
