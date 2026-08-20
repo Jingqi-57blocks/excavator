@@ -20,11 +20,11 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { cp, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { cp, rm, writeFile } from "node:fs/promises";
 import { readFileSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tempDir } from "../../tests/temp-dir.ts";
 import { extractPacketReadings, type DocumentPacketReading, type ModalCount, type PacketReadings } from "../packet-readings.ts";
 import { stableJson } from "../../src/base/util.ts";
 
@@ -56,7 +56,7 @@ function attributed(reading: DocumentPacketReading): number {
   return b["work-item"] + b.evidence + b.trace + b.factpack + b["anchor-line"];
 }
 async function copyFixture(source: string): Promise<string> {
-  const dir = await mkdtemp(join(tmpdir(), "packet-readings-"));
+  const dir = await tempDir("packet-readings-");
   await cp(source, dir, { recursive: true });
   return dir;
 }
