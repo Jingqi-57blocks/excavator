@@ -300,3 +300,7 @@ The point of the harness is that most iterations never call a model:
   causes, and one item already `found` so the never-touch-a-terminal-item rule has a witness.
 - `golden/assemble-canonical.txt` — the canonical projection of the model-free canned-draft chain's
   `reports/` output, pinned byte for byte by `tests/assemble-golden.test.ts`.
+- `golden/unit-assemble-canonical.txt` — the same shape for the UNIT path: the canonical projection of
+  `assemble --units --mode write` over the model-free unit chain (plan → draft every unit → collect), pinned byte
+  for byte by `eval/tests/unit-assemble-golden.test.ts`. It adds two substitution rules the section projection does
+  not need — the plan catalog digest and the knowledge digest, both of which the unit front matter prints.
