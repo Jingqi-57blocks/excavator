@@ -29,6 +29,7 @@ import type { SectionClaim } from "../base/types.ts";
 import { canonicalJson, sha256 } from "../base/util.ts";
 import { AUTHORING_UNIT_KINDS, type AuthoringUnitKind } from "./plan-proposal.ts";
 import { assertValidClaim } from "./section-audit.ts";
+import { compareUnitIds } from "./unit-paths.ts";
 
 export const UNIT_CLAIMS_VERSION = "unit-claims-v1";
 export const UNIT_SUMMARY_VERSION = "unit-summary-v1";
@@ -99,6 +100,11 @@ const CHILD_DIGEST_FIELDS = ["childUnitId", "summaryDigest"] as const;
 
 const DIGEST_PATTERN = /^[0-9a-f]{64}$/;
 
+/** One spelling of "this is a sha256 digest", shared by the summary, the receipt and the ledger. */
+export function isSha256Digest(value: unknown): boolean {
+  return typeof value === "string" && DIGEST_PATTERN.test(value);
+}
+
 /** The digest of one unit's normalized content: the bytes that land in `content.md`. */
 export function unitContentDigest(normalizedContent: string): string {
   return sha256(normalizedContent);
@@ -155,11 +161,14 @@ export function parseUnitSummary(value: unknown): UnitSummaryParse {
     problems.push(`kind ${JSON.stringify(row.kind)} is not one of: ${AUTHORING_UNIT_KINDS.join(", ")}`);
   }
   for (const key of ["contentDigest", "claimsDigest"] as const) {
-    if (typeof row[key] !== "string" || !DIGEST_PATTERN.test(row[key] as string)) problems.push(`${key} ${JSON.stringify(row[key])} is not a sha256 digest`);
+    if (!isSha256Digest(row[key])) problems.push(`${key} ${JSON.stringify(row[key])} is not a sha256 digest`);
   }
   problems.push(...idListProblems(row.coveredTopicIds, "coveredTopicIds"));
-  problems.push(...textListProblems(row.keyStatements, "keyStatements", 1));
-  problems.push(...textListProblems(row.unknowns, "unknowns", 0));
+  problems.push(...textListProblems(row.keyStatements, "keyStatements"));
+  if (Array.isArray(row.keyStatements) && (row.keyStatements as unknown[]).length === 0) {
+    problems.push("keyStatements is empty; a unit that states nothing has not been written");
+  }
+  problems.push(...textListProblems(row.unknowns, "unknowns"));
   problems.push(...terminologyProblems(row.terminology));
   problems.push(...childDigestProblems(row.childSummaryDigests));
   if (problems.length > 0) return { summary: null, problems };
@@ -216,19 +225,17 @@ function idListProblems(value: unknown, field: string): string[] {
     return [`${field} ${JSON.stringify(value)} is not an array of non-empty ids`];
   }
   const ids = value as string[];
-  const sortedUnique = [...new Set(ids)].sort((a, b) => a.localeCompare(b));
+  const sortedUnique = [...new Set(ids)].sort(compareUnitIds);
   if (ids.length !== sortedUnique.length || ids.some((id, index) => id !== sortedUnique[index])) {
     return [`${field} ${JSON.stringify(ids)} is not sorted and de-duplicated; two identical summaries would then differ by byte`];
   }
   return [];
 }
 
-function textListProblems(value: unknown, field: string, minimum: number): string[] {
+/** Shape only. A per-field floor is stated at the call site, where the reason for it can be stated with it. */
+function textListProblems(value: unknown, field: string): string[] {
   if (!Array.isArray(value) || value.some((item) => typeof item !== "string" || item.trim() === "")) {
     return [`${field} ${JSON.stringify(value)} is not an array of non-empty strings`];
-  }
-  if ((value as string[]).length < minimum) {
-    return [`${field} holds ${(value as string[]).length} entr(ies); a unit summary carries at least ${minimum}`];
   }
   return [];
 }
@@ -273,10 +280,10 @@ function childDigestProblems(value: unknown): string[] {
       problems.push(`childSummaryDigests[${index}] childUnitId ${JSON.stringify(row.childUnitId)} is not a non-empty string`);
       continue;
     }
-    if (typeof row.summaryDigest !== "string" || !DIGEST_PATTERN.test(row.summaryDigest)) {
+    if (!isSha256Digest(row.summaryDigest)) {
       problems.push(`childSummaryDigests[${index}] summaryDigest ${JSON.stringify(row.summaryDigest)} is not a sha256 digest`);
     }
-    if (previous !== null && (row.childUnitId as string).localeCompare(previous) <= 0) {
+    if (previous !== null && compareUnitIds(row.childUnitId as string, previous) <= 0) {
       problems.push(`childSummaryDigests[${index}] childUnitId ${JSON.stringify(row.childUnitId)} does not follow ${JSON.stringify(previous)}; the rows must be strictly ascending`);
     }
     previous = row.childUnitId as string;

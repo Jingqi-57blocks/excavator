@@ -49,6 +49,15 @@ test("a unit id that could escape its directory is refused by name, before any e
   }
 });
 
+test("the control-character refusal names the character it found, even after an astral one", () => {
+  // The first spelling of this check mixed a code-point index with the UTF-16 index `codePointAt` takes, and
+  // reported 0xde00 - the low surrogate of the emoji - as "the control character".
+  assert.throws(() => assertUsableUnitId(`\u{1F600}${String.fromCharCode(1)}x`),
+    /contains a control character \(0x01 at index 2\)/);
+  assert.throws(() => assertUsableUnitId(`ok${String.fromCharCode(31)}`), /contains a control character \(0x1f at index 2\)/);
+  assert.throws(() => assertUsableUnitId(`ok${String.fromCharCode(127)}x`), /contains a control character \(0x7f at index 2\)/);
+});
+
 test("the ids a real plan carries encode to one safe ASCII segment, and the id is still readable in it", () => {
   const key = unitPathKey("overview-product::appendix::coverage");
   assert.match(key, UNIT_PATH_KEY_PATTERN);

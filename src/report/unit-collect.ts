@@ -35,13 +35,24 @@ import {
   type CollectedUnit,
   type UnitLedger
 } from "./unit-ledger.ts";
-import { unitPathKey, unitPaths, unitsDir } from "./unit-paths.ts";
+import { compareUnitIds, unitPathKey, unitPaths, unitsDir } from "./unit-paths.ts";
 import { assertPlanEpoch, loadUnitPlanView, planUnit, requireKnowledgeEpoch } from "./unit-plan-view.ts";
+import { parseUnitSummary, type UnitChildSummaryDigest } from "./unit-output.ts";
 import { parseUnitReceipt, type UnitDraftReceipt } from "./unit-receipt.ts";
 
 export interface UnitCollectResult {
   readonly collected: readonly UnitDraftReceipt[];
   readonly ledger: UnitLedger;
+  /**
+   * Receipts on disk that name a unit this run's plan does not hold.
+   *
+   * REPORTED, NOT REFUSED, and the difference is the "never permanently" half of this module's contract. Such a
+   * receipt can never be recorded (there is no plan row to record it against) AND can never be re-drafted
+   * (`planUnit` refuses the id), so making it an error would mean one stray file stops every other unit of the
+   * run from ever being collected, with no command that clears it. It is named here and in `unitStatus`'s
+   * `superseded`, so nothing is silent, and the barrier still records the units it can.
+   */
+  readonly unplanned: readonly UnitDraftReceipt[];
 }
 
 /** Collect every pending unit draft. A no-op when nothing is pending, so it is safe to rerun. */
@@ -55,6 +66,12 @@ export async function collectUnits(runDirInput: string): Promise<UnitCollectResu
 
   const pending = await pendingUnitReceipts(runDir);
   for (const receipt of pending) {
+    // A receipt from another RUN is refused the way the ledger refuses another run's rows: without this, a
+    // `units/<key>/` directory copied between two runs whose epoch and plan happen to match would be recorded
+    // into the wrong run's ledger and timeline, and every count would still balance.
+    if (receipt.runId !== manifest.id) {
+      throw new Error(`Unit draft receipt for ${JSON.stringify(receipt.unitId)} belongs to run ${JSON.stringify(receipt.runId)}, not to ${JSON.stringify(manifest.id)}; a unit is collected by the run that drafted it`);
+    }
     if (receipt.knowledgeEpoch !== knowledgeEpoch) {
       throw new Error(`Unit draft receipt for ${JSON.stringify(receipt.unitId)} was written from knowledge epoch ${receipt.knowledgeEpoch}; re-draft it from current epoch ${knowledgeEpoch}`);
     }
@@ -65,9 +82,11 @@ export async function collectUnits(runDirInput: string): Promise<UnitCollectResu
   const view = await loadUnitPlanView(runDir);
   assertPlanEpoch(view, knowledgeEpoch);
   let ledger = await readUnitLedger(runDir, manifest.id);
-  if (!pending.length) return { collected: [], ledger };
+  const unplanned = pending.filter((receipt) => !view.byId.has(receipt.unitId));
+  const recordable = pending.filter((receipt) => view.byId.has(receipt.unitId));
+  if (!recordable.length) return { collected: [], ledger, unplanned };
 
-  for (const receipt of pending) {
+  for (const receipt of recordable) {
     const unit = planUnit(view, receipt.unitId);
     if (receipt.planCatalogDigest !== view.planCatalogDigest) {
       throw new Error(`Unit draft receipt for ${JSON.stringify(receipt.unitId)} was written against plan ${receipt.planCatalogDigest.slice(0, 16)} but this run records plan ${view.planCatalogDigest.slice(0, 16)}; re-draft it against the recorded plan`);
@@ -77,7 +96,7 @@ export async function collectUnits(runDirInput: string): Promise<UnitCollectResu
     }
   }
 
-  const pendingById = new Map(pending.map((receipt) => [receipt.unitId, receipt]));
+  const pendingById = new Map(recordable.map((receipt) => [receipt.unitId, receipt]));
   const order = view.collectionOrder.filter((unitId) => pendingById.has(unitId));
   const collected: UnitDraftReceipt[] = [];
   let expectedUpdatedAt = manifest.updatedAt;
@@ -88,12 +107,20 @@ export async function collectUnits(runDirInput: string): Promise<UnitCollectResu
     const unit = planUnit(view, unitId);
     const paths = unitPaths(runDir, unitId);
     await assertPromisedArtifacts(receipt, paths);
-    // The children of a synthesis were collected before it was drafted; if one has since been un-collected the
-    // parent's summary references a digest this run no longer holds, and that is a refusal rather than a record.
-    const alreadyCollected = new Set(collectedUnitsFor(ledger, knowledgeEpoch, view.planCatalogDigest).map((row) => row.unitId));
+    // What this checks, exactly: at the moment THIS unit is recorded, every child it names is in the ledger and
+    // its summary still digests to what this unit's own summary says it read. A child re-drafted after this unit
+    // was already collected is NOT caught here — nothing is re-examining an already-recorded parent, and that
+    // staleness is the epic's gate-10 item ("child summary digest mismatch") which R7's cross-unit checker owns.
+    const collectedRows = new Map(collectedUnitsFor(ledger, knowledgeEpoch, view.planCatalogDigest).map((row) => [row.unitId, row]));
+    const recordedChildren = unit.childUnitIds.length ? await recordedChildDigests(paths.summary, unitId) : [];
     for (const childUnitId of unit.childUnitIds) {
-      if (!alreadyCollected.has(childUnitId)) {
+      const row = collectedRows.get(childUnitId);
+      if (!row) {
         throw new Error(`Unit ${JSON.stringify(unitId)} cannot be collected: its child ${JSON.stringify(childUnitId)} is not collected, so the summary it was written from is not recorded`);
+      }
+      const referenced = recordedChildren.find((child) => child.childUnitId === childUnitId)?.summaryDigest;
+      if (referenced !== row.summaryDigest) {
+        throw new Error(`Unit ${JSON.stringify(unitId)} was written from summary ${String(referenced)} of child ${JSON.stringify(childUnitId)}, but that child's recorded summary digests to ${row.summaryDigest}; re-draft ${JSON.stringify(unitId)} from the child's current summary`);
       }
     }
 
@@ -130,7 +157,16 @@ export async function collectUnits(runDirInput: string): Promise<UnitCollectResu
   }
 
   await assertNotConcurrentlyModified(runPath, expectedUpdatedAt);
-  return { collected, ledger };
+  return { collected, ledger, unplanned };
+}
+
+/** The child summaries one unit's own summary says it read. Parsed, so a malformed one is named, not assumed. */
+async function recordedChildDigests(summaryPath: string, unitId: string): Promise<readonly UnitChildSummaryDigest[]> {
+  const parsed = parseUnitSummary(await readJson<unknown>(summaryPath));
+  if (parsed.summary === null) {
+    throw new Error(`${summaryPath} is no longer a valid summary for ${JSON.stringify(unitId)}: ${parsed.problems.join("; ")}`);
+  }
+  return parsed.summary.childSummaryDigests;
 }
 
 /**
@@ -162,7 +198,7 @@ async function pendingUnitReceipts(runDir: string): Promise<readonly UnitDraftRe
     }
     receipts.push(parsed.receipt);
   }
-  return receipts.sort((a, b) => a.unitId.localeCompare(b.unitId));
+  return receipts.sort((a, b) => compareUnitIds(a.unitId, b.unitId));
 }
 
 /** Every artifact the receipt promised, present and still the bytes it digested. Any miss is a named refusal. */

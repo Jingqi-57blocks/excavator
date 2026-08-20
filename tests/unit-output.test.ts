@@ -74,7 +74,7 @@ test("a summary missing any required field, or carrying an unknown one, is a nam
 });
 
 test("a summary that states nothing, or states a blank thing, is refused", () => {
-  assert.ok(parseUnitSummary(summary({ keyStatements: [] })).problems.some((problem) => /keyStatements holds 0 entr\(ies\)/.test(problem)));
+  assert.ok(parseUnitSummary(summary({ keyStatements: [] })).problems.some((problem) => /keyStatements is empty; a unit that states nothing has not been written/.test(problem)));
   assert.ok(parseUnitSummary(summary({ keyStatements: ["  "] })).problems.some((problem) => /keyStatements .* is not an array of non-empty strings/.test(problem)));
   assert.ok(parseUnitSummary(summary({ unknowns: [""] })).problems.some((problem) => /unknowns .* is not an array of non-empty strings/.test(problem)));
   // `unknowns` may be EMPTY, but the field is always present: "none" is stated, never absent.
@@ -178,4 +178,41 @@ test("the ledger is per-epoch and per-plan: a row from another epoch is not a co
   assert.equal(revised.units[0]!.timelineSequence, 20);
   assert.ok(unitLedgerProblems({ ...ledger, runId: "run-2" }, "run-1").some((problem) => /is not this run's "run-1"/.test(problem)));
   assert.ok(unitLedgerProblems({ ...ledger, units: [row({ unitId: "u::2" }), row()] }, "run-1").some((problem) => /must be strictly ascending by unit id/.test(problem)));
+});
+
+/**
+ * The collate-equal pair, on the two places an identity order is load-bearing.
+ *
+ * `"café"` in NFC and in NFD are two distinct strings that `localeCompare` calls equal, and `unit-paths.test.ts`
+ * certifies them as two legitimate units with two distinct directories. Sorting with a collator and then
+ * demanding "strictly ascending" from that same collator produced a file its own reader refuses - a run bricked
+ * by bytes collect itself wrote - and a synthesis over two such children could never produce an acceptable
+ * summary. Both are now one total comparator, and these are the fixtures that say so.
+ */
+const NFC_ID = "café::topic";
+const NFD_ID = "café::topic";
+
+test("a ledger holding a collate-equal pair round-trips through its own validator", () => {
+  assert.equal(NFC_ID.localeCompare(NFD_ID), 0, "the fixture only means something while the collator calls these equal");
+  assert.notEqual(NFC_ID, NFD_ID);
+  const row = (unitId: string): CollectedUnit => ({
+    unitId, documentId: "overview-product", kind: "leaf", knowledgeEpoch: 0,
+    planCatalogDigest: DIGEST, collectedAt: "2026-08-20T00:00:00.000Z", revision: false,
+    contentDigest: DIGEST, claimsDigest: DIGEST, summaryDigest: DIGEST, timelineSequence: 4
+  });
+  // Inserted in the order a collator would LEAVE UNCHANGED (it returns 0, and `sort` is stable) but that the
+  // total order forbids, so both halves of the fix are load-bearing: the writer's sort and the reader's check.
+  const written = withCollectedUnit(withCollectedUnit({ version: UNIT_LEDGER_VERSION, runId: "run-1", units: [] }, row(NFC_ID)), row(NFD_ID));
+  assert.deepEqual(written.units.map((unit) => unit.unitId), [NFD_ID, NFC_ID], "the writer must impose the total order, not preserve insertion order");
+  assert.equal(written.units.length, 2);
+  assert.deepEqual(unitLedgerProblems(written, "run-1"), [],
+    "collect must not be able to write a ledger that every later read refuses");
+});
+
+test("a synthesis over a collate-equal pair of children can state a summary Core accepts", () => {
+  const digests = [NFC_ID, NFD_ID].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)).map((childUnitId) => ({ childUnitId, summaryDigest: DIGEST }));
+  const parsed = parseUnitSummary(summary({ kind: "synthesis", coveredTopicIds: [], childSummaryDigests: digests }));
+  assert.deepEqual(parsed.problems, [], "the order draft derives must be the order the parser accepts");
+  assert.ok(parsed.summary);
+  assert.deepEqual(unitSummaryAgreementProblems(parsed.summary, expectation({ kind: "synthesis", topicIds: [], childSummaryDigests: digests })), []);
 });

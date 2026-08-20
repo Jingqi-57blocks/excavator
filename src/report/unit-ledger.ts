@@ -20,7 +20,8 @@
 
 import { exists, readJson, writeJson } from "../base/util.ts";
 import { AUTHORING_UNIT_KINDS, type AuthoringUnitKind } from "./plan-proposal.ts";
-import { unitLedgerPath } from "./unit-paths.ts";
+import { isSha256Digest } from "./unit-output.ts";
+import { compareUnitIds, unitLedgerPath } from "./unit-paths.ts";
 
 export const UNIT_LEDGER_VERSION = "unit-ledger-v1";
 
@@ -53,8 +54,6 @@ const ROW_FIELDS = [
   "revision", "summaryDigest", "timelineSequence", "unitId"
 ] as const;
 
-const DIGEST_PATTERN = /^[0-9a-f]{64}$/;
-
 /**
  * Read the ledger of one run. An absent file is an EMPTY ledger for this run id — the state of a run that has
  * collected no unit — and a present file that does not parse is fatal, named, and never read as empty.
@@ -73,11 +72,17 @@ export async function readUnitLedger(runDir: string, runId: string): Promise<Uni
   return raw as UnitLedger;
 }
 
-/** Write the ledger. Called by `collect` only — the ordering below is what keeps its bytes deterministic. */
+/**
+ * Write the ledger. Called by `collect` only — the ordering below is what keeps its bytes deterministic.
+ *
+ * The sort and the strictly-ascending check in `unitLedgerProblems` MUST use one comparator, and it must be a
+ * total one (`compareUnitIds`, not a collator): two distinct-but-collate-equal ids sorted by a collator and then
+ * required to be strictly ascending by that same collator make a file its own reader refuses.
+ */
 export async function writeUnitLedger(runDir: string, ledger: UnitLedger): Promise<void> {
   await writeJson(unitLedgerPath(runDir), {
     ...ledger,
-    units: [...ledger.units].sort((a, b) => a.unitId.localeCompare(b.unitId))
+    units: [...ledger.units].sort((a, b) => compareUnitIds(a.unitId, b.unitId))
   });
 }
 
@@ -85,7 +90,7 @@ export async function writeUnitLedger(runDir: string, ledger: UnitLedger): Promi
 export function withCollectedUnit(ledger: UnitLedger, row: CollectedUnit): UnitLedger {
   return {
     ...ledger,
-    units: [...ledger.units.filter((unit) => unit.unitId !== row.unitId), row].sort((a, b) => a.unitId.localeCompare(b.unitId))
+    units: [...ledger.units.filter((unit) => unit.unitId !== row.unitId), row].sort((a, b) => compareUnitIds(a.unitId, b.unitId))
   };
 }
 
@@ -120,7 +125,7 @@ export function unitLedgerProblems(value: unknown, runId: string): string[] {
     for (const problem of rowProblems) problems.push(`units[${index}] ${problem}`);
     if (rowProblems.length > 0) continue;
     const unit = row as CollectedUnit;
-    if (previous !== null && unit.unitId.localeCompare(previous) <= 0) {
+    if (previous !== null && compareUnitIds(unit.unitId, previous) <= 0) {
       problems.push(`units[${index}] unitId ${JSON.stringify(unit.unitId)} does not follow ${JSON.stringify(previous)}; the rows must be strictly ascending by unit id`);
     }
     previous = unit.unitId;
@@ -150,7 +155,7 @@ function collectedRowProblems(value: unknown): string[] {
     if (!Number.isSafeInteger(row[key]) || (row[key] as number) < 0) problems.push(`${key} ${JSON.stringify(row[key])} is not a non-negative integer`);
   }
   for (const key of ["planCatalogDigest", "contentDigest", "claimsDigest", "summaryDigest"] as const) {
-    if (typeof row[key] !== "string" || !DIGEST_PATTERN.test(row[key] as string)) problems.push(`${key} ${JSON.stringify(row[key])} is not a sha256 digest`);
+    if (!isSha256Digest(row[key])) problems.push(`${key} ${JSON.stringify(row[key])} is not a sha256 digest`);
   }
   return problems;
 }

@@ -17,6 +17,7 @@
  */
 
 import { AUTHORING_UNIT_KINDS, type AuthoringUnitKind } from "./plan-proposal.ts";
+import { isSha256Digest } from "./unit-output.ts";
 
 export const UNIT_RECEIPT_VERSION = "unit-receipt-v1";
 
@@ -49,8 +50,6 @@ const RECEIPT_FIELDS = [
   "planCatalogDigest", "revision", "runId", "summaryDigest", "traceIds", "unitId", "version"
 ] as const;
 
-const DIGEST_PATTERN = /^[0-9a-f]{64}$/;
-
 /** Parse an untrusted receipt. Every problem as data; the caller names the file. */
 export function parseUnitReceipt(value: unknown): UnitReceiptParse {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -77,7 +76,7 @@ export function parseUnitReceipt(value: unknown): UnitReceiptParse {
   }
   if (typeof row.revision !== "boolean") problems.push(`revision ${JSON.stringify(row.revision)} is not a boolean`);
   for (const key of ["planCatalogDigest", "contentDigest", "claimsDigest", "summaryDigest"] as const) {
-    if (typeof row[key] !== "string" || !DIGEST_PATTERN.test(row[key] as string)) problems.push(`${key} ${JSON.stringify(row[key])} is not a sha256 digest`);
+    if (!isSha256Digest(row[key])) problems.push(`${key} ${JSON.stringify(row[key])} is not a sha256 digest`);
   }
   for (const key of ["evidenceIds", "traceIds"] as const) {
     const value_ = row[key];

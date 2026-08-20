@@ -36,7 +36,7 @@ import {
   validateUnitClaims,
   type UnitChildSummaryDigest
 } from "./unit-output.ts";
-import { unitPaths, type UnitPaths } from "./unit-paths.ts";
+import { compareUnitIds, unitPaths, type UnitPaths } from "./unit-paths.ts";
 import { assertPlanEpoch, loadUnitPlanView, planUnit, requireKnowledgeEpoch } from "./unit-plan-view.ts";
 import { UNIT_RECEIPT_VERSION, type UnitDraftReceipt } from "./unit-receipt.ts";
 
@@ -63,6 +63,11 @@ export async function draftUnit(runDirInput: string, input: UnitDraftInput): Pro
   // hostile one has to be refused while nothing has been created.
   const paths = unitPaths(runDir, unit.unitId);
 
+  // Checked here rather than left to `normalizeSection`, whose only refusal names a SECTION — a concept the unit
+  // path does not have. Everything else a unit author is told is unit-keyed; this was the one leak.
+  if (input.content.trim() === "") {
+    throw new Error(`Unit ${JSON.stringify(unit.unitId)} was drafted with empty content; a unit writes its own prose and cannot be recorded blank`);
+  }
   const normalized = normalizeSection(input.content, unit.title);
   const contentDigest = unitContentDigest(normalized);
   const claims = validateUnitClaims(unit.unitId, unit.documentId, input.claims);
@@ -127,7 +132,7 @@ function expectedChildSummaryDigests(unit: PlanCatalogUnit, collected: ReadonlyM
       return [];
     case "synthesis":
       return [...unit.childUnitIds]
-        .sort((a, b) => a.localeCompare(b))
+        .sort(compareUnitIds)
         .map((childUnitId) => {
           const row = collected.get(childUnitId);
           if (!row) {
@@ -159,5 +164,5 @@ async function archiveUnitRevision(paths: UnitPaths): Promise<boolean> {
 }
 
 function sortedIds(ids: readonly string[]): string[] {
-  return [...new Set(ids)].sort((a, b) => a.localeCompare(b));
+  return [...new Set(ids)].sort(compareUnitIds);
 }

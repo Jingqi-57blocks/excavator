@@ -179,6 +179,12 @@ test("the unit switch is explicit: both keyings at once, and --unit on a run-wid
     const slipped = await cli([command, "--run", runDir, "--unit", "u::1"]);
     assert.equal(slipped.code, 1);
     assert.match(slipped.stderr, new RegExp(`excavator ${command} takes --units \\(no id\\): it is run-wide over every planned unit`));
+    // `parseArgs` swallows the next token as a flag's value, so `--units 1` must be refused rather than read as
+    // absent - otherwise one stray token silently runs the section barrier instead.
+    const valued = await cli([command, "--run", runDir, "--units", "1"]);
+    assert.equal(valued.code, 1);
+    assert.match(valued.stderr, new RegExp(`excavator ${command} takes --units as a bare flag`));
+    assert.match(valued.stderr, /is not a value it accepts/);
   }
   // And with neither flag, the section path runs exactly as it did.
   const sections = await cli(["status", "--run", runDir]);

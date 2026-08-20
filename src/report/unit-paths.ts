@@ -31,8 +31,8 @@
  * there.
  */
 
-import { join, resolve, sep } from "node:path";
-import { sha256 } from "../base/util.ts";
+import { join, resolve } from "node:path";
+import { safeRelative, sha256 } from "../base/util.ts";
 
 /** The run-relative directory every unit artifact lives under. */
 export const UNITS_DIRNAME = "units";
@@ -92,13 +92,13 @@ export function assertUsableUnitId(unitId: string): void {
   if (unitId.length > UNIT_ID_MAX_LENGTH) {
     throw new Error(`Authoring unit id ${shown} is ${unitId.length} characters; a unit id is capped at ${UNIT_ID_MAX_LENGTH} because it becomes one path segment`);
   }
-  const control = [...unitId].findIndex((character) => {
-    const code = character.codePointAt(0)!;
-    return code < 0x20 || code === 0x7f;
-  });
-  if (control >= 0) {
-    const code = unitId.codePointAt(control)!;
-    throw new Error(`Authoring unit id ${shown} contains a control character (0x${code.toString(16).padStart(2, "0")} at index ${control}); such a byte cannot be part of a path segment`);
+  // Matched rather than scanned by code point: a hand-rolled scan mixed a code-point index with the UTF-16 index
+  // `codePointAt` takes, and reported a surrogate half of the PRECEDING character as the offending byte. A message
+  // that misidentifies the character it exists to explain is worse than no message.
+  const control = /[\u0000-\u001f\u007f]/.exec(unitId);
+  if (control) {
+    const code = control[0].codePointAt(0)!;
+    throw new Error(`Authoring unit id ${shown} contains a control character (0x${code.toString(16).padStart(2, "0")} at index ${control.index}); such a byte cannot be part of a path segment`);
   }
   if (unitId.includes("/") || unitId.includes("\\")) {
     throw new Error(`Authoring unit id ${shown} contains a path separator; a unit id is one path segment, never a path`);
@@ -154,7 +154,7 @@ export function unitPathKey(unitId: string): string {
  */
 export function assertDistinctUnitPathKeys(unitIds: readonly string[], keyOf: (unitId: string) => string): void {
   const byKey = new Map<string, string>();
-  for (const unitId of [...unitIds].sort((a, b) => a.localeCompare(b))) {
+  for (const unitId of [...unitIds].sort(compareUnitIds)) {
     const key = keyOf(unitId);
     const taken = byKey.get(key);
     if (taken !== undefined && taken !== unitId) {
@@ -162,6 +162,20 @@ export function assertDistinctUnitPathKeys(unitIds: readonly string[], keyOf: (u
     }
     byKey.set(key, unitId);
   }
+}
+
+/**
+ * The ONE order identity strings are sorted and checked in.
+ *
+ * NOT `localeCompare`. A collator returns 0 for strings it considers equivalent, and distinct unit ids can be
+ * collate-equal — the NFC and NFD spellings of one accented id are exactly the pair this module goes to such
+ * lengths to keep in separate directories. Sorting with a collator and then demanding "strictly greater than 0"
+ * from the same collator is a contradiction: the writer produces a file its own validator refuses, and the run's
+ * unit path is bricked by bytes it wrote itself. Code-unit order is total — distinct strings never compare 0 — so
+ * one comparator can serve both sides, and it must be the same one on both sides.
+ */
+export function compareUnitIds(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
 }
 
 /** The `units/` directory of one run. */
@@ -189,7 +203,12 @@ export function unitPaths(runDir: string, unitId: string): UnitPaths {
     historyDir: join(dir, "history")
   };
   for (const path of [paths.dir, paths.content, paths.claims, paths.summary, paths.receipt, paths.historyDir]) {
-    if (!path.startsWith(`${root}${sep}`)) {
+    // `safeRelative` is the base's own containment primitive, with the resolve/normalise semantics already worked
+    // out; a second spelling of this rule here would be a second place to fix. Only the message is local, because
+    // "which unit id did this" is what makes the refusal actionable.
+    try {
+      safeRelative(root, path);
+    } catch {
       throw new Error(`Authoring unit ${JSON.stringify(unitId)} resolves to ${JSON.stringify(path)}, which is outside the run directory ${JSON.stringify(root)}`);
     }
   }

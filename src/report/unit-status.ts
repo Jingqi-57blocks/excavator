@@ -29,7 +29,7 @@ import { exists, listDirectories, readJson } from "../base/util.ts";
 import { assertNever } from "../base/artifact-result.ts";
 import type { AuthoringUnitKind } from "./plan-proposal.ts";
 import { collectedUnitsFor, readUnitLedger } from "./unit-ledger.ts";
-import { unitPaths, unitsDir } from "./unit-paths.ts";
+import { compareUnitIds, unitPaths, unitsDir } from "./unit-paths.ts";
 import { assertPlanEpoch, loadUnitPlanView, requireKnowledgeEpoch } from "./unit-plan-view.ts";
 import { parseUnitReceipt } from "./unit-receipt.ts";
 
@@ -38,8 +38,14 @@ export const UNIT_STATUS_VERSION = "unit-status-v1";
 /** The three states of a planned unit. Closed, and consumed exhaustively by the census below. */
 export type UnitState = "collected" | "drafted" | "unwritten";
 
-/** Why a receipt or a ledger row is not part of the current picture. Closed, consumed exhaustively. */
-export type SupersededReason = "epoch" | "plan" | "not-in-plan";
+/**
+ * Why a receipt or a ledger row is not part of the current picture. Closed, consumed exhaustively.
+ *
+ * `misfiled` and `another-run` exist because the alternative was worse than a missing arm: without them a receipt
+ * sitting in the wrong directory, or one copied in from another run, fell through to `plan` — and told the reader
+ * "written against a superseded plan; re-draw it against the recorded one", which is false and is not the fix.
+ */
+export type SupersededReason = "epoch" | "plan" | "not-in-plan" | "misfiled" | "another-run";
 
 export interface UnitStatusRow {
   readonly unitId: string;
@@ -79,6 +85,8 @@ export interface UnitStatusView {
   /** The first of `toDraft`, or null. */
   readonly next: string | null;
   readonly superseded: readonly SupersededUnitRecord[];
+  /** One sentence per superseded record, in the same order: the reason, spelled out. */
+  readonly supersededNotes: readonly string[];
   /** One line a reader cannot mistake for a coverage claim. */
   readonly summary: string;
 }
@@ -101,7 +109,13 @@ export async function unitStatus(runDirInput: string): Promise<UnitStatusView> {
     superseded.push({
       unitId: row.unitId,
       source: "ledger",
-      reason: supersededReason(view.byId.has(row.unitId), row.knowledgeEpoch, knowledgeEpoch),
+      reason: supersededReason({
+        inPlan: view.byId.has(row.unitId),
+        sameRun: true,
+        filedCorrectly: true,
+        recordEpoch: row.knowledgeEpoch,
+        knowledgeEpoch
+      }),
       knowledgeEpoch: row.knowledgeEpoch
     });
   }
@@ -119,16 +133,24 @@ export async function unitStatus(runDirInput: string): Promise<UnitStatusView> {
     const parsed = parseUnitReceipt(raw);
     if (parsed.receipt === null) throw new Error(`${path} is not a valid unit draft receipt: ${parsed.problems.join("; ")}`);
     const receipt = parsed.receipt;
+    const filedCorrectly = unitPaths(runDir, receipt.unitId).key === basename(dir);
     const current = view.byId.has(receipt.unitId)
+      && receipt.runId === manifest.id
       && receipt.knowledgeEpoch === knowledgeEpoch
       && receipt.planCatalogDigest === view.planCatalogDigest
-      && unitPaths(runDir, receipt.unitId).key === basename(dir);
+      && filedCorrectly;
     if (current) drafted.add(receipt.unitId);
     else {
       superseded.push({
         unitId: receipt.unitId,
         source: "receipt",
-        reason: supersededReason(view.byId.has(receipt.unitId), receipt.knowledgeEpoch, knowledgeEpoch),
+        reason: supersededReason({
+          inPlan: view.byId.has(receipt.unitId),
+          sameRun: receipt.runId === manifest.id,
+          filedCorrectly,
+          recordEpoch: receipt.knowledgeEpoch,
+          knowledgeEpoch
+        }),
         knowledgeEpoch: receipt.knowledgeEpoch
       });
     }
@@ -146,6 +168,7 @@ export async function unitStatus(runDirInput: string): Promise<UnitStatusView> {
     .filter((row) => view.byId.get(row.unitId)!.childUnitIds.every((childUnitId) => currentRows.has(childUnitId)))
     .map((row) => row.unitId);
   const census = unitStateCensus(units);
+  const supersededRecords = superseded.sort((a, b) => compareUnitIds(a.unitId, b.unitId) || compareUnitIds(a.source, b.source) || compareUnitIds(a.reason, b.reason));
   return {
     version: UNIT_STATUS_VERSION,
     runId: manifest.id,
@@ -157,7 +180,8 @@ export async function unitStatus(runDirInput: string): Promise<UnitStatusView> {
     toCollect,
     toDraft,
     next: toDraft[0] ?? null,
-    superseded: superseded.sort((a, b) => a.unitId.localeCompare(b.unitId) || a.source.localeCompare(b.source)),
+    superseded: supersededRecords,
+    supersededNotes: supersededRecords.map((record) => describeSupersededUnit(record, knowledgeEpoch)),
     summary: `${units.length} planned unit(s) at knowledge epoch ${knowledgeEpoch}: ${census.collected} collected, ${census.drafted} drafted and awaiting collect, ${census.unwritten} not yet written; ${superseded.length} superseded record(s)`
   };
 }
@@ -190,7 +214,7 @@ function stateBucket(state: UnitState): keyof UnitStateCensus {
   return assertNever(state, "authoring unit state");
 }
 
-/** One sentence per superseded record, exhaustive over the reasons. */
+/** One sentence per superseded record, exhaustive over the reasons. Rendered into every view, never dead. */
 export function describeSupersededUnit(record: SupersededUnitRecord, knowledgeEpoch: number): string {
   switch (record.reason) {
     case "epoch":
@@ -198,14 +222,31 @@ export function describeSupersededUnit(record: SupersededUnitRecord, knowledgeEp
     case "plan":
       return `${record.source} for ${record.unitId} was written against a superseded plan; the unit has to be re-drawn against the recorded one`;
     case "not-in-plan":
-      return `${record.source} for ${record.unitId} names a unit this run's plan does not hold`;
+      return `${record.source} for ${record.unitId} names a unit this run's plan does not hold; it can never be collected and never be re-drafted, so remove it or re-plan`;
+    case "misfiled":
+      return `${record.source} for ${record.unitId} sits in a directory that is not the one that unit id encodes to; collect refuses it by name`;
+    case "another-run":
+      return `${record.source} for ${record.unitId} belongs to another run; a unit is collected by the run that drafted it`;
   }
   return assertNever(record.reason, "superseded unit reason");
 }
 
-/** Epoch first, then plan, then membership: the strongest true statement about why a record is not current. */
-function supersededReason(inPlan: boolean, recordEpoch: number, knowledgeEpoch: number): SupersededReason {
-  if (recordEpoch !== knowledgeEpoch) return "epoch";
-  if (!inPlan) return "not-in-plan";
+/**
+ * The strongest TRUE statement about why a record is not current, in that order.
+ *
+ * Order matters because several can hold at once and only one is the fix: a receipt from another run is not
+ * "written against a superseded plan" even though its plan digest also differs.
+ */
+function supersededReason(input: {
+  readonly inPlan: boolean;
+  readonly sameRun: boolean;
+  readonly filedCorrectly: boolean;
+  readonly recordEpoch: number;
+  readonly knowledgeEpoch: number;
+}): SupersededReason {
+  if (!input.sameRun) return "another-run";
+  if (input.recordEpoch !== input.knowledgeEpoch) return "epoch";
+  if (!input.inPlan) return "not-in-plan";
+  if (!input.filedCorrectly) return "misfiled";
   return "plan";
 }

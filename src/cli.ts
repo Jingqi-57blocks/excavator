@@ -219,7 +219,11 @@ async function main(): Promise<void> {
         const args = parseArgs(argv);
         if (unitScoped(args, "collect")) {
           const units = await collectUnits(required(args.run, "--run"));
-          print({ collected: units.collected.length, units: units.collected.map(unitReceiptLine) });
+          print({
+            collected: units.collected.length,
+            units: units.collected.map(unitReceiptLine),
+            ...(units.unplanned.length ? { unplanned: units.unplanned.map(unitReceiptLine) } : {})
+          });
           break;
         }
         const result = await collectDrafts(required(args.run, "--run"));
@@ -425,7 +429,14 @@ function unitScoped(args: Record<string, string>, command: string): boolean {
   if (args.unit) {
     throw new Error(`excavator ${command} takes --units (no id): it is run-wide over every planned unit, not one unit at a time`);
   }
-  return args.units === "true";
+  if (args.units === undefined) return false;
+  // `parseArgs` hands a flag the next non-`--` token as its value, so `--units 1` would leave `args.units === "1"`
+  // and a `=== "true"` test would silently run the SECTION barrier instead. The value case is the same silent
+  // mode default as the `--unit` slip above, one token further along.
+  if (args.units !== "true") {
+    throw new Error(`excavator ${command} takes --units as a bare flag; ${JSON.stringify(args.units)} is not a value it accepts`);
+  }
+  return true;
 }
 
 /**

@@ -25,6 +25,7 @@ import { loadTopicCatalogSource } from "../src/report/topic-catalog-source.ts";
 import { collectedUnitsFor, readUnitLedger } from "../src/report/unit-ledger.ts";
 import { unitClaimsDigest, unitContentDigest, validateUnitClaims, UNIT_SUMMARY_VERSION, type UnitSummary } from "../src/report/unit-output.ts";
 import { loadUnitPlanView, type UnitPlanView } from "../src/report/unit-plan-view.ts";
+import { compareUnitIds } from "../src/report/unit-paths.ts";
 import type { UnitDraftInput } from "../src/report/unit-draft.ts";
 import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, tempDir } from "./helpers.ts";
 
@@ -95,7 +96,9 @@ export function unitClaims(unit: PlanCatalogUnit, evidenceId: string): SectionCl
  * A legal draft for one unit of a planned run: content, claims, and the summary that describes exactly them.
  *
  * For a synthesis the child digests come from the collect-written ledger, which is the only place a parent may
- * learn what its children said — the same rule the draft path enforces.
+ * learn what its children said — the same rule the draft path enforces. It FAILS CLOSED when a child it needs is
+ * not collected: substituting a plausible all-zeros digest made this fixture able to go red for the wrong reason,
+ * so a test that deliberately wants an out-of-order draft passes `childSummaryDigests` explicitly.
  */
 export async function unitDraftFor(run: PlannedRun, unitId: string, overrides: Partial<UnitSummary> = {}): Promise<UnitDraftInput> {
   const unit = run.view.byId.get(unitId);
@@ -104,6 +107,13 @@ export async function unitDraftFor(run: PlannedRun, unitId: string, overrides: P
   const claims = unitClaims(unit, run.evidenceId);
   const ledger = await readUnitLedger(run.runDir, run.manifest.id);
   const collected = new Map(collectedUnitsFor(ledger, run.view.knowledgeEpoch, run.view.planCatalogDigest).map((row) => [row.unitId, row]));
+  // Computed only when the caller has not supplied it: the fail-closed derivation below must not fire for a test
+  // that deliberately asks for a draft of a synthesis whose children are not collected yet.
+  const childSummaryDigests = overrides.childSummaryDigests ?? [...unit.childUnitIds].sort(compareUnitIds).map((childUnitId) => {
+    const row = collected.get(childUnitId);
+    if (!row) throw new Error(`fixture cannot summarise ${unitId}: its child ${childUnitId} is not collected, so no real summary digest exists`);
+    return { childUnitId, summaryDigest: row.summaryDigest };
+  });
   const summary: UnitSummary = {
     version: UNIT_SUMMARY_VERSION,
     unitId: unit.unitId,
@@ -115,10 +125,7 @@ export async function unitDraftFor(run: PlannedRun, unitId: string, overrides: P
     terminology: [],
     contentDigest: unitContentDigest(normalizeSection(content, unit.title)),
     claimsDigest: unitClaimsDigest(validateUnitClaims(unit.unitId, unit.documentId, claims)),
-    childSummaryDigests: [...unit.childUnitIds].sort((a, b) => a.localeCompare(b)).map((childUnitId) => ({
-      childUnitId,
-      summaryDigest: collected.get(childUnitId)?.summaryDigest ?? "0".repeat(64)
-    })),
+    childSummaryDigests,
     ...overrides
   };
   return { unitId, content, claims, summary };

@@ -14,7 +14,8 @@ import { readUnitLedger } from "../src/report/unit-ledger.ts";
 import { unitPaths } from "../src/report/unit-paths.ts";
 import { loadUnitPlanView, unitCollectionOrder } from "../src/report/unit-plan-view.ts";
 import { resumeUnits, unitStatus } from "../src/report/unit-status.ts";
-import { UNIT_SUMMARY_VERSION } from "../src/report/unit-output.ts";
+import { UNIT_SUMMARY_VERSION, unitContentDigest } from "../src/report/unit-output.ts";
+import { normalizeSection } from "../src/report/checkpoint.ts";
 import {
   frozenRun, manifestOf, planWithLeaf, planWithRenamedUnits, plannedRun, unitDraftFor, type PlannedRun
 } from "./unit-fixture.ts";
@@ -116,7 +117,12 @@ test("concurrent unit drafts write only their own artifacts and leave timeline/r
   }
   // A synthesis may not be drafted while its children are uncollected: its only input does not exist yet.
   const synthesis = unitsOfKind(run, "synthesis")[0]!;
-  await assert.rejects(async () => draftUnit(run.runDir, await unitDraftFor(run, synthesis)),
+  // The instrument first: the fixture refuses to invent a digest for a child that is not collected, so a test
+  // cannot pass on a fabricated one. The override below is therefore an explicit request, not a default.
+  await assert.rejects(() => unitDraftFor(run, synthesis),
+    /fixture cannot summarise .*: its child .* is not collected, so no real summary digest exists/);
+  // The gate fires before the summary is even parsed, so what it rejects is the ORDER, not the summary contents.
+  await assert.rejects(async () => draftUnit(run.runDir, await unitDraftFor(run, synthesis, { childSummaryDigests: [] })),
     /cannot be drafted yet: its child .* has not been collected, and a synthesis writes from child summaries only/);
 });
 
@@ -262,12 +268,13 @@ test("a bad unit is refused at draft time, and each refusal names what is wrong"
   await assert.rejects(() => draftUnit(run.runDir, { ...good, summary: undefined }),
     /is not a valid unit summary: is undefined, not a summary object/);
   await assert.rejects(() => draftUnit(run.runDir, { ...good, summary: { ...(good.summary as object), keyStatements: [] } }),
-    /is not a valid unit summary: keyStatements holds 0 entr\(ies\)/);
+    /is not a valid unit summary: keyStatements is empty; a unit that states nothing has not been written/);
   await assert.rejects(() => draftUnit(run.runDir, { ...good, summary: { ...(good.summary as object), coveredTopicIds: [] } }),
     /disagrees with this run: covers topic\(s\) \[\] but the plan gives this unit \[coverage:/);
   await assert.rejects(() => draftUnit(run.runDir, { ...good, summary: { ...(good.summary as object), contentDigest: "f".repeat(64) } }),
     /disagrees with this run: records contentDigest f{64} but the content beside it digests to [0-9a-f]{64}/);
-  await assert.rejects(() => draftUnit(run.runDir, { ...good, content: "   " }), /Section content is empty/);
+  await assert.rejects(() => draftUnit(run.runDir, { ...good, content: "   " }),
+    new RegExp(`Unit "${unitId.replace(/[:]/g, ":")}" was drafted with empty content; a unit writes its own prose`));
 });
 
 // --- (8) three states, and what would have been a fourth ----------------------------------------------
@@ -325,13 +332,40 @@ test("a leaf plan gives all three unit states at once, and the leaf covers exact
   await mkdir(orphanPaths.dir, { recursive: true });
   await writeFile(orphanPaths.receipt, `${JSON.stringify({ ...stale, knowledgeEpoch: run.view.knowledgeEpoch, unitId: orphanId, kind: "leaf" }, null, 2)}\n`);
 
-  // A receipt filed under a directory that is not its own unit's: the shape a path-collapse bug would take.
-  const misfiled = unitPaths(run.runDir, `${orphanId}::misfiled`);
+  /*
+   * The two records whose reason must NOT be "a superseded plan". Both name a unit this plan DOES hold at this
+   * epoch — otherwise the stronger, truer reason wins and the arm under test is never reached.
+   *   * misfiled: the receipt sits in a directory that is not the one its unit id encodes to (the shape a
+   *     path-collapse bug takes);
+   *   * another-run: the receipt was copied in from a different run.
+   * Status reports both with the reason; collect refuses both by name. Telling either one "re-draw it against the
+   * recorded plan" would be false and would not be the fix.
+   */
+  const plannedId = appendixId;
+  const misfiled = unitPaths(run.runDir, `${plannedId}::elsewhere`);
   await mkdir(misfiled.dir, { recursive: true });
-  await writeFile(misfiled.receipt, `${JSON.stringify({ ...stale, knowledgeEpoch: run.view.knowledgeEpoch, unitId: orphanId, kind: "leaf" }, null, 2)}\n`);
+  await writeFile(misfiled.receipt, `${JSON.stringify({ ...stale, knowledgeEpoch: run.view.knowledgeEpoch, unitId: plannedId, kind: "appendix" }, null, 2)}\n`);
+  const misfiledView = await unitStatus(run.runDir);
+  assert.ok(misfiledView.superseded.some((record) => record.reason === "misfiled"),
+    `a receipt in the wrong directory must not be reported as a superseded PLAN: ${JSON.stringify(misfiledView.superseded)}`);
+  assert.ok(misfiledView.supersededNotes.some((note) => /sits in a directory that is not the one that unit id encodes to/.test(note)),
+    misfiledView.supersededNotes.join(" | "));
   await assert.rejects(() => collectUnits(run.runDir),
-    /records unit ".*::leaf::dropped-by-a-later-plan", which belongs in ".*" and not in ".*"/);
+    /records unit ".*::appendix::coverage", which belongs in ".*" and not in ".*"/);
   await rm(misfiled.dir, { recursive: true });
+
+  // A receipt from ANOTHER RUN is refused the way the ledger refuses another run's rows.
+  const foreign = unitPaths(run.runDir, plannedId);
+  await mkdir(foreign.dir, { recursive: true });
+  await writeFile(foreign.receipt, `${JSON.stringify({ ...stale, runId: "run-somebody-else", knowledgeEpoch: run.view.knowledgeEpoch, unitId: plannedId, kind: "appendix" }, null, 2)}\n`);
+  const foreignView = await unitStatus(run.runDir);
+  assert.ok(foreignView.superseded.some((record) => record.reason === "another-run"),
+    `a receipt from another run must not be reported as a superseded PLAN: ${JSON.stringify(foreignView.superseded)}`);
+  assert.ok(foreignView.supersededNotes.some((note) => /belongs to another run; a unit is collected by the run that drafted it/.test(note)),
+    foreignView.supersededNotes.join(" | "));
+  await assert.rejects(() => collectUnits(run.runDir),
+    /belongs to run "run-somebody-else", not to ".*"; a unit is collected by the run that drafted it/);
+  await rm(foreign.receipt);
 
   const withSuperseded = await unitStatus(run.runDir);
   assert.deepEqual(withSuperseded.superseded.map((record) => [record.unitId, record.source, record.reason]), [
@@ -341,8 +375,59 @@ test("a leaf plan gives all three unit states at once, and the leaf covers exact
   assert.equal(withSuperseded.units.find((row) => row.unitId === synthesisId)!.state, "unwritten",
     "a receipt from another epoch is not a draft of this one");
   assert.deepEqual(withSuperseded.census, { collected: 2, drafted: 0, unwritten: 1 });
-  // And the barrier refuses them rather than recording either: the stale one by epoch, the orphan by name.
+  // The sentences are rendered into the view, not left as an exported function nobody calls.
+  assert.equal(withSuperseded.supersededNotes.length, 2);
+  assert.ok(withSuperseded.supersededNotes.some((note) => /names a unit this run's plan does not hold; it can never be collected and never be re-drafted/.test(note)), withSuperseded.supersededNotes.join(" | "));
+  assert.ok(withSuperseded.supersededNotes.some((note) => /was written at knowledge epoch 99; this run is at epoch 0/.test(note)), withSuperseded.supersededNotes.join(" | "));
+
+  // The stale-epoch receipt is a REFUSAL: the unit is in the plan, so re-drafting it is the fix.
   await assert.rejects(() => collectUnits(run.runDir), /was written from knowledge epoch 99; re-draft it from current epoch 0/);
+
+  /*
+   * The orphan on its own is NOT a refusal, and that distinction is the "never permanently" half of the
+   * contract. It names a unit the plan does not hold, so it can never be recorded AND never be re-drafted -
+   * refusing it would mean one stray file stops every other unit of this run from ever being collected, with no
+   * command that clears it. It is reported instead, in `unplanned` here and in `superseded` above.
+   */
+  await rm(stalePaths.receipt);
+  const synthesisDraft = await unitDraftFor(run, synthesisId);
+  await draftUnit(run.runDir, synthesisDraft);
+  const barrier = await collectUnits(run.runDir);
+  assert.deepEqual(barrier.collected.map((receipt) => receipt.unitId), [synthesisId],
+    "the collectable unit is recorded even though an unrecordable receipt sits beside it");
+  assert.deepEqual(barrier.unplanned.map((receipt) => receipt.unitId), [orphanId]);
+  assert.deepEqual((await unitStatus(run.runDir)).census, { collected: 3, drafted: 0, unwritten: 0 });
+  assert.deepEqual(await auditTimeline(run.runDir, run.manifest.id), []);
+});
+
+// --- (9b) a parent that was written from an older draft of its child ----------------------------------
+
+test("collect refuses a synthesis whose child summary has moved since it was written", async () => {
+  const base = await frozenRun();
+  const leafId = await planWithLeaf(base.runDir, base.workdir, "work-item-dimension", 2);
+  const run: PlannedRun = { ...base, view: await loadUnitPlanView(base.runDir) };
+  const appendixId = run.view.collectionOrder.find((unitId) => run.view.byId.get(unitId)!.kind === "appendix")!;
+  const synthesisId = run.view.collectionOrder.at(-1)!;
+
+  for (const unitId of [leafId, appendixId]) await draftUnit(run.runDir, await unitDraftFor(run, unitId));
+  await collectUnits(run.runDir);
+  // The parent reads its children's summaries as they stand now.
+  const parent = await unitDraftFor(run, synthesisId);
+  await draftUnit(run.runDir, parent);
+
+  // The child is re-drawn with different prose BEFORE the parent is collected, so the digest the parent recorded
+  // is no longer the child's. Recording the parent would file a synthesis of a draft that no longer exists.
+  const revised = await unitDraftFor(run, leafId);
+  await draftUnit(run.runDir, { ...revised, content: `${revised.content}\n第二版补充一句。\n`, summary: { ...(revised.summary as object), contentDigest: unitContentDigest(normalizeSection(`${revised.content}\n第二版补充一句。\n`, run.view.byId.get(leafId)!.title)) } });
+  await assert.rejects(() => collectUnits(run.runDir),
+    /was written from summary [0-9a-f]{64} of child .*, but that child's recorded summary digests to [0-9a-f]{64}; re-draft/);
+
+  // Re-drafting the parent from the child's current summary closes it, with no permanent state.
+  await collectUnits(run.runDir).catch(() => undefined);
+  await draftUnit(run.runDir, await unitDraftFor(run, synthesisId));
+  const closed = await collectUnits(run.runDir);
+  assert.ok(closed.collected.some((receipt) => receipt.unitId === synthesisId));
+  assert.deepEqual(await auditTimeline(run.runDir, run.manifest.id), []);
 });
 
 // --- (9) the epoch tripwires ---------------------------------------------------------------------------

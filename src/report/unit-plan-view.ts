@@ -27,7 +27,7 @@
 import type { RunManifest } from "../base/types.ts";
 import { assertValidatedPlanForAuthoring } from "./plan-gate.ts";
 import { planCatalogDigest, type PlanCatalogUnit } from "./plan-artifacts.ts";
-import { assertDistinctUnitPathKeys, unitPathKey } from "./unit-paths.ts";
+import { assertDistinctUnitPathKeys, compareUnitIds, unitPathKey } from "./unit-paths.ts";
 
 export interface UnitPlanView {
   readonly runId: string;
@@ -43,7 +43,7 @@ export interface UnitPlanView {
 /** Load and re-validate this run's plan, then derive the unit view of it. */
 export async function loadUnitPlanView(runDir: string): Promise<UnitPlanView> {
   const gate = await assertValidatedPlanForAuthoring(runDir);
-  const units = [...gate.planCatalog.units].sort((a, b) => a.unitId.localeCompare(b.unitId));
+  const units = [...gate.planCatalog.units].sort((a, b) => compareUnitIds(a.unitId, b.unitId));
   assertDistinctUnitPathKeys(units.map((unit) => unit.unitId), unitPathKey);
   const collectionOrder = unitCollectionOrder(units.map((unit) => unit.unitId), gate.dag.documents);
   return {
@@ -87,7 +87,7 @@ export function unitCollectionOrder(
   documents: readonly { readonly documentId: string; readonly authoringOrder: readonly string[] }[]
 ): readonly string[] {
   const order = [...documents]
-    .sort((a, b) => a.documentId.localeCompare(b.documentId))
+    .sort((a, b) => compareUnitIds(a.documentId, b.documentId))
     .flatMap((document) => [...document.authoringOrder]);
   if (order.length !== unitIds.length || new Set(order).size !== unitIds.length) {
     throw new Error(`The recorded authoring order covers ${new Set(order).size} of this plan's ${unitIds.length} unit(s); a unit missing from the order would be skipped by collect without anything saying so`);
