@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, writeFileSync, mkdtempSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
+import { tempDirSync } from "../../tests/temp-dir.ts";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -17,7 +18,7 @@ const ANCHORS = ["请假管理", "leave", "请假", "leaves"];
 function withGolden(mutate: (golden: Record<string, unknown>) => void): string {
   const golden = JSON.parse(readFileSync(GOLDEN, "utf8")) as Record<string, unknown>;
   mutate(golden);
-  const path = join(mkdtempSync(join(tmpdir(), "attr-")), "golden.json");
+  const path = join(tempDirSync("attr-"), "golden.json");
   writeFileSync(path, JSON.stringify(golden));
   return path;
 }

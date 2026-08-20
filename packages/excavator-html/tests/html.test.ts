@@ -1,12 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
+import { tempDir } from "../../../tests/temp-dir.ts";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { mkdir } from "node:fs/promises";
 import { buildSite } from "../src/renderer.ts";
 
-async function temp(): Promise<string> { return mkdtemp(join(tmpdir(), "excavator-html-")); }
+async function temp(): Promise<string> { return tempDir("excavator-html-"); }
 
 function page(meta: Record<string, string>, heading: string): string {
   const front = Object.entries(meta).map(([key, value]) => `${key}: ${value}`).join("\n");

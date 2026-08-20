@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { cp, mkdtemp, readFile } from "node:fs/promises";
+import { cp, readFile } from "node:fs/promises";
+import { tempDir } from "../../tests/temp-dir.ts";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { prepareRun } from "../../src/run/run.ts";
@@ -13,9 +14,9 @@ const FIXTURE = join(import.meta.dirname, "..", "fixtures", "leave-mini");
 
 /** Same copy-then-run pattern as tests/helpers.ts copyFixture, sourcing the eval fixture repo. */
 async function prepareLeaveMini(): Promise<string> {
-  const target = await mkdtemp(join(tmpdir(), "leave-mini-"));
+  const target = await tempDir("leave-mini-");
   await cp(join(FIXTURE, "repo"), target, { recursive: true });
-  const workdir = await mkdtemp(join(tmpdir(), "leave-mini-wd-"));
+  const workdir = await tempDir("leave-mini-wd-");
   const request = JSON.parse(await readFile(join(FIXTURE, "request.json"), "utf8")) as ReportRequest;
   request.target = target;
   request.workdir = workdir;

@@ -13,10 +13,10 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { cp, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { cp, rm, writeFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tempDir } from "../../tests/temp-dir.ts";
 import { buildLedgerCloseout, type LedgerCloseout } from "../ledger-closeout.ts";
 import { auditWorkItems, mergeWorkItems } from "../../src/investigation/assurance.ts";
 import type { EvidenceItem, InvestigationPlan } from "../../src/base/types.ts";
@@ -36,7 +36,7 @@ const REFUSED = [
 ];
 
 async function copyFixture(): Promise<string> {
-  const dir = await mkdtemp(join(tmpdir(), "ledger-closeout-"));
+  const dir = await tempDir("ledger-closeout-");
   await cp(FIXTURE, dir, { recursive: true });
   return dir;
 }
