@@ -1,0 +1,63 @@
+{
+  "obligations": [
+    {
+      "endLine": 40,
+      "featureKey": "leave-1a2b3c4d5e",
+      "gated": true,
+      "id": "feature:leave-1a2b3c4d5e:logic:approve@svc/leave/approve.go:10",
+      "kind": "decision-function",
+      "lines": 31,
+      "name": "approve",
+      "path": "svc/leave/approve.go",
+      "startLine": 10,
+      "tier": 0,
+      "workItemId": "feature:leave-1a2b3c4d5e:logic:approve@svc/leave/approve.go:10"
+    },
+    {
+      "endLine": 33,
+      "featureKey": "leave-1a2b3c4d5e",
+      "gated": false,
+      "id": "feature:leave-1a2b3c4d5e:logic:approve@svc/holiday/approve.go:20",
+      "kind": "decision-function",
+      "lines": 14,
+      "name": "approve",
+      "path": "svc/holiday/approve.go",
+      "startLine": 20,
+      "tier": 1
+    },
+    {
+      "endLine": 19,
+      "featureKey": "promo-9f8e7d6c5b",
+      "gated": false,
+      "id": "feature:promo-9f8e7d6c5b:logic:rank@svc/promo/rank.go:5",
+      "kind": "decision-function",
+      "lines": 15,
+      "name": "rank",
+      "path": "svc/promo/rank.go",
+      "startLine": 5,
+      "tier": 1
+    },
+    {
+      "endLine": 9,
+      "featureKey": "leave-1a2b3c4d5e",
+      "gated": false,
+      "id": "feature:leave-1a2b3c4d5e:boundary-fn:helper@svc/leave/util.go:3",
+      "kind": "boundary-decision-function",
+      "lines": 7,
+      "name": "helper",
+      "path": "svc/leave/util.go",
+      "startLine": 3,
+      "tier": 2
+    }
+  ],
+  "summary": {
+    "counted": 4,
+    "excludedContained": 0,
+    "excludedDeclarationOnly": 0,
+    "gated": 1,
+    "lines": 67,
+    "noSpan": 0,
+    "total": 4
+  },
+  "version": "read-obligations-v1"
+}
