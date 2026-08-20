@@ -8,6 +8,7 @@ import { currentKnowledgeRelativePath, knowledgeEpochRelativePath } from "../src
 import { freezeRun, searchSourceEvidence } from "../src/run/run.ts";
 import { DEFAULT_PLANNER_PACKET_BYTE_LIMIT, planRun, renderPlannerPacketForRun } from "../src/run/stages/plan-stage.ts";
 import { loadTopicCatalogSource } from "../src/report/topic-catalog-source.ts";
+import { assertPlanEpoch, type UnitPlanView } from "../src/report/unit-plan-view.ts";
 import { copyFixture, manifestOf } from "./helpers.ts";
 import { frozenRun } from "./unit-fixture.ts";
 
@@ -123,4 +124,25 @@ test("the epoch-to-path mapping is injective, which is what makes the selected-e
   assert.equal(new Set(paths).size, paths.length);
   assert.deepEqual(paths.slice(0, 2), ["knowledge.json", join("knowledge", "epochs", "epoch-1.json")]);
   assert.throws(() => knowledgeEpochRelativePath(-1), /Invalid knowledge epoch/);
+});
+
+test("the plan-versus-manifest epoch refusal stays, even though a run can no longer reach it", () => {
+  /*
+   * `assertPlanEpoch` used to be the visible face of this defect: after a re-freeze the recorded plan projected
+   * epoch 0 while the manifest was at epoch 1, and every unit command refused with its message. That state is now
+   * unreachable through three checks in a row, which is why its through-the-run fixture is gone from
+   * `tests/unit-authoring.test.ts` (9):
+   *
+   *   1. `assertSelectedEpoch` (above) pins the projected record to the epoch the manifest selects;
+   *   2. the plan gate re-derives the topics catalog and refuses a recorded `plan/topics.json` that differs;
+   *   3. `readPlanCatalog` refuses a `plan/catalog.json` whose `knowledgeEpoch` is not the topics catalog's.
+   *
+   * So the check is defence in depth now, not a live gate — and an unexercised throw is one nobody notices being
+   * deleted. It is asserted here as the pure function it is, over a hand-made view, with no claim that a run
+   * directory can produce the disagreement.
+   */
+  const view = (epoch: number) => ({ knowledgeEpoch: epoch }) as unknown as UnitPlanView;
+  assert.throws(() => assertPlanEpoch(view(0), 1),
+    /The recorded plan projects knowledge epoch 0 but the run manifest is at epoch 1; re-plan this run before authoring units/);
+  assert.doesNotThrow(() => assertPlanEpoch(view(1), 1));
 });
