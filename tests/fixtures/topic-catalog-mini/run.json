@@ -2,10 +2,10 @@
   "assuranceVersion": "assurance-v5",
   "createdAt": "2026-01-01T00:00:00.000Z",
   "documents": [],
-  "evidenceDigest": "d3ce897060370e11bf5d074cdd206001b9d85244e1c6cd50831e52e03e792fa8",
+  "evidenceDigest": "64b9987852683d4324e80892b10834491d95a7f52e5714deaa43f34938c4036b",
   "frozenAt": "2026-01-01T01:00:00.000Z",
   "id": "run-topic-catalog-mini",
-  "knowledgeDigest": "fixture-knowledge-digest-epoch-0",
+  "knowledgeDigest": "d0975cc90fd54e02c3d3f192ace03c46a70c50dd0a60db796e1c73950b56a5b3",
   "knowledgeEpoch": 0,
   "metrics": {
     "cache": {},

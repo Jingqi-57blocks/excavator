@@ -4,7 +4,7 @@ import { readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { RunManifest } from "../src/base/types.ts";
 import { canonicalJson, sha256 } from "../src/base/util.ts";
-import { currentKnowledgeRelativePath, knowledgeEpochRelativePath } from "../src/freeze/freeze.ts";
+import { currentKnowledgeRelativePath, knowledgeDigest, knowledgeEpochRelativePath } from "../src/freeze/freeze.ts";
 import { freezeRun, searchSourceEvidence } from "../src/run/run.ts";
 import { DEFAULT_PLANNER_PACKET_BYTE_LIMIT, planRun, renderPlannerPacketForRun } from "../src/run/stages/plan-stage.ts";
 import { loadTopicCatalogSource } from "../src/report/topic-catalog-source.ts";
@@ -109,6 +109,10 @@ test("epoch 0 and a manifest with no epoch field both still read knowledge.json"
   const runDir = await copyFixture("topic-catalog-mini");
   const manifest = await manifestOf(runDir);
   assert.equal(manifest.knowledgeEpoch, 0);
+  // The fixture's manifest agrees with its own epoch record. Asserted because that manifest was added for this
+  // slice and a placeholder digest in it would sit there unnoticed until some later test put it through a gate
+  // that checks one.
+  assert.equal(manifest.knowledgeDigest, knowledgeDigest(JSON.parse(await readFile(join(runDir, "knowledge.json"), "utf8"))));
   assert.equal(currentKnowledgeRelativePath(manifest), "knowledge.json");
   assert.deepEqual([...(await loadTopicCatalogSource(runDir, manifest)).readPaths].filter((path) => path.startsWith("knowledge")), ["knowledge.json"]);
 
