@@ -217,7 +217,7 @@ async function main(): Promise<void> {
       }
       case "collect": {
         const args = parseArgs(argv);
-        if (args.units === "true") {
+        if (unitScoped(args, "collect")) {
           const units = await collectUnits(required(args.run, "--run"));
           print({ collected: units.collected.length, units: units.collected.map(unitReceiptLine) });
           break;
@@ -255,14 +255,14 @@ async function main(): Promise<void> {
       }
       case "resume": {
         const args = parseArgs(argv);
-        print(args.units === "true"
+        print(unitScoped(args, "resume")
           ? await resumeUnits(required(args.run, "--run"))
           : await resumeRun(required(args.run, "--run")));
         break;
       }
       case "status": {
         const args = parseArgs(argv);
-        print(args.units === "true"
+        print(unitScoped(args, "status")
           ? await unitStatus(required(args.run, "--run"))
           : await runStatus(required(args.run, "--run")));
         break;
@@ -411,9 +411,21 @@ function proposalSource(args: Record<string, string>): PlanProposalSource {
 function unitKeyed(args: Record<string, string>, command: string): boolean {
   if (!args.unit) return false;
   if (args.document || args.section) {
-    throw new Error(`excavator ${command} takes either --unit <id> or --document <id> --section <n>, not both; a draft is keyed one way`);
+    throw new Error(`excavator ${command} takes either --unit <id> or --document <id> --section <n>, not both; the command is keyed one way`);
   }
   return true;
+}
+
+/**
+ * True when a run-wide command was asked for the unit view. `--units` takes no id, so a `--unit <id>` here is a
+ * REFUSAL rather than a flag nobody reads: silently falling through to the section path would run the wrong
+ * command on the strength of one missing letter.
+ */
+function unitScoped(args: Record<string, string>, command: string): boolean {
+  if (args.unit) {
+    throw new Error(`excavator ${command} takes --units (no id): it is run-wide over every planned unit, not one unit at a time`);
+  }
+  return args.units === "true";
 }
 
 /**
