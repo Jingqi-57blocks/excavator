@@ -276,9 +276,11 @@ export function assemblyUnitsInOrder<T extends { readonly unitId: string }>(
  * A CHILD WITH TWO PARENTS IS REFUSED, not resolved. An assembled document names ONE parent per unit — in the
  * contents table and in the navigation line — so keeping the last edge seen would print one parent and say nothing
  * about the other, and because `plan-artifacts.ts` sorts the edges, which one survived would be decided by
- * lexicographic order. Nothing upstream forbids the shape today: plan validation checks self-reference, existence
- * and same-document, and the root count still comes out at one because it counts the SET of named children. So the
- * refusal lives here, where the singular field is, rather than being implied by a type.
+ * lexicographic order. It is the SECOND of two defences and neither covers for the other: `unit-parentage.ts`
+ * refuses the shape in a PROPOSAL (the root count cannot see it — it counts the SET of named children, so two
+ * syntheses naming one leaf still leaves one root), and this one refuses it in the RECORDED edge list, which a
+ * hand-edited `plan/dag.json` or a graph written by an older writer never passes through plan validation again.
+ * So the refusal also lives here, where the singular field is, rather than being implied by a type.
  */
 export function parentUnitIdByChild(
   edges: readonly { readonly parentUnitId: string; readonly childUnitId: string }[]

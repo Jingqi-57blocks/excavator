@@ -65,7 +65,7 @@ test("the read denominator IS the read-obligation ledger's own row count, read o
   // Guard against a vacuous version of this test: the fixture must actually leave something unread.
   assert.ok(facts.read.obligationRows > 0 && facts.read.notOpenedRows > 0, `the fixture must exercise the non-empty arm: ${JSON.stringify(facts.read)}`);
   const read = statement(facts, "Read obligations");
-  assert.equal(read.state, "violations");
+  assert.equal(read.state, "defective", "an unread residual is a row this run still owes, not a decision it recorded");
   assert.equal(readsAsCovered(read), false);
 });
 
@@ -165,10 +165,12 @@ test("a displaced-non-zero run is not covered, and displacement never reads as a
     determinations: { ...facts.determinations, determinedNegative: 41 }
   };
   const authorized = statement(displaced, "Authorized reads");
-  assert.equal(authorized.state, "violations", "a run that read 226 of 473 authorized reads is not a covered run");
+  assert.equal(authorized.state, "defective", "a run that read 226 of 473 authorized reads is not a covered run");
   assert.equal(readsAsCovered(authorized), false);
-  assert.equal(authorized.state === "violations" && authorized.entries[0]!.kind, "displaced-by-budget");
-  assert.equal(authorized.state === "violations" && authorized.conservation.excluded, 247);
+  assert.equal(authorized.state === "defective" && authorized.defects[0]!.kind, "displaced-by-budget");
+  assert.equal(authorized.state === "defective" && authorized.conservation.excluded, 247);
+  // A recorded ceiling is a DEBT, not a discretion: nothing rides along on the withheld list here.
+  assert.deepEqual(authorized.state === "defective" ? authorized.withheld : null, []);
 
   // THE FALSIFICATION for "take displacement out of the state derivation": with the same authorized total and
   // nothing displaced, the very same statement IS covered. So the arm is decided by the displacement and by
@@ -185,6 +187,61 @@ test("a displaced-non-zero run is not covered, and displacement never reads as a
   assert.ok(!displacedLine.includes("SETTLED NEGATIVELY"));
   assert.ok(!negativeLine.includes("never attempted"));
   assert.notEqual(displacedLine, negativeLine);
+});
+
+// --- the arm split, on the companion's own statements ----------------------------------------------------------
+//
+// The two families whose entries are RECORDED DECISIONS are here rather than in the module test, because this is
+// where a reader meets them: a plan that omitted a topic for an audience, and an obligation the grounding register
+// exempts. Both must read as `withheld` — outside covered, and not on a repair list — and a defect appearing beside
+// them must not erase them.
+
+test("a plan that only waives reads as withheld, not as defective and not as covered", async () => {
+  const { facts } = await plannedMiniRun();
+  const waived: CoverageStateFacts = {
+    ...facts,
+    material: {
+      ...facts.material,
+      accounting: {
+        ...facts.material.accounting,
+        inUnits: 2,
+        waived: 1,
+        waivedByState: facts.material.accounting.waivedByState.map((row) => row.state === "omitted-for-audience" ? { ...row, obligations: 1 } : row),
+        waivedObligations: [{ workItemId: "wi-waived", dimension: "leave", state: "omitted-for-audience", topicIds: ["topic:leave"] }]
+      }
+    }
+  };
+  const placement = statement(waived, "Material obligations: where the plan puts them");
+  assert.equal(placement.state, "withheld", "omitting a topic for an audience is a decision the plan is allowed to make");
+  assert.equal(readsAsCovered(placement), false, "withheld is still not covered");
+  const sentence = coverageStatementSentence(placement);
+  assert.ok(sentence.startsWith(COVERAGE_STATEMENT_PREFIXES.withheld), sentence);
+  assert.ok(!sentence.includes(COVERAGE_STATEMENT_PREFIXES.defective), "a plan doing something it is allowed to do is not a defect");
+  assert.ok(renderCoverageCompanion(waived).includes("a plan disposition took OUT of this document"), "and the waiver is still stated by id");
+});
+
+test("a grounding exemption is withheld, and an unowned obligation beside it does not erase it", async () => {
+  const { facts } = await plannedMiniRun();
+  const document = facts.material.documents[0]!;
+  // Exempt only: reached 3, owned 3, one of them exempt — the judgement-call row of the category table.
+  const exemptOnly: CoverageStateFacts = {
+    ...facts,
+    material: { ...facts.material, documents: [{ ...document, groundingExemptIds: ["wi-open"], ownedObligations: 3, reachedObligations: 3, unownedObligationIds: [] }] }
+  };
+  const exempt = statement(exemptOnly, `Material obligations of ${document.documentId}`);
+  assert.equal(exempt.state, "withheld", "a registered exemption has a decider: the run's own obligation ledger");
+  // Exempt AND unowned: the defect decides the arm, the exemption rides along on the withheld list.
+  const mixed: CoverageStateFacts = {
+    ...facts,
+    material: { ...facts.material, documents: [{ ...document, groundingExemptIds: ["wi-open"], ownedObligations: 3, reachedObligations: 4, unownedObligationIds: ["wi-orphan"] }] }
+  };
+  const both = statement(mixed, `Material obligations of ${document.documentId}`);
+  assert.equal(both.state, "defective");
+  assert.deepEqual(both.state === "defective" ? both.defects.map((entry) => entry.kind) : null, ["owned-by-no-unit"]);
+  assert.deepEqual(both.state === "defective" ? both.withheld.map((entry) => entry.kind) : null, ["grounding-exempt"], "a defect may not swallow the decision beside it");
+  const rendered = renderCoverageCompanion(mixed);
+  assert.ok(rendered.includes("no unit of it grounds"), "the defect is stated");
+  assert.ok(rendered.includes("exempt from the grounding check"), "and so is the exemption riding with it");
 });
 
 // --- the packet block is the epoch-only half, and that is load-bearing -----------------------------------------
@@ -276,7 +333,7 @@ test("a collected unit's stated unknowns reach the companion, and a drifted summ
   assert.equal(stated!.collectedUnits, 1);
   assert.deepEqual(stated!.units, [{ unitId, unknowns: ["how the promotion window is chosen is not recorded"] }]);
   const verdict = statement(facts, "Written units");
-  assert.equal(verdict.state, "violations", "a unit that states an unknown is not a unit with nothing to report");
+  assert.equal(verdict.state, "defective", "a unit that states an unknown is not a unit with nothing to report, and an unknown is never a decision");
   assert.ok(renderCoverageCompanion(facts).includes("how the promotion window is chosen is not recorded"));
 
   // A summary whose bytes no longer digest to what the ledger recorded is a NAMED REFUSAL. Reporting the drifted

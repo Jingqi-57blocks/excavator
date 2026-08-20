@@ -10,7 +10,8 @@
  * WHAT IT CHECKS, in the epic's own words plus the ones R5a and R5b add:
  *   * every material topic carries exactly one of six dispositions (R2's validator, reused whole — not restated);
  *   * every topic a unit names exists in the catalog, and every child a synthesis names exists among the units;
- *   * the unit graph is acyclic, and each document has exactly one root;
+ *   * the unit graph is acyclic, each document has exactly one root, and no unit is named as a child twice — the
+ *     tree law `unit-parentage.ts` owns, which the root count cannot see;
  *   * every unit belongs to a requested document, and every requested document has at least one unit;
  *   * the lens policy a plan invokes to omit something is a lens some request in this plan actually reads under;
  *   * GATE 1b's reading: where each material OBLIGATION goes, with the ones a waiving disposition removed
@@ -65,6 +66,7 @@ import {
 } from "./plan-obligation-conservation.ts";
 import { unitChildIds, unitTopicIds, unitTopics, type PlanProposal } from "./plan-proposal.ts";
 import { documentRootUnitIds, unitDagOrder } from "./unit-dag-order.ts";
+import { singleParentProblems } from "./unit-parentage.ts";
 import {
   intentPolicyFor,
   lensPolicyFor,
@@ -214,6 +216,10 @@ export function validatePlan(input: PlanValidationInput): PlanValidationReport {
       }
     }
   }
+
+  // --- the tree law, which the root count does not imply: a unit named as a child by two units still leaves one
+  // root and would be placed under whichever parent a consumer reached first.
+  problems.push(...singleParentProblems(proposal.units));
 
   // --- the graph.
   const dag = unitDagOrder(proposal.units);

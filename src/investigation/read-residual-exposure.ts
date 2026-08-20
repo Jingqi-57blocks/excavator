@@ -30,7 +30,7 @@
 // Pure: zero I/O, zero model call, byte-stable ordering. The grouping is shared by both renderers, so the
 // console and the packet can never disagree about what the residual says.
 
-import { coverageStatement, coverageViolation, renderCoverageStatement, type CoverageStatement } from "./coverage-statement.ts";
+import { coverageStatement, coverageEntry, renderCoverageStatement, type CoverageStatement } from "./coverage-statement.ts";
 import type { ReadCoverageItem } from "./read-coverage.ts";
 import type { ReadObligation } from "../obligation/read-obligations.ts";
 
@@ -236,14 +236,14 @@ export function readingCoverageStatement(exposure: ReadingExposure, ledger: stri
     // subtraction would put every one of them on the covered side of the sentence.
     denominator: { state: "present", ledger, rows, counted: withWindowRows },
     entries: [
-      coverageViolation(
+      coverageEntry(
         "unread-residual",
         notOpened,
         [],
         `${exposure.totals.functions} inside this feature's boundary or carrying its vocabulary, ${exposure.unclassified.count} carrying neither`
       ),
-      coverageViolation("cannot-determine", unreconcilableRows, [], "counted read obligations with no end line, so their coverage cannot be reconciled"),
-      coverageViolation("ledger-excluded", ledgerExcludedRows, [], "declaration-only or contained in another obligation, per the ledger's own exclusion reason")
+      coverageEntry("cannot-determine", unreconcilableRows, [], "counted read obligations with no end line, so their coverage cannot be reconciled"),
+      coverageEntry("ledger-excluded", ledgerExcludedRows, [], "declaration-only or contained in another obligation, per the ledger's own exclusion reason")
     ]
   });
 }

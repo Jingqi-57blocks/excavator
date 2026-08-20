@@ -19,12 +19,10 @@
  * figure here would be a second denominator, which is the one thing gate 1b forbids one level up. It costs a second
  * pass through the plan gate — the same bytes, re-validated — and that is the price of not reaching inside R7a.
  *
- * IT GATES ON NOTHING THE COVERAGE STATEMENTS SAY. A statement's arm (`complete` / `vacuous` / `violations`) is a
- * WORDING rule, and `violations` covers legitimate, counted exits — a plan waiving a topic for an audience, a
- * recorded read ceiling — as well as defects. Refusing to assemble because a statement is in that arm would turn a
- * wording union into a defect gate, and would make a run that honestly reported a residue unshippable. Assembly's
- * own gates are the ones above: every unit collected, every promise still true, no path shared with the section
- * path.
+ * IT GATES ON NOTHING THE COVERAGE STATEMENTS SAY, AND THAT IS NOW A TYPE'S JOB. `unit-assembly-coverage.ts`
+ * enumerates all four arms and states, per arm, why assembly ships it; the reading it returns travels out on
+ * `coverage.arms`. Introducing a gate here means changing that function's branches in the open. Assembly's own
+ * gates are the ones above: every unit collected, every promise still true, no path shared with the section path.
  */
 
 import { readFile } from "node:fs/promises";
@@ -33,7 +31,7 @@ import type { RunManifest, TraceCatalog } from "../base/types.ts";
 import { readJson } from "../base/util.ts";
 import { sectionCompanionRelativePaths } from "./assurance-artifacts.ts";
 import { reportFileName } from "./authoring-plan.ts";
-import { renderCoverageCompanion } from "./coverage-companion.ts";
+import { coverageStatements, renderCoverageCompanion } from "./coverage-companion.ts";
 import { loadCoverageStateFacts } from "./coverage-companion-source.ts";
 import type { PlanCatalogUnit } from "./plan-artifacts.ts";
 import { describePromisedArtifactProblem, promisedArtifactProblems, type PromiseSubject } from "./unit-artifact-promise.ts";
@@ -45,6 +43,7 @@ import {
   type AssemblyUnit,
   type UnitDocumentAssembly
 } from "./unit-assembly.ts";
+import { shippedCoverageArms, type ShippedCoverageArm } from "./unit-assembly-coverage.ts";
 import {
   assertDistinctUnitDocumentTargets,
   assertNoSectionPathConflict,
@@ -84,7 +83,14 @@ export interface UnitAssembly {
   readonly knowledgeEpoch: number;
   readonly planCatalogDigest: string;
   readonly documents: readonly AssembledUnitDocument[];
-  readonly coverage: { readonly path: string; readonly markdown: string };
+  /**
+   * The run-scoped coverage companion, and the arm every statement in it took.
+   *
+   * `arms` is carried rather than dropped so that "assembly shipped a defective coverage statement" is an
+   * observable fact rather than an absence: a reader of this value can see the four arms went through, and a test
+   * can assert the defective one did.
+   */
+  readonly coverage: { readonly path: string; readonly markdown: string; readonly arms: readonly ShippedCoverageArm[] };
   /** Every run-relative path this load opened, sorted. A caller republishes it rather than re-deriving it. */
   readonly readPaths: readonly string[];
 }
@@ -199,7 +205,11 @@ export async function loadUnitAssembly(runDirInput: string): Promise<UnitAssembl
     knowledgeEpoch,
     planCatalogDigest: view.planCatalogDigest,
     documents,
-    coverage: { path: UNIT_COVERAGE_COMPANION_PATH, markdown: renderCoverageCompanion(coverage.facts) },
+    coverage: {
+      path: UNIT_COVERAGE_COMPANION_PATH,
+      markdown: renderCoverageCompanion(coverage.facts),
+      arms: shippedCoverageArms(coverageStatements(coverage.facts))
+    },
     readPaths: [...readPaths].sort(compareUnitIds)
   };
 }

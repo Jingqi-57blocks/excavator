@@ -15,9 +15,12 @@
  * unmatched because one id segment differs — so there is no such number anywhere below, and a test asserts the
  * rendering contains no percentage at all.
  *
- * EVERY SENTENCE GOES THROUGH `CoverageStatement`. Nothing here decides whether something reads as covered — the
- * layer-7 constructor does, from the counts. That is why the companion cannot report cebreo's empty read ledger as
- * a clean run even if a future edit here wanted to: the arm is not this file's to choose.
+ * EVERY SENTENCE GOES THROUGH `CoverageStatement`. Nothing here decides whether something reads as covered, and
+ * nothing here decides whether what is missing is a DECISION or a DEBT — the layer-7 constructor does both, from
+ * the counts and from the entry kinds. That is why the companion cannot report cebreo's empty read ledger as a
+ * clean run even if a future edit here wanted to, and why a plan legitimately omitting a topic prints `withheld`
+ * while an unread residual prints `defective`: the arm is not this file's to choose. This file's only job is to
+ * name each entry's kind correctly, and `COVERAGE_KIND_CATEGORY` turns that into the arm.
  *
  * THE PACKET BLOCK RENDERS THE EPOCH-ONLY HALF, AND THAT SPLIT IS FORCED. A unit packet's bytes ARE that unit's
  * cache identity (R6a), so anything the block prints becomes part of what invalidates a written unit. The four
@@ -38,7 +41,7 @@
 import { assertNever } from "../base/artifact-result.ts";
 import {
   coverageStatement,
-  coverageViolation,
+  coverageEntry,
   determinedNegativeSentence,
   renderCoverageStatement,
   type CoverageStatement
@@ -233,19 +236,19 @@ function materialPlacementStatement(accounting: PlanObligationAccounting): Cover
     entries: [
       // One entry PER WAIVING STATE, because "the plan omitted this for an audience" and "the plan cannot determine
       // this" are two different decisions and a single `waived: 799` prints them as one.
-      ...accounting.waivedByState.map((row) => coverageViolation(
+      ...accounting.waivedByState.map((row) => coverageEntry(
         "waived-by-state",
         row.obligations,
         accounting.waivedObligations.filter((entry) => entry.state === row.state).map((entry) => entry.workItemId),
         `disposition ${row.state}`
       )),
-      coverageViolation(
+      coverageEntry(
         "claimed-but-unplaced",
         accounting.unplaced,
         accounting.unplacedObligations.map((row) => row.workItemId),
         "a placing disposition on topic(s) no unit names"
       ),
-      coverageViolation(
+      coverageEntry(
         "undispositioned",
         accounting.undispositioned,
         accounting.undispositionedObligations.map((row) => row.workItemId),
@@ -267,8 +270,8 @@ function documentOwnershipStatement(document: DocumentCoverageOwnership): Covera
       counted: document.ownedObligations - exempt
     },
     entries: [
-      coverageViolation("owned-by-no-unit", document.unownedObligationIds.length, document.unownedObligationIds, `reached by ${document.documentId} and owned by no unit of it`),
-      coverageViolation("grounding-exempt", exempt, document.groundingExemptIds, 'owned here and carrying origin "open" in this run\'s obligation ledger')
+      coverageEntry("owned-by-no-unit", document.unownedObligationIds.length, document.unownedObligationIds, `reached by ${document.documentId} and owned by no unit of it`),
+      coverageEntry("grounding-exempt", exempt, document.groundingExemptIds, 'owned here and carrying origin "open" in this run\'s obligation ledger')
     ]
   });
 }
@@ -279,9 +282,9 @@ function readWindowStatement(read: ReadCoverageFacts): CoverageStatement {
     subject: "read obligations",
     denominator: { state: "present", ledger: read.ledger, rows: read.obligationRows, counted: read.withWindowRows },
     entries: [
-      coverageViolation("unread-residual", read.notOpenedRows, [], `${read.uncoveredLines} unread line(s) across them`),
-      coverageViolation("cannot-determine", read.unreconcilableRows, [], "counted read obligations with no end line, so their coverage cannot be reconciled"),
-      coverageViolation("ledger-excluded", read.ledgerExcludedRows, [], `declaration-only or contained in another obligation, per ${read.ledger}'s own summary`)
+      coverageEntry("unread-residual", read.notOpenedRows, [], `${read.uncoveredLines} unread line(s) across them`),
+      coverageEntry("cannot-determine", read.unreconcilableRows, [], "counted read obligations with no end line, so their coverage cannot be reconciled"),
+      coverageEntry("ledger-excluded", read.ledgerExcludedRows, [], `declaration-only or contained in another obligation, per ${read.ledger}'s own summary`)
     ]
   });
 }
@@ -301,7 +304,7 @@ function authorizedReadStatement(read: ReadCoverageFacts): CoverageStatement {
   return coverageStatement({
     subject: "authorized reads",
     denominator: { state: "present", ledger, rows: authorizedReads, counted: authorizedReads - readsDisplacedByBudget },
-    entries: [coverageViolation("displaced-by-budget", readsDisplacedByBudget, [], "a ceiling this run recorded, sealed as closure.readsDisplacedByBudget")]
+    entries: [coverageEntry("displaced-by-budget", readsDisplacedByBudget, [], "a ceiling this run recorded, sealed as closure.readsDisplacedByBudget")]
   });
 }
 
@@ -316,8 +319,8 @@ function determinationStatement(determinations: ObligationDeterminationFacts): C
       counted: determinations.rows - determinations.cannotDetermineIds.length - determinations.openIds.length
     },
     entries: [
-      coverageViolation("cannot-determine", determinations.cannotDetermineIds.length, determinations.cannotDetermineIds, "ledger status cannot-determine"),
-      coverageViolation("open-determination", determinations.openIds.length, determinations.openIds, "ledger status pending or in_progress")
+      coverageEntry("cannot-determine", determinations.cannotDetermineIds.length, determinations.cannotDetermineIds, "ledger status cannot-determine"),
+      coverageEntry("open-determination", determinations.openIds.length, determinations.openIds, "ledger status pending or in_progress")
     ]
   });
 }
@@ -326,7 +329,7 @@ function topicUnknownStatement(topics: TopicCoverageFacts): CoverageStatement {
   return coverageStatement({
     subject: "catalog topics",
     denominator: { state: "present", ledger: topics.ledger, rows: topics.topics, counted: topics.topics - topics.unknownTopicIds.length },
-    entries: [coverageViolation("unknown-topic", topics.unknownTopicIds.length, topics.unknownTopicIds, "the topic's own ledger row or one of its obligations is undetermined")]
+    entries: [coverageEntry("unknown-topic", topics.unknownTopicIds.length, topics.unknownTopicIds, "the topic's own ledger row or one of its obligations is undetermined")]
   });
 }
 
@@ -340,7 +343,7 @@ function statedUnknownStatement(stated: CollectedUnknownsReading): CoverageState
   return coverageStatement({
     subject: "collected units",
     denominator: { state: "present", ledger: stated.ledger, rows: stated.collectedUnits, counted: stated.collectedUnits - withUnknowns.length },
-    entries: [coverageViolation("stated-unknown", withUnknowns.length, withUnknowns.map((row) => row.unitId), `${statements} unknown statement(s) across them`)]
+    entries: [coverageEntry("stated-unknown", withUnknowns.length, withUnknowns.map((row) => row.unitId), `${statements} unknown statement(s) across them`)]
   });
 }
 

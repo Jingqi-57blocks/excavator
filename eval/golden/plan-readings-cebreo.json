@@ -11,7 +11,7 @@
       "audience": "product-manager",
       "detailBudget": "standard",
       "documentId": "overview-product",
-      "inputBytes": 42253,
+      "inputBytes": 42278,
       "intent": "overview",
       "perUnitInputBytes": 786432,
       "rootUnitId": "overview-product::synthesis::document",
@@ -143,7 +143,7 @@
   "unitBytes": [
     {
       "byteLimit": 786432,
-      "bytes": 27735,
+      "bytes": 27760,
       "costState": "rendered",
       "kind": "appendix",
       "overBy": 0,

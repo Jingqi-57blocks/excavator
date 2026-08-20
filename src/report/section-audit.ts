@@ -17,6 +17,7 @@ import type {
   SectionClaimsFile
 } from "../base/types.ts";
 import { validateComparisonSides } from "./claim-comparison.ts";
+import { claimIdShapeProblems } from "./claim-id-shape.ts";
 
 export function auditSectionClaims(options: {
   documentId: string;
@@ -424,6 +425,10 @@ export function auditWorkItemClaimCoverage(plan: InvestigationPlan, documents: D
 export function assertValidClaim(claim: SectionClaim, where: string): void {
   if (!claim || typeof claim !== "object") throw new Error("Each claim must be an object");
   if (!claim.id || !claim.statement || !["fact", "verified", "inferred", "unavailable"].includes(claim.marker)) throw new Error(`Invalid claim in ${where}`);
+  // The three id lists' SHAPE, before anything iterates them: both sidecars arrive as JSON cast to `SectionClaim`,
+  // so `"traceIds": "T-1"` reaches every consumer as four one-character ids and fails for the wrong reason.
+  const shape = claimIdShapeProblems(claim as unknown as Record<string, unknown>);
+  if (shape.length) throw new Error(`Invalid claim id list in ${where}: ${shape.join("; ")}`);
   const sideViolations = validateComparisonSides(claim);
   if (sideViolations.length) throw new Error(`Invalid comparison sides in ${where}: ${sideViolations.join("; ")}`);
 }
