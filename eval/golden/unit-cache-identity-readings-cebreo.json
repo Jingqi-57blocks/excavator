@@ -13,14 +13,14 @@
   "identified": [
     {
       "documentId": "overview-product",
-      "identityDigest": "a0d438d46f2a118e455e7bf747aa61d4b1232e591aeb0c3980f3292852df8a57",
+      "identityDigest": "df2ab70d40f42206a55c0ce02c402e0a7b0204b137b57f1e9bee2ef86e721bbc",
       "kind": "appendix",
       "normalizedLabels": [
         "topics catalog digest",
         "plan catalog digest",
         "recorded requests digest"
       ],
-      "packetBytes": 24767,
+      "packetBytes": 27735,
       "sectionHeadings": [
         "(packet header)",
         "## What this packet is not",
@@ -30,11 +30,12 @@
         "## Obligations bound to this unit's topics (1 obligation(s), 0 material, 1 written here, 0 carried by another unit of this document)",
         "## Evidence bound to the obligations this unit writes (3 record(s), all rendered in full)",
         "## Facet census of this run's Topic Catalog",
+        "## Coverage state of this run (from the sealed ledgers, not from this document)",
         "## Evidence this run captured that no obligation binds (27 record(s))"
       ],
-      "sections": 9,
+      "sections": 10,
       "unitId": "overview-product::appendix::coverage",
-      "viewBytes": 24668
+      "viewBytes": 27636
     }
   ],
   "knowledgeDigest": "b576ab30545c0c8d6a32f44dde68a2c28f89179593e0e836e63ad0b58b100f6b",

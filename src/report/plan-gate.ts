@@ -21,6 +21,7 @@
 import { join } from "node:path";
 import type { RunManifest } from "../base/types.ts";
 import { exists, stableJson } from "../base/util.ts";
+import { projectEpochCoverage } from "./coverage-projection.ts";
 import { PLAN_BUDGET_TABLE } from "./plan-budget.ts";
 import {
   planCatalogPath,
@@ -114,7 +115,8 @@ export async function assertValidatedPlanForAuthoring(runDir: string, manifest: 
     registry: REPORT_POLICY_REGISTRY,
     budgetTable: PLAN_BUDGET_TABLE,
     evidence: evidence.evidenceById,
-    reach: evidence.reach
+    reach: evidence.reach,
+    epochCoverage: projectEpochCoverage(source)
   });
   if (report.overall.conclusion === "violations") {
     throw new Error(`The recorded plan in ${runDir} does not validate against its own epoch: ${report.overall.problems.join("; ")}`);

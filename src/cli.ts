@@ -9,6 +9,8 @@ import { collectUnits } from "./report/unit-collect.ts";
 import { checkpointUnit } from "./report/unit-checkpoint.ts";
 import { resumeUnits, unitStatus } from "./report/unit-status.ts";
 import { renderUnitPacketForRun } from "./report/unit-packet-source.ts";
+import { loadCoverageStateFacts } from "./report/coverage-companion-source.ts";
+import { renderCoverageCompanion } from "./report/coverage-companion.ts";
 import { loadRunUnitIdentities } from "./report/unit-cache-identity-source.ts";
 import { admitUnits, planUnitAdmission } from "./report/unit-cache-admission-run.ts";
 import { summariseAdmission, type CandidateLedgerRow } from "./report/unit-cache-admission.ts";
@@ -154,6 +156,18 @@ async function main(): Promise<void> {
           await writeFile(resolve(args.out), packet.markdown);
           print({ out: resolve(args.out), bytes: packet.bytes, byteLimit: packet.byteLimit, limitations: packet.limitations });
         } else process.stdout.write(packet.markdown);
+        break;
+      }
+      case "coverage-companion": {
+        // Read-only, same shape as `plan-packet`: this run's coverage state from the four ledgers that own it,
+        // every statement naming its own denominator, with no combined figure. It writes nothing.
+        const args = parseArgs(argv);
+        const { facts, readPaths } = await loadCoverageStateFacts(required(args.run, "--run"));
+        const markdown = renderCoverageCompanion(facts);
+        if (args.out) {
+          await writeFile(resolve(args.out), markdown);
+          print({ out: resolve(args.out), run: facts.runId, knowledgeEpoch: facts.knowledgeEpoch, bytes: Buffer.byteLength(markdown, "utf8"), readPaths });
+        } else process.stdout.write(markdown);
         break;
       }
       case "unit-cache-identity": {
@@ -755,6 +769,7 @@ Commands:
   native-graph  Build a symbol+call navigation graph for CodeGraph-unsupported languages (Perl, Zope templates)
   framework  Recover routes/components from framework conventions (Catalyst, …) — for dynamically-dispatched apps
   plan-packet   Render the deterministic, bounded planner view of one frozen run; --unit <id> renders one authoring unit's view instead (read-only, zero model)
+  coverage-companion  Render this run's coverage state: four denominators, each naming its own ledger, no combined figure (read-only, zero model)
   unit-cache-identity Print the cache identity of every authoring unit of one planned run (read-only, zero model)
   unit-cache-admit   Re-enter previously verified units through the existing draft/collect gates (--mode required)
   plan          Validate a plan proposal against the frozen epoch and record plan/catalog.json + plan/dag.json
@@ -835,6 +850,15 @@ const COMMAND_HELP: Record<string, CommandHelp> = {
     ],
     example: "excavator plan-packet --run <run> --over-budget refuse --out packet.md",
     notes: "Read-only and deterministic: it writes nothing into the run and never truncates. Over the bound it either refuses by name or records the overrun as a limitation. With --unit every obligation gets its own row with its own evidence and trace ids and every bound record is rendered in full — nothing clipped, capped or truncated — and a synthesis unit is rendered from its collected children's summaries with no topic dossier at all."
+  },
+  "coverage-companion": {
+    synopsis: "coverage-companion --run <dir> [--out <file>]",
+    flags: [
+      "--run <dir>          Planned run directory (required)",
+      "--out <file>         Write the companion here instead of stdout"
+    ],
+    example: "excavator coverage-companion --run <run> --out coverage.md",
+    notes: "Read-only, deterministic, zero model. Four families, four ledgers, four denominators: the plan's material obligation accounting, this run's read-obligation ledger, the sealed epoch's completeness closure, and the obligation ledger's determinations. Every statement names the ONE ledger its denominator came from, and there is no combined coverage figure and no percentage anywhere — combining two of these ledgers needs an id join that was measured to lose 665 of 946 rows silently. An empty denominator reads as `vacuous`, never as covered, and `ledger-absent` (nobody can tell) stays a different sentence from `ledger-empty` (this run genuinely recorded none). A closure field an older epoch never sealed is reported NOT MEASURED, never zero."
   },
   "unit-cache-identity": {
     synopsis: "unit-cache-identity --run <dir> --authorship model-family:<name>|model-free:<name>",

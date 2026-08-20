@@ -61,7 +61,8 @@ function validate(run: MiniRun, proposal: PlanProposal): PlanValidationReport {
     registry: REPORT_POLICY_REGISTRY,
     budgetTable: PLAN_BUDGET_TABLE,
     evidence: run.evidenceById,
-    reach: run.reach
+    reach: run.reach,
+    epochCoverage: run.epochCoverage
   });
 }
 

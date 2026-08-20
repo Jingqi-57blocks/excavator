@@ -564,7 +564,8 @@ export function planThroughBudgetRefinement(input: PlanValidationInput): BudgetR
     registry: input.registry,
     budgetTable: input.budgetTable,
     evidence: input.evidence,
-    reach: input.reach
+    reach: input.reach,
+    epochCoverage: input.epochCoverage
   };
   const refinement = refinePlanForBudget(measureInputs, input.proposal, first.packets.measurement);
   switch (refinement.state) {

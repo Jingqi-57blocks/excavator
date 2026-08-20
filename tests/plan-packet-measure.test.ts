@@ -44,7 +44,8 @@ function measureInputs(run: MiniRun, budgetTable: PlanBudgetTable = PLAN_BUDGET_
     registry: REPORT_POLICY_REGISTRY,
     budgetTable,
     evidence: run.evidenceById,
-    reach: run.reach
+    reach: run.reach,
+    epochCoverage: run.epochCoverage
   };
 }
 
@@ -83,6 +84,7 @@ test("every renderable unit's measured bytes ARE the bytes its packet renders to
       unitId: unit.unitId,
       dossier: topicDossier(unit, topicsById, run.evidenceById),
       ownership: documentOwnership(ownership, unit.documentId),
+      coverage: run.epochCoverage,
       reach: run.reach,
       byteLimit: documentBudgetRow(artifacts.planCatalog.budget, unit.documentId).perUnitInputBytes,
       overBudget: "refuse" as const

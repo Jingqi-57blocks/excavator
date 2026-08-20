@@ -18,6 +18,8 @@ import { loadRunEvidenceReach } from "../src/report/run-evidence-reach.ts";
 import type { EvidenceItem } from "../src/base/types.ts";
 import type { RunEvidenceReach } from "../src/report/unit-packet.ts";
 import { loadTopicCatalogSource } from "../src/report/topic-catalog-source.ts";
+import { projectEpochCoverage } from "../src/report/coverage-projection.ts";
+import type { PacketCoverageFacts } from "../src/report/coverage-companion.ts";
 import { buildReportRequestsArtifact, writeReportRequests, type ReportRequestsArtifact } from "../src/report/report-requests-artifact.ts";
 import { copyFixture, manifestOf } from "./helpers.ts";
 
@@ -44,6 +46,8 @@ export interface MiniRun {
    */
   readonly evidenceById: ReadonlyMap<string, EvidenceItem>;
   readonly reach: RunEvidenceReach;
+  /** The sealed read-coverage denominators (R7a), which plan validation and the packet renderer both need. */
+  readonly epochCoverage: PacketCoverageFacts;
 }
 
 /** A copy of the frozen mini fixture with `plan/requests.json` recorded. */
@@ -53,7 +57,7 @@ export async function miniRun(documents: readonly LegacyDocumentRequest[] = MINI
   const source = await loadTopicCatalogSource(runDir, await manifestOf(runDir));
   const catalog = buildTopicCatalog(source);
   const evidence = await loadRunEvidenceReach(runDir, source);
-  return { runDir, catalog, requests, evidenceById: evidence.evidenceById, reach: evidence.reach };
+  return { runDir, catalog, requests, evidenceById: evidence.evidenceById, reach: evidence.reach, epochCoverage: projectEpochCoverage(source) };
 }
 
 /** The requests artifact without touching disk, for the pure-function tests. */

@@ -82,6 +82,7 @@ import {
   type TopicDispositionReport,
   type TopicDispositionVerdict
 } from "./topic-disposition.ts";
+import type { PacketCoverageFacts } from "./coverage-companion.ts";
 import type { RunEvidenceReach } from "./unit-packet.ts";
 
 export const PLAN_VALIDATION_VERSION = "plan-validation-v2";
@@ -104,6 +105,13 @@ export interface PlanValidationInput {
   readonly evidence: ReadonlyMap<string, EvidenceItem>;
   /** Mechanism A's three numbers, from `evidenceReachOf`. The packet prints them, so the measure needs them. */
   readonly reach: RunEvidenceReach;
+  /**
+   * The epoch-only coverage families (R7a) — required for the same reason `evidence` and `reach` are.
+   *
+   * The appendix packet renders a coverage block from them, and the budget check measures the packet the author
+   * reads. A validation that could omit them would grade a packet nobody is handed.
+   */
+  readonly epochCoverage: PacketCoverageFacts;
 }
 
 export interface PlanDocumentReading {
@@ -338,7 +346,8 @@ function measurePackets(input: PlanValidationInput, problems: string[]): PlanPac
     registry: input.registry,
     budgetTable: input.budgetTable,
     evidence: input.evidence,
-    reach: input.reach
+    reach: input.reach,
+    epochCoverage: input.epochCoverage
   };
   try {
     return { state: "measured", measurement: measurePlanPackets(measureInputs, input.proposal) };

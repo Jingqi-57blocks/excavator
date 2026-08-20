@@ -5,8 +5,8 @@
   "documents": [
     {
       "documentId": "overview-product",
-      "measuredBytes": 39285,
-      "renderedBytes": 24767,
+      "measuredBytes": 42253,
+      "renderedBytes": 27735,
       "totalInputBytes": 3145728,
       "units": 2
     }
@@ -117,10 +117,10 @@
       "openOriginExempt": 0,
       "ownedMaterial": 0,
       "packetByteLimit": 786432,
-      "packetBytes": 24767,
-      "packetDigest": "bde263ef0d7caacfeb406247a4fe27fc1cb81b82f7053c802d9412d9353fbd3d",
+      "packetBytes": 27735,
+      "packetDigest": "48e5d2be363f347e5ec9c4699dd146ea7cdb1a2ad95a48e358a20a22725df680",
       "packetLimitations": [],
-      "precheckBytes": 24767,
+      "precheckBytes": 27735,
       "reachableMaterial": 0,
       "renderedEvidenceIds": 3,
       "renderedTwiceIdentical": true,

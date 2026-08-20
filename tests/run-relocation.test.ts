@@ -14,6 +14,8 @@ import { exists, sha256 } from "../src/base/util.ts";
 import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, installFixturePlan, tempDir } from "./helpers.ts";
 import { planRun, renderPlannerPacketForRun } from "../src/run/stages/plan-stage.ts";
 import { loadRunUnitIdentities, rowUnitId } from "../src/report/unit-cache-identity-source.ts";
+import { loadCoverageStateFacts } from "../src/report/coverage-companion-source.ts";
+import { renderCoverageCompanion } from "../src/report/coverage-companion.ts";
 import { planUnitAdmission } from "../src/report/unit-cache-admission-run.ts";
 import { planCatalogDigest } from "../src/report/plan-artifacts.ts";
 import { planRevisionArchive } from "../src/report/plan-revision.ts";
@@ -290,9 +292,9 @@ test("relocated run: freeze seals the copy's knowledge epoch", async () => {
   assert.equal(await exists(join(base.runDir, "knowledge.json")), false);
 });
 
-test("relocated run: plan, request-append, plan-packet, unit-cache-identity and unit-cache-admit read and write the copy's plan directory", async () => {
+test("relocated run: plan, request-append, plan-packet, unit-cache-identity, unit-cache-admit and coverage-companion read and write the copy's plan directory", async () => {
   const base = await investigatingBase();
-  const runDir = await onRelocatedRun(base, ["plan", "request-append", "plan-packet", "unit-cache-identity", "unit-cache-admit"], async (dir) => {
+  const runDir = await onRelocatedRun(base, ["plan", "request-append", "plan-packet", "unit-cache-identity", "unit-cache-admit", "coverage-companion"], async (dir) => {
     assert.equal((await freezeRun(dir)).frozen, true);
     const packet = await renderPlannerPacketForRun(dir, { overBudget: "refuse", byteLimit: 524_288 });
     assert.ok(packet.markdown.includes("# Planner packet"));
@@ -308,6 +310,13 @@ test("relocated run: plan, request-append, plan-packet, unit-cache-identity and 
     assert.deepEqual(admission.intents.map((intent) => intent.unit.unitId).sort(), result.artifacts.planCatalog.units.map((unit) => unit.unitId).sort());
     assert.equal(admission.planCatalogDigest, planCatalogDigest(result.artifacts.planCatalog));
     assert.match(admission.candidateStatement, /^0 prior verified units: this run's unit ledger records no collected unit at all/);
+    // R7a's coverage companion is read-only and reads the COPY's ledgers: every path it publishes is run-relative,
+    // so a companion computed from the recorded location would be a coverage statement about another directory.
+    const companion = await loadCoverageStateFacts(dir);
+    assert.equal(companion.facts.runId, result.artifacts.planCatalog.runId);
+    assert.ok(companion.readPaths.every((path) => !path.startsWith("/")), `run-relative only: ${companion.readPaths.join(", ")}`);
+    assert.ok(companion.readPaths.includes("plan/catalog.json"), companion.readPaths.join(", "));
+    assert.ok(renderCoverageCompanion(companion.facts).startsWith("# Coverage companion"));
     // The append door and the revision that follows it: both resolve `plan/requests.json` and `plan/revisions/`
     // from --run, so an appended row and an archived revision land in the COPY.
     const appended = await appendReportRequest(dir, {

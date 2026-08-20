@@ -40,6 +40,7 @@ import { MATERIALITY_BUCKET_DEFINITIONS, PLANNER_PACKET_BYTE_LIMIT, renderPlanne
 import { REPORT_POLICY_REGISTRY } from "../src/report/report-policy-registry.ts";
 import { buildReportRequestsArtifact, type ReportRequestsArtifact } from "../src/report/report-requests-artifact.ts";
 import { buildTopicCatalog } from "../src/report/topic-catalog.ts";
+import { projectEpochCoverage } from "../src/report/coverage-projection.ts";
 import { loadTopicCatalogSource } from "../src/report/topic-catalog-source.ts";
 import { topicCatalogDigest } from "../src/report/topics-artifact.ts";
 import { summariseVerdict } from "../src/report/topic-disposition.ts";
@@ -151,7 +152,8 @@ export async function extractPlanReadings(runDir: string): Promise<PlanReadings>
     registry: REPORT_POLICY_REGISTRY,
     budgetTable: PLAN_BUDGET_TABLE,
     evidence: evidence.evidenceById,
-    reach: evidence.reach
+    reach: evidence.reach,
+    epochCoverage: projectEpochCoverage(source)
   });
   if (planned.state === "rejected") {
     throw new Error(`the fixture plan for ${runDir} cannot be recorded: ${planned.problems.join("; ")}`);

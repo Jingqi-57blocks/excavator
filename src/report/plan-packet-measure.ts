@@ -25,6 +25,7 @@
 
 import { assertNever } from "../base/artifact-result.ts";
 import type { EvidenceItem } from "../base/types.ts";
+import type { PacketCoverageFacts } from "./coverage-companion.ts";
 import { documentBudgetRow, type PlanBudgetTable, type PlanDocumentBudget } from "./plan-budget.ts";
 import { FIRST_PLAN_REVISION, derivePlanArtifacts, type PlanArtifacts, type PlanCatalogUnit } from "./plan-artifacts.ts";
 import { deriveObligationOwnership, documentOwnership, ownershipUnitsOfProposal } from "./plan-obligation-conservation.ts";
@@ -53,6 +54,15 @@ export interface UnitPacketMeasureInputs {
   readonly budgetTable: PlanBudgetTable;
   readonly evidence: ReadonlyMap<string, EvidenceItem>;
   readonly reach: RunEvidenceReach;
+  /**
+   * The epoch-only coverage families (R7a), because the appendix packet renders a coverage block and this
+   * measurement IS that packet. Required rather than optional: an omitted one would make the plan-time bytes
+   * differ from the author's packet by exactly the block's size, which is the 9x proxy failure in miniature.
+   *
+   * It is plan-INDEPENDENT by construction (see `projectEpochCoverage`), so a refinement pass cannot move it and
+   * every candidate is measured against the same coverage block.
+   */
+  readonly epochCoverage: PacketCoverageFacts;
 }
 
 /**
@@ -137,7 +147,7 @@ export function measurePlanPackets(inputs: UnitPacketMeasureInputs, proposal: Pl
   const units: UnitPacketCostRow[] = [];
   for (const unit of [...artifacts.planCatalog.units].sort((a, b) => a.unitId.localeCompare(b.unitId))) {
     const budget = documentBudgetRow(artifacts.planCatalog.budget, unit.documentId);
-    const cost = costOf(unit, artifacts, inputs, topicsById, ownership, budget);
+    const cost = costOf(unit, artifacts, inputs, topicsById, ownership, budget, inputs.epochCoverage);
     units.push({
       unitId: unit.unitId,
       documentId: unit.documentId,
@@ -179,7 +189,8 @@ function costOf(
   inputs: UnitPacketMeasureInputs,
   topicsById: ReadonlyMap<string, TopicCandidate>,
   ownership: ReturnType<typeof deriveObligationOwnership>,
-  budget: PlanDocumentBudget
+  budget: PlanDocumentBudget,
+  coverage: PacketCoverageFacts
 ): UnitPacketCost {
   const measure = (dossier: UnitDossier): number => unitPacketBytes({
     planCatalog: artifacts.planCatalog,
@@ -190,6 +201,7 @@ function costOf(
     unitId: unit.unitId,
     dossier,
     ownership: documentOwnership(ownership, unit.documentId),
+    coverage,
     reach: inputs.reach,
     byteLimit: budget.perUnitInputBytes,
     // A measurement is not a verdict, and `unitPacketBytes` does not consult this field. Stated rather than

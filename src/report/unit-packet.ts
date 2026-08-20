@@ -75,6 +75,7 @@ import { documentBudgetRow, summariseDocumentBudget, type PlanDocumentBudget } f
 import type { PlanCatalogArtifact, PlanCatalogUnit, PlanDagArtifact, PlanTopicReference } from "./plan-artifacts.ts";
 import { planCatalogDigest } from "./plan-artifacts.ts";
 import type { AuthoringUnitKind } from "./plan-proposal.ts";
+import { renderCoverageStateBlock, type PacketCoverageFacts } from "./coverage-companion.ts";
 import { describeObligationScope, scopeIncludes } from "./obligation-scope.ts";
 import { intentPolicyFor, lensPolicyFor, type ReportPolicyRegistry } from "./report-policy-registry.ts";
 import type { ReportRequestsArtifact } from "./report-requests-artifact.ts";
@@ -203,6 +204,19 @@ export interface UnitPacketInput {
    * author would be handed no evidence at all — silently.
    */
   readonly ownership: DocumentObligationOwnership;
+  /**
+   * R7a's coverage state of this run, rendered by the deterministic tail (the appendix) and by nothing else.
+   *
+   * Required, with no default, for the reason the facet census above is: an author writing a coverage chapter has
+   * to have the run's own denominators IN the bounded view, and epic gate 10 says the run's residual must reach a
+   * reader through this unit. An optional field would be omitted at the one call site where the omission matters,
+   * and the block would silently disappear from the packet that is supposed to carry it.
+   *
+   * It is derived from this run's sealed ledgers ONLY — never from what sibling units have been collected — so
+   * that drafting a sibling cannot move this unit's cache identity. `coverage-companion-source.ts` states that as
+   * a named absence inside the value rather than leaving it to be inferred.
+   */
+  readonly coverage: PacketCoverageFacts;
   readonly reach: RunEvidenceReach;
   /** From `PlanBudget.perUnitInputBytes` for this unit's document. Required: there is no second authority. */
   readonly byteLimit: number;
@@ -718,6 +732,10 @@ function renderBody(unit: PlanCatalogUnit, input: UnitPacketInput): string {
         renderObligations(unit, input, dossier.topics),
         renderEvidence(unit, input, dossier.topics, dossier.evidence),
         renderFacetCensus(unit, input.facets),
+        // R7a: the coverage state, in the same deterministic tail and behind the same kind gate as the facet
+        // census. It sits beside them because all three answer "what does this run NOT know", and gate 10 routes
+        // that through the appendix.
+        coverageBlock(unit, input.coverage),
         renderUnboundEvidence(unit, input.reach)
       ].filter((block) => block !== "").join("\n");
   }
@@ -967,6 +985,17 @@ function renderUnboundEvidence(unit: PlanCatalogUnit, reach: RunEvidenceReach): 
   if (reach.unbound.length === 0) lines.push("| (none) | | | |");
   lines.push("");
   return lines.join("\n");
+}
+
+/**
+ * R7a's coverage state, rendered by the same kind gate as the facet census and the unbound-evidence enumeration.
+ *
+ * The block itself is composed by `coverage-companion.ts`, so the appendix packet and the standalone companion
+ * command cannot disagree about what this run's coverage state IS — they differ only in how much of each id list
+ * they print, and the block always states the full size it was cut from.
+ */
+function coverageBlock(unit: PlanCatalogUnit, coverage: PacketCoverageFacts): string {
+  return enumeratesUnboundEvidence(unit.kind) ? renderCoverageStateBlock(coverage) : "";
 }
 
 /**

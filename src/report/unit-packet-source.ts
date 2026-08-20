@@ -105,6 +105,8 @@ export async function loadUnitPacketSource(runDirInput: string, options: UnitPac
       // The ownership the grounding audit will use, from the view's single derivation: the author must be handed
       // the same owner map the gate reads, or the packet's stubs and the audit's exemptions would be two answers.
       ownership: documentOwnership(view.ownership, unit.documentId),
+      // R7a: the run's coverage state, projected once by the plan view from the ledgers the gate already checked.
+      coverage: view.epochCoverage,
       reach,
       byteLimit: options.byteLimit ?? unitInputBound(view.planCatalog, unit),
       overBudget: options.overBudget

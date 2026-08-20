@@ -24,6 +24,7 @@ import { assertNever } from "../../base/artifact-result.ts";
 import type { RunManifest } from "../../base/types.ts";
 import { exists, readJson } from "../../base/util.ts";
 import { buildFixturePlan } from "../../report/fixture-plan.ts";
+import { projectEpochCoverage } from "../../report/coverage-projection.ts";
 import { PLAN_BUDGET_TABLE } from "../../report/plan-budget.ts";
 import {
   FIRST_PLAN_REVISION,
@@ -178,7 +179,8 @@ export async function planRun(runDirInput: string, source: PlanProposalSource, r
     registry: REPORT_POLICY_REGISTRY,
     budgetTable: PLAN_BUDGET_TABLE,
     evidence: evidence.evidenceById,
-    reach: evidence.reach
+    reach: evidence.reach,
+    epochCoverage: projectEpochCoverage(catalogSource)
   });
   if (planned.state === "rejected") {
     throw new Error(`The proposal does not validate against this run's epoch (${planned.problems.length} problem(s)): ${planned.problems.join("; ")}`);

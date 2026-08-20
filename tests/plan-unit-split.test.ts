@@ -52,7 +52,8 @@ function measureInputs(run: MiniRun, budgetTable: PlanBudgetTable): UnitPacketMe
     registry: REPORT_POLICY_REGISTRY,
     budgetTable,
     evidence: run.evidenceById,
-    reach: run.reach
+    reach: run.reach,
+    epochCoverage: run.epochCoverage
   };
 }
 
@@ -223,6 +224,7 @@ test("in a divided plan every material obligation is rendered in full by exactly
         unitId: unit.unitId,
         dossier: topicDossier(unit, topicsById, run.evidenceById),
         ownership: documentOwnership(ownership, documentId),
+        coverage: run.epochCoverage,
         reach: run.reach,
         byteLimit: documentBudgetRow(artifacts.planCatalog.budget, documentId).perUnitInputBytes,
         overBudget: "refuse"
@@ -322,6 +324,7 @@ test("a material topic divided inside itself still has every obligation rendered
       unitId: unit.unitId,
       dossier: topicDossier(unit, topicsById, inflated),
       ownership: documentOwnership(ownership, documentId),
+      coverage: run.epochCoverage,
       reach: run.reach,
       byteLimit: documentBudgetRow(artifacts.planCatalog.budget, documentId).perUnitInputBytes,
       overBudget: "refuse"

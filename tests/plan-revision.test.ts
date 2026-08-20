@@ -61,7 +61,7 @@ async function planned(): Promise<{ runDir: string; catalog: TopicCatalogArtifac
   const { runDir, catalog, requests } = run;
   await writeTopicCatalog(runDir, catalog);
   const proposal = buildFixturePlan(catalog, requests, PLAN_BUDGET_TABLE);
-  const report = validatePlan({ catalog, requests, proposal, registry: REPORT_POLICY_REGISTRY, budgetTable: PLAN_BUDGET_TABLE, evidence: run.evidenceById, reach: run.reach });
+  const report = validatePlan({ catalog, requests, proposal, registry: REPORT_POLICY_REGISTRY, budgetTable: PLAN_BUDGET_TABLE, evidence: run.evidenceById, reach: run.reach, epochCoverage: run.epochCoverage });
   const artifacts = buildPlanArtifacts({ catalog, requests, proposal, budgetTable: PLAN_BUDGET_TABLE, verdict: report.overall, revision: FIRST_PLAN_REVISION });
   await writePlanArtifacts(runDir, artifacts, catalog, { kind: "record" });
   return { runDir, catalog, artifacts };
@@ -364,7 +364,7 @@ test("an incoherent revision record is a named problem, in both artifacts, in ev
 test("a plan cannot be derived at an incoherent revision at all", async () => {
   const run = await miniRun();
   const proposal = buildFixturePlan(run.catalog, run.requests, PLAN_BUDGET_TABLE);
-  const report = validatePlan({ catalog: run.catalog, requests: run.requests, proposal, registry: REPORT_POLICY_REGISTRY, budgetTable: PLAN_BUDGET_TABLE, evidence: run.evidenceById, reach: run.reach });
+  const report = validatePlan({ catalog: run.catalog, requests: run.requests, proposal, registry: REPORT_POLICY_REGISTRY, budgetTable: PLAN_BUDGET_TABLE, evidence: run.evidenceById, reach: run.reach, epochCoverage: run.epochCoverage });
   assert.throws(() => buildPlanArtifacts({
     catalog: run.catalog, requests: run.requests, proposal, budgetTable: PLAN_BUDGET_TABLE, verdict: report.overall,
     revision: { planRevision: 2, previousPlanCatalogDigest: null, revisionReason: null }

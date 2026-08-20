@@ -27,7 +27,7 @@
 //     import { projectUnitIdentityReadings } from "./eval/unit-cache-identity-readings.ts";
 //     const run = await miniRun();
 //     writeFileSync("eval/golden/unit-cache-identity-readings-mini.json",
-//       `${stableJson(projectUnitIdentityReadings({ catalog: run.catalog, documents: MINI_DOCUMENTS, evidenceById: run.evidenceById, reach: run.reach }))}\n`);
+//       `${stableJson(projectUnitIdentityReadings({ catalog: run.catalog, documents: MINI_DOCUMENTS, evidenceById: run.evidenceById, reach: run.reach, epochCoverage: run.epochCoverage }))}\n`);
 //   '
 //
 // WHAT THIS FIXTURE DOES NOT COVER, stated so nobody reads it as covering everything: the mini plan retires no unit
@@ -59,7 +59,8 @@ async function projection(): Promise<UnitIdentityProjection> {
     catalog: run.catalog,
     documents: MINI_DOCUMENTS,
     evidenceById: run.evidenceById,
-    reach: run.reach
+    reach: run.reach,
+    epochCoverage: run.epochCoverage
   });
 }
 
@@ -86,7 +87,7 @@ function derived(readings: UnitIdentityProjection, scenario: string): ScenarioRe
  * It over-triggers in exactly one direction — editing the mini FIXTURE moves it without invalidating anything — and
  * that is the safe direction: a deliberate fixture change re-pins one constant, in the open.
  */
-const FORMULA_WITNESS = "c04ea6479a3b3c394758aab8b7485cd105d6086d78a68800a1edc67f25819d7c";
+const FORMULA_WITNESS = "c07ca4c4af3178d50be501842ec556c02f4ab0edef5ebec508c4f8b9c3baeac2";
 
 test("the two archival readings were minted by the formula this in-repo fixture still witnesses", async () => {
   const readings = await projection();
