@@ -1,0 +1,69 @@
+{
+  "evidence": [
+    {
+      "boundPolicyVersion": "v1",
+      "data": {
+        "excerpt": "func approve() { /* EXCAVATOR-TOPIC-SENTINEL-EVIDENCE */ }"
+      },
+      "digest": "45e94492b05ef5fc51fe9b31ebd3ae9a52290f331e98dca764c142592651d688",
+      "id": "S-aaaaaaaaaa",
+      "kind": "source",
+      "reason": "read for the obligation",
+      "redactionVersion": "v1",
+      "snapshotId": "snap-topic-mini",
+      "title": "window 1"
+    },
+    {
+      "boundPolicyVersion": "v1",
+      "data": {
+        "excerpt": "func approve() { /* EXCAVATOR-TOPIC-SENTINEL-EVIDENCE */ }"
+      },
+      "digest": "a912b1de524030212dcb9e6fbb5842e196b12e93e82e644f7f2bb3de38896955",
+      "id": "S-bbbbbbbbbb",
+      "kind": "source",
+      "reason": "read for the obligation",
+      "redactionVersion": "v1",
+      "snapshotId": "snap-topic-mini",
+      "title": "window 2"
+    },
+    {
+      "boundPolicyVersion": "v1",
+      "data": {
+        "excerpt": "func approve() { /* EXCAVATOR-TOPIC-SENTINEL-EVIDENCE */ }"
+      },
+      "digest": "9806ae7c27ec806c95928959e618d94d7eee53fdbc6d24cbf706d07b74c2019a",
+      "id": "S-cccccccccc",
+      "kind": "source",
+      "reason": "read for the obligation",
+      "redactionVersion": "v1",
+      "snapshotId": "snap-topic-mini",
+      "title": "window 3"
+    },
+    {
+      "boundPolicyVersion": "v1",
+      "data": {
+        "excerpt": "func approve() { /* EXCAVATOR-TOPIC-SENTINEL-EVIDENCE */ }"
+      },
+      "digest": "76bd2efd551f3b415bf914992ae2c3c085a6fada078949281895e030b271fba3",
+      "id": "S-dddddddddd",
+      "kind": "source",
+      "reason": "read for the obligation",
+      "redactionVersion": "v1",
+      "snapshotId": "snap-topic-mini",
+      "title": "window 4"
+    },
+    {
+      "boundPolicyVersion": "v1",
+      "data": {
+        "excerpt": "func approve() { /* EXCAVATOR-TOPIC-SENTINEL-EVIDENCE */ }"
+      },
+      "digest": "6e970a55bd8ad666b7bcdc225d2ffaeeda3e5a930291eaa504feedbf80d1758b",
+      "id": "S-eeeeeeeeee",
+      "kind": "source",
+      "reason": "read for the obligation",
+      "redactionVersion": "v1",
+      "snapshotId": "snap-topic-mini",
+      "title": "window 5"
+    }
+  ]
+}

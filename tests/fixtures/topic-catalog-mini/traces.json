@@ -1,0 +1,11 @@
+{
+  "runId": "run-topic-catalog-mini",
+  "traces": [
+    {
+      "id": "T-1111111111",
+      "status": "verified",
+      "type": "business-flow"
+    }
+  ],
+  "version": 1
+}

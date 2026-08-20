@@ -1,0 +1,132 @@
+{
+  "ambiguous": [
+    {
+      "candidates": [
+        {
+          "module": "svc",
+          "route": "GET /shared"
+        },
+        {
+          "module": "svc-v2",
+          "route": "GET /shared"
+        }
+      ],
+      "line": 9,
+      "method": "GET",
+      "module": "ui",
+      "path": "ui/src/api/shared.ts",
+      "routePath": "/shared"
+    }
+  ],
+  "candidates": [],
+  "clients": [
+    "ui"
+  ],
+  "links": [
+    {
+      "confidence": "confirmed",
+      "evidenceIds": [
+        "S-aaaaaaaaaa",
+        "S-cccccccccc"
+      ],
+      "from": {
+        "baseKey": null,
+        "expression": "/leaves",
+        "line": 4,
+        "method": "GET",
+        "module": "ui",
+        "path": "ui/src/api/leave.ts",
+        "routePath": "/leaves"
+      },
+      "id": "L-0001",
+      "kind": "http-route",
+      "resolution": "static",
+      "rule": "R1",
+      "to": {
+        "handlerExpression": "listLeaves",
+        "line": 12,
+        "localPath": "/leaves",
+        "module": "svc",
+        "path": "svc/routes/leave.js",
+        "prefixComposed": false,
+        "route": "GET /leaves"
+      }
+    },
+    {
+      "confidence": "confirmed",
+      "evidenceIds": [
+        "S-dddddddddd",
+        "S-eeeeeeeeee"
+      ],
+      "from": {
+        "baseKey": null,
+        "expression": "/promotions",
+        "line": 7,
+        "method": "POST",
+        "module": "ui",
+        "path": "ui/src/api/promo.ts",
+        "routePath": "/promotions"
+      },
+      "id": "L-0002",
+      "kind": "http-route",
+      "resolution": "static",
+      "rule": "R1",
+      "to": {
+        "handlerExpression": "Create",
+        "line": 21,
+        "localPath": "/promotions",
+        "module": "svc-v2",
+        "path": "svc-v2/internal/handlers/promo/router.go",
+        "prefixComposed": false,
+        "route": "POST /promotions"
+      }
+    }
+  ],
+  "modules": [
+    "ui",
+    "svc",
+    "svc-v2"
+  ],
+  "registrations": [
+    {
+      "file": "svc/routes/leave.js",
+      "framework": "express",
+      "line": 12,
+      "method": "GET",
+      "module": "svc",
+      "path": "/leaves"
+    }
+  ],
+  "routeRecovery": [
+    {
+      "framework": "express",
+      "graphRouteNodes": 0,
+      "module": "svc",
+      "recovered": 1,
+      "unrecovered": 0
+    }
+  ],
+  "snapshotId": "snap-topic-mini",
+  "summary": {
+    "ambiguous": 1,
+    "calls": 4,
+    "framework": 1,
+    "routes": 3,
+    "static": 2,
+    "unresolved": 1,
+    "weak": 0
+  },
+  "unresolved": [
+    {
+      "line": 3,
+      "method": "DELETE",
+      "module": "ui",
+      "nearMisses": [],
+      "path": "ui/src/api/legacy.ts",
+      "reason": "no route matched",
+      "routePath": "/legacy"
+    }
+  ],
+  "version": "crossrepo-links-v1",
+  "warnings": []
+}

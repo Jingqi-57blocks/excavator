@@ -1,0 +1,33 @@
+{
+  "enumeratedKinds": [
+    "function",
+    "method"
+  ],
+  "features": [
+    {
+      "featureKey": "leave-1a2b3c4d5e",
+      "files": 4,
+      "filesWithoutCandidates": [
+        "svc/a/dup.go",
+        "svc/leave/util.go"
+      ],
+      "functions": [],
+      "truncated": false,
+      "warnings": []
+    },
+    {
+      "featureKey": "promo-9f8e7d6c5b",
+      "files": 2,
+      "filesWithoutCandidates": [
+        "svc/b/dup.go"
+      ],
+      "functions": [],
+      "truncated": false,
+      "warnings": []
+    }
+  ],
+  "graphAvailable": true,
+  "snapshotId": "snap-topic-mini",
+  "version": "boundary-functions-v1",
+  "warnings": []
+}

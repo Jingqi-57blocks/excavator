@@ -1,0 +1,17 @@
+{
+  "notes": [],
+  "relationships": [
+    {
+      "featureA": "leave-1a2b3c4d5e",
+      "featureB": "promo-9f8e7d6c5b",
+      "sharedConfigKeys": [],
+      "sharedEntities": [],
+      "sharedFiles": [
+        "svc/shared/audit.go"
+      ],
+      "subjectA": "leave",
+      "subjectB": "promotion"
+    }
+  ],
+  "version": "cross-feature-v1"
+}
