@@ -30,7 +30,7 @@ import { readJson, sha256, canonicalJson } from "../src/base/util.ts";
 import { featureKeyOf } from "../src/report/authoring-packet.ts";
 import { buildFixturePlan } from "../src/report/fixture-plan.ts";
 import { PLAN_BUDGET_TABLE } from "../src/report/plan-budget.ts";
-import { buildPlanArtifacts, planCatalogDigest, reportRequestsDigest } from "../src/report/plan-artifacts.ts";
+import { FIRST_PLAN_REVISION, buildPlanArtifacts, planCatalogDigest, reportRequestsDigest } from "../src/report/plan-artifacts.ts";
 import { summariseObligationAccounting, type PlanObligationAccounting } from "../src/report/plan-obligation-conservation.ts";
 import { AUTHORING_UNIT_KINDS } from "../src/report/plan-proposal.ts";
 import { summarisePlanValidation, measuredDocumentBytes } from "../src/report/plan-validation.ts";
@@ -162,7 +162,8 @@ export async function extractPlanReadings(runDir: string): Promise<PlanReadings>
     requests,
     proposal: planned.proposal,
     budgetTable: PLAN_BUDGET_TABLE,
-    verdict: report.overall
+    verdict: report.overall,
+    revision: FIRST_PLAN_REVISION
   });
   const requestById = new Map(requests.requests.map((record) => [record.documentId, record]));
   const route = catalog.facets.find((row) => row.facet === "route");

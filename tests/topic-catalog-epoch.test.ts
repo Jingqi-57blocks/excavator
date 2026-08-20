@@ -102,7 +102,7 @@ test("the model-facing planner packet and the recorded plan of a re-frozen run b
   assert.match(packet.markdown, /- knowledge epoch: 1 \(digest [0-9a-f]{64}\)/);
   assert.ok(!packet.markdown.includes("knowledge epoch: 0"), "the model must not be handed a superseded epoch");
 
-  const planned = await planRun(runDir, { mode: "fixture" });
+  const planned = await planRun(runDir, { mode: "fixture" }, { kind: "record" });
   assert.equal(planned.artifacts.planCatalog.knowledgeEpoch, 1);
   const recorded = JSON.parse(await readFile(join(runDir, "plan", "topics.json"), "utf8")) as { knowledgeEpoch: number; knowledgeDigest: string };
   assert.equal(recorded.knowledgeDigest, (await loadTopicCatalogSource(runDir, manifest)).knowledgeDigest);
@@ -129,7 +129,7 @@ test("between the re-freeze and the re-plan, every command names the superseded 
   await assert.rejects(() => readUnitGroundingForRun(runDir), superseded);
 
   // And the named remedy is the whole remedy: one re-plan and the same commands answer.
-  await planRun(runDir, { mode: "fixture" });
+  await planRun(runDir, { mode: "fixture" }, { kind: "record" });
   assert.equal((await unitStatus(runDir)).knowledgeEpoch, 1);
   assert.equal((await readUnitGroundingForRun(runDir)).knowledgeEpoch, 1);
 });

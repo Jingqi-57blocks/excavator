@@ -26,7 +26,7 @@
 import { assertNever } from "../base/artifact-result.ts";
 import type { EvidenceItem } from "../base/types.ts";
 import { documentBudgetRow, type PlanBudgetTable, type PlanDocumentBudget } from "./plan-budget.ts";
-import { derivePlanArtifacts, type PlanArtifacts, type PlanCatalogUnit } from "./plan-artifacts.ts";
+import { FIRST_PLAN_REVISION, derivePlanArtifacts, type PlanArtifacts, type PlanCatalogUnit } from "./plan-artifacts.ts";
 import { deriveObligationOwnership, documentOwnership, ownershipUnitsOfProposal } from "./plan-obligation-conservation.ts";
 import { scopeIncludes } from "./obligation-scope.ts";
 import type { AuthoringUnitKind, PlanProposal } from "./plan-proposal.ts";
@@ -112,6 +112,16 @@ export interface PlanPacketMeasurement {
 }
 
 /**
+ * The revision a MEASUREMENT is taken at, stated once.
+ *
+ * A measurement is not a recording: nothing here reaches disk, and the only way the revision could reach a
+ * measured byte is through the plan catalog's digest in the packet header — which is a fixed-length hex string at
+ * every revision. So the measured bytes are revision-invariant, and stating the first revision here keeps the
+ * whole validation path off the succession machinery instead of threading a value that cannot change an outcome.
+ */
+const MEASURED_PLAN_REVISION = FIRST_PLAN_REVISION;
+
+/**
  * Measure every unit of one proposal.
  *
  * The plan artifacts are DERIVED here rather than accepted, so a measurement is always of the plan in hand: a
@@ -121,7 +131,7 @@ export interface PlanPacketMeasurement {
  * clean, and reports `not-measured` with the reason when they are not.
  */
 export function measurePlanPackets(inputs: UnitPacketMeasureInputs, proposal: PlanProposal): PlanPacketMeasurement {
-  const artifacts = derivePlanArtifacts({ catalog: inputs.catalog, requests: inputs.requests, proposal, budgetTable: inputs.budgetTable });
+  const artifacts = derivePlanArtifacts({ catalog: inputs.catalog, requests: inputs.requests, proposal, budgetTable: inputs.budgetTable, revision: MEASURED_PLAN_REVISION });
   const ownership = deriveObligationOwnership(inputs.catalog, ownershipUnitsOfProposal(proposal.units));
   const topicsById = new Map(inputs.catalog.topics.map((topic) => [topic.topicId, topic]));
   const units: UnitPacketCostRow[] = [];

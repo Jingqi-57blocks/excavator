@@ -39,7 +39,7 @@
   ],
   "knowledgeDigest": "b576ab30545c0c8d6a32f44dde68a2c28f89179593e0e836e63ad0b58b100f6b",
   "knowledgeEpoch": 0,
-  "planCatalogDigest": "16793e4b7a497d79f2018d49177f9388f9583cb8b95cabe944f79e6ec3eade25",
+  "planCatalogDigest": "606538c8317842158047332140277914ae88a6c8c66a3e374b44364f79e8633f",
   "readPaths": [
     "context/boundary-functions.json",
     "contract/run-intent.json",
@@ -78,7 +78,7 @@
     },
     {
       "outcome": {
-        "candidateStatement": "1 prior verified unit(s) offered by run run-2026_08_20_02_38-overview-239385e1-85a71437-a8618c2d, knowledge epoch 0, plan catalog 16793e4b7a497d79f2018d49177f9388f9583cb8b95cabe944f79e6ec3eade25",
+        "candidateStatement": "1 prior verified unit(s) offered by run run-2026_08_20_02_38-overview-239385e1-85a71437-a8618c2d, knowledge epoch 0, plan catalog 606538c8317842158047332140277914ae88a6c8c66a3e374b44364f79e8633f",
         "candidateUnits": 1,
         "conservation": [
           "planned = reusable + rebuild + new: 2 = 1 + 0 + 1",
@@ -100,7 +100,7 @@
     },
     {
       "outcome": {
-        "candidateStatement": "1 prior verified unit(s) offered by run run-2026_08_20_02_38-overview-239385e1-85a71437-a8618c2d, knowledge epoch 0, plan catalog 16793e4b7a497d79f2018d49177f9388f9583cb8b95cabe944f79e6ec3eade25",
+        "candidateStatement": "1 prior verified unit(s) offered by run run-2026_08_20_02_38-overview-239385e1-85a71437-a8618c2d, knowledge epoch 0, plan catalog 606538c8317842158047332140277914ae88a6c8c66a3e374b44364f79e8633f",
         "candidateUnits": 1,
         "conservation": [
           "planned = reusable + rebuild + new: 4 = 1 + 0 + 3",

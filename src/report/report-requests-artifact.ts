@@ -73,21 +73,35 @@ export function buildReportRequestsArtifact(
   for (const document of documents) {
     if (seen.has(document.documentId)) throw new Error(`Two planned documents share the id ${JSON.stringify(document.documentId)}; a recorded request must name exactly one document`);
     seen.add(document.documentId);
-    const mapping = mapLegacyDocumentRequest(document);
-    if (mapping.outcome === "refused") {
-      throw new Error(`Document ${JSON.stringify(document.documentId)} has no v2 request: ${mapping.reason}`);
-    }
-    records.push({
-      documentId: document.documentId,
-      request: mapping.request,
-      lensPolicy: policyReference(lensPolicyFor(mapping.request.audience, registry)),
-      intentPolicy: policyReference(intentPolicyFor(mapping.request.intent, registry)),
-      mappingVersion: LEGACY_REQUEST_MAPPING_VERSION
-    });
+    records.push(reportRequestRecordFor(document, registry));
   }
   return {
     version: REPORT_REQUESTS_ARTIFACT_VERSION,
     requests: records.sort((a, b) => a.documentId.localeCompare(b.documentId))
+  };
+}
+
+/**
+ * ONE recorded row: the mapping, and the two policy references resolved against the live registry.
+ *
+ * Extracted so the append door (`report-requests-append.ts`) mints a row the same way prepare does — a second
+ * construction of a request row would be a second mapping, and the recorded `mappingVersion` would stop meaning
+ * what mapped it.
+ */
+export function reportRequestRecordFor(
+  document: LegacyDocumentRequest,
+  registry: ReportPolicyRegistry = REPORT_POLICY_REGISTRY
+): ReportRequestRecord {
+  const mapping = mapLegacyDocumentRequest(document);
+  if (mapping.outcome === "refused") {
+    throw new Error(`Document ${JSON.stringify(document.documentId)} has no v2 request: ${mapping.reason}`);
+  }
+  return {
+    documentId: document.documentId,
+    request: mapping.request,
+    lensPolicy: policyReference(lensPolicyFor(mapping.request.audience, registry)),
+    intentPolicy: policyReference(intentPolicyFor(mapping.request.intent, registry)),
+    mappingVersion: LEGACY_REQUEST_MAPPING_VERSION
   };
 }
 

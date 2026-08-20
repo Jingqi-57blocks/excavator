@@ -4,7 +4,7 @@ import { stableJson } from "../src/base/util.ts";
 import { buildFixturePlan } from "../src/report/fixture-plan.ts";
 import { PLAN_BUDGET_TABLE, type PlanBudgetTable } from "../src/report/plan-budget.ts";
 import { measurePlanPackets, type UnitPacketMeasureInputs } from "../src/report/plan-packet-measure.ts";
-import { derivePlanArtifacts } from "../src/report/plan-artifacts.ts";
+import { FIRST_PLAN_REVISION, derivePlanArtifacts } from "../src/report/plan-artifacts.ts";
 import { documentBudgetRow } from "../src/report/plan-budget.ts";
 import { documentOwnership, materialObligationTopics } from "../src/report/plan-obligation-conservation.ts";
 import { renderUnitPacket, topicDossier } from "../src/report/unit-packet.ts";
@@ -205,7 +205,7 @@ test("in a divided plan every material obligation is rendered in full by exactly
   assert.equal(refinement.state, "refined", refinement.state === "indivisible" ? refinement.problems.join("; ") : "");
   if (refinement.state !== "refined") return;
   const proposal = refinement.proposal;
-  const artifacts = derivePlanArtifacts({ catalog: run.catalog, requests: run.requests, proposal, budgetTable: table });
+  const artifacts = derivePlanArtifacts({ catalog: run.catalog, requests: run.requests, proposal, budgetTable: table , revision: FIRST_PLAN_REVISION });
   const ownership = deriveObligationOwnership(run.catalog, ownershipUnitsOfProposal(proposal.units));
   const topicsById = new Map(run.catalog.topics.map((topic) => [topic.topicId, topic]));
   const obligations = materialObligationTopics(run.catalog);
@@ -308,7 +308,7 @@ test("a material topic divided inside itself still has every obligation rendered
     assert.equal(reference.obligationScope.kind, "work-items", `${part.unitId} must carry an explicit scope`);
   }
 
-  const artifacts = derivePlanArtifacts({ catalog: run.catalog, requests: run.requests, proposal: refinement.proposal, budgetTable: table });
+  const artifacts = derivePlanArtifacts({ catalog: run.catalog, requests: run.requests, proposal: refinement.proposal, budgetTable: table , revision: FIRST_PLAN_REVISION });
   const ownership = deriveObligationOwnership(run.catalog, ownershipUnitsOfProposal(refinement.proposal.units));
   const topicsById = new Map(run.catalog.topics.map((row) => [row.topicId, row]));
   const fullBy = new Map<string, string[]>();

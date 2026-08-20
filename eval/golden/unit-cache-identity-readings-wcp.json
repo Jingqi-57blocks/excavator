@@ -850,7 +850,7 @@
   ],
   "knowledgeDigest": "e70e928538b66f36de5dbd4fd37de4a53ac0422766a75efe4545992efcc4e15f",
   "knowledgeEpoch": 0,
-  "planCatalogDigest": "1b389e7d2b99c32e6f90eae9add966113853dc3dac87d70e7bfc6c3f629c74db",
+  "planCatalogDigest": "48ab55257abdc9618ac67ee76014d05770fa774b4d2c95dd18568bcdc9d6b2e4",
   "readPaths": [
     "context/boundary-functions.json",
     "context/cross-feature.json",
@@ -929,7 +929,7 @@
     },
     {
       "outcome": {
-        "candidateStatement": "36 prior verified unit(s) offered by run run-2026_08_20_03_48-overview+请假管理+晋升管理-8abb4795-251cd3b2-740f3203, knowledge epoch 0, plan catalog 1b389e7d2b99c32e6f90eae9add966113853dc3dac87d70e7bfc6c3f629c74db",
+        "candidateStatement": "36 prior verified unit(s) offered by run run-2026_08_20_03_48-overview+请假管理+晋升管理-8abb4795-251cd3b2-740f3203, knowledge epoch 0, plan catalog 48ab55257abdc9618ac67ee76014d05770fa774b4d2c95dd18568bcdc9d6b2e4",
         "candidateUnits": 36,
         "conservation": [
           "planned = reusable + rebuild + new: 40 = 36 + 0 + 4",
@@ -989,7 +989,7 @@
     },
     {
       "outcome": {
-        "candidateStatement": "36 prior verified unit(s) offered by run run-2026_08_20_03_48-overview+请假管理+晋升管理-8abb4795-251cd3b2-740f3203, knowledge epoch 0, plan catalog 1b389e7d2b99c32e6f90eae9add966113853dc3dac87d70e7bfc6c3f629c74db",
+        "candidateStatement": "36 prior verified unit(s) offered by run run-2026_08_20_03_48-overview+请假管理+晋升管理-8abb4795-251cd3b2-740f3203, knowledge epoch 0, plan catalog 48ab55257abdc9618ac67ee76014d05770fa774b4d2c95dd18568bcdc9d6b2e4",
         "candidateUnits": 36,
         "conservation": [
           "planned = reusable + rebuild + new: 50 = 36 + 0 + 14",
@@ -1059,7 +1059,7 @@
     },
     {
       "outcome": {
-        "candidateStatement": "36 prior verified unit(s) offered by run run-2026_08_20_03_48-overview+请假管理+晋升管理-8abb4795-251cd3b2-740f3203, knowledge epoch 0, plan catalog 1b389e7d2b99c32e6f90eae9add966113853dc3dac87d70e7bfc6c3f629c74db",
+        "candidateStatement": "36 prior verified unit(s) offered by run run-2026_08_20_03_48-overview+请假管理+晋升管理-8abb4795-251cd3b2-740f3203, knowledge epoch 0, plan catalog 48ab55257abdc9618ac67ee76014d05770fa774b4d2c95dd18568bcdc9d6b2e4",
         "candidateUnits": 36,
         "conservation": [
           "planned = reusable + rebuild + new: 40 = 32 + 4 + 4",
@@ -1152,7 +1152,7 @@
     },
     {
       "outcome": {
-        "candidateStatement": "36 prior verified unit(s) offered by run run-2026_08_20_03_48-overview+请假管理+晋升管理-8abb4795-251cd3b2-740f3203, knowledge epoch 0, plan catalog 1b389e7d2b99c32e6f90eae9add966113853dc3dac87d70e7bfc6c3f629c74db",
+        "candidateStatement": "36 prior verified unit(s) offered by run run-2026_08_20_03_48-overview+请假管理+晋升管理-8abb4795-251cd3b2-740f3203, knowledge epoch 0, plan catalog 48ab55257abdc9618ac67ee76014d05770fa774b4d2c95dd18568bcdc9d6b2e4",
         "candidateUnits": 36,
         "conservation": [
           "planned = reusable + rebuild + new: 40 = 28 + 8 + 4",
@@ -1277,7 +1277,7 @@
     },
     {
       "outcome": {
-        "candidateStatement": "36 prior verified unit(s) offered by run run-2026_08_20_03_48-overview+请假管理+晋升管理-8abb4795-251cd3b2-740f3203, knowledge epoch 0, plan catalog 1b389e7d2b99c32e6f90eae9add966113853dc3dac87d70e7bfc6c3f629c74db",
+        "candidateStatement": "36 prior verified unit(s) offered by run run-2026_08_20_03_48-overview+请假管理+晋升管理-8abb4795-251cd3b2-740f3203, knowledge epoch 0, plan catalog 48ab55257abdc9618ac67ee76014d05770fa774b4d2c95dd18568bcdc9d6b2e4",
         "candidateUnits": 36,
         "conservation": [
           "planned = reusable + rebuild + new: 40 = 20 + 12 + 8",

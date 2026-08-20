@@ -38,7 +38,7 @@ import { readJson, sha256, canonicalJson } from "../src/base/util.ts";
 import { featureKeyOf } from "../src/report/authoring-packet.ts";
 import { buildFixturePlan } from "../src/report/fixture-plan.ts";
 import { PLAN_BUDGET_TABLE } from "../src/report/plan-budget.ts";
-import { buildPlanArtifacts, planCatalogDigest, type PlanCatalogUnit } from "../src/report/plan-artifacts.ts";
+import { FIRST_PLAN_REVISION, buildPlanArtifacts, planCatalogDigest, type PlanCatalogUnit } from "../src/report/plan-artifacts.ts";
 import { documentOwnership, materialObligationTopics, summariseObligationAccounting, type ObligationOwnershipIndex, type PlanObligationAccounting } from "../src/report/plan-obligation-conservation.ts";
 import { AUTHORING_UNIT_KINDS } from "../src/report/plan-proposal.ts";
 import { planThroughBudgetRefinement } from "../src/report/plan-unit-split.ts";
@@ -212,7 +212,8 @@ export async function extractUnitPacketReadings(runDir: string): Promise<UnitPac
     requests,
     proposal: planned.proposal,
     budgetTable: PLAN_BUDGET_TABLE,
-    verdict: report.overall
+    verdict: report.overall,
+    revision: FIRST_PLAN_REVISION
   });
   const planCatalog = artifacts.planCatalog;
 
