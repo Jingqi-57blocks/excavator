@@ -1,9 +1,16 @@
 {
   "authorship": "model-free generator eval-unit-cache-identity-readings",
+  "contract": {
+    "identity": "unit-cache-identity-v2",
+    "output": {
+      "claimsVersion": "unit-claims-v1",
+      "summaryVersion": "unit-summary-v1"
+    }
+  },
   "identified": [
     {
       "documentId": "overview-product",
-      "identityDigest": "ccfd2a35c62d12ebe80ef3442e2e9b4210bbdc40faab91d664d2f0552664f087",
+      "identityDigest": "a0d438d46f2a118e455e7bf747aa61d4b1232e591aeb0c3980f3292852df8a57",
       "kind": "appendix",
       "normalizedLabels": [
         "topics catalog digest",
@@ -162,5 +169,5 @@
       "units": 1
     }
   ],
-  "version": "unit-cache-identity-readings-v1"
+  "version": "unit-cache-identity-readings-v2"
 }

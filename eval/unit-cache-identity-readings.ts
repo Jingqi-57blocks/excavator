@@ -21,6 +21,11 @@
 // Nothing here writes into the run it reads: the plan artifacts are built in MEMORY, exactly as
 // `eval/unit-packet-readings.ts` does, because both R0 baselines are archival. Every input it cannot project is a
 // named throw, and a target that cannot support a perturbation says so by name instead of reporting a zero.
+//
+// A DIGEST IN A READING IS ONLY EVIDENCE IF SOMETHING CAN CHECK IT (R6c). Two things make that true here, and the
+// reason both are needed is that the baselines' inputs are archival: the reading is split into a VALUE projection
+// (recomputed byte for byte over the in-repo mini fixture on every run) and a directory loader over it, and every
+// reading carries the `contract` the digests were minted under, pinned to the code's constants by the golden tests.
 
 import { join } from "node:path";
 import { assertNever } from "../src/base/artifact-result.ts";
@@ -55,7 +60,7 @@ import {
   type RunEvidenceReach,
   type UnitPacketInput
 } from "../src/report/unit-packet.ts";
-import { unitIdentityOf, type UnitIdentity } from "../src/report/unit-cache-identity.ts";
+import { UNIT_IDENTITY_KEY_VERSIONS, unitIdentityOf, type UnitIdentity, type UnitIdentityKeyVersions } from "../src/report/unit-cache-identity.ts";
 import { describeAuthorship, type UnitAuthorship } from "../src/report/unit-provenance.ts";
 import {
   deriveUnitCachePlan,
@@ -66,7 +71,8 @@ import {
   type UnitCachePlan
 } from "../src/report/unit-cache-plan.ts";
 
-export const UNIT_CACHE_IDENTITY_READINGS_VERSION = "unit-cache-identity-readings-v1";
+/** v2 (R6c): every reading carries the key's own version set, so a bump cannot pass unnoticed again. */
+export const UNIT_CACHE_IDENTITY_READINGS_VERSION = "unit-cache-identity-readings-v2";
 
 /*
  * SEVERAL HELPERS BELOW ARE EXPORTED FOR `unit-cache-admission-readings.ts` — the plan-state projection, the two
@@ -131,8 +137,27 @@ export interface ScenarioReading {
   readonly outcome: ScenarioOutcome;
 }
 
-export interface UnitIdentityReadings {
+/**
+ * A reading of one plan state, without the paths only a run directory has.
+ *
+ * The split is what makes the digests below CHECKABLE. `extractUnitIdentityReadings` projects archival run
+ * directories that are not in this repository, so its two goldens can only ever be records; this projection takes
+ * VALUES, so the same function runs over the in-repo mini fixture and its golden is recomputed and compared byte for
+ * byte on every `npm test` (`eval/tests/unit-cache-identity-fixture-readings.test.ts`). One reading function, two
+ * kinds of input — not a second projection written to be testable.
+ */
+export interface UnitIdentityProjection {
   readonly version: typeof UNIT_CACHE_IDENTITY_READINGS_VERSION;
+  /**
+   * The versions this reading's `identityDigest` values were minted under — REQUIRED, and pinned to the code's own
+   * constants by the golden tests.
+   *
+   * This field exists because of the failure it would have caught: R6b bumped the receipt schema while that version
+   * was part of the identity key, so 37 checked-in digests silently became unproducible and every test stayed
+   * green. A digest is only evidence if either the input that produced it is in the repository or the contract that
+   * produced it is recorded beside it.
+   */
+  readonly contract: UnitIdentityKeyVersions;
   readonly runId: string;
   readonly knowledgeEpoch: number;
   readonly knowledgeDigest: string;
@@ -151,6 +176,10 @@ export interface UnitIdentityReadings {
    */
   readonly unidentified: readonly { readonly unitId: string; readonly reason: string }[];
   readonly scenarios: readonly ScenarioReading[];
+}
+
+/** A projection of one run DIRECTORY: the reading above, plus the files it was taken from. */
+export interface UnitIdentityReadings extends UnitIdentityProjection {
   readonly readPaths: readonly string[];
 }
 
@@ -372,10 +401,31 @@ export async function extractUnitIdentityReadings(runDir: string): Promise<UnitI
   const manifest = await readJson<RunManifest>(join(runDir, "run.json"));
   const source = await loadTopicCatalogSource(runDir, manifest);
   const catalog = buildTopicCatalog(source);
-  const documents = legacyDocuments(manifest);
-  const requests = buildReportRequestsArtifact(documents);
   const evidence = await loadRunEvidenceReach(runDir, source);
-  const base = projectState("base", catalog, requests, evidence.evidenceById, evidence.reach);
+  return {
+    ...projectUnitIdentityReadings({
+      catalog,
+      documents: legacyDocuments(manifest),
+      evidenceById: evidence.evidenceById,
+      reach: evidence.reach
+    }),
+    readPaths: [...new Set([...source.readPaths, "run.json", "evidence.json"])].sort((a, b) => a.localeCompare(b))
+  };
+}
+
+/** The values one reading is taken from — a catalog, the requested documents, and the run's evidence. */
+export interface UnitIdentityProjectionInput {
+  readonly catalog: TopicCatalogArtifact;
+  readonly documents: readonly LegacyDocumentRequest[];
+  readonly evidenceById: ReadonlyMap<string, EvidenceItem>;
+  readonly reach: RunEvidenceReach;
+}
+
+/** The whole reading, from values. Deterministic: two calls on one input produce one byte sequence. */
+export function projectUnitIdentityReadings(input: UnitIdentityProjectionInput): UnitIdentityProjection {
+  const { catalog, documents, evidenceById, reach } = input;
+  const requests = buildReportRequestsArtifact(documents);
+  const base = projectState("base", catalog, requests, evidenceById, reach);
 
   // Held as WHOLE identities: this projection has both plan states in memory, which is the one situation where a
   // candidate's sections can be diffed. A re-planned run on disk holds only the digest its ledger recorded, and the
@@ -417,7 +467,7 @@ export async function extractUnitIdentityReadings(runDir: string): Promise<UnitI
     outcome: second === null
       ? { state: "not-applicable", reason: "this run's manifest already requests every document the legacy mapping can express for it" }
       : outcomeOf(deriveUnitCachePlan({
-          planned: projectState("second-audience", catalog, buildReportRequestsArtifact([...documents, second]), evidence.evidenceById, evidence.reach).planned,
+          planned: projectState("second-audience", catalog, buildReportRequestsArtifact([...documents, second]), evidenceById, reach).planned,
           candidates,
           candidateSource: priorRun
         }))
@@ -433,7 +483,7 @@ export async function extractUnitIdentityReadings(runDir: string): Promise<UnitI
     scenario: name,
     perturbation: `binding-preserving: the title of topic ${target.topicId} (facet ${target.facet}, ${target.bindings.length} binding(s), owner of an obligation somewhere: ${owners.has(target.topicId) ? "yes" : "no"}) changed; its binding set, its evidence and every other topic are untouched`,
     outcome: outcomeOf(deriveUnitCachePlan({
-      planned: projectState(name, withTopic(catalog, reminted(target, { title: `${target.title} (perturbed by eval)`, bindings: target.bindings })), requests, evidence.evidenceById, evidence.reach).planned,
+      planned: projectState(name, withTopic(catalog, reminted(target, { title: `${target.title} (perturbed by eval)`, bindings: target.bindings })), requests, evidenceById, reach).planned,
       candidates,
       candidateSource: priorRun
     }))
@@ -454,7 +504,7 @@ export async function extractUnitIdentityReadings(runDir: string): Promise<UnitI
       scenario: "binding-dropped-owner-topic",
       perturbation: `binding-set: topic ${owner.topicId} (facet ${owner.facet}, ${owner.bindings.length} binding(s)) stops binding obligation ${dropped}; the obligation itself is untouched and still bound by whatever other topics bind it`,
       outcome: outcomeOf(deriveUnitCachePlan({
-        planned: projectState("binding-dropped-owner-topic", withTopic(catalog, reminted(owner, { title: owner.title, bindings: owner.bindings.filter((binding) => binding.workItemId !== dropped) })), requests, evidence.evidenceById, evidence.reach).planned,
+        planned: projectState("binding-dropped-owner-topic", withTopic(catalog, reminted(owner, { title: owner.title, bindings: owner.bindings.filter((binding) => binding.workItemId !== dropped) })), requests, evidenceById, reach).planned,
         candidates,
         candidateSource: priorRun
       }))
@@ -463,6 +513,7 @@ export async function extractUnitIdentityReadings(runDir: string): Promise<UnitI
 
   return {
     version: UNIT_CACHE_IDENTITY_READINGS_VERSION,
+    contract: UNIT_IDENTITY_KEY_VERSIONS,
     runId: catalog.runId,
     knowledgeEpoch: catalog.knowledgeEpoch,
     knowledgeDigest: catalog.knowledgeDigest,
@@ -472,8 +523,7 @@ export async function extractUnitIdentityReadings(runDir: string): Promise<UnitI
     unitsByKind: AUTHORING_UNIT_KINDS.map((kind) => ({ kind, units: base.planCatalog.units.filter((unit) => unit.kind === kind).length })),
     identified: base.rows,
     unidentified: base.unidentified,
-    scenarios,
-    readPaths: [...new Set([...source.readPaths, "run.json", "evidence.json"])].sort((a, b) => a.localeCompare(b))
+    scenarios
   };
 }
 

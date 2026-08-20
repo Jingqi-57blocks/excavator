@@ -1,0 +1,683 @@
+{
+  "authorship": "model-free generator eval-unit-cache-identity-readings",
+  "contract": {
+    "identity": "unit-cache-identity-v2",
+    "output": {
+      "claimsVersion": "unit-claims-v1",
+      "summaryVersion": "unit-summary-v1"
+    }
+  },
+  "identified": [
+    {
+      "documentId": "feature-leave-product",
+      "identityDigest": "e188fd10b600605660cacd90e316a15f046185e4c9af55f235157cb3041e1e60",
+      "kind": "appendix",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 14863,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (1 obligation(s), 0 material, 1 written here, 0 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (0 record(s), all rendered in full)",
+        "## Facet census of this run's Topic Catalog",
+        "## Evidence this run captured that no obligation binds (0 record(s))"
+      ],
+      "sections": 9,
+      "unitId": "feature-leave-product::appendix::coverage",
+      "viewBytes": 14764
+    },
+    {
+      "documentId": "feature-leave-product",
+      "identityDigest": "ee30f5a1d7019afc30e0abecc5de990707d7a050e661e5864d1872f165623aea",
+      "kind": "leaf",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 11015,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (4 obligation(s), 4 material, 0 written here, 4 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (0 record(s), all rendered in full)"
+      ],
+      "sections": 7,
+      "unitId": "feature-leave-product::leaf::coverage",
+      "viewBytes": 10916
+    },
+    {
+      "documentId": "feature-leave-product",
+      "identityDigest": "8fb4f68c91a77631b010588f299449a78898771ffe3a94ab62e80d2f31ed3d6d",
+      "kind": "leaf",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 9831,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (4 obligation(s), 3 material, 4 written here, 0 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (5 record(s), all rendered in full)"
+      ],
+      "sections": 7,
+      "unitId": "feature-leave-product::leaf::feature",
+      "viewBytes": 9732
+    },
+    {
+      "documentId": "feature-leave-product",
+      "identityDigest": "3430905d0bed63ea019a084e6661e3fe6ff91f89ebfab7bc39d57cea7c10c7d3",
+      "kind": "leaf",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 9938,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (3 obligation(s), 3 material, 0 written here, 3 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (0 record(s), all rendered in full)"
+      ],
+      "sections": 7,
+      "unitId": "feature-leave-product::leaf::work-item-dimension",
+      "viewBytes": 9839
+    },
+    {
+      "documentId": "overview-engineering",
+      "identityDigest": "249519b184a3a50cd3fcbf63b941ff5d1e7473b6a65c813730d13eb439f43614",
+      "kind": "appendix",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 14828,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (1 obligation(s), 0 material, 1 written here, 0 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (0 record(s), all rendered in full)",
+        "## Facet census of this run's Topic Catalog",
+        "## Evidence this run captured that no obligation binds (0 record(s))"
+      ],
+      "sections": 9,
+      "unitId": "overview-engineering::appendix::coverage",
+      "viewBytes": 14729
+    },
+    {
+      "documentId": "overview-engineering",
+      "identityDigest": "dc977ccefbaf5462eea556c7e3dd499ab0335075af4c2005983ce426da0c3acf",
+      "kind": "leaf",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 10973,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (4 obligation(s), 4 material, 0 written here, 4 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (0 record(s), all rendered in full)"
+      ],
+      "sections": 7,
+      "unitId": "overview-engineering::leaf::coverage",
+      "viewBytes": 10874
+    },
+    {
+      "documentId": "overview-engineering",
+      "identityDigest": "a4d06f83cf57d9fbdeb4f4f86aaec11952ab43050c219fca89a1be40e69e441c",
+      "kind": "leaf",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 9796,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (4 obligation(s), 3 material, 4 written here, 0 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (5 record(s), all rendered in full)"
+      ],
+      "sections": 7,
+      "unitId": "overview-engineering::leaf::feature",
+      "viewBytes": 9697
+    },
+    {
+      "documentId": "overview-engineering",
+      "identityDigest": "44ba4e462b86a3362a6bb792f2c9fbc94556710e94b92593f63c5fac3dae84a4",
+      "kind": "leaf",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 9898,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (3 obligation(s), 3 material, 0 written here, 3 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (0 record(s), all rendered in full)"
+      ],
+      "sections": 7,
+      "unitId": "overview-engineering::leaf::work-item-dimension",
+      "viewBytes": 9799
+    },
+    {
+      "documentId": "overview-product",
+      "identityDigest": "2554f0d28fae3830022045bbf091c234bec59e6b33c92f474f18e08170ecbfe8",
+      "kind": "appendix",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 14807,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (1 obligation(s), 0 material, 1 written here, 0 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (0 record(s), all rendered in full)",
+        "## Facet census of this run's Topic Catalog",
+        "## Evidence this run captured that no obligation binds (0 record(s))"
+      ],
+      "sections": 9,
+      "unitId": "overview-product::appendix::coverage",
+      "viewBytes": 14708
+    },
+    {
+      "documentId": "overview-product",
+      "identityDigest": "68c9424dbb67092e7f8d994620b39df4289991278101f72a884dacc7a17b7f53",
+      "kind": "leaf",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 10924,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (4 obligation(s), 4 material, 0 written here, 4 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (0 record(s), all rendered in full)"
+      ],
+      "sections": 7,
+      "unitId": "overview-product::leaf::coverage",
+      "viewBytes": 10825
+    },
+    {
+      "documentId": "overview-product",
+      "identityDigest": "c4d6f2ec157217d3547d8bb53034138f8ccc58403c83959c721c09ac044a1f05",
+      "kind": "leaf",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 9775,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (4 obligation(s), 3 material, 4 written here, 0 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (5 record(s), all rendered in full)"
+      ],
+      "sections": 7,
+      "unitId": "overview-product::leaf::feature",
+      "viewBytes": 9676
+    },
+    {
+      "documentId": "overview-product",
+      "identityDigest": "a7751645133a7fa0d51ffb9d75e880a3cc146e656b042363febfdc538206c867",
+      "kind": "leaf",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 9857,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (3 obligation(s), 3 material, 0 written here, 3 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (0 record(s), all rendered in full)"
+      ],
+      "sections": 7,
+      "unitId": "overview-product::leaf::work-item-dimension",
+      "viewBytes": 9758
+    }
+  ],
+  "knowledgeDigest": "3bf7e058c0e7b0e29e6be73dbb5b3453c837fd3f109023215c7cf7bb025e7010",
+  "knowledgeEpoch": 0,
+  "planCatalogDigest": "31184d47f1076d0e36df037ff7a3c1637573f0537b66938d9621efc34359c9e4",
+  "runId": "run-topic-catalog-mini",
+  "scenarios": [
+    {
+      "outcome": {
+        "candidateStatement": "0 prior verified units: this projection offers no prior verified unit: an archival run has authored none",
+        "candidateUnits": 0,
+        "conservation": [
+          "planned = reusable + rebuild + new: 15 = 0 + 0 + 15",
+          "candidates = reusable + rebuild + retired: 0 = 0 + 0 + 0"
+        ],
+        "new": [
+          "feature-leave-product::appendix::coverage",
+          "feature-leave-product::leaf::coverage",
+          "feature-leave-product::leaf::feature",
+          "feature-leave-product::leaf::work-item-dimension",
+          "feature-leave-product::synthesis::document",
+          "overview-engineering::appendix::coverage",
+          "overview-engineering::leaf::coverage",
+          "overview-engineering::leaf::feature",
+          "overview-engineering::leaf::work-item-dimension",
+          "overview-engineering::synthesis::document",
+          "overview-product::appendix::coverage",
+          "overview-product::leaf::coverage",
+          "overview-product::leaf::feature",
+          "overview-product::leaf::work-item-dimension",
+          "overview-product::synthesis::document"
+        ],
+        "plannedUnits": 15,
+        "rebuild": [],
+        "retired": [],
+        "reusable": [],
+        "state": "derived"
+      },
+      "perturbation": "nothing is changed; the candidate set is empty, as it is on a run that has collected no unit",
+      "scenario": "first-run"
+    },
+    {
+      "outcome": {
+        "candidateStatement": "12 prior verified unit(s) offered by run run-topic-catalog-mini, knowledge epoch 0, plan catalog 31184d47f1076d0e36df037ff7a3c1637573f0537b66938d9621efc34359c9e4",
+        "candidateUnits": 12,
+        "conservation": [
+          "planned = reusable + rebuild + new: 15 = 12 + 0 + 3",
+          "candidates = reusable + rebuild + retired: 12 = 12 + 0 + 0"
+        ],
+        "new": [
+          "feature-leave-product::synthesis::document",
+          "overview-engineering::synthesis::document",
+          "overview-product::synthesis::document"
+        ],
+        "plannedUnits": 15,
+        "rebuild": [],
+        "retired": [],
+        "reusable": [
+          "feature-leave-product::appendix::coverage",
+          "feature-leave-product::leaf::coverage",
+          "feature-leave-product::leaf::feature",
+          "feature-leave-product::leaf::work-item-dimension",
+          "overview-engineering::appendix::coverage",
+          "overview-engineering::leaf::coverage",
+          "overview-engineering::leaf::feature",
+          "overview-engineering::leaf::work-item-dimension",
+          "overview-product::appendix::coverage",
+          "overview-product::leaf::coverage",
+          "overview-product::leaf::feature",
+          "overview-product::leaf::work-item-dimension"
+        ],
+        "state": "derived"
+      },
+      "perturbation": "nothing is changed; the plan is compared with the identities of its own units",
+      "scenario": "unchanged"
+    },
+    {
+      "outcome": {
+        "candidateStatement": "12 prior verified unit(s) offered by run run-topic-catalog-mini, knowledge epoch 0, plan catalog 31184d47f1076d0e36df037ff7a3c1637573f0537b66938d9621efc34359c9e4",
+        "candidateUnits": 12,
+        "conservation": [
+          "planned = reusable + rebuild + new: 20 = 12 + 0 + 8",
+          "candidates = reusable + rebuild + retired: 12 = 12 + 0 + 0"
+        ],
+        "new": [
+          "feature-leave-1a2b3c4d5e-engineering::appendix::coverage",
+          "feature-leave-1a2b3c4d5e-engineering::leaf::coverage",
+          "feature-leave-1a2b3c4d5e-engineering::leaf::feature",
+          "feature-leave-1a2b3c4d5e-engineering::leaf::work-item-dimension",
+          "feature-leave-1a2b3c4d5e-engineering::synthesis::document",
+          "feature-leave-product::synthesis::document",
+          "overview-engineering::synthesis::document",
+          "overview-product::synthesis::document"
+        ],
+        "plannedUnits": 20,
+        "rebuild": [],
+        "retired": [],
+        "reusable": [
+          "feature-leave-product::appendix::coverage",
+          "feature-leave-product::leaf::coverage",
+          "feature-leave-product::leaf::feature",
+          "feature-leave-product::leaf::work-item-dimension",
+          "overview-engineering::appendix::coverage",
+          "overview-engineering::leaf::coverage",
+          "overview-engineering::leaf::feature",
+          "overview-engineering::leaf::work-item-dimension",
+          "overview-product::appendix::coverage",
+          "overview-product::leaf::coverage",
+          "overview-product::leaf::feature",
+          "overview-product::leaf::work-item-dimension"
+        ],
+        "state": "derived"
+      },
+      "perturbation": "one document added to the recorded requests: feature-leave-1a2b3c4d5e-engineering (feature, audience engineering)",
+      "scenario": "second-audience-document"
+    },
+    {
+      "outcome": {
+        "candidateStatement": "12 prior verified unit(s) offered by run run-topic-catalog-mini, knowledge epoch 0, plan catalog 31184d47f1076d0e36df037ff7a3c1637573f0537b66938d9621efc34359c9e4",
+        "candidateUnits": 12,
+        "conservation": [
+          "planned = reusable + rebuild + new: 15 = 9 + 3 + 3",
+          "candidates = reusable + rebuild + retired: 12 = 9 + 3 + 0"
+        ],
+        "new": [
+          "feature-leave-product::synthesis::document",
+          "overview-engineering::synthesis::document",
+          "overview-product::synthesis::document"
+        ],
+        "plannedUnits": 15,
+        "rebuild": [
+          {
+            "cause": "identity-changed",
+            "changedSections": [
+              "section 1 (packet header)",
+              "section 6 ## Obligations bound to this unit's topics (4 obligation(s), 4 material, 0 written here, 4 carried by another unit of this document)"
+            ],
+            "changedTerms": [],
+            "unitId": "feature-leave-product::leaf::coverage"
+          },
+          {
+            "cause": "identity-changed",
+            "changedSections": [
+              "section 1 (packet header)",
+              "section 6 ## Obligations bound to this unit's topics (4 obligation(s), 4 material, 0 written here, 4 carried by another unit of this document)"
+            ],
+            "changedTerms": [],
+            "unitId": "overview-engineering::leaf::coverage"
+          },
+          {
+            "cause": "identity-changed",
+            "changedSections": [
+              "section 1 (packet header)",
+              "section 6 ## Obligations bound to this unit's topics (4 obligation(s), 4 material, 0 written here, 4 carried by another unit of this document)"
+            ],
+            "changedTerms": [],
+            "unitId": "overview-product::leaf::coverage"
+          }
+        ],
+        "retired": [],
+        "reusable": [
+          "feature-leave-product::appendix::coverage",
+          "feature-leave-product::leaf::feature",
+          "feature-leave-product::leaf::work-item-dimension",
+          "overview-engineering::appendix::coverage",
+          "overview-engineering::leaf::feature",
+          "overview-engineering::leaf::work-item-dimension",
+          "overview-product::appendix::coverage",
+          "overview-product::leaf::feature",
+          "overview-product::leaf::work-item-dimension"
+        ],
+        "state": "derived"
+      },
+      "perturbation": "binding-preserving: the title of topic coverage:3c7bfb50d9ce5b71 (facet coverage, 1 binding(s), owner of an obligation somewhere: no) changed; its binding set, its evidence and every other topic are untouched",
+      "scenario": "content-change-smallest-topic"
+    },
+    {
+      "outcome": {
+        "candidateStatement": "12 prior verified unit(s) offered by run run-topic-catalog-mini, knowledge epoch 0, plan catalog 31184d47f1076d0e36df037ff7a3c1637573f0537b66938d9621efc34359c9e4",
+        "candidateUnits": 12,
+        "conservation": [
+          "planned = reusable + rebuild + new: 15 = 9 + 3 + 3",
+          "candidates = reusable + rebuild + retired: 12 = 9 + 3 + 0"
+        ],
+        "new": [
+          "feature-leave-product::synthesis::document",
+          "overview-engineering::synthesis::document",
+          "overview-product::synthesis::document"
+        ],
+        "plannedUnits": 15,
+        "rebuild": [
+          {
+            "cause": "identity-changed",
+            "changedSections": [
+              "section 1 (packet header)",
+              "section 6 ## Obligations bound to this unit's topics (4 obligation(s), 3 material, 4 written here, 0 carried by another unit of this document)"
+            ],
+            "changedTerms": [],
+            "unitId": "feature-leave-product::leaf::feature"
+          },
+          {
+            "cause": "identity-changed",
+            "changedSections": [
+              "section 1 (packet header)",
+              "section 6 ## Obligations bound to this unit's topics (4 obligation(s), 3 material, 4 written here, 0 carried by another unit of this document)"
+            ],
+            "changedTerms": [],
+            "unitId": "overview-engineering::leaf::feature"
+          },
+          {
+            "cause": "identity-changed",
+            "changedSections": [
+              "section 1 (packet header)",
+              "section 6 ## Obligations bound to this unit's topics (4 obligation(s), 3 material, 4 written here, 0 carried by another unit of this document)"
+            ],
+            "changedTerms": [],
+            "unitId": "overview-product::leaf::feature"
+          }
+        ],
+        "retired": [],
+        "reusable": [
+          "feature-leave-product::appendix::coverage",
+          "feature-leave-product::leaf::coverage",
+          "feature-leave-product::leaf::work-item-dimension",
+          "overview-engineering::appendix::coverage",
+          "overview-engineering::leaf::coverage",
+          "overview-engineering::leaf::work-item-dimension",
+          "overview-product::appendix::coverage",
+          "overview-product::leaf::coverage",
+          "overview-product::leaf::work-item-dimension"
+        ],
+        "state": "derived"
+      },
+      "perturbation": "binding-preserving: the title of topic feature:bc52e64d1cbcc204 (facet feature, 2 binding(s), owner of an obligation somewhere: yes) changed; its binding set, its evidence and every other topic are untouched",
+      "scenario": "content-change-owner-topic"
+    },
+    {
+      "outcome": {
+        "candidateStatement": "12 prior verified unit(s) offered by run run-topic-catalog-mini, knowledge epoch 0, plan catalog 31184d47f1076d0e36df037ff7a3c1637573f0537b66938d9621efc34359c9e4",
+        "candidateUnits": 12,
+        "conservation": [
+          "planned = reusable + rebuild + new: 15 = 3 + 9 + 3",
+          "candidates = reusable + rebuild + retired: 12 = 3 + 9 + 0"
+        ],
+        "new": [
+          "feature-leave-product::synthesis::document",
+          "overview-engineering::synthesis::document",
+          "overview-product::synthesis::document"
+        ],
+        "plannedUnits": 15,
+        "rebuild": [
+          {
+            "cause": "identity-changed",
+            "changedSections": [
+              "section 1 (packet header)",
+              "section 6 ## Obligations bound to this unit's topics (4 obligation(s), 4 material, 0 written here, 4 carried by another unit of this document)"
+            ],
+            "changedTerms": [],
+            "unitId": "feature-leave-product::leaf::coverage"
+          },
+          {
+            "cause": "identity-changed",
+            "changedSections": [
+              "section 1 (packet header)",
+              "section 4 ## Ownership and scope: exactly one unit grounds each material obligation of this document",
+              "section 6 ## Obligations bound to this unit's topics (4 obligation(s), 3 material, 4 written here, 0 carried by another unit of this document) -> ## Obligations bound to this unit's topics (3 obligation(s), 2 material, 3 written here, 0 carried by another unit of this document)",
+              "section 7 ## Evidence bound to the obligations this unit writes (5 record(s), all rendered in full) -> ## Evidence bound to the obligations this unit writes (4 record(s), all rendered in full)"
+            ],
+            "changedTerms": [],
+            "unitId": "feature-leave-product::leaf::feature"
+          },
+          {
+            "cause": "identity-changed",
+            "changedSections": [
+              "section 1 (packet header)",
+              "section 4 ## Ownership and scope: exactly one unit grounds each material obligation of this document",
+              "section 6 ## Obligations bound to this unit's topics (3 obligation(s), 3 material, 0 written here, 3 carried by another unit of this document) -> ## Obligations bound to this unit's topics (3 obligation(s), 3 material, 1 written here, 2 carried by another unit of this document)",
+              "section 7 ## Evidence bound to the obligations this unit writes (0 record(s), all rendered in full) -> ## Evidence bound to the obligations this unit writes (1 record(s), all rendered in full)"
+            ],
+            "changedTerms": [],
+            "unitId": "feature-leave-product::leaf::work-item-dimension"
+          },
+          {
+            "cause": "identity-changed",
+            "changedSections": [
+              "section 1 (packet header)",
+              "section 6 ## Obligations bound to this unit's topics (4 obligation(s), 4 material, 0 written here, 4 carried by another unit of this document)"
+            ],
+            "changedTerms": [],
+            "unitId": "overview-engineering::leaf::coverage"
+          },
+          {
+            "cause": "identity-changed",
+            "changedSections": [
+              "section 1 (packet header)",
+              "section 4 ## Ownership and scope: exactly one unit grounds each material obligation of this document",
+              "section 6 ## Obligations bound to this unit's topics (4 obligation(s), 3 material, 4 written here, 0 carried by another unit of this document) -> ## Obligations bound to this unit's topics (3 obligation(s), 2 material, 3 written here, 0 carried by another unit of this document)",
+              "section 7 ## Evidence bound to the obligations this unit writes (5 record(s), all rendered in full) -> ## Evidence bound to the obligations this unit writes (4 record(s), all rendered in full)"
+            ],
+            "changedTerms": [],
+            "unitId": "overview-engineering::leaf::feature"
+          },
+          {
+            "cause": "identity-changed",
+            "changedSections": [
+              "section 1 (packet header)",
+              "section 4 ## Ownership and scope: exactly one unit grounds each material obligation of this document",
+              "section 6 ## Obligations bound to this unit's topics (3 obligation(s), 3 material, 0 written here, 3 carried by another unit of this document) -> ## Obligations bound to this unit's topics (3 obligation(s), 3 material, 1 written here, 2 carried by another unit of this document)",
+              "section 7 ## Evidence bound to the obligations this unit writes (0 record(s), all rendered in full) -> ## Evidence bound to the obligations this unit writes (1 record(s), all rendered in full)"
+            ],
+            "changedTerms": [],
+            "unitId": "overview-engineering::leaf::work-item-dimension"
+          },
+          {
+            "cause": "identity-changed",
+            "changedSections": [
+              "section 1 (packet header)",
+              "section 6 ## Obligations bound to this unit's topics (4 obligation(s), 4 material, 0 written here, 4 carried by another unit of this document)"
+            ],
+            "changedTerms": [],
+            "unitId": "overview-product::leaf::coverage"
+          },
+          {
+            "cause": "identity-changed",
+            "changedSections": [
+              "section 1 (packet header)",
+              "section 4 ## Ownership and scope: exactly one unit grounds each material obligation of this document",
+              "section 6 ## Obligations bound to this unit's topics (4 obligation(s), 3 material, 4 written here, 0 carried by another unit of this document) -> ## Obligations bound to this unit's topics (3 obligation(s), 2 material, 3 written here, 0 carried by another unit of this document)",
+              "section 7 ## Evidence bound to the obligations this unit writes (5 record(s), all rendered in full) -> ## Evidence bound to the obligations this unit writes (4 record(s), all rendered in full)"
+            ],
+            "changedTerms": [],
+            "unitId": "overview-product::leaf::feature"
+          },
+          {
+            "cause": "identity-changed",
+            "changedSections": [
+              "section 1 (packet header)",
+              "section 4 ## Ownership and scope: exactly one unit grounds each material obligation of this document",
+              "section 6 ## Obligations bound to this unit's topics (3 obligation(s), 3 material, 0 written here, 3 carried by another unit of this document) -> ## Obligations bound to this unit's topics (3 obligation(s), 3 material, 1 written here, 2 carried by another unit of this document)",
+              "section 7 ## Evidence bound to the obligations this unit writes (0 record(s), all rendered in full) -> ## Evidence bound to the obligations this unit writes (1 record(s), all rendered in full)"
+            ],
+            "changedTerms": [],
+            "unitId": "overview-product::leaf::work-item-dimension"
+          }
+        ],
+        "retired": [],
+        "reusable": [
+          "feature-leave-product::appendix::coverage",
+          "overview-engineering::appendix::coverage",
+          "overview-product::appendix::coverage"
+        ],
+        "state": "derived"
+      },
+      "perturbation": "binding-set: topic feature:bc52e64d1cbcc204 (facet feature, 2 binding(s)) stops binding obligation feature:leave-1a2b3c4d5e:logic:approve@svc/holiday/approve.go:20; the obligation itself is untouched and still bound by whatever other topics bind it",
+      "scenario": "binding-dropped-owner-topic"
+    }
+  ],
+  "unidentified": [
+    {
+      "reason": "a synthesis unit is written from its children's COLLECTED summaries, and this archival run has authored no unit, so there is no verified summary to compute an identity from",
+      "unitId": "feature-leave-product::synthesis::document"
+    },
+    {
+      "reason": "a synthesis unit is written from its children's COLLECTED summaries, and this archival run has authored no unit, so there is no verified summary to compute an identity from",
+      "unitId": "overview-engineering::synthesis::document"
+    },
+    {
+      "reason": "a synthesis unit is written from its children's COLLECTED summaries, and this archival run has authored no unit, so there is no verified summary to compute an identity from",
+      "unitId": "overview-product::synthesis::document"
+    }
+  ],
+  "units": 15,
+  "unitsByKind": [
+    {
+      "kind": "appendix",
+      "units": 3
+    },
+    {
+      "kind": "bridge",
+      "units": 0
+    },
+    {
+      "kind": "leaf",
+      "units": 9
+    },
+    {
+      "kind": "synthesis",
+      "units": 3
+    }
+  ],
+  "version": "unit-cache-identity-readings-v2"
+}

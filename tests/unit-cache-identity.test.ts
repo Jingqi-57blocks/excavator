@@ -20,6 +20,7 @@ import { buildReportRequestsArtifact } from "../src/report/report-requests-artif
 import { MINI_DOCUMENTS } from "./plan-fixture.ts";
 import {
   UNIT_CACHE_IDENTITY_VERSION,
+  UNIT_IDENTITY_KEY_VERSIONS,
   UNIT_OUTPUT_CONTRACT,
   identitySectionDifferences,
   identityTermDifferences,
@@ -148,7 +149,13 @@ test("an identity carries the output contract, the authorship and one section pe
   const unitId = `${OVERVIEW_PRODUCT}::leaf::feature`;
   const identity = identityOf(fix, fix.base, unitId);
   assert.equal(identity.version, UNIT_CACHE_IDENTITY_VERSION);
-  assert.deepEqual(identity.terms.contract, UNIT_OUTPUT_CONTRACT, "the claims/summary/receipt schema versions are part of the key");
+  assert.deepEqual(identity.terms.contract, UNIT_OUTPUT_CONTRACT, "the claims and summary schema versions — the shape of the bytes a reuse hands back — are part of the key");
+  // The receipt schema version is NOT (R6c). A receipt is minted fresh by the admission's own trip through
+  // `draftUnit`; keeping its version here bought a whole-ledger invalidation per bump and no protection.
+  assert.deepEqual(Object.keys(UNIT_OUTPUT_CONTRACT).sort(), ["claimsVersion", "summaryVersion"]);
+  // And the version set a reading records IS these two constants, not a third list beside them: the pinned record
+  // and the digested record are one value, so a golden's `contract` field cannot drift from the key it names.
+  assert.deepEqual(UNIT_IDENTITY_KEY_VERSIONS, { identity: identity.version, output: identity.terms.contract });
   assert.deepEqual(identity.terms.authorship, FIXTURE_AUTHORSHIP);
   assert.equal(identity.terms.request.documentId, OVERVIEW_PRODUCT, "and THIS document's recorded request row, which the packet does not print in full");
   // The terms are a CLOSED list, and every member is per-document or per-build: a plan-global member here would put

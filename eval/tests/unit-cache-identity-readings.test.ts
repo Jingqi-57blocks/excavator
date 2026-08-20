@@ -5,6 +5,15 @@
 // NOT in this repository). They are records, not assertions about a run this suite can re-derive — so what is
 // asserted here is their INTERNAL consistency plus the readings this slice exists to produce:
 //
+// THE LAW ABOUT DIGESTS IN A GOLDEN, and it was written in blood (57B-434 R6c). A digest may be checked in only if
+// CI can recompute it from an input that is in this repository, OR the contract version it was minted under is
+// recorded beside it and pinned to the code's own constant. A digest with neither is 64 characters nothing asserts:
+// R6b bumped the receipt schema while that version was in the identity key, all 37 `identityDigest` values below
+// became numbers this code cannot produce, and the suite stayed green because this file checked only their SHAPE.
+// The `contract` field asserted below is the second half of the law for these two records; the first half — a whole
+// reading recomputed byte for byte — is `unit-cache-identity-fixture-readings.test.ts`, over the mini fixture, whose
+// input is in the repository. Neither replaces the other: this one covers a real corpus, that one covers the code.
+//
 //   * THE SAME-SOURCE TRIPWIRE, per unit: the identity view and the packet an author reads are ONE composition and
 //     they disagree on exactly the three declared plan-global digest lines. The extractor throws on a fourth, and
 //     the per-unit label list is recorded here so the safety argument for excluding those three is readable rather
@@ -34,6 +43,7 @@ import { join } from "node:path";
 import { AUTHORING_UNIT_KINDS } from "../../src/report/plan-proposal.ts";
 import { UNIT_PACKET_FORBIDDEN_INPUT_PREFIXES } from "../../src/report/unit-packet-source.ts";
 import { IDENTITY_NORMALIZED_HEADER_LABELS, IDENTITY_NORMALIZED_VALUE } from "../../src/report/unit-packet.ts";
+import { UNIT_IDENTITY_KEY_VERSIONS } from "../../src/report/unit-cache-identity.ts";
 import { UNIT_CACHE_IDENTITY_READINGS_VERSION, type ScenarioReading, type UnitIdentityReadings } from "../unit-cache-identity-readings.ts";
 
 const HERE = import.meta.dirname;
@@ -67,6 +77,11 @@ test("every checked-in unit identity reading is internally consistent", async ()
   for (const { target, path } of READINGS) {
     const row = await readings(path);
     assert.equal(row.version, UNIT_CACHE_IDENTITY_READINGS_VERSION, `${target}: version`);
+    // THE VERSION NAIL. The digests below were minted under these versions, and this is the assertion that goes red
+    // the next time one of them moves: a bump to the identity formula or to a schema in the key makes this file the
+    // batch's own problem instead of leaving 37 unproducible numbers checked in behind a green suite.
+    assert.deepEqual(row.contract, UNIT_IDENTITY_KEY_VERSIONS,
+      `${target}: this reading's identity digests were minted under ${JSON.stringify(row.contract)}; the current build keys on ${JSON.stringify(UNIT_IDENTITY_KEY_VERSIONS)}, so the reading must be re-generated from its run directory (it is archival and not in this repository) rather than edited`);
     assert.match(row.authorship, /^model-free generator /, `${target}: a deterministic projection is not a model family`);
 
     // Every planned unit is either identified or named as unidentifiable. No unit is simply absent.
