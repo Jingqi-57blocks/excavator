@@ -284,7 +284,7 @@ test("candidates from another knowledge epoch are excluded by name, and nothing 
   await writeUnitLedger(run.runDir, { ...ledger, units: ledger.units.map((row) => ({ ...row, knowledgeEpoch: row.knowledgeEpoch + 1 })) });
 
   const report = await admitUnits(run.runDir, ADMISSION_AUTHORSHIP);
-  assert.equal(report.account.first, 0, "admitted");
+  assert.equal(report.account.reused, 0, "nothing may be admitted from another epoch's rows");
   assert.deepEqual(outcomeIds(report, "skipped-new"), [...run.view.collectionOrder].sort());
   assert.match(report.candidateStatement, /^0 prior verified units: this run's unit ledger holds 3 row\(s\) and none is a candidate: 3 from another knowledge epoch/);
   for (const row of report.ledgerRows) {

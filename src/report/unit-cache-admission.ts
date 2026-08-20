@@ -99,9 +99,16 @@ export interface UnitAdmissionAccount {
   readonly plannedUnits: number;
   readonly candidateLedgerRows: number;
   readonly offeredCandidates: number;
-  readonly first: number;
-  readonly second: number;
-  readonly third: number;
+  /**
+   * The three buckets, named by what they MEAN in both passes rather than by either pass's vocabulary.
+   *
+   * The read-only pass reads them as "would be admitted / would be re-drawn / no candidate holds it" and the
+   * executing pass as "admitted / fell to rebuild / skipped as new"; the words a reader sees come from the labels
+   * the caller passes to `summariseAdmission`, so the two can never be mistaken for each other.
+   */
+  readonly reused: number;
+  readonly rebuilt: number;
+  readonly unoffered: number;
   readonly statements: readonly string[];
 }
 
@@ -248,7 +255,7 @@ export function outcomeOfUnattemptedIntent(intent: UnitAdmissionIntent): UnitAdm
 
 /** One sentence a reader cannot mistake for a coverage claim, for either pass. */
 export function summariseAdmission(account: UnitAdmissionAccount, labels: readonly [string, string, string]): string {
-  return `${account.plannedUnits} planned unit(s): ${account.first} ${labels[0]}, ${account.second} ${labels[1]}, ${account.third} ${labels[2]}; ${account.offeredCandidates} of ${account.candidateLedgerRows} prior ledger row(s) offered as candidates`;
+  return `${account.plannedUnits} planned unit(s): ${account.reused} ${labels[0]}, ${account.rebuilt} ${labels[1]}, ${account.unoffered} ${labels[2]}; ${account.offeredCandidates} of ${account.candidateLedgerRows} prior ledger row(s) offered as candidates`;
 }
 
 /**
@@ -312,9 +319,9 @@ function accountOf(input: {
     plannedUnits: input.plannedUnits,
     candidateLedgerRows: input.ledgerRows.length,
     offeredCandidates: offered,
-    first,
-    second,
-    third,
+    reused: first,
+    rebuilt: second,
+    unoffered: third,
     statements: [
       `planned = ${input.labels.join(" + ")}: ${input.plannedUnits} = ${first} + ${second} + ${third}`,
       `ledger rows = offered as candidates + excluded: ${input.ledgerRows.length} = ${offered} + ${input.ledgerRows.length - offered}`
