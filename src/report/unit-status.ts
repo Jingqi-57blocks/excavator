@@ -110,7 +110,13 @@ export async function unitStatus(runDirInput: string): Promise<UnitStatusView> {
   for (const dir of await listDirectories(unitsDir(runDir)).catch(() => [] as string[])) {
     const path = join(dir, "receipt.json");
     if (!await exists(path)) continue;
-    const parsed = parseUnitReceipt(await readJson<unknown>(path));
+    let raw: unknown;
+    try {
+      raw = await readJson<unknown>(path);
+    } catch (error) {
+      throw new Error(`${path} could not be read as JSON: ${(error as Error).message}`);
+    }
+    const parsed = parseUnitReceipt(raw);
     if (parsed.receipt === null) throw new Error(`${path} is not a valid unit draft receipt: ${parsed.problems.join("; ")}`);
     const receipt = parsed.receipt;
     const current = view.byId.has(receipt.unitId)
