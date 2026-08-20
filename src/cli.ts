@@ -10,11 +10,14 @@ import { checkpointUnit } from "./report/unit-checkpoint.ts";
 import { resumeUnits, unitStatus } from "./report/unit-status.ts";
 import { renderUnitPacketForRun } from "./report/unit-packet-source.ts";
 import { loadRunUnitIdentities } from "./report/unit-cache-identity-source.ts";
-import { describeAuthorship, type UnitAuthorship } from "./report/unit-cache-identity.ts";
+import { admitUnits, planUnitAdmission } from "./report/unit-cache-admission-run.ts";
+import { summariseAdmission } from "./report/unit-cache-admission.ts";
+import { describeAuthorship, type UnitAuthorship } from "./report/unit-provenance.ts";
 import { readUnitGroundingForRun, summariseUnitGroundingReading } from "./report/unit-grounding-reading.ts";
 import { planRun, renderPlannerPacketForRun, DEFAULT_PLANNER_PACKET_BYTE_LIMIT, type PlanProposalSource } from "./run/stages/plan-stage.ts";
 import { PACKET_OVER_BUDGET_MODES, type PacketOverBudgetMode } from "./report/planner-packet.ts";
 import { stableJson } from "./base/util.ts";
+import { assertNever } from "./base/artifact-result.ts";
 import { buildCodeGraph, codeGraphStatus } from "./codegraph/codegraph-command.ts";
 import { runDbSchema } from "./schema/db-schema-command.ts";
 import { runNativeGraph } from "./nativegraph/native-graph-command.ts";
@@ -132,6 +135,7 @@ async function main(): Promise<void> {
           const { packet, readPaths } = await renderUnitPacketForRun(required(args.run, "--run"), {
             unitId: required(args.unit, "--unit"),
             overBudget: overBudgetMode(required(args.overBudget, "--over-budget")),
+            childSummaries: { from: "collected-for-this-plan" },
             ...(args.byteLimit ? { byteLimit: Number(args.byteLimit) } : {})
           });
           if (args.out) {
@@ -173,6 +177,17 @@ async function main(): Promise<void> {
             : { unit: row.unitId, document: row.documentId, kind: row.kind, identity: "unavailable", reason: row.reason }),
           readPaths: identities.readPaths
         });
+        break;
+      }
+      case "unit-cache-admit": {
+        // The one explicit act: re-enter previously verified units through the existing draft and collect doors.
+        // `--mode` is required and has no default — one arm writes into the run and the other cannot.
+        const args = parseArgs(argv);
+        print(await unitAdmissionOutput(
+          required(args.run, "--run"),
+          authorshipOf(required(args.authorship, "--authorship")),
+          admissionMode(required(args.mode, "--mode"))
+        ));
         break;
       }
       case "plan": {
@@ -493,13 +508,100 @@ function unitScoped(args: Record<string, string>, command: string): boolean {
  * The three files a unit draft is made of. All required: the claims sidecar and the summary are part of a unit's
  * output contract, so a unit drafted without them is not a unit that is missing extras — it is a refusal.
  */
+/**
+ * One hand-written unit draft, from the four files and the one required author.
+ *
+ * `provenance` is `fresh` and cannot be anything else from here: a draft a person or a model just wrote IS fresh,
+ * and the only thing that may mint a `cache-admitted` record is the admission command, which has a verified ledger
+ * row to name. A flag for it would be a way to claim a cache hit for bytes nobody verified.
+ */
 async function unitDraftInput(args: Record<string, string>): Promise<UnitDraftInput> {
   const raw = JSON.parse(await readFile(required(args.claims, "--claims"), "utf8")) as SectionClaim[] | { claims: SectionClaim[] };
   return {
     unitId: required(args.unit, "--unit"),
     content: await readFile(required(args.file, "--file"), "utf8"),
     claims: Array.isArray(raw) ? raw : raw.claims,
-    summary: JSON.parse(await readFile(required(args.summary, "--summary"), "utf8")) as unknown
+    summary: JSON.parse(await readFile(required(args.summary, "--summary"), "utf8")) as unknown,
+    authorship: authorshipOf(required(args.authorship, "--authorship")),
+    provenance: { kind: "fresh" }
+  };
+}
+
+/** The two admission modes. Required, closed, no default: one of them writes into the run and one cannot. */
+const UNIT_ADMISSION_MODES = ["plan-only", "admit"] as const;
+type UnitAdmissionMode = (typeof UNIT_ADMISSION_MODES)[number];
+
+function admissionMode(value: string): UnitAdmissionMode {
+  if ((UNIT_ADMISSION_MODES as readonly string[]).includes(value)) return value as UnitAdmissionMode;
+  throw new Error(`--mode ${JSON.stringify(value)} is not one of: ${UNIT_ADMISSION_MODES.join(", ")}; admission is an explicit act and there is no default mode`);
+}
+
+/**
+ * Both admission passes, exhaustive over the modes — a third mode has to say what it does before this compiles.
+ *
+ * The two vocabularies are deliberately different: `plan-only` reports what it WOULD do (`admit` / `rebuild` /
+ * `new`), the executing pass reports what happened (`admitted` / `fell-to-rebuild` / `skipped-new`). One shared
+ * vocabulary would let a dry run be read as a record of hits.
+ */
+async function unitAdmissionOutput(runDir: string, authorship: UnitAuthorship, mode: UnitAdmissionMode): Promise<Record<string, unknown>> {
+  switch (mode) {
+    case "plan-only": {
+      const plan = await planUnitAdmission(runDir, authorship);
+      return {
+        mode,
+        wrote: "nothing: this mode reads the run and decides, and admission itself is --mode admit",
+        run: plan.runId,
+        knowledgeEpoch: plan.knowledgeEpoch,
+        planCatalogDigest: plan.planCatalogDigest,
+        authorship: plan.authorship,
+        candidates: plan.candidateStatement,
+        summary: summariseAdmission(plan.account, ["admissible", "to rebuild", "new"]),
+        units: plan.intents.map((intent) => (intent.intent === "admit"
+          ? { unit: intent.unit.unitId, kind: intent.unit.kind, intent: intent.intent, identityDigest: intent.identityDigest, why: intent.statement }
+          : intent.intent === "rebuild"
+            ? { unit: intent.unit.unitId, kind: intent.unit.kind, intent: intent.intent, cause: intent.cause, why: intent.statement }
+            : { unit: intent.unit.unitId, kind: intent.unit.kind, intent: intent.intent, why: intent.statement })),
+        ledgerRows: plan.ledgerRows.map(admissionLedgerLine),
+        retired: plan.retired.map((row) => ({ unit: row.unitId, kind: row.kind })),
+        account: plan.account.statements,
+        // The invalidation plan the intents above ARE: printed so the two can be read side by side rather than
+        // taken on trust.
+        invalidationPlan: plan.cachePlan.conservation.statements
+      };
+    }
+    case "admit": {
+      const report = await admitUnits(runDir, authorship);
+      return {
+        mode,
+        run: report.runId,
+        knowledgeEpoch: report.knowledgeEpoch,
+        planCatalogDigest: report.planCatalogDigest,
+        authorship: report.authorship,
+        candidates: report.candidateStatement,
+        summary: summariseAdmission(report.account, ["admitted", "fell to rebuild", "skipped as new"]),
+        units: report.outcomes.map((outcome) => (outcome.outcome === "admitted"
+          ? { unit: outcome.unit.unitId, kind: outcome.unit.kind, outcome: outcome.outcome, identityDigest: outcome.identityDigest, admittedFrom: outcome.source, why: outcome.statement }
+          : outcome.outcome === "fell-to-rebuild"
+            ? { unit: outcome.unit.unitId, kind: outcome.unit.kind, outcome: outcome.outcome, cause: outcome.cause, why: outcome.statement }
+            : { unit: outcome.unit.unitId, kind: outcome.unit.kind, outcome: outcome.outcome, why: outcome.statement })),
+        ledgerRows: report.ledgerRows.map(admissionLedgerLine),
+        retired: report.retired.map((row) => ({ unit: row.unitId, kind: row.kind })),
+        account: report.account.statements
+      };
+    }
+  }
+  return assertNever(mode, "unit admission mode");
+}
+
+/** One prior ledger row and what the admission did with it. Every row is printed; nothing is capped. */
+function admissionLedgerLine(row: { unitId: string; knowledgeEpoch: number; disposition: { state: string; cause?: string; statement?: string; verification?: { state: string; problems?: readonly string[] } } }): Record<string, unknown> {
+  return {
+    unit: row.unitId,
+    knowledgeEpoch: row.knowledgeEpoch,
+    disposition: row.disposition.state,
+    ...(row.disposition.cause ? { cause: row.disposition.cause } : {}),
+    ...(row.disposition.verification ? { bytes: row.disposition.verification.state, ...(row.disposition.verification.problems ? { problems: row.disposition.verification.problems } : {}) } : {}),
+    ...(row.disposition.statement ? { why: row.disposition.statement } : {})
   };
 }
 
@@ -549,6 +651,7 @@ Commands:
   framework  Recover routes/components from framework conventions (Catalyst, …) — for dynamically-dispatched apps
   plan-packet   Render the deterministic, bounded planner view of one frozen run; --unit <id> renders one authoring unit's view instead (read-only, zero model)
   unit-cache-identity Print the cache identity of every authoring unit of one planned run (read-only, zero model)
+  unit-cache-admit   Re-enter previously verified units through the existing draft/collect gates (--mode required)
   plan          Validate a plan proposal against the frozen epoch and record plan/catalog.json + plan/dag.json
   begin      Start or restart one document authoring timer
   reading    Show which in-boundary decision code no source window covers yet — run it before freeze, where opening one is free
@@ -590,6 +693,7 @@ Examples:
   excavator checklist --run <run> --file checklist-updates.json
   excavator plan-packet --run <run> --unit <unit-id> --over-budget record-limitation --out unit-packet.md
   excavator unit-cache-identity --run <run> --authorship model-family:example
+  excavator unit-cache-admit --run <run> --authorship model-free:fixture-plan --mode plan-only
   excavator audit --run <run> --document <id>
   excavator audit --run <run> --units
   excavator report --request request.json
@@ -634,6 +738,16 @@ const COMMAND_HELP: Record<string, CommandHelp> = {
     ],
     example: "excavator unit-cache-identity --run <run> --authorship model-free:fixture-plan",
     notes: "Read-only and deterministic: it writes nothing and calls no model. Each unit's identity is its own packet, composed with the three plan-global digest lines (topics catalog, plan catalog, recorded requests) normalized, then digested — so the epoch, the audience lens, the obligation scope, the ownership stubs and the budget rows are all in it, while a change to one topic does not move every unit of the run. A synthesis whose children are not collected has no identity yet and says so by name."
+  },
+  "unit-cache-admit": {
+    synopsis: "unit-cache-admit --run <dir> --authorship model-family:<name>|model-free:<name> --mode plan-only|admit",
+    flags: [
+      "--run <dir>          Planned run directory (required)",
+      "--authorship <who>   model-family:<name> or model-free:<name> — required, no default",
+      "--mode <how>         plan-only (decide and report, write nothing) or admit (re-enter through draft+collect) — required"
+    ],
+    example: "excavator unit-cache-admit --run <run> --authorship model-free:fixture-plan --mode plan-only",
+    notes: "A unit is admitted only when its cache identity equals the one its ledger row recorded AND its content, claims and summary on disk still digest to what that row promised. Admission then re-enters those exact bytes through `draft` and `collect` — the summary agreement check, the output budget, the grounding audit, the synthesis backlink check and the promised-artifact digests all run again, and a new receipt is minted; no stale receipt is ever revived. Every planned unit comes back as admitted, fell-to-rebuild (with the cause: a changed identity, drifted bytes, a collect refusal, or a pass halted by an earlier refusal) or skipped-new, and every prior ledger row is listed with what was done with it. A refusal leaves the receipt in place so a corrected re-draft can be collected."
   },
   plan: {
     synopsis: "plan --run <dir> (--fixture-plan | --proposal <file>)",
@@ -802,7 +916,7 @@ const COMMAND_HELP: Record<string, CommandHelp> = {
     example: 'excavator search --run <run> --query "\\bTODO\\b" --regex --reason "find unfinished work"'
   },
   checkpoint: {
-    synopsis: "checkpoint --run <dir> (--document <id> --section <n> | --unit <id>) --file <md> [--claims <json>] [--summary <json>]",
+    synopsis: "checkpoint --run <dir> (--document <id> --section <n> | --unit <id> --authorship <who>) --file <md> [--claims <json>] [--summary <json>]",
     flags: [
       "--run <dir>          Run directory (required)",
       "--document <id>      Document being authored (section keying)",
@@ -810,13 +924,14 @@ const COMMAND_HELP: Record<string, CommandHelp> = {
       "--unit <id>          Authoring unit id from plan/catalog.json (unit keying)",
       "--file <md>          Markdown to save (required)",
       "--claims <json>      Claims sidecar (array or {claims:[...]}); required with --unit",
-      "--summary <json>     Unit summary (required with --unit)"
+      "--summary <json>     Unit summary (required with --unit)",
+      "--authorship <who>   model-family:<name> or model-free:<name> — required with --unit, no default"
     ],
     example: "excavator checkpoint --run <run> --document <id> --section 1 --file section.md --claims claims.json",
     notes: "One keying or the other, never both. With --unit it is exactly `draft --unit` followed by `collect --units`."
   },
   draft: {
-    synopsis: "draft --run <dir> (--document <id> --section <n> | --unit <id>) --file <md> [--claims <json>] [--summary <json>]",
+    synopsis: "draft --run <dir> (--document <id> --section <n> | --unit <id> --authorship <who>) --file <md> [--claims <json>] [--summary <json>]",
     flags: [
       "--run <dir>          Run directory (required)",
       "--document <id>      Document being authored (section keying)",
@@ -824,10 +939,11 @@ const COMMAND_HELP: Record<string, CommandHelp> = {
       "--unit <id>          Authoring unit id from plan/catalog.json (unit keying)",
       "--file <md>          Markdown to draft (required)",
       "--claims <json>      Claims sidecar (array or {claims:[...]}); required with --unit",
-      "--summary <json>     Unit summary: covered topics, key statements, unknowns, terminology and the content/claims digests (required with --unit)"
+      "--summary <json>     Unit summary: covered topics, key statements, unknowns, terminology and the content/claims digests (required with --unit)",
+      "--authorship <who>   model-family:<name> or model-free:<name> — required with --unit: the record says who wrote it, and the cache key is computed for that author"
     ],
     example: "excavator draft --run <run> --unit <unit-id> --file content.md --claims claims.json --summary summary.json",
-    notes: "Parallel-safe either way: a draft writes only its own artifacts and a receipt, never the shared timeline or manifest. One keying or the other, never both. A unit draft is refused unless its summary covers exactly the plan's topics for that unit and records the digests of the very bytes being written."
+    notes: "Parallel-safe either way: a draft writes only its own artifacts and a receipt, never the shared timeline or manifest. One keying or the other, never both. A unit draft is refused unless its summary covers exactly the plan's topics for that unit and records the digests of the very bytes being written. Its receipt records the author and the cache identity of the packet it was written from — the identity is computed here, never accepted as an argument — and its provenance is always `fresh`: only `unit-cache-admit` mints a cache-admitted record, and only against a verified ledger row."
   },
   collect: {
     synopsis: "collect --run <dir> [--units]",

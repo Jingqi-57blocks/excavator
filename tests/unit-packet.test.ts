@@ -329,7 +329,7 @@ test("the loader renders every unit of a real planned run, defaults its bound to
   for (const unitId of run.view.collectionOrder) {
     const unit = run.view.byId.get(unitId)!;
     if (unit.kind === "synthesis") continue;
-    const { packet, readPaths } = await renderUnitPacketForRun(run.runDir, { unitId, overBudget: "refuse" });
+    const { packet, readPaths } = await renderUnitPacketForRun(run.runDir, { unitId, overBudget: "refuse", childSummaries: { from: "collected-for-this-plan" } });
     assert.equal(packet.byteLimit, 786_432, `${unitId}: the bound comes from the plan's perUnitInputBytes`);
     assert.deepEqual([...packet.limitations], []);
     for (const readPath of readPaths) {
@@ -338,7 +338,7 @@ test("the loader renders every unit of a real planned run, defaults its bound to
       }
     }
     assert.ok(readPaths.includes("evidence.json") && readPaths.includes("plan/catalog.json"));
-    const second = await renderUnitPacketForRun(run.runDir, { unitId, overBudget: "refuse" });
+    const second = await renderUnitPacketForRun(run.runDir, { unitId, overBudget: "refuse", childSummaries: { from: "collected-for-this-plan" } });
     assert.equal(second.packet.markdown, packet.markdown, `${unitId}: two loads, same bytes`);
   }
 });
@@ -346,16 +346,16 @@ test("the loader renders every unit of a real planned run, defaults its bound to
 test("a synthesis packet is refused until its children are collected, and renders their summaries afterwards", async () => {
   const run = await plannedRun(["product"]);
   const synthesis = run.view.collectionOrder.find((unitId) => run.view.byId.get(unitId)!.kind === "synthesis")!;
-  await assert.rejects(renderUnitPacketForRun(run.runDir, { unitId: synthesis, overBudget: "refuse" }),
+  await assert.rejects(renderUnitPacketForRun(run.runDir, { unitId: synthesis, overBudget: "refuse", childSummaries: { from: "collected-for-this-plan" } }),
     /cannot be given a packet yet: its child .* is not collected/);
   for (const unitId of run.view.collectionOrder) {
     if (run.view.byId.get(unitId)!.kind === "synthesis") continue;
     await checkpointUnit(run.runDir, await unitDraftFor(run, unitId));
   }
-  const { packet } = await renderUnitPacketForRun(run.runDir, { unitId: synthesis, overBudget: "refuse" });
+  const { packet } = await renderUnitPacketForRun(run.runDir, { unitId: synthesis, overBudget: "refuse", childSummaries: { from: "collected-for-this-plan" } });
   assert.ok(packet.markdown.includes("## Child summaries (1)"));
   assert.ok(packet.markdown.includes("This is a synthesis unit: it names no topic and reads no evidence record."));
-  const source = await loadUnitPacketSource(run.runDir, { unitId: synthesis, overBudget: "refuse" });
+  const source = await loadUnitPacketSource(run.runDir, { unitId: synthesis, overBudget: "refuse", childSummaries: { from: "collected-for-this-plan" } });
   assert.ok(source.readPaths.some((path) => path.startsWith("units/") && path.endsWith("summary.json")));
 });
 
@@ -386,7 +386,7 @@ async function treeDigest(dir: string): Promise<Map<string, string>> {
 test("relocated run: the copy renders its own unit packet, and neither tree is written to", async () => {
   const run = await plannedRun(["product"]);
   const unitId = run.view.collectionOrder.find((id) => run.view.byId.get(id)!.kind === "appendix")!;
-  const original = await renderUnitPacketForRun(run.runDir, { unitId, overBudget: "refuse" });
+  const original = await renderUnitPacketForRun(run.runDir, { unitId, overBudget: "refuse", childSummaries: { from: "collected-for-this-plan" } });
 
   const moved = await tempDir("excavator-unit-packet-relocated-");
   await cp(run.workdir, moved, { recursive: true });
@@ -394,7 +394,7 @@ test("relocated run: the copy renders its own unit packet, and neither tree is w
   const beforeOriginal = await treeDigest(run.workdir);
   const beforeCopy = await treeDigest(moved);
 
-  const fromCopy = await renderUnitPacketForRun(copyRunDir, { unitId, overBudget: "refuse" });
+  const fromCopy = await renderUnitPacketForRun(copyRunDir, { unitId, overBudget: "refuse", childSummaries: { from: "collected-for-this-plan" } });
   assert.equal(fromCopy.packet.markdown, original.packet.markdown, "the same run renders the same packet wherever it sits");
   assert.deepEqual([...await treeDigest(run.workdir)], [...beforeOriginal], "the original tree must not change");
   assert.deepEqual([...await treeDigest(moved)], [...beforeCopy], "and neither must the copy: rendering a packet is a read");

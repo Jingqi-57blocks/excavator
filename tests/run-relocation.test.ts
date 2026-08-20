@@ -14,6 +14,8 @@ import { exists, sha256 } from "../src/base/util.ts";
 import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, installFixturePlan, tempDir } from "./helpers.ts";
 import { planRun, renderPlannerPacketForRun } from "../src/run/stages/plan-stage.ts";
 import { loadRunUnitIdentities, rowUnitId } from "../src/report/unit-cache-identity-source.ts";
+import { planUnitAdmission } from "../src/report/unit-cache-admission-run.ts";
+import { planCatalogDigest } from "../src/report/plan-artifacts.ts";
 
 /**
  * 57B-452 — a run directory must be movable.
@@ -284,9 +286,9 @@ test("relocated run: freeze seals the copy's knowledge epoch", async () => {
   assert.equal(await exists(join(base.runDir, "knowledge.json")), false);
 });
 
-test("relocated run: plan, plan-packet and unit-cache-identity read and write the copy's plan directory", async () => {
+test("relocated run: plan, plan-packet, unit-cache-identity and unit-cache-admit read and write the copy's plan directory", async () => {
   const base = await investigatingBase();
-  const runDir = await onRelocatedRun(base, ["plan", "plan-packet", "unit-cache-identity"], async (dir) => {
+  const runDir = await onRelocatedRun(base, ["plan", "plan-packet", "unit-cache-identity", "unit-cache-admit"], async (dir) => {
     assert.equal((await freezeRun(dir)).frozen, true);
     const packet = await renderPlannerPacketForRun(dir, { overBudget: "refuse", byteLimit: 524_288 });
     assert.ok(packet.markdown.includes("# Planner packet"));
@@ -296,6 +298,12 @@ test("relocated run: plan, plan-packet and unit-cache-identity read and write th
     // location would be the identity of a plan this run no longer holds.
     const identities = await loadRunUnitIdentities(dir, { kind: "model-free", generator: "relocation-fixture" });
     assert.deepEqual(identities.rows.map(rowUnitId).sort(), result.artifacts.planCatalog.units.map((unit) => unit.unitId).sort());
+    // R6b's admission decides from the COPY's plan and the COPY's unit ledger. Read-only mode is what belongs here:
+    // the writing half of an admission is `draft` and `collect`, each with its own relocation fixture above.
+    const admission = await planUnitAdmission(dir, { kind: "model-free", generator: "relocation-fixture" });
+    assert.deepEqual(admission.intents.map((intent) => intent.unit.unitId).sort(), result.artifacts.planCatalog.units.map((unit) => unit.unitId).sort());
+    assert.equal(admission.planCatalogDigest, planCatalogDigest(result.artifacts.planCatalog));
+    assert.match(admission.candidateStatement, /^0 prior verified units: this run's unit ledger records no collected unit at all/);
   });
   for (const relative of ["plan/topics.json", "plan/catalog.json", "plan/dag.json"]) {
     assert.ok(await exists(join(runDir, relative)), `${relative} must land in the copy`);

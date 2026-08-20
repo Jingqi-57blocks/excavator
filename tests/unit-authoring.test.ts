@@ -17,6 +17,7 @@ import { resumeUnits, unitStatus } from "../src/report/unit-status.ts";
 import { UNIT_SUMMARY_VERSION, unitContentDigest } from "../src/report/unit-output.ts";
 import { normalizeSection } from "../src/report/checkpoint.ts";
 import {
+  FIXTURE_DRAFT_AUTHORSHIP,
   frozenRun, manifestOf, planWithLeaf, planWithRenamedUnits, plannedRun, unitDraftFor, type PlannedRun
 } from "./unit-fixture.ts";
 
@@ -319,9 +320,10 @@ test("a leaf plan gives all three unit states at once, and the leaf covers exact
    */
   const synthesisId = run.view.collectionOrder.at(-1)!;
   const stale = {
-    version: "unit-receipt-v1", runId: run.manifest.id, knowledgeEpoch: 99,
+    version: "unit-receipt-v2", runId: run.manifest.id, knowledgeEpoch: 99,
     planCatalogDigest: run.view.planCatalogDigest, unitId: synthesisId, documentId: run.view.byId.get(synthesisId)!.documentId,
     kind: "synthesis", draftedAt: "2026-08-20T00:00:00.000Z", revision: false,
+    authorship: FIXTURE_DRAFT_AUTHORSHIP, packetIdentityDigest: "a".repeat(64), provenance: { kind: "fresh" },
     contentDigest: "a".repeat(64), claimsDigest: "a".repeat(64), summaryDigest: "a".repeat(64), evidenceIds: [], traceIds: []
   };
   const stalePaths = unitPaths(run.runDir, synthesisId);
@@ -515,7 +517,7 @@ test("a run with no plan cannot report a unit view, and a plan carrying a traver
 
   const before = await readFile(join(base.runDir, "run.json"));
   await assert.rejects(() => unitStatus(base.runDir), /contains a path separator; a unit id is one path segment, never a path/);
-  await assert.rejects(() => draftUnit(base.runDir, { unitId: "../../escaped", content: "## x\n\nbody\n", claims: [], summary: {} }),
+  await assert.rejects(() => draftUnit(base.runDir, { unitId: "../../escaped", content: "## x\n\nbody\n", claims: [], summary: {}, authorship: FIXTURE_DRAFT_AUTHORSHIP, provenance: { kind: "fresh" } }),
     /contains a path separator; a unit id is one path segment, never a path/);
   await assert.rejects(() => collectUnits(base.runDir), /contains a path separator/);
   assert.equal(await exists(join(base.runDir, "units")), false, "nothing was created for the refused unit");

@@ -16,6 +16,18 @@
  * THE SUMMARY IS AN ARGUMENT OF THIS FUNCTION, NOT AN OPTION. Same for the claims. Both are required parameters
  * rather than optional ones, which is what makes every call site state them: an optional summary is a summary
  * most units would not have, and the synthesis path would then be built on a field that is usually absent.
+ *
+ * THE CACHE IDENTITY IS COMPUTED HERE AND NOT ACCEPTED FROM ANYONE (R6b). The receipt records the identity of the
+ * packet this unit was written from, and the only way that record can be trusted is for the function that writes it
+ * to derive it — from the same loader the packet command uses and the same identity function the reading uses. A
+ * parameter would let a caller state an identity its bytes were never written for, which is exactly the assertion a
+ * cache must not take on trust. It is computed LAST, after every existing refusal has had its say, so no message
+ * and no order this function already had moves.
+ *
+ * `authorship` AND `provenance` ARE REQUIRED PARAMETERS for the same reason the summary is: an optional author is an
+ * author most calls would omit, and a cache whose records do not say who wrote them cannot refuse to hand one
+ * family's draft to another. `provenance` is how a re-entered draft is distinguishable from a fresh one FOREVER —
+ * the receipt is deleted at collect, so if it is not in the record it is nowhere.
  */
 
 import { readFile } from "node:fs/promises";
@@ -40,6 +52,9 @@ import { documentBudgetRow } from "./plan-budget.ts";
 import { measureUnitOutput, unitOutputBudgetProblems } from "./unit-output-budget.ts";
 import { compareUnitIds, unitPaths, type UnitPaths } from "./unit-paths.ts";
 import { assertPlanEpoch, loadUnitPlanView, planUnit, requireKnowledgeEpoch } from "./unit-plan-view.ts";
+import { unitIdentityOf } from "./unit-cache-identity.ts";
+import { loadUnitPacketSource } from "./unit-packet-source.ts";
+import type { UnitAuthorship, UnitProvenance } from "./unit-provenance.ts";
 import { UNIT_RECEIPT_VERSION, type UnitDraftReceipt } from "./unit-receipt.ts";
 
 export interface UnitDraftInput {
@@ -50,6 +65,15 @@ export interface UnitDraftInput {
   readonly claims: readonly SectionClaim[];
   /** Untrusted: parsed and checked against the plan and the bytes beside it. */
   readonly summary: unknown;
+  /** Who would have written these bytes. Required, closed, no default — it is part of the cache identity. */
+  readonly authorship: UnitAuthorship;
+  /**
+   * Whether these bytes were written for this draft or admitted from a prior verified unit.
+   *
+   * The `cache-admitted` arm carries the row it came from, so a caller cannot claim an admission without naming
+   * what it admitted. There is no arm a hand-written draft can use to look like a cache hit.
+   */
+  readonly provenance: UnitProvenance;
 }
 
 /** Draft one unit. Returns the receipt it wrote — the promise `collect` verifies. */
@@ -108,6 +132,17 @@ export async function draftUnit(runDirInput: string, input: UnitDraftInput): Pro
     throw new Error(`Unit ${JSON.stringify(unit.unitId)} is over its declared output budget: ${outputProblems.join("; ")}`);
   }
 
+  // The identity of the packet this unit is written FROM, through the one loader and the one identity function.
+  // Last, so every refusal above keeps its own message; `record-limitation` because an identity is a measurement
+  // over a composition and not a verdict about a bound — the composition it digests carries no limitation line
+  // either way, so this mode changes nothing about the digest and only keeps an over-budget unit identifiable.
+  const packetSource = await loadUnitPacketSource(runDir, {
+    unitId: unit.unitId,
+    overBudget: "record-limitation",
+    childSummaries: { from: "collected-for-this-plan" }
+  });
+  const packetIdentityDigest = unitIdentityOf(packetSource.input, input.authorship).digest;
+
   const revision = await archiveUnitRevision(paths);
   await atomicWrite(paths.content, normalized);
   await writeJson(paths.claims, claims);
@@ -122,6 +157,9 @@ export async function draftUnit(runDirInput: string, input: UnitDraftInput): Pro
     kind: unit.kind,
     draftedAt: nowIso(),
     revision,
+    authorship: input.authorship,
+    packetIdentityDigest,
+    provenance: input.provenance,
     contentDigest,
     claimsDigest,
     summaryDigest: unitSummaryDigest(parsed.summary),

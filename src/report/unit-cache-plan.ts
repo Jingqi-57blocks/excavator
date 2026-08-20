@@ -10,6 +10,14 @@
  * violation is a named throw, because the failure this file has to make impossible is a unit that quietly falls out
  * of both accounts — the plan would still add up and the unit would simply never be written.
  *
+ * A CANDIDATE COMES IN ONE OF TWO FORMS, AND THE SECOND ONE IS THE PRODUCTION FORM. `CandidateIdentity` is either a
+ * whole `UnitIdentity` — which only a caller holding BOTH plan states can produce, as a projection over two states
+ * does — or the identity DIGEST a ledger row recorded when the unit was drafted (R6b). The second form is not a
+ * convenience: once a run is re-planned, the plan the candidate was drafted under is no longer on disk, so its
+ * identity cannot be recomputed and the digest its receipt recorded is the whole of what is knowable. Both forms
+ * decide reuse by the same equality; they differ only in what the rebuild REASON can say, and the digest-only arm
+ * says so by name rather than naming sections it cannot know.
+ *
  * A SYNTHESIS IS NOT COMPARED UNTIL ITS CHILDREN ARE. A synthesis is written from its children's summaries, so its
  * identity can only be computed from the CANDIDATE children's verified summaries — which is a legitimate identity
  * exactly while every one of those children is itself reusable. The moment one child is rebuilt or new, the
@@ -58,13 +66,74 @@ export type PlannedUnitIdentity =
       readonly reason: string;
     };
 
+/**
+ * What is known about ONE candidate's identity. Closed, two forms, and the caller states which it holds.
+ *
+ * `identity` is the full record: its sections can be diffed, so a rebuild reason can name what moved.
+ * `recorded-digest` is a ledger row's `packetIdentityDigest` and the row that recorded it — everything a run holds
+ * about a candidate whose plan has been superseded. `documentId` and `kind` come from the row too, so a retired
+ * candidate can still be accounted for by name.
+ */
+export type CandidateIdentity =
+  | { readonly form: "identity"; readonly identity: UnitIdentity }
+  | {
+      readonly form: "recorded-digest";
+      readonly unitId: string;
+      readonly documentId: string;
+      readonly kind: AuthoringUnitKind;
+      readonly digest: string;
+      /** Where the digest was read from, for a reason that has to stand on its own — e.g. a ledger row's epoch. */
+      readonly recordedBy: string;
+    };
+
+/** The unit id of one candidate, whichever form it is. */
+export function candidateUnitId(candidate: CandidateIdentity): string {
+  switch (candidate.form) {
+    case "identity":
+      return candidate.identity.unitId;
+    case "recorded-digest":
+      return candidate.unitId;
+  }
+  return assertNever(candidate, "unit cache candidate identity form");
+}
+
+/** The identity digest of one candidate — the value the reuse decision is made on, in both forms. */
+export function candidateIdentityDigest(candidate: CandidateIdentity): string {
+  switch (candidate.form) {
+    case "identity":
+      return candidate.identity.digest;
+    case "recorded-digest":
+      return candidate.digest;
+  }
+  return assertNever(candidate, "unit cache candidate identity form");
+}
+
+/** The document and kind of one candidate, for the retired account. */
+function candidateRow(candidate: CandidateIdentity): { readonly documentId: string; readonly kind: AuthoringUnitKind } {
+  switch (candidate.form) {
+    case "identity":
+      return { documentId: candidate.identity.documentId, kind: candidate.identity.kind };
+    case "recorded-digest":
+      return { documentId: candidate.documentId, kind: candidate.kind };
+  }
+  return assertNever(candidate, "unit cache candidate identity form");
+}
+
 /** Where the candidate set came from. Closed: either prior verified units are named, or their absence is. */
 export type CandidateSource =
   | {
       readonly origin: "prior-verified-units";
       readonly runId: string;
       readonly knowledgeEpoch: number;
-      readonly planCatalogDigest: string;
+      /**
+       * The plan catalogs the candidates were verified under — ascending, distinct, and never empty.
+       *
+       * PLURAL because a real ledger's candidates need not share one superseded plan: admit once and the admitted
+       * rows sit under the plan then in force while the units that were re-drawn still sit under the older one, so
+       * the next re-plan offers candidates from two. A single field would have to name one of them, and naming one
+       * of two is a false statement about the other's rows.
+       */
+      readonly planCatalogDigests: readonly string[];
     }
   | { readonly origin: "no-prior-verified-units"; readonly reason: string };
 
@@ -72,7 +141,9 @@ export type CandidateSource =
 export function describeCandidateSource(source: CandidateSource, candidates: number): string {
   switch (source.origin) {
     case "prior-verified-units":
-      return `${candidates} prior verified unit(s) offered by run ${source.runId}, knowledge epoch ${source.knowledgeEpoch}, plan catalog ${source.planCatalogDigest}`;
+      return `${candidates} prior verified unit(s) offered by run ${source.runId}, knowledge epoch ${source.knowledgeEpoch}, ${source.planCatalogDigests.length === 1
+        ? `plan catalog ${source.planCatalogDigests[0]}`
+        : `${source.planCatalogDigests.length} superseded plan catalogs ${source.planCatalogDigests.join(", ")}`}`;
     case "no-prior-verified-units":
       return `0 prior verified units: ${source.reason}`;
   }
@@ -92,6 +163,17 @@ export type RebuildReason =
        */
       readonly changedTerms: readonly string[];
       readonly changedSections: readonly string[];
+      readonly statement: string;
+    }
+  | {
+      /**
+       * The two identities differ and the candidate's is known ONLY by the digest a ledger row recorded, so which
+       * sections moved cannot be named. Not a degraded `identity-changed`: the decision is exactly as sound (the
+       * digests are compared the same way), and claiming a section list derived from one side alone would be a
+       * reason that disagrees with the decision.
+       */
+      readonly cause: "recorded-identity-differs";
+      readonly recordedBy: string;
       readonly statement: string;
     }
   | { readonly cause: "child-not-reusable"; readonly blockingChildUnitIds: readonly string[]; readonly statement: string }
@@ -161,7 +243,7 @@ export interface UnitCachePlan {
 
 export interface UnitCachePlanInput {
   readonly planned: readonly PlannedUnitIdentity[];
-  readonly candidates: readonly UnitIdentity[];
+  readonly candidates: readonly CandidateIdentity[];
   readonly candidateSource: CandidateSource;
 }
 
@@ -222,10 +304,11 @@ export function deriveUnitCachePlan(input: UnitCachePlanInput): UnitCachePlan {
     if (planned.has(unitId)) throw new Error(`The planned identity map holds unit ${JSON.stringify(unitId)} twice; a unit with two identities has none`);
     planned.set(unitId, row);
   }
-  const candidates = new Map<string, UnitIdentity>();
+  const candidates = new Map<string, CandidateIdentity>();
   for (const candidate of input.candidates) {
-    if (candidates.has(candidate.unitId)) throw new Error(`The candidate set holds unit ${JSON.stringify(candidate.unitId)} twice; which verified draft would be reused is then undecided`);
-    candidates.set(candidate.unitId, candidate);
+    const unitId = candidateUnitId(candidate);
+    if (candidates.has(unitId)) throw new Error(`The candidate set holds unit ${JSON.stringify(unitId)} twice; which verified draft would be reused is then undecided`);
+    candidates.set(unitId, candidate);
   }
   assertSourceMatchesCandidates(input.candidateSource, candidates.size);
   for (const row of input.planned) {
@@ -251,9 +334,13 @@ export function deriveUnitCachePlan(input: UnitCachePlanInput): UnitCachePlan {
 
   const ordered = [...planned.keys()].sort(compareUnitIds).map((unitId) => entries.get(unitId)!);
   const retired = [...candidates.values()]
-    .filter((candidate) => !planned.has(candidate.unitId))
-    .sort((a, b) => compareUnitIds(a.unitId, b.unitId))
-    .map((candidate) => ({ unitId: candidate.unitId, documentId: candidate.documentId, kind: candidate.kind, identityDigest: candidate.digest }));
+    .filter((candidate) => !planned.has(candidateUnitId(candidate)))
+    .sort((a, b) => compareUnitIds(candidateUnitId(a), candidateUnitId(b)))
+    .map((candidate) => ({
+      unitId: candidateUnitId(candidate),
+      ...candidateRow(candidate),
+      identityDigest: candidateIdentityDigest(candidate)
+    }));
   const counted = (status: UnitCacheEntry["status"]): number => ordered.filter((entry) => entry.status === status).length;
   const conservation: UnitCacheConservation = {
     plannedUnits: ordered.length,
@@ -285,6 +372,9 @@ function assertSourceMatchesCandidates(source: CandidateSource, candidates: numb
       if (candidates === 0) {
         throw new Error(`The candidate source names prior verified units of run ${JSON.stringify(source.runId)} but the candidate set is empty; an empty set has to be declared as one, with its reason, or "nothing was reused" and "nothing was offered" become the same reading`);
       }
+      if (source.planCatalogDigests.length === 0) {
+        throw new Error(`The candidate source offers ${candidates} prior verified unit(s) but names no plan catalog they were verified under; a candidate whose plan nobody stated cannot be told apart from one verified under the plan now in force`);
+      }
       return;
     case "no-prior-verified-units":
       if (candidates > 0) {
@@ -312,7 +402,7 @@ function assertConservation(conservation: UnitCacheConservation): void {
 /** The bucket of one planned unit, given its candidate (or none) and the entries of its children. */
 function entryFor(
   planned: PlannedUnitIdentity,
-  candidate: UnitIdentity | null,
+  candidate: CandidateIdentity | null,
   decided: ReadonlyMap<string, UnitCacheEntry>,
   source: CandidateSource,
   candidateUnits: number
@@ -337,7 +427,7 @@ function entryFor(
       documentId,
       kind,
       identityDigest: "",
-      candidateIdentityDigest: candidate.digest,
+      candidateIdentityDigest: candidateIdentityDigest(candidate),
       reason: {
         cause: "child-not-reusable",
         blockingChildUnitIds: blocking,
@@ -352,7 +442,7 @@ function entryFor(
       documentId,
       kind,
       identityDigest: "",
-      candidateIdentityDigest: candidate.digest,
+      candidateIdentityDigest: candidateIdentityDigest(candidate),
       reason: {
         cause: "children-unavailable",
         statement: `unit ${unitId} has no identity to compare: ${planned.reason}`
@@ -360,14 +450,29 @@ function entryFor(
     };
   }
   const identity = planned.identity;
-  if (identity.digest === candidate.digest) {
+  if (identity.digest === candidateIdentityDigest(candidate)) {
     return { status: "reusable", unitId, documentId, kind, identityDigest: identity.digest };
+  }
+  if (candidate.form === "recorded-digest") {
+    return {
+      status: "rebuild",
+      unitId,
+      documentId,
+      kind,
+      identityDigest: identity.digest,
+      candidateIdentityDigest: candidate.digest,
+      reason: {
+        cause: "recorded-identity-differs",
+        recordedBy: candidate.recordedBy,
+        statement: `unit ${unitId} has identity ${identity.digest.slice(0, 16)} under this plan and its candidate recorded ${candidate.digest.slice(0, 16)} (${candidate.recordedBy}); the plan that candidate was drafted under is no longer on disk, so which sections moved cannot be named from the digest alone`
+      }
+    };
   }
   // The digest covers the view AND the terms, so the reason has to be able to name either. An authorship change or
   // a schema bump moves the digest with every section byte-identical; reporting that as "no section differs" would
   // have turned a model-family switch — and any `unit-claims-v2` — into a refusal of the whole plan.
-  const changedTerms = identityTermDifferences(candidate, identity);
-  const changedSections = identitySectionDifferences(candidate, identity);
+  const changedTerms = identityTermDifferences(candidate.identity, identity);
+  const changedSections = identitySectionDifferences(candidate.identity, identity);
   if (changedTerms.length === 0 && changedSections.length === 0) {
     throw new Error(`Unit ${JSON.stringify(unitId)} has a different identity digest from its candidate but neither a term nor a section of its identity differs; the record does not cover what the digest covers, so no rebuild reason could be given`);
   }
@@ -381,7 +486,7 @@ function entryFor(
     documentId,
     kind,
     identityDigest: identity.digest,
-    candidateIdentityDigest: candidate.digest,
+    candidateIdentityDigest: candidate.identity.digest,
     reason: {
       cause: "identity-changed",
       changedTerms,

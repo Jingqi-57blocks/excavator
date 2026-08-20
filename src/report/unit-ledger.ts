@@ -22,8 +22,9 @@ import { exists, readJson, writeJson } from "../base/util.ts";
 import { AUTHORING_UNIT_KINDS, type AuthoringUnitKind } from "./plan-proposal.ts";
 import { isSha256Digest } from "./unit-output.ts";
 import { compareUnitIds, unitLedgerPath } from "./unit-paths.ts";
+import { authorshipProblems, provenanceProblems, type UnitAuthorship, type UnitProvenance } from "./unit-provenance.ts";
 
-export const UNIT_LEDGER_VERSION = "unit-ledger-v1";
+export const UNIT_LEDGER_VERSION = "unit-ledger-v2";
 
 export interface CollectedUnit {
   readonly unitId: string;
@@ -33,6 +34,17 @@ export interface CollectedUnit {
   readonly planCatalogDigest: string;
   readonly collectedAt: string;
   readonly revision: boolean;
+  /**
+   * The three v2 provenance terms, copied verbatim from the receipt this row records (R6b).
+   *
+   * They are on the ROW and not only in the receipt because the receipt is deleted the moment the unit is
+   * collected: the ledger is the only lasting account of who wrote a unit, what identity it was written under and
+   * whether it was written at all or admitted from an earlier verified draft. `packetIdentityDigest` is also the
+   * only thing a LATER admission can compare against — after a re-plan the plan the row was drafted under is gone.
+   */
+  readonly authorship: UnitAuthorship;
+  readonly packetIdentityDigest: string;
+  readonly provenance: UnitProvenance;
   readonly contentDigest: string;
   readonly claimsDigest: string;
   readonly summaryDigest: string;
@@ -50,8 +62,8 @@ export interface UnitLedger {
 const LEDGER_FIELDS = ["runId", "units", "version"] as const;
 
 const ROW_FIELDS = [
-  "claimsDigest", "collectedAt", "contentDigest", "documentId", "kind", "knowledgeEpoch", "planCatalogDigest",
-  "revision", "summaryDigest", "timelineSequence", "unitId"
+  "authorship", "claimsDigest", "collectedAt", "contentDigest", "documentId", "kind", "knowledgeEpoch",
+  "packetIdentityDigest", "planCatalogDigest", "provenance", "revision", "summaryDigest", "timelineSequence", "unitId"
 ] as const;
 
 /**
@@ -154,8 +166,10 @@ function collectedRowProblems(value: unknown): string[] {
   for (const key of ["knowledgeEpoch", "timelineSequence"] as const) {
     if (!Number.isSafeInteger(row[key]) || (row[key] as number) < 0) problems.push(`${key} ${JSON.stringify(row[key])} is not a non-negative integer`);
   }
-  for (const key of ["planCatalogDigest", "contentDigest", "claimsDigest", "summaryDigest"] as const) {
+  for (const key of ["planCatalogDigest", "contentDigest", "claimsDigest", "summaryDigest", "packetIdentityDigest"] as const) {
     if (!isSha256Digest(row[key])) problems.push(`${key} ${JSON.stringify(row[key])} is not a sha256 digest`);
   }
+  for (const problem of authorshipProblems(row.authorship)) problems.push(`authorship ${problem}`);
+  for (const problem of provenanceProblems(row.provenance)) problems.push(`provenance ${problem}`);
   return problems;
 }

@@ -6,6 +6,7 @@ import { FULL_OBLIGATION_SCOPE } from "../src/report/obligation-scope.ts";
 import { PLAN_BUDGET_TABLE } from "../src/report/plan-budget.ts";
 import { parsePlanProposal, type PlanProposal, type ProposedUnit } from "../src/report/plan-proposal.ts";
 import {
+  type CandidateIdentity,
   UNIT_CACHE_PLAN_VERSION,
   describeCandidateSource,
   deriveUnitCachePlan,
@@ -14,8 +15,10 @@ import {
   type UnitCacheEntry,
   type UnitCachePlan
 } from "../src/report/unit-cache-plan.ts";
-import type { UnitAuthorship, UnitIdentity } from "../src/report/unit-cache-identity.ts";
+import type { UnitIdentity } from "../src/report/unit-cache-identity.ts";
+import type { UnitAuthorship } from "../src/report/unit-provenance.ts";
 import {
+  heldCandidates,
   BRIDGE_UNIT,
   FEATURE_TOPIC,
   MIGRATING_OBLIGATION,
@@ -60,13 +63,13 @@ function priorRun(fix: IdentityFixture): CandidateSource {
     origin: "prior-verified-units",
     runId: fix.base.planCatalog.runId,
     knowledgeEpoch: fix.base.planCatalog.knowledgeEpoch,
-    planCatalogDigest: SOURCE_DIGEST
+    planCatalogDigests: [SOURCE_DIGEST]
   };
 }
 
 /** The candidates: every unit of the base state whose identity could be computed. */
-function candidatesOf(fix: IdentityFixture): readonly UnitIdentity[] {
-  return plannedIdentities(fix, fix.base).flatMap((row) => (row.derivation === "children-unavailable" ? [] : [row.identity]));
+function candidatesOf(fix: IdentityFixture): readonly CandidateIdentity[] {
+  return heldCandidates(plannedIdentities(fix, fix.base).flatMap((row) => (row.derivation === "children-unavailable" ? [] : [row.identity])));
 }
 
 function planBetween(fix: IdentityFixture, state: PlanState): UnitCachePlan {
@@ -279,7 +282,7 @@ test("a candidate written by another model family is rebuilt with the authorship
   // `unit-claims-v1` / `unit-summary-v1` / `unit-receipt-v1` are exactly the cases the digest carries them for.
   const plan = deriveUnitCachePlan({
     planned: plannedIdentities(fix, fix.base),
-    candidates: plannedIdentities(fix, fix.base, fix.summaries, prior).flatMap((row) => (row.derivation === "children-unavailable" ? [] : [row.identity])),
+    candidates: heldCandidates(plannedIdentities(fix, fix.base, fix.summaries, prior).flatMap((row) => (row.derivation === "children-unavailable" ? [] : [row.identity]))),
     candidateSource: priorRun(fix)
   });
   assertConserves(plan);
@@ -305,7 +308,7 @@ test("a candidate recorded under an older output contract is rebuilt with the co
   };
   const plan = deriveUnitCachePlan({
     planned: [{ derivation: "own-inputs", identity }],
-    candidates: [stale],
+    candidates: heldCandidates([stale]),
     candidateSource: priorRun(fix)
   });
   assertConserves(plan);
@@ -335,7 +338,7 @@ test("a parent whose children are reusable but whose summaries could not be read
         reason: "the candidate's summary sidecar for this child could not be read"
       }
     ],
-    candidates: [leaf, root],
+    candidates: heldCandidates([leaf, root]),
     candidateSource: priorRun(fix)
   });
   assertConserves(plan);
@@ -399,12 +402,12 @@ test("only a synthesis may be identified from child summaries, and a synthesis m
   const root = identityOf(fix, fix.base, `${OVERVIEW_PRODUCT}::synthesis::document`);
   assert.throws(() => deriveUnitCachePlan({
     planned: [{ derivation: "own-inputs", identity: root }],
-    candidates: [root],
+    candidates: heldCandidates([root]),
     candidateSource: priorRun(fix)
   }), /a synthesis is written from its children's verified summaries/);
   assert.throws(() => deriveUnitCachePlan({
     planned: [{ derivation: "candidate-children-summaries", identity: leaf, childUnitIds: [] }],
-    candidates: [leaf],
+    candidates: heldCandidates([leaf]),
     candidateSource: priorRun(fix)
   }), /only a synthesis is written from child summaries/);
 });
@@ -415,17 +418,17 @@ test("a child nobody planned, a duplicated unit and an unorderable cycle are all
   const root = identityOf(fix, fix.base, `${OVERVIEW_PRODUCT}::synthesis::document`);
   assert.throws(() => deriveUnitCachePlan({
     planned: [{ derivation: "candidate-children-summaries", identity: root, childUnitIds: ["nobody::leaf::planned"] }],
-    candidates: [root],
+    candidates: heldCandidates([root]),
     candidateSource: priorRun(fix)
   }), /which the planned identity map does not hold/);
   assert.throws(() => deriveUnitCachePlan({
     planned: [{ derivation: "own-inputs", identity: leaf }, { derivation: "own-inputs", identity: leaf }],
-    candidates: [leaf],
+    candidates: heldCandidates([leaf]),
     candidateSource: priorRun(fix)
   }), /holds unit .* twice; a unit with two identities has none/);
   assert.throws(() => deriveUnitCachePlan({
     planned: [{ derivation: "own-inputs", identity: leaf }],
-    candidates: [leaf, leaf],
+    candidates: heldCandidates([leaf, leaf]),
     candidateSource: priorRun(fix)
   }), /holds unit .* twice; which verified draft would be reused/);
   const cycle: readonly PlannedUnitIdentity[] = [

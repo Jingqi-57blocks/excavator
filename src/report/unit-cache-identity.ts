@@ -44,11 +44,11 @@
  * digest is taken from.
  */
 
-import { assertNever } from "../base/artifact-result.ts";
 import { canonicalJson, sha256 } from "../base/util.ts";
 import type { AuthoringUnitKind } from "./plan-proposal.ts";
 import type { ReportRequestRecord } from "./report-requests-artifact.ts";
 import { UNIT_CLAIMS_VERSION, UNIT_SUMMARY_VERSION } from "./unit-output.ts";
+import { authorshipValue, describeAuthorship, type UnitAuthorship } from "./unit-provenance.ts";
 import { UNIT_RECEIPT_VERSION } from "./unit-receipt.ts";
 import { composeUnitPacketMarkdown, type UnitPacketInput } from "./unit-packet.ts";
 
@@ -72,38 +72,11 @@ export const UNIT_OUTPUT_CONTRACT: UnitOutputContract = {
   receiptVersion: UNIT_RECEIPT_VERSION
 };
 
-/**
- * WHO would have written the draft this identity stands for. Required, closed, and with no "unknown" arm.
- *
- * A model family is the reuse boundary a model-written draft has: two families given one packet do not write one
- * document, so a draft from one is not a verified answer for the other. `model-free` is for the deterministic
- * generators (the fixture plan today) and must NAME the generator — "not a model" is not an identity.
+/*
+ * `UnitAuthorship` — the required, closed "who would have written this" — lives in `unit-provenance.ts`, with the
+ * other term a v2 unit record carries. It is vocabulary two files RECORD and this one KEYS ON, and defining it here
+ * would make the receipt import the identity that already imports the receipt.
  */
-export type UnitAuthorship =
-  | { readonly kind: "model-family"; readonly family: string }
-  | { readonly kind: "model-free"; readonly generator: string };
-
-/** One sentence naming the author, for a reading or a refusal. Exhaustive over the two arms. */
-export function describeAuthorship(authorship: UnitAuthorship): string {
-  switch (authorship.kind) {
-    case "model-family":
-      return `model family ${authorship.family}`;
-    case "model-free":
-      return `model-free generator ${authorship.generator}`;
-  }
-  return assertNever(authorship, "unit authorship kind");
-}
-
-/** The authorship's own value, checked non-empty at the entry: an empty family name is not a stated author. */
-function authorshipValue(authorship: UnitAuthorship): string {
-  switch (authorship.kind) {
-    case "model-family":
-      return authorship.family;
-    case "model-free":
-      return authorship.generator;
-  }
-  return assertNever(authorship, "unit authorship kind");
-}
 
 /**
  * One section of the identity view: its position, its own `## ` heading, its bytes and its digest.

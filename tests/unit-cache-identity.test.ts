@@ -21,13 +21,13 @@ import { MINI_DOCUMENTS } from "./plan-fixture.ts";
 import {
   UNIT_CACHE_IDENTITY_VERSION,
   UNIT_OUTPUT_CONTRACT,
-  describeAuthorship,
   identitySectionDifferences,
   identityTermDifferences,
   unitIdentityOf,
   unitIdentitySections,
   unitIdentityView
 } from "../src/report/unit-cache-identity.ts";
+import { describeAuthorship } from "../src/report/unit-provenance.ts";
 import {
   BRIDGE_UNIT,
   COVERAGE_TOPIC,
