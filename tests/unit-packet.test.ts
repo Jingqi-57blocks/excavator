@@ -13,7 +13,7 @@ import { plannedRun, unitDraftFor } from "./unit-fixture.ts";
 import { checkpointUnit } from "../src/report/unit-checkpoint.ts";
 import {
   MINI_FOUND_ONE_EVIDENCE, MINI_FOUND_TWO_EVIDENCE,
-  dossierOf, miniPacket, miniPlan, packetInput, reachOf, topicsOf, type MiniPlan
+  dossierOf, miniPacket, miniPlan, ownershipOf, packetInput, reachOf, topicsOf, type MiniPlan
 } from "./unit-grounding-fixture.ts";
 
 /**
@@ -79,26 +79,59 @@ test("a material obligation's evidence ids are answerable from its own packet ro
   assert.deepEqual([...packet.renderedEvidenceIds], ["S-aaaaaaaaaa", "S-bbbbbbbbbb", "S-cccccccccc", "S-dddddddddd", "S-eeeeeeeeee"]);
 });
 
-test("every obligation of every unit's topics reaches that unit's packet - the closure reading, on the mini plan", async () => {
+test("every material obligation's evidence reaches the packet of the unit that OWNS it - the owner-scoped closure reading", async () => {
   const mini = await plan();
   const ledger = JSON.parse(await readFile(join(mini.runDir, "workitems.json"), "utf8")) as InvestigationPlan;
   const byId = new Map(ledger.items.map((item) => [item.id, item]));
-  let checked = 0;
+  let owned = 0;
+  let stubbed = 0;
   for (const unit of mini.planCatalog.units) {
     if (unit.kind === "synthesis") continue;
     const packet = miniPacket(mini, unit.unitId);
+    const ownership = ownershipOf(mini, unit);
     for (const topic of topicsOf(mini, unit)) {
       for (const binding of topic.bindings) {
         if (!binding.material) continue;
-        for (const evidenceId of byId.get(binding.workItemId)!.evidenceIds) {
-          assert.ok(packet.renderedEvidenceIds.includes(evidenceId),
-            `${unit.unitId} names ${topic.topicId}, which binds ${binding.workItemId}, whose evidence ${evidenceId} is absent from its packet`);
-          checked += 1;
+        const owner = ownership.ownerByObligation.get(binding.workItemId)!;
+        // R5a: the owner carries the bytes; every other unit that can reach it carries a stub and no evidence.
+        if (owner.ownerUnitId === unit.unitId) {
+          for (const evidenceId of byId.get(binding.workItemId)!.evidenceIds) {
+            assert.ok(packet.renderedEvidenceIds.includes(evidenceId),
+              `${unit.unitId} OWNS ${binding.workItemId}, whose evidence ${evidenceId} is absent from its packet`);
+            owned += 1;
+          }
+          assert.ok(!packet.stubObligationIds.includes(binding.workItemId), `${unit.unitId} must not stub what it owns`);
+          continue;
         }
+        assert.ok(packet.stubObligationIds.includes(binding.workItemId),
+          `${unit.unitId} does not own ${binding.workItemId} and must list it as a stub`);
+        assert.ok(!packet.obligationIds.includes(binding.workItemId), `${unit.unitId} must not render ${binding.workItemId} in full`);
+        for (const evidenceId of byId.get(binding.workItemId)!.evidenceIds) {
+          assert.ok(!packet.renderedEvidenceIds.includes(evidenceId),
+            `${unit.unitId} does not own ${binding.workItemId}; ${evidenceId} is the owner ${owner.ownerUnitId}'s bytes to carry`);
+        }
+        // A stub is not a truncation: the row is there, uncapped, and it names the owner.
+        assert.ok(packet.markdown.includes(`| \`${binding.workItemId}\` | ${binding.dimension} | ${binding.status} | yes | \`${owner.ownerUnitId}\` | ${owner.ownerTopicId} |`),
+          `${unit.unitId} must print a stub row naming the owner of ${binding.workItemId}`);
+        stubbed += 1;
       }
     }
   }
-  assert.ok(checked > 0, "the closure reading must actually check something");
+  assert.ok(owned > 0, "the closure reading must actually check something");
+  assert.ok(stubbed > 0, "and the mini plan must actually exercise the stub path - it is the cross-facet shape wcp has");
+});
+
+test("a packet handed the wrong document's ownership, or one that omits its own unit, is refused by name", async () => {
+  const mini = await plan();
+  const unit = mini.unitsById.get(LEAF_FEATURE)!;
+  const ownership = ownershipOf(mini, unit);
+  assert.throws(() => renderUnitPacket(packetInput(mini, LEAF_FEATURE, { ownership: { ...ownership, documentId: "another-document" } })),
+    /but was handed the ownership of document "another-document"; ownership is derived per document, so these decide two different sets of owners/);
+  // A row set that does not mention this unit would otherwise print "THIS unit owns 0 of them" — a sentence an
+  // author would act on.
+  assert.throws(() => renderUnitPacket(packetInput(mini, LEAF_FEATURE, {
+    ownership: { ...ownership, ownedByUnit: ownership.ownedByUnit.filter((row) => row.unitId !== LEAF_FEATURE) }
+  })), /has no row for unit "overview-product::leaf::feature"; it holds 4 unit\(s\)/);
 });
 
 // --- (2) determinism and identity --------------------------------------------------------------------
@@ -266,7 +299,17 @@ test("the packet prints the grounding rule for every status, verbatim from the a
   }
   assert.ok(packet.markdown.includes(OUTPUT_BUDGET_DEFERRAL), "the absent output budget is stated, not silently omitted");
   assert.match(packet.markdown, /- input budget \(plan, per unit for overview-product\): 786432 bytes; document total 3145728 bytes/);
-  assert.ok(packet.markdown.includes("that unit grounds these obligations too — in"), "the duplication rule is stated rather than resolved");
+  // R5a replaced R4b's "the duplication here is visible, not silently resolved" paragraph with the ownership rule.
+  assert.ok(!packet.markdown.includes("that unit grounds these obligations too"), "the duplication paragraph is gone, because the duplication is");
+  assert.ok(packet.markdown.includes("## Ownership: exactly one unit grounds each material obligation of this document"));
+  assert.ok(packet.markdown.includes("pinned facet priority feature > route > entity > external-system > work-item-dimension > coverage"),
+    "the priority the author reads is the one the derivation applies");
+  assert.match(packet.markdown, /- this document reaches 3 material obligation\(s\); THIS unit owns 3 of them, and grounds exactly those\./);
+  assert.ok(packet.markdown.includes("a stub is NOT a truncation"), "the stub rule is stated in the packet, not only in the code");
+
+  // And the non-owner's header says the same thing with its own numbers - a zero it owns, stated rather than absent.
+  const dimension = miniPacket(mini, LEAF_DIMENSION);
+  assert.match(dimension.markdown, /- this document reaches 3 material obligation\(s\); THIS unit owns 0 of them, and grounds exactly those\./);
 });
 
 // --- (8) the loader, over a real planned run ---------------------------------------------------------

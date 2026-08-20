@@ -17,10 +17,16 @@
  * in hand belongs to knowledge that has been superseded, and re-drawing it is the fix.
  *
  * IT IS ALSO WHERE GATE 1b LANDS. Before a unit is recorded, its claims are audited against every material
- * obligation reachable through its topics (`unit-grounding-reading.ts`). A unit that leaves one ungrounded is
- * refused by name, with the obligation ids, and nothing is written — which is what closes the window 57B-453
- * measured on the section path, where `audit --document` skipped the grounding loop until the last section landed
- * and 28% of one section's obligations were mis-grounded the whole time.
+ * obligation it OWNS (`unit-grounding-reading.ts`; R5a derives the owner, R4b's version said "reachable"). A unit
+ * that leaves one ungrounded is refused by name, with the obligation ids, and nothing is written — which is what
+ * closes the window 57B-453 measured on the section path, where `audit --document` skipped the grounding loop until
+ * the last section landed and 28% of one section's obligations were mis-grounded the whole time.
+ *
+ * AND IT IS WHERE A SYNTHESIS IS HELD TO ITS CHILDREN. A synthesis may re-state a child's fact and may not mint one
+ * of its own, so before it is recorded every evidence and trace id its claims cite is checked against the claims of
+ * its children — which this barrier has just confirmed are collected (`synthesis-claim-backlink.ts`). That read is
+ * Core reading deterministic bytes already on disk inside the serial barrier; nothing is handed to a model, and it
+ * is the only thing standing between "a synthesis writes from summaries" and a parent quietly citing raw evidence.
  *
  * FAIL CLOSED, AND NEVER PERMANENTLY. A receipt is a promise that content, claims and summary are on disk and are
  * the bytes it digested. If any of that is untrue the barrier refuses by name and LEAVES THE RECEIPT, so a
@@ -46,6 +52,7 @@ import { assertPlanEpoch, loadUnitPlanView, planUnit, requireKnowledgeEpoch } fr
 import { parseUnitSummary, type UnitChildSummaryDigest } from "./unit-output.ts";
 import { summariseUnitGrounding } from "./unit-grounding-audit.ts";
 import { auditUnitFromDisk } from "./unit-grounding-reading.ts";
+import { auditSynthesisBacklinkFromDisk, requiresChildClaimBacklink, summariseSynthesisBacklink } from "./synthesis-claim-backlink.ts";
 import { parseUnitReceipt, type UnitDraftReceipt } from "./unit-receipt.ts";
 
 export interface UnitCollectResult {
@@ -139,6 +146,16 @@ export async function collectUnits(runDirInput: string): Promise<UnitCollectResu
     const grounding = await auditUnitFromDisk(runDir, view, unit);
     if (grounding.verdict.conclusion === "violations") {
       throw new Error(`Unit ${JSON.stringify(unitId)} cannot be collected: ${summariseUnitGrounding(grounding)}. ${grounding.verdict.problems.join("; ")}. Fix the claims and re-draft this unit; its receipt is left in place.`);
+    }
+
+    // R5a, and it runs only for the kind that has children: a synthesis may re-state its children's facts and may
+    // not add one. The children's claims are read from disk here, after the child checks above proved every one of
+    // them is collected, so the permitted set is exactly what the run recorded rather than what a draft claimed.
+    if (requiresChildClaimBacklink(unit.kind)) {
+      const backlink = await auditSynthesisBacklinkFromDisk(runDir, unit);
+      if (backlink.verdict.conclusion === "violations") {
+        throw new Error(`Unit ${JSON.stringify(unitId)} cannot be collected: ${summariseSynthesisBacklink(backlink)}. ${backlink.verdict.problems.join("; ")}. Move the fact into the child that owns it, or cite that child's own id, then re-draft this unit; its receipt is left in place.`);
+      }
     }
 
     const event = await appendTimeline(runDir, manifest.id, {

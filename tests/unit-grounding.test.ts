@@ -5,9 +5,9 @@ import { join } from "node:path";
 import type { InvestigationWorkItem, SectionClaim, WorkItemStatus } from "../src/base/types.ts";
 import { exists } from "../src/base/util.ts";
 import type { PlanCatalogUnit } from "../src/report/plan-artifacts.ts";
-import type { MaterialObligationTopics } from "../src/report/plan-obligation-conservation.ts";
+import type { DocumentObligationOwnership, MaterialObligationTopics, ObligationOwnership } from "../src/report/plan-obligation-conservation.ts";
 import { auditUnitGrounding, summariseUnitGrounding } from "../src/report/unit-grounding-audit.ts";
-import { assertReachMatchesAccounting, readUnitGrounding, readUnitGroundingForRun } from "../src/report/unit-grounding-reading.ts";
+import { assertReachMatchesAccounting, readUnitGrounding, readUnitGroundingForRun, summariseUnitGroundingReading } from "../src/report/unit-grounding-reading.ts";
 import { collectUnits } from "../src/report/unit-collect.ts";
 import { draftUnit } from "../src/report/unit-draft.ts";
 import { checkpointUnit } from "../src/report/unit-checkpoint.ts";
@@ -15,20 +15,22 @@ import { readUnitLedger } from "../src/report/unit-ledger.ts";
 import { unitPaths } from "../src/report/unit-paths.ts";
 import {
   MINI_FOUND_ONE_EVIDENCE, MINI_FOUND_TWO_EVIDENCE, MINI_SEARCHED_NOT_FOUND,
-  claimFor, materialisedRun, miniPlan, unitDraftWithClaims, type MaterialisedRun, type MiniPlan
+  claimFor, materialisedRun, miniPlan, ownershipOf, unitDraftWithClaims, type MaterialisedRun, type MiniPlan
 } from "./unit-grounding-fixture.ts";
 
 /**
- * R4b - the unit grounding audit: gate 1b, evaluated the moment a unit is completed.
+ * R4b/R5a - the unit grounding audit: gate 1b, evaluated the moment a unit is completed.
  *
  * The rules are the section path's (`section-audit.ts`), ported without a change of strength, and the negative
- * fixtures below are one per rule. What is NEW is that they run at unit completion instead of document completion:
+ * fixtures below are one per rule. What R4b changed is WHEN they run (unit completion, not document completion):
  * 57B-453 measured 28% mis-grounded obligations sitting invisible behind `audit --document`'s "work-item coverage
- * was not evaluated", and this is the window that closes.
+ * was not evaluated". What R5a changes is WHO OWES: an obligation is owed by the one unit of its document that OWNS
+ * it, and every other unit that can reach it reads `owned-elsewhere` — counted, and named with the owner. The mini
+ * fixture is the exact cross-facet shape that makes this measurable: each of its three material obligations binds a
+ * coverage topic AND a feature topic AND a work-item-dimension topic, so three leaves of one document reach all
+ * three obligations and exactly one of them owes each.
  *
- * Two things this suite deliberately does NOT assert, because R4b cannot keep the promise: that an obligation is
- * disposed of exactly once across a document (R5 owns primary ownership), and anything about an output budget (no
- * authority for one exists yet).
+ * What this suite still does NOT assert is anything about an output budget: no authority for one exists yet (R5b).
  */
 
 const LEAF_FEATURE = "overview-product::leaf::feature";
@@ -40,7 +42,8 @@ let sharedMini: Promise<MiniPlan> | null = null;
 function mini(): Promise<MiniPlan> { return (sharedMini ??= miniPlan()); }
 
 function auditWith(plan: MiniPlan, unitId: string, claims: readonly SectionClaim[], workItems = plan.workItems) {
-  return auditUnitGrounding({ unit: plan.unitsById.get(unitId)!, obligations: plan.obligations, workItems, claims });
+  const unit = plan.unitsById.get(unitId)!;
+  return auditUnitGrounding({ unit, obligations: plan.obligations, ownership: ownershipOf(plan, unit), workItems, claims });
 }
 
 /** Claims that ground the mini fixture's three material obligations, each by its own status's rule. */
@@ -62,7 +65,8 @@ test("a unit that grounds every reachable material obligation reads `complete`",
   assert.equal(result.grounded.length, 3);
   assert.deepEqual([...result.openOriginExempt], []);
   assert.equal(result.groundingDenominator, 3);
-  assert.match(summariseUnitGrounding(result), /^complete: unit overview-product::leaf::feature grounds all 3 material obligation\(s\) it owes \(0 open-origin exempt, 3 reachable\)$/);
+  assert.deepEqual([...result.owed].sort(), [...result.reachable].sort(), "the owner of all three owes all three");
+  assert.match(summariseUnitGrounding(result), /^complete: unit overview-product::leaf::feature grounds all 3 material obligation\(s\) it owns \(0 open-origin exempt, 0 owned by another unit, 3 reachable\)$/);
 });
 
 test("a `found` obligation may be grounded by its trace id instead of its evidence id", async () => {
@@ -157,7 +161,7 @@ test("an open-origin material obligation lands in a counted, named bucket - exem
   assert.deepEqual([...paired.openOriginExempt], []);
 });
 
-test("a mixed unit conserves: reachable = grounded + open-origin exempt + ungrounded", () => {
+test("a mixed unit conserves: reachable = grounded + open-origin exempt + owned elsewhere + ungrounded", () => {
   const bench = synthetic("found");
   const second: InvestigationWorkItem = { ...bench.workItems.get("W-1")!, id: "W-2", origin: "open" };
   const third: InvestigationWorkItem = { ...bench.workItems.get("W-1")!, id: "W-3" };
@@ -167,11 +171,94 @@ test("a mixed unit conserves: reachable = grounded + open-origin exempt + ungrou
     { workItemId: "W-2", dimension: second.dimension, topicIds: ["T-topic"], binding: { workItemId: "W-2", dimension: second.dimension, status: second.status, material: true, evidenceIds: second.evidenceIds, traceIds: [] } },
     { workItemId: "W-3", dimension: third.dimension, topicIds: ["T-topic"], binding: { workItemId: "W-3", dimension: third.dimension, status: third.status, material: true, evidenceIds: third.evidenceIds, traceIds: [] } }
   ];
-  const result = auditUnitGrounding({ unit: bench.unit, obligations, workItems, claims: [claimFor("C", "W-1", { evidenceIds: ["E-1"] })] });
+  const ownership = syntheticOwnership("doc", [["T-topic", "W-1", bench.unit.unitId], ["T-topic", "W-2", bench.unit.unitId], ["T-topic", "W-3", bench.unit.unitId]]);
+  const result = auditUnitGrounding({ unit: bench.unit, obligations, ownership, workItems, claims: [claimFor("C", "W-1", { evidenceIds: ["E-1"] })] });
   assert.equal(result.reachable.length, 3);
-  assert.equal(result.grounded.length + result.openOriginExempt.length + result.ungrounded.length, 3);
+  assert.equal(result.grounded.length + result.openOriginExempt.length + result.ownedElsewhere.length + result.ungrounded.length, 3);
   assert.deepEqual(result.openOriginExempt.map((row) => row.workItemId), ["W-2"]);
   assert.deepEqual(result.ungrounded.map((row) => row.workItemId), ["W-3"]);
+});
+
+// --- (4b) R5a: one owner per obligation, and the others read owned-elsewhere ------------------------
+
+const LEAF_COVERAGE = "overview-product::leaf::coverage";
+
+test("a unit that reaches obligations another unit owns reads `vacuous`, names the owner, and owes nothing", async () => {
+  const plan = await mini();
+  for (const unitId of [LEAF_DIMENSION, LEAF_COVERAGE]) {
+    const result = auditWith(plan, unitId, []);
+    assert.equal(result.verdict.conclusion, "vacuous", `${unitId} owes nothing, so it cannot be violations`);
+    assert.equal(result.groundingDenominator, 0);
+    assert.deepEqual([...result.owed], [], `${unitId} owes nothing`);
+    assert.ok(result.reachable.length > 0, `${unitId} still REACHES them; ownership is not deletion`);
+    assert.equal(result.ownedElsewhere.length, result.reachable.length);
+    for (const row of result.ownedElsewhere) assert.equal(row.ownerUnitId, LEAF_FEATURE, "every one of them is the feature leaf's");
+    assert.deepEqual([...result.ungrounded], [], "not owing an obligation is not failing to ground it");
+    const line = summariseUnitGrounding(result);
+    assert.ok(line.startsWith("vacuous: "), line);
+    assert.match(line, /OWNS none of them: each one's single owner in document "overview-product" is another unit \(overview-product::leaf::feature\), which is where it is grounded and where its evidence is rendered in full/);
+    // Distinguishable from the synthesis and appendix sentences, which is the whole reason it is its own arm.
+    assert.ok(!line.includes("names no topic"), line);
+    assert.ok(!line.includes("none of which binds a material obligation"), line);
+  }
+});
+
+test("across one document each material obligation is owed exactly once - the R5a reading", async () => {
+  const plan = await mini();
+  const owedBy = new Map<string, string[]>();
+  for (const unit of plan.planCatalog.units) {
+    if (unit.documentId !== "overview-product") continue;
+    for (const workItemId of auditWith(plan, unit.unitId, []).owed) {
+      const list = owedBy.get(workItemId);
+      if (list) list.push(unit.unitId);
+      else owedBy.set(workItemId, [unit.unitId]);
+    }
+  }
+  assert.deepEqual([...owedBy.keys()].sort(), [MINI_FOUND_ONE_EVIDENCE, MINI_FOUND_TWO_EVIDENCE, MINI_SEARCHED_NOT_FOUND].sort(),
+    "every material obligation the document reaches is owed by somebody");
+  assert.deepEqual([...owedBy.values()].filter((unitIds) => unitIds.length > 1), [],
+    "and by exactly one unit: before R5a all three were owed by three units each");
+  for (const unitIds of owedBy.values()) assert.deepEqual(unitIds, [LEAF_FEATURE]);
+});
+
+test("a unit whose reach is part owned-elsewhere and part open-origin says both, in one sentence", () => {
+  const bench = synthetic("found", { origin: "open" });
+  const second: InvestigationWorkItem = { ...bench.workItems.get("W-1")!, id: "W-2", origin: "default" };
+  const workItems = new Map([...bench.workItems, ["W-2", second]]);
+  const obligations: MaterialObligationTopics[] = [
+    ...bench.obligations,
+    { workItemId: "W-2", dimension: second.dimension, topicIds: ["T-topic"], binding: { workItemId: "W-2", dimension: second.dimension, status: second.status, material: true, evidenceIds: second.evidenceIds, traceIds: [] } }
+  ];
+  // W-1 is this unit's and open-origin; W-2 belongs to a sibling.
+  const ownership = syntheticOwnership("doc", [["T-topic", "W-1", bench.unit.unitId], ["T-topic", "W-2", "doc::leaf::sibling"]]);
+  const result = auditUnitGrounding({ unit: bench.unit, obligations, ownership, workItems, claims: [] });
+  assert.equal(result.verdict.conclusion, "vacuous");
+  assert.equal(result.ownedElsewhere.length, 1);
+  assert.equal(result.openOriginExempt.length, 1);
+  assert.match(summariseUnitGrounding(result),
+    /reaches 2 material obligation\(s\) and owes none: 1 are owned by another unit of document "doc" \(doc::leaf::sibling\) and 1 carry origin "open"/);
+});
+
+test("ownership is checked BEFORE origin, so one document reports one exemption once", () => {
+  // The same open-origin obligation, owned by a sibling: this unit reports it as owned-elsewhere and NOT as its own
+  // exemption. Putting origin first would make every unit that can see it report the exemption again.
+  const bench = synthetic("found", { origin: "open" });
+  const ownership = syntheticOwnership("doc", [["T-topic", "W-1", "doc::leaf::sibling"]]);
+  const result = auditUnitGrounding({ ...bench, ownership, claims: [] });
+  assert.deepEqual([...result.openOriginExempt], []);
+  assert.deepEqual(result.ownedElsewhere.map((row) => row.ownerUnitId), ["doc::leaf::sibling"]);
+});
+
+test("auditing a unit against another document's ownership is fatal, not a weaker check", () => {
+  const bench = synthetic("found");
+  assert.throws(() => auditUnitGrounding({ ...bench, ownership: syntheticOwnership("other-doc", [["T-topic", "W-1", bench.unit.unitId]]), claims: [] }),
+    /is written into document "doc" but was audited against the ownership of document "other-doc"; ownership is derived per document, so these are two different denominators/);
+});
+
+test("a reachable obligation with no owner row is fatal, never quietly owed or quietly skipped", () => {
+  const bench = synthetic("found");
+  assert.throws(() => auditUnitGrounding({ ...bench, ownership: syntheticOwnership("doc", []), claims: [] }),
+    /reaches material obligation "W-1" \(decision-function\), which no unit of document "doc" owns; an obligation nobody owes and nobody skips is the silent loss this audit exists to prevent/);
 });
 
 // --- (5) the lookup is same-ledger equality, and it fails closed ------------------------------------
@@ -272,6 +359,22 @@ test("the reachability check is a same-source assertion, and a tampered accounti
     /does not match its own lists/);
 });
 
+test("the run-level reading records ownership per document, and nothing is owed twice", async () => {
+  const materialised = await run();
+  const reading = await readUnitGroundingForRun(materialised.runDir);
+  assert.deepEqual(reading.ownership.map((row) => row.documentId), materialised.view.ownership.documents.map((row) => row.documentId));
+  for (const row of reading.ownership) {
+    assert.equal(row.obligationsOwedByMoreThanOneUnit, 0, `${row.documentId}: no obligation may be owed twice`);
+    assert.deepEqual([...row.unownedObligationIds], [], `${row.documentId}: every reachable obligation has an owner`);
+    assert.equal(row.owedByUnit.reduce((total, entry) => total + entry.owed, 0), row.reachedObligations,
+      `${row.documentId}: the per-unit owed counts account for every reachable obligation exactly once`);
+    assert.equal(row.owedByUnit.length, materialised.view.units.filter((unit) => unit.documentId === row.documentId).length,
+      `${row.documentId}: one row per planned unit, so a zero is visible`);
+  }
+  assert.match(reading.summary, /0 obligation\(s\) are owed by more than one unit of one document\.$/);
+  assert.ok(summariseUnitGroundingReading(reading).some((line) => line.startsWith("ownership: document ")));
+});
+
 test("the reading is a read: it writes nothing into the run", async () => {
   const materialised = await run();
   const before = await readFile(join(materialised.runDir, "run.json"), "utf8");
@@ -290,6 +393,7 @@ test("the reading is a read: it writes nothing into the run", async () => {
 function synthetic(status: WorkItemStatus, overrides: Partial<InvestigationWorkItem> = {}): {
   unit: PlanCatalogUnit;
   obligations: readonly MaterialObligationTopics[];
+  ownership: DocumentObligationOwnership;
   workItems: ReadonlyMap<string, InvestigationWorkItem>;
 } {
   const item: InvestigationWorkItem = {
@@ -305,14 +409,51 @@ function synthetic(status: WorkItemStatus, overrides: Partial<InvestigationWorkI
     origin: "default",
     ...overrides
   };
+  const unit: PlanCatalogUnit = { unitId: "doc::leaf::x", documentId: "doc", kind: "leaf", title: "x", topics: [{ topicId: "T-topic", topicDigest: "0".repeat(64) }], childUnitIds: [] };
   return {
-    unit: { unitId: "doc::leaf::x", documentId: "doc", kind: "leaf", title: "x", topics: [{ topicId: "T-topic", topicDigest: "0".repeat(64) }], childUnitIds: [] },
+    unit,
     obligations: [{
       workItemId: item.id,
       dimension: item.dimension,
       topicIds: ["T-topic"],
       binding: { workItemId: item.id, dimension: item.dimension, status: item.status, material: item.material, evidenceIds: item.evidenceIds, traceIds: item.traceIds }
     }],
+    ownership: syntheticOwnership("doc", [["T-topic", item.id, unit.unitId]]),
     workItems: new Map([[item.id, item]])
+  };
+}
+
+/**
+ * A hand-built ownership row for the synthetic bench, whose topic id belongs to no catalog.
+ *
+ * The bench exists because four determinations (`cannot-determine`, `not-applicable`, `pending`, `in_progress`) do
+ * not occur in the mini fixture, and the audit is a pure function. The ownership rows the derivation would produce
+ * for a real catalog are exercised in `plan-ownership.test.ts` against the mini catalog instead; here only the
+ * SHAPE matters, and building it by hand is what lets a fixture put the owner somewhere else on purpose.
+ */
+function syntheticOwnership(documentId: string, rows: readonly (readonly [string, string, string])[]): DocumentObligationOwnership {
+  const owners: ObligationOwnership[] = rows.map(([ownerTopicId, workItemId, ownerUnitId]) => ({
+    workItemId,
+    dimension: "decision-function",
+    documentId,
+    ownerTopicId,
+    ownerTopicFacet: "feature",
+    ownerUnitId,
+    reachedByUnitIds: [ownerUnitId]
+  }));
+  const ownedByUnit = [...new Set(owners.map((row) => row.ownerUnitId))].sort((a, b) => a.localeCompare(b)).map((unitId) => ({
+    unitId,
+    kind: "leaf" as const,
+    role: "owning" as const,
+    owned: owners.filter((row) => row.ownerUnitId === unitId).length
+  }));
+  return {
+    documentId,
+    reachedObligations: owners.length,
+    obligations: owners,
+    ownerByObligation: new Map(owners.map((row) => [row.workItemId, row])),
+    ownedByUnit,
+    unowned: [],
+    duplicateOwningTopics: []
   };
 }

@@ -14,8 +14,12 @@
  *   * every unit belongs to a requested document, and every requested document has at least one unit;
  *   * every unit's topic dossier fits its document's budget, and the document's units fit its total;
  *   * the lens policy a plan invokes to omit something is a lens some request in this plan actually reads under;
- *   * and GATE 1b's reading: where each material OBLIGATION goes, with the ones a waiving disposition removed
- *     listed by id (`plan-obligation-conservation.ts`).
+ *   * GATE 1b's reading: where each material OBLIGATION goes, with the ones a waiving disposition removed
+ *     listed by id (`plan-obligation-conservation.ts`);
+ *   * and R5a's ownership: within one document a material topic has at most one OWNING unit, and every material
+ *     obligation the document reaches has exactly one owner unit. Derived from the catalog's bindings and the
+ *     units' kinds by the same file that owns gate 1b's denominator — never read off the proposal, which carries
+ *     no ownership field at all (the planner's choice of unit composition already decides it).
  *
  * THREE CONCLUSIONS, NOT A BOOLEAN. `complete` / `vacuous` / `violations`, reusing R2's `TopicDispositionVerdict`
  * shape verbatim — the same type, so a consumer that learned to read one reads the other, and so `vacuous` (an
@@ -32,7 +36,11 @@ import { stableJson } from "../base/util.ts";
 import { planBudgetFor, unitInputBytes, type PlanBudget, type PlanBudgetTable, type PlanDocumentBudget } from "./plan-budget.ts";
 import {
   accountPlanObligations,
+  deriveObligationOwnership,
   obligationAccountingProblems,
+  ownershipProblems,
+  ownershipUnitsOfProposal,
+  type ObligationOwnershipIndex,
   type PlanObligationAccounting
 } from "./plan-obligation-conservation.ts";
 import { unitChildIds, unitTopicIds, type PlanProposal, type ProposedUnit } from "./plan-proposal.ts";
@@ -82,6 +90,11 @@ export interface PlanValidationReport {
   /** The disposition rows this validation accepted, ascending by topic id. Empty when any of them failed to parse. */
   readonly dispositions: readonly TopicDisposition[];
   readonly obligations: PlanObligationAccounting;
+  /**
+   * R5a's per-document ownership, derived. The same index the unit packet and the per-unit grounding audit read:
+   * one derivation, three consumers, so a per-unit "who owes this" can never disagree with the plan-side reading.
+   */
+  readonly ownership: ObligationOwnershipIndex;
   readonly documents: readonly PlanDocumentReading[];
   /** The authoring order: every unit after all of its children. Empty when the graph is not acyclic. */
   readonly authoringOrder: readonly string[];
@@ -277,6 +290,19 @@ export function validatePlan(input: PlanValidationInput): PlanValidationReport {
   const obligations = accountPlanObligations(catalog, proposal.units, byTopic);
   problems.push(...obligationAccountingProblems(obligations));
 
+  // --- R5a's ownership. Derived from the catalog's bindings and the units' kinds, and asserted at the document
+  // level: every material obligation a document reaches is owned by exactly one of its units. Both violations are
+  // named rather than counted — two owning units for one topic would both ground the same obligations in full, and
+  // an obligation only bridges reach is one nothing in the document grounds.
+  const ownership = deriveObligationOwnership(catalog, ownershipUnitsOfProposal(proposal.units));
+  problems.push(...ownershipProblems(ownership));
+  for (const document of ownership.documents) {
+    const owned = document.ownedByUnit.reduce((total, row) => total + row.owned, 0);
+    if (owned + document.unowned.length !== document.reachedObligations) {
+      problems.push(`document ${JSON.stringify(document.documentId)} owns ${owned} of the ${document.reachedObligations} material obligation(s) its units reach and lists ${document.unowned.length} as owned by none; the two must account for every reachable obligation`);
+    }
+  }
+
   parsedRows.sort((a, b) => a.topicId.localeCompare(b.topicId));
   return {
     version: PLAN_VALIDATION_VERSION,
@@ -284,6 +310,7 @@ export function validatePlan(input: PlanValidationInput): PlanValidationReport {
     facets: dispositionReport.facets.map((row) => ({ facet: row.facet, verdict: row.verdict })),
     dispositions: parsedRows,
     obligations,
+    ownership,
     documents,
     authoringOrder: dag.state === "acyclic" ? dag.order : [],
     budget,

@@ -23,9 +23,18 @@ import { freezeRun, prepareRun } from "../src/run/run.ts";
 import { updateWorkItems } from "../src/run/stages/investigation-stage.ts";
 import { planRun } from "../src/run/stages/plan-stage.ts";
 import { buildFixturePlan } from "../src/report/fixture-plan.ts";
+import type { ProposedUnit } from "../src/report/plan-proposal.ts";
 import { PLAN_BUDGET_TABLE } from "../src/report/plan-budget.ts";
 import { buildPlanArtifacts, type PlanCatalogArtifact, type PlanCatalogUnit, type PlanDagArtifact } from "../src/report/plan-artifacts.ts";
-import { materialObligationTopics, type MaterialObligationTopics } from "../src/report/plan-obligation-conservation.ts";
+import {
+  deriveObligationOwnership,
+  documentOwnership,
+  ownershipUnitsOfProposal,
+  materialObligationTopics,
+  type DocumentObligationOwnership,
+  type MaterialObligationTopics,
+  type ObligationOwnershipIndex
+} from "../src/report/plan-obligation-conservation.ts";
 import { validatePlan } from "../src/report/plan-validation.ts";
 import { REPORT_POLICY_REGISTRY } from "../src/report/report-policy-registry.ts";
 import type { ReportRequestsArtifact } from "../src/report/report-requests-artifact.ts";
@@ -53,6 +62,8 @@ export interface MiniPlan {
   readonly planCatalog: PlanCatalogArtifact;
   readonly dag: PlanDagArtifact;
   readonly obligations: readonly MaterialObligationTopics[];
+  /** R5a's ownership index for the fixture plan — the same one `validatePlan` derived, not a second derivation. */
+  readonly ownership: ObligationOwnershipIndex;
   readonly workItems: ReadonlyMap<string, InvestigationWorkItem>;
   readonly evidence: ReadonlyMap<string, EvidenceItem>;
   readonly unitsById: ReadonlyMap<string, PlanCatalogUnit>;
@@ -77,10 +88,27 @@ export async function miniPlan(): Promise<MiniPlan> {
     planCatalog: artifacts.planCatalog,
     dag: artifacts.dag,
     obligations: materialObligationTopics(catalog),
+    ownership: report.ownership,
     workItems: await workItemsOf(runDir),
     evidence: new Map(evidence.evidence.map((item) => [item.id, item])),
     unitsById: new Map(artifacts.planCatalog.units.map((unit) => [unit.unitId, unit]))
   };
+}
+
+/** The ownership row of one unit's document. Named refusal on a miss, exactly as Core's own lookup is. */
+export function ownershipOf(plan: MiniPlan, unit: PlanCatalogUnit): DocumentObligationOwnership {
+  return documentOwnership(plan.ownership, unit.documentId);
+}
+
+/**
+ * An ownership index over the mini catalog for a hand-built unit set.
+ *
+ * Used by the fixtures that need a unit shape `buildFixturePlan` never mints — a bridge, or two owning units naming
+ * one topic. It goes through the same `deriveObligationOwnership`, so a fixture cannot hand the audit an ownership
+ * nothing in Core would produce.
+ */
+export function ownershipForUnits(plan: MiniPlan, units: readonly ProposedUnit[]): ObligationOwnershipIndex {
+  return deriveObligationOwnership(plan.catalog, ownershipUnitsOfProposal(units));
 }
 
 /** The topic rows one unit names, in the plan's own order — what a legal topic dossier holds. */
@@ -120,6 +148,7 @@ export interface MiniPacketOptions {
   readonly overBudget?: PacketOverBudgetMode;
   readonly byteLimit?: number;
   readonly dossier?: UnitDossier;
+  readonly ownership?: DocumentObligationOwnership;
   readonly reach?: RunEvidenceReach;
 }
 
@@ -135,6 +164,7 @@ export function packetInput(plan: MiniPlan, unitId: string, options: MiniPacketO
     registry: REPORT_POLICY_REGISTRY,
     unitId,
     dossier: options.dossier ?? dossierOf(plan, unit),
+    ownership: options.ownership ?? ownershipOf(plan, unit),
     reach: options.reach ?? reachOf(plan),
     byteLimit: options.byteLimit ?? 1_048_576,
     overBudget: options.overBudget ?? "refuse"

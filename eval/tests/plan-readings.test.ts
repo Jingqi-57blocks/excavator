@@ -12,7 +12,9 @@
 //     missing join rather than an unreachable subject (wcp: 1,434 route topics);
 //   * every verdict is one of the three states, and cebreo's empty denominators read `vacuous`, never `complete`;
 //   * the fixture plan mints no leaf for a facet with no material topic — it does not forge cebreo's absent
-//     features into units.
+//     features into units;
+//   * and R5a's ownership: every material obligation a document reaches is owned by exactly one of its units, every
+//     unit has a row (a zero is visible), and nothing is owned by nobody.
 //
 // A hand-edited number in either file breaks one of those identities.
 
@@ -77,6 +79,22 @@ test("every checked-in plan reading is internally consistent", async () => {
       assert.ok(document.units >= 2, `${target}: a document has at least an appendix and a root`);
     }
 
+    // R5a's ownership, per document: the counts conserve and no obligation is left owner-less.
+    assert.deepEqual(row.ownership.map((entry) => entry.documentId), row.documents.map((document) => document.documentId),
+      `${target}: one ownership row per document, in the same order`);
+    for (const entry of row.ownership) {
+      const owned = entry.ownedByUnit.reduce((total, unit) => total + unit.owned, 0);
+      assert.equal(owned + entry.unownedObligationIds.length, entry.reachedObligations,
+        `${target}: ${entry.documentId} must account for every material obligation its units reach`);
+      assert.deepEqual([...entry.unownedObligationIds], [], `${target}: ${entry.documentId} leaves no obligation owned by nobody`);
+      assert.equal(entry.ownedByUnit.length, row.documents.find((document) => document.documentId === entry.documentId)!.units,
+        `${target}: ${entry.documentId} has one ownership row per unit, so a unit owning nothing is a visible zero`);
+      for (const unit of entry.ownedByUnit) {
+        assert.ok(["owning", "referencing", "topic-free"].includes(unit.role), `${target}: ${unit.unitId} role ${unit.role}`);
+        if (unit.role !== "owning") assert.equal(unit.owned, 0, `${target}: only an owning unit may own an obligation (${unit.unitId})`);
+      }
+    }
+
     for (const entry of row.namedEmptyFacets) {
       assert.ok(entry.reason.trim() !== "", `${target}: the ${entry.facet} facet is ${entry.state} and must say why`);
       assert.ok(["ledger-absent", "ledger-empty"].includes(entry.state), `${target}: ${entry.state} is not one of the two empty states`);
@@ -122,6 +140,17 @@ test("the wcp reading records 847 material obligations, all of them in units, an
     { kind: "leaf", units: 12 },
     { kind: "synthesis", units: 4 }
   ]);
+
+  // R5a: all 847 obligations of each document are owned by its FEATURE leaf, and by nothing else. Before ownership
+  // the same 847 were owed by the feature leaf AND the work-item-dimension leaf, and 164 of them by the coverage
+  // leaf as well — 1,858 owed instances per document against 847 distinct.
+  assert.equal(row.ownership.length, 4);
+  for (const entry of row.ownership) {
+    assert.equal(entry.reachedObligations, 847, entry.documentId);
+    assert.deepEqual(entry.ownedByUnit.filter((unit) => unit.owned > 0).map((unit) => [unit.unitId, unit.owned]),
+      [[`${entry.documentId}::leaf::feature`, 847]], entry.documentId);
+    assert.equal(entry.ownedByUnit.length, 5, `${entry.documentId}: three leaves, an appendix and the synthesis root`);
+  }
 });
 
 test("the cebreo reading is the zero-feature shape: vacuous, no forged feature unit, both empty states visible", async () => {
@@ -142,6 +171,18 @@ test("the cebreo reading is the zero-feature shape: vacuous, no forged feature u
   ]);
   assert.equal(row.documents.length, 1);
   assert.equal(row.documents[0]!.units, 2);
+
+  // Ownership on the zero-material arm: reachable is empty, so every unit owns zero — and the row exists, which is
+  // the difference between "nothing was material" and "nobody asked".
+  assert.deepEqual(row.ownership, [{
+    documentId: "overview-product",
+    reachedObligations: 0,
+    ownedByUnit: [
+      { unitId: "overview-product::appendix::coverage", kind: "appendix", role: "owning", owned: 0 },
+      { unitId: "overview-product::synthesis::document", kind: "synthesis", role: "topic-free", owned: 0 }
+    ],
+    unownedObligationIds: []
+  }]);
 
   // `ledger-absent` and `ledger-empty` are two different sentences, and this run has both.
   const states = new Set(row.namedEmptyFacets.map((entry) => entry.state));

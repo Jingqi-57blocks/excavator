@@ -15,19 +15,44 @@
  * WHAT AN EMPTY SET MEANS IS ALWAYS STATED. A unit with no claims sidecar on disk is `unwritten` and named, never
  * counted as a clean unit; a unit that reaches no material obligation is `vacuous` with its source, never
  * `complete`. "Nothing was checked" and "everything checked out" are two sentences here.
+ *
+ * R5a ADDS THE ONE READING THAT SAYS THE DUPLICATION IS GONE. `ownership` carries, per document, how many material
+ * obligations more than one of its units OWES — and that number is computed from the per-unit audits' own `owed`
+ * lists, not from the ownership derivation, so it cannot come out zero merely because the derivation says each
+ * obligation has one owner. Before this slice it was 847 per wcp document (3,388 across the four); a non-zero value
+ * now means a unit is grounding an obligation another unit also grounds, which is the byte cost R5b would then have
+ * to absorb instead.
  */
 
 import { join, resolve } from "node:path";
 import type { RunManifest } from "../base/types.ts";
 import { exists, readJson } from "../base/util.ts";
 import type { PlanCatalogUnit } from "./plan-artifacts.ts";
-import type { PlanObligationAccounting } from "./plan-obligation-conservation.ts";
+import { documentOwnership, type PlanObligationAccounting } from "./plan-obligation-conservation.ts";
 import { parseUnitClaims } from "./unit-output.ts";
 import { auditUnitGrounding, summariseUnitGrounding, type OpenOriginObligation, type UnitGroundingResult } from "./unit-grounding-audit.ts";
 import { unitPaths } from "./unit-paths.ts";
 import { assertPlanEpoch, loadUnitPlanView, requireKnowledgeEpoch, type UnitPlanView } from "./unit-plan-view.ts";
 
-export const UNIT_GROUNDING_READING_VERSION = "unit-grounding-reading-v1";
+export const UNIT_GROUNDING_READING_VERSION = "unit-grounding-reading-v2";
+
+/**
+ * R5a's per-document ownership reading, as plain data a caller can serialise.
+ *
+ * `obligationsOwedByMoreThanOneUnit` is the acceptance number of this slice and it is measured, not asserted: it
+ * counts obligations appearing in the `owed` list of two or more units of the document. `owedByUnit` is one row per
+ * planned unit, always, so a unit that owes nothing is a visible zero rather than an absent row.
+ */
+export interface DocumentOwnershipReading {
+  readonly documentId: string;
+  /** Material obligations reachable through some unit of this document — ownership's own denominator. */
+  readonly reachedObligations: number;
+  readonly owedByUnit: readonly { readonly unitId: string; readonly owed: number }[];
+  /** THE R5a READING. Zero once every obligation has one owner; 847 per document before this slice. */
+  readonly obligationsOwedByMoreThanOneUnit: number;
+  /** Obligations only referencing units reach, by id. A named plan violation, never a bucket; empty by default. */
+  readonly unownedObligationIds: readonly string[];
+}
 
 export interface UnitGroundingReading {
   readonly version: typeof UNIT_GROUNDING_READING_VERSION;
@@ -42,6 +67,8 @@ export interface UnitGroundingReading {
   readonly units: readonly UnitGroundingResult[];
   /** Planned units with no claims on disk. Named: there is nothing to audit yet, which is not the same as clean. */
   readonly unwritten: readonly string[];
+  /** One row per document of the plan, ascending. R5a's ownership reading. */
+  readonly ownership: readonly DocumentOwnershipReading[];
   readonly summary: string;
 }
 
@@ -55,7 +82,13 @@ export async function auditUnitFromDisk(runDir: string, view: UnitPlanView, unit
   if (parsed.claims.unitId !== unit.unitId) {
     throw new Error(`${paths.claims} records unit ${JSON.stringify(parsed.claims.unitId)}, but it sits in the directory of ${JSON.stringify(unit.unitId)}`);
   }
-  return auditUnitGrounding({ unit, obligations: view.obligations, workItems: view.workItems, claims: parsed.claims.claims });
+  return auditUnitGrounding({
+    unit,
+    obligations: view.obligations,
+    ownership: documentOwnership(view.ownership, unit.documentId),
+    workItems: view.workItems,
+    claims: parsed.claims.claims
+  });
 }
 
 /**
@@ -71,12 +104,28 @@ export async function readUnitGrounding(runDir: string, view: UnitPlanView): Pro
   const units: UnitGroundingResult[] = [];
   const unwritten: string[] = [];
   const openOriginExempt = new Map<string, OpenOriginObligation>();
+  // Per (document, obligation): which units OWE it. The R5a reading counts the entries with more than one unit, and
+  // it is filled from the audits themselves rather than from the ownership derivation — a reading taken from the
+  // derivation would agree with it whatever the audit did.
+  const owedBy = new Map<string, Map<string, string[]>>();
   for (const unitId of view.collectionOrder) {
     const unit = view.byId.get(unitId)!;
     // Computed for every planned unit, written or not: the exemption is a property of the plan and the ledger, not
-    // of whether anybody has written the prose yet.
-    for (const row of auditUnitGrounding({ unit, obligations: view.obligations, workItems: view.workItems, claims: [] }).openOriginExempt) {
-      openOriginExempt.set(row.workItemId, row);
+    // of whether anybody has written the prose yet — and so is who owes what.
+    const dry = auditUnitGrounding({
+      unit,
+      obligations: view.obligations,
+      ownership: documentOwnership(view.ownership, unit.documentId),
+      workItems: view.workItems,
+      claims: []
+    });
+    for (const row of dry.openOriginExempt) openOriginExempt.set(row.workItemId, row);
+    let byObligation = owedBy.get(unit.documentId);
+    if (!byObligation) owedBy.set(unit.documentId, byObligation = new Map());
+    for (const workItemId of dry.owed) {
+      const list = byObligation.get(workItemId);
+      if (list) list.push(unitId);
+      else byObligation.set(workItemId, [unitId]);
     }
     if (!await exists(unitPaths(runDir, unitId).claims)) {
       unwritten.push(unitId);
@@ -84,6 +133,19 @@ export async function readUnitGrounding(runDir: string, view: UnitPlanView): Pro
     }
     units.push(await auditUnitFromDisk(runDir, view, unit));
   }
+
+  const ownership: DocumentOwnershipReading[] = view.ownership.documents.map((document) => {
+    const byObligation = owedBy.get(document.documentId) ?? new Map<string, string[]>();
+    const perUnit = new Map<string, number>();
+    for (const unitIds of byObligation.values()) for (const unitId of unitIds) perUnit.set(unitId, (perUnit.get(unitId) ?? 0) + 1);
+    return {
+      documentId: document.documentId,
+      reachedObligations: document.reachedObligations,
+      owedByUnit: document.ownedByUnit.map((row) => ({ unitId: row.unitId, owed: perUnit.get(row.unitId) ?? 0 })),
+      obligationsOwedByMoreThanOneUnit: [...byObligation.values()].filter((unitIds) => unitIds.length > 1).length,
+      unownedObligationIds: document.unowned.map((row) => row.workItemId)
+    };
+  });
 
   const violations = units.filter((row) => row.verdict.conclusion === "violations");
   return {
@@ -95,7 +157,8 @@ export async function readUnitGrounding(runDir: string, view: UnitPlanView): Pro
     openOriginExempt: [...openOriginExempt.values()].sort((a, b) => a.workItemId.localeCompare(b.workItemId)),
     units,
     unwritten,
-    summary: `${accounting.materialObligations} material obligation(s): ${accounting.inUnits} in units, ${accounting.waived} waived, ${accounting.unplaced} claimed but unplaced, ${accounting.undispositioned} undispositioned; ${openOriginExempt.size} of the in-unit ones are open-origin and exempt from grounding. ${units.length} of ${view.units.length} planned unit(s) audited (${violations.length} with violations), ${unwritten.length} not written.`
+    ownership,
+    summary: `${accounting.materialObligations} material obligation(s): ${accounting.inUnits} in units, ${accounting.waived} waived, ${accounting.unplaced} claimed but unplaced, ${accounting.undispositioned} undispositioned; ${openOriginExempt.size} of the in-unit ones are open-origin and exempt from grounding. ${units.length} of ${view.units.length} planned unit(s) audited (${violations.length} with violations), ${unwritten.length} not written. ${ownership.reduce((total, row) => total + row.obligationsOwedByMoreThanOneUnit, 0)} obligation(s) are owed by more than one unit of one document.`
   };
 }
 
@@ -148,6 +211,7 @@ export function summariseUnitGroundingReading(reading: UnitGroundingReading): re
   return [
     reading.summary,
     ...reading.units.map((row) => summariseUnitGrounding(row)),
-    ...reading.unwritten.map((unitId) => `unwritten: unit ${unitId} has no claims on disk, so nothing was checked for it`)
+    ...reading.unwritten.map((unitId) => `unwritten: unit ${unitId} has no claims on disk, so nothing was checked for it`),
+    ...reading.ownership.map((row) => `ownership: document ${row.documentId} reaches ${row.reachedObligations} material obligation(s); ${row.obligationsOwedByMoreThanOneUnit} of them are owed by more than one unit, ${row.unownedObligationIds.length} by none (owed per unit: ${row.owedByUnit.map((entry) => `${entry.unitId}=${entry.owed}`).join(", ") || "none"})`)
   ];
 }
