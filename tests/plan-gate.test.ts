@@ -87,10 +87,10 @@ test("the gate re-validates: a plan that no longer matches its epoch, or a tampe
   await writeFile(topicsPath(runDir), recordedTopics);
 
   // A plan catalog whose unit references a topic that is not in the catalog.
-  const plan = JSON.parse(recordedPlan) as { units: Array<{ topics: Array<{ topicId: string; topicDigest: string }> }> };
+  const plan = JSON.parse(recordedPlan) as { units: Array<{ topics: Array<{ topicId: string; topicDigest: string; obligationScope: unknown }> }> };
   const withPhantom = {
     ...plan,
-    units: plan.units.map((unit, index) => index === 0 ? { ...unit, topics: [{ topicId: "feature:0000000000000000", topicDigest: "0".repeat(64) }] } : unit)
+    units: plan.units.map((unit, index) => index === 0 ? { ...unit, topics: [{ topicId: "feature:0000000000000000", topicDigest: "0".repeat(64), obligationScope: { kind: "all" } }] } : unit)
   };
   await writeFile(planCatalogPath(runDir), `${stableJson(withPhantom)}\n`);
   await assert.rejects(() => assertValidatedPlanForAuthoring(runDir), /is not a valid plan catalog: .*which is not in this run's topics catalog/);

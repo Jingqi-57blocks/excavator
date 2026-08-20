@@ -118,7 +118,7 @@ function ownershipUnitsOfPlanCatalog(units: readonly PlanCatalogUnit[]): readonl
     unitId: unit.unitId,
     documentId: unit.documentId,
     kind: unit.kind,
-    topicIds: unit.topics.map((topic) => topic.topicId)
+    topics: unit.topics.map((topic) => ({ topicId: topic.topicId, obligationScope: topic.obligationScope }))
   }));
 }
 

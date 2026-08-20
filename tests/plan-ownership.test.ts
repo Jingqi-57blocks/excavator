@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { stableJson } from "../src/base/util.ts";
 import { buildFixturePlan } from "../src/report/fixture-plan.ts";
 import { PLAN_BUDGET_TABLE } from "../src/report/plan-budget.ts";
-import { parsePlanProposal, type PlanProposal, type ProposedUnit } from "../src/report/plan-proposal.ts";
+import { parsePlanProposal, type PlanProposal, type ProposedUnit, type ProposedUnitTopic } from "../src/report/plan-proposal.ts";
+import { FULL_OBLIGATION_SCOPE } from "../src/report/obligation-scope.ts";
 import {
   OWNERSHIP_FACET_PRIORITY,
   deriveObligationOwnership,
@@ -57,7 +58,21 @@ function parsedProposal(raw: unknown): PlanProposal {
 }
 
 function validate(catalog: TopicCatalogArtifact, requests: ReportRequestsArtifact, proposal: PlanProposal): PlanValidationReport {
-  return validatePlan({ catalog, requests, proposal, registry: REPORT_POLICY_REGISTRY, budgetTable: PLAN_BUDGET_TABLE });
+  if (mini === null) throw new Error("validate() needs the mini fixture: await fixture() before calling it");
+  return validatePlan({
+    catalog,
+    requests,
+    proposal,
+    registry: REPORT_POLICY_REGISTRY,
+    budgetTable: PLAN_BUDGET_TABLE,
+    evidence: mini.evidenceById,
+    reach: mini.reach
+  });
+}
+
+/** Whole-topic references: these fixtures test OWNERSHIP, so every scope is `all` unless a test says otherwise. */
+function whole(topicIds: readonly string[]): readonly ProposedUnitTopic[] {
+  return topicIds.map((topicId) => ({ topicId, obligationScope: FULL_OBLIGATION_SCOPE }));
 }
 
 function raw(proposal: PlanProposal): Record<string, unknown> {
@@ -68,7 +83,7 @@ function raw(proposal: PlanProposal): Record<string, unknown> {
 function topicsOfUnit(proposal: PlanProposal, unitId: string): readonly string[] {
   const unit = proposal.units.find((row) => row.unitId === unitId);
   assert.ok(unit, `the fixture plan must hold ${unitId}`);
-  return unit!.kind === "synthesis" ? [] : unit!.topicIds;
+  return unit!.kind === "synthesis" ? [] : unit!.topics.map((topic) => topic.topicId);
 }
 
 /** The fixture plan's units for one document, with a replacement set for that document. */
@@ -141,7 +156,7 @@ test("with no feature leaf, the same-facet tie-break is ascending topic id", asy
   // between them alone — which is the only place the second half of the rule is observable.
   const coverageTopics = topicsOfUnit(proposal, LEAF_COVERAGE);
   const ownership = deriveObligationOwnership(catalog, [
-    { unitId: LEAF_COVERAGE, documentId: OVERVIEW, kind: "leaf", topicIds: coverageTopics }
+    { unitId: LEAF_COVERAGE, documentId: OVERVIEW, kind: "leaf", topics: whole(coverageTopics) }
   ]);
   const owner = documentOwnership(ownership, OVERVIEW).ownerByObligation.get(SEARCHED_NOT_FOUND);
   assert.ok(owner);
@@ -156,11 +171,11 @@ test("with no feature leaf, the same-facet tie-break is ascending topic id", asy
 
 // --- ③ the uniqueness rule, and the bridge that is allowed to reference ---------------------------------
 
-test("two OWNING units of one document naming the same topic is a named violation", async () => {
+test("two OWNING units of one document holding the same obligation is a named partition violation", async () => {
   const { catalog, requests } = await fixture();
   const proposal = buildFixturePlan(catalog, requests, PLAN_BUDGET_TABLE);
   const featureTopics = topicsOfUnit(proposal, LEAF_FEATURE);
-  const second: ProposedUnit = { kind: "leaf", unitId: `${OVERVIEW}::leaf::feature-again`, documentId: OVERVIEW, title: "Feature topics, again", topicIds: [...featureTopics] };
+  const second: ProposedUnit = { kind: "leaf", unitId: `${OVERVIEW}::leaf::feature-again`, documentId: OVERVIEW, title: "Feature topics, again", topics: whole(featureTopics) };
   const units = [
     ...proposal.units.filter((unit) => unit.documentId === OVERVIEW && unit.kind !== "synthesis"),
     second,
@@ -175,10 +190,14 @@ test("two OWNING units of one document naming the same topic is a named violatio
   const report = validate(catalog, requests, parsedProposal({ ...raw(proposal), units: withDocumentUnits(proposal, OVERVIEW, units) }));
   assert.equal(report.overall.conclusion, "violations");
   const problems = report.overall.conclusion === "violations" ? report.overall.problems : [];
-  const named = problems.filter((problem) => problem.includes("is named by 2 OWNING unit(s) of document \"overview-product\""));
-  assert.equal(named.length, featureTopics.length, "every duplicated topic is named, not just the first");
-  assert.ok(named.some((problem) => problem.includes(`${OVERVIEW}::leaf::feature, ${OVERVIEW}::leaf::feature-again`)), named.join(" | "));
-  assert.ok(named.every((problem) => problem.includes("a bridge may reference a topic another unit owns, an owning unit may not")));
+  // R5b replaces R5a's "at most one owning unit per topic" with the stronger law: the owning units' scopes must
+  // PARTITION the topic's bindings. Two units at scope `all` therefore double-cover every binding, and the
+  // violation names the obligation ids and both units rather than only the topic.
+  const named = problems.filter((problem) => problem.includes("inside the scope of more than one OWNING unit"));
+  const boundFeatureTopics = featureTopics.filter((topicId) => catalog.topics.find((topic) => topic.topicId === topicId)!.bindings.length > 0);
+  assert.equal(named.length, boundFeatureTopics.length, "every doubly-covered topic is named, not just the first");
+  assert.ok(named.some((problem) => problem.includes(`${OVERVIEW}::leaf::feature + ${OVERVIEW}::leaf::feature-again`)), named.join(" | "));
+  assert.ok(named.every((problem) => problem.includes("a bridge may reference a topic another unit owns, a second owning unit may not")));
 });
 
 test("a BRIDGE naming a topic another unit owns is legal, and owns nothing", async () => {
@@ -186,7 +205,7 @@ test("a BRIDGE naming a topic another unit owns is legal, and owns nothing", asy
   const proposal = buildFixturePlan(catalog, requests, PLAN_BUDGET_TABLE);
   const featureTopics = topicsOfUnit(proposal, LEAF_FEATURE);
   assert.ok(featureTopics.length >= 2, "a bridge needs at least two topics, and the fixture's feature leaf has them");
-  const bridge: ProposedUnit = { kind: "bridge", unitId: `${OVERVIEW}::bridge::features`, documentId: OVERVIEW, title: "How the two features relate", topicIds: [...featureTopics] };
+  const bridge: ProposedUnit = { kind: "bridge", unitId: `${OVERVIEW}::bridge::features`, documentId: OVERVIEW, title: "How the two features relate", topics: whole(featureTopics) };
   const leaves = proposal.units.filter((unit) => unit.documentId === OVERVIEW && unit.kind !== "synthesis");
   const units = [
     ...leaves,
@@ -211,7 +230,7 @@ test("an obligation only referencing units reach is owned by nobody, and that is
   const { catalog } = await fixture();
   const featureTopics = catalog.topics.filter((topic) => topic.facet === "feature").map((topic) => topic.topicId).sort((a, b) => a.localeCompare(b));
   const ownership = deriveObligationOwnership(catalog, [
-    { unitId: "doc::bridge::only", documentId: "doc", kind: "bridge", topicIds: featureTopics }
+    { unitId: "doc::bridge::only", documentId: "doc", kind: "bridge", topics: whole(featureTopics) }
   ]);
   const document = documentOwnership(ownership, "doc");
   assert.equal(document.obligations.length, 0);
@@ -219,7 +238,7 @@ test("an obligation only referencing units reach is owned by nobody, and that is
   assert.ok(document.reachedObligations > 0, "the bridge does reach the obligations; nothing owns them");
   const problems = ownershipProblems(ownership);
   assert.equal(problems.length, document.unowned.length, "every unowned obligation is named, never counted");
-  assert.ok(problems.every((problem) => problem.includes("is reached only by referencing unit(s) doc::bridge::only")), problems.join(" | "));
+  assert.ok(problems.every((problem) => problem.includes("is reached by unit(s) doc::bridge::only and owned by none of them")), problems.join(" | "));
 });
 
 // --- ④ same source: validation and the recorded plan see one ownership ----------------------------------

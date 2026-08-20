@@ -6,7 +6,8 @@ import { sha256 } from "../src/base/util.ts";
 import { tempDir } from "./helpers.ts";
 import type { EvidenceItem, InvestigationPlan } from "../src/base/types.ts";
 import { GROUNDING_RULES } from "../src/report/unit-grounding-audit.ts";
-import { OUTPUT_BUDGET_DEFERRAL, enumeratesUnboundEvidence, renderUnitPacket, unitPacketDigest, UNIT_PACKET_VERSION } from "../src/report/unit-packet.ts";
+import { enumeratesUnboundEvidence, outputBoundSentence, renderUnitPacket, unitPacketBytes, unitPacketDigest, UNIT_PACKET_VERSION } from "../src/report/unit-packet.ts";
+import { documentBudgetRow } from "../src/report/plan-budget.ts";
 import { UNIT_PACKET_FORBIDDEN_INPUT_PREFIXES, loadUnitPacketSource, renderUnitPacketForRun } from "../src/report/unit-packet-source.ts";
 import { WORK_ITEM_STATUSES } from "../src/report/topic-candidate.ts";
 import { plannedRun, unitDraftFor } from "./unit-fixture.ts";
@@ -290,22 +291,31 @@ test("the appendix enumerates evidence no obligation binds; a leaf counts it in 
 
 // --- (7) the promise the author reads is the rule the audit applies ----------------------------------
 
-test("the packet prints the grounding rule for every status, verbatim from the audit, and defers the output budget", async () => {
+test("the packet prints the grounding rule for every status, verbatim from the audit, and the declared output budget", async () => {
   const mini = await plan();
   const packet = miniPacket(mini, LEAF_FEATURE);
   assert.deepEqual(GROUNDING_RULES.map((rule) => rule.status), [...WORK_ITEM_STATUSES], "one rule per status, in the pinned order");
   for (const rule of GROUNDING_RULES) {
     assert.ok(packet.markdown.includes(`- \`${rule.status}\` — needs a ${rule.requires}.`), `the ${rule.status} rule must be printed verbatim`);
   }
-  assert.ok(packet.markdown.includes(OUTPUT_BUDGET_DEFERRAL), "the absent output budget is stated, not silently omitted");
+  // R5b: the output budget is DECLARED now, and the packet prints the plan's own row for this document. R4b's
+  // "NONE DECLARED" deferral is gone rather than reworded, and the sentence says what over-budget means.
+  const declared = outputBoundSentence(documentBudgetRow(mini.planCatalog.budget, "overview-product"));
+  assert.ok(packet.markdown.includes(declared), "the declared output budget is printed, not deferred");
+  assert.match(declared, /WRITE MORE TIGHTLY — never to drop an obligation, an unknown or a terminology entry/);
+  assert.ok(!packet.markdown.includes("NONE DECLARED"), "no packet may still say the output budget does not exist");
+  // Same-source measure: the plan-side pre-check is this packet's own composition, not an estimate beside it.
+  assert.equal(unitPacketBytes(packetInput(mini, LEAF_FEATURE)), packet.bytes, "the plan-side measure IS the packet the author reads");
   assert.match(packet.markdown, /- input budget \(plan, per unit for overview-product\): 786432 bytes; document total 3145728 bytes/);
   // R5a replaced R4b's "the duplication here is visible, not silently resolved" paragraph with the ownership rule.
   assert.ok(!packet.markdown.includes("that unit grounds these obligations too"), "the duplication paragraph is gone, because the duplication is");
-  assert.ok(packet.markdown.includes("## Ownership: exactly one unit grounds each material obligation of this document"));
+  assert.ok(packet.markdown.includes("## Ownership and scope: exactly one unit grounds each material obligation of this document"));
   assert.ok(packet.markdown.includes("pinned facet priority feature > route > entity > external-system > work-item-dimension > coverage"),
     "the priority the author reads is the one the derivation applies");
   assert.match(packet.markdown, /- this document reaches 3 material obligation\(s\); THIS unit owns 3 of them, and grounds exactly those\./);
-  assert.ok(packet.markdown.includes("a stub is NOT a truncation"), "the stub rule is stated in the packet, not only in the code");
+  assert.ok(packet.markdown.includes("neither is a truncation"), "the stub AND scope rules are stated in the packet, not only in the code");
+  assert.ok(packet.markdown.includes("`plan/catalog.json` records every unit's scope by work item id"),
+    "a divided topic's partition must be addressable from the packet, not merely asserted");
 
   // And the non-owner's header says the same thing with its own numbers - a zero it owns, stated rather than absent.
   const dimension = miniPacket(mini, LEAF_DIMENSION);

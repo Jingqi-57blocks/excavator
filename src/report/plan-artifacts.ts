@@ -1,13 +1,23 @@
 /**
  * `plan/catalog.json` and `plan/dag.json` — the validated plan of one epoch, written once.
  *
- * BINDINGS ARE PASSED BY REFERENCE, NEVER FLATTENED. A unit row carries `{ topicId, topicDigest }` and nothing
- * else about its topics: no work-item ids, no evidence ids, no trace ids. R4's unit packet goes topicId →
- * `plan/topics.json` → that topic's `bindings`, where every obligation still owns its own evidence and trace ids.
- * 57B-453 is what the other design costs — flatten the ids into a topic-level bag here and 60% of a document's
- * material work items can no longer be told apart from each other, which is exactly the grounding failure the
- * epic's gate 1b exists to catch. The `topicDigest` is what makes the reference safe: a topic whose content moved
- * no longer matches the plan that referenced it, and the reader below says so by name.
+ * BINDINGS ARE PASSED BY REFERENCE, NEVER FLATTENED. A unit row carries `{ topicId, topicDigest, obligationScope }`
+ * and nothing else about its topics: no work-item ids beyond the scope's own selection, no evidence ids, no trace
+ * ids. R4's unit packet goes topicId → `plan/topics.json` → that topic's `bindings`, where every obligation still
+ * owns its own evidence and trace ids. 57B-453 is what the other design costs — flatten the ids into a topic-level
+ * bag here and 60% of a document's material work items can no longer be told apart from each other, which is
+ * exactly the grounding failure the epic's gate 1b exists to catch. The `topicDigest` is what makes the reference
+ * safe: a topic whose content moved no longer matches the plan that referenced it, and the reader below says so by
+ * name.
+ *
+ * v2 ADDS THE SCOPE, AND REMOVES THE ONE MEASURED FIELD (R5b). `obligationScope` is how a topic too large for one
+ * unit is divided without truncation, so it belongs in the recorded plan: the packet renderer and the ownership
+ * derivation both read it, and a plan that recorded units without it would be a plan whose division nobody could
+ * reproduce. `PlanCatalogDocument.inputBytes` is GONE for the opposite reason: the input measure is now the packet
+ * renderer itself, and the packet header prints this artifact's own digest — so keeping a measured byte count as a
+ * field would make the plan's identity depend on a measurement of the plan, which depends on the identity. A
+ * measurement is a READING over a plan (`plan-packet-measure.ts`, and the validation report's document rows), never
+ * a field of it.
  *
  * WHAT THE PLAN CATALOG DOES CARRY that is not a reference: the disposition rows (a plan decision, not knowledge)
  * and gate 1b's obligation accounting (the audited reading — including the by-id list of every material obligation
@@ -18,30 +28,38 @@
  * WRITE-ONCE WITH A READ-BACK, the same shape as `topics-artifact.ts`: identical bytes are a no-op, different
  * bytes for the same run are a named refusal. A plan is what the units downstream were written against; replacing
  * it silently would leave every receipt pointing at a plan that no longer says the same thing.
+ *
+ * IT NO LONGER IMPORTS PLAN VALIDATION, and that is load-bearing rather than tidy. Validation now MEASURES packets,
+ * measuring a packet means rendering one, and rendering one needs this file — so `plan-validation -> unit-packet ->
+ * plan-artifacts -> plan-validation` would be a cycle `tests/layer-order.test.ts` refuses. The two things this file
+ * used to take from the report are now taken from narrower places: the authoring order from `unit-dag-order.ts`,
+ * and the gate from a `TopicDispositionVerdict` the caller passes in. Everything else it derives itself, from the
+ * same functions validation derives them from.
  */
 
 import { join } from "node:path";
 import { assertNever } from "../base/artifact-result.ts";
 import { canonicalJson, exists, readJson, sha256, stableJson, writeJson } from "../base/util.ts";
 import { accountPlanObligations, type PlanObligationAccounting } from "./plan-obligation-conservation.ts";
-import { planBudgetProblems, type PlanBudget } from "./plan-budget.ts";
+import { parseObligationScope, type ObligationScope } from "./obligation-scope.ts";
+import { planBudgetFor, planBudgetProblems, type PlanBudget, type PlanBudgetTable } from "./plan-budget.ts";
 import {
   AUTHORING_UNIT_KINDS,
   PLAN_PROPOSAL_VERSION,
   unitChildIds,
-  unitTopicIds,
+  unitTopics,
   type AuthoringUnitKind,
   type PlanProposal,
   type ProposedUnit
 } from "./plan-proposal.ts";
-import { unitDagOrder, type PlanValidationReport } from "./plan-validation.ts";
+import { documentRootUnitIds, unitDagOrder } from "./unit-dag-order.ts";
 import { REPORT_POLICY_VERSION } from "./report-policy-registry.ts";
 import type { ReportRequestsArtifact } from "./report-requests-artifact.ts";
 import { topicCatalogDigest } from "./topics-artifact.ts";
 import type { TopicCatalogArtifact } from "./topic-catalog.ts";
-import type { TopicDisposition } from "./topic-disposition.ts";
+import { parsedDispositionIndex, type TopicDisposition, type TopicDispositionVerdict } from "./topic-disposition.ts";
 
-export const PLAN_CATALOG_VERSION = "plan-catalog-v1";
+export const PLAN_CATALOG_VERSION = "plan-catalog-v2";
 export const PLAN_DAG_VERSION = "plan-dag-v1";
 
 export function planCatalogPath(runDir: string): string {
@@ -52,10 +70,11 @@ export function planDagPath(runDir: string): string {
   return join(runDir, "plan", "dag.json");
 }
 
-/** A topic reference: the id to look up in `plan/topics.json`, and the digest it must still have. */
+/** A topic reference: the id to look up in `plan/topics.json`, the digest it must still have, and this unit's scope. */
 export interface PlanTopicReference {
   readonly topicId: string;
   readonly topicDigest: string;
+  readonly obligationScope: ObligationScope;
 }
 
 export interface PlanCatalogUnit {
@@ -73,7 +92,6 @@ export interface PlanCatalogDocument {
   readonly documentId: string;
   readonly rootUnitId: string;
   readonly units: number;
-  readonly inputBytes: number;
 }
 
 export interface PlanCatalogArtifact {
@@ -124,29 +142,60 @@ export interface PlanArtifacts {
   readonly dag: PlanDagArtifact;
 }
 
-/**
- * Turn a validated proposal into the two artifacts.
- *
- * Refuses a report that is not `complete` or `vacuous`: the artifacts are premises for everything downstream, so
- * the only path to them is through a validation that concluded. The refusal names the problems rather than
- * summarising them — a plan is corrected by reading them.
- */
-export function buildPlanArtifacts(input: {
+/** Everything the two artifacts are DERIVED from. No verdict: a derivation is not an admission. */
+export interface PlanArtifactsDerivation {
   readonly catalog: TopicCatalogArtifact;
   readonly requests: ReportRequestsArtifact;
   readonly proposal: PlanProposal;
-  readonly report: PlanValidationReport;
-}): PlanArtifacts {
-  const { catalog, requests, proposal, report } = input;
-  if (report.overall.conclusion === "violations") {
-    throw new Error(`The plan cannot be recorded: validation found ${report.overall.problems.length} problem(s) — ${report.overall.problems.join("; ")}`);
+  /** Required: the budget is derived here from the requests, never read off the proposal that echoes it. */
+  readonly budgetTable: PlanBudgetTable;
+}
+
+export interface PlanArtifactsInput extends PlanArtifactsDerivation {
+  /**
+   * The validation verdict this plan was admitted on.
+   *
+   * Narrow on purpose — the whole report would be an import edge back into `plan-validation.ts`, which is the cycle
+   * this file exists on the other side of. It is REQUIRED rather than optional so no call site can record a plan
+   * without having validated one: `violations` is refused here, `complete` and `vacuous` both open the gate (a
+   * catalog with no material topic is a real shape, and refusing it would mean no run of that shape could be
+   * written).
+   */
+  readonly verdict: TopicDispositionVerdict;
+}
+
+/**
+ * Turn a validated proposal into the two artifacts.
+ *
+ * Refuses a verdict that is not `complete` or `vacuous`: the artifacts are premises for everything downstream, so
+ * the only path to them is through a validation that concluded. The refusal names the problems rather than
+ * summarising them — a plan is corrected by reading them.
+ */
+export function buildPlanArtifacts(input: PlanArtifactsInput): PlanArtifacts {
+  if (input.verdict.conclusion === "violations") {
+    throw new Error(`The plan cannot be recorded: validation found ${input.verdict.problems.length} problem(s) — ${input.verdict.problems.join("; ")}`);
   }
+  return derivePlanArtifacts(input);
+}
+
+/**
+ * The two artifacts a proposal derives, with no verdict gate.
+ *
+ * Separated from `buildPlanArtifacts` for exactly one caller: `plan-packet-measure.ts` has to hold a plan catalog
+ * and a DAG in order to render a packet and measure it, and it does that BEFORE any verdict exists — the verdict is
+ * partly a function of the measurement. Two builders would be two plans; one builder plus one gate is the same
+ * bytes either way, and the gate stays required at the recording path.
+ */
+export function derivePlanArtifacts(input: PlanArtifactsDerivation): PlanArtifacts {
+  const { catalog, requests, proposal, budgetTable } = input;
   const topicsById = new Map(catalog.topics.map((topic) => [topic.topicId, topic]));
-  const documents: PlanCatalogDocument[] = report.documents.map((row) => {
-    if (row.rootUnitIds.length !== 1) {
-      throw new Error(`Document ${JSON.stringify(row.documentId)} has ${row.rootUnitIds.length} root unit(s); a recorded plan has exactly one per document`);
+  const documentIds = [...new Set(requests.requests.map((record) => record.documentId))].sort((a, b) => a.localeCompare(b));
+  const documents: PlanCatalogDocument[] = documentIds.map((documentId) => {
+    const roots = documentRootUnitIds(proposal.units, documentId);
+    if (roots.length !== 1) {
+      throw new Error(`Document ${JSON.stringify(documentId)} has ${roots.length} root unit(s) (${roots.join(", ") || "none"}); a recorded plan has exactly one per document`);
     }
-    return { documentId: row.documentId, rootUnitId: row.rootUnitIds[0]!, units: row.units, inputBytes: row.inputBytes };
+    return { documentId, rootUnitId: roots[0]!, units: proposal.units.filter((unit) => unit.documentId === documentId).length };
   });
   const units: PlanCatalogUnit[] = [...proposal.units]
     .sort((a, b) => a.unitId.localeCompare(b.unitId))
@@ -155,14 +204,15 @@ export function buildPlanArtifacts(input: {
       documentId: unit.documentId,
       kind: unit.kind,
       title: unit.title,
-      topics: unitTopicIds(unit).map((topicId) => {
-        const topic = topicsById.get(topicId);
-        if (!topic) throw new Error(`Unit ${JSON.stringify(unit.unitId)} references topic ${JSON.stringify(topicId)}, which is not in this catalog`);
-        return { topicId, topicDigest: topic.digest };
+      topics: unitTopics(unit).map((reference) => {
+        const topic = topicsById.get(reference.topicId);
+        if (!topic) throw new Error(`Unit ${JSON.stringify(unit.unitId)} references topic ${JSON.stringify(reference.topicId)}, which is not in this catalog`);
+        return { topicId: reference.topicId, topicDigest: topic.digest, obligationScope: reference.obligationScope };
       }),
       childUnitIds: [...unitChildIds(unit)].sort((a, b) => a.localeCompare(b))
     }));
 
+  const dispositions = parsedDispositionIndex(proposal.dispositions);
   const planCatalog: PlanCatalogArtifact = {
     version: PLAN_CATALOG_VERSION,
     runId: catalog.runId,
@@ -172,11 +222,11 @@ export function buildPlanArtifacts(input: {
     requestsDigest: reportRequestsDigest(requests),
     policyVersion: REPORT_POLICY_VERSION,
     proposalVersion: PLAN_PROPOSAL_VERSION,
-    budget: report.budget,
+    budget: planBudgetFor(requests, budgetTable),
     documents,
     units,
-    dispositions: [...report.dispositions].sort((a, b) => a.topicId.localeCompare(b.topicId)),
-    obligationAccounting: report.obligations
+    dispositions: dispositions.rows,
+    obligationAccounting: accountPlanObligations(catalog, proposal.units, dispositions.byTopic)
   };
 
   const order = unitDagOrder(proposal.units);
@@ -223,7 +273,13 @@ export function proposalFromPlanCatalog(artifact: PlanCatalogArtifact): PlanProp
       case "bridge":
       case "appendix":
         if (unit.childUnitIds.length > 0) throw new Error(`Recorded ${unit.kind} unit ${JSON.stringify(unit.unitId)} names ${unit.childUnitIds.length} child unit(s); only a synthesis has children`);
-        return { kind: unit.kind, unitId: unit.unitId, documentId: unit.documentId, title: unit.title, topicIds: unit.topics.map((topic) => topic.topicId) };
+        return {
+          kind: unit.kind,
+          unitId: unit.unitId,
+          documentId: unit.documentId,
+          title: unit.title,
+          topics: unit.topics.map((topic) => ({ topicId: topic.topicId, obligationScope: topic.obligationScope }))
+        };
     }
     return assertNever(unit.kind, "recorded authoring unit kind");
   });
@@ -298,6 +354,8 @@ const PLAN_CATALOG_FIELDS = [
 
 const PLAN_UNIT_FIELDS = ["childUnitIds", "documentId", "kind", "title", "topics", "unitId"] as const;
 
+const PLAN_TOPIC_REFERENCE_FIELDS = ["obligationScope", "topicDigest", "topicId"] as const;
+
 const PLAN_DAG_FIELDS = ["documents", "edges", "knowledgeEpoch", "planCatalogDigest", "runId", "version"] as const;
 
 /**
@@ -318,8 +376,16 @@ export function planCatalogProblems(value: unknown, catalog: TopicCatalogArtifac
   for (const key of PLAN_CATALOG_FIELDS) {
     if (!(key in artifact)) problems.push(`is missing field ${JSON.stringify(key)}`);
   }
-  if (artifact.version !== PLAN_CATALOG_VERSION) problems.push(`version ${JSON.stringify(artifact.version)} is not ${PLAN_CATALOG_VERSION}`);
-  if (artifact.proposalVersion !== PLAN_PROPOSAL_VERSION) problems.push(`proposalVersion ${JSON.stringify(artifact.proposalVersion)} is not ${PLAN_PROPOSAL_VERSION}`);
+  // A version mismatch says what to DO about it. There is deliberately no cross-schema read: a plan recorded under
+  // an earlier schema was validated by earlier rules, and reading it under the new ones would be asserting that the
+  // old validator checked things it did not. Re-planning is cheap (the topics catalog is a pure projection of the
+  // sealed epoch and is already on disk); believing an unvalidated premise is not.
+  if (artifact.version !== PLAN_CATALOG_VERSION) {
+    problems.push(`version ${JSON.stringify(artifact.version)} is not ${PLAN_CATALOG_VERSION}; this plan was recorded under an earlier schema and no cross-schema read exists — re-plan this run`);
+  }
+  if (artifact.proposalVersion !== PLAN_PROPOSAL_VERSION) {
+    problems.push(`proposalVersion ${JSON.stringify(artifact.proposalVersion)} is not ${PLAN_PROPOSAL_VERSION}; the proposal schema this plan was validated against is superseded — re-plan this run`);
+  }
   if (artifact.policyVersion !== REPORT_POLICY_VERSION) problems.push(`policyVersion ${JSON.stringify(artifact.policyVersion)} is not the registry's ${REPORT_POLICY_VERSION}`);
   const expectedTopicsDigest = topicCatalogDigest(catalog);
   if (artifact.topicsDigest !== expectedTopicsDigest) {
@@ -359,17 +425,16 @@ export function planCatalogProblems(value: unknown, catalog: TopicCatalogArtifac
   } catch (error) {
     return [(error as Error).message];
   }
-  const byTopic = new Map(recorded.dispositions.map((disposition) => [disposition.topicId, disposition]));
-  if (byTopic.size !== recorded.dispositions.length) problems.push("dispositions holds two rows for one topic; a topic carries exactly one disposition");
-  const expectedAccounting = accountPlanObligations(catalog, proposal.units, byTopic);
+  const dispositions = parsedDispositionIndex(recorded.dispositions);
+  if (dispositions.byTopic.size !== recorded.dispositions.length) problems.push("dispositions holds two rows for one topic, or a row that does not parse; a topic carries exactly one readable disposition");
+  const expectedAccounting = accountPlanObligations(catalog, proposal.units, dispositions.byTopic);
   if (stableJson(recorded.obligationAccounting) !== stableJson(expectedAccounting)) {
     problems.push(`obligationAccounting is not the reading its own units and dispositions derive (recorded ${stableJson(recorded.obligationAccounting)}, derived ${stableJson(expectedAccounting)})`);
   }
   for (const [index, document] of recorded.documents.entries()) {
     const units = recorded.units.filter((unit) => unit.documentId === document.documentId);
     if (units.length !== document.units) problems.push(`documents[${index}] counts ${document.units} unit(s) for ${JSON.stringify(document.documentId)} but the plan holds ${units.length}`);
-    const named = new Set(units.flatMap((unit) => unit.childUnitIds));
-    const roots = units.map((unit) => unit.unitId).filter((unitId) => !named.has(unitId));
+    const roots = documentRootUnitIds(proposal.units, document.documentId);
     if (roots.length !== 1 || roots[0] !== document.rootUnitId) {
       problems.push(`documents[${index}] names root ${JSON.stringify(document.rootUnitId)} but the plan's roots for ${JSON.stringify(document.documentId)} are ${roots.join(", ") || "none"}`);
     }
@@ -404,11 +469,13 @@ function unitRowProblems(value: unknown, topicsById: ReadonlyMap<string, { reado
       continue;
     }
     const keys = Object.keys(reference).sort();
-    if (stableJson(keys) !== stableJson(["topicDigest", "topicId"])) {
-      problems.push(`topics[${index}] has fields ${keys.join(", ")}; a topic reference carries exactly topicId and topicDigest — the obligation bindings stay in plan/topics.json`);
+    if (stableJson(keys) !== stableJson([...PLAN_TOPIC_REFERENCE_FIELDS])) {
+      problems.push(`topics[${index}] has fields ${keys.join(", ")}; a topic reference carries exactly ${PLAN_TOPIC_REFERENCE_FIELDS.join(", ")} — the obligation bindings stay in plan/topics.json`);
       continue;
     }
     const { topicId, topicDigest } = reference as PlanTopicReference;
+    const scope = parseObligationScope((reference as Record<string, unknown>).obligationScope);
+    for (const problem of scope.problems) problems.push(`topics[${index}] ${problem}`);
     const topic = topicsById.get(topicId);
     if (!topic) {
       problems.push(`topics[${index}] references topic ${JSON.stringify(topicId)}, which is not in this run's topics catalog`);

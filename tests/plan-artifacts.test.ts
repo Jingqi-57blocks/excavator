@@ -33,11 +33,12 @@ import { miniRun, materialWorkItemIds, topicsBinding } from "./plan-fixture.ts";
 // catalog itself holds none of those ids.
 
 async function planned(): Promise<{ runDir: string; catalog: TopicCatalogArtifact; artifacts: PlanArtifacts }> {
-  const { runDir, catalog, requests } = await miniRun();
+  const run = await miniRun();
+  const { runDir, catalog, requests } = run;
   await writeTopicCatalog(runDir, catalog);
   const proposal = buildFixturePlan(catalog, requests, PLAN_BUDGET_TABLE);
-  const report = validatePlan({ catalog, requests, proposal, registry: REPORT_POLICY_REGISTRY, budgetTable: PLAN_BUDGET_TABLE });
-  const artifacts = buildPlanArtifacts({ catalog, requests, proposal, report });
+  const report = validatePlan({ catalog, requests, proposal, registry: REPORT_POLICY_REGISTRY, budgetTable: PLAN_BUDGET_TABLE, evidence: run.evidenceById, reach: run.reach });
+  const artifacts = buildPlanArtifacts({ catalog, requests, proposal, budgetTable: PLAN_BUDGET_TABLE, verdict: report.overall });
   await writePlanArtifacts(runDir, artifacts, catalog);
   return { runDir, catalog, artifacts };
 }
@@ -66,7 +67,7 @@ test("the plan catalog carries topic references only: no evidence or trace id re
   }
   // The unit rows carry exactly two fields per topic, and the digest is what makes the reference safe.
   for (const unit of artifacts.planCatalog.units) {
-    for (const reference of unit.topics) assert.deepEqual(Object.keys(reference).sort(), ["topicDigest", "topicId"]);
+    for (const reference of unit.topics) assert.deepEqual(Object.keys(reference).sort(), ["obligationScope", "topicDigest", "topicId"]);
   }
 
   // And the question 57B-453 could not answer: which evidence grounds THIS obligation. Answered through the
@@ -134,6 +135,38 @@ test("the same inputs produce the same plan bytes, twice", async () => {
 });
 
 // --- ③ the reader re-derives -------------------------------------------------------------------------
+
+test("a plan recorded under an earlier schema is a NAMED refusal that says re-plan, never a cross-schema read", async () => {
+  const { runDir, catalog } = await planned();
+  const recorded = JSON.parse(await readFile(planCatalogPath(runDir), "utf8")) as PlanCatalogArtifact;
+
+  // R5b bumps three schemas at once — the proposal (topic references carry an obligation scope), the plan catalog
+  // (so does the recorded reference, and the measured `inputBytes` field is gone) and the budget (two output
+  // numbers). A v1 plan therefore fails on each, and every message says what to do rather than only what is wrong.
+  const asV1 = { ...recorded, version: "plan-catalog-v1", proposalVersion: "plan-proposal-v1" };
+  const problems = planCatalogProblems(asV1, catalog);
+  assert.ok(problems.some((problem) => /^version "plan-catalog-v1" is not plan-catalog-v2; this plan was recorded under an earlier schema and no cross-schema read exists — re-plan this run$/.test(problem)), problems.join(" | "));
+  assert.ok(problems.some((problem) => /^proposalVersion "plan-proposal-v1" is not plan-proposal-v2; the proposal schema this plan was validated against is superseded — re-plan this run$/.test(problem)), problems.join(" | "));
+
+  // And a v1 BUDGET echo — the two output numbers absent — is named field by field rather than defaulted.
+  const v1Budget = {
+    ...recorded,
+    budget: {
+      version: "plan-budget-v1",
+      documents: recorded.budget.documents.map((row) => ({
+        documentId: row.documentId, detailBudget: row.detailBudget,
+        perUnitInputBytes: row.perUnitInputBytes, totalInputBytes: row.totalInputBytes
+      }))
+    }
+  };
+  const budgetProblems = planCatalogProblems(v1Budget, catalog);
+  assert.ok(budgetProblems.some((problem) => /budget documents\[0\] is missing field "perUnitOutputBytes"/.test(problem)), budgetProblems.join(" | "));
+  assert.ok(budgetProblems.some((problem) => /budget documents\[0\] is missing field "perUnitSummaryBytes"/.test(problem)), budgetProblems.join(" | "));
+
+  // Through the gate, the same refusal reaches the operator by name.
+  await writeFile(planCatalogPath(runDir), `${stableJson(asV1)}\n`);
+  await assert.rejects(() => readPlanCatalog(runDir, catalog), /re-plan this run/);
+});
 
 test("a hand-edited obligation accounting, disposition or topic digest fails by name at the file boundary", async () => {
   const { runDir, catalog } = await planned();
@@ -215,13 +248,14 @@ test("the authoring order puts every child before its parent, and the roots are 
 });
 
 test("a plan whose validation found violations cannot be recorded at all", async () => {
-  const { runDir, catalog, requests } = await miniRun();
+  const run = await miniRun();
+  const { runDir, catalog, requests } = run;
   void runDir;
   const proposal = buildFixturePlan(catalog, requests, PLAN_BUDGET_TABLE);
   const broken = { ...proposal, units: proposal.units.filter((unit) => unit.documentId !== "overview-product") };
-  const report = validatePlan({ catalog, requests, proposal: broken, registry: REPORT_POLICY_REGISTRY, budgetTable: PLAN_BUDGET_TABLE });
+  const report = validatePlan({ catalog, requests, proposal: broken, registry: REPORT_POLICY_REGISTRY, budgetTable: PLAN_BUDGET_TABLE, evidence: run.evidenceById, reach: run.reach });
   assert.throws(
-    () => buildPlanArtifacts({ catalog, requests, proposal: broken, report }),
+    () => buildPlanArtifacts({ catalog, requests, proposal: broken, budgetTable: PLAN_BUDGET_TABLE, verdict: report.overall }),
     /The plan cannot be recorded: validation found 1 problem\(s\)/
   );
 });

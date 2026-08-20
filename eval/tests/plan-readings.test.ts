@@ -79,6 +79,24 @@ test("every checked-in plan reading is internally consistent", async () => {
       assert.ok(document.units >= 2, `${target}: a document has at least an appendix and a root`);
     }
 
+    // R5b: every unit's MEASURED packet fits its per-unit bound, and the ladder's work is recorded.
+    assert.deepEqual([...row.overBudgetUnitIds], [], `${target}: after the budget refinement no unit is over its own bound`);
+    assert.equal(row.unitBytes.length, row.units, `${target}: every unit is measured, none skipped`);
+    for (const unit of row.unitBytes) {
+      assert.ok(["rendered", "bounded"].includes(unit.costState), `${target}: ${unit.unitId} cost state ${unit.costState}`);
+      assert.equal(unit.overBy, 0, `${target}: ${unit.unitId} is ${unit.bytes} bytes against a ${unit.byteLimit}-byte bound`);
+      assert.ok(unit.bytes <= unit.byteLimit, `${target}: ${unit.unitId}`);
+    }
+    assert.equal(row.unitBytes.reduce((total, unit) => total + unit.bytes, 0),
+      row.documents.reduce((total, document) => total + document.inputBytes, 0),
+      `${target}: the per-document measured bytes are the per-unit ones, summed`);
+    assert.ok(row.refinementPasses >= 1, `${target}: the refinement always takes at least one measurement pass`);
+    for (const division of row.divisions) {
+      assert.ok(["facet", "topic", "dimension", "items"].includes(division.level), `${target}: ${division.level} is not a ladder rung`);
+      assert.ok(division.partUnitIds.length >= 2, `${target}: a division makes at least two parts, or it is not a division`);
+      assert.ok(division.measuredBytes > division.byteLimit, `${target}: only an over-budget unit is divided`);
+    }
+
     // R5a's ownership, per document: the counts conserve and no obligation is left owner-less.
     assert.deepEqual(row.ownership.map((entry) => entry.documentId), row.documents.map((document) => document.documentId),
       `${target}: one ownership row per document, in the same order`);
@@ -134,22 +152,42 @@ test("the wcp reading records 847 material obligations, all of them in units, an
   assert.equal(row.packetBytes, 394778);
   assert.equal(row.packetByteLimit, 524288);
   assert.deepEqual(row.packetLimitations, []);
+  // R5b: the four feature leaves were each divided into six parts, so 12 leaves became 32 and 20 units became 40.
   assert.deepEqual(row.unitsByKind, [
     { kind: "appendix", units: 4 },
     { kind: "bridge", units: 0 },
-    { kind: "leaf", units: 12 },
+    { kind: "leaf", units: 32 },
     { kind: "synthesis", units: 4 }
   ]);
+  assert.equal(row.units, 40);
+  assert.equal(row.refinementPasses, 5, "four rounds of division and a fifth pass that found nothing left over budget");
+  assert.equal(row.divisions.length, 20, "five divisions per document, four documents");
 
-  // R5a: all 847 obligations of each document are owned by its FEATURE leaf, and by nothing else. Before ownership
-  // the same 847 were owed by the feature leaf AND the work-item-dimension leaf, and 164 of them by the coverage
-  // leaf as well — 1,858 owed instances per document against 847 distinct.
+  // The ladder, on a real corpus: every rung above `facet` fires, and `facet` does not — the feature leaf names one
+  // facet, so there is nothing to divide there, and the epic's sketch of "flow/state branch" and "entity cluster"
+  // has no structure in this catalog to correspond to. `items` is the floor above a single obligation.
+  const levels = new Map<string, number>();
+  for (const division of row.divisions) levels.set(division.level, (levels.get(division.level) ?? 0) + 1);
+  assert.deepEqual([...levels.entries()].sort(), [["dimension", 12], ["items", 4], ["topic", 4]]);
+
+  // Every unit is inside its own bound after the division, and each document's measured total is inside its own.
+  assert.deepEqual([...row.overBudgetUnitIds], [], "the residual R5a left at four over-budget feature leaves is zero");
+  for (const document of row.documents) {
+    assert.equal(document.units, 10);
+    assert.ok(document.inputBytes > 3_000_000 && document.inputBytes <= 3_145_728,
+      `${document.documentId}: ${document.inputBytes} measured bytes against the standard 3,145,728-byte document total`);
+  }
+
+  // R5a's ownership survives the division verbatim: 847 obligations per document, owned exactly once, now spread
+  // across the five feature parts that hold material obligations rather than concentrated in one leaf.
   assert.equal(row.ownership.length, 4);
   for (const entry of row.ownership) {
     assert.equal(entry.reachedObligations, 847, entry.documentId);
-    assert.deepEqual(entry.ownedByUnit.filter((unit) => unit.owned > 0).map((unit) => [unit.unitId, unit.owned]),
-      [[`${entry.documentId}::leaf::feature`, 847]], entry.documentId);
-    assert.equal(entry.ownedByUnit.length, 5, `${entry.documentId}: three leaves, an appendix and the synthesis root`);
+    assert.deepEqual(entry.ownedByUnit.filter((unit) => unit.owned > 0).map((unit) => unit.owned).sort((a, b) => a - b),
+      [24, 24, 254, 271, 274], entry.documentId);
+    assert.equal(entry.ownedByUnit.filter((unit) => unit.owned > 0).reduce((total, unit) => total + unit.owned, 0), 847,
+      `${entry.documentId}: the scoped parts own between them exactly what the undivided leaf owned`);
+    assert.equal(entry.ownedByUnit.length, 10, `${entry.documentId}: eight leaves, an appendix and the synthesis root`);
   }
 });
 
@@ -171,6 +209,11 @@ test("the cebreo reading is the zero-feature shape: vacuous, no forged feature u
   ]);
   assert.equal(row.documents.length, 1);
   assert.equal(row.documents[0]!.units, 2);
+  // R5b's second-shape check: nothing here is over budget, so the division never fires and the pre-check is an
+  // identity. One measurement pass, no division, the appendix far inside its bound.
+  assert.equal(row.refinementPasses, 1);
+  assert.deepEqual([...row.divisions], []);
+  assert.deepEqual([...row.overBudgetUnitIds], []);
 
   // Ownership on the zero-material arm: reachable is empty, so every unit owns zero — and the row exists, which is
   // the difference between "nothing was material" and "nobody asked".

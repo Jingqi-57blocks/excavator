@@ -36,6 +36,8 @@ import {
   validateUnitClaims,
   type UnitChildSummaryDigest
 } from "./unit-output.ts";
+import { documentBudgetRow } from "./plan-budget.ts";
+import { measureUnitOutput, unitOutputBudgetProblems } from "./unit-output-budget.ts";
 import { compareUnitIds, unitPaths, type UnitPaths } from "./unit-paths.ts";
 import { assertPlanEpoch, loadUnitPlanView, planUnit, requireKnowledgeEpoch } from "./unit-plan-view.ts";
 import { UNIT_RECEIPT_VERSION, type UnitDraftReceipt } from "./unit-receipt.ts";
@@ -92,6 +94,18 @@ export async function draftUnit(runDirInput: string, input: UnitDraftInput): Pro
   });
   if (disagreements.length > 0) {
     throw new Error(`The summary for unit ${JSON.stringify(unit.unitId)} disagrees with this run: ${disagreements.join("; ")}`);
+  }
+
+  // The OUTPUT budget, checked before anything is written and against the plan's own row for this document — the
+  // one authority for all four numbers. Over-budget is a named refusal that says "write more tightly"; Core never
+  // deletes content to make a unit fit.
+  const outputProblems = unitOutputBudgetProblems(
+    unit.unitId,
+    documentBudgetRow(view.planCatalog.budget, unit.documentId),
+    measureUnitOutput(normalized, claims, parsed.summary)
+  );
+  if (outputProblems.length > 0) {
+    throw new Error(`Unit ${JSON.stringify(unit.unitId)} is over its declared output budget: ${outputProblems.join("; ")}`);
   }
 
   const revision = await archiveUnitRevision(paths);

@@ -262,3 +262,35 @@ export function parseTopicDisposition(value: unknown): TopicDispositionParse {
     problems: []
   };
 }
+
+/**
+ * The disposition rows of one proposal, parsed once: ascending by topic id, and indexed.
+ *
+ * ONE SPELLING, THREE READERS. Plan validation needs the parsed rows to hand to the obligation accounting, and
+ * `plan-artifacts.ts` needs the same rows to record and to RE-DERIVE the accounting on read. Two loops over the
+ * same untrusted array would be two answers to "which dispositions did this plan actually state", and the recorded
+ * artifact would then be checked against a set the validator never saw.
+ *
+ * A row that fails to parse is simply ABSENT — deliberately. From the obligation's point of view "the plan said
+ * something unreadable about my topic" and "the plan said nothing" are one fact, and both are violations one level
+ * up; `validateTopicDispositions` is what reports the parse failure itself. A repeated topic id keeps the FIRST
+ * row, so the index is a function of the input order rather than of which loop happened to win.
+ */
+export interface ParsedDispositionIndex {
+  /** Ascending by topic id. */
+  readonly rows: readonly TopicDisposition[];
+  readonly byTopic: ReadonlyMap<string, TopicDisposition>;
+}
+
+export function parsedDispositionIndex(value: unknown): ParsedDispositionIndex {
+  const byTopic = new Map<string, TopicDisposition>();
+  if (Array.isArray(value)) {
+    for (const row of value as readonly unknown[]) {
+      const parsed = parseTopicDisposition(row);
+      if (parsed.disposition === null) continue;
+      if (byTopic.has(parsed.disposition.topicId)) continue;
+      byTopic.set(parsed.disposition.topicId, parsed.disposition);
+    }
+  }
+  return { rows: [...byTopic.values()].sort((a, b) => a.topicId.localeCompare(b.topicId)), byTopic };
+}

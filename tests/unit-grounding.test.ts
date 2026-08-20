@@ -409,7 +409,7 @@ function synthetic(status: WorkItemStatus, overrides: Partial<InvestigationWorkI
     origin: "default",
     ...overrides
   };
-  const unit: PlanCatalogUnit = { unitId: "doc::leaf::x", documentId: "doc", kind: "leaf", title: "x", topics: [{ topicId: "T-topic", topicDigest: "0".repeat(64) }], childUnitIds: [] };
+  const unit: PlanCatalogUnit = { unitId: "doc::leaf::x", documentId: "doc", kind: "leaf", title: "x", topics: [{ topicId: "T-topic", topicDigest: "0".repeat(64), obligationScope: { kind: "all" } }], childUnitIds: [] };
   return {
     unit,
     obligations: [{
@@ -453,7 +453,6 @@ function syntheticOwnership(documentId: string, rows: readonly (readonly [string
     obligations: owners,
     ownerByObligation: new Map(owners.map((row) => [row.workItemId, row])),
     ownedByUnit,
-    unowned: [],
-    duplicateOwningTopics: []
+    unowned: []
   };
 }

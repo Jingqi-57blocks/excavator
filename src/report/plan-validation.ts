@@ -7,19 +7,30 @@
  * obligation accounting is computed from the catalog's own bindings. A proposal cannot widen a denominator, raise
  * a budget or declare its own coverage, because none of those numbers are read off it.
  *
- * WHAT IT CHECKS, in the epic's own words plus the one this slice adds:
+ * WHAT IT CHECKS, in the epic's own words plus the ones R5a and R5b add:
  *   * every material topic carries exactly one of six dispositions (R2's validator, reused whole — not restated);
  *   * every topic a unit names exists in the catalog, and every child a synthesis names exists among the units;
  *   * the unit graph is acyclic, and each document has exactly one root;
  *   * every unit belongs to a requested document, and every requested document has at least one unit;
- *   * every unit's topic dossier fits its document's budget, and the document's units fit its total;
  *   * the lens policy a plan invokes to omit something is a lens some request in this plan actually reads under;
  *   * GATE 1b's reading: where each material OBLIGATION goes, with the ones a waiving disposition removed
  *     listed by id (`plan-obligation-conservation.ts`);
- *   * and R5a's ownership: within one document a material topic has at most one OWNING unit, and every material
- *     obligation the document reaches has exactly one owner unit. Derived from the catalog's bindings and the
- *     units' kinds by the same file that owns gate 1b's denominator — never read off the proposal, which carries
- *     no ownership field at all (the planner's choice of unit composition already decides it).
+ *   * R5a's ownership: within one document every material obligation has exactly one owner unit. Derived from the
+ *     catalog's bindings and the units' kinds by the same file that owns gate 1b's denominator — never read off the
+ *     proposal, which carries no ownership field at all;
+ *   * R5b's PARTITION LAW: the obligation scopes of one topic's owning units cover its bindings exactly — no id
+ *     missed, none covered twice, none named that the topic does not bind (`obligation-scope.ts`). This is the
+ *     anti-truncation tripwire: a division that lost a row fails here rather than fitting quietly;
+ *   * and R5b's BYTES, measured rather than estimated: every unit's packet is rendered by the same function the
+ *     author reads from (`plan-packet-measure.ts`) and compared to its document's per-unit allowance, with a
+ *     synthesis bounded by its child count times the declared summary allowance. R4b measured a proxy here — the
+ *     canonical bytes of a unit's topic rows — and was out by 9x on the wcp baseline.
+ *
+ * THE BYTES ARE A THREE-STATE READING, NOT A SILENT SKIP. Measuring a packet means rendering one, and rendering
+ * one is only meaningful over a plan whose references, ownership and scopes already hold — otherwise the renderer
+ * would throw on the first broken row instead of this file returning a list of named problems. So `packets` is a
+ * union: `measured` carries the per-unit rows, `not-measured` carries WHY it could not be taken. An unmeasured plan
+ * always has problems, so it can never read as "every packet fits"; the empty set is never read as complete.
  *
  * THREE CONCLUSIONS, NOT A BOOLEAN. `complete` / `vacuous` / `violations`, reusing R2's `TopicDispositionVerdict`
  * shape verbatim — the same type, so a consumer that learned to read one reads the other, and so `vacuous` (an
@@ -32,18 +43,28 @@
  */
 
 import { assertNever } from "../base/artifact-result.ts";
+import type { EvidenceItem } from "../base/types.ts";
 import { stableJson } from "../base/util.ts";
-import { planBudgetFor, unitInputBytes, type PlanBudget, type PlanBudgetTable, type PlanDocumentBudget } from "./plan-budget.ts";
+import { planBudgetFor, type PlanBudget, type PlanBudgetTable, type PlanDocumentBudget } from "./plan-budget.ts";
+import {
+  measurePlanPackets,
+  packetMeasurementProblems,
+  type PlanPacketMeasurement,
+  type UnitPacketMeasureInputs
+} from "./plan-packet-measure.ts";
+import { scopePartitionProblems, type ScopePartitionUnit } from "./obligation-scope.ts";
 import {
   accountPlanObligations,
   deriveObligationOwnership,
   obligationAccountingProblems,
   ownershipProblems,
   ownershipUnitsOfProposal,
+  unitTopicRole,
   type ObligationOwnershipIndex,
   type PlanObligationAccounting
 } from "./plan-obligation-conservation.ts";
-import { unitChildIds, unitTopicIds, type PlanProposal, type ProposedUnit } from "./plan-proposal.ts";
+import { unitChildIds, unitTopicIds, unitTopics, type PlanProposal } from "./plan-proposal.ts";
+import { documentRootUnitIds, unitDagOrder } from "./unit-dag-order.ts";
 import {
   intentPolicyFor,
   lensPolicyFor,
@@ -51,18 +72,19 @@ import {
   type ReportPolicyRegistry
 } from "./report-policy-registry.ts";
 import type { ReportRequestsArtifact } from "./report-requests-artifact.ts";
-import { TOPIC_FACETS, type TopicCandidate, type TopicFacet } from "./topic-candidate.ts";
+import { TOPIC_FACETS, type TopicFacet } from "./topic-candidate.ts";
 import { materialTopics, type TopicCatalogArtifact } from "./topic-catalog.ts";
 import {
-  parseTopicDisposition,
+  parsedDispositionIndex,
   summariseVerdict,
   validateTopicDispositions,
   type TopicDisposition,
   type TopicDispositionReport,
   type TopicDispositionVerdict
 } from "./topic-disposition.ts";
+import type { RunEvidenceReach } from "./unit-packet.ts";
 
-export const PLAN_VALIDATION_VERSION = "plan-validation-v1";
+export const PLAN_VALIDATION_VERSION = "plan-validation-v2";
 
 /** Every input required, none defaulted: a validation that silently used the live registry is one nobody chose. */
 export interface PlanValidationInput {
@@ -71,6 +93,17 @@ export interface PlanValidationInput {
   readonly proposal: PlanProposal;
   readonly registry: ReportPolicyRegistry;
   readonly budgetTable: PlanBudgetTable;
+  /**
+   * The frozen evidence records, BY VALUE and keyed by id — required.
+   *
+   * The budget check renders each unit's packet to measure it, and a packet renders the evidence its obligations
+   * bind. R4b avoided the parameter by measuring topic rows instead, and that is exactly the 9x error this slice
+   * removes. Values rather than a path, the same shape the renderer takes, so a validation can run over an archival
+   * run that must not be written to.
+   */
+  readonly evidence: ReadonlyMap<string, EvidenceItem>;
+  /** Mechanism A's three numbers, from `evidenceReachOf`. The packet prints them, so the measure needs them. */
+  readonly reach: RunEvidenceReach;
 }
 
 export interface PlanDocumentReading {
@@ -78,8 +111,28 @@ export interface PlanDocumentReading {
   /** Every unit no other unit in this document names as a child, ascending. Exactly one, or a named problem. */
   readonly rootUnitIds: readonly string[];
   readonly units: number;
-  readonly inputBytes: number;
   readonly budget: PlanDocumentBudget;
+}
+
+/**
+ * What the plan's packets cost, or why that could not be measured. Two arms, exhaustive, no default.
+ *
+ * `not-measured` carries the reason, and it only ever happens on a plan that already has problems — so a reader
+ * cannot mistake "not measured" for "measured and fine". The empty set is not read as complete anywhere here.
+ */
+export type PlanPacketReading =
+  | { readonly state: "measured"; readonly measurement: PlanPacketMeasurement }
+  | { readonly state: "not-measured"; readonly reason: string };
+
+/** The measured bytes of one document, or `null` when nothing was measured. Exhaustive over the two arms. */
+export function measuredDocumentBytes(reading: PlanPacketReading, documentId: string): number | null {
+  switch (reading.state) {
+    case "measured":
+      return reading.measurement.documents.find((row) => row.documentId === documentId)?.bytes ?? null;
+    case "not-measured":
+      return null;
+  }
+  return assertNever(reading, "plan packet reading state");
 }
 
 export interface PlanValidationReport {
@@ -100,65 +153,10 @@ export interface PlanValidationReport {
   readonly authoringOrder: readonly string[];
   /** The re-derived budget. The proposal's echo is compared against this, never trusted in its place. */
   readonly budget: PlanBudget;
+  /** R5b's measurement, or the named reason it could not be taken. */
+  readonly packets: PlanPacketReading;
   /** Plan-level problems (the disposition ones live in the verdicts). */
   readonly problems: readonly string[];
-}
-
-export type UnitDagOrder =
-  | { readonly state: "acyclic"; readonly order: readonly string[] }
-  | { readonly state: "cyclic"; readonly cycle: readonly string[] };
-
-/**
- * The authoring order, or the cycle that stops one existing.
- *
- * Children before parents, ascending by unit id among the ready ones, so the order is a pure function of the unit
- * set. A child id no unit declares is IGNORED here — it is already a named reference problem, and treating it as
- * an unsatisfiable dependency would report a phantom cycle instead.
- */
-export function unitDagOrder(units: readonly ProposedUnit[]): UnitDagOrder {
-  const byId = new Map(units.map((unit) => [unit.unitId, unit]));
-  const childrenOf = (unit: ProposedUnit): string[] => unitChildIds(unit).filter((id) => byId.has(id) && id !== unit.unitId);
-  const emitted = new Set<string>();
-  const order: string[] = [];
-  const remaining = [...byId.keys()].sort((a, b) => a.localeCompare(b));
-  let progress = true;
-  while (progress) {
-    progress = false;
-    for (const unitId of remaining) {
-      if (emitted.has(unitId)) continue;
-      if (!childrenOf(byId.get(unitId)!).every((child) => emitted.has(child))) continue;
-      emitted.add(unitId);
-      order.push(unitId);
-      progress = true;
-    }
-  }
-  if (emitted.size === byId.size) return { state: "acyclic", order };
-  return { state: "cyclic", cycle: findCycle(byId, childrenOf) ?? remaining.filter((id) => !emitted.has(id)) };
-}
-
-/** One concrete cycle, so the failure names a path a reader can follow instead of a set of suspects. */
-function findCycle(byId: ReadonlyMap<string, ProposedUnit>, childrenOf: (unit: ProposedUnit) => string[]): string[] | null {
-  const state = new Map<string, "open" | "closed">();
-  const stack: string[] = [];
-  const walk = (unitId: string): string[] | null => {
-    const seen = state.get(unitId);
-    if (seen === "closed") return null;
-    if (seen === "open") return [...stack.slice(stack.indexOf(unitId)), unitId];
-    state.set(unitId, "open");
-    stack.push(unitId);
-    for (const child of childrenOf(byId.get(unitId)!)) {
-      const cycle = walk(child);
-      if (cycle) return cycle;
-    }
-    stack.pop();
-    state.set(unitId, "closed");
-    return null;
-  };
-  for (const unitId of [...byId.keys()].sort((a, b) => a.localeCompare(b))) {
-    const cycle = walk(unitId);
-    if (cycle) return cycle;
-  }
-  return null;
 }
 
 /** Validate one proposal against one catalog and one recorded request set. Writes nothing; returns everything. */
@@ -215,7 +213,7 @@ export function validatePlan(input: PlanValidationInput): PlanValidationReport {
     problems.push(`the unit graph has a cycle: ${dag.cycle.join(" -> ")}; a synthesis cannot depend on a unit that depends on it`);
   }
 
-  // --- one root per document, and the per-document budget.
+  // --- one root per document, and the budget the requests derive.
   const budget = planBudgetFor(requests, budgetTable);
   const budgetByDocument = new Map(budget.documents.map((row) => [row.documentId, row]));
   if (stableJson(proposal.budget) !== stableJson(budget)) {
@@ -224,25 +222,11 @@ export function validatePlan(input: PlanValidationInput): PlanValidationReport {
   const documents: PlanDocumentReading[] = [];
   for (const documentId of [...requestedIds].sort()) {
     const units = proposal.units.filter((unit) => unit.documentId === documentId);
-    const named = new Set(units.flatMap((unit) => unitChildIds(unit)));
-    const rootUnitIds = units.map((unit) => unit.unitId).filter((unitId) => !named.has(unitId)).sort((a, b) => a.localeCompare(b));
-    const documentBudget = budgetByDocument.get(documentId)!;
-    let inputBytes = 0;
-    for (const unit of units) {
-      const topics = unitTopicIds(unit).map((topicId) => topicsById.get(topicId)).filter((topic): topic is TopicCandidate => topic !== undefined);
-      const bytes = unitInputBytes(topics);
-      inputBytes += bytes;
-      if (bytes > documentBudget.perUnitInputBytes) {
-        problems.push(`unit ${JSON.stringify(unit.unitId)} would be handed ${bytes} bytes of topic dossier over the ${documentBudget.detailBudget} per-unit budget of ${documentBudget.perUnitInputBytes} (topics: ${unitTopicIds(unit).join(", ")}); the plan is not satisfiable at this granularity and nothing here truncates it`);
-      }
-    }
+    const rootUnitIds = documentRootUnitIds(proposal.units, documentId);
     if (units.length > 0 && rootUnitIds.length !== 1) {
       problems.push(`document ${JSON.stringify(documentId)} has ${rootUnitIds.length} root unit(s) (${rootUnitIds.join(", ") || "none"}); a document assembles from exactly one root`);
     }
-    if (inputBytes > documentBudget.totalInputBytes) {
-      problems.push(`document ${JSON.stringify(documentId)} would read ${inputBytes} bytes of topic dossier over its ${documentBudget.detailBudget} total budget of ${documentBudget.totalInputBytes}`);
-    }
-    documents.push({ documentId, rootUnitIds, units: units.length, inputBytes, budget: documentBudget });
+    documents.push({ documentId, rootUnitIds, units: units.length, budget: budgetByDocument.get(documentId)! });
   }
 
   // --- the policies. A recorded reference that no longer matches the live registry means the request was
@@ -262,20 +246,11 @@ export function validatePlan(input: PlanValidationInput): PlanValidationReport {
   }
 
   // --- the dispositions: R2's validator owns the six-state rules; this file owns what the PLAN then does with
-  // the rows. Parsed once here so the obligation accounting sees exactly the rows that validator judged.
+  // the rows. Parsed once, by the one index `plan-artifacts.ts` re-derives from, so the recorded accounting is
+  // checked against exactly the rows this validation judged.
   const dispositionReport = validateTopicDispositions(catalog, proposal.dispositions, registry);
-  const parsedRows: TopicDisposition[] = [];
-  const byTopic = new Map<string, TopicDisposition>();
-  if (Array.isArray(proposal.dispositions)) {
-    for (const row of proposal.dispositions) {
-      const parsed = parseTopicDisposition(row);
-      if (parsed.disposition === null) continue;
-      if (byTopic.has(parsed.disposition.topicId)) continue;
-      byTopic.set(parsed.disposition.topicId, parsed.disposition);
-      parsedRows.push(parsed.disposition);
-    }
-  }
-  for (const disposition of parsedRows) {
+  const dispositions = parsedDispositionIndex(proposal.dispositions);
+  for (const disposition of dispositions.rows) {
     if (disposition.state !== "omitted-for-audience") continue;
     if (!planLensIds.has(disposition.lensPolicyId)) {
       problems.push(`topic ${JSON.stringify(disposition.topicId)} is omitted for lens policy ${JSON.stringify(disposition.lensPolicyId)}, which no document in this plan is written under (this plan's lenses: ${[...planLensIds].sort().join(", ") || "none"})`);
@@ -287,13 +262,25 @@ export function validatePlan(input: PlanValidationInput): PlanValidationReport {
   if (catalog.obligationAccounting.unassigned > 0) {
     problems.push(`the catalog leaves ${catalog.obligationAccounting.unassigned} obligation(s) bound to no topic (${catalog.obligationAccounting.unassignedWorkItemIds.join(", ")}); no plan can dispose of an obligation no topic carries`);
   }
-  const obligations = accountPlanObligations(catalog, proposal.units, byTopic);
+  const obligations = accountPlanObligations(catalog, proposal.units, dispositions.byTopic);
   problems.push(...obligationAccountingProblems(obligations));
 
-  // --- R5a's ownership. Derived from the catalog's bindings and the units' kinds, and asserted at the document
-  // level: every material obligation a document reaches is owned by exactly one of its units. Both violations are
-  // named rather than counted — two owning units for one topic would both ground the same obligations in full, and
-  // an obligation only bridges reach is one nothing in the document grounds.
+  // --- R5b's partition law, checked BEFORE ownership is read: a topic whose owning units do not partition its
+  // bindings has an obligation that either nobody writes or two units write, and the ownership derivation below
+  // would then report a plausible-looking owner for a plan that is broken. Both are named here, by id.
+  const bindingIdsByTopic = new Map(catalog.topics.map((topic) => [topic.topicId, topic.bindings.map((binding) => binding.workItemId)]));
+  const partitionUnits: ScopePartitionUnit[] = proposal.units
+    .filter((unit) => unitTopicRole(unit.kind) !== "topic-free")
+    .map((unit) => ({
+      unitId: unit.unitId,
+      documentId: unit.documentId,
+      owning: unitTopicRole(unit.kind) === "owning",
+      topics: unitTopics(unit)
+    }));
+  problems.push(...scopePartitionProblems(bindingIdsByTopic, partitionUnits));
+
+  // --- R5a's ownership. Derived from the catalog's bindings, the units' kinds and their scopes, and asserted at
+  // the document level: every material obligation a document reaches is owned by exactly one of its units.
   const ownership = deriveObligationOwnership(catalog, ownershipUnitsOfProposal(proposal.units));
   problems.push(...ownershipProblems(ownership));
   for (const document of ownership.documents) {
@@ -303,19 +290,63 @@ export function validatePlan(input: PlanValidationInput): PlanValidationReport {
     }
   }
 
-  parsedRows.sort((a, b) => a.topicId.localeCompare(b.topicId));
+  // --- R5b's bytes. Measured LAST and only over a plan whose structure already holds: the measure renders every
+  // packet, and a renderer handed a plan with an unknown topic or an unowned obligation refuses by name rather than
+  // returning a number. `not-measured` therefore always sits beside problems, never alone.
+  const packets = measurePackets(input, problems);
+  switch (packets.state) {
+    case "measured":
+      problems.push(...packetMeasurementProblems(packets.measurement));
+      break;
+    case "not-measured":
+      break;
+  }
+
   return {
     version: PLAN_VALIDATION_VERSION,
     overall: overallVerdict(catalog, dispositionReport, problems),
     facets: dispositionReport.facets.map((row) => ({ facet: row.facet, verdict: row.verdict })),
-    dispositions: parsedRows,
+    dispositions: dispositions.rows,
     obligations,
     ownership,
     documents,
     authoringOrder: dag.state === "acyclic" ? dag.order : [],
     budget,
+    packets,
     problems
   };
+}
+
+/**
+ * Take the measurement, or say why not.
+ *
+ * Two reasons it is not taken, and both are stated rather than silent: the plan already has problems (so the
+ * renderer would throw on one of them instead of this file returning a list), or the measurement itself refused —
+ * which means the plan is internally inconsistent in a way the checks above did not name, and THAT is worth saying
+ * in the reason rather than crashing a validation whose contract is to return data.
+ */
+function measurePackets(input: PlanValidationInput, problems: string[]): PlanPacketReading {
+  if (problems.length > 0) {
+    return {
+      state: "not-measured",
+      reason: `this plan has ${problems.length} problem(s) that must be fixed before its packets can be rendered, so no byte measurement was taken: ${problems.join("; ")}`
+    };
+  }
+  const measureInputs: UnitPacketMeasureInputs = {
+    catalog: input.catalog,
+    requests: input.requests,
+    registry: input.registry,
+    budgetTable: input.budgetTable,
+    evidence: input.evidence,
+    reach: input.reach
+  };
+  try {
+    return { state: "measured", measurement: measurePlanPackets(measureInputs, input.proposal) };
+  } catch (error) {
+    const reason = `the packets of this plan could not be rendered, so no byte measurement was taken: ${(error as Error).message}`;
+    problems.push(reason);
+    return { state: "not-measured", reason };
+  }
 }
 
 /**

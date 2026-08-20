@@ -168,7 +168,7 @@ export async function planWithLeaf(runDir: string, workdir: string, facet: strin
   const units: ProposedUnit[] = base.units.map((unit) => unit.kind === "synthesis" && unit.documentId === documentId
     ? { ...unit, childUnitIds: [...unit.childUnitIds, leafId].sort((a, b) => a.localeCompare(b)) }
     : unit);
-  units.push({ kind: "leaf", unitId: leafId, documentId, title: `${facet} topics`, topicIds });
+  units.push({ kind: "leaf", unitId: leafId, documentId, title: `${facet} topics`, topics: topicIds.map((topicId) => ({ topicId, obligationScope: { kind: "all" as const } })) });
   const proposal: PlanProposal = { ...base, units: units.sort((a, b) => a.unitId.localeCompare(b.unitId)) };
   const path = join(workdir, "proposal-leaf.json");
   await writeFile(path, `${stableJson(proposal)}\n`);

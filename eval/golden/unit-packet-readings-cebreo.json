@@ -1,6 +1,16 @@
 {
   "absentBindings": [],
   "boundEvidenceIds": 35,
+  "divisions": [],
+  "documents": [
+    {
+      "documentId": "overview-product",
+      "measuredBytes": 39285,
+      "renderedBytes": 24767,
+      "totalInputBytes": 3145728,
+      "units": 2
+    }
+  ],
   "evidenceAbsent": 0,
   "evidenceRequired": 0,
   "frozenEvidenceIds": 62,
@@ -63,6 +73,7 @@
   "obligationsOwedByMoreThanOneUnit": 0,
   "obligationSummary": "0 material obligation(s): 0 in units, 0 waived (cannot-determine=0, not-applicable=0, omitted-for-audience=0), 0 claimed but unplaced, 0 undispositioned",
   "openOriginExemptObligations": [],
+  "overBudgetUnits": 0,
   "ownerEvidenceRequired": 0,
   "ownership": [
     {
@@ -82,7 +93,7 @@
       "unownedObligationIds": []
     }
   ],
-  "planCatalogDigest": "1b4bd3ecc8884f64ec073fca17cf29314345c7f37f699708dfed92344b7a07fd",
+  "planCatalogDigest": "16793e4b7a497d79f2018d49177f9388f9583cb8b95cabe944f79e6ec3eade25",
   "readPaths": [
     "context/boundary-functions.json",
     "contract/run-intent.json",
@@ -96,6 +107,7 @@
     "run.json",
     "workitems.json"
   ],
+  "refinementPasses": 1,
   "rendered": [
     {
       "documentId": "overview-product",
@@ -105,12 +117,15 @@
       "openOriginExempt": 0,
       "ownedMaterial": 0,
       "packetByteLimit": 786432,
-      "packetBytes": 23589,
-      "packetDigest": "32c2ff503c8ba111fd66881c30d6a2076e1f1d0ebf507a21ce4602a1db27cfea",
+      "packetBytes": 24767,
+      "packetDigest": "dea3310e239195bf9f7fcdfff336b7a55c89928abb1836c45e88807f9fcf3104",
       "packetLimitations": [],
+      "precheckBytes": 24767,
       "reachableMaterial": 0,
       "renderedEvidenceIds": 3,
       "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 0,
+      "scopeExcludedObligations": 0,
       "stubObligations": 0,
       "topics": 2,
       "unitId": "overview-product::appendix::coverage"

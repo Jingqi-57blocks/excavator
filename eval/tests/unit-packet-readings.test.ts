@@ -1,4 +1,4 @@
-// Unit packet readings of the two R0 baselines (57B-434 R4b, narrowed to the owner by R5a).
+// Unit packet readings of the two R0 baselines (57B-434 R4b, narrowed to the owner by R5a, divided by R5b).
 //
 // `eval/golden/unit-packet-readings-{wcp,cebreo}.json` are produced by
 // `npm run eval -- unit-packet-readings --run <dir> --out <file>` against the archival run directories (which are
@@ -20,7 +20,12 @@
 //   * gate 1b's four buckets conserve and are READ from the plan, and the open-origin exemption is visible (wcp: 0);
 //   * a synthesis unit is NAMED as unrenderable on an archival run, never silently absent from the census;
 //   * cebreo's zero-material shape reads as itself: no leaf, an appendix that still renders, and `ledger-absent`
-//     and `ledger-empty` kept as two different sentences.
+//     and `ledger-empty` kept as two different sentences;
+//   * R5b's SAME-SOURCE TRIPWIRE: per unit, the plan's budget pre-check (`precheckBytes`) equals the rendered
+//     packet (`packetBytes`) exactly. R4b's pre-check was a PROXY over canonical topic rows and was out by about
+//     9x, silently, because nothing put the two numbers next to each other;
+//   * R5b's acceptance: zero units over their per-unit input bound (four before, all of them feature leaves), and
+//     every document's measured total inside its own document budget — with the division's own overhead in it.
 //
 // A hand-edited number in either file breaks one of those identities.
 
@@ -62,9 +67,15 @@ test("every checked-in unit packet reading is internally consistent", async () =
       assert.ok(unit.materialObligations <= unit.obligations, `${target}: ${unit.unitId} material obligations are a subset`);
       assert.ok(unit.openOriginExempt <= unit.reachableMaterial, `${target}: ${unit.unitId} exemptions are a subset of the reach`);
       assert.equal(unit.kind === "synthesis", false, `${target}: a synthesis packet cannot be rendered from an archival run`);
-      // R5a: a unit's reach splits into what it owns and what it stubs, with nothing unaccounted for.
-      assert.equal(unit.ownedMaterial + unit.stubObligations, unit.reachableMaterial,
-        `${target}: ${unit.unitId} must own or stub every material obligation it reaches`);
+      // THE SAME-SOURCE TRIPWIRE (R5b): the plan's budget pre-check and the packet an author reads are one
+      // composition. R4b's proxy was out by about 9x here and nothing compared the two numbers.
+      assert.equal(unit.precheckBytes, unit.packetBytes,
+        `${target}: ${unit.unitId} - the plan's pre-check must BE the renderer, not an estimate beside it`);
+      // R5a/R5b: a unit's reach splits into what it owns, what it stubs and what its scope excludes, with nothing
+      // unaccounted for. The third bucket is zero on an undivided plan.
+      assert.equal(unit.ownedMaterial + unit.stubObligations + unit.scopeExcludedMaterial, unit.reachableMaterial,
+        `${target}: ${unit.unitId} must own, stub or scope out every material obligation it reaches`);
+      assert.ok(unit.scopeExcludedMaterial <= unit.scopeExcludedObligations, `${target}: ${unit.unitId}`);
     }
 
     // Gate 1b's four buckets, READ from the plan and conserving.
@@ -87,6 +98,22 @@ test("every checked-in unit packet reading is internally consistent", async () =
       assert.equal(entry.owedByUnit.reduce((total, unit) => total + unit.owed, 0), entry.reachedObligations,
         `${target}: ${entry.documentId} owes every material obligation it reaches exactly once`);
       assert.deepEqual([...entry.unownedObligationIds], [], `${target}: ${entry.documentId} leaves no obligation owned by nobody`);
+    }
+
+    // R5b: after the budget refinement no unit is over its own bound, and every document's measured total — the
+    // synthesis units' bounded cost included — is inside its own document total.
+    assert.equal(row.overBudgetUnits, 0, `${target}: no unit may be over its per-unit input budget after division`);
+    assert.equal(row.documents.reduce((total, document) => total + document.units, 0), row.units, `${target}: every unit belongs to a document`);
+    for (const document of row.documents) {
+      assert.ok(document.measuredBytes <= document.totalInputBytes,
+        `${target}: ${document.documentId} reads ${document.measuredBytes} bytes against a ${document.totalInputBytes}-byte total`);
+      assert.ok(document.renderedBytes <= document.measuredBytes,
+        `${target}: ${document.documentId} - the rendered units are a subset of the measured ones`);
+    }
+    assert.ok(row.refinementPasses >= 1, `${target}: the refinement always takes at least one measurement pass`);
+    for (const division of row.divisions) {
+      assert.ok(["facet", "topic", "dimension", "items"].includes(division.level), `${target}: ${division.level} is not a ladder rung`);
+      assert.ok(division.partUnitIds.length >= 2, `${target}: a division makes at least two parts, or it is not a division`);
     }
 
     // Mechanism A: the residue is counted, and it conserves against the frozen set.
@@ -118,20 +145,21 @@ test("the wcp reading closes 57B-453 on the packet side: 0 of 3,580 owner-scoped
   assert.equal(row.evidenceAbsent, 0);
   assert.deepEqual(row.absentBindings, []);
 
-  // R5a: one owner per obligation per document. Before this slice each document owed all 847 through its feature
-  // leaf AND its work-item-dimension leaf, and 164 of them through its coverage leaf as well — 847 obligations owed
-  // by more than one unit, per document, 3,388 across the four.
+  // R5a survives R5b's division verbatim: one owner per obligation per document, now spread across the scoped
+  // parts. Before ownership each document owed all 847 through its feature leaf AND its work-item-dimension leaf,
+  // and 164 of them through its coverage leaf as well — 3,388 duplicated owed instances across the four documents.
   assert.equal(row.obligationsOwedByMoreThanOneUnit, 0);
   assert.equal(row.ownership.length, 4);
   for (const entry of row.ownership) {
     assert.equal(entry.reachedObligations, 847, entry.documentId);
-    assert.deepEqual(entry.owedByUnit.filter((unit) => unit.owed > 0).map((unit) => [unit.unitId, unit.owed]),
-      [[`${entry.documentId}::leaf::feature`, 847]], entry.documentId);
+    assert.deepEqual(entry.owedByUnit.filter((unit) => unit.owed > 0).map((unit) => unit.owed).sort((a, b) => a - b),
+      [24, 24, 254, 271, 274], entry.documentId);
+    assert.equal(entry.owedByUnit.reduce((total, unit) => total + unit.owed, 0), 847,
+      `${entry.documentId}: the scoped parts owe between them exactly what the undivided feature leaf owed`);
   }
   // The other two leaves still SEE all of it and say whose it is: uncapped stub rows, no evidence body.
   const stubs = new Map(row.rendered.map((unit) => [unit.unitId, unit.stubObligations]));
   for (const entry of row.ownership) {
-    assert.equal(stubs.get(`${entry.documentId}::leaf::feature`), 0);
     assert.equal(stubs.get(`${entry.documentId}::leaf::work-item-dimension`), 847);
     assert.equal(stubs.get(`${entry.documentId}::leaf::coverage`), 164);
   }
@@ -140,9 +168,12 @@ test("the wcp reading closes 57B-453 on the packet side: 0 of 3,580 owner-scoped
   assert.deepEqual(row.openOriginExemptObligations, []);
   for (const unit of row.rendered) assert.equal(unit.openOriginExempt, 0);
 
-  // 20 units, 16 rendered, the 4 synthesis roots named.
-  assert.equal(row.units, 20);
-  assert.equal(row.rendered.length, 16);
+  // 40 units, 36 rendered, the 4 synthesis roots named. Twenty units before the division; the four feature leaves
+  // became six parts each.
+  assert.equal(row.units, 40);
+  assert.equal(row.rendered.length, 36);
+  assert.equal(row.refinementPasses, 5);
+  assert.equal(row.divisions.length, 20);
   assert.deepEqual(row.notRenderable.map((entry) => entry.unitId).sort(), [
     "feature-晋升管理-01e5065d19-engineering::synthesis::document",
     "feature-请假管理-8c2d685d81-product::synthesis::document",
@@ -150,25 +181,23 @@ test("the wcp reading closes 57B-453 on the packet side: 0 of 3,580 owner-scoped
     "overview-product::synthesis::document"
   ]);
 
-  // The measured cost of carrying the whole binding, after deduplication: only the four FEATURE leaves are still
-  // over the plan's per-unit input allowance, down from eight (the four work-item-dimension leaves fell back inside
-  // their bound once they stopped re-rendering the owner's evidence). That residual is the number R5b's budget
-  // system has to answer for — the plan validated `unitInputBytes` over topic ROWS, which does not include the
-  // evidence an author actually reads — and it is a per-unit overrun, not a document-level one any more.
+  // THE R5b RESIDUAL IS CLOSED. R5a left four over-budget units (the FEATURE leaves, 1,993,296-1,993,499 bytes
+  // each against a 786,432-byte bound) because the plan validated a PROXY — the canonical bytes of a unit's topic
+  // rows, which do not include the evidence an author reads, and which was out by about 9x. Under the true measure
+  // the division brings that residual to zero, and nothing was truncated to do it.
   const overBudget = row.rendered.filter((unit) => unit.packetLimitations.length === 1);
-  assert.equal(overBudget.length, 4);
-  for (const unit of overBudget) assert.ok(unit.unitId.endsWith("::leaf::feature"), unit.unitId);
+  assert.deepEqual(overBudget.map((unit) => unit.unitId), [], "zero over-budget units, down from four");
+  assert.equal(row.overBudgetUnits, 0);
   for (const unit of row.rendered) assert.equal(unit.packetByteLimit, 786_432);
 
   // And the document-level sum, which is what made ownership the prerequisite of R5b's budget truth: the four
-  // packets of one document were 4,243,714 bytes against `standard`'s 3,145,728-byte document total, and splitting
-  // cannot change a sum. Deduplicated, every document is inside it.
-  const perDocument = new Map<string, number>();
-  for (const unit of row.rendered) perDocument.set(unit.documentId, (perDocument.get(unit.documentId) ?? 0) + unit.packetBytes);
-  assert.equal(perDocument.size, 4);
-  for (const [documentId, bytes] of perDocument) {
-    assert.ok(bytes < 3_145_728, `${documentId}: ${bytes} bytes of packets must fit the standard document total`);
-    assert.ok(bytes > 2_000_000, `${documentId}: ${bytes} bytes — a suspiciously small total would mean rows went missing`);
+  // packets of one document were 4,243,714 bytes against `standard`'s 3,145,728-byte document total before R5a
+  // deduplicated them to 2,439,928, and division cannot change a sum. Division DOES add overhead — a per-part
+  // header, and an evidence record two parts both bind is rendered in both — and this is the measured size of it.
+  assert.equal(row.documents.length, 4);
+  for (const document of row.documents) {
+    assert.ok(document.measuredBytes <= 3_145_728, `${document.documentId}: ${document.measuredBytes} bytes must fit the standard document total`);
+    assert.ok(document.measuredBytes > 3_000_000, `${document.documentId}: ${document.measuredBytes} bytes — the margin is 3.5%, and a suspiciously small total would mean rows went missing`);
   }
 
   // Mechanism A on this baseline: 931 of 1,884 frozen records are bound by no work item — including the manifest,
@@ -193,8 +222,14 @@ test("the cebreo reading is the zero-material shape: no leaf, an appendix that r
     { kind: "synthesis", units: 1 }
   ]);
   assert.equal(row.rendered.length, 1);
+  // The second shape: nothing is over budget, so the division never fires and the pre-check is an identity.
+  assert.equal(row.refinementPasses, 1);
+  assert.deepEqual([...row.divisions], []);
+  assert.equal(row.overBudgetUnits, 0);
   const appendix = row.rendered[0]!;
   assert.equal(appendix.kind, "appendix");
+  assert.equal(appendix.precheckBytes, appendix.packetBytes, "the pre-check is an identity where no division is needed");
+  assert.equal(appendix.scopeExcludedObligations, 0, "an undivided plan excludes nothing by scope");
   assert.equal(appendix.reachableMaterial, 0, "nothing material is reachable, which is `vacuous` and not `complete`");
   assert.equal(appendix.ownedMaterial, 0);
   assert.equal(appendix.stubObligations, 0, "there is nothing to stub either: ownership is vacuous on the empty set");

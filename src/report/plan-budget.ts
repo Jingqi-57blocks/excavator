@@ -1,5 +1,6 @@
 /**
- * The plan's input budget: how many bytes of topic dossier one authoring unit may be asked to read, per document.
+ * The plan's budget: how many bytes of PACKET one authoring unit may be asked to read, how many bytes of prose and
+ * claims it may write back, and how many bytes of summary a parent may be handed for it — per document.
  *
  * WHY PER DOCUMENT AND NOT PER PLAN. `detailBudget` is a field of ONE request, and one request is one document. A
  * plan-wide number would have to pick between two documents' budgets — the strict one starves the detailed
@@ -17,23 +18,49 @@
  * checked for completeness in BOTH directions at load, the shape `report-policy-registry.ts` uses, so a new
  * `DetailBudget` member with no allowance is a named refusal instead of a silently unbudgeted document.
  *
- * WHAT OVERFLOW MAY NOT DO. It may not truncate. This slice's only verdict on an over-budget unit is a NAMED
- * failure that points at the unit and its topics; semantic splitting is R5's, and until it exists an over-budget
- * plan is a plan that gets rejected and re-proposed. Nothing here caps a list or drops a topic to fit.
+ * THERE IS NO PROXY MEASURE HERE ANY MORE, AND THAT IS THE POINT OF v2. R4b's `unitInputBytes` summed the canonical
+ * bytes of a unit's TOPIC ROWS and called it the input cost. Measured against what the packet actually renders, it
+ * was out by about 9x: one wcp feature leaf's topic rows are ~220 KB while its packet is 1,993,499 B, because the
+ * packet also renders the evidence bodies the obligations bind. The instrument was not attached to the thing it
+ * graded. So the input measure is now the RENDERER ITSELF (`unitPacketBytes`, one composition function shared with
+ * `renderUnitPacket`), the proxy is deleted rather than corrected, and `plan-packet-measure.ts` is the only place
+ * a plan's bytes come from.
+ *
+ * WHAT OVERFLOW MAY NOT DO. It may not truncate. An over-budget unit is either DIVIDED — `plan-unit-split.ts`, and
+ * a division is checked to partition its obligations exactly — or named as a failure with the offending ids in it.
+ * Nothing anywhere caps a list, clips a record or drops a topic to fit.
  */
 
-import { canonicalJson } from "../base/util.ts";
+import { assertNever } from "../base/artifact-result.ts";
 import { DETAIL_BUDGETS, type DetailBudget } from "./report-request-v2.ts";
 import type { ReportRequestsArtifact } from "./report-requests-artifact.ts";
-import type { TopicCandidate } from "./topic-candidate.ts";
 
-export const PLAN_BUDGET_VERSION = "plan-budget-v1";
+export const PLAN_BUDGET_VERSION = "plan-budget-v2";
 
 export interface DetailBudgetAllowance {
-  /** The largest topic dossier one unit may be handed, in bytes of canonical topic rows. */
+  /** The largest packet one unit may be handed, in bytes of rendered packet markdown. */
   readonly perUnitInputBytes: number;
   /** The largest sum over all of one document's units. */
   readonly totalInputBytes: number;
+  /**
+   * The largest OUTPUT one unit may write: `content.md` plus the canonical bytes of its claims sidecar.
+   *
+   * THE AUTHORITY, and there is no second one. R4b printed "output budget: NONE DECLARED" into every packet and
+   * deferred the number here; a synthesis's input is unbounded until it exists, because a synthesis reads its
+   * children's summaries and nothing bounds those. Enforced at DRAFT: over-budget is a named refusal that tells
+   * the author to rewrite tighter. Core never deletes content to fit — an upper bound that became a reason to drop
+   * `unknowns` or `terminology` entries would buy bytes with exactly the silence this whole epic exists to remove.
+   */
+  readonly perUnitOutputBytes: number;
+  /**
+   * The largest SUMMARY one unit may write, measured as the block a parent packet renders for it.
+   *
+   * It is what makes a synthesis's input finite before any child exists: `children x perUnitSummaryBytes` plus the
+   * synthesis packet's own fixed cost is checked against `perUnitInputBytes` at plan time. Measured as the RENDERED
+   * child block rather than the canonical JSON so the plan-time arithmetic and the draft-time refusal bound the
+   * same bytes.
+   */
+  readonly perUnitSummaryBytes: number;
 }
 
 export interface PlanBudgetTable {
@@ -47,6 +74,8 @@ export interface PlanDocumentBudget {
   readonly detailBudget: DetailBudget;
   readonly perUnitInputBytes: number;
   readonly totalInputBytes: number;
+  readonly perUnitOutputBytes: number;
+  readonly perUnitSummaryBytes: number;
 }
 
 export interface PlanBudget {
@@ -56,29 +85,43 @@ export interface PlanBudget {
 }
 
 /**
- * The allowances, in bytes of canonical topic rows.
+ * The allowances. MEASURED, not guessed — and the input numbers are deliberately unchanged from v1.
  *
- * MEASURED, not guessed. On the wcp R0 baseline (1,570 topics, 7 material, 847 material obligations) the facet
- * dossiers a fixture plan groups come out: feature 220,107 B over 2 material topics, work-item-dimension 206,967 B
- * over 4, coverage 39,942 B over 1, and a 37,111 B appendix over the 55 non-material coverage topics. The largest
- * single unit is therefore ~220 KB, which is why `standard` sits at 768 KiB: a real plan fits with headroom, and a
- * `compact` request is measurably tighter without being unsatisfiable on that same catalog. The route facet's
- * 970,230 B over 1,434 unobligated topics is deliberately NOT in a unit — no obligation binds to it, so nothing
- * makes it a leaf; if a plan ever puts it in one, this budget is what says so by name.
+ * INPUT. On the wcp R0 baseline the per-unit allowance of `standard` is 786,432 B. Under the true measure the
+ * four documents' feature leaves render 1,993,296–1,993,499 B each, which is what R5b's splitter divides; the other
+ * twelve units measure 42,108–216,784 B and fit untouched. The numbers were NOT loosened to make the corpus fit:
+ * the division granularity now reaches inside a topic (down to a single obligation), so the table does not have to
+ * accommodate whatever the largest topic happens to be. If a SINGLE obligation ever renders over `compact`'s
+ * 262,144 B, that is a named plan failure and a real finding, reported as one rather than papered over by a bigger
+ * number here.
  *
- * The ladder gates granularity, never truth: an over-budget unit is a named refusal here and a semantic split in
- * R5, and in neither case does a topic get dropped to fit.
+ * OUTPUT. Calibrated against the only real authored bytes this project has, the R0 section probe: the largest real
+ * section is 13,477 B of `content.md` plus 35,494 B of canonical claims over 151 claims (234 B per claim), 48,971 B
+ * together; a ten-section product overview runs 3,533–9,791 B of content and 4,671–15,308 B of claims per section.
+ * `compact` sits at 65,536 B — above the largest section ever produced here, with room — and the ladder doubles
+ * from there. A split unit that owns ~340 obligations at 234 B per claim is ~80 KB of claims plus prose, which is
+ * why `standard` is 131,072 B.
+ *
+ * SUMMARY. A summary carries covered topic ids, key statements, unknowns, terminology and three digests; the
+ * rendered child block adds the headings a parent reads. 8,192 B for `standard` admits roughly forty statements
+ * and twenty terms at the length the R0 prose actually uses, and it is what bounds a synthesis: 786,432 / 8,192 is
+ * 96 children before a synthesis packet becomes unsatisfiable, against the 8–10 children a divided wcp document
+ * plan produces.
  */
 export const PLAN_BUDGET_TABLE: PlanBudgetTable = {
   version: PLAN_BUDGET_VERSION,
   allowances: {
-    compact: { perUnitInputBytes: 262_144, totalInputBytes: 1_048_576 },
-    standard: { perUnitInputBytes: 786_432, totalInputBytes: 3_145_728 },
-    detailed: { perUnitInputBytes: 2_097_152, totalInputBytes: 8_388_608 }
+    compact: { perUnitInputBytes: 262_144, totalInputBytes: 1_048_576, perUnitOutputBytes: 65_536, perUnitSummaryBytes: 4_096 },
+    standard: { perUnitInputBytes: 786_432, totalInputBytes: 3_145_728, perUnitOutputBytes: 131_072, perUnitSummaryBytes: 8_192 },
+    detailed: { perUnitInputBytes: 2_097_152, totalInputBytes: 8_388_608, perUnitOutputBytes: 262_144, perUnitSummaryBytes: 16_384 }
   }
 };
 
-/** Completeness in both directions, plus the ordering the ladder claims. Injectable so a fixture can fail it. */
+/** The four numbers of one allowance, in the order a message lists them. */
+export const ALLOWANCE_FIELDS = ["perUnitInputBytes", "totalInputBytes", "perUnitOutputBytes", "perUnitSummaryBytes"] as const;
+export type AllowanceField = (typeof ALLOWANCE_FIELDS)[number];
+
+/** Completeness in both directions, plus the three orderings the ladder claims. Injectable so a fixture can fail it. */
 export function validatePlanBudgetTable(table: PlanBudgetTable = PLAN_BUDGET_TABLE): void {
   if (!table.version.trim()) throw new Error("The plan budget table must declare its version; it is what a recorded plan's budget names");
   const declared = new Set(Object.keys(table.allowances));
@@ -87,11 +130,20 @@ export function validatePlanBudgetTable(table: PlanBudgetTable = PLAN_BUDGET_TAB
   const phantom = [...declared].filter((key) => !(DETAIL_BUDGETS as readonly string[]).includes(key)).sort();
   if (phantom.length) throw new Error(`The plan budget table declares allowances for unknown detail budget(s) ${phantom.join(", ")}; a row no request can name is a dead row that reads like support`);
   for (const [key, allowance] of Object.entries(table.allowances)) {
-    if (!Number.isSafeInteger(allowance.perUnitInputBytes) || allowance.perUnitInputBytes <= 0) {
-      throw new Error(`Detail budget ${JSON.stringify(key)} declares perUnitInputBytes ${JSON.stringify(allowance.perUnitInputBytes)}; a unit budget must be a positive integer`);
+    for (const field of ALLOWANCE_FIELDS) {
+      const value = allowance[field];
+      if (!Number.isSafeInteger(value) || value <= 0) {
+        throw new Error(`Detail budget ${JSON.stringify(key)} declares ${field} ${JSON.stringify(value)}; every budget number must be a positive integer, and a missing one would leave that side of the contract undeclared`);
+      }
     }
-    if (!Number.isSafeInteger(allowance.totalInputBytes) || allowance.totalInputBytes < allowance.perUnitInputBytes) {
+    if (allowance.totalInputBytes < allowance.perUnitInputBytes) {
       throw new Error(`Detail budget ${JSON.stringify(key)} declares totalInputBytes ${JSON.stringify(allowance.totalInputBytes)}, which is below its own per-unit allowance; one unit would be unsatisfiable inside a satisfiable document`);
+    }
+    if (allowance.perUnitOutputBytes >= allowance.perUnitInputBytes) {
+      throw new Error(`Detail budget ${JSON.stringify(key)} allows a unit to write ${allowance.perUnitOutputBytes} byte(s) from ${allowance.perUnitInputBytes} byte(s) of packet; a unit that may write more than it reads has an output bound that bounds nothing`);
+    }
+    if (allowance.perUnitSummaryBytes >= allowance.perUnitOutputBytes) {
+      throw new Error(`Detail budget ${JSON.stringify(key)} allows a summary of ${allowance.perUnitSummaryBytes} byte(s) against an output bound of ${allowance.perUnitOutputBytes}; a summary is a projection of the unit it summarises, so a summary bound at or above the output bound bounds nothing`);
     }
   }
 }
@@ -117,23 +169,31 @@ export function planBudgetFor(requests: ReportRequestsArtifact, table: PlanBudge
           documentId: record.documentId,
           detailBudget: record.request.detailBudget,
           perUnitInputBytes: allowance.perUnitInputBytes,
-          totalInputBytes: allowance.totalInputBytes
+          totalInputBytes: allowance.totalInputBytes,
+          perUnitOutputBytes: allowance.perUnitOutputBytes,
+          perUnitSummaryBytes: allowance.perUnitSummaryBytes
         };
       })
   };
 }
 
 /**
- * What one unit's topic dossier costs: the canonical bytes of the topic rows it names, obligation bindings and
- * all. It is a proxy for what R4 will render, and it is deliberately the FULL row — a budget measured against a
- * summary would report a unit as affordable and then hand the author the thing it did not measure.
+ * The budget row for one document, or a named refusal.
+ *
+ * The ONE lookup, so the packet renderer, the draft-time output gate and the plan-time measure all read the same
+ * row instead of each finding it their own way. There is deliberately no fallback: a plan with no row for a
+ * document is a named failure, never a unit measured against a default nobody chose.
  */
-export function unitInputBytes(topics: readonly TopicCandidate[]): number {
-  return topics.reduce((total, topic) => total + Buffer.byteLength(canonicalJson(topic), "utf8"), 0);
+export function documentBudgetRow(budget: PlanBudget, documentId: string): PlanDocumentBudget {
+  const row = budget.documents.find((entry) => entry.documentId === documentId);
+  if (!row) {
+    throw new Error(`The recorded plan budget has no row for document ${JSON.stringify(documentId)}; it holds ${budget.documents.length} row(s): ${budget.documents.map((entry) => entry.documentId).join(", ") || "none"}`);
+  }
+  return row;
 }
 
 const BUDGET_FIELDS = ["documents", "version"] as const;
-const DOCUMENT_BUDGET_FIELDS = ["detailBudget", "documentId", "perUnitInputBytes", "totalInputBytes"] as const;
+const DOCUMENT_BUDGET_FIELDS = ["detailBudget", "documentId", ...ALLOWANCE_FIELDS] as const;
 
 /** Every problem an untrusted value has as a plan budget echo, as data. Empty means well-shaped (not yet equal). */
 export function planBudgetProblems(value: unknown): string[] {
@@ -156,15 +216,38 @@ export function planBudgetProblems(value: unknown): string[] {
     for (const key of Object.keys(document).sort()) {
       if (!knownRow.has(key)) problems.push(`budget documents[${index}] has unknown field ${JSON.stringify(key)}`);
     }
+    for (const key of DOCUMENT_BUDGET_FIELDS) {
+      if (!(key in document)) problems.push(`budget documents[${index}] is missing field ${JSON.stringify(key)}`);
+    }
     if (typeof document.documentId !== "string" || document.documentId.trim() === "") problems.push(`budget documents[${index}] documentId ${JSON.stringify(document.documentId)} is not a non-empty string`);
     if (typeof document.detailBudget !== "string" || !(DETAIL_BUDGETS as readonly string[]).includes(document.detailBudget)) {
       problems.push(`budget documents[${index}] detailBudget ${JSON.stringify(document.detailBudget)} is not one of: ${DETAIL_BUDGETS.join(", ")}`);
     }
-    for (const field of ["perUnitInputBytes", "totalInputBytes"] as const) {
+    for (const field of ALLOWANCE_FIELDS) {
       if (!Number.isSafeInteger(document[field]) || (document[field] as number) <= 0) {
         problems.push(`budget documents[${index}] ${field} ${JSON.stringify(document[field])} is not a positive integer`);
       }
     }
   }
   return problems;
+}
+
+/** One line per document, in the four numbers' own order. Printed by a packet header and a CLI reading alike. */
+export function summariseDocumentBudget(row: PlanDocumentBudget): string {
+  return ALLOWANCE_FIELDS.map((field) => `${field}=${budgetField(row, field)}`).join(", ");
+}
+
+/** Exhaustive field access, so a fifth budget number has to be given a line before this compiles. */
+function budgetField(row: PlanDocumentBudget, field: AllowanceField): number {
+  switch (field) {
+    case "perUnitInputBytes":
+      return row.perUnitInputBytes;
+    case "totalInputBytes":
+      return row.totalInputBytes;
+    case "perUnitOutputBytes":
+      return row.perUnitOutputBytes;
+    case "perUnitSummaryBytes":
+      return row.perUnitSummaryBytes;
+  }
+  return assertNever(field, "plan budget allowance field");
 }

@@ -4,13 +4,14 @@
     "`obligated-non-material` — obligations bind to this topic and none of them is material.",
     "`unobligated` — NO obligation in this run's ledger binds to this topic. It does not mean the subject is out of scope, and it does not mean nothing needs explaining: it is a reading of how far the obligation ledger reaches. For the route facet it means nobody computes the join between the route ledger and the obligation ledger — the obligation ledger does carry route-identified rows (the `route-handler` and `recovered-route-handler` kinds name a method and a path), so a route topic being unobligated is a missing join, not an unreachable subject."
   ],
-  "dagDigest": "bd6383c135500ae4be33a5e2fba35afc9873dd65314f30271a4095427d72c42f",
+  "dagDigest": "d0c691fdd362170510a0de70bcd8f888a711e74c12f1888e4c57e215d18b02f3",
+  "divisions": [],
   "documents": [
     {
       "audience": "product-manager",
       "detailBudget": "standard",
       "documentId": "overview-product",
-      "inputBytes": 1359,
+      "inputBytes": 39285,
       "intent": "overview",
       "perUnitInputBytes": 786432,
       "rootUnitId": "overview-product::synthesis::document",
@@ -96,6 +97,7 @@
   },
   "obligationSummary": "0 material obligation(s): 0 in units, 0 waived (cannot-determine=0, not-applicable=0, omitted-for-audience=0), 0 claimed but unplaced, 0 undispositioned",
   "overallVerdict": "vacuous: the material-topic denominator is empty, so nothing was checked — this catalog holds 14 topic(s) of which 0 are material, 13 obligated-non-material and 1 unobligated, over 12 work item(s)",
+  "overBudgetUnitIds": [],
   "ownership": [
     {
       "documentId": "overview-product",
@@ -120,22 +122,42 @@
   "packetByteLimit": 524288,
   "packetBytes": 9944,
   "packetLimitations": [],
-  "planCatalogDigest": "1b4bd3ecc8884f64ec073fca17cf29314345c7f37f699708dfed92344b7a07fd",
+  "planCatalogDigest": "16793e4b7a497d79f2018d49177f9388f9583cb8b95cabe944f79e6ec3eade25",
   "readPaths": [
     "context/boundary-functions.json",
     "contract/run-intent.json",
     "coverage/read-obligations.json",
     "coverage/read-residual.json",
+    "evidence.json",
     "facts/producers/codegraph.json",
     "facts/producers/crossrepo.json",
     "facts/producers/db-schema.json",
     "knowledge.json",
     "workitems.json"
   ],
+  "refinementPasses": 1,
   "requestsDigest": "4621702ae68f1f4938bb871dd3b403d37bc4d0514b87f94cfba811749c24fc05",
   "routeFacetUnobligated": 0,
   "runId": "run-2026_08_20_02_38-overview-239385e1-85a71437-a8618c2d",
   "topicsDigest": "90aa91bdb03df7a1777763c9fb6a76599afe82eecdb95b9a590c6581516dcf5b",
+  "unitBytes": [
+    {
+      "byteLimit": 786432,
+      "bytes": 24767,
+      "costState": "rendered",
+      "kind": "appendix",
+      "overBy": 0,
+      "unitId": "overview-product::appendix::coverage"
+    },
+    {
+      "byteLimit": 786432,
+      "bytes": 14518,
+      "costState": "bounded",
+      "kind": "synthesis",
+      "overBy": 0,
+      "unitId": "overview-product::synthesis::document"
+    }
+  ],
   "units": 2,
   "unitsByKind": [
     {
