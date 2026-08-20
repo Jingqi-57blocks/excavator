@@ -269,3 +269,27 @@ export function assemblyUnitsInOrder<T extends { readonly unitId: string }>(
   }
   return ordered;
 }
+
+/**
+ * Child -> parent, from the recorded DAG's edge list.
+ *
+ * A CHILD WITH TWO PARENTS IS REFUSED, not resolved. An assembled document names ONE parent per unit — in the
+ * contents table and in the navigation line — so keeping the last edge seen would print one parent and say nothing
+ * about the other, and because `plan-artifacts.ts` sorts the edges, which one survived would be decided by
+ * lexicographic order. Nothing upstream forbids the shape today: plan validation checks self-reference, existence
+ * and same-document, and the root count still comes out at one because it counts the SET of named children. So the
+ * refusal lives here, where the singular field is, rather than being implied by a type.
+ */
+export function parentUnitIdByChild(
+  edges: readonly { readonly parentUnitId: string; readonly childUnitId: string }[]
+): ReadonlyMap<string, string> {
+  const parents = new Map<string, string>();
+  for (const edge of edges) {
+    const taken = parents.get(edge.childUnitId);
+    if (taken !== undefined && taken !== edge.parentUnitId) {
+      throw new Error(`Unit ${JSON.stringify(edge.childUnitId)} is a child of both ${JSON.stringify(taken)} and ${JSON.stringify(edge.parentUnitId)} in this run's recorded authoring graph; an assembled document names one parent per unit, so printing either would hide the other`);
+    }
+    parents.set(edge.childUnitId, edge.parentUnitId);
+  }
+  return parents;
+}

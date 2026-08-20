@@ -28,7 +28,7 @@ import { reportFileName } from "../src/report/authoring-plan.ts";
 import { plannedDocumentId } from "../src/report/legacy-request-mapping.ts";
 import { appendReportRequest } from "../src/report/report-requests-append.ts";
 import { planRun } from "../src/run/stages/plan-stage.ts";
-import { assembleUnits, UNIT_ASSEMBLE_MODES } from "../src/run/stages/unit-assemble-stage.ts";
+import { assembleUnits, assertNotConcurrentlyModified, UNIT_ASSEMBLE_MODES } from "../src/run/stages/unit-assemble-stage.ts";
 import { unitAnchorId } from "../src/report/unit-assembly.ts";
 import { UNIT_COVERAGE_COMPANION_PATH, unitDocumentCompanionPaths, unitDocumentReportPath } from "../src/report/unit-assembly-paths.ts";
 import { unitPaths } from "../src/report/unit-paths.ts";
@@ -308,6 +308,13 @@ test("the command takes --units as a bare flag and requires an explicit mode", a
   assert.equal(valued.code, 1);
   assert.match(valued.stderr, /excavator assemble takes --units as a bare flag/);
 
+  // A dropped `--units` must not silently run the SECTION assemble, which writes every section report and moves
+  // `manifest.state`. Same slip class as the two `unitScoped` already refuses, one token further along.
+  const sectionArm = await cli(["assemble", "--run", run.runDir, "--mode", "write"]);
+  assert.equal(sectionArm.code, 1);
+  assert.match(sectionArm.stderr, /excavator assemble takes --mode only together with --units/);
+  assert.deepEqual(await reportFiles(run.runDir), [], "the refused section arm must not have written a report");
+
   const written = await cli(["assemble", "--run", run.runDir, "--units", "--mode", "write"]);
   assert.equal(written.code, 0, written.stderr);
   const reading = JSON.parse(written.stdout) as { mode: string; written: boolean; documents: readonly { documentId: string }[]; readPaths: readonly string[] };
@@ -337,3 +344,21 @@ async function treeDigest(dir: string): Promise<Map<string, string>> {
 
 /** Kept honest: a manifest read here is the run's own bytes, not a cached object. */
 export type { RunManifest };
+
+test("the concurrency guard compares against a baseline taken before the load, and it fires", async () => {
+  const run = await collectedRun();
+  const runPath = join(run.runDir, "run.json");
+  const before = (await manifestOf(run.runDir)).updatedAt;
+  // The guard's own shape, made to fire: `assembleUnits` captures this baseline BEFORE `loadUnitAssembly` — which
+  // re-validates the plan gate and reads every collected unit's three artifacts — so a `collect` landing during
+  // that window is caught. A baseline taken after the load could only ever trip on a writer arriving between two
+  // adjacent reads, which is to say never.
+  await assert.doesNotReject(() => assertNotConcurrentlyModified(runPath, before));
+  await assert.rejects(
+    () => assertNotConcurrentlyModified(runPath, "1999-01-01T00:00:00.000Z"),
+    /Run was modified concurrently during unit assemble \(run.json updatedAt changed\); rerun assemble after the concurrent command finishes\./
+  );
+  // And a write really does move it, so the baseline is a value that changes when the run changes.
+  await assembleUnits(run.runDir, "write");
+  assert.notEqual((await manifestOf(run.runDir)).updatedAt, before);
+});

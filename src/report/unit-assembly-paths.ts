@@ -19,6 +19,14 @@
  * CONTEXT is added, because "which document was about to be written where" is what makes the refusal actionable.
  * The check is needed rather than ceremonial: `plan/requests.json` is a file on disk and `request-append` takes a
  * document id from the command line, so the id reaching this function is not always one Core minted.
+ *
+ * AND FOR THE SAME REASON, TWO IDS THAT A FILESYSTEM WOULD FOLD ONTO ONE FILE ARE REFUSED. `unit-paths.ts` solves
+ * this for unit ids by appending a digest of the raw bytes, because a slug alone collapses on a case-insensitive
+ * filesystem (APFS by default) and on a normalizing one. A report file name is a deliverable name, so it does not
+ * get a digest suffix — it gets `assertDistinctUnitDocumentTargets` instead: `overview-product` and
+ * `Overview-Product` both validate, both assemble, the reading says two documents were written, and one file
+ * exists. That is the identity collapse that balances every count downstream, so it is a named refusal here and the
+ * plan that produced the pair is what gets fixed.
  */
 
 import { join, resolve } from "node:path";
@@ -82,6 +90,33 @@ export function unitDocumentCompanionPaths(documentId: string): UnitDocumentComp
   assertUsableUnitDocumentId(documentId);
   const base = `${REPORTS_DIRNAME}/${COMPANIONS_DIRNAME}/${documentId}`;
   return { claims: `${base}.unit-claims.json`, traces: `${base}.unit-traces.json`, coverage: UNIT_COVERAGE_COMPANION_PATH };
+}
+
+/**
+ * The key two document ids share when a filesystem would treat their file names as one file.
+ *
+ * NFC first, then case folding: the two ways a filesystem silently merges two names. Not a path — a comparison key,
+ * and nothing is ever written under it.
+ */
+export function documentTargetFoldKey(documentId: string): string {
+  return documentId.normalize("NFC").toLowerCase();
+}
+
+/**
+ * Refuse a document id set whose members' report files could be one file, naming both ids.
+ *
+ * Reachable with real bytes: `plan/requests.json` is a file, and two rows differing only in case both validate.
+ */
+export function assertDistinctUnitDocumentTargets(documentIds: readonly string[]): void {
+  const byKey = new Map<string, string>();
+  for (const documentId of [...documentIds].sort()) {
+    const key = documentTargetFoldKey(documentId);
+    const taken = byKey.get(key);
+    if (taken !== undefined && taken !== documentId) {
+      throw new Error(`Documents ${JSON.stringify(taken)} and ${JSON.stringify(documentId)} would assemble into report files a case-insensitive or normalizing filesystem treats as one; two documents in one file is one document wearing two identities`);
+    }
+    byKey.set(key, documentId);
+  }
 }
 
 /** Every run-relative path assembling one document writes: the markdown plus its two own companions. */

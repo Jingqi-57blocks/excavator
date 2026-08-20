@@ -351,6 +351,11 @@ async function main(): Promise<void> {
           print(await assembleUnits(required(args.run, "--run"), assembleMode(required(args.mode, "--mode"))));
           break;
         }
+        // A dropped `--units` must not silently become the SECTION assemble, which writes every section report,
+        // sets `manifest.state` and appends its own event. Same slip `unitScoped` refuses one token earlier.
+        if (args.mode !== undefined) {
+          throw new Error(`excavator assemble takes --mode only together with --units; without --units it assembles the section path, which has no mode and writes every section report. Add --units, or drop --mode.`);
+        }
         print(await assembleRun(required(args.run, "--run")));
         break;
       }

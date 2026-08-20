@@ -134,3 +134,24 @@ test("an empty trace catalog produces an empty companion that still names its de
   assert.deepEqual(companion.citedTraceIdsNotInCatalog, []);
   assert.equal(companion.knowledgeEpoch, 2);
 });
+
+test("a traceIds that is not a list of ids is refused rather than iterated character by character", () => {
+  // `assertValidClaim` never checks this field and `parseUnitClaims` ends in a cast, so a model-written sidecar can
+  // hand over a bare string. Iterating it would turn one citation into three one-character ones — and would pull a
+  // one-character catalog trace in with a reason nobody wrote.
+  const bare = { ...aggregation(), units: [{ unitId: LEAF, kind: "leaf" as const, claims: [{ ...claim("claim-1", "s"), traceIds: "T-cited" as unknown as string[] }] }] };
+  assert.throws(
+    () => aggregateUnitTraces({ ...bare, traces: TRACES }),
+    /records traceIds "T-cited", which is not a list of trace ids; the traces companion keys on those ids and will not key on the characters of a string/
+  );
+  for (const bad of [[""], ["  "], [42 as unknown as string], [null as unknown as string]]) {
+    const rows = { ...aggregation(), units: [{ unitId: LEAF, kind: "leaf" as const, claims: [{ ...claim("claim-1", "s"), traceIds: bad }] }] };
+    assert.throws(() => aggregateUnitTraces({ ...rows, traces: TRACES }), /is not a list of trace ids/, JSON.stringify(bad));
+  }
+});
+
+test("one claim citing a trace twice is one citation, not two", () => {
+  const twice = { ...aggregation(), units: [{ unitId: LEAF, kind: "leaf" as const, claims: [{ ...claim("claim-1", "s"), traceIds: ["T-cited", "T-cited"] }] }] };
+  const companion = aggregateUnitTraces({ ...twice, traces: TRACES });
+  assert.deepEqual(companion.traces.find((row) => row.traceId === "T-cited")!.citedBy, [{ unitId: LEAF, claimId: "claim-1" }]);
+});

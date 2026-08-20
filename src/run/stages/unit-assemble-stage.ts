@@ -16,6 +16,12 @@
  * else. `assembleRun` sets `state = "assembled"`; this does not, deliberately, so a run that assembled units and a
  * run that assembled sections cannot be confused for one another by anything reading the manifest.
  *
+ * THE CONCURRENCY BASELINE IS TAKEN BEFORE THE LOAD, WHICH IS THE WHOLE POINT OF HAVING ONE. `loadUnitAssembly`
+ * is the expensive window — it re-validates the plan gate, reads the ledger and reads every collected unit's three
+ * artifacts — so a `collect` that lands DURING it makes the assembly stale. A baseline captured after the load
+ * could only ever trip on a writer that arrived between two adjacent reads, which is to say: never. So `run.json`
+ * is read once, before anything else, and the same manifest is the one this stage later writes back.
+ *
  * THE TIMELINE EVENT IS NOT A TIMESTAMP IN THE DELIVERABLE. Nothing this writes into `reports/` carries a clock
  * reading, which is what makes a second `write` over an unchanged run leave every assembled byte identical. The
  * event and `run.json`'s `updatedAt` do move, and that is the point of an append-only account: the deliverable is
@@ -58,6 +64,9 @@ export interface UnitAssembleResult {
 export async function assembleUnits(runDirInput: string, mode: UnitAssembleMode): Promise<UnitAssembleResult> {
   const runDir = resolve(runDirInput);
   const runPath = join(runDir, "run.json");
+  // Before the load, not after it — see the file header.
+  const manifest = await readJson<RunManifest>(runPath);
+  const baseline = manifest.updatedAt;
   const assembly = await loadUnitAssembly(runDir);
 
   const files: Array<{ readonly path: string; readonly content: string }> = [];
@@ -96,14 +105,12 @@ export async function assembleUnits(runDirInput: string, mode: UnitAssembleMode)
     case "plan-only":
       return reading;
     case "write": {
-      // The weak concurrency guard the collect barrier uses, on both sides of the writes: best-effort, never a
-      // lock. Checked BEFORE as well as after so the common case — someone is drafting while this runs — is caught
-      // while the deliverable is still whatever it was, rather than after it has been replaced by stale bytes.
-      const manifest = await readJson<RunManifest>(runPath);
-      const expected = manifest.updatedAt;
-      await assertNotConcurrentlyModified(runPath, expected);
+      // The weak concurrency guard the collect barrier uses, best-effort and never a lock, against the baseline
+      // taken before the load: the first call is what catches a `collect` that landed while the assembly was being
+      // computed, so stale bytes are refused instead of shipped. The second covers the writes themselves.
+      await assertNotConcurrentlyModified(runPath, baseline);
       for (const file of files) await atomicWrite(runRelativePath(runDir, file.path), file.content);
-      await assertNotConcurrentlyModified(runPath, expected);
+      await assertNotConcurrentlyModified(runPath, baseline);
       await appendTimeline(runDir, manifest.id, {
         stage: "assemble",
         action: "units.assembled",
@@ -119,8 +126,13 @@ export async function assembleUnits(runDirInput: string, mode: UnitAssembleMode)
   return assertNever(mode, "unit assemble mode");
 }
 
-/** Best-effort, never a lock: the same shape and the same message family the collect barrier uses. */
-async function assertNotConcurrentlyModified(runPath: string, expectedUpdatedAt: string): Promise<void> {
+/**
+ * Best-effort, never a lock: the same shape and the same message family the collect barrier uses.
+ *
+ * Exported so a fixture can make it fire. A guard whose only caller holds a baseline it just read is a guard nobody
+ * has seen the shape of, and this one exists precisely to catch a writer that arrived a long way back.
+ */
+export async function assertNotConcurrentlyModified(runPath: string, expectedUpdatedAt: string): Promise<void> {
   const onDisk = await readJson<RunManifest>(runPath);
   if (onDisk.updatedAt !== expectedUpdatedAt) {
     throw new Error("Run was modified concurrently during unit assemble (run.json updatedAt changed); rerun assemble after the concurrent command finishes.");

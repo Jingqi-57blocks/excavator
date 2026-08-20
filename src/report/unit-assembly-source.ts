@@ -39,12 +39,14 @@ import type { PlanCatalogUnit } from "./plan-artifacts.ts";
 import { describePromisedArtifactProblem, promisedArtifactProblems, type PromiseSubject } from "./unit-artifact-promise.ts";
 import {
   assemblyUnitsInOrder,
+  parentUnitIdByChild,
   renderUnitDocument,
   type AssemblyIdentity,
   type AssemblyUnit,
   type UnitDocumentAssembly
 } from "./unit-assembly.ts";
 import {
+  assertDistinctUnitDocumentTargets,
   assertNoSectionPathConflict,
   UNIT_COVERAGE_COMPANION_PATH,
   unitDocumentCompanionPaths,
@@ -113,12 +115,13 @@ export async function loadUnitAssembly(runDirInput: string): Promise<UnitAssembl
   // after the whole assembly was computed. The three names checked per document are the three a document id can
   // reach; the run-scoped coverage companion is a `.md` and every section-path name in that directory ends in
   // `.json`, so no document id can produce it.
+  assertDistinctUnitDocumentTargets(view.planCatalog.documents.map((document) => document.documentId));
   const targets: UnitAssemblyTarget[] = view.planCatalog.documents.flatMap((document) =>
     unitDocumentTargets(document.documentId).map((path) => ({ documentId: document.documentId, path })));
   assertNoSectionPathConflict(targets, sectionReportTargets(manifest));
 
   const traces = await readJson<TraceCatalog>(join(runDir, "traces.json"));
-  const parents = parentUnitIds(view);
+  const parents = parentUnitIdByChild(view.dag.edges);
   const identity: AssemblyIdentity = {
     runId: view.runId,
     knowledgeEpoch,
@@ -238,13 +241,6 @@ async function assertLedgerPromise(unitId: string, row: CollectedUnit, paths: { 
   if (problems.length === 0) return;
   const subject: PromiseSubject = { unitId, record: "The unit ledger row", possessive: "its ledger row" };
   throw new Error(`${problems.map((problem) => describePromisedArtifactProblem(subject, problem)).join("; ")}. Re-collect the unit before assembling; its ledger row is left in place.`);
-}
-
-/** Child → parent, from the recorded DAG's edges. One edge set, no second derivation of the tree. */
-function parentUnitIds(view: UnitPlanView): ReadonlyMap<string, string> {
-  const parents = new Map<string, string>();
-  for (const edge of view.dag.edges) parents.set(edge.childUnitId, edge.parentUnitId);
-  return parents;
 }
 
 /** The document's title: the plan's title for its root unit. A root the plan does not hold is a named refusal. */

@@ -17,6 +17,13 @@
  * `traceIds`. Both are equality against the trace catalog's primary key, and each row records which reason(s) put
  * it there.
  *
+ * `traceIds` IS READ AS UNTRUSTED, because nothing upstream checks its shape. `parseUnitClaims` ends in a cast and
+ * defers per-claim rules to `assertValidClaim`, which checks `id`, `statement`, `marker` and comparison sides and
+ * never this field — and a claims sidecar is model-written JSON. A `"traceIds": "T-1"` would be ITERATED, turning
+ * one citation into three one-character ones and pulling any one-character catalog trace into the companion with a
+ * reason nobody wrote. So the aggregator refuses that shape by name. It is not a second definition of "a valid
+ * claim": it is this file declining to key a companion on the characters of a string.
+ *
  * A CITED TRACE THE CATALOG DOES NOT HOLD IS A NAMED BUCKET, NOT A SILENT DROP. Claim validation does not check
  * trace-catalog membership, so a dangling citation is reachable; reporting it as "no traces" would be the silent
  * empty this repository refuses. It is listed, not thrown: a dangling citation is a content defect the cross-unit
@@ -166,7 +173,7 @@ export function aggregateUnitTraces(input: UnitTracesAggregation): UnitTracesCom
   }
   for (const unit of input.units) {
     for (const claim of unit.claims) {
-      for (const traceId of claim.traceIds ?? []) {
+      for (const traceId of citedTraceIds(input.documentId, unit.unitId, claim)) {
         if (!byId.has(traceId)) {
           dangling.add(traceId);
           continue;
@@ -202,4 +209,19 @@ export function aggregateUnitTraces(input: UnitTracesAggregation): UnitTracesCom
     traces: rows.sort((a, b) => compareUnitIds(a.traceId, b.traceId)),
     citedTraceIdsNotInCatalog: [...dangling].sort(compareUnitIds)
   };
+}
+
+/**
+ * The trace ids one claim cites: shape-checked, and de-duplicated within the claim.
+ *
+ * De-duplicated because one claim citing a trace twice is one citation — `plan-proposal.ts` de-dupes the id lists it
+ * parses, nothing does that for a claims sidecar, and two identical `citedBy` rows would say two claims cite it.
+ */
+function citedTraceIds(documentId: string, unitId: string, claim: SectionClaim): readonly string[] {
+  const cited = claim.traceIds;
+  if (cited === undefined) return [];
+  if (!Array.isArray(cited) || cited.some((id) => typeof id !== "string" || id.trim() === "")) {
+    throw new Error(`Claim ${JSON.stringify(claim.id)} of unit ${JSON.stringify(unitId)} in ${JSON.stringify(documentId)} records traceIds ${JSON.stringify(cited)}, which is not a list of trace ids; the traces companion keys on those ids and will not key on the characters of a string`);
+  }
+  return [...new Set(cited)];
 }

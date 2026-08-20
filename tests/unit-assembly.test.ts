@@ -26,7 +26,9 @@ import { plannedDocumentId } from "../src/report/legacy-request-mapping.ts";
 import { reportRequestRecordFor } from "../src/report/report-requests-artifact.ts";
 import {
   assertNoSectionPathConflict,
+  assertDistinctUnitDocumentTargets,
   assertUsableUnitDocumentId,
+  documentTargetFoldKey,
   runRelativePath,
   UNIT_COVERAGE_COMPANION_PATH,
   unitDocumentCompanionPaths,
@@ -36,6 +38,7 @@ import {
 import {
   assemblyUnitsInOrder,
   CONTENTS_ANCHOR,
+  parentUnitIdByChild,
   renderUnitDocument,
   unitAnchorId,
   UNIT_ASSEMBLY_VERSION,
@@ -302,4 +305,42 @@ test("the write-path builder resolves inside the run and refuses anything that c
   }
   assert.throws(() => runRelativePath(run, "../escape.md"), /which is outside the run directory/);
   assert.throws(() => runRelativePath(run, "reports/../../escape.md"), /which is outside the run directory/);
+});
+
+test("a child the recorded graph gives two parents is refused, because the document prints one", () => {
+  const edges = [
+    { parentUnitId: "d::synthesis::a", childUnitId: "d::leaf::x" },
+    { parentUnitId: "d::synthesis::b", childUnitId: "d::leaf::x" }
+  ];
+  // Nothing upstream forbids this shape — plan validation checks self-reference, existence and same-document, and
+  // the one-root count still passes because it counts the SET of named children — so keeping the last edge seen
+  // would print `synthesis::b` as the parent and say nothing about `synthesis::a`. Which one survived would be
+  // decided by the edge sort order, which is not an answer.
+  assert.throws(() => parentUnitIdByChild(edges),
+    /Unit "d::leaf::x" is a child of both "d::synthesis::a" and "d::synthesis::b" in this run's recorded authoring graph/);
+  // A repeated identical edge is not two parents, and the normal shape resolves.
+  assert.deepEqual([...parentUnitIdByChild([edges[0]!, edges[0]!])], [["d::leaf::x", "d::synthesis::a"]]);
+  assert.deepEqual([...parentUnitIdByChild([])], []);
+  assert.deepEqual(
+    [...parentUnitIdByChild(UNITS.filter((unit) => unit.parentUnitId !== null).map((unit) => ({ parentUnitId: unit.parentUnitId!, childUnitId: unit.unitId })))].sort(),
+    [[UNITS[1]!.unitId, UNITS[2]!.unitId], [UNITS[0]!.unitId, UNITS[2]!.unitId]].sort()
+  );
+});
+
+test("two document ids a filesystem would fold onto one report file are refused", () => {
+  // The identity collapse `unit-paths.ts` solves for unit ids with a digest suffix. A report file name is a
+  // deliverable name, so it is refused rather than re-encoded — the plan that produced the pair is the fix.
+  assert.throws(
+    () => assertDistinctUnitDocumentTargets(["overview-product", "Overview-Product"]),
+    /Documents "Overview-Product" and "overview-product" would assemble into report files a case-insensitive or normalizing filesystem treats as one/
+  );
+  // NFC vs NFD spellings of one accented id: the other way a filesystem merges two names.
+  const nfc = "feature-caf\u00e9-product";
+  const nfd = "feature-cafe\u0301-product";
+  assert.notEqual(nfc, nfd);
+  assert.equal(documentTargetFoldKey(nfc), documentTargetFoldKey(nfd));
+  assert.throws(() => assertDistinctUnitDocumentTargets([nfc, nfd]), /treats as one/);
+  // And the real shapes pass, so the guard is not simply always red.
+  assert.doesNotThrow(() => assertDistinctUnitDocumentTargets(["overview-product", "overview-engineering", "feature-x-abc0123456-product"]));
+  assert.doesNotThrow(() => assertDistinctUnitDocumentTargets([]));
 });
