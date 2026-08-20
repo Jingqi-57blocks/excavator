@@ -162,3 +162,32 @@ test("regex search query preserves commas inside quantifiers", async () => {
   assert.deepEqual(parsed.terms, ["Leave.{0,20}requests"]);
   assert.ok(parsed.matches.some((match: { path: string }) => match.path.endsWith("LeavePanel.vue")));
 });
+
+/**
+ * The unit keying is an explicit switch on the commands that already existed, so the two ways of getting it wrong
+ * are refusals rather than silent fallbacks: two keyings at once, and `--unit <id>` on a command that is run-wide.
+ * A missing letter must not quietly run the section path instead.
+ */
+test("the unit switch is explicit: both keyings at once, and --unit on a run-wide command, are refused", async () => {
+  const { runDir } = await prepareRun(await request());
+  for (const command of ["draft", "checkpoint"]) {
+    const both = await cli([command, "--run", runDir, "--unit", "u::1", "--document", "overview-product", "--section", "1", "--file", "x.md"]);
+    assert.equal(both.code, 1);
+    assert.match(both.stderr, new RegExp(`excavator ${command} takes either --unit <id> or --document <id> --section <n>, not both`));
+  }
+  for (const command of ["collect", "status", "resume"]) {
+    const slipped = await cli([command, "--run", runDir, "--unit", "u::1"]);
+    assert.equal(slipped.code, 1);
+    assert.match(slipped.stderr, new RegExp(`excavator ${command} takes --units \\(no id\\): it is run-wide over every planned unit`));
+    // `parseArgs` swallows the next token as a flag's value, so `--units 1` must be refused rather than read as
+    // absent - otherwise one stray token silently runs the section barrier instead.
+    const valued = await cli([command, "--run", runDir, "--units", "1"]);
+    assert.equal(valued.code, 1);
+    assert.match(valued.stderr, new RegExp(`excavator ${command} takes --units as a bare flag`));
+    assert.match(valued.stderr, /is not a value it accepts/);
+  }
+  // And with neither flag, the section path runs exactly as it did.
+  const sections = await cli(["status", "--run", runDir]);
+  assert.equal(sections.code, 0);
+  assert.match(sections.stdout, /"documents"/);
+});
