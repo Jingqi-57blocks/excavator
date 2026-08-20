@@ -11,7 +11,7 @@ import {
   TOPIC_DISPOSITION_STATES,
   type TopicDisposition
 } from "../src/report/topic-disposition.ts";
-import { copyFixture } from "./helpers.ts";
+import { copyFixture, manifestOf } from "./helpers.ts";
 
 // The disposition validator is an audit rule that lands BEFORE its only real producer (R3's planner), so the
 // dispositions here are written by this test. What it has to hold:
@@ -25,7 +25,8 @@ const FIXTURE = "topic-catalog-mini";
 const LENS = lensPolicyFor("product-manager").id;
 
 async function fixtureCatalog(): Promise<TopicCatalogArtifact> {
-  return buildTopicCatalog(await loadTopicCatalogSource(await copyFixture(FIXTURE)));
+  const runDir = await copyFixture(FIXTURE);
+  return buildTopicCatalog(await loadTopicCatalogSource(runDir, await manifestOf(runDir)));
 }
 
 function disposition(topicId: string, overrides: Partial<TopicDisposition> = {}): TopicDisposition {

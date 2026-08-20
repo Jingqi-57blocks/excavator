@@ -43,7 +43,7 @@ export async function draftSection(runDirInput: string, documentId: string, sect
   await assertCurrentKnowledgeEpochForAuthoring(runDir, manifest);
   // Read-only, like the freeze gate beside it: the plan is a premise of drafting, and checking it here keeps a
   // draft from being the one write path that does not need one.
-  if (runUsesCurrentAssurance(manifest)) await assertValidatedPlanForAuthoring(runDir);
+  if (runUsesCurrentAssurance(manifest)) await assertValidatedPlanForAuthoring(runDir, manifest);
   const document = manifest.documents.find((item) => item.id === documentId);
   if (!document) throw new Error(`Unknown document: ${documentId}`);
   const section = document.sections.find((item) => item.index === sectionIndex);

@@ -28,7 +28,9 @@ import { loadUnitPlanView, type UnitPlanView } from "../src/report/unit-plan-vie
 import { compareUnitIds } from "../src/report/unit-paths.ts";
 import type { UnitDraftInput } from "../src/report/unit-draft.ts";
 import type { UnitAuthorship } from "../src/report/unit-provenance.ts";
-import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, tempDir } from "./helpers.ts";
+import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, manifestOf, tempDir } from "./helpers.ts";
+
+export { manifestOf };
 
 /**
  * The author every draft in these fixtures is written by. Model-FREE and named: the fixture is a generator, and a
@@ -77,12 +79,20 @@ export async function frozenRun(audiences: Array<"product" | "engineering"> = ["
 export async function plannedRun(audiences: Array<"product" | "engineering"> = ["product"]): Promise<PlannedRun> {
   const base = await frozenRun(audiences);
   await planRun(base.runDir, { mode: "fixture" });
-  return { ...base, view: await loadUnitPlanView(base.runDir) };
+  return { ...base, manifest: await manifestOf(base.runDir), view: await planViewOf(base.runDir) };
 }
 
-export async function manifestOf(runDir: string): Promise<RunManifest> {
-  return JSON.parse(await readFile(join(runDir, "run.json"), "utf8")) as RunManifest;
+/**
+ * One run's plan view, derived at the epoch its manifest selects RIGHT NOW.
+ *
+ * Every fixture goes through this instead of holding a manifest it read earlier. The manifest is what SELECTS the
+ * epoch, so a cached one would let a fixture that re-freezes hand its test a view of the SUPERSEDED epoch — which
+ * is a silently wrong view, not a refusal. Costs one file read per reload.
+ */
+export async function planViewOf(runDir: string): Promise<UnitPlanView> {
+  return loadUnitPlanView(runDir, await manifestOf(runDir));
 }
+
 
 export function unitContent(unit: PlanCatalogUnit): string {
   return `## ${unit.title}\n\n${unit.unitId} 记录当前状态。\`事实\`\n`;
@@ -144,7 +154,7 @@ export async function unitDraftFor(run: PlannedRun, unitId: string, overrides: P
  * id be a non-empty string, which is exactly why the path module has to be the one that refuses it.
  */
 export async function planWithRenamedUnits(runDir: string, workdir: string, rename: (unitId: string) => string): Promise<void> {
-  const catalog = buildTopicCatalog(await loadTopicCatalogSource(runDir));
+  const catalog = buildTopicCatalog(await loadTopicCatalogSource(runDir, await manifestOf(runDir)));
   const requests = await readReportRequests(runDir);
   const base = buildFixturePlan(catalog, requests, PLAN_BUDGET_TABLE);
   const units: ProposedUnit[] = base.units.map((unit) => unit.kind === "synthesis"
@@ -161,7 +171,7 @@ export async function planWithRenamedUnits(runDir: string, workdir: string, rena
  * appendix the sample target's zero-material catalog yields on its own.
  */
 export async function planWithLeaf(runDir: string, workdir: string, facet: string, topicCount: number): Promise<string> {
-  const catalog = buildTopicCatalog(await loadTopicCatalogSource(runDir));
+  const catalog = buildTopicCatalog(await loadTopicCatalogSource(runDir, await manifestOf(runDir)));
   const requests = await readReportRequests(runDir);
   const base = buildFixturePlan(catalog, requests, PLAN_BUDGET_TABLE);
   const documentId = [...requests.requests].sort((a, b) => a.documentId.localeCompare(b.documentId))[0]!.documentId;

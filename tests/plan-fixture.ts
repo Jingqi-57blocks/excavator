@@ -19,7 +19,7 @@ import type { EvidenceItem } from "../src/base/types.ts";
 import type { RunEvidenceReach } from "../src/report/unit-packet.ts";
 import { loadTopicCatalogSource } from "../src/report/topic-catalog-source.ts";
 import { buildReportRequestsArtifact, writeReportRequests, type ReportRequestsArtifact } from "../src/report/report-requests-artifact.ts";
-import { copyFixture } from "./helpers.ts";
+import { copyFixture, manifestOf } from "./helpers.ts";
 
 export const MINI_FIXTURE = "topic-catalog-mini";
 export const MINI_LEAVE_FEATURE = "leave-1a2b3c4d5e";
@@ -50,7 +50,7 @@ export interface MiniRun {
 export async function miniRun(documents: readonly LegacyDocumentRequest[] = MINI_DOCUMENTS): Promise<MiniRun> {
   const runDir = await copyFixture(MINI_FIXTURE);
   const requests = await writeReportRequests(runDir, documents);
-  const source = await loadTopicCatalogSource(runDir);
+  const source = await loadTopicCatalogSource(runDir, await manifestOf(runDir));
   const catalog = buildTopicCatalog(source);
   const evidence = await loadRunEvidenceReach(runDir, source);
   return { runDir, catalog, requests, evidenceById: evidence.evidenceById, reach: evidence.reach };

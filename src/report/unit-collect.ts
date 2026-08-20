@@ -95,7 +95,7 @@ export async function collectUnits(runDirInput: string): Promise<UnitCollectResu
   // The plan is loaded even when nothing is pending: "collected 0" on a run with no validated plan would read
   // as "there was nothing to collect", and an empty set that means two different things is the one thing this
   // barrier may not report. With no plan the refusal names the missing file instead.
-  const view = await loadUnitPlanView(runDir);
+  const view = await loadUnitPlanView(runDir, manifest);
   assertPlanEpoch(view, knowledgeEpoch);
   let ledger = await readUnitLedger(runDir, manifest.id);
   const unplanned = pending.filter((receipt) => !view.byId.has(receipt.unitId));

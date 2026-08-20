@@ -259,11 +259,12 @@ export async function materialisedRun(): Promise<MaterialisedRun> {
   const frozen = await freezeRun(runDir);
   if (!frozen.frozen) throw new Error(`fixture run did not freeze: ${frozen.findings.map((finding) => finding.message).join("; ")}`);
   await planRun(runDir, { mode: "fixture" });
+  const manifest = JSON.parse(await readFile(join(runDir, "run.json"), "utf8")) as RunManifest;
   return {
     runDir,
     workdir: request.workdir,
-    manifest: JSON.parse(await readFile(join(runDir, "run.json"), "utf8")) as RunManifest,
-    view: await loadUnitPlanView(runDir),
+    manifest,
+    view: await loadUnitPlanView(runDir, manifest),
     foundWorkItemId: found.id,
     foundEvidenceId: source.id,
     unresolvedWorkItemId: unresolved.id

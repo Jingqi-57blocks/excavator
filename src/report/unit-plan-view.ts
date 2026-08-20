@@ -79,9 +79,9 @@ export interface UnitPlanView {
   readonly collectionOrder: readonly string[];
 }
 
-/** Load and re-validate this run's plan, then derive the unit view of it. */
-export async function loadUnitPlanView(runDir: string): Promise<UnitPlanView> {
-  const gate = await assertValidatedPlanForAuthoring(runDir);
+/** Load and re-validate this run's plan, then derive the unit view of it, at the epoch `manifest` selects. */
+export async function loadUnitPlanView(runDir: string, manifest: RunManifest): Promise<UnitPlanView> {
+  const gate = await assertValidatedPlanForAuthoring(runDir, manifest);
   const units = [...gate.planCatalog.units].sort((a, b) => compareUnitIds(a.unitId, b.unitId));
   assertDistinctUnitPathKeys(units.map((unit) => unit.unitId), unitPathKey);
   const collectionOrder = unitCollectionOrder(units.map((unit) => unit.unitId), gate.dag.documents);

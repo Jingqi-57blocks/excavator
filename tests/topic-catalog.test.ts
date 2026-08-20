@@ -10,7 +10,7 @@ import {
   PROJECTED_PRODUCERS
 } from "../src/report/topic-catalog-source.ts";
 import { TOPIC_FACETS } from "../src/report/topic-candidate.ts";
-import { copyFixture } from "./helpers.ts";
+import { copyFixture, manifestOf } from "./helpers.ts";
 
 // The Topic Catalog over `tests/fixtures/topic-catalog-mini`, a six-work-item run built so every load-bearing
 // number below can be derived BY HAND from the fixture rather than read back off the generator:
@@ -38,7 +38,7 @@ const SENTINELS = ["SECTIONS", "CLAIMS", "AUTHORING", "REPORTS", "PROMPTS", "HYP
 
 async function fixtureCatalog() {
   const runDir = await copyFixture(FIXTURE);
-  const source = await loadTopicCatalogSource(runDir);
+  const source = await loadTopicCatalogSource(runDir, await manifestOf(runDir));
   return { runDir, source, catalog: buildTopicCatalog(source) };
 }
 
@@ -219,32 +219,39 @@ test("both spellings of a feature scope attribute to the bound key, and an unbou
   await editJson(runDir, "workitems.json", (value) => {
     (value.items as Array<{ scope: string }>)[0]!.scope = "feature:not-a-bound-key";
   });
-  await assert.rejects(async () => buildTopicCatalog(await loadTopicCatalogSource(runDir)), /names no feature in contract\/run-intent\.json/);
+  await assert.rejects(async () => buildTopicCatalog(await loadTopicCatalogSource(runDir, await manifestOf(runDir))), /names no feature in contract\/run-intent\.json/);
 });
 
 test("the projection is deterministic: two builds over one run directory agree byte for byte", async () => {
   const runDir = await copyFixture(FIXTURE);
-  const first = buildTopicCatalog(await loadTopicCatalogSource(runDir));
-  const second = buildTopicCatalog(await loadTopicCatalogSource(runDir));
+  const first = buildTopicCatalog(await loadTopicCatalogSource(runDir, await manifestOf(runDir)));
+  const second = buildTopicCatalog(await loadTopicCatalogSource(runDir, await manifestOf(runDir)));
   assert.equal(stableJson(first), stableJson(second));
 });
 
 test("an unfrozen or unsealed run is refused by name rather than projected", async () => {
   const missing = await copyFixture(FIXTURE);
   await rm(join(missing, "knowledge.json"));
-  await assert.rejects(async () => loadTopicCatalogSource(missing), /knowledge\.json is missing from .*cannot be projected/);
+  await assert.rejects(async () => loadTopicCatalogSource(missing, await manifestOf(missing)), /knowledge\.json is missing from .*cannot be projected/);
 
   const noFreezeTime = await copyFixture(FIXTURE);
   await editJson(noFreezeTime, "knowledge.json", (value) => { value.frozenAt = ""; });
-  await assert.rejects(async () => loadTopicCatalogSource(noFreezeTime), /carries no frozenAt; the run is not frozen/);
+  await assert.rejects(async () => loadTopicCatalogSource(noFreezeTime, await manifestOf(noFreezeTime)), /carries no frozenAt; the run is not frozen/);
 
   const noEpoch = await copyFixture(FIXTURE);
   await editJson(noEpoch, "knowledge.json", (value) => { delete value.epoch; });
-  await assert.rejects(async () => loadTopicCatalogSource(noEpoch), /carries no epoch number/);
+  await assert.rejects(async () => loadTopicCatalogSource(noEpoch, await manifestOf(noEpoch)), /carries no usable epoch number \(undefined\)/);
+
+  // A negative epoch is refused HERE, naming the file, rather than downstream by the path mapping's own generic
+  // message: this loader promises that every failure names what was being projected and from where.
+  const negativeEpoch = await copyFixture(FIXTURE);
+  await editJson(negativeEpoch, "knowledge.json", (value) => { value.epoch = -1; });
+  await assert.rejects(async () => loadTopicCatalogSource(negativeEpoch, await manifestOf(negativeEpoch)),
+    /knowledge\.json carries no usable epoch number \(-1\); an unsealed record cannot be projected/);
 
   const wrongVersion = await copyFixture(FIXTURE);
   await editJson(wrongVersion, "knowledge.json", (value) => { value.version = "knowledge-v2"; });
-  await assert.rejects(async () => loadTopicCatalogSource(wrongVersion), /is version "knowledge-v2", not knowledge-v1/);
+  await assert.rejects(async () => loadTopicCatalogSource(wrongVersion, await manifestOf(wrongVersion)), /is version "knowledge-v2", not knowledge-v1/);
 });
 
 test("a ledger the epoch sealed and something later edited fails by name", async () => {
@@ -252,17 +259,17 @@ test("a ledger the epoch sealed and something later edited fails by name", async
   await editJson(editedWorkItems, "workitems.json", (value) => {
     (value.items as Array<{ status: string }>)[0]!.status = "cannot-determine";
   });
-  await assert.rejects(async () => loadTopicCatalogSource(editedWorkItems), /workitems\.json does not match the workitemsDigest sealed in knowledge\.json/);
+  await assert.rejects(async () => loadTopicCatalogSource(editedWorkItems, await manifestOf(editedWorkItems)), /workitems\.json does not match the workitemsDigest sealed in knowledge\.json/);
 
   const editedObligations = await copyFixture(FIXTURE);
   await editJson(editedObligations, "coverage/read-obligations.json", (value) => {
     (value.summary as { lines: number }).lines = 999;
   });
-  await assert.rejects(async () => loadTopicCatalogSource(editedObligations), /coverage\/read-obligations\.json does not match the digest sealed/);
+  await assert.rejects(async () => loadTopicCatalogSource(editedObligations, await manifestOf(editedObligations)), /coverage\/read-obligations\.json does not match the digest sealed/);
 
   const editedBoundary = await copyFixture(FIXTURE);
   await editJson(editedBoundary, "context/boundary-functions.json", (value) => { value.graphAvailable = false; });
-  await assert.rejects(async () => loadTopicCatalogSource(editedBoundary), /context\/boundary-functions\.json does not match the digest sealed/);
+  await assert.rejects(async () => loadTopicCatalogSource(editedBoundary, await manifestOf(editedBoundary)), /context\/boundary-functions\.json does not match the digest sealed/);
 });
 
 test("a required ledger that is gone is a named failure, never an empty facet", async () => {
@@ -270,7 +277,7 @@ test("a required ledger that is gone is a named failure, never an empty facet", 
     const runDir = await copyFixture(FIXTURE);
     await rm(join(runDir, relative));
     await assert.rejects(
-      async () => loadTopicCatalogSource(runDir),
+      async () => loadTopicCatalogSource(runDir, await manifestOf(runDir)),
       new RegExp(`${relative.replace(/[/.]/g, "\\$&")} is missing from`),
       `${relative} must fail by name`
     );
@@ -280,11 +287,11 @@ test("a required ledger that is gone is a named failure, never an empty facet", 
 test("an optional ledger is checked in both directions — a digest with no file, and a file with no digest", async () => {
   const fileGone = await copyFixture(FIXTURE);
   await rm(join(fileGone, "context/cross-feature.json"));
-  await assert.rejects(async () => loadTopicCatalogSource(fileGone), /declares a digest for context\/cross-feature\.json but the file is gone/);
+  await assert.rejects(async () => loadTopicCatalogSource(fileGone, await manifestOf(fileGone)), /declares a digest for context\/cross-feature\.json but the file is gone/);
 
   const digestGone = await copyFixture(FIXTURE);
   await editJson(digestGone, "knowledge.json", (value) => { delete value.crossRepoLinksDigest; });
-  await assert.rejects(async () => loadTopicCatalogSource(digestGone), /context\/crossrepo-links\.json exists but knowledge\.json declares no digest for it/);
+  await assert.rejects(async () => loadTopicCatalogSource(digestGone, await manifestOf(digestGone)), /context\/crossrepo-links\.json exists but knowledge\.json declares no digest for it/);
 });
 
 test("a binding may only name evidence and traces the epoch sealed", async () => {
@@ -292,13 +299,13 @@ test("a binding may only name evidence and traces the epoch sealed", async () =>
   await editJson(strayEvidence, "workitems.json", (value) => {
     (value.items as Array<{ evidenceIds: string[] }>)[0]!.evidenceIds.push("S-not-sealed");
   });
-  await assert.rejects(async () => loadTopicCatalogSource(strayEvidence), /binds evidence "S-not-sealed", which knowledge\.json did not seal/);
+  await assert.rejects(async () => loadTopicCatalogSource(strayEvidence, await manifestOf(strayEvidence)), /binds evidence "S-not-sealed", which knowledge\.json did not seal/);
 
   const strayTrace = await copyFixture(FIXTURE);
   await editJson(strayTrace, "workitems.json", (value) => {
     (value.items as Array<{ traceIds: string[] }>)[0]!.traceIds.push("T-not-sealed");
   });
-  await assert.rejects(async () => loadTopicCatalogSource(strayTrace), /binds trace "T-not-sealed", which knowledge\.json did not seal/);
+  await assert.rejects(async () => loadTopicCatalogSource(strayTrace, await manifestOf(strayTrace)), /binds trace "T-not-sealed", which knowledge\.json did not seal/);
 });
 
 test("a facet whose ledger is present but holds no row says so differently from one whose ledger is absent", async () => {
@@ -309,7 +316,7 @@ test("a facet whose ledger is present but holds no row says so differently from 
   await editJson(noFeature, "workitems.json", (value) => {
     for (const item of value.items as Array<{ scope: string }>) item.scope = "project";
   });
-  const catalog = buildTopicCatalog(await loadTopicCatalogSource(noFeature));
+  const catalog = buildTopicCatalog(await loadTopicCatalogSource(noFeature, await manifestOf(noFeature)));
   const feature = catalog.facets.find((row) => row.facet === "feature")!.outcome;
   assert.equal(feature.state, "ledger-empty");
   assert.match(feature.state === "ledger-empty" ? feature.reason : "", /contract\/run-intent\.json binds no feature to this run/);
@@ -328,7 +335,7 @@ test("a built producer envelope with facts populates its facet — the arm the s
     status: "built",
     value: { ...codegraph.value, producer: "db-schema", facts: [codegraph.value.facts[2]] }
   })}\n`);
-  const catalog = buildTopicCatalog(await loadTopicCatalogSource(runDir));
+  const catalog = buildTopicCatalog(await loadTopicCatalogSource(runDir, await manifestOf(runDir)));
   const entity = catalog.facets.find((row) => row.facet === "entity")!;
   assert.deepEqual(entity.outcome, { state: "populated", topics: 1 });
   const topic = catalog.topics.find((row) => row.facet === "entity")!;
@@ -343,7 +350,7 @@ test("an empty built envelope is a ledger-empty facet, not an absent one", async
     status: "built",
     value: { version: "producer-envelope-v1", producer: "db-schema", identity: {}, facts: [], membershipUnmapped: [], unmappableFactIds: [], completeness: { total: 0, counted: 0, excluded: 0, unexplained: 0, byKind: {}, detailMaxChars: 200, detailClipped: 0 }, producerCompleteness: {} }
   })}\n`);
-  const catalog = buildTopicCatalog(await loadTopicCatalogSource(runDir));
+  const catalog = buildTopicCatalog(await loadTopicCatalogSource(runDir, await manifestOf(runDir)));
   const entity = catalog.facets.find((row) => row.facet === "entity")!.outcome;
   assert.equal(entity.state, "ledger-empty");
   assert.match(entity.state === "ledger-empty" ? entity.reason : "", /was built and holds no fact/);

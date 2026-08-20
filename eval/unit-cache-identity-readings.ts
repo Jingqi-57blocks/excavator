@@ -369,9 +369,9 @@ function outcomeOf(plan: UnitCachePlan): ScenarioOutcome {
 
 /** Project one frozen run directory. Never writes; every failure is a named throw. */
 export async function extractUnitIdentityReadings(runDir: string): Promise<UnitIdentityReadings> {
-  const source = await loadTopicCatalogSource(runDir);
-  const catalog = buildTopicCatalog(source);
   const manifest = await readJson<RunManifest>(join(runDir, "run.json"));
+  const source = await loadTopicCatalogSource(runDir, manifest);
+  const catalog = buildTopicCatalog(source);
   const documents = legacyDocuments(manifest);
   const requests = buildReportRequestsArtifact(documents);
   const evidence = await loadRunEvidenceReach(runDir, source);

@@ -186,9 +186,9 @@ function requestsFor(manifest: RunManifest): ReportRequestsArtifact {
 
 /** Project one frozen run directory. Never writes; every failure is a named throw. */
 export async function extractUnitPacketReadings(runDir: string): Promise<UnitPacketReadings> {
-  const source = await loadTopicCatalogSource(runDir);
-  const catalog = buildTopicCatalog(source);
   const manifest = await readJson<RunManifest>(join(runDir, "run.json"));
+  const source = await loadTopicCatalogSource(runDir, manifest);
+  const catalog = buildTopicCatalog(source);
   const requests = requestsFor(manifest);
   const evidence = await loadRunEvidenceReach(runDir, source);
   const evidenceById = evidence.evidenceById;

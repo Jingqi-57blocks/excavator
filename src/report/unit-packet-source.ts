@@ -78,7 +78,7 @@ export async function loadUnitPacketSource(runDirInput: string, options: UnitPac
   const readPaths: string[] = ["run.json"];
   const manifest = await readJson<RunManifest>(join(runDir, "run.json"));
   const knowledgeEpoch = requireKnowledgeEpoch(manifest, "rendered as a packet");
-  const view = await loadUnitPlanView(runDir);
+  const view = await loadUnitPlanView(runDir, manifest);
   assertPlanEpoch(view, knowledgeEpoch);
   readPaths.push(...planReadPaths(view));
   const unit = planUnit(view, options.unitId);

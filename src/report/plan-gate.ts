@@ -19,6 +19,7 @@
  */
 
 import { join } from "node:path";
+import type { RunManifest } from "../base/types.ts";
 import { exists, stableJson } from "../base/util.ts";
 import { PLAN_BUDGET_TABLE } from "./plan-budget.ts";
 import {
@@ -60,8 +61,12 @@ export interface PlanGateResult {
  *
  * Every failure names the file. The first missing file is reported on its own rather than as part of a list: the
  * operator's next command is the same either way, and pointing at one file is what makes the message actionable.
+ *
+ * `manifest` is required because the epoch the catalog is re-derived from is the one the manifest selects. Every
+ * caller already holds it — the epoch gate beside this one takes the same object — so passing it costs nothing and
+ * removes the possibility of a gate that re-validates a plan against an epoch the run has moved past.
  */
-export async function assertValidatedPlanForAuthoring(runDir: string): Promise<PlanGateResult> {
+export async function assertValidatedPlanForAuthoring(runDir: string, manifest: RunManifest): Promise<PlanGateResult> {
   for (const relative of PLAN_ARTIFACT_PATHS) {
     if (!await exists(join(runDir, relative))) {
       throw new Error(`${relative} is missing from ${runDir}; authoring cannot start without a validated plan. Run \`excavator plan --run ${runDir} --fixture-plan\` (or \`--proposal <file>\`) first.`);
@@ -71,9 +76,18 @@ export async function assertValidatedPlanForAuthoring(runDir: string): Promise<P
   const recordedCatalog = await readTopicCatalog(runDir);
   // Re-derived from the epoch, not read from the file it is compared against: a topics catalog that no longer
   // matches its own knowledge is the one thing reading the file alone could never catch.
-  const source = await loadTopicCatalogSource(runDir);
+  const source = await loadTopicCatalogSource(runDir, manifest);
   const catalog = buildTopicCatalog(source);
   if (stableJson(recordedCatalog) !== stableJson(catalog)) {
+    // TWO CAUSES, TWO MESSAGES, because only one of them is the operator's fault. A recorded catalog for a
+    // SUPERSEDED epoch is what a justified supplement plus a re-freeze legitimately produces, and its remedy is one
+    // command; a catalog that disagrees with the epoch it claims to project is a ledger somebody edited. Before the
+    // catalog read the manifest's epoch these were indistinguishable here (the re-derivation projected epoch 0 too,
+    // so the bytes matched and the superseded-plan refusal came later, from `assertPlanEpoch`). Now the
+    // re-derivation catches it first, and it must not tell a re-frozen run that its plan was tampered with.
+    if (recordedCatalog.knowledgeEpoch !== catalog.knowledgeEpoch) {
+      throw new Error(`${topicsPath(runDir)} records the Topic Catalog of knowledge epoch ${recordedCatalog.knowledgeEpoch}, but this run's manifest is at epoch ${catalog.knowledgeEpoch}; the plan was superseded by a re-freeze. Run \`excavator plan --run ${runDir} --fixture-plan\` (or \`--proposal <file>\`) to re-plan onto the current epoch.`);
+    }
     throw new Error(`${topicsPath(runDir)} is not what this run's frozen knowledge derives; the recorded Topic Catalog and the epoch disagree`);
   }
   const planCatalog = await readPlanCatalog(runDir, catalog);

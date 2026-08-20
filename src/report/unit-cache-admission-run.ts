@@ -245,7 +245,7 @@ async function loadAdmissionState(runDirInput: string, authorship: UnitAuthorshi
   const manifest = await readJson<RunManifest>(join(runDir, "run.json"));
   await assertCurrentKnowledgeEpochForAuthoring(runDir, manifest);
   const knowledgeEpoch = requireKnowledgeEpoch(manifest, "admitted from a prior verified draft");
-  const view = await loadUnitPlanView(runDir);
+  const view = await loadUnitPlanView(runDir, manifest);
   assertPlanEpoch(view, knowledgeEpoch);
   const ledger = await readUnitLedger(runDir, manifest.id);
 

@@ -15,11 +15,13 @@
  * FREEZE IS THE PRECONDITION, NOT THE PRODUCER. `loadTopicCatalogSource` refuses a run that is not frozen, by
  * name, so a plan can only exist after the epoch is sealed. Freeze itself stays untouched: it cannot be the
  * enforcer of artifacts that are all produced after it, and making it write them would put a report-side
- * projection inside the knowledge seal.
+ * projection inside the knowledge seal. Which sealed epoch gets planned is the manifest's answer, not this
+ * stage's: a re-frozen run re-plans onto its NEW epoch, and `plan/catalog.json` records that epoch number.
  */
 
 import { join, resolve } from "node:path";
 import { assertNever } from "../../base/artifact-result.ts";
+import type { RunManifest } from "../../base/types.ts";
 import { exists, readJson } from "../../base/util.ts";
 import { buildFixturePlan } from "../../report/fixture-plan.ts";
 import { PLAN_BUDGET_TABLE } from "../../report/plan-budget.ts";
@@ -73,13 +75,20 @@ export interface PlanRunResult {
   readonly refinementPasses: number;
 }
 
-/** Load the three inputs every plan action needs, naming whichever file is not there. */
+/**
+ * Load the three inputs every plan action needs, naming whichever file is not there.
+ *
+ * THE MANIFEST IS READ HERE, ONCE, and handed to the catalog projection, because the epoch a plan is built from is
+ * the one the manifest selects. Both plan actions — recording a plan and rendering the model-facing packet — come
+ * through this function, so neither can end up planning against a superseded epoch while the other does not.
+ */
 async function planInputs(runDir: string): Promise<{ catalog: TopicCatalogArtifact; requests: ReportRequestsArtifact; source: TopicCatalogSource }> {
   const requestsPath = reportRequestsPath(runDir);
   if (!await exists(requestsPath)) {
     throw new Error(`${requestsPath} is missing; a plan is validated against the recorded request set, and this run has none. Re-prepare the run under the current version.`);
   }
-  const source = await loadTopicCatalogSource(runDir);
+  const manifest = await readJson<RunManifest>(join(runDir, "run.json"));
+  const source = await loadTopicCatalogSource(runDir, manifest);
   return { catalog: buildTopicCatalog(source), requests: await readReportRequests(runDir), source };
 }
 

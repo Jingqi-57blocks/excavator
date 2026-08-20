@@ -20,7 +20,7 @@ export async function beginDocument(runDirInput: string, documentId: string): Pr
   await assertCurrentKnowledgeEpochForAuthoring(runDir, manifest);
   // The plan precondition stands exactly where the epoch precondition stands, and it is grandfathered by the same
   // gate: a run recorded before plan artifacts existed keeps being authored under the contract it wrote.
-  if (runUsesCurrentAssurance(manifest)) await assertValidatedPlanForAuthoring(runDir);
+  if (runUsesCurrentAssurance(manifest)) await assertValidatedPlanForAuthoring(runDir, manifest);
   const document = manifest.documents.find((item) => item.id === documentId);
   if (!document) throw new Error(`Unknown document: ${documentId}`);
   if (!document.startedAt || document.completedAt) {
@@ -43,7 +43,7 @@ export async function checkpointSection(runDirInput: string, documentId: string,
   const manifest = await readJson<RunManifest>(path);
   if (manifest.frozenAt) {
     await assertCurrentKnowledgeEpochForAuthoring(runDir, manifest);
-    if (runUsesCurrentAssurance(manifest)) await assertValidatedPlanForAuthoring(runDir);
+    if (runUsesCurrentAssurance(manifest)) await assertValidatedPlanForAuthoring(runDir, manifest);
   }
   const document = manifest.documents.find((item) => item.id === documentId);
   if (!document) throw new Error(`Unknown document: ${documentId}`);
