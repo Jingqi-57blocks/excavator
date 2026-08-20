@@ -1,7 +1,7 @@
 #!/usr/bin/env -S node --experimental-strip-types --no-warnings
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import type { Audience, BudgetConfig, ChecklistItem, FeatureRequest, InvestigationWorkItem, ReportRequest, SectionClaim, TraceRecord } from "./base/types.ts";
+import type { Audience, BudgetConfig, ChecklistItem, DetailLevel, DocumentKind, FeatureRequest, InvestigationWorkItem, ReportRequest, SectionClaim, TraceRecord } from "./base/types.ts";
 import { addSourceEvidence, assembleRun, auditRun, beginDocument, checkpointSection, freezeRun, prepareRun, readingCheck, resumeRun, runStatus, scaffoldClaims, searchSourceEvidence, updateChecklist, updateTraces, updateWorkItems, type SupplementInput } from "./run/run.ts";
 import { collectDrafts, draftSection } from "./report/parallel-authoring.ts";
 import { draftUnit, type UnitDraftInput } from "./report/unit-draft.ts";
@@ -14,7 +14,9 @@ import { admitUnits, planUnitAdmission } from "./report/unit-cache-admission-run
 import { summariseAdmission, type CandidateLedgerRow } from "./report/unit-cache-admission.ts";
 import { describeAuthorship, describeProvenance, type UnitAuthorship, type UnitProvenance } from "./report/unit-provenance.ts";
 import { readUnitGroundingForRun, summariseUnitGroundingReading } from "./report/unit-grounding-reading.ts";
-import { planRun, renderPlannerPacketForRun, DEFAULT_PLANNER_PACKET_BYTE_LIMIT, type PlanProposalSource } from "./run/stages/plan-stage.ts";
+import { planRun, renderPlannerPacketForRun, DEFAULT_PLANNER_PACKET_BYTE_LIMIT, type PlanProposalSource, type PlanRecording } from "./run/stages/plan-stage.ts";
+import { appendReportRequest } from "./report/report-requests-append.ts";
+import { plannedDocumentId, type LegacyDocumentRequest } from "./report/legacy-request-mapping.ts";
 import { PACKET_OVER_BUDGET_MODES, type PacketOverBudgetMode } from "./report/planner-packet.ts";
 import { stableJson } from "./base/util.ts";
 import { assertNever } from "./base/artifact-result.ts";
@@ -192,13 +194,32 @@ async function main(): Promise<void> {
       }
       case "plan": {
         const args = parseArgs(argv);
-        const result = await planRun(required(args.run, "--run"), proposalSource(args));
+        const result = await planRun(required(args.run, "--run"), proposalSource(args), planRecording(args));
         print({
           topics: result.topicsPath,
           catalog: result.planCatalogPath,
           dag: result.planDagPath,
+          revision: {
+            planRevision: result.revision.planRevision,
+            previousPlanCatalogDigest: result.revision.previousPlanCatalogDigest,
+            reason: result.revision.revisionReason,
+            archived: result.revision.archive,
+            succession: result.revision.succession
+          },
           verdicts: result.verdicts,
           obligations: result.artifacts.planCatalog.obligationAccounting
+        });
+        break;
+      }
+      case "request-append": {
+        // The one supported way a recorded request set grows: one document, appended, with every field stated.
+        const args = parseArgs(argv);
+        const result = await appendReportRequest(required(args.run, "--run"), appendedDocument(args));
+        print({
+          requests: result.path,
+          appended: result.appended,
+          documents: result.artifact.requests.map((record) => record.documentId),
+          next: "The recorded plan no longer covers this request set: run `excavator plan --run <run> --fixture-plan --revise --reason <why>` before drafting."
         });
         break;
       }
@@ -471,6 +492,58 @@ function proposalSource(args: Record<string, string>): PlanProposalSource {
 }
 
 /**
+ * Whether this plan action records the first revision of the epoch or supersedes the recorded plan.
+ *
+ * `--revise` and `--reason` are one flag in two halves: a revision with no stated reason is a plan replaced for
+ * reasons nobody recorded, and a reason with no `--revise` is a caller who thinks they are superseding a plan and
+ * is not. Both halves missing is the default path, which behaves exactly as it always has.
+ */
+function planRecording(args: Record<string, string>): PlanRecording {
+  const revise = args.revise === "true";
+  if (!revise && args.reason) throw new Error("--reason applies to --revise; a plain `plan` records the first revision of this epoch and supersedes nothing");
+  if (!revise) return { kind: "record" };
+  if (args.revise !== "true") throw new Error(`excavator plan takes --revise as a bare flag; ${JSON.stringify(args.revise)} is not a value it accepts`);
+  return { kind: "revise", reason: required(args.reason, "--reason (a plan revision states why the plan it supersedes was replaced)") };
+}
+
+/**
+ * The one document a `request-append` adds, with every field stated and its id DERIVED.
+ *
+ * The id is not a flag: `plannedDocumentId` is the same function prepare names its documents with, and letting a
+ * caller invent one would let a document id that no convention produces into the recorded request set — where the
+ * feature key is recovered from the id.
+ */
+function appendedDocument(args: Record<string, string>): LegacyDocumentRequest {
+  const kind = documentKind(required(args.kind, "--kind"));
+  const audience = singleAudience(required(args.audience, "--audience"));
+  const featureKey = kind === "feature" ? required(args.featureKey, "--feature-key (a feature document's knowledge boundary)") : null;
+  return {
+    documentId: plannedDocumentId(kind, audience, featureKey),
+    kind,
+    audience,
+    featureKey,
+    detailLevel: detailLevel(required(args.detail, "--detail")),
+    language: required(args.language, "--language")
+  };
+}
+
+function documentKind(value: string): DocumentKind {
+  if (value === "overview" || value === "feature") return value;
+  throw new Error(`--kind ${JSON.stringify(value)} is not one of: overview, feature`);
+}
+
+function singleAudience(value: string): Audience {
+  const parsed = audiences(value);
+  if (parsed.length !== 1) throw new Error(`--audience ${JSON.stringify(value)} names ${parsed.length} audiences; one appended document is written for exactly one reader`);
+  return parsed[0]!;
+}
+
+function detailLevel(value: string): DetailLevel {
+  if (value === "standard" || value === "detailed") return value;
+  throw new Error(`--detail ${JSON.stringify(value)} is not one of: standard, detailed`);
+}
+
+/**
  * True when this invocation is keyed by authoring unit, false when it is keyed by (document, section).
  *
  * There is no default and no inference: `--unit` selects the unit path, its absence selects the section path, and
@@ -670,6 +743,7 @@ Commands:
   unit-cache-identity Print the cache identity of every authoring unit of one planned run (read-only, zero model)
   unit-cache-admit   Re-enter previously verified units through the existing draft/collect gates (--mode required)
   plan          Validate a plan proposal against the frozen epoch and record plan/catalog.json + plan/dag.json
+  request-append Append one requested document to plan/requests.json (recorded rows are immutable)
   begin      Start or restart one document authoring timer
   reading    Show which in-boundary decision code no source window covers yet — run it before freeze, where opening one is free
   freeze     Seal epoch 0, or re-seal justified supplements as epoch N+1; renders epoch-bound authoring packets
@@ -767,14 +841,29 @@ const COMMAND_HELP: Record<string, CommandHelp> = {
     notes: "A unit is admitted only when its cache identity equals the one its ledger row recorded AND its content, claims and summary on disk still digest to what that row promised. Admission then re-enters those exact bytes through `draft` and `collect` — the summary agreement check, the output budget, the grounding audit, the synthesis backlink check and the promised-artifact digests all run again, and a new receipt is minted; no stale receipt is ever revived. Every planned unit comes back as admitted, fell-to-rebuild (with the cause: a changed identity, drifted bytes, a collect refusal, or a pass halted by an earlier refusal) or skipped-new, and every prior ledger row is listed with what was done with it. A refusal leaves the receipt in place so a corrected re-draft can be collected."
   },
   plan: {
-    synopsis: "plan --run <dir> (--fixture-plan | --proposal <file>)",
+    synopsis: "plan --run <dir> (--fixture-plan | --proposal <file>) [--revise --reason <why>]",
     flags: [
       "--run <dir>          Frozen run directory (required)",
       "--fixture-plan       Derive the proposal deterministically from the catalog",
-      "--proposal <file>    Validate a proposal produced elsewhere (a model, through the skill)"
+      "--proposal <file>    Validate a proposal produced elsewhere (a model, through the skill)",
+      "--revise             Supersede the plan this run records by writing its next revision (requires --reason)",
+      "--reason <why>       Why the recorded plan is being superseded (required with --revise)"
     ],
     example: "excavator plan --run <run> --proposal proposal.json",
-    notes: "Writes plan/topics.json, plan/catalog.json and plan/dag.json, each once. A proposal that does not validate is refused by name and writes nothing; correct it and run again."
+    notes: "Writes plan/topics.json, plan/catalog.json and plan/dag.json. A recorded plan is identified by (knowledge epoch, plan revision) and written once: identical bytes are a no-op, different bytes for a revision already recorded are refused. --revise is the explicit way past that — it records revision N+1, naming revision N's digest, and archives revision N under plan/revisions/ before replacing the current files; a proposed revision that says exactly what the recorded plan says is refused as superseding nothing. A proposal that does not validate is refused by name and writes nothing; correct it and run again."
+  },
+  "request-append": {
+    synopsis: "request-append --run <dir> --kind overview|feature --audience product|engineering|prd --detail standard|detailed --language <tag> [--feature-key <key>]",
+    flags: [
+      "--run <dir>          Run directory whose plan/requests.json is appended to (required)",
+      "--kind <what>        overview or feature (required)",
+      "--audience <who>     One reader: product, engineering or prd (required)",
+      "--detail <level>     standard or detailed (required)",
+      "--language <tag>     Output language of the appended document (required)",
+      "--feature-key <key>  The feature this document is bounded to (required for --kind feature)"
+    ],
+    example: "excavator request-append --run <run> --kind overview --audience engineering --detail standard --language zh-CN",
+    notes: "APPEND ONLY: the recorded rows are copied byte for byte and one row is added, so a duplicate document id and any change to a row already recorded are named refusals. The document id is derived from kind/audience/feature key, the same way prepare derives it. Appending leaves the recorded plan not covering the request set: authoring refuses by name until `plan --revise --reason <why>` records the next revision."
   },
   overview: {
     synopsis: "overview --target <dir> [--audience product|engineering|both] [--detail standard|detailed] [--no-codegraph]",

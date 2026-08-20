@@ -29,6 +29,14 @@
  * bytes for the same run are a named refusal. A plan is what the units downstream were written against; replacing
  * it silently would leave every receipt pointing at a plan that no longer says the same thing.
  *
+ * v3 MAKES THAT LAW TWO-AXIS: a recorded plan is identified by (knowledgeEpoch, planRevision), not by the epoch
+ * alone. The epoch belongs to freeze — minting one for a report-side need would forge a knowledge change — so the
+ * axis a re-plan moves along is the REVISION, recorded here as three required fields: which revision this is, the
+ * digest of the revision it supersedes, and why it was recorded. Revision 0 carries `null` for the latter two and
+ * nothing else may; a successor names its predecessor's digest, so succession is checked rather than assumed. What
+ * supersedes what is `plan-revision.ts`'s job (it archives the replaced revision and walks the chain); this file
+ * owns the fields, their coherence, and the refusal when a write would replace a revision already recorded.
+ *
  * IT NO LONGER IMPORTS PLAN VALIDATION, and that is load-bearing rather than tidy. Validation now MEASURES packets,
  * measuring a packet means rendering one, and rendering one needs this file — so `plan-validation -> unit-packet ->
  * plan-artifacts -> plan-validation` would be a cycle `tests/layer-order.test.ts` refuses. The two things this file
@@ -59,8 +67,73 @@ import { topicCatalogDigest } from "./topics-artifact.ts";
 import type { TopicCatalogArtifact } from "./topic-catalog.ts";
 import { parsedDispositionIndex, type TopicDisposition, type TopicDispositionVerdict } from "./topic-disposition.ts";
 
-export const PLAN_CATALOG_VERSION = "plan-catalog-v2";
-export const PLAN_DAG_VERSION = "plan-dag-v1";
+export const PLAN_CATALOG_VERSION = "plan-catalog-v3";
+export const PLAN_DAG_VERSION = "plan-dag-v2";
+
+/**
+ * The fields that record WHICH revision a plan is, rather than what it says.
+ *
+ * Closed and exported because two callers depend on the list being exactly this: the succession reader, and the
+ * comparison that decides whether a proposed revision supersedes anything at all — a revision whose only
+ * difference is its own revision number would move every receipt's plan digest while changing no plan.
+ */
+export const PLAN_REVISION_FIELDS = ["planRevision", "previousPlanCatalogDigest", "revisionReason"] as const;
+
+/**
+ * Which revision is being recorded, and what it supersedes. Required at every derivation: a plan that did not
+ * state its place in the succession would be a plan whose predecessor nobody can name.
+ */
+export interface PlanRevisionRef {
+  readonly planRevision: number;
+  readonly previousPlanCatalogDigest: string | null;
+  readonly revisionReason: string | null;
+}
+
+/** The first revision of one epoch's plan: it supersedes nothing, so it names nothing and has no reason to give. */
+export const FIRST_PLAN_REVISION: PlanRevisionRef = { planRevision: 0, previousPlanCatalogDigest: null, revisionReason: null };
+
+/**
+ * Every problem a revision reference has, as data. Empty means coherent.
+ *
+ * ONE PLACE decides what a coherent revision looks like, and both the builder and the file reader go through it:
+ * revision 0 supersedes nothing (both fields null), every later revision names its predecessor's digest and says
+ * why it exists. A second rule for the same shape is how "revision 0 with a predecessor" becomes writable.
+ */
+export function planRevisionProblems(value: {
+  readonly planRevision: unknown;
+  readonly previousPlanCatalogDigest: unknown;
+  readonly revisionReason: unknown;
+}): string[] {
+  const problems: string[] = [];
+  if (!Number.isSafeInteger(value.planRevision) || (value.planRevision as number) < 0) {
+    problems.push(`planRevision ${JSON.stringify(value.planRevision)} is not a non-negative integer`);
+  }
+  const previous = value.previousPlanCatalogDigest;
+  const reason = value.revisionReason;
+  if (previous !== null && (typeof previous !== "string" || !/^[0-9a-f]{64}$/.test(previous))) {
+    problems.push(`previousPlanCatalogDigest ${JSON.stringify(previous)} is neither null nor a sha256 digest`);
+  }
+  if (reason !== null && (typeof reason !== "string" || reason.trim() === "")) {
+    problems.push(`revisionReason ${JSON.stringify(reason)} is neither null nor a non-empty string`);
+  }
+  if (value.planRevision === 0) {
+    if (previous !== null) problems.push(`planRevision 0 records previousPlanCatalogDigest ${JSON.stringify(previous)}; the first plan of an epoch supersedes nothing`);
+    if (reason !== null) problems.push(`planRevision 0 records revisionReason ${JSON.stringify(reason)}; the first plan of an epoch is not a revision of anything`);
+  } else {
+    if (previous === null) problems.push(`planRevision ${JSON.stringify(value.planRevision)} records no previousPlanCatalogDigest; a revision names the plan it supersedes`);
+    if (reason === null) problems.push(`planRevision ${JSON.stringify(value.planRevision)} records no revisionReason; a revision states why the plan it supersedes was replaced`);
+  }
+  return problems;
+}
+
+/** The revision reference an artifact carries, as one value. The only place these three fields are read together. */
+export function planRevisionOf(artifact: PlanCatalogArtifact): PlanRevisionRef {
+  return {
+    planRevision: artifact.planRevision,
+    previousPlanCatalogDigest: artifact.previousPlanCatalogDigest,
+    revisionReason: artifact.revisionReason
+  };
+}
 
 export function planCatalogPath(runDir: string): string {
   return join(runDir, "plan", "catalog.json");
@@ -98,6 +171,12 @@ export interface PlanCatalogArtifact {
   readonly version: typeof PLAN_CATALOG_VERSION;
   readonly runId: string;
   readonly knowledgeEpoch: number;
+  /** Which revision of this epoch's plan this is. 0 is the first; `plan --revise` records the next. */
+  readonly planRevision: number;
+  /** The digest of the revision this one supersedes. `null` for revision 0 and for nothing else. */
+  readonly previousPlanCatalogDigest: string | null;
+  /** Why this revision was recorded. `null` for revision 0 and for nothing else. */
+  readonly revisionReason: string | null;
   readonly knowledgeDigest: string;
   /** The digest of the `plan/topics.json` this plan references. A different catalog is a different plan. */
   readonly topicsDigest: string;
@@ -119,6 +198,10 @@ export interface PlanDagArtifact {
   readonly version: typeof PLAN_DAG_VERSION;
   readonly runId: string;
   readonly knowledgeEpoch: number;
+  /** The catalog's own revision, restated so a graph on disk says which plan revision it belongs to. */
+  readonly planRevision: number;
+  /** The catalog's own predecessor, restated for the same reason. Both are checked against the catalog on read. */
+  readonly previousPlanCatalogDigest: string | null;
   /** Ties this graph to one plan catalog; a graph read next to a different catalog is a named failure. */
   readonly planCatalogDigest: string;
   /** One row per document, ascending; the order every unit is written in, children before parents. */
@@ -149,6 +232,13 @@ export interface PlanArtifactsDerivation {
   readonly proposal: PlanProposal;
   /** Required: the budget is derived here from the requests, never read off the proposal that echoes it. */
   readonly budgetTable: PlanBudgetTable;
+  /**
+   * Required: which revision this plan is, and what it supersedes.
+   *
+   * No default, because the two arms differ in what they are allowed to replace. `FIRST_PLAN_REVISION` is the
+   * first plan of an epoch; every later one comes from `plan-revision.ts`, which derives it from the plan on disk.
+   */
+  readonly revision: PlanRevisionRef;
 }
 
 export interface PlanArtifactsInput extends PlanArtifactsDerivation {
@@ -187,7 +277,11 @@ export function buildPlanArtifacts(input: PlanArtifactsInput): PlanArtifacts {
  * bytes either way, and the gate stays required at the recording path.
  */
 export function derivePlanArtifacts(input: PlanArtifactsDerivation): PlanArtifacts {
-  const { catalog, requests, proposal, budgetTable } = input;
+  const { catalog, requests, proposal, budgetTable, revision } = input;
+  const revisionProblems = planRevisionProblems(revision);
+  if (revisionProblems.length > 0) {
+    throw new Error(`The plan cannot be derived at this revision: ${revisionProblems.join("; ")}`);
+  }
   const topicsById = new Map(catalog.topics.map((topic) => [topic.topicId, topic]));
   const documentIds = [...new Set(requests.requests.map((record) => record.documentId))].sort((a, b) => a.localeCompare(b));
   const documents: PlanCatalogDocument[] = documentIds.map((documentId) => {
@@ -217,6 +311,9 @@ export function derivePlanArtifacts(input: PlanArtifactsDerivation): PlanArtifac
     version: PLAN_CATALOG_VERSION,
     runId: catalog.runId,
     knowledgeEpoch: catalog.knowledgeEpoch,
+    planRevision: revision.planRevision,
+    previousPlanCatalogDigest: revision.previousPlanCatalogDigest,
+    revisionReason: revision.revisionReason,
     knowledgeDigest: catalog.knowledgeDigest,
     topicsDigest: topicCatalogDigest(catalog),
     requestsDigest: reportRequestsDigest(requests),
@@ -236,6 +333,8 @@ export function derivePlanArtifacts(input: PlanArtifactsDerivation): PlanArtifac
     version: PLAN_DAG_VERSION,
     runId: catalog.runId,
     knowledgeEpoch: catalog.knowledgeEpoch,
+    planRevision: planCatalog.planRevision,
+    previousPlanCatalogDigest: planCatalog.previousPlanCatalogDigest,
     planCatalogDigest: planCatalogDigest(planCatalog),
     documents: documents.map((document) => ({
       documentId: document.documentId,
@@ -292,27 +391,85 @@ export function proposalFromPlanCatalog(artifact: PlanCatalogArtifact): PlanProp
 }
 
 /**
- * Write both artifacts once per EPOCH. Identical bytes are a no-op; different bytes for the same epoch are a named
- * refusal; a new epoch supersedes — see `writeTopicCatalog` for why a supplement may not be a permanent write-off.
+ * How a write relates to what the run already records. Closed, no default: superseding is stated, never inferred.
+ *
+ * `record` is the write-once law: identical bytes are a no-op, different bytes for the same (epoch, revision) are a
+ * named refusal, a new epoch supersedes — see `writeTopicCatalog` for why a supplement may not be a permanent
+ * write-off. `supersede` is the only path that replaces a recorded plan, and it may only be taken with the
+ * superseded revision ALREADY ARCHIVED: the two archive paths are checked to hold exactly its bytes before
+ * anything on the current path is touched, so "archive first" is a verified precondition rather than a caller's
+ * good intention. `plan-revision.ts` is what writes those archives; this file refuses to proceed without them.
+ */
+export type PlanWriteMode =
+  | { readonly kind: "record" }
+  | {
+      readonly kind: "supersede";
+      readonly superseded: PlanArtifacts;
+      readonly archivedCatalogPath: string;
+      readonly archivedDagPath: string;
+    };
+
+/**
+ * Write both artifacts, under the law the mode names.
  *
  * The DAG is written second and read back against the catalog in hand, so a half-written pair cannot pass: a graph
  * whose `planCatalogDigest` does not match the catalog beside it is refused by the reader.
  */
-export async function writePlanArtifacts(runDir: string, artifacts: PlanArtifacts, catalog: TopicCatalogArtifact): Promise<PlanArtifacts> {
-  await writeOnce(planCatalogPath(runDir), artifacts.planCatalog, async () => readPlanCatalog(runDir, catalog), (value) => value.knowledgeEpoch, "plan catalog");
-  await writeOnce(planDagPath(runDir), artifacts.dag, async () => readPlanDag(runDir, artifacts.planCatalog), (value) => value.knowledgeEpoch, "authoring DAG");
-  return artifacts;
+export async function writePlanArtifacts(runDir: string, artifacts: PlanArtifacts, catalog: TopicCatalogArtifact, mode: PlanWriteMode): Promise<PlanArtifacts> {
+  switch (mode.kind) {
+    case "record":
+      await writeOnce(planCatalogPath(runDir), artifacts.planCatalog, async () => readPlanCatalog(runDir, catalog), "plan catalog");
+      await writeOnce(planDagPath(runDir), artifacts.dag, async () => readPlanDag(runDir, artifacts.planCatalog), "authoring DAG");
+      return artifacts;
+    case "supersede": {
+      await assertSupersedes(artifacts.planCatalog, mode.superseded.planCatalog);
+      await assertArchived(mode.archivedCatalogPath, mode.superseded.planCatalog, "plan catalog");
+      await assertArchived(mode.archivedDagPath, mode.superseded.dag, "authoring DAG");
+      await writeJson(planCatalogPath(runDir), artifacts.planCatalog);
+      await writeJson(planDagPath(runDir), artifacts.dag);
+      return artifacts;
+    }
+  }
+  return assertNever(mode, "plan write mode");
 }
 
-async function writeOnce<T>(path: string, value: T, readBack: () => Promise<T>, epochOf: (value: T) => number, what: string): Promise<void> {
+/** The successor must be the next revision of the same epoch and must name its predecessor's digest. Both, always. */
+async function assertSupersedes(next: PlanCatalogArtifact, superseded: PlanCatalogArtifact): Promise<void> {
+  if (next.knowledgeEpoch !== superseded.knowledgeEpoch) {
+    throw new Error(`A plan revision supersedes a plan of its own epoch: this one is epoch ${next.knowledgeEpoch} and the plan it would replace is epoch ${superseded.knowledgeEpoch}. A re-frozen run is re-planned, not revised.`);
+  }
+  if (next.planRevision !== superseded.planRevision + 1) {
+    throw new Error(`A plan revision follows the one it supersedes: this one is revision ${next.planRevision} and the plan it would replace is revision ${superseded.planRevision}`);
+  }
+  const expected = planCatalogDigest(superseded);
+  if (next.previousPlanCatalogDigest !== expected) {
+    throw new Error(`Plan revision ${next.planRevision} names predecessor ${JSON.stringify(next.previousPlanCatalogDigest)}, but the plan it would replace digests to ${expected}; a succession is checked, never assumed`);
+  }
+}
+
+/** The superseded revision must already be on disk at the archive path, byte for byte. */
+async function assertArchived(path: string, value: unknown, what: string): Promise<void> {
+  const recorded = await readJson<unknown>(path).catch(() => null);
+  if (recorded === null) {
+    throw new Error(`${path} does not hold the ${what} being superseded; a superseded plan revision is archived before it is replaced`);
+  }
+  if (stableJson(recorded) !== stableJson(value)) {
+    throw new Error(`${path} archives a different ${what} than the one being superseded; the revision on disk cannot be replaced by bytes that do not match what was archived`);
+  }
+}
+
+async function writeOnce<T extends { readonly knowledgeEpoch: number; readonly planRevision: number }>(path: string, value: T, readBack: () => Promise<T>, what: string): Promise<void> {
   if (await exists(path)) {
     // A recorded artifact that no longer parses against the current epoch cannot be compared, and that is exactly
     // the epoch-succession case: the read-back is attempted, and its failure is not allowed to strand the run.
     const recorded = await readBack().catch(() => null);
     if (recorded !== null) {
       if (stableJson(recorded) === stableJson(value)) return;
-      if (epochOf(recorded) === epochOf(value)) {
-        throw new Error(`${path} already records a different ${what}; it is written once per epoch`);
+      if (recorded.knowledgeEpoch === value.knowledgeEpoch) {
+        if (recorded.planRevision !== value.planRevision) {
+          throw new Error(`${path} already records revision ${recorded.planRevision} of this epoch's ${what}, and this one is revision ${value.planRevision}; a recorded plan is replaced only by \`plan --revise --reason <why>\`, which archives the revision it supersedes`);
+        }
+        throw new Error(`${path} already records a different ${what}; it is written once per epoch and revision`);
       }
     }
   }
@@ -349,14 +506,18 @@ export async function readPlanDag(runDir: string, planCatalog: PlanCatalogArtifa
 
 const PLAN_CATALOG_FIELDS = [
   "budget", "dispositions", "documents", "knowledgeDigest", "knowledgeEpoch", "obligationAccounting",
-  "policyVersion", "proposalVersion", "requestsDigest", "runId", "topicsDigest", "units", "version"
+  "planRevision", "policyVersion", "previousPlanCatalogDigest", "proposalVersion", "requestsDigest",
+  "revisionReason", "runId", "topicsDigest", "units", "version"
 ] as const;
 
 const PLAN_UNIT_FIELDS = ["childUnitIds", "documentId", "kind", "title", "topics", "unitId"] as const;
 
 const PLAN_TOPIC_REFERENCE_FIELDS = ["obligationScope", "topicDigest", "topicId"] as const;
 
-const PLAN_DAG_FIELDS = ["documents", "edges", "knowledgeEpoch", "planCatalogDigest", "runId", "version"] as const;
+const PLAN_DAG_FIELDS = [
+  "documents", "edges", "knowledgeEpoch", "planCatalogDigest", "planRevision", "previousPlanCatalogDigest",
+  "runId", "version"
+] as const;
 
 /**
  * Every problem an untrusted value has as a plan catalog, as data. Empty means valid.
@@ -387,6 +548,13 @@ export function planCatalogProblems(value: unknown, catalog: TopicCatalogArtifac
     problems.push(`proposalVersion ${JSON.stringify(artifact.proposalVersion)} is not ${PLAN_PROPOSAL_VERSION}; the proposal schema this plan was validated against is superseded — re-plan this run`);
   }
   if (artifact.policyVersion !== REPORT_POLICY_VERSION) problems.push(`policyVersion ${JSON.stringify(artifact.policyVersion)} is not the registry's ${REPORT_POLICY_VERSION}`);
+  // The untrusted values go in AS THEY ARE. No `?? null` here: a missing field is already named above, and
+  // defaulting one to `null` on the way in would make an absent predecessor read as a coherent revision 0.
+  problems.push(...planRevisionProblems({
+    planRevision: artifact.planRevision,
+    previousPlanCatalogDigest: artifact.previousPlanCatalogDigest,
+    revisionReason: artifact.revisionReason
+  }));
   const expectedTopicsDigest = topicCatalogDigest(catalog);
   if (artifact.topicsDigest !== expectedTopicsDigest) {
     problems.push(`topicsDigest ${JSON.stringify(artifact.topicsDigest)} is not the digest of this run's plan/topics.json (${expectedTopicsDigest}); the plan references another catalog`);
@@ -507,6 +675,10 @@ export function planDagProblems(value: unknown, planCatalog: PlanCatalogArtifact
   }
   if (artifact.runId !== planCatalog.runId) problems.push(`runId ${JSON.stringify(artifact.runId)} is not the plan catalog's ${JSON.stringify(planCatalog.runId)}`);
   if (artifact.knowledgeEpoch !== planCatalog.knowledgeEpoch) problems.push(`knowledgeEpoch ${JSON.stringify(artifact.knowledgeEpoch)} is not the plan catalog's ${planCatalog.knowledgeEpoch}`);
+  if (artifact.planRevision !== planCatalog.planRevision) problems.push(`planRevision ${JSON.stringify(artifact.planRevision)} is not the plan catalog's ${planCatalog.planRevision}`);
+  if (artifact.previousPlanCatalogDigest !== planCatalog.previousPlanCatalogDigest) {
+    problems.push(`previousPlanCatalogDigest ${JSON.stringify(artifact.previousPlanCatalogDigest)} is not the plan catalog's ${JSON.stringify(planCatalog.previousPlanCatalogDigest)}`);
+  }
   if (problems.length > 0) return problems;
 
   // The graph is re-derived from the plan catalog's own units, so an edge nobody declared and a missing edge are
@@ -521,6 +693,8 @@ export function planDagProblems(value: unknown, planCatalog: PlanCatalogArtifact
       version: PLAN_DAG_VERSION,
       runId: planCatalog.runId,
       knowledgeEpoch: planCatalog.knowledgeEpoch,
+      planRevision: planCatalog.planRevision,
+      previousPlanCatalogDigest: planCatalog.previousPlanCatalogDigest,
       planCatalogDigest: expectedDigest,
       documents: planCatalog.documents.map((document) => ({
         documentId: document.documentId,

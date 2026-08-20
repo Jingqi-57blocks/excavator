@@ -153,7 +153,7 @@ test("a wrong version, a non-array and a malformed budget echo are each named", 
 test("the five schema versions this slice bumps are pinned together", () => {
   assert.equal(PLAN_PROPOSAL_VERSION, "plan-proposal-v2", "topic references carry an obligation scope");
   assert.equal(PLAN_BUDGET_VERSION, "plan-budget-v2", "the allowance table declares two output numbers");
-  assert.equal(PLAN_CATALOG_VERSION, "plan-catalog-v2", "the recorded reference carries the scope; the measured field is gone");
+  assert.equal(PLAN_CATALOG_VERSION, "plan-catalog-v3", "the recorded reference carries the scope, the measured field is gone, and the revision is recorded");
   assert.equal(PLAN_VALIDATION_VERSION, "plan-validation-v2", "the budget pre-check is the renderer, and the partition law is new");
   assert.equal(UNIT_PACKET_VERSION, "unit-packet-v3", "the packet is scope-aware and prints a declared output bound");
 });

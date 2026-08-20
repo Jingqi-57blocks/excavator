@@ -4,7 +4,7 @@
     "`obligated-non-material` — obligations bind to this topic and none of them is material.",
     "`unobligated` — NO obligation in this run's ledger binds to this topic. It does not mean the subject is out of scope, and it does not mean nothing needs explaining: it is a reading of how far the obligation ledger reaches. For the route facet it means nobody computes the join between the route ledger and the obligation ledger — the obligation ledger does carry route-identified rows (the `route-handler` and `recovered-route-handler` kinds name a method and a path), so a route topic being unobligated is a missing join, not an unreachable subject."
   ],
-  "dagDigest": "d0c691fdd362170510a0de70bcd8f888a711e74c12f1888e4c57e215d18b02f3",
+  "dagDigest": "1753df08f45c5218cf0a81b60d57b9645e3369cd154de15d4c6635a4264a5638",
   "divisions": [],
   "documents": [
     {
@@ -122,7 +122,7 @@
   "packetByteLimit": 524288,
   "packetBytes": 9944,
   "packetLimitations": [],
-  "planCatalogDigest": "16793e4b7a497d79f2018d49177f9388f9583cb8b95cabe944f79e6ec3eade25",
+  "planCatalogDigest": "606538c8317842158047332140277914ae88a6c8c66a3e374b44364f79e8633f",
   "readPaths": [
     "context/boundary-functions.json",
     "contract/run-intent.json",

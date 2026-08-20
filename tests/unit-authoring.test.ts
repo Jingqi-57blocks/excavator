@@ -462,7 +462,7 @@ test("an unsealed supplement stops collect, a superseded receipt is refused, and
    * supersedes - a new epoch is a new set of recorded bytes, which is what makes "re-plan after a re-freeze" an
    * operation and not a hand edit.
    */
-  await planRun(run.runDir, { mode: "fixture" });
+  await planRun(run.runDir, { mode: "fixture" }, { kind: "record" });
   const recorded = JSON.parse(await readFile(join(run.runDir, "plan", "catalog.json"), "utf8")) as { knowledgeEpoch: number };
   assert.equal(recorded.knowledgeEpoch, 1, "the re-plan projects the epoch the manifest selects, not epoch 0");
   // The catalog's own input identity is the canonical bytes of the epoch-1 RECORD, read from the epoch-1 file.

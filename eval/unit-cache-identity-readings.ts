@@ -34,7 +34,7 @@ import { canonicalJson, readJson, sha256 } from "../src/base/util.ts";
 import { featureKeyOf } from "../src/report/authoring-packet.ts";
 import { buildFixturePlan } from "../src/report/fixture-plan.ts";
 import { PLAN_BUDGET_TABLE } from "../src/report/plan-budget.ts";
-import { buildPlanArtifacts, planCatalogDigest, type PlanCatalogArtifact, type PlanCatalogUnit, type PlanDagArtifact } from "../src/report/plan-artifacts.ts";
+import { FIRST_PLAN_REVISION, buildPlanArtifacts, planCatalogDigest, type PlanCatalogArtifact, type PlanCatalogUnit, type PlanDagArtifact } from "../src/report/plan-artifacts.ts";
 import { documentOwnership, type ObligationOwnershipIndex } from "../src/report/plan-obligation-conservation.ts";
 import { AUTHORING_UNIT_KINDS } from "../src/report/plan-proposal.ts";
 import { planThroughBudgetRefinement } from "../src/report/plan-unit-split.ts";
@@ -238,7 +238,8 @@ export function projectState(
     requests,
     proposal: planned.proposal,
     budgetTable: PLAN_BUDGET_TABLE,
-    verdict: planned.report.overall
+    verdict: planned.report.overall,
+    revision: FIRST_PLAN_REVISION
   });
   const planCatalog = artifacts.planCatalog;
   const topicsById = new Map(catalog.topics.map((topic) => [topic.topicId, topic]));

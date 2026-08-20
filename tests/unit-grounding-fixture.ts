@@ -25,7 +25,7 @@ import { planRun } from "../src/run/stages/plan-stage.ts";
 import { buildFixturePlan } from "../src/report/fixture-plan.ts";
 import type { ProposedUnit } from "../src/report/plan-proposal.ts";
 import { PLAN_BUDGET_TABLE } from "../src/report/plan-budget.ts";
-import { buildPlanArtifacts, type PlanCatalogArtifact, type PlanCatalogUnit, type PlanDagArtifact } from "../src/report/plan-artifacts.ts";
+import { FIRST_PLAN_REVISION, buildPlanArtifacts, type PlanCatalogArtifact, type PlanCatalogUnit, type PlanDagArtifact } from "../src/report/plan-artifacts.ts";
 import {
   deriveObligationOwnership,
   documentOwnership,
@@ -80,7 +80,7 @@ export async function miniPlan(): Promise<MiniPlan> {
   const { runDir, catalog, requests } = run;
   const proposal = buildFixturePlan(catalog, requests, PLAN_BUDGET_TABLE);
   const report = validatePlan({ catalog, requests, proposal, registry: REPORT_POLICY_REGISTRY, budgetTable: PLAN_BUDGET_TABLE, evidence: run.evidenceById, reach: run.reach });
-  const artifacts = buildPlanArtifacts({ catalog, requests, proposal, budgetTable: PLAN_BUDGET_TABLE, verdict: report.overall });
+  const artifacts = buildPlanArtifacts({ catalog, requests, proposal, budgetTable: PLAN_BUDGET_TABLE, verdict: report.overall, revision: FIRST_PLAN_REVISION });
   const evidence = await readEvidenceCatalog(runDir);
   return {
     runDir,
@@ -258,7 +258,7 @@ export async function materialisedRun(): Promise<MaterialisedRun> {
   ]);
   const frozen = await freezeRun(runDir);
   if (!frozen.frozen) throw new Error(`fixture run did not freeze: ${frozen.findings.map((finding) => finding.message).join("; ")}`);
-  await planRun(runDir, { mode: "fixture" });
+  await planRun(runDir, { mode: "fixture" }, { kind: "record" });
   const manifest = JSON.parse(await readFile(join(runDir, "run.json"), "utf8")) as RunManifest;
   return {
     runDir,

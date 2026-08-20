@@ -296,7 +296,7 @@
   ],
   "knowledgeDigest": "3bf7e058c0e7b0e29e6be73dbb5b3453c837fd3f109023215c7cf7bb025e7010",
   "knowledgeEpoch": 0,
-  "planCatalogDigest": "31184d47f1076d0e36df037ff7a3c1637573f0537b66938d9621efc34359c9e4",
+  "planCatalogDigest": "0a362f9654cf47630398aa4130d1579319faf14b12be95a2e5a1af2b1611e8ab",
   "runId": "run-topic-catalog-mini",
   "scenarios": [
     {
@@ -335,7 +335,7 @@
     },
     {
       "outcome": {
-        "candidateStatement": "12 prior verified unit(s) offered by run run-topic-catalog-mini, knowledge epoch 0, plan catalog 31184d47f1076d0e36df037ff7a3c1637573f0537b66938d9621efc34359c9e4",
+        "candidateStatement": "12 prior verified unit(s) offered by run run-topic-catalog-mini, knowledge epoch 0, plan catalog 0a362f9654cf47630398aa4130d1579319faf14b12be95a2e5a1af2b1611e8ab",
         "candidateUnits": 12,
         "conservation": [
           "planned = reusable + rebuild + new: 15 = 12 + 0 + 3",
@@ -370,7 +370,7 @@
     },
     {
       "outcome": {
-        "candidateStatement": "12 prior verified unit(s) offered by run run-topic-catalog-mini, knowledge epoch 0, plan catalog 31184d47f1076d0e36df037ff7a3c1637573f0537b66938d9621efc34359c9e4",
+        "candidateStatement": "12 prior verified unit(s) offered by run run-topic-catalog-mini, knowledge epoch 0, plan catalog 0a362f9654cf47630398aa4130d1579319faf14b12be95a2e5a1af2b1611e8ab",
         "candidateUnits": 12,
         "conservation": [
           "planned = reusable + rebuild + new: 20 = 12 + 0 + 8",
@@ -410,7 +410,7 @@
     },
     {
       "outcome": {
-        "candidateStatement": "12 prior verified unit(s) offered by run run-topic-catalog-mini, knowledge epoch 0, plan catalog 31184d47f1076d0e36df037ff7a3c1637573f0537b66938d9621efc34359c9e4",
+        "candidateStatement": "12 prior verified unit(s) offered by run run-topic-catalog-mini, knowledge epoch 0, plan catalog 0a362f9654cf47630398aa4130d1579319faf14b12be95a2e5a1af2b1611e8ab",
         "candidateUnits": 12,
         "conservation": [
           "planned = reusable + rebuild + new: 15 = 9 + 3 + 3",
@@ -470,7 +470,7 @@
     },
     {
       "outcome": {
-        "candidateStatement": "12 prior verified unit(s) offered by run run-topic-catalog-mini, knowledge epoch 0, plan catalog 31184d47f1076d0e36df037ff7a3c1637573f0537b66938d9621efc34359c9e4",
+        "candidateStatement": "12 prior verified unit(s) offered by run run-topic-catalog-mini, knowledge epoch 0, plan catalog 0a362f9654cf47630398aa4130d1579319faf14b12be95a2e5a1af2b1611e8ab",
         "candidateUnits": 12,
         "conservation": [
           "planned = reusable + rebuild + new: 15 = 9 + 3 + 3",
@@ -530,7 +530,7 @@
     },
     {
       "outcome": {
-        "candidateStatement": "12 prior verified unit(s) offered by run run-topic-catalog-mini, knowledge epoch 0, plan catalog 31184d47f1076d0e36df037ff7a3c1637573f0537b66938d9621efc34359c9e4",
+        "candidateStatement": "12 prior verified unit(s) offered by run run-topic-catalog-mini, knowledge epoch 0, plan catalog 0a362f9654cf47630398aa4130d1579319faf14b12be95a2e5a1af2b1611e8ab",
         "candidateUnits": 12,
         "conservation": [
           "planned = reusable + rebuild + new: 15 = 3 + 9 + 3",

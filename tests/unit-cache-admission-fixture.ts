@@ -2,30 +2,29 @@
  * Shared setup for the R6b admission e2e: ONE real frozen run, authored through the real commands, then re-planned.
  *
  * EVERYTHING HERE HAPPENS ON DISK, THROUGH THE REAL DOORS. `draftUnit` and `collectUnits` write the units; `planRun`
- * records every plan. Nothing hand-writes a ledger row, a receipt or a plan artifact — because what the admission
- * tests have to establish is that a re-entry passes the gates a real run passes, and a fixture that assembled the
- * prior state itself would be testing its own assembly. The one thing written by hand is `plan/requests.json` for
- * the second-audience scenario, and it is written with `buildReportRequestsArtifact`, Core's own builder, because
- * prepare writes that file once per run and this scenario is precisely "one more document was requested".
+ * records every plan, and every plan after the first is a real `--revise`; `appendReportRequest` is what adds the
+ * second audience's document. Nothing hand-writes a ledger row, a receipt, a plan artifact or a request row —
+ * because what the admission tests have to establish is that a re-entry passes the gates a real run passes, and a
+ * fixture that assembled the prior state itself would be testing its own assembly.
  *
  * WHY THE PERTURBATIONS ARE PLAN-LEVEL. A binding-preserving change to a TOPIC cannot be made on a live run without
- * either editing a ledger the epoch seals (refused by name, correctly) or re-freezing, which 57B-462 blocks on this
- * branch. So the live perturbations here are the two a re-plan legitimately produces: one more requested document,
- * and one unit's title changed. Both keep every binding and every obligation identical, which is what the epic's
- * "rebuild the leaf and its ancestors" case needs; the topic-content and binding-set shapes stay where R6a proved
- * them, at the value layer, over two plan states.
+ * editing a ledger the epoch seals (refused by name, correctly). So the live perturbations here are the two a
+ * re-plan legitimately produces: one more requested document, and one unit's title changed. Both keep every
+ * binding and every obligation identical, which is what the epic's "rebuild the leaf and its ancestors" case
+ * needs; the topic-content and binding-set shapes stay where R6a proved them, at the value layer, over two plan
+ * states.
  */
 
-import { rm, writeFile } from "node:fs/promises";
-import { canonicalJson, exists, stableJson, writeJson } from "../src/base/util.ts";
-import { planCatalogPath, planDagPath } from "../src/report/plan-artifacts.ts";
+import { writeFile } from "node:fs/promises";
+import { canonicalJson, stableJson } from "../src/base/util.ts";
 import { planRun } from "../src/run/stages/plan-stage.ts";
 import { buildFixturePlan } from "../src/report/fixture-plan.ts";
 import { PLAN_BUDGET_TABLE } from "../src/report/plan-budget.ts";
 import { FULL_OBLIGATION_SCOPE } from "../src/report/obligation-scope.ts";
 import { parsePlanProposal, type PlanProposal, type ProposedUnit } from "../src/report/plan-proposal.ts";
-import type { LegacyDocumentRequest } from "../src/report/legacy-request-mapping.ts";
-import { buildReportRequestsArtifact, readReportRequests, reportRequestsPath } from "../src/report/report-requests-artifact.ts";
+import { plannedDocumentId, type LegacyDocumentRequest } from "../src/report/legacy-request-mapping.ts";
+import { appendReportRequest } from "../src/report/report-requests-append.ts";
+import { readReportRequests } from "../src/report/report-requests-artifact.ts";
 import { buildTopicCatalog, type TopicCatalogArtifact } from "../src/report/topic-catalog.ts";
 import { loadTopicCatalogSource } from "../src/report/topic-catalog-source.ts";
 import { collectUnits } from "../src/report/unit-collect.ts";
@@ -60,13 +59,11 @@ export async function reloadPlan(run: PlannedRun): Promise<PlannedRun> {
  * The proposal goes through `parsePlanProposal` here and through the whole validator inside `planRun`, so no state
  * these tests stand on is a plan Core would refuse.
  *
- * IT REMOVES THE RECORDED PLAN FIRST, AND THAT IS A FINDING RATHER THAN A CONVENIENCE. `writePlanArtifacts` writes
- * `plan/catalog.json` and `plan/dag.json` ONCE PER EPOCH and refuses different bytes for an epoch it already
- * recorded (`plan-artifacts.ts`), so no command re-plans a run within its knowledge epoch. But a superseded plan is
- * the ONLY state a unit cache can ever have candidates in — cross-epoch rows are excluded by design — so the state
- * this whole slice is about is unreachable through supported operations today. The fixture reaches it by deleting
- * the two recorded artifacts, in the open, so that what the admission does with that state can be tested at all.
- * The missing piece (an explicit re-plan operation) is reported with the slice, not worked around in `src/`.
+ * IT SUPERSEDES THE RECORDED PLAN THROUGH THE REAL DOOR. `plan/catalog.json` is written once per (epoch, revision),
+ * and a superseded plan is the ONLY state a unit cache can have candidates in — cross-epoch rows are excluded by
+ * design. `--revise` is the operation that reaches that state: it records the next revision, names the digest of
+ * the one it replaces, and archives it under `plan/revisions/`. Nothing here deletes a plan artifact, so the only
+ * way this fixture can offer a candidate is the way an operator has.
  */
 export async function recordPlan(run: PlannedRun, label: string, mutate: ProposalMutation): Promise<PlannedRun> {
   const catalog = buildTopicCatalog(await loadTopicCatalogSource(run.runDir, await manifestOf(run.runDir)));
@@ -77,10 +74,7 @@ export async function recordPlan(run: PlannedRun, label: string, mutate: Proposa
   if (!parsed.proposal) throw new Error(`the ${label} proposal does not parse: ${parsed.problems.join("; ")}`);
   const path = `${run.workdir}/proposal-${label}.json`;
   await writeFile(path, `${stableJson(parsed.proposal satisfies PlanProposal)}\n`);
-  for (const recorded of [planCatalogPath(run.runDir), planDagPath(run.runDir)]) {
-    if (await exists(recorded)) await rm(recorded);
-  }
-  await planRun(run.runDir, { mode: "file", path });
+  await planRun(run.runDir, { mode: "file", path }, { kind: "revise", reason: `the ${label} scenario re-plans this run` });
   return reloadPlan(run);
 }
 
@@ -130,26 +124,27 @@ export function withTitle(unitId: string, title: string): ProposalMutation {
 }
 
 /**
- * Add one document to the recorded requests — the second-audience shape, on disk.
+ * Add one document to the recorded requests — the second-audience shape, on disk, through the append door.
  *
- * Written with Core's own builder rather than by hand, and the run's own detail level and language are carried over,
- * so the added row is the row prepare would have written had the request named both audiences.
+ * The run's own detail level and language are carried over, so the appended row is the row prepare would have
+ * written had the request named both audiences. The door refuses to touch the row already recorded, which is why
+ * this scenario can be trusted to be "one more document" and nothing else.
  */
 export async function requestSecondDocument(run: PlannedRun): Promise<void> {
   const recorded = await readReportRequests(run.runDir);
-  const documents: LegacyDocumentRequest[] = run.manifest.documents.map((document) => ({
-    documentId: document.id,
-    kind: document.kind,
-    audience: document.audience,
+  if (recorded.requests.length !== 1) {
+    throw new Error(`the second-audience fixture appends to a run that records one document; this one records ${recorded.requests.length}`);
+  }
+  const second: LegacyDocumentRequest = {
+    documentId: plannedDocumentId("overview", "engineering", null),
+    kind: "overview",
+    audience: "engineering",
     featureKey: null,
     detailLevel: run.manifest.request.detailLevel ?? "standard",
     language: run.manifest.request.language
-  }));
-  if (documents.length !== recorded.requests.length) {
-    throw new Error(`the fixture recovered ${documents.length} document(s) from the manifest and the run records ${recorded.requests.length}`);
-  }
-  const second: LegacyDocumentRequest = { ...documents[0]!, documentId: SECOND_DOCUMENT, audience: "engineering" };
-  await writeJson(reportRequestsPath(run.runDir), buildReportRequestsArtifact([...documents, second]));
+  };
+  if (second.documentId !== SECOND_DOCUMENT) throw new Error(`the appended document is ${second.documentId}, and the tests name ${SECOND_DOCUMENT}`);
+  await appendReportRequest(run.runDir, second);
 }
 
 /** Draft and collect every planned unit, in the plan's own collection order. The prior verified state. */

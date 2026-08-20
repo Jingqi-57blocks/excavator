@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { stableJson } from "../src/base/util.ts";
 import { buildFixturePlan } from "../src/report/fixture-plan.ts";
 import { PLAN_BUDGET_TABLE, documentBudgetRow, type PlanBudgetTable } from "../src/report/plan-budget.ts";
-import { derivePlanArtifacts } from "../src/report/plan-artifacts.ts";
+import { FIRST_PLAN_REVISION, derivePlanArtifacts } from "../src/report/plan-artifacts.ts";
 import {
   costBytes,
   maximalChildSummary,
@@ -61,7 +61,7 @@ test("every renderable unit's measured bytes ARE the bytes its packet renders to
   const proposal = buildFixturePlan(run.catalog, run.requests, PLAN_BUDGET_TABLE);
   const inputs = measureInputs(run);
   const measurement = measurePlanPackets(inputs, proposal);
-  const artifacts = derivePlanArtifacts({ catalog: run.catalog, requests: run.requests, proposal, budgetTable: PLAN_BUDGET_TABLE });
+  const artifacts = derivePlanArtifacts({ catalog: run.catalog, requests: run.requests, proposal, budgetTable: PLAN_BUDGET_TABLE , revision: FIRST_PLAN_REVISION });
   const ownership = deriveObligationOwnership(run.catalog, ownershipUnitsOfProposal(proposal.units));
   const topicsById = new Map(run.catalog.topics.map((topic) => [topic.topicId, topic]));
 

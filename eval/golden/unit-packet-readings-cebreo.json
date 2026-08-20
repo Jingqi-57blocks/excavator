@@ -93,7 +93,7 @@
       "unownedObligationIds": []
     }
   ],
-  "planCatalogDigest": "16793e4b7a497d79f2018d49177f9388f9583cb8b95cabe944f79e6ec3eade25",
+  "planCatalogDigest": "606538c8317842158047332140277914ae88a6c8c66a3e374b44364f79e8633f",
   "readPaths": [
     "context/boundary-functions.json",
     "contract/run-intent.json",
@@ -118,7 +118,7 @@
       "ownedMaterial": 0,
       "packetByteLimit": 786432,
       "packetBytes": 24767,
-      "packetDigest": "dea3310e239195bf9f7fcdfff336b7a55c89928abb1836c45e88807f9fcf3104",
+      "packetDigest": "bde263ef0d7caacfeb406247a4fe27fc1cb81b82f7053c802d9412d9353fbd3d",
       "packetLimitations": [],
       "precheckBytes": 24767,
       "reachableMaterial": 0,

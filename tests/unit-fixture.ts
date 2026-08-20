@@ -78,7 +78,7 @@ export async function frozenRun(audiences: Array<"product" | "engineering"> = ["
 /** A frozen run with the deterministic fixture plan recorded — the premise every unit command needs. */
 export async function plannedRun(audiences: Array<"product" | "engineering"> = ["product"]): Promise<PlannedRun> {
   const base = await frozenRun(audiences);
-  await planRun(base.runDir, { mode: "fixture" });
+  await planRun(base.runDir, { mode: "fixture" }, { kind: "record" });
   return { ...base, manifest: await manifestOf(base.runDir), view: await planViewOf(base.runDir) };
 }
 
@@ -163,7 +163,7 @@ export async function planWithRenamedUnits(runDir: string, workdir: string, rena
   const proposal: PlanProposal = { ...base, units: units.sort((a, b) => a.unitId.localeCompare(b.unitId)) };
   const path = join(workdir, `proposal-${units.length}.json`);
   await writeFile(path, `${stableJson(proposal)}\n`);
-  await planRun(runDir, { mode: "file", path });
+  await planRun(runDir, { mode: "file", path }, { kind: "record" });
 }
 
 /**
@@ -189,6 +189,6 @@ export async function planWithLeaf(runDir: string, workdir: string, facet: strin
   const proposal: PlanProposal = { ...base, units: units.sort((a, b) => a.unitId.localeCompare(b.unitId)) };
   const path = join(workdir, "proposal-leaf.json");
   await writeFile(path, `${stableJson(proposal)}\n`);
-  await planRun(runDir, { mode: "file", path });
+  await planRun(runDir, { mode: "file", path }, { kind: "record" });
   return leafId;
 }

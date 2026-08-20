@@ -49,7 +49,7 @@ test("begin and draft refuse a frozen run with no plan, naming the file and the 
     /plan\/topics\.json is missing from .*authoring cannot start without a validated plan/);
 
   // And with the plan in place the same calls go through, on the same run.
-  await planRun(runDir, { mode: "fixture" });
+  await planRun(runDir, { mode: "fixture" }, { kind: "record" });
   assert.equal((await beginDocument(runDir, document.id)).state, "authoring");
   const receipt = await draftSection(runDir, document.id, document.sections[0]!.index, `## ${document.sections[0]!.title}\n\n第 1 节记录当前状态。\`事实\`\n\n<details><summary>依据</summary>\n\n- ${evidenceId}\n\n</details>\n`);
   assert.equal(receipt.section, document.sections[0]!.index);
@@ -57,7 +57,7 @@ test("begin and draft refuse a frozen run with no plan, naming the file and the 
 
 test("each of the four plan files is named individually when it is the one that is missing", async () => {
   const { runDir } = await frozenOnce();
-  await planRun(runDir, { mode: "fixture" });
+  await planRun(runDir, { mode: "fixture" }, { kind: "record" });
   assert.deepEqual([...PLAN_ARTIFACT_PATHS], ["plan/requests.json", "plan/topics.json", "plan/catalog.json", "plan/dag.json"]);
 
   for (const path of [planDagPath(runDir), planCatalogPath(runDir), topicsPath(runDir), reportRequestsPath(runDir)]) {
@@ -75,7 +75,7 @@ test("each of the four plan files is named individually when it is the one that 
 
 test("the gate re-validates: a plan that no longer matches its epoch, or a tampered catalog, is refused", async () => {
   const { runDir } = await frozenOnce();
-  await planRun(runDir, { mode: "fixture" });
+  await planRun(runDir, { mode: "fixture" }, { kind: "record" });
   const recordedTopics = await readFile(topicsPath(runDir), "utf8");
   const recordedPlan = await readFile(planCatalogPath(runDir), "utf8");
 
@@ -102,18 +102,18 @@ test("the plan stage refuses a run with no recorded request set, and names it", 
   const { runDir } = await frozenRun();
   const bytes = await readFile(reportRequestsPath(runDir), "utf8");
   await rm(reportRequestsPath(runDir));
-  await assert.rejects(() => planRun(runDir, { mode: "fixture" }),
+  await assert.rejects(() => planRun(runDir, { mode: "fixture" }, { kind: "record" }),
     /plan\/requests\.json is missing; a plan is validated against the recorded request set, and this run has none/);
   await assert.rejects(() => renderPlannerPacketForRun(runDir, { overBudget: "refuse", byteLimit: 524_288 }),
     /plan\/requests\.json is missing; a plan is validated against the recorded request set/);
   await writeFile(reportRequestsPath(runDir), bytes);
-  const result = await planRun(runDir, { mode: "fixture" });
+  const result = await planRun(runDir, { mode: "fixture" }, { kind: "record" });
   assert.equal(result.report.overall.conclusion, "vacuous");
 });
 
 test("an unfrozen run cannot be planned at all: the projection refuses it by name", async () => {
   const { runDir } = await prepareRun(await overviewRequest());
-  await assert.rejects(() => planRun(runDir, { mode: "fixture" }),
+  await assert.rejects(() => planRun(runDir, { mode: "fixture" }, { kind: "record" }),
     /knowledge\.json is missing from .*; a Topic Catalog cannot be projected without it/);
 });
 
@@ -122,10 +122,10 @@ test("a proposal file that does not parse is refused by name, and the run stays 
   const workdir = await tempDir();
   const bad = join(workdir, "proposal.json");
   await writeFile(bad, stableJson({ version: "plan-proposal-v1", units: [{ kind: "chapter" }], dispositions: [], budget: {} }));
-  await assert.rejects(() => planRun(runDir, { mode: "file", path: bad }),
+  await assert.rejects(() => planRun(runDir, { mode: "file", path: bad }, { kind: "record" }),
     /is not a valid plan proposal: .*kind "chapter" is not one of: appendix, bridge, leaf, synthesis/);
-  await assert.rejects(() => planRun(runDir, { mode: "file", path: join(workdir, "absent.json") }),
+  await assert.rejects(() => planRun(runDir, { mode: "file", path: join(workdir, "absent.json") }, { kind: "record" }),
     /does not exist; a plan proposal is read from a file this command is given/);
   // Re-proposable: the refusal wrote nothing that stops the next attempt.
-  assert.equal((await planRun(runDir, { mode: "fixture" })).report.overall.conclusion, "vacuous");
+  assert.equal((await planRun(runDir, { mode: "fixture" }, { kind: "record" })).report.overall.conclusion, "vacuous");
 });

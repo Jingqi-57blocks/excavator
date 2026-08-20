@@ -7,7 +7,7 @@ import { stableJson } from "../src/base/util.ts";
 import { buildFixturePlan } from "../src/report/fixture-plan.ts";
 import { PLAN_BUDGET_TABLE } from "../src/report/plan-budget.ts";
 import {
-  buildPlanArtifacts,
+  FIRST_PLAN_REVISION,  buildPlanArtifacts,
   planCatalogDigest,
   planCatalogPath,
   planCatalogProblems,
@@ -38,8 +38,8 @@ async function planned(): Promise<{ runDir: string; catalog: TopicCatalogArtifac
   await writeTopicCatalog(runDir, catalog);
   const proposal = buildFixturePlan(catalog, requests, PLAN_BUDGET_TABLE);
   const report = validatePlan({ catalog, requests, proposal, registry: REPORT_POLICY_REGISTRY, budgetTable: PLAN_BUDGET_TABLE, evidence: run.evidenceById, reach: run.reach });
-  const artifacts = buildPlanArtifacts({ catalog, requests, proposal, budgetTable: PLAN_BUDGET_TABLE, verdict: report.overall });
-  await writePlanArtifacts(runDir, artifacts, catalog);
+  const artifacts = buildPlanArtifacts({ catalog, requests, proposal, budgetTable: PLAN_BUDGET_TABLE, verdict: report.overall, revision: FIRST_PLAN_REVISION });
+  await writePlanArtifacts(runDir, artifacts, catalog, { kind: "record" });
   return { runDir, catalog, artifacts };
 }
 
@@ -93,7 +93,7 @@ test("writing the same plan twice is a no-op; different bytes for the same epoch
   const { runDir, catalog, artifacts } = await planned();
   const before = await readFile(planCatalogPath(runDir), "utf8");
   const dagBefore = await readFile(planDagPath(runDir), "utf8");
-  await writePlanArtifacts(runDir, artifacts, catalog);
+  await writePlanArtifacts(runDir, artifacts, catalog, { kind: "record" });
   assert.equal(await readFile(planCatalogPath(runDir), "utf8"), before);
   assert.equal(await readFile(planDagPath(runDir), "utf8"), dagBefore);
 
@@ -101,7 +101,7 @@ test("writing the same plan twice is a no-op; different bytes for the same epoch
     planCatalog: { ...artifacts.planCatalog, units: artifacts.planCatalog.units.slice(1) },
     dag: artifacts.dag
   };
-  await assert.rejects(async () => writePlanArtifacts(runDir, drifted, catalog), /already records a different plan catalog; it is written once per epoch/);
+  await assert.rejects(async () => writePlanArtifacts(runDir, drifted, catalog, { kind: "record" }), /already records a different plan catalog; it is written once per epoch/);
   assert.equal(await readFile(planCatalogPath(runDir), "utf8"), before, "the refusal leaves the recorded bytes alone");
 });
 
@@ -120,7 +120,7 @@ test("a new epoch supersedes: a re-frozen run can be re-planned instead of being
     planCatalog: successor.planCatalog,
     dag: { ...successor.dag, planCatalogDigest: planCatalogDigest(successor.planCatalog) }
   };
-  await writePlanArtifacts(runDir, withDigest, nextEpoch);
+  await writePlanArtifacts(runDir, withDigest, nextEpoch, { kind: "record" });
   const reread = await readPlanCatalog(runDir, nextEpoch);
   assert.equal(reread.knowledgeEpoch, nextEpoch.knowledgeEpoch);
 });
@@ -145,7 +145,7 @@ test("a plan recorded under an earlier schema is a NAMED refusal that says re-pl
   // numbers). A v1 plan therefore fails on each, and every message says what to do rather than only what is wrong.
   const asV1 = { ...recorded, version: "plan-catalog-v1", proposalVersion: "plan-proposal-v1" };
   const problems = planCatalogProblems(asV1, catalog);
-  assert.ok(problems.some((problem) => /^version "plan-catalog-v1" is not plan-catalog-v2; this plan was recorded under an earlier schema and no cross-schema read exists — re-plan this run$/.test(problem)), problems.join(" | "));
+  assert.ok(problems.some((problem) => /^version "plan-catalog-v1" is not plan-catalog-v3; this plan was recorded under an earlier schema and no cross-schema read exists — re-plan this run$/.test(problem)), problems.join(" | "));
   assert.ok(problems.some((problem) => /^proposalVersion "plan-proposal-v1" is not plan-proposal-v2; the proposal schema this plan was validated against is superseded — re-plan this run$/.test(problem)), problems.join(" | "));
 
   // And a v1 BUDGET echo — the two output numbers absent — is named field by field rather than defaulted.
@@ -228,8 +228,10 @@ test("the DAG is re-derived from the catalog's units: an edited edge, order or d
   const foreignPlan = { ...artifacts.dag, planCatalogDigest: "f".repeat(64) };
   assert.ok(planDagProblems(foreignPlan, recorded).some((problem) => /planCatalogDigest "f{64}" is not the digest of this run's plan\/catalog\.json/.test(problem)));
 
-  await edited(runDir, planDagPath(runDir), (value) => { value.version = "plan-dag-v2"; });
-  await assert.rejects(async () => readPlanDag(runDir, recorded), /version "plan-dag-v2" is not plan-dag-v1/);
+  // The PREVIOUS schema, not an invented one: a v1 DAG carries no plan revision, and reading it under v2's rules
+  // would be asserting that the old writer recorded a succession it had no field for.
+  await edited(runDir, planDagPath(runDir), (value) => { value.version = "plan-dag-v1"; });
+  await assert.rejects(async () => readPlanDag(runDir, recorded), /version "plan-dag-v1" is not plan-dag-v2/);
 });
 
 test("the authoring order puts every child before its parent, and the roots are one per document", async () => {
@@ -255,7 +257,7 @@ test("a plan whose validation found violations cannot be recorded at all", async
   const broken = { ...proposal, units: proposal.units.filter((unit) => unit.documentId !== "overview-product") };
   const report = validatePlan({ catalog, requests, proposal: broken, registry: REPORT_POLICY_REGISTRY, budgetTable: PLAN_BUDGET_TABLE, evidence: run.evidenceById, reach: run.reach });
   assert.throws(
-    () => buildPlanArtifacts({ catalog, requests, proposal: broken, budgetTable: PLAN_BUDGET_TABLE, verdict: report.overall }),
+    () => buildPlanArtifacts({ catalog, requests, proposal: broken, budgetTable: PLAN_BUDGET_TABLE, verdict: report.overall, revision: FIRST_PLAN_REVISION }),
     /The plan cannot be recorded: validation found 1 problem\(s\)/
   );
 });

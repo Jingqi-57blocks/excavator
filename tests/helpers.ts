@@ -32,7 +32,7 @@ export async function disposeAllWorkItems(runDir: string): Promise<void> {
  * precondition is exercised rather than bypassed.
  */
 export async function installFixturePlan(runDir: string): Promise<void> {
-  await planRun(runDir, { mode: "fixture" });
+  await planRun(runDir, { mode: "fixture" }, { kind: "record" });
 }
 
 /**

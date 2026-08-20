@@ -26,12 +26,16 @@ import { exists, readJson } from "../../base/util.ts";
 import { buildFixturePlan } from "../../report/fixture-plan.ts";
 import { PLAN_BUDGET_TABLE } from "../../report/plan-budget.ts";
 import {
+  FIRST_PLAN_REVISION,
   buildPlanArtifacts,
   planCatalogPath,
   planDagPath,
+  readPlanCatalog,
+  readPlanDag,
   writePlanArtifacts,
   type PlanArtifacts
 } from "../../report/plan-artifacts.ts";
+import { nextPlanRevision, recordPlanRevision, type PlanRevisionArchive } from "../../report/plan-revision.ts";
 import { parsePlanProposal, type PlanProposal } from "../../report/plan-proposal.ts";
 import { summarisePlanValidation, type PlanValidationReport } from "../../report/plan-validation.ts";
 import { planThroughBudgetRefinement, type PlanUnitDivision } from "../../report/plan-unit-split.ts";
@@ -54,12 +58,38 @@ export type PlanProposalSource =
   | { readonly mode: "fixture" }
   | { readonly mode: "file"; readonly path: string };
 
+/**
+ * What this plan action is allowed to do to a plan the run already records. Closed, required, no default.
+ *
+ * `record` is the behaviour that has always existed: write revision 0 of this epoch's plan, refuse different bytes
+ * for a revision already recorded. `revise` is the explicit act — it needs a reason, it supersedes the recorded
+ * plan by writing the next revision, and it archives the one it replaces. Making it a required argument rather
+ * than an optional flag is deliberate: an optional mode is a mode the next call site forgets, and the two arms
+ * differ in whether a recorded plan can be replaced.
+ */
+export type PlanRecording =
+  | { readonly kind: "record" }
+  | { readonly kind: "revise"; readonly reason: string };
+
+/** What a revise did, or what a plain recording did not do. Reported so the two are never inferred from paths. */
+export interface PlanRevisionResult {
+  readonly planRevision: number;
+  readonly previousPlanCatalogDigest: string | null;
+  readonly revisionReason: string | null;
+  /** Where the superseded revision was archived, or `null` when nothing was superseded. */
+  readonly archive: PlanRevisionArchive | null;
+  /** The chain back to revision 0, re-computed from the archive. Empty for revision 0. */
+  readonly succession: readonly string[];
+}
+
 export interface PlanRunResult {
   readonly runDir: string;
   readonly topicsPath: string;
   readonly planCatalogPath: string;
   readonly planDagPath: string;
   readonly artifacts: PlanArtifacts;
+  /** Which revision was recorded, what it superseded, and where that went. */
+  readonly revision: PlanRevisionResult;
   readonly report: PlanValidationReport;
   /** One line per facet plus the overall line, in the verdict's own three-state vocabulary. */
   readonly verdicts: readonly string[];
@@ -111,11 +141,20 @@ export async function renderPlannerPacketForRun(
 
 export const DEFAULT_PLANNER_PACKET_BYTE_LIMIT = PLANNER_PACKET_BYTE_LIMIT;
 
-/** Validate a proposal against this run's epoch and record it. Writes `plan/topics.json`, `catalog.json`, `dag.json`. */
-export async function planRun(runDirInput: string, source: PlanProposalSource): Promise<PlanRunResult> {
+/**
+ * Validate a proposal against this run's epoch and record it. Writes `plan/topics.json`, `catalog.json`, `dag.json`.
+ *
+ * THE RECORDING MODE IS READ BEFORE THE PROPOSAL IS BUILT, because it decides which revision the artifacts carry
+ * and a revision is part of their bytes. `revise` reads the plan on disk THROUGH THE FULL READER: a recorded plan
+ * that no longer validates against this run's epoch is not a plan this command may extend, and the refusal says
+ * which one it is instead of silently writing revision 0 over it.
+ */
+export async function planRun(runDirInput: string, source: PlanProposalSource, recording: PlanRecording): Promise<PlanRunResult> {
   const runDir = resolve(runDirInput);
   const { catalog, requests, source: catalogSource } = await planInputs(runDir);
   await writeTopicCatalog(runDir, catalog);
+  const superseded = await planBeingSuperseded(runDir, catalog, recording);
+  const revision = superseded === null ? FIRST_PLAN_REVISION : nextPlanRevision(superseded.planCatalog, revisionReasonOf(recording));
   const proposed = await loadProposal(catalog, requests, source);
   // The evidence records are an input to PLANNING now: the budget check measures each unit's packet by rendering
   // it, and a packet renders the evidence its obligations bind.
@@ -138,20 +177,62 @@ export async function planRun(runDirInput: string, source: PlanProposalSource): 
     requests,
     proposal: planned.proposal,
     budgetTable: PLAN_BUDGET_TABLE,
-    verdict: planned.report.overall
+    verdict: planned.report.overall,
+    revision
   });
-  await writePlanArtifacts(runDir, artifacts, catalog);
+  const recorded = superseded === null
+    ? { archive: null, succession: [] as readonly string[], written: await writePlanArtifacts(runDir, artifacts, catalog, { kind: "record" }) }
+    : await recordPlanRevision(runDir, artifacts, catalog, superseded).then((result) => ({ archive: result.archive, succession: result.succession, written: result.artifacts }));
   return {
     runDir,
     topicsPath: topicsPath(runDir),
     planCatalogPath: planCatalogPath(runDir),
     planDagPath: planDagPath(runDir),
-    artifacts,
+    artifacts: recorded.written,
+    revision: { ...revision, archive: recorded.archive, succession: recorded.succession },
     report: planned.report,
     verdicts: summarisePlanValidation(planned.report),
     divisions: planned.divisions,
     refinementPasses: planned.iterations
   };
+}
+
+/**
+ * The plan a `revise` supersedes, or `null` when this action records the first revision of the epoch.
+ *
+ * Exhaustive over the recording modes. The `revise` arm refuses by name in the two ways it can fail: no plan is
+ * recorded at all, or the recorded one does not read against this epoch (which is what a re-freeze produces — and
+ * its remedy is a plain `plan`, not a revision of a plan belonging to another epoch).
+ */
+async function planBeingSuperseded(runDir: string, catalog: TopicCatalogArtifact, recording: PlanRecording): Promise<PlanArtifacts | null> {
+  switch (recording.kind) {
+    case "record":
+      return null;
+    case "revise": {
+      if (!await exists(planCatalogPath(runDir))) {
+        throw new Error(`${planCatalogPath(runDir)} is missing, so there is no plan for --revise to supersede; record one first with \`excavator plan --run ${runDir} --fixture-plan\` (or \`--proposal <file>\`)`);
+      }
+      let planCatalog;
+      try {
+        planCatalog = await readPlanCatalog(runDir, catalog);
+      } catch (error) {
+        throw new Error(`--revise cannot supersede the plan this run records: ${(error as Error).message}. A plan that does not read against this run's epoch is re-planned (plain \`plan\`), not revised.`);
+      }
+      return { planCatalog, dag: await readPlanDag(runDir, planCatalog) };
+    }
+  }
+  return assertNever(recording, "plan recording mode");
+}
+
+/** The reason a revision states. Exhaustive: the `record` arm has none, and calling it here would be a mistake. */
+function revisionReasonOf(recording: PlanRecording): string {
+  switch (recording.kind) {
+    case "record":
+      throw new Error("A plain plan recording states no revision reason; the first revision of an epoch supersedes nothing");
+    case "revise":
+      return recording.reason;
+  }
+  return assertNever(recording, "plan recording mode");
 }
 
 /** Exhaustive over the proposal sources: a third source must say where it comes from before this compiles. */

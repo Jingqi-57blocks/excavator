@@ -23,9 +23,11 @@ import type { RunManifest } from "../base/types.ts";
 import { exists, stableJson } from "../base/util.ts";
 import { PLAN_BUDGET_TABLE } from "./plan-budget.ts";
 import {
+  planCatalogPath,
   proposalFromPlanCatalog,
   readPlanCatalog,
   readPlanDag,
+  reportRequestsDigest,
   type PlanCatalogArtifact,
   type PlanDagArtifact
 } from "./plan-artifacts.ts";
@@ -91,6 +93,15 @@ export async function assertValidatedPlanForAuthoring(runDir: string, manifest: 
     throw new Error(`${topicsPath(runDir)} is not what this run's frozen knowledge derives; the recorded Topic Catalog and the epoch disagree`);
   }
   const planCatalog = await readPlanCatalog(runDir, catalog);
+  // THE REQUEST SET IS A PREMISE OF THE PLAN, so a plan validated against another one is refused here by name.
+  // The recorded plan carries the digest of the request set it was built from; an appended document (or any edit
+  // to a recorded row) moves that digest, and every check below would then be measuring a plan against requests
+  // it never saw. `validatePlan` would eventually notice one direction of this — a requested document with no
+  // unit — but not an edited row that keeps the document set intact, and neither message says what to do.
+  const requestsDigest = reportRequestsDigest(requests);
+  if (planCatalog.requestsDigest !== requestsDigest) {
+    throw new Error(`${planCatalogPath(runDir)} records plan revision ${planCatalog.planRevision}, validated against a request set digesting to ${planCatalog.requestsDigest}, and ${reportRequestsPath(runDir)} now digests to ${requestsDigest}; the recorded request set changed after the plan was recorded — re-plan required: run \`excavator plan --run ${runDir} --fixture-plan --revise --reason <why>\` (or \`--proposal <file>\`) to record the next revision.`);
+  }
   const dag = await readPlanDag(runDir, planCatalog);
   // The evidence records are part of re-validation now, not an authoring-time extra: R5b's budget check MEASURES
   // each unit's packet by rendering it, and a packet renders the evidence its obligations bind. A gate that skipped

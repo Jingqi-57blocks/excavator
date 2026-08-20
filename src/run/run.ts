@@ -45,6 +45,7 @@ import { appendTimeline, auditTimeline } from "../base/timeline.ts";
 import { runScopeSlug } from "./run-label.ts";
 import { auditPendingDrafts } from "../report/parallel-authoring.ts";
 import { writeReportRequests } from "../report/report-requests-artifact.ts";
+import { plannedDocumentId } from "../report/legacy-request-mapping.ts";
 import { authorPrompt, makeDocumentPlan, referencePath, reportFileName } from "../report/authoring-plan.ts";
 import { sectionPaths } from "../report/section-paths.ts";
 import { projectCacheDir, reDeriveIdentities } from "./stages/runtime-identity.ts";
@@ -98,13 +99,13 @@ function coalesceInitialEvidence(items: readonly EvidenceItem[]): EvidenceItem[]
 async function plannedDocuments(request: ReportRequest): Promise<PlannedDocument[]> {
   const planned: PlannedDocument[] = [];
   for (const audience of request.overviewAudiences) planned.push({
-    id: `overview-${audience}`, kind: "overview", audience, featureKey: null,
+    id: plannedDocumentId("overview", audience, null), kind: "overview", audience, featureKey: null,
     sections: await templateSections("overview", audience)
   });
   for (const feature of request.features) {
     const key = featureCacheKey(feature);
     for (const audience of feature.audiences) planned.push({
-      id: `feature-${key}-${audience}`, kind: "feature", audience, featureKey: key,
+      id: plannedDocumentId("feature", audience, key), kind: "feature", audience, featureKey: key,
       sections: await templateSections("feature", audience)
     });
   }

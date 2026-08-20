@@ -41,6 +41,25 @@ export interface LegacyDocumentRequest {
   readonly language: string;
 }
 
+/**
+ * The id prepare gives one planned document.
+ *
+ * Derived in ONE place because the id is not decoration: `featureKeyOf` recovers a feature document's boundary key
+ * by taking this construction apart, so an id built a second way — by a caller appending a request, say — would be
+ * an id whose feature key nobody can recover. Prepare's document loop and the request-append door both come here.
+ */
+export function plannedDocumentId(kind: DocumentKind, audience: Audience, featureKey: string | null): string {
+  switch (kind) {
+    case "overview":
+      return `overview-${audience}`;
+    case "feature": {
+      if (featureKey === null) throw new Error("A feature document's id names the feature it is bounded to; this one carries no feature key");
+      return `feature-${featureKey}-${audience}`;
+    }
+  }
+  return assertNever(kind, "planned document kind");
+}
+
 export type LegacyRequestMapping =
   | { readonly outcome: "mapped"; readonly request: ReportRequestV2 }
   | { readonly outcome: "refused"; readonly reason: string };

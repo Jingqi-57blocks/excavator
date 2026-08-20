@@ -16,6 +16,10 @@ import { planRun, renderPlannerPacketForRun } from "../src/run/stages/plan-stage
 import { loadRunUnitIdentities, rowUnitId } from "../src/report/unit-cache-identity-source.ts";
 import { planUnitAdmission } from "../src/report/unit-cache-admission-run.ts";
 import { planCatalogDigest } from "../src/report/plan-artifacts.ts";
+import { planRevisionArchive } from "../src/report/plan-revision.ts";
+import { appendReportRequest } from "../src/report/report-requests-append.ts";
+import { readReportRequests } from "../src/report/report-requests-artifact.ts";
+import { plannedDocumentId } from "../src/report/legacy-request-mapping.ts";
 
 /**
  * 57B-452 — a run directory must be movable.
@@ -286,13 +290,13 @@ test("relocated run: freeze seals the copy's knowledge epoch", async () => {
   assert.equal(await exists(join(base.runDir, "knowledge.json")), false);
 });
 
-test("relocated run: plan, plan-packet, unit-cache-identity and unit-cache-admit read and write the copy's plan directory", async () => {
+test("relocated run: plan, request-append, plan-packet, unit-cache-identity and unit-cache-admit read and write the copy's plan directory", async () => {
   const base = await investigatingBase();
-  const runDir = await onRelocatedRun(base, ["plan", "plan-packet", "unit-cache-identity", "unit-cache-admit"], async (dir) => {
+  const runDir = await onRelocatedRun(base, ["plan", "request-append", "plan-packet", "unit-cache-identity", "unit-cache-admit"], async (dir) => {
     assert.equal((await freezeRun(dir)).frozen, true);
     const packet = await renderPlannerPacketForRun(dir, { overBudget: "refuse", byteLimit: 524_288 });
     assert.ok(packet.markdown.includes("# Planner packet"));
-    const result = await planRun(dir, { mode: "fixture" });
+    const result = await planRun(dir, { mode: "fixture" }, { kind: "record" });
     assert.equal(result.runDir, dir);
     // R6a's identity reading is read-only, and it reads the COPY's plan: an identity computed from the recorded
     // location would be the identity of a plan this run no longer holds.
@@ -304,11 +308,28 @@ test("relocated run: plan, plan-packet, unit-cache-identity and unit-cache-admit
     assert.deepEqual(admission.intents.map((intent) => intent.unit.unitId).sort(), result.artifacts.planCatalog.units.map((unit) => unit.unitId).sort());
     assert.equal(admission.planCatalogDigest, planCatalogDigest(result.artifacts.planCatalog));
     assert.match(admission.candidateStatement, /^0 prior verified units: this run's unit ledger records no collected unit at all/);
+    // The append door and the revision that follows it: both resolve `plan/requests.json` and `plan/revisions/`
+    // from --run, so an appended row and an archived revision land in the COPY.
+    const appended = await appendReportRequest(dir, {
+      documentId: plannedDocumentId("overview", "engineering", null),
+      kind: "overview", audience: "engineering", featureKey: null, detailLevel: "standard", language: "zh-CN"
+    });
+    assert.equal(appended.path, join(dir, "plan", "requests.json"));
+    const revised = await planRun(dir, { mode: "fixture" }, { kind: "revise", reason: "the relocation fixture appended a second audience" });
+    assert.equal(revised.revision.planRevision, 1);
+    assert.equal(revised.revision.previousPlanCatalogDigest, planCatalogDigest(result.artifacts.planCatalog));
+    assert.deepEqual(revised.revision.archive, planRevisionArchive(dir, 0, 0));
   });
-  for (const relative of ["plan/topics.json", "plan/catalog.json", "plan/dag.json"]) {
+  for (const relative of [
+    "plan/topics.json", "plan/catalog.json", "plan/dag.json", "plan/requests.json",
+    "plan/revisions/epoch-0/revision-0/catalog.json", "plan/revisions/epoch-0/revision-0/dag.json"
+  ]) {
     assert.ok(await exists(join(runDir, relative)), `${relative} must land in the copy`);
+    if (relative === "plan/requests.json") continue; // prepare wrote it before the copy; what matters is where the append landed
     assert.equal(await exists(join(base.runDir, relative)), false, `${relative} must not land in the recorded location`);
   }
+  assert.equal((await readReportRequests(runDir)).requests.length, 2, "the appended row is in the copy");
+  assert.equal((await readReportRequests(base.runDir)).requests.length, 1, "and not in the recorded location");
 });
 
 test("relocated run: source and search append evidence to the copy", async () => {

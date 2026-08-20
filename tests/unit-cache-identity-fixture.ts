@@ -25,7 +25,7 @@ import { canonicalJson, sha256 } from "../src/base/util.ts";
 import { buildFixturePlan } from "../src/report/fixture-plan.ts";
 import { FULL_OBLIGATION_SCOPE } from "../src/report/obligation-scope.ts";
 import { PLAN_BUDGET_TABLE } from "../src/report/plan-budget.ts";
-import { buildPlanArtifacts, type PlanCatalogArtifact, type PlanCatalogUnit, type PlanDagArtifact } from "../src/report/plan-artifacts.ts";
+import { FIRST_PLAN_REVISION, buildPlanArtifacts, type PlanCatalogArtifact, type PlanCatalogUnit, type PlanDagArtifact } from "../src/report/plan-artifacts.ts";
 import { documentOwnership, type ObligationOwnershipIndex } from "../src/report/plan-obligation-conservation.ts";
 import { parsePlanProposal, type PlanProposal, type ProposedUnit, type ProposedUnitTopic } from "../src/report/plan-proposal.ts";
 import { validatePlan } from "../src/report/plan-validation.ts";
@@ -177,7 +177,7 @@ export function planStateOf(
   if (report.overall.conclusion === "violations") {
     throw new Error(`plan state ${JSON.stringify(label)} does not validate: ${report.overall.problems.join("; ")}`);
   }
-  const artifacts = buildPlanArtifacts({ catalog, requests, proposal, budgetTable: PLAN_BUDGET_TABLE, verdict: report.overall });
+  const artifacts = buildPlanArtifacts({ catalog, requests, proposal, budgetTable: PLAN_BUDGET_TABLE, verdict: report.overall, revision: FIRST_PLAN_REVISION });
   return { label, catalog, requests, planCatalog: artifacts.planCatalog, dag: artifacts.dag, ownership: report.ownership };
 }
 
