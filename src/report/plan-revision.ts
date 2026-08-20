@@ -46,7 +46,7 @@ export interface PlanRevisionArchive {
 }
 
 /** The directory every superseded revision of every epoch is archived under. */
-export function planRevisionsDir(runDir: string): string {
+function planRevisionsDir(runDir: string): string {
   return join(runDir, "plan", "revisions");
 }
 

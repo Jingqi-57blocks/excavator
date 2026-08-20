@@ -267,6 +267,19 @@ test("the content digest ignores exactly the three revision fields and nothing e
   assert.notEqual(planContentDigest({ ...artifacts.planCatalog, units: artifacts.planCatalog.units.slice(1) }), base);
 });
 
+test("two runs revised the same way produce the same bytes, current and archived alike", async () => {
+  const first = await planned();
+  const second = await planned();
+  await recordPlanRevision(first.runDir, retitled(first.artifacts, "the same reason"), first.catalog, first.artifacts);
+  await recordPlanRevision(second.runDir, retitled(second.artifacts, "the same reason"), second.catalog, second.artifacts);
+  for (const path of [planCatalogPath, planDagPath]) {
+    assert.equal(await readFile(path(first.runDir), "utf8"), await readFile(path(second.runDir), "utf8"), `${path.name} is one byte sequence`);
+  }
+  const [a, b] = [planRevisionArchive(first.runDir, 0, 0), planRevisionArchive(second.runDir, 0, 0)];
+  assert.equal(await readFile(a.catalog, "utf8"), await readFile(b.catalog, "utf8"), "and so is the archived revision");
+  assert.equal(await readFile(a.dag, "utf8"), await readFile(b.dag, "utf8"));
+});
+
 // --- ④ the fields are validated at the file boundary --------------------------------------------------
 
 test("an incoherent revision record is a named problem, in both artifacts, in every direction", async () => {
