@@ -5,7 +5,8 @@ import { buildFixturePlan } from "../src/report/fixture-plan.ts";
 import { PLAN_BUDGET_TABLE, planBudgetFor, type PlanBudgetTable } from "../src/report/plan-budget.ts";
 import { parsePlanProposal, PLAN_PROPOSAL_VERSION, type PlanProposal } from "../src/report/plan-proposal.ts";
 import { summariseObligationAccounting, WAIVING_DISPOSITION_STATES } from "../src/report/plan-obligation-conservation.ts";
-import { summarisePlanValidation, unitDagOrder, validatePlan, type PlanValidationReport } from "../src/report/plan-validation.ts";
+import { summarisePlanValidation, validatePlan, type PlanValidationReport } from "../src/report/plan-validation.ts";
+import { unitDagOrder } from "../src/report/unit-dag-order.ts";
 import { REPORT_POLICY_REGISTRY } from "../src/report/report-policy-registry.ts";
 import { TOPIC_FACETS } from "../src/report/topic-candidate.ts";
 import { materialTopics, type TopicCatalogArtifact } from "../src/report/topic-catalog.ts";
@@ -32,13 +33,29 @@ function parsed(raw: unknown): PlanProposal {
   return result.proposal!;
 }
 
+/**
+ * Validate against the mini fixture's own evidence records.
+ *
+ * The evidence and the reach come from the one fixture this suite loads, and the guard is fail-closed rather than
+ * a default: R5b's budget check MEASURES each unit by rendering its packet, so an empty evidence map would make
+ * every unit measure small and every budget assertion below pass for the wrong reason.
+ */
 function validate(
   catalog: TopicCatalogArtifact,
   requests: ReportRequestsArtifact,
   proposal: PlanProposal,
   budgetTable: PlanBudgetTable = PLAN_BUDGET_TABLE
 ): PlanValidationReport {
-  return validatePlan({ catalog, requests, proposal, registry: REPORT_POLICY_REGISTRY, budgetTable });
+  if (mini === null) throw new Error("validate() needs the mini fixture: await fixture() before calling it");
+  return validatePlan({
+    catalog,
+    requests,
+    proposal,
+    registry: REPORT_POLICY_REGISTRY,
+    budgetTable,
+    evidence: mini.evidenceById,
+    reach: mini.reach
+  });
 }
 
 /** The fixture plan as untyped JSON, so a test can edit one field and re-parse it. */
@@ -55,8 +72,8 @@ function raw(proposal: PlanProposal): Record<string, unknown> {
 function withoutTopics(base: PlanProposal, removed: readonly string[]): unknown[] {
   const kept = base.units
     .filter((unit) => unit.kind !== "synthesis")
-    .map((unit) => ({ ...unit, topicIds: (unit as { topicIds: readonly string[] }).topicIds.filter((id) => !removed.includes(id)) }))
-    .filter((unit) => unit.kind !== "leaf" || unit.topicIds.length > 0);
+    .map((unit) => ({ ...unit, topics: (unit as { topics: readonly { topicId: string }[] }).topics.filter((topic) => !removed.includes(topic.topicId)) }))
+    .filter((unit) => unit.kind !== "leaf" || unit.topics.length > 0);
   const synthesis = base.units
     .filter((unit) => unit.kind === "synthesis")
     .map((unit) => ({
@@ -166,7 +183,7 @@ test("an unknown topic id, an unknown child unit and a self-referencing synthesi
 
   const unknownTopic = parsed({
     ...raw(base),
-    units: base.units.map((unit) => unit.kind === "appendix" ? { ...unit, topicIds: ["feature:0000000000000000"] } : unit)
+    units: base.units.map((unit) => unit.kind === "appendix" ? { ...unit, topics: [{ topicId: "feature:0000000000000000", obligationScope: { kind: "all" } }] } : unit)
   });
   assert.ok(problemsOf(validate(catalog, requests, unknownTopic))
     .some((problem) => /names topic "feature:0000000000000000", which is not in this catalog/.test(problem)));
@@ -215,14 +232,14 @@ test("a document with no unit, a unit for an unrequested document, and two roots
 
   const strayDocument = parsed({
     ...raw(base),
-    units: [...base.units, { kind: "appendix", unitId: "zzz::appendix::stray", documentId: "overview-nobody-asked-for", title: "stray", topicIds: [] }]
+    units: [...base.units, { kind: "appendix", unitId: "zzz::appendix::stray", documentId: "overview-nobody-asked-for", title: "stray", topics: [] }]
   });
   assert.ok(problemsOf(validate(catalog, requests, strayDocument))
     .some((problem) => /names document "overview-nobody-asked-for", which no recorded request asks for/.test(problem)));
 
   const twoRoots = parsed({
     ...raw(base),
-    units: [...base.units, { kind: "appendix", unitId: "overview-product::appendix::second-root", documentId: "overview-product", title: "second root", topicIds: [] }]
+    units: [...base.units, { kind: "appendix", unitId: "overview-product::appendix::second-root", documentId: "overview-product", title: "second root", topics: [] }]
       .sort((a, b) => a.unitId.localeCompare(b.unitId))
   });
   assert.ok(problemsOf(validate(catalog, requests, twoRoots))
@@ -238,16 +255,18 @@ test("a unit over its document's per-unit budget is named, with both byte number
   const tiny: PlanBudgetTable = {
     version: "plan-budget-test-tiny",
     allowances: {
-      compact: { perUnitInputBytes: 100, totalInputBytes: 100 },
-      standard: { perUnitInputBytes: 100, totalInputBytes: 100 },
-      detailed: { perUnitInputBytes: 100, totalInputBytes: 100 }
+      compact: { perUnitInputBytes: 100, totalInputBytes: 100, perUnitOutputBytes: 50, perUnitSummaryBytes: 10 },
+      standard: { perUnitInputBytes: 100, totalInputBytes: 100, perUnitOutputBytes: 50, perUnitSummaryBytes: 10 },
+      detailed: { perUnitInputBytes: 100, totalInputBytes: 100, perUnitOutputBytes: 50, perUnitSummaryBytes: 10 }
     }
   };
   const proposal = parsed(raw(buildFixturePlan(catalog, requests, tiny)));
   const problems = problemsOf(validate(catalog, requests, proposal, tiny));
-  assert.ok(problems.some((problem) => /would be handed \d+ bytes of topic dossier over the standard per-unit budget of 100 \(topics: /.test(problem)), stableJson(problems));
-  assert.ok(problems.some((problem) => /the plan is not satisfiable at this granularity and nothing here truncates it/.test(problem)));
-  assert.ok(problems.some((problem) => /would read \d+ bytes of topic dossier over its standard total budget of 100/.test(problem)));
+  assert.ok(problems.some((problem) => /renders a \d+-byte packet, \d+ byte\(s\) over the 100-byte per-unit input budget of document /.test(problem)), stableJson(problems));
+  assert.ok(problems.some((problem) => /divide its obligations across more units — nothing here truncates a packet to fit/.test(problem)));
+  assert.ok(problems.some((problem) => /would read \d+ bytes of packet across its units, \d+ byte\(s\) over its standard total input budget of 100/.test(problem)));
+  // The synthesis is bounded rather than rendered, and its overrun prints the arithmetic that produced it.
+  assert.ok(problems.some((problem) => /synthesis unit .* would be handed up to \d+ bytes — \d+ fixed plus \d+ child summar\(ies\) at the declared 10-byte bound each/.test(problem)), stableJson(problems));
 });
 
 test("a proposal that echoes a budget of its own is refused; the derived one is the only one that counts", async () => {
@@ -354,7 +373,7 @@ test("the fixture plan is deterministic, mints no unit for an absent facet, and 
   assert.deepEqual([...new Set(leafFacets)].sort(), ["coverage", "feature", "work-item-dimension"],
     "no leaf is minted for the entity, external-system or route facets: they hold no material topic on this fixture");
 
-  const inUnits = new Set(first.units.flatMap((unit) => "topicIds" in unit ? unit.topicIds : []));
+  const inUnits = new Set(first.units.flatMap((unit) => "topics" in unit ? unit.topics.map((topic) => topic.topicId) : []));
   for (const topic of materialTopics(catalog)) assert.ok(inUnits.has(topic.topicId), `${topic.topicId} must be in a unit`);
   assert.deepEqual((first.dispositions as Array<{ state: string }>).map((row) => row.state), materialTopics(catalog).map(() => "primary"));
 });

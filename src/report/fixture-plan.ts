@@ -20,6 +20,7 @@
  * a single appendix, and validation reads `vacuous`, not `complete`.
  */
 
+import { FULL_OBLIGATION_SCOPE } from "./obligation-scope.ts";
 import { planBudgetFor, type PlanBudgetTable } from "./plan-budget.ts";
 import { PLAN_PROPOSAL_VERSION, type PlanProposal, type ProposedUnit } from "./plan-proposal.ts";
 import type { ReportRequestsArtifact } from "./report-requests-artifact.ts";
@@ -28,6 +29,17 @@ import type { TopicCatalogArtifact } from "./topic-catalog.ts";
 import type { TopicDisposition } from "./topic-disposition.ts";
 
 export const FIXTURE_PLAN_VERSION = "fixture-plan-v1";
+
+/**
+ * A whole-topic reference per id: the generator never divides, so every scope is `all`.
+ *
+ * Stated as one helper rather than inline at three call sites, because `all` is a DECISION here: the fixture plan
+ * proposes the undivided shape and `plan-unit-split.ts` divides whatever does not fit, through the same door a
+ * model's proposal goes through. A generator that pre-divided would be a second splitter.
+ */
+function wholeTopics(topicIds: readonly string[]): readonly { readonly topicId: string; readonly obligationScope: typeof FULL_OBLIGATION_SCOPE }[] {
+  return topicIds.map((topicId) => ({ topicId, obligationScope: FULL_OBLIGATION_SCOPE }));
+}
 
 /** Ascending topic ids of the catalog's material topics in one facet. */
 function materialTopicsOf(catalog: TopicCatalogArtifact, facet: TopicCandidate["facet"]): readonly string[] {
@@ -66,7 +78,7 @@ export function buildFixturePlan(
       if (topicIds.length === 0) continue;
       const unitId = `${documentId}::leaf::${facet}`;
       children.push(unitId);
-      units.push({ kind: "leaf", unitId, documentId, title: `Material ${facet} topics`, topicIds });
+      units.push({ kind: "leaf", unitId, documentId, title: `Material ${facet} topics`, topics: wholeTopics(topicIds) });
     }
     const appendixId = `${documentId}::appendix::coverage`;
     children.push(appendixId);
@@ -75,7 +87,7 @@ export function buildFixturePlan(
       unitId: appendixId,
       documentId,
       title: "Coverage and unknowns",
-      topicIds: coverageAppendixTopics(catalog)
+      topics: wholeTopics(coverageAppendixTopics(catalog))
     });
     units.push({
       kind: "synthesis",

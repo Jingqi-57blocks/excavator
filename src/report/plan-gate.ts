@@ -29,6 +29,7 @@ import {
   type PlanDagArtifact
 } from "./plan-artifacts.ts";
 import { validatePlan, type PlanValidationReport } from "./plan-validation.ts";
+import { loadRunEvidenceReach } from "./run-evidence-reach.ts";
 import { REPORT_POLICY_REGISTRY } from "./report-policy-registry.ts";
 import { readReportRequests, reportRequestsPath, type ReportRequestsArtifact } from "./report-requests-artifact.ts";
 import { buildTopicCatalog, type TopicCatalogArtifact } from "./topic-catalog.ts";
@@ -77,12 +78,18 @@ export async function assertValidatedPlanForAuthoring(runDir: string): Promise<P
   }
   const planCatalog = await readPlanCatalog(runDir, catalog);
   const dag = await readPlanDag(runDir, planCatalog);
+  // The evidence records are part of re-validation now, not an authoring-time extra: R5b's budget check MEASURES
+  // each unit's packet by rendering it, and a packet renders the evidence its obligations bind. A gate that skipped
+  // the measurement would be admitting plans on a number nobody took.
+  const evidence = await loadRunEvidenceReach(runDir, source);
   const report = validatePlan({
     catalog,
     requests,
     proposal: proposalFromPlanCatalog(planCatalog),
     registry: REPORT_POLICY_REGISTRY,
-    budgetTable: PLAN_BUDGET_TABLE
+    budgetTable: PLAN_BUDGET_TABLE,
+    evidence: evidence.evidenceById,
+    reach: evidence.reach
   });
   if (report.overall.conclusion === "violations") {
     throw new Error(`The recorded plan in ${runDir} does not validate against its own epoch: ${report.overall.problems.join("; ")}`);

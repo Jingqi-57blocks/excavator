@@ -16,10 +16,17 @@
  * author the rest "remain in the frozen catalog", while the prompt forbade loading `evidence.json` and no command
  * could read one. A notice pointing at a path that does not exist is worse than the bytes it saved.
  *
- * THE INPUT BUDGET IS THE PLAN'S, NOT A NEW NUMBER. `PlanBudget.perUnitInputBytes` is the only authority for how
- * many bytes a unit may be asked to read, so the caller derives the bound from it. There is NO output budget in
- * this slice: no artifact declares one (`PlanBudget` carries the two input numbers only), so the packet says so in
- * as many words and defers it to R5 rather than inventing one or leaving the reader to assume.
+ * THIS FILE IS THE MEASURE, NOT JUST THE RENDERER (R5b). `composePacketMarkdown` below is the ONE function that
+ * turns inputs into bytes; `renderUnitPacket` returns its markdown and `unitPacketBytes` returns its length, so the
+ * plan's budget pre-check and the author's packet cannot disagree by construction. R4b's pre-check used a proxy —
+ * the canonical bytes of a unit's topic ROWS — and it was out by about 9x on the wcp baseline (220 KB of topic rows
+ * against a 1,993,499-byte packet) because the proxy did not include the evidence bodies. The proxy is gone; the
+ * instrument is attached to the thing it grades.
+ *
+ * THE INPUT BUDGET IS THE PLAN'S, NOT A NEW NUMBER, AND SO IS THE OUTPUT BUDGET NOW. `PlanBudget` carries all four
+ * numbers per document, so the packet prints the declared output and summary bounds instead of R4b's "NONE
+ * DECLARED" deferral. Nothing here enforces the output bound — `draftUnit` does, at the moment the bytes exist —
+ * and the sentence the packet prints says what over-budget means: rewrite tighter, never drop an entry.
  *
  * A SYNTHESIS HAS NOWHERE TO PUT A TOPIC DOSSIER. `UnitDossier` is a union: the `child-summaries` arm has no
  * `topics` field and no evidence map at all, so "a synthesis reads only its children's summaries" is a type fact
@@ -33,37 +40,52 @@
  * document renders a stub line — work item id, dimension, determination, materiality and THE OWNER UNIT — with no
  * evidence body. The two are different statements: "which obligations exist and whose they are" is not "here are
  * their bytes". Stubs are uncapped and exhaustive, exactly like every other list here; nothing is dropped, and the
- * author can always follow a stub to the unit that owes it. Non-material obligations have no owner and are rendered
- * in full by every unit that names their topic — ownership is a MATERIAL-obligation concept, and inventing one for
- * a row no gate grounds would be a rule with no audit behind it.
+ * author can always follow a stub to the unit that owes it.
+ *
+ * AND A SCOPE IS NOT A TRUNCATION EITHER (R5b), BUT IT IS NOT A STUB TABLE EITHER. A unit's topic reference carries
+ * an `obligationScope`, so a topic too large for one unit is divided across several: each part renders the
+ * obligations INSIDE ITS OWN SCOPE, in full, with their evidence — and for the rest of that topic it prints the
+ * PARTITION: how many obligations each sibling unit of the same document carries, by unit id. Not a per-id stub
+ * table, and that is a measured decision rather than a saving: repeating one topic's whole census in every part
+ * costs 660 KB per wcp document (measured on the R0 baseline) and pushes the document over its own total input
+ * budget — which is the duplication the division exists to remove, in a cheaper coat. Nothing is lost by it: the
+ * scopes of a topic's owning units are checked to partition its bindings EXACTLY (`obligation-scope.ts`), every
+ * obligation of the topic is rendered IN FULL in exactly one packet of the document, and `plan/catalog.json`
+ * records each unit's scope BY WORK ITEM ID — so the partition is addressable, not merely asserted. That is the
+ * difference from 57B-453's mechanism B, which pointed at a file the prompt forbade opening.
+ *
+ * THE OWNERSHIP STUB TABLE IS UNTOUCHED BY THAT. An obligation this unit's scope DOES cover, that another unit owns
+ * through a different topic (the cross-facet case R5a measured), still gets its own row with the owner named: there
+ * the author's own topic reaches it, and only a row per obligation stops "mine" and "theirs" being confused.
  *
  * EVIDENCE NO OBLIGATION BINDS IS COUNTED IN EVERY PACKET AND ENUMERATED IN THE APPENDIX. That is 57B-453's
- * mechanism A: the binding path is obligation → evidence, so a record no work item references cannot reach any unit
- * through it — and on the wcp baseline that is 931 of 1,884 frozen records, including the manifest, README, scope
- * and provider rows a coverage section is required to report. The count is in every header with the reason, and the
- * deterministic tail (the appendix, gate 10's path) lists every one of them by id with its kind, title and
+ * mechanism A: the binding path is obligation → evidence, so a record no work item references cannot reach any
+ * unit through it — and on the wcp baseline that is 931 of 1,884 frozen records, including the manifest, README,
+ * scope and provider rows a coverage section is required to report. The count is in every header with the reason,
+ * and the deterministic tail (the appendix, gate 10's path) lists every one of them by id with its kind, title and
  * location, uncapped. What would bring one's CONTENT into a unit is an obligation binding it; that is upstream of
  * this packet, and saying so is not the same as pointing at a path that does not exist.
  */
 
 import { assertNever } from "../base/artifact-result.ts";
-import type { EvidenceItem } from "../base/types.ts";
+import type { EvidenceItem, InvestigationWorkItem } from "../base/types.ts";
 import { canonicalJson, sha256 } from "../base/util.ts";
 import { GROUNDING_RULES } from "./unit-grounding-audit.ts";
-import type { PlanBudget } from "./plan-budget.ts";
-import type { PlanCatalogArtifact, PlanCatalogUnit, PlanDagArtifact } from "./plan-artifacts.ts";
+import { documentBudgetRow, summariseDocumentBudget, type PlanDocumentBudget } from "./plan-budget.ts";
+import type { PlanCatalogArtifact, PlanCatalogUnit, PlanDagArtifact, PlanTopicReference } from "./plan-artifacts.ts";
 import { planCatalogDigest } from "./plan-artifacts.ts";
 import type { AuthoringUnitKind } from "./plan-proposal.ts";
+import { describeObligationScope, scopeIncludes } from "./obligation-scope.ts";
 import { intentPolicyFor, lensPolicyFor, type ReportPolicyRegistry } from "./report-policy-registry.ts";
 import type { ReportRequestsArtifact } from "./report-requests-artifact.ts";
-import { OWNERSHIP_FACET_PRIORITY, type DocumentObligationOwnership, type ObligationOwnership } from "./plan-obligation-conservation.ts";
+import { OWNERSHIP_FACET_PRIORITY, unitTopicRole, type DocumentObligationOwnership, type ObligationOwnership } from "./plan-obligation-conservation.ts";
 import type { PacketOverBudgetMode } from "./planner-packet.ts";
 import { TOPIC_FACETS, type TopicCandidate, type TopicObligationBinding } from "./topic-candidate.ts";
 import type { FacetOutcome, TopicFacetCensus } from "./topic-catalog.ts";
 import type { UnitSummary } from "./unit-output.ts";
 import { compareUnitIds } from "./unit-paths.ts";
 
-export const UNIT_PACKET_VERSION = "unit-packet-v2";
+export const UNIT_PACKET_VERSION = "unit-packet-v3";
 
 /**
  * What one unit writes from. A union, so the synthesis arm has no place for a topic or an evidence record.
@@ -95,6 +117,34 @@ export interface RunEvidenceReach {
   readonly frozenEvidenceIds: number;
   readonly boundEvidenceIds: number;
   readonly unbound: readonly EvidenceItem[];
+}
+
+/**
+ * The one derivation of mechanism A's three numbers, shared by the loader, the plan-side measure and the baseline
+ * projection.
+ *
+ * It was spelled three times before this slice, and the plan's budget pre-check needed a fourth: three spellings of
+ * "how far does the ledger reach" are three answers waiting to disagree. A frozen id with no record in the evidence
+ * catalog is a named failure rather than a row that quietly disappears from the census.
+ */
+export function evidenceReachOf(
+  frozenEvidenceIds: readonly string[],
+  workItems: Iterable<Pick<InvestigationWorkItem, "evidenceIds">>,
+  evidenceById: ReadonlyMap<string, EvidenceItem>
+): RunEvidenceReach {
+  const bound = new Set<string>();
+  for (const item of workItems) for (const id of item.evidenceIds) bound.add(id);
+  const frozen = [...frozenEvidenceIds].sort((a, b) => a.localeCompare(b));
+  const unbound: EvidenceItem[] = [];
+  for (const id of frozen) {
+    if (bound.has(id)) continue;
+    const item = evidenceById.get(id);
+    if (!item) {
+      throw new Error(`knowledge.json seals evidence ${JSON.stringify(id)} but this run's evidence.json does not hold it; the frozen evidence set and the ledger disagree`);
+    }
+    unbound.push(item);
+  }
+  return { frozenEvidenceIds: frozen.length, boundEvidenceIds: bound.size, unbound };
 }
 
 export interface UnitPacketInput {
@@ -139,35 +189,35 @@ export interface UnitPacket {
   /**
    * Every evidence id rendered in full below, ascending. The 57B-453 answerability set.
    *
-   * Owner-scoped since R5a: an obligation owned by another unit contributes no evidence here, because this packet
-   * does not hand over its bytes. The 453 closure reading follows the owner for the same reason.
+   * Owner-scoped since R5a and obligation-scoped since R5b: an obligation another unit owns, or one outside this
+   * unit's declared scope, contributes no evidence here, because this packet does not hand over its bytes. The 453
+   * closure reading follows the owner for the same reason.
    */
   readonly renderedEvidenceIds: readonly string[];
-  /** Every obligation rendered IN FULL below, ascending. A stub is in `stubObligationIds`, not here. */
+  /** Every obligation rendered IN FULL below, ascending. A stub is in one of the two lists below, not here. */
   readonly obligationIds: readonly string[];
-  /** Every material obligation rendered as a stub because another unit owns it, ascending. Uncapped. */
+  /** Every MATERIAL obligation rendered as a stub because another unit owns it, ascending. Uncapped. */
   readonly stubObligationIds: readonly string[];
+  /**
+   * Every obligation of this unit's topics that its `obligationScope` excludes, ascending. Uncapped.
+   *
+   * Kept apart from the ownership stubs because they answer different questions — "somebody else grounds this" and
+   * "this is another part of the same topic". The markdown prints these as a per-carrier PARTITION (counts by unit
+   * id) rather than a row each; the ids are here, and in `plan/catalog.json`, and in full in the packet of the unit
+   * whose scope holds them.
+   */
+  readonly scopeExcludedObligationIds: readonly string[];
   readonly markdown: string;
 }
-
-/**
- * The sentence that says an output budget does not exist yet, printed in every packet.
- *
- * Stated rather than omitted on purpose: a header that lists an input budget and says nothing about output reads as
- * "output is unbounded", and the honest fact is narrower — no artifact in this run declares one.
- */
-export const OUTPUT_BUDGET_DEFERRAL =
-  "output budget: NONE DECLARED — no artifact in this run declares one (`PlanBudget` carries `perUnitInputBytes` and `totalInputBytes` only), so this packet states no output bound. Deferred to the R5 budget system rather than omitted or invented.";
 
 /** Render one unit's packet. Deterministic: same plan, same catalog rows, same evidence, same bytes. */
 export function renderUnitPacket(input: UnitPacketInput): UnitPacket {
   const unit = requireUnit(input);
   assertOwnershipIsThisDocument(unit, input.ownership);
   assertDossierMatchesUnit(unit, input.dossier);
-  const body = renderBody(unit, input);
-  const withoutLimitation = `${renderHeader(unit, input, body, [])}\n${body}`;
+  const withoutLimitation = composePacketMarkdown(unit, input, []);
   const bytes = Buffer.byteLength(withoutLimitation, "utf8");
-  const rendered = renderedIds(unit, input.dossier, input.ownership);
+  const rendered = renderedIds(unit, input);
   if (bytes <= input.byteLimit) {
     return { ...rendered, version: UNIT_PACKET_VERSION, unitId: unit.unitId, documentId: unit.documentId, kind: unit.kind, bytes, byteLimit: input.byteLimit, limitations: [], markdown: withoutLimitation };
   }
@@ -176,7 +226,7 @@ export function renderUnitPacket(input: UnitPacketInput): UnitPacket {
     case "refuse":
       throw new Error(overrun);
     case "record-limitation": {
-      const markdown = `${renderHeader(unit, input, body, [overrun])}\n${body}`;
+      const markdown = composePacketMarkdown(unit, input, [overrun]);
       return {
         ...rendered,
         version: UNIT_PACKET_VERSION,
@@ -193,6 +243,27 @@ export function renderUnitPacket(input: UnitPacketInput): UnitPacket {
   return assertNever(input.overBudget, "unit packet over-budget mode");
 }
 
+/**
+ * How many bytes this unit's packet renders to. THE plan-side input measure — same function, same bytes.
+ *
+ * It composes the packet the author would be handed and returns its length; it does not consult `overBudget`,
+ * because a measurement is not a verdict. `renderUnitPacket` returns exactly this number in `bytes` whenever the
+ * packet fits its bound, and `tests/plan-packet-measure.test.ts` asserts that identity for every renderable unit of
+ * both R0 baselines and every fixture — the tripwire that stops a second, drifting estimate from being introduced.
+ */
+export function unitPacketBytes(input: UnitPacketInput): number {
+  const unit = requireUnit(input);
+  assertOwnershipIsThisDocument(unit, input.ownership);
+  assertDossierMatchesUnit(unit, input.dossier);
+  return Buffer.byteLength(composePacketMarkdown(unit, input, []), "utf8");
+}
+
+/** The one composition: header then body. Both `renderUnitPacket` and `unitPacketBytes` go through it. */
+function composePacketMarkdown(unit: PlanCatalogUnit, input: UnitPacketInput, limitations: readonly string[]): string {
+  const body = renderBody(unit, input);
+  return `${renderHeader(unit, input, body, limitations)}\n${body}`;
+}
+
 /** Ownership is per document; rendering a unit against another document's row is a bug in the caller, and named. */
 function assertOwnershipIsThisDocument(unit: PlanCatalogUnit, ownership: DocumentObligationOwnership): void {
   if (ownership.documentId !== unit.documentId) {
@@ -201,29 +272,65 @@ function assertOwnershipIsThisDocument(unit: PlanCatalogUnit, ownership: Documen
 }
 
 /**
- * Whether this unit renders one binding IN FULL, or as a stub because another unit owns it.
+ * What this unit does with one binding of one of its topics — three states, exhaustive, no default.
  *
- * Non-material bindings are always full: ownership exists to stop two units grounding one obligation, and a
- * non-material row is grounded by nobody. A material binding with no owner row is FATAL rather than either default
- * — "full" would restore the duplication for exactly the rows a plan got wrong, and "stub" would point the author
- * at an owner that does not exist. Validation names that plan and `buildPlanArtifacts` refuses to record it.
+ * SCOPE IS CHECKED FIRST, and the order is the design. An obligation OUTSIDE this unit's scope for this topic is
+ * another part's row: it is not rendered here, and the packet accounts for it in the per-carrier partition instead
+ * of a row of its own (see the header). Checking ownership first would classify a divided topic's siblings as
+ * "owned elsewhere" and print the topic's whole census in every part — 660 KB per wcp document, measured, which is
+ * exactly the duplication the division removes.
+ *
+ * IN SCOPE, the split is R5a's, unchanged: a MATERIAL binding is rendered in full by its OWNER and as a stub row
+ * naming the owner by every other unit that reaches it (the cross-facet case), and a NON-MATERIAL binding has no
+ * owner at all so the unit whose scope holds it renders it. A material binding with no owner row is FATAL rather
+ * than either default — "full" would restore the duplication for exactly the rows a plan got wrong, and "stub"
+ * would point the author at an owner that does not exist.
  */
-function ownedByThisUnit(binding: TopicObligationBinding, unit: PlanCatalogUnit, ownership: DocumentObligationOwnership): boolean {
-  if (!binding.material) return true;
-  const owner = ownership.ownerByObligation.get(binding.workItemId);
+type BindingDisposition =
+  | { readonly state: "full" }
+  | { readonly state: "owned-elsewhere"; readonly owner: ObligationOwnership }
+  | { readonly state: "out-of-scope"; readonly carrierUnitId: string };
+
+function bindingDisposition(
+  binding: TopicObligationBinding,
+  topic: PlanTopicReference,
+  unit: PlanCatalogUnit,
+  input: UnitPacketInput
+): BindingDisposition {
+  if (!scopeIncludes(topic.obligationScope, binding.workItemId)) {
+    return { state: "out-of-scope", carrierUnitId: scopeCarrierOf(binding, topic, unit, input) };
+  }
+  if (!binding.material) return { state: "full" };
+  const owner = input.ownership.ownerByObligation.get(binding.workItemId);
   if (!owner) {
     throw new Error(`Material obligation ${JSON.stringify(binding.workItemId)} is bound to a topic of unit ${JSON.stringify(unit.unitId)}, but no unit of document ${JSON.stringify(unit.documentId)} owns it; a packet cannot say whose obligation it is`);
   }
-  return owner.ownerUnitId === unit.unitId;
+  return owner.ownerUnitId === unit.unitId ? { state: "full" } : { state: "owned-elsewhere", owner };
 }
 
-/** The owner row of one material obligation this unit does not own. Fatal on a miss, for the reason above. */
-function ownerOf(binding: TopicObligationBinding, unit: PlanCatalogUnit, ownership: DocumentObligationOwnership): ObligationOwnership {
-  const owner = ownership.ownerByObligation.get(binding.workItemId);
-  if (!owner) {
-    throw new Error(`Material obligation ${JSON.stringify(binding.workItemId)} is bound to a topic of unit ${JSON.stringify(unit.unitId)}, but no unit of document ${JSON.stringify(unit.documentId)} owns it; a packet cannot say whose obligation it is`);
+/**
+ * Which OWNING unit of this document has one out-of-scope binding inside its scope, or a named failure.
+ *
+ * Read off the recorded plan's own unit rows, so the packet names a unit an author can go and read. Fatal on a miss
+ * for the same reason a missing owner is: a plan whose scopes do not partition a topic is named by validation
+ * (`obligation-scope.ts`) and refused by `buildPlanArtifacts`, so reaching this throw means an unvalidated plan got
+ * here — and printing "(nobody)" would tell the author a row exists that nothing writes.
+ */
+function scopeCarrierOf(
+  binding: TopicObligationBinding,
+  topic: PlanTopicReference,
+  unit: PlanCatalogUnit,
+  input: UnitPacketInput
+): string {
+  const carriers = input.planCatalog.units
+    .filter((row) => row.documentId === unit.documentId && unitTopicRole(row.kind) === "owning")
+    .filter((row) => row.topics.some((reference) => reference.topicId === topic.topicId && scopeIncludes(reference.obligationScope, binding.workItemId)))
+    .map((row) => row.unitId)
+    .sort(compareUnitIds);
+  if (carriers.length === 0) {
+    throw new Error(`Obligation ${JSON.stringify(binding.workItemId)} of topic ${JSON.stringify(topic.topicId)} is outside unit ${JSON.stringify(unit.unitId)}'s obligation scope and inside no other owning unit's scope in document ${JSON.stringify(unit.documentId)}; the scopes of a topic's owning units must partition its bindings exactly`);
   }
-  return owner;
+  return carriers[0]!;
 }
 
 /**
@@ -275,9 +382,10 @@ function requireUnit(input: UnitPacketInput): PlanCatalogUnit {
  * The dossier must be the one this unit's kind takes, over exactly the topics the plan gave it, at exactly the
  * digests the plan recorded.
  *
- * THE DIGEST CHECK IS THE POINT OF THE REFERENCE. The plan carries `{topicId, topicDigest}` instead of a flattened
- * id bag so that a topic whose content moved can be caught here — a packet rendered from a topic the plan never saw
- * would be an author writing against knowledge the plan did not validate. Named, both digests printed.
+ * THE DIGEST CHECK IS THE POINT OF THE REFERENCE. The plan carries `{topicId, topicDigest, obligationScope}`
+ * instead of a flattened id bag so that a topic whose content moved can be caught here — a packet rendered from a
+ * topic the plan never saw would be an author writing against knowledge the plan did not validate. Named, both
+ * digests printed.
  */
 function assertDossierMatchesUnit(unit: PlanCatalogUnit, dossier: UnitDossier): void {
   switch (dossier.source) {
@@ -323,55 +431,64 @@ function assertDossierMatchesUnit(unit: PlanCatalogUnit, dossier: UnitDossier): 
   return assertNever(dossier, "unit dossier source");
 }
 
+interface RenderedIds {
+  readonly renderedEvidenceIds: readonly string[];
+  readonly obligationIds: readonly string[];
+  readonly stubObligationIds: readonly string[];
+  readonly scopeExcludedObligationIds: readonly string[];
+}
+
 /**
  * Every id this packet renders. Ascending, de-duplicated — what a reading compares against `workitems.json`.
  *
- * OWNER-SCOPED SINCE R5a, and the stubs are counted separately rather than folded in. The appendix's unbound census
- * is deliberately NOT counted here either: both are enumerated by id and metadata, not rendered in full, so
- * counting them would overstate what an author was handed. Three lists, three statements.
+ * OWNER-SCOPED AND SCOPE-SCOPED, with the two stub reasons counted separately rather than folded in. The appendix's
+ * unbound census is deliberately NOT counted here either: everything in the three stub/census lists is enumerated by
+ * id and metadata, not rendered in full, so counting them as rendered would overstate what an author was handed.
  */
-function renderedIds(
-  unit: PlanCatalogUnit,
-  dossier: UnitDossier,
-  ownership: DocumentObligationOwnership
-): { renderedEvidenceIds: readonly string[]; obligationIds: readonly string[]; stubObligationIds: readonly string[] } {
+function renderedIds(unit: PlanCatalogUnit, input: UnitPacketInput): RenderedIds {
+  const { dossier } = input;
   switch (dossier.source) {
     case "child-summaries":
-      return { renderedEvidenceIds: [], obligationIds: [], stubObligationIds: [] };
+      return { renderedEvidenceIds: [], obligationIds: [], stubObligationIds: [], scopeExcludedObligationIds: [] };
     case "topics": {
       const evidence = new Set<string>();
       const obligations = new Set<string>();
       const stubs = new Set<string>();
-      for (const topic of dossier.topics) {
+      const excluded = new Set<string>();
+      for (const [index, topic] of dossier.topics.entries()) {
+        const reference = unit.topics[index]!;
         for (const binding of topic.bindings) {
-          if (!ownedByThisUnit(binding, unit, ownership)) {
-            stubs.add(binding.workItemId);
-            continue;
+          const disposition = bindingDisposition(binding, reference, unit, input);
+          switch (disposition.state) {
+            case "owned-elsewhere":
+              stubs.add(binding.workItemId);
+              continue;
+            case "out-of-scope":
+              excluded.add(binding.workItemId);
+              continue;
+            case "full":
+              obligations.add(binding.workItemId);
+              for (const id of binding.evidenceIds) evidence.add(id);
+              continue;
           }
-          obligations.add(binding.workItemId);
-          for (const id of binding.evidenceIds) evidence.add(id);
+          return assertNever(disposition, "unit packet binding disposition");
         }
       }
       const ascending = (a: string, b: string): number => a.localeCompare(b);
       return {
         renderedEvidenceIds: [...evidence].sort(ascending),
         obligationIds: [...obligations].sort(ascending),
-        stubObligationIds: [...stubs].sort(ascending)
+        stubObligationIds: [...stubs].sort(ascending),
+        scopeExcludedObligationIds: [...excluded].sort(ascending)
       };
     }
   }
   return assertNever(dossier, "unit dossier source");
 }
 
-function overrunSentence(unit: PlanCatalogUnit, input: UnitPacketInput, bytes: number, rendered: { renderedEvidenceIds: readonly string[]; obligationIds: readonly string[]; stubObligationIds: readonly string[] }): string {
-  const topics = unit.topics.map((topic) => topic.topicId).join(", ") || "(none)";
-  return `The packet for unit ${JSON.stringify(unit.unitId)} renders to ${bytes} bytes, over the declared bound of ${input.byteLimit} (${bytes - input.byteLimit} bytes over). NOTHING has been dropped or shortened: all ${unit.topics.length} topic(s), ${rendered.obligationIds.length} obligation row(s) rendered in full, ${rendered.stubObligationIds.length} stub row(s) for obligations another unit owns and ${rendered.renderedEvidenceIds.length} evidence record(s) are present. The offending unit's topics are: ${topics}. Give this unit fewer topics, or raise the bound deliberately — semantic splitting by budget is the R5b slice, and truncation is not an option here.`;
-}
-
-function budgetRow(budget: PlanBudget, documentId: string): { perUnitInputBytes: number; totalInputBytes: number; detailBudget: string } {
-  const row = budget.documents.find((entry) => entry.documentId === documentId);
-  if (!row) throw new Error(`The recorded plan budget has no row for document ${JSON.stringify(documentId)}; a unit cannot be measured against a budget its document does not have`);
-  return row;
+function overrunSentence(unit: PlanCatalogUnit, input: UnitPacketInput, bytes: number, rendered: RenderedIds): string {
+  const topics = unit.topics.map((topic) => `${topic.topicId} (scope: ${describeObligationScope(topic.obligationScope)})`).join(", ") || "(none)";
+  return `The packet for unit ${JSON.stringify(unit.unitId)} renders to ${bytes} bytes, over the declared bound of ${input.byteLimit} (${bytes - input.byteLimit} bytes over). NOTHING has been dropped or shortened: all ${unit.topics.length} topic(s), ${rendered.obligationIds.length} obligation row(s) rendered in full, ${rendered.stubObligationIds.length} stub row(s) for obligations another unit owns, ${rendered.scopeExcludedObligationIds.length} stub row(s) for obligations outside this unit's scope and ${rendered.renderedEvidenceIds.length} evidence record(s) are present. The offending unit's topics are: ${topics}. Divide this unit's obligations further (that is what \`plan-unit-split.ts\` does, deterministically) or raise the bound deliberately — truncation is not an option here.`;
 }
 
 /**
@@ -382,7 +499,7 @@ function budgetRow(budget: PlanBudget, documentId: string): { perUnitInputBytes:
  * named failure, not a unit measured against a default nobody chose.
  */
 export function unitInputBound(planCatalog: PlanCatalogArtifact, unit: PlanCatalogUnit): number {
-  return budgetRow(planCatalog.budget, unit.documentId).perUnitInputBytes;
+  return documentBudgetRow(planCatalog.budget, unit.documentId).perUnitInputBytes;
 }
 
 /**
@@ -390,7 +507,9 @@ export function unitInputBound(planCatalog: PlanCatalogArtifact, unit: PlanCatal
  *
  * Pure, and shared by every caller: the run loader, and the baseline projection that cannot use the loader because
  * an archival run has no `plan/` on disk and may not be written to. A binding whose evidence the ledger does not
- * hold is a named failure here rather than a hole discovered at render time.
+ * hold is a named failure here rather than a hole discovered at render time. Every binding's evidence is collected,
+ * scope or not: the check is about whether the RUN is consistent, and narrowing it to what a scoped unit happens to
+ * render would make it weaker for exactly the plans that divide a topic.
  */
 export function topicDossier(
   unit: PlanCatalogUnit,
@@ -417,13 +536,25 @@ export function topicDossier(
   return { source: "topics", topics, evidence };
 }
 
+/**
+ * The output bound sentence, printed in every packet.
+ *
+ * R4b printed "output budget: NONE DECLARED" and deferred to R5's budget system; that deferral is redeemed here.
+ * The sentence states BOTH numbers and what over-budget means, because an author told only the number would meet it
+ * the cheap way: dropping an unknown or a term. Core never deletes content to fit, and the enforcement at draft
+ * time says so in the same words.
+ */
+export function outputBoundSentence(budget: PlanDocumentBudget): string {
+  return `output budget (plan, per unit for ${budget.documentId}): ${budget.perUnitOutputBytes} bytes of \`content.md\` plus canonical claims, and ${budget.perUnitSummaryBytes} bytes for the summary block a parent unit reads. Both are ENFORCED when this unit is drafted: over-budget is a named refusal, and the way to satisfy it is to WRITE MORE TIGHTLY — never to drop an obligation, an unknown or a terminology entry. Core does not delete content to fit.`;
+}
+
 function renderHeader(unit: PlanCatalogUnit, input: UnitPacketInput, body: string, limitations: readonly string[]): string {
   const { planCatalog, requests, registry, dag, reach } = input;
   const record = requests.requests.find((entry) => entry.documentId === unit.documentId);
   if (!record) throw new Error(`No recorded request for document ${JSON.stringify(unit.documentId)}; a unit packet is rendered under the request that asked for its document`);
   const lens = lensPolicyFor(record.request.audience, registry);
   const intent = intentPolicyFor(record.request.intent, registry);
-  const budget = budgetRow(planCatalog.budget, unit.documentId);
+  const budget = documentBudgetRow(planCatalog.budget, unit.documentId);
   const parents = dag.edges.filter((edge) => edge.childUnitId === unit.unitId).map((edge) => edge.parentUnitId).sort(compareUnitIds);
   const appendices = planCatalog.units
     .filter((row) => row.documentId === unit.documentId && enumeratesUnboundEvidence(row.kind))
@@ -455,7 +586,8 @@ function renderHeader(unit: PlanCatalogUnit, input: UnitPacketInput, body: strin
     `- parent unit(s): ${parents.join(", ") || "(none — this is a document root)"}`,
     `- child unit(s): ${[...unit.childUnitIds].sort(compareUnitIds).join(", ") || "(none)"}`,
     `- input budget (plan, per unit for ${unit.documentId}): ${budget.perUnitInputBytes} bytes; document total ${budget.totalInputBytes} bytes`,
-    `- ${OUTPUT_BUDGET_DEFERRAL}`,
+    `- ${outputBoundSentence(budget)}`,
+    `- declared budget row: ${summariseDocumentBudget(budget)}`,
     `- packet byte bound: ${input.byteLimit}; body bytes: ${Buffer.byteLength(body, "utf8")}`,
     `- evidence reach: ${reach.frozenEvidenceIds} frozen evidence record(s) in this run, ${reach.boundEvidenceIds} of them bound by some work item, ${reach.unbound.length} bound by none.`,
     `  A record no work item binds cannot reach any unit packet through the binding path (obligation → evidence), whatever this packet's byte bound is. This document's appendix unit(s) enumerate them by id: ${appendices.join(", ") || "(this document has no appendix unit, so nothing enumerates them)"}.`,
@@ -480,20 +612,27 @@ function renderHeader(unit: PlanCatalogUnit, input: UnitPacketInput, body: strin
     "exempt (the full audit's denominator has always excluded those) and is reported in its own bucket; a",
     "non-material obligation is not required to be grounded, though it is rendered below.",
     "",
-    "## Ownership: exactly one unit grounds each material obligation of this document",
+    "## Ownership and scope: exactly one unit grounds each material obligation of this document",
     "",
     `Each material obligation of ${unit.documentId} has ONE owner unit, derived from the plan and this run's Topic`,
-    "Catalog: among the topics that bind the obligation, the first one an OWNING unit of this document names — by the",
-    `pinned facet priority ${OWNERSHIP_FACET_PRIORITY.join(" > ")}, then by ascending topic id.`,
-    "A `leaf` and an `appendix` own the topics they name; a `bridge` references topics another unit owns; a",
-    "`synthesis` names none. Ownership never crosses documents: every document answers for itself.",
+    "Catalog: among the topics that bind the obligation, the first one an OWNING unit of this document names AND",
+    `holds inside its obligation scope — by the pinned facet priority ${OWNERSHIP_FACET_PRIORITY.join(" > ")}, then by`,
+    "ascending topic id. A `leaf` and an `appendix` own the topics they name; a `bridge` references topics another",
+    "unit owns; a `synthesis` names none. Ownership never crosses documents: every document answers for itself.",
+    "",
+    "A topic too large for one unit is DIVIDED by obligation scope, never truncated: the scopes of one topic's",
+    "owning units partition its bindings exactly — every id in exactly one of them — and a plan whose scopes do not",
+    "is refused by name. This unit's scope per topic is printed with its obligations below.",
     "",
     `- this document reaches ${input.ownership.reachedObligations} material obligation(s); THIS unit owns ${owned} of them, and grounds exactly those.`,
-    "- an obligation another unit of this document owns appears below as a STUB row: id, dimension, determination,",
-    "  materiality and the owner unit, with no evidence body. Every one of them is listed — stubs are never capped —",
-    "  and the grounding audit will not ask you to ground one. Read the owner unit's packet for its evidence.",
-    "- a stub is NOT a truncation. \"Which obligations exist and whose they are\" and \"here are their bytes\" are two",
-    "  statements, and this packet makes the first for every obligation it can reach.",
+    "- an obligation THIS UNIT'S SCOPE COVERS that another unit owns through a topic of its own appears below as a",
+    "  STUB row: id, dimension, determination, materiality and the owner unit, with no evidence body. Every one of",
+    "  them is listed — those stubs are never capped — and the grounding audit will not ask you to ground one.",
+    "- an obligation OUTSIDE this unit's scope is another part of a divided topic. It is accounted for below by the",
+    "  unit that carries it and how many it carries; its row and its evidence are rendered IN FULL in that unit's",
+    "  packet, and `plan/catalog.json` records every unit's scope by work item id. Nothing is dropped or capped.",
+    "- neither is a truncation. \"Which obligations exist and whose they are\" and \"here are their bytes\" are two",
+    "  statements, and between this document's packets the first is made for every obligation exactly once.",
     ""
   );
   if (limitations.length > 0) {
@@ -512,8 +651,8 @@ function renderBody(unit: PlanCatalogUnit, input: UnitPacketInput): string {
     case "topics":
       return [
         renderDispositions(unit, input.planCatalog),
-        renderObligations(unit, dossier.topics, input.ownership),
-        renderEvidence(unit, dossier.topics, dossier.evidence, input.ownership),
+        renderObligations(unit, input, dossier.topics),
+        renderEvidence(unit, input, dossier.topics, dossier.evidence),
         renderFacetCensus(unit, input.facets),
         renderUnboundEvidence(unit, input.reach)
       ].filter((block) => block !== "").join("\n");
@@ -537,37 +676,52 @@ function renderDispositions(unit: PlanCatalogUnit, planCatalog: PlanCatalogArtif
 }
 
 /**
- * One row per obligation, per topic — the 57B-453 fix, now split by owner (R5a).
+ * One row per obligation, per topic — the 57B-453 fix, split by owner (R5a) and by scope (R5b).
  *
  * The ids are printed as the ledger records them, in the ledger's own order, never sorted or de-duplicated here: a
  * reading must be able to compare them byte for byte against `workitems.json`.
  *
  * TWO TABLES PER TOPIC, NOT ONE WIDER TABLE. The first is what this unit writes and grounds, with the binding's own
- * evidence and trace ids. The second lists the material obligations another unit of this document OWNS — every one
- * of them, uncapped — with the owner named, and nothing else: no evidence ids, because this packet does not carry
- * their bytes and printing ids it does not render is exactly the 57B-453 failure (a pointer to something the author
- * cannot open). Keeping them in separate tables is what makes "I must ground this" and "somebody else grounds this"
- * impossible to confuse at a glance.
+ * evidence and trace ids. The second lists every obligation of the topic that another unit carries — all of them,
+ * uncapped — with that unit named and the REASON (ownership, or this unit's scope), and nothing else: no evidence
+ * ids, because this packet does not carry their bytes and printing ids it does not render is exactly the 57B-453
+ * failure (a pointer to something the author cannot open). Keeping them in separate tables is what makes "I must
+ * ground this" and "somebody else writes this" impossible to confuse at a glance.
  */
-function renderObligations(unit: PlanCatalogUnit, topics: readonly TopicCandidate[], ownership: DocumentObligationOwnership): string {
+function renderObligations(unit: PlanCatalogUnit, input: UnitPacketInput, topics: readonly TopicCandidate[]): string {
+  const dispositions = new Map<string, BindingDisposition>();
+  for (const [index, topic] of topics.entries()) {
+    const reference = unit.topics[index]!;
+    for (const binding of topic.bindings) {
+      dispositions.set(`${topic.topicId} ${binding.workItemId}`, bindingDisposition(binding, reference, unit, input));
+    }
+  }
+  const dispositionOf = (topicId: string, binding: TopicObligationBinding): BindingDisposition => dispositions.get(`${topicId} ${binding.workItemId}`)!;
   const bindings = topics.flatMap((topic) => topic.bindings);
   const material = bindings.filter((binding) => binding.material).length;
-  const stubs = bindings.filter((binding) => !ownedByThisUnit(binding, unit, ownership)).length;
+  let elsewhere = 0;
+  for (const topic of topics) {
+    for (const binding of topic.bindings) {
+      if (dispositionOf(topic.topicId, binding).state !== "full") elsewhere += 1;
+    }
+  }
   const lines = [
-    `## Obligations bound to this unit's topics (${bindings.length} obligation(s), ${material} material, ${bindings.length - stubs} written here, ${stubs} owned by another unit)`,
+    `## Obligations bound to this unit's topics (${bindings.length} obligation(s), ${material} material, ${bindings.length - elsewhere} written here, ${elsewhere} carried by another unit of this document)`,
     "",
     "One row per OBLIGATION, with its own evidence and trace ids. The ids on a row belong to that obligation and to",
     "no other: this is the binding, not a shared pool, and a claim grounds an obligation by reusing the ids on ITS",
     "row. Do not infer a binding from a file path or a line range.",
     ""
   ];
-  for (const topic of topics) {
+  for (const [index, topic] of topics.entries()) {
+    const reference = unit.topics[index]!;
     lines.push(
       `### ${topic.topicId} — ${topic.title}`,
       "",
       `- facet/kind: ${topic.facet}/${topic.kind}; materiality/confidence: ${topic.materiality}/${topic.confidence}; unknown: ${topic.unknown ? "yes" : "no"}`,
       `- canonical key: \`${topic.canonicalKey}\`; digest: ${topic.digest}`,
       `- source ledger: \`${topic.source.ledger}\` row \`${topic.source.rowId}\``,
+      `- THIS unit's obligation scope for this topic: ${describeObligationScope(reference.obligationScope)}`,
       `- completeness: boundWorkItems=${topic.completeness.boundWorkItems} settledWorkItems=${topic.completeness.settledWorkItems} residualRows=${topic.completeness.residualRows} uncoveredLines=${topic.completeness.uncoveredLines}`,
       `- relations: ${topic.relationIds.join(", ") || "(none recorded)"}`,
       ""
@@ -576,32 +730,75 @@ function renderObligations(unit: PlanCatalogUnit, topics: readonly TopicCandidat
       lines.push("| workItemId | dimension | status | material | evidenceIds | traceIds |", "| --- | --- | --- | --- | --- | --- |", "| (no obligation binds this topic) | | | | | |", "");
       continue;
     }
-    const mine = topic.bindings.filter((binding) => ownedByThisUnit(binding, unit, ownership));
-    const theirs = topic.bindings.filter((binding) => !ownedByThisUnit(binding, unit, ownership));
+    const mine = topic.bindings.filter((binding) => dispositionOf(topic.topicId, binding).state === "full");
+    const ownedElsewhere = topic.bindings.filter((binding) => dispositionOf(topic.topicId, binding).state === "owned-elsewhere");
+    const outOfScope = topic.bindings.filter((binding) => dispositionOf(topic.topicId, binding).state === "out-of-scope");
     lines.push("| workItemId | dimension | status | material | evidenceIds | traceIds |", "| --- | --- | --- | --- | --- | --- |");
-    if (mine.length === 0) lines.push("| (every obligation of this topic is owned by another unit — see the stubs below) | | | | | |");
+    if (mine.length === 0) lines.push("| (no obligation of this topic is written by this unit — see below) | | | | | |");
     for (const binding of mine) {
       lines.push(`| \`${binding.workItemId}\` | ${binding.dimension} | ${binding.status} | ${binding.material ? "yes" : "no"} | ${binding.evidenceIds.map((id) => `\`${id}\``).join(" ") || "(none)"} | ${binding.traceIds.map((id) => `\`${id}\``).join(" ") || "(none)"} |`);
     }
     lines.push("");
-    if (theirs.length === 0) continue;
-    lines.push(
-      `Owned by another unit of ${unit.documentId} (${theirs.length} obligation(s), all of them listed, none of them yours to ground):`,
-      "",
-      "| workItemId | dimension | status | material | owner unit | owner topic |",
-      "| --- | --- | --- | --- | --- | --- |"
-    );
-    for (const binding of theirs) {
-      const owner = ownerOf(binding, unit, ownership);
-      lines.push(`| \`${binding.workItemId}\` | ${binding.dimension} | ${binding.status} | ${binding.material ? "yes" : "no"} | \`${owner.ownerUnitId}\` | ${owner.ownerTopicId} |`);
+    if (ownedElsewhere.length > 0) {
+      lines.push(
+        `OWNED BY ANOTHER UNIT of ${unit.documentId} (${ownedElsewhere.length} obligation(s), every one of them listed, none of them yours to ground). This unit's scope covers them, but their owner reaches them through a topic of its own:`,
+        "",
+        "| workItemId | dimension | status | material | owner unit | owner topic |",
+        "| --- | --- | --- | --- | --- | --- |"
+      );
+      for (const binding of ownedElsewhere) {
+        const owner = ownerOf(dispositionOf(topic.topicId, binding));
+        lines.push(`| \`${binding.workItemId}\` | ${binding.dimension} | ${binding.status} | ${binding.material ? "yes" : "no"} | \`${owner.ownerUnitId}\` | ${owner.ownerTopicId} |`);
+      }
+      lines.push("");
     }
-    lines.push("");
+    if (outOfScope.length > 0) {
+      const byCarrier = new Map<string, number>();
+      for (const binding of outOfScope) {
+        const carrier = carrierOf(dispositionOf(topic.topicId, binding));
+        byCarrier.set(carrier, (byCarrier.get(carrier) ?? 0) + 1);
+      }
+      lines.push(
+        `THIS TOPIC IS DIVIDED. This unit's scope covers ${mine.length + ownedElsewhere.length} of its ${topic.bindings.length} obligation(s); the other ${outOfScope.length} belong to other unit(s) of ${unit.documentId}, whose scopes partition the rest EXACTLY — every one of them is rendered IN FULL, with its evidence, in one of those packets. Nothing is dropped and nothing is capped: this run's \`plan/catalog.json\` records each unit's scope BY WORK ITEM ID, so the partition is addressable rather than asserted, and none of these are yours to write or to ground.`,
+        "",
+        "| carried by | obligations of this topic |",
+        "| --- | --- |"
+      );
+      for (const carrier of [...byCarrier.keys()].sort(compareUnitIds)) lines.push(`| \`${carrier}\` | ${byCarrier.get(carrier)!} |`);
+      lines.push("");
+    }
   }
   return lines.join("\n");
 }
 
+/** The owner row of an `owned-elsewhere` disposition. Exhaustive: the other two arms have no owner to name. */
+function ownerOf(disposition: BindingDisposition): ObligationOwnership {
+  switch (disposition.state) {
+    case "owned-elsewhere":
+      return disposition.owner;
+    case "full":
+      throw new Error("A fully rendered obligation has no other owner to name; it is written and grounded by this unit");
+    case "out-of-scope":
+      throw new Error("An obligation outside this unit's scope is accounted for by carrier, not by owner row");
+  }
+  return assertNever(disposition, "unit packet binding disposition");
+}
+
+/** The carrier of an `out-of-scope` disposition. Exhaustive for the same reason. */
+function carrierOf(disposition: BindingDisposition): string {
+  switch (disposition.state) {
+    case "out-of-scope":
+      return disposition.carrierUnitId;
+    case "full":
+      throw new Error("A fully rendered obligation has no carrier; this unit is the carrier");
+    case "owned-elsewhere":
+      throw new Error("An obligation this unit's scope covers is accounted for by owner row, not by carrier");
+  }
+  return assertNever(disposition, "unit packet binding disposition");
+}
+
 /**
- * Every evidence record the obligations above bind, in full, each saying which obligations it grounds.
+ * Every evidence record the obligations this unit writes bind, in full, each saying which obligations it grounds.
  *
  * The back-reference is the other half of the 57B-453 fix: the obligation row names its evidence, and the evidence
  * record names its obligations, so neither direction has to be guessed. No record is clipped here. A record the RUN
@@ -610,14 +807,15 @@ function renderObligations(unit: PlanCatalogUnit, topics: readonly TopicCandidat
  */
 function renderEvidence(
   unit: PlanCatalogUnit,
+  input: UnitPacketInput,
   topics: readonly TopicCandidate[],
-  evidence: ReadonlyMap<string, EvidenceItem>,
-  ownership: DocumentObligationOwnership
+  evidence: ReadonlyMap<string, EvidenceItem>
 ): string {
   const groundedBy = new Map<string, string[]>();
-  for (const topic of topics) {
+  for (const [index, topic] of topics.entries()) {
+    const reference = unit.topics[index]!;
     for (const binding of topic.bindings) {
-      if (!ownedByThisUnit(binding, unit, ownership)) continue;
+      if (bindingDisposition(binding, reference, unit, input).state !== "full") continue;
       for (const id of binding.evidenceIds) {
         const list = groundedBy.get(id);
         if (list) list.push(binding.workItemId);
@@ -626,9 +824,9 @@ function renderEvidence(
     }
   }
   const ids = [...groundedBy.keys()].sort((a, b) => a.localeCompare(b));
-  const lines = [`## Evidence bound to the obligations this unit owns (${ids.length} record(s), all rendered in full)`, ""];
+  const lines = [`## Evidence bound to the obligations this unit writes (${ids.length} record(s), all rendered in full)`, ""];
   if (ids.length === 0) {
-    lines.push("No obligation this unit OWNS binds any evidence record. That is a statement about the obligation ledger and", "about ownership, not about this packet's bound: nothing was dropped to fit. An obligation another unit owns is", "listed above as a stub and its evidence is rendered in that unit's packet.", "");
+    lines.push("No obligation this unit writes binds any evidence record. That is a statement about the obligation ledger,", "about ownership and about this unit's scope, not about this packet's bound: nothing was dropped to fit. An", "obligation another unit carries is listed above as a stub and its evidence is rendered in that unit's packet.", "");
     return lines.join("\n");
   }
   for (const id of ids) {
@@ -758,6 +956,44 @@ function outcomeReason(outcome: FacetOutcome): string {
   return assertNever(outcome, "topic facet outcome");
 }
 
+/**
+ * One child's summary, as a parent packet renders it.
+ *
+ * Extracted and exported because `perUnitSummaryBytes` bounds exactly these bytes: the plan-time synthesis check
+ * renders a worst case built from this block's allowance, and `draftUnit` refuses a summary whose block exceeds it.
+ * Two spellings of "how big is a child summary" would be two bounds, and the one the author is graded against would
+ * not be the one the plan budgeted.
+ */
+export function renderChildSummaryBlock(child: UnitSummary): string {
+  const lines = [
+    `### ${child.unitId} (${child.kind})`,
+    "",
+    `- covered topic(s): ${child.coveredTopicIds.join(", ") || "(none)"}`,
+    `- content digest: ${child.contentDigest}; claims digest: ${child.claimsDigest}`,
+    "",
+    "Key statements:",
+    ""
+  ];
+  for (const statement of child.keyStatements) lines.push(`- ${statement}`);
+  lines.push("", `Unknowns: ${child.unknowns.length === 0 ? "(none stated)" : ""}`, "");
+  for (const unknown of child.unknowns) lines.push(`- ${unknown}`);
+  if (child.unknowns.length > 0) lines.push("");
+  lines.push(`Terminology: ${child.terminology.length === 0 ? "(none stated)" : ""}`, "");
+  for (const term of child.terminology) lines.push(`- \`${term.term}\` — ${term.meaning}`);
+  if (child.terminology.length > 0) lines.push("");
+  if (child.childSummaryDigests.length > 0) {
+    lines.push("Child digests this child recorded:", "");
+    for (const row of child.childSummaryDigests) lines.push(`- ${row.childUnitId} — ${row.summaryDigest}`);
+    lines.push("");
+  }
+  return lines.join("\n");
+}
+
+/** The bytes one child summary costs a parent. What `perUnitSummaryBytes` bounds, in one place. */
+export function childSummaryBlockBytes(child: UnitSummary): number {
+  return Buffer.byteLength(renderChildSummaryBlock(child), "utf8");
+}
+
 /** A synthesis reads its children's summaries and nothing else. There is no topic block on this path. */
 function renderChildSummaries(unit: PlanCatalogUnit, children: readonly UnitSummary[]): string {
   const lines = [
@@ -768,31 +1004,10 @@ function renderChildSummaries(unit: PlanCatalogUnit, children: readonly UnitSumm
     "belongs in the child that owns it, not here.",
     ""
   ];
-  for (const child of children) {
-    lines.push(
-      `### ${child.unitId} (${child.kind})`,
-      "",
-      `- covered topic(s): ${child.coveredTopicIds.join(", ") || "(none)"}`,
-      `- content digest: ${child.contentDigest}; claims digest: ${child.claimsDigest}`,
-      "",
-      "Key statements:",
-      ""
-    );
-    for (const statement of child.keyStatements) lines.push(`- ${statement}`);
-    lines.push("", `Unknowns: ${child.unknowns.length === 0 ? "(none stated)" : ""}`, "");
-    for (const unknown of child.unknowns) lines.push(`- ${unknown}`);
-    if (child.unknowns.length > 0) lines.push("");
-    lines.push(`Terminology: ${child.terminology.length === 0 ? "(none stated)" : ""}`, "");
-    for (const term of child.terminology) lines.push(`- \`${term.term}\` — ${term.meaning}`);
-    if (child.terminology.length > 0) lines.push("");
-    if (child.childSummaryDigests.length > 0) {
-      lines.push("Child digests this child recorded:", "");
-      for (const row of child.childSummaryDigests) lines.push(`- ${row.childUnitId} — ${row.summaryDigest}`);
-      lines.push("");
-    }
-  }
+  for (const child of children) lines.push(renderChildSummaryBlock(child));
   if (children.length === 0) {
     lines.push("This synthesis has no collected child. Nothing can be written from an empty summary set: draft and", "collect its children first.", "");
   }
+  void unit;
   return lines.join("\n");
 }

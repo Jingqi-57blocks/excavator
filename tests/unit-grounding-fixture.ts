@@ -76,10 +76,11 @@ async function workItemsOf(runDir: string): Promise<Map<string, InvestigationWor
 
 /** The mini fixture with a deterministic fixture plan built in memory. Nothing is written into the run. */
 export async function miniPlan(): Promise<MiniPlan> {
-  const { runDir, catalog, requests } = await miniRun();
+  const run = await miniRun();
+  const { runDir, catalog, requests } = run;
   const proposal = buildFixturePlan(catalog, requests, PLAN_BUDGET_TABLE);
-  const report = validatePlan({ catalog, requests, proposal, registry: REPORT_POLICY_REGISTRY, budgetTable: PLAN_BUDGET_TABLE });
-  const artifacts = buildPlanArtifacts({ catalog, requests, proposal, report });
+  const report = validatePlan({ catalog, requests, proposal, registry: REPORT_POLICY_REGISTRY, budgetTable: PLAN_BUDGET_TABLE, evidence: run.evidenceById, reach: run.reach });
+  const artifacts = buildPlanArtifacts({ catalog, requests, proposal, budgetTable: PLAN_BUDGET_TABLE, verdict: report.overall });
   const evidence = await readEvidenceCatalog(runDir);
   return {
     runDir,

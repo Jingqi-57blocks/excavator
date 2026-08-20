@@ -35,20 +35,21 @@
 import { join } from "node:path";
 import type { DocumentPlan, EvidenceItem, InvestigationPlan, RunManifest } from "../src/base/types.ts";
 import { readJson, sha256, canonicalJson } from "../src/base/util.ts";
-import { readEvidenceCatalog } from "../src/investigation/evidence-store.ts";
 import { featureKeyOf } from "../src/report/authoring-packet.ts";
 import { buildFixturePlan } from "../src/report/fixture-plan.ts";
 import { PLAN_BUDGET_TABLE } from "../src/report/plan-budget.ts";
 import { buildPlanArtifacts, planCatalogDigest, type PlanCatalogUnit } from "../src/report/plan-artifacts.ts";
 import { documentOwnership, materialObligationTopics, summariseObligationAccounting, type ObligationOwnershipIndex, type PlanObligationAccounting } from "../src/report/plan-obligation-conservation.ts";
 import { AUTHORING_UNIT_KINDS } from "../src/report/plan-proposal.ts";
-import { validatePlan } from "../src/report/plan-validation.ts";
+import { planThroughBudgetRefinement } from "../src/report/plan-unit-split.ts";
+import { loadRunEvidenceReach } from "../src/report/run-evidence-reach.ts";
 import { REPORT_POLICY_REGISTRY } from "../src/report/report-policy-registry.ts";
 import { buildReportRequestsArtifact, type ReportRequestsArtifact } from "../src/report/report-requests-artifact.ts";
 import { buildTopicCatalog } from "../src/report/topic-catalog.ts";
 import { loadTopicCatalogSource } from "../src/report/topic-catalog-source.ts";
 import { auditUnitGrounding } from "../src/report/unit-grounding-audit.ts";
-import { renderUnitPacket, topicDossier, unitInputBound, unitPacketDigest, type RunEvidenceReach, type UnitPacket } from "../src/report/unit-packet.ts";
+import { renderUnitPacket, topicDossier, unitInputBound, unitPacketBytes, unitPacketDigest, type UnitPacket } from "../src/report/unit-packet.ts";
+import { documentBudgetRow } from "../src/report/plan-budget.ts";
 
 export const UNIT_PACKET_READINGS_VERSION = "unit-packet-readings-v1";
 
@@ -66,7 +67,24 @@ export interface UnitPacketReadingRow {
   /** Material obligations this unit OWNS, and the ones it renders as a stub because another unit owns them. */
   readonly ownedMaterial: number;
   readonly stubObligations: number;
+  /**
+   * Obligations of this unit's topics that its `obligationScope` excludes — the other parts of a divided topic.
+   *
+   * Zero on an undivided plan. Together with `ownedMaterial` and `stubObligations` it accounts for every material
+   * obligation the unit reaches, which is the conservation the eval test asserts.
+   */
+  readonly scopeExcludedObligations: number;
+  /** The MATERIAL ones among them. `ownedMaterial + stubObligations + this` is every material obligation reached. */
+  readonly scopeExcludedMaterial: number;
   readonly packetBytes: number;
+  /**
+   * THE SAME-SOURCE TRIPWIRE, recorded per unit: what the plan's budget pre-check measured for this unit.
+   *
+   * It must equal `packetBytes` exactly, and the extractor throws if it does not — the whole point of R5b is that
+   * the pre-check IS the renderer rather than a second estimate beside it. R4b's proxy (canonical topic rows) was
+   * out by about 9x on this baseline, and it was out silently because nothing compared the two numbers.
+   */
+  readonly precheckBytes: number;
   readonly packetByteLimit: number;
   /** Empty when the packet fits; one recorded overrun when it does not. Never a dropped row. */
   readonly packetLimitations: readonly string[];
@@ -93,6 +111,26 @@ export interface UnitPacketReadings {
   readonly rendered: readonly UnitPacketReadingRow[];
   /** Synthesis units: no collected child summary exists on an archival run, so their packet is not renderable here. */
   readonly notRenderable: readonly { readonly unitId: string; readonly reason: string }[];
+  /**
+   * R5b: per document, the measured bytes of every unit's packet against the document's own total input budget.
+   *
+   * `renderedBytes` sums the units this projection could render; `measuredBytes` is the plan-side measurement over
+   * ALL of them, synthesis units included (bounded by the declared summary allowance). The second is the number
+   * acceptance reads, because a synthesis is a packet an author will be handed too.
+   */
+  readonly documents: readonly {
+    readonly documentId: string;
+    readonly units: number;
+    readonly renderedBytes: number;
+    readonly measuredBytes: number;
+    readonly totalInputBytes: number;
+  }[];
+  /** Units over their own per-unit bound after the budget refinement. Zero is R5b's acceptance condition. */
+  readonly overBudgetUnits: number;
+  /** Every over-budget unit the refinement divided, with the ladder rung it was divided at. */
+  readonly divisions: readonly { readonly unitId: string; readonly level: string; readonly measuredBytes: number; readonly partUnitIds: readonly string[] }[];
+  /** Measurement passes the refinement took. 1 means the proposal already fitted and nothing was divided. */
+  readonly refinementPasses: number;
   /** Gate 1b's plan-side accounting: the one denominator. */
   readonly obligations: PlanObligationAccounting;
   readonly obligationSummary: string;
@@ -152,17 +190,37 @@ export async function extractUnitPacketReadings(runDir: string): Promise<UnitPac
   const catalog = buildTopicCatalog(source);
   const manifest = await readJson<RunManifest>(join(runDir, "run.json"));
   const requests = requestsFor(manifest);
-  const proposal = buildFixturePlan(catalog, requests, PLAN_BUDGET_TABLE);
-  const report = validatePlan({ catalog, requests, proposal, registry: REPORT_POLICY_REGISTRY, budgetTable: PLAN_BUDGET_TABLE });
-  const artifacts = buildPlanArtifacts({ catalog, requests, proposal, report });
+  const evidence = await loadRunEvidenceReach(runDir, source);
+  const evidenceById = evidence.evidenceById;
+  // The same door the plan stage uses: validate, divide whatever is over budget, validate the divided plan. The
+  // packets below are therefore rendered from the plan an operator would actually get.
+  const planned = planThroughBudgetRefinement({
+    catalog,
+    requests,
+    proposal: buildFixturePlan(catalog, requests, PLAN_BUDGET_TABLE),
+    registry: REPORT_POLICY_REGISTRY,
+    budgetTable: PLAN_BUDGET_TABLE,
+    evidence: evidenceById,
+    reach: evidence.reach
+  });
+  if (planned.state === "rejected") {
+    throw new Error(`the fixture plan for ${runDir} cannot be recorded: ${planned.problems.join("; ")}`);
+  }
+  const report = planned.report;
+  const artifacts = buildPlanArtifacts({
+    catalog,
+    requests,
+    proposal: planned.proposal,
+    budgetTable: PLAN_BUDGET_TABLE,
+    verdict: report.overall
+  });
   const planCatalog = artifacts.planCatalog;
 
-  const evidence = await readEvidenceCatalog(runDir);
-  const evidenceById = new Map(evidence.evidence.map((item) => [item.id, item]));
   const topicsById = new Map(catalog.topics.map((topic) => [topic.topicId, topic]));
   const workItems = new Map(source.workItems.map((item) => [item.id, item]));
   const obligations = materialObligationTopics(catalog);
-  const reach = evidenceReach(source.knowledge.evidenceIds ?? [], workItems, evidenceById);
+  const materialIds = new Set(obligations.map((row) => row.workItemId));
+  const reach = evidence.reach;
 
   const rendered: UnitPacketReadingRow[] = [];
   const notRenderable: { unitId: string; reason: string }[] = [];
@@ -208,6 +266,12 @@ export async function extractUnitPacketReadings(runDir: string): Promise<UnitPac
     };
     const packet = renderUnitPacket(input);
     const again = renderUnitPacket(input);
+    // The tripwire, asserted where the two numbers are both in hand rather than only recorded: the plan's budget
+    // pre-check and the packet an author reads are one composition, so a difference is a bug and not a reading.
+    const precheckBytes = unitPacketBytes(input);
+    if (precheckBytes !== packet.bytes) {
+      throw new Error(`unit ${JSON.stringify(unit.unitId)}: the plan's budget pre-check measured ${precheckBytes} bytes and the rendered packet is ${packet.bytes}; the pre-check must BE the renderer, not an estimate beside it`);
+    }
     packetsByUnit.set(unit.unitId, packet);
     rendered.push({
       unitId: unit.unitId,
@@ -220,8 +284,11 @@ export async function extractUnitPacketReadings(runDir: string): Promise<UnitPac
       openOriginExempt: grounding.openOriginExempt.length,
       ownedMaterial: grounding.owed.length + grounding.openOriginExempt.length,
       stubObligations: packet.stubObligationIds.length,
+      scopeExcludedObligations: packet.scopeExcludedObligationIds.length,
+      scopeExcludedMaterial: packet.scopeExcludedObligationIds.filter((workItemId) => materialIds.has(workItemId)).length,
       renderedEvidenceIds: packet.renderedEvidenceIds.length,
       packetBytes: packet.bytes,
+      precheckBytes,
       packetByteLimit: packet.byteLimit,
       packetLimitations: packet.limitations,
       packetDigest: unitPacketDigest(packet),
@@ -252,6 +319,18 @@ export async function extractUnitPacketReadings(runDir: string): Promise<UnitPac
     unitsByKind: AUTHORING_UNIT_KINDS.map((kind) => ({ kind, units: planCatalog.units.filter((unit) => unit.kind === kind).length })),
     rendered,
     notRenderable,
+    documents: planCatalog.documents.map((document) => ({
+      documentId: document.documentId,
+      units: document.units,
+      renderedBytes: rendered.filter((row) => row.documentId === document.documentId).reduce((total, row) => total + row.packetBytes, 0),
+      measuredBytes: report.packets.state === "measured"
+        ? report.packets.measurement.documents.find((row) => row.documentId === document.documentId)!.bytes
+        : 0,
+      totalInputBytes: documentBudgetRow(planCatalog.budget, document.documentId).totalInputBytes
+    })),
+    overBudgetUnits: report.packets.state === "measured" ? report.packets.measurement.overBudgetUnitIds.length : -1,
+    divisions: planned.divisions.map((row) => ({ unitId: row.unitId, level: row.level, measuredBytes: row.measuredBytes, partUnitIds: row.partUnitIds })),
+    refinementPasses: planned.iterations,
     obligations: planCatalog.obligationAccounting,
     obligationSummary: summariseObligationAccounting(planCatalog.obligationAccounting),
     ...closure,
@@ -281,10 +360,11 @@ async function ledgerItems(runDir: string): Promise<InvestigationPlan["items"]> 
  * The requirement side is read from `workitems.json` itself, so this cannot be satisfied by the catalog and the
  * packet agreeing with each other: a denominator taken from the code under test agrees with it whatever it does.
  *
- * R5a NARROWS THE CARRIER SET FROM "any unit naming a binding topic" TO "the owner", which is a STRICTER reading,
+ * R5a NARROWED THE CARRIER SET FROM "any unit naming a binding topic" TO "the owner", which is a STRICTER reading,
  * not a looser one: before, an obligation counted as answerable if any of the three units that could reach it
- * happened to render the evidence; now the one unit that must ground it has to be the one carrying the bytes. An
- * obligation with no owner in a document it reaches is a named throw, because such a plan cannot be recorded.
+ * happened to render the evidence; now the one unit that must ground it has to be the one carrying the bytes. R5b
+ * keeps that reading word for word — a divided topic moves WHICH unit owns an obligation, never whether one does —
+ * so an obligation with no owner in a document it reaches is still a named throw.
  */
 function closureReading(
   units: readonly PlanCatalogUnit[],
@@ -327,6 +407,7 @@ function closureReading(
   };
 }
 
+/** Obligations bound to a unit's topics, scope or not: the topic-level census, unchanged since R4b. */
 function obligationCount(unit: PlanCatalogUnit, topicsById: ReadonlyMap<string, { bindings: readonly { material: boolean }[] }>, materialOnly: boolean): number {
   let total = 0;
   for (const reference of unit.topics) {
@@ -334,23 +415,6 @@ function obligationCount(unit: PlanCatalogUnit, topicsById: ReadonlyMap<string, 
     total += materialOnly ? topic.bindings.filter((binding) => binding.material).length : topic.bindings.length;
   }
   return total;
-}
-
-function evidenceReach(
-  frozenEvidenceIds: readonly string[],
-  workItems: ReadonlyMap<string, { evidenceIds: string[] }>,
-  evidenceById: ReadonlyMap<string, EvidenceItem>
-): RunEvidenceReach {
-  const bound = new Set<string>();
-  for (const item of workItems.values()) for (const id of item.evidenceIds) bound.add(id);
-  const unbound: EvidenceItem[] = [];
-  for (const id of [...frozenEvidenceIds].sort((a, b) => a.localeCompare(b))) {
-    if (bound.has(id)) continue;
-    const item = evidenceById.get(id);
-    if (!item) throw new Error(`knowledge.json seals evidence ${JSON.stringify(id)} but evidence.json does not hold it`);
-    unbound.push(item);
-  }
-  return { frozenEvidenceIds: frozenEvidenceIds.length, boundEvidenceIds: bound.size, unbound };
 }
 
 function censusByKind(items: readonly EvidenceItem[]): readonly { kind: string; records: number }[] {

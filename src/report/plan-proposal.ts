@@ -14,8 +14,16 @@
  * echo is the BUDGET, and that is echoed to be compared: the validator re-derives the budget from the requests and
  * refuses a proposal whose echo differs, which is why the echo is required rather than optional.
  *
- * WHY `synthesis` HAS NO `topicIds` FIELD AT ALL. The epic's rule is that a synthesis unit writes from child
- * summaries only; if the field existed and merely had to be empty, an unread `topicIds: [...]` would be a plan
+ * v2 REPLACES `topicIds` WITH `topics`, AND THE SCOPE IS REQUIRED (R5b). A unit's topic reference now carries an
+ * `obligationScope` — `all`, or an explicit ascending id list — because on the measured baseline one topic renders
+ * ~1 MB of packet against a 786,432-byte per-unit allowance, so "one unit per topic" cannot make a plan fit and the
+ * division has to reach inside a topic. The field is REQUIRED rather than optional for the reason every flag in
+ * this codebase is: an absent scope would default to `all`, a divided plan would silently be a duplicated one, and
+ * nothing would go red. `obligation-scope.ts` owns the two arms and the partition law that makes a division
+ * incapable of losing a row.
+ *
+ * WHY `synthesis` HAS NO `topics` FIELD AT ALL. The epic's rule is that a synthesis unit writes from child
+ * summaries only; if the field existed and merely had to be empty, an unread `topics: [...]` would be a plan
  * that reaches past its children into raw topic dossiers. Making it absent from the arm turns that into an unknown
  * field on a synthesis row — a named parse failure — which is the only version of the rule a reader cannot forget.
  *
@@ -27,10 +35,11 @@
  */
 
 import { assertNever } from "../base/artifact-result.ts";
+import { parseObligationScope, type ObligationScope } from "./obligation-scope.ts";
 import type { PlanBudget } from "./plan-budget.ts";
 import { planBudgetProblems } from "./plan-budget.ts";
 
-export const PLAN_PROPOSAL_VERSION = "plan-proposal-v1";
+export const PLAN_PROPOSAL_VERSION = "plan-proposal-v2";
 
 /**
  * The four unit kinds, sorted. `leaf` writes from a bounded topic dossier, `synthesis` only from child
@@ -40,19 +49,25 @@ export const PLAN_PROPOSAL_VERSION = "plan-proposal-v1";
 export const AUTHORING_UNIT_KINDS = ["appendix", "bridge", "leaf", "synthesis"] as const;
 export type AuthoringUnitKind = (typeof AUTHORING_UNIT_KINDS)[number];
 
+/** One topic a unit names, and which of that topic's obligations this unit writes. Both fields required. */
+export interface ProposedUnitTopic {
+  readonly topicId: string;
+  readonly obligationScope: ObligationScope;
+}
+
 interface ProposedUnitCommon {
   readonly unitId: string;
   readonly documentId: string;
   readonly title: string;
 }
 
-/** A unit that writes from topics it names. Ascending, de-duplicated topic ids. */
+/** A unit that writes from topics it names. Strictly ascending, de-duplicated by topic id. */
 export interface ProposedTopicUnit extends ProposedUnitCommon {
   readonly kind: "appendix" | "bridge" | "leaf";
-  readonly topicIds: readonly string[];
+  readonly topics: readonly ProposedUnitTopic[];
 }
 
-/** A unit that writes from its children's summaries. It has no `topicIds` field — see the header. */
+/** A unit that writes from its children's summaries. It has no `topics` field — see the header. */
 export interface ProposedSynthesisUnit extends ProposedUnitCommon {
   readonly kind: "synthesis";
   readonly childUnitIds: readonly string[];
@@ -77,8 +92,9 @@ export interface PlanProposalParse {
 }
 
 const PROPOSAL_FIELDS = ["budget", "dispositions", "units", "version"] as const;
-const TOPIC_UNIT_FIELDS = ["documentId", "kind", "title", "topicIds", "unitId"] as const;
+const TOPIC_UNIT_FIELDS = ["documentId", "kind", "title", "topics", "unitId"] as const;
 const SYNTHESIS_UNIT_FIELDS = ["childUnitIds", "documentId", "kind", "title", "unitId"] as const;
+const UNIT_TOPIC_FIELDS = ["obligationScope", "topicId"] as const;
 
 /**
  * The topic/child arity every kind must satisfy.
@@ -91,11 +107,11 @@ const SYNTHESIS_UNIT_FIELDS = ["childUnitIds", "documentId", "kind", "title", "u
 export function unitArityProblems(unit: ProposedUnit): string[] {
   switch (unit.kind) {
     case "leaf":
-      return unit.topicIds.length >= 1 ? []
+      return unit.topics.length >= 1 ? []
         : [`leaf unit ${JSON.stringify(unit.unitId)} names no topic; a leaf writes from a topic dossier, so it would have nothing to write from`];
     case "bridge":
-      return unit.topicIds.length >= 2 ? []
-        : [`bridge unit ${JSON.stringify(unit.unitId)} names ${unit.topicIds.length} topic(s); a bridge explains a relation between topics and needs at least two`];
+      return unit.topics.length >= 2 ? []
+        : [`bridge unit ${JSON.stringify(unit.unitId)} names ${unit.topics.length} topic(s); a bridge explains a relation between topics and needs at least two`];
     case "appendix":
       return [];
     case "synthesis":
@@ -105,17 +121,22 @@ export function unitArityProblems(unit: ProposedUnit): string[] {
   return assertNever(unit, "authoring unit kind");
 }
 
-/** The topics a unit names, exhaustively over the kinds: a synthesis names none, by construction. */
-export function unitTopicIds(unit: ProposedUnit): readonly string[] {
+/** The topic references a unit names, exhaustively over the kinds: a synthesis names none, by construction. */
+export function unitTopics(unit: ProposedUnit): readonly ProposedUnitTopic[] {
   switch (unit.kind) {
     case "leaf":
     case "bridge":
     case "appendix":
-      return unit.topicIds;
+      return unit.topics;
     case "synthesis":
       return [];
   }
   return assertNever(unit, "authoring unit kind");
+}
+
+/** The topic IDS a unit names — the projection every id-level check reads. */
+export function unitTopicIds(unit: ProposedUnit): readonly string[] {
+  return unitTopics(unit).map((topic) => topic.topicId);
 }
 
 /** The child units a unit names, exhaustively over the kinds: only a synthesis has children. */
@@ -199,7 +220,7 @@ function parseUnit(value: unknown): UnitParse {
   const known = new Set<string>(fields);
   for (const key of Object.keys(row).sort()) {
     if (!known.has(key)) {
-      problems.push(kind === "synthesis" && key === "topicIds"
+      problems.push(kind === "synthesis" && key === "topics"
         ? `is a synthesis unit carrying ${JSON.stringify(key)}; a synthesis writes from child summaries only and may never hang a topic directly`
         : `has unknown field ${JSON.stringify(key)}`);
     }
@@ -210,16 +231,70 @@ function parseUnit(value: unknown): UnitParse {
   for (const key of ["unitId", "documentId", "title"] as const) {
     if (typeof row[key] !== "string" || (row[key] as string).trim() === "") problems.push(`${key} ${JSON.stringify(row[key])} is not a non-empty string`);
   }
-  const listField = kind === "synthesis" ? "childUnitIds" : "topicIds";
-  const ids = idList(row[listField], listField, problems);
+  if (kind === "synthesis") {
+    const ids = idList(row.childUnitIds, "childUnitIds", problems);
+    if (problems.length > 0) return { unit: null, problems };
+    return {
+      unit: { kind, unitId: row.unitId as string, documentId: row.documentId as string, title: row.title as string, childUnitIds: ids! },
+      problems: []
+    };
+  }
+  const topics = topicList(row.topics, problems);
   if (problems.length > 0) return { unit: null, problems };
-  const common = { unitId: row.unitId as string, documentId: row.documentId as string, title: row.title as string };
   return {
-    unit: kind === "synthesis"
-      ? { kind, ...common, childUnitIds: ids! }
-      : { kind, ...common, topicIds: ids! },
+    unit: { kind, unitId: row.unitId as string, documentId: row.documentId as string, title: row.title as string, topics: topics! },
     problems: []
   };
+}
+
+/**
+ * The topic references of one unit: strictly ascending by topic id, each with its required scope.
+ *
+ * A repeated topic id is refused rather than merged. Two references to one topic would be two scopes over the same
+ * bindings inside ONE unit, and merging them would be this file deciding what the plan meant — the partition law
+ * one level up counts coverage per unit, so a merge here could hide a double-cover from it.
+ */
+function topicList(value: unknown, problems: string[]): readonly ProposedUnitTopic[] | null {
+  if (!Array.isArray(value)) {
+    problems.push(`topics ${JSON.stringify(value)} is not an array of topic references`);
+    return null;
+  }
+  const topics: ProposedUnitTopic[] = [];
+  let previous: string | null = null;
+  let broken = false;
+  for (const [index, entry] of (value as unknown[]).entries()) {
+    if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+      problems.push(`topics[${index}] is not a topic reference object`);
+      broken = true;
+      continue;
+    }
+    const reference = entry as Record<string, unknown>;
+    const keys = Object.keys(reference).sort();
+    if (keys.length !== UNIT_TOPIC_FIELDS.length || keys.some((key, position) => key !== UNIT_TOPIC_FIELDS[position])) {
+      problems.push(`topics[${index}] has fields ${keys.join(", ") || "(none)"}; a topic reference carries exactly ${UNIT_TOPIC_FIELDS.join(" and ")}`);
+      broken = true;
+      continue;
+    }
+    if (typeof reference.topicId !== "string" || reference.topicId.trim() === "") {
+      problems.push(`topics[${index}] topicId ${JSON.stringify(reference.topicId)} is not a non-empty string`);
+      broken = true;
+      continue;
+    }
+    const scope = parseObligationScope(reference.obligationScope);
+    if (scope.scope === null) {
+      for (const problem of scope.problems) problems.push(`topics[${index}] ${problem}`);
+      broken = true;
+      continue;
+    }
+    if (previous !== null && (reference.topicId as string).localeCompare(previous) <= 0) {
+      problems.push(`topics[${index}] topicId ${JSON.stringify(reference.topicId)} does not follow ${JSON.stringify(previous)}; the topic references must be strictly ascending by topic id`);
+      broken = true;
+      continue;
+    }
+    previous = reference.topicId as string;
+    topics.push({ topicId: reference.topicId as string, obligationScope: scope.scope });
+  }
+  return broken ? null : topics;
 }
 
 /** Ascending and de-duplicated, so one plan has one byte form. An unsorted list is a named failure, not sorted here. */

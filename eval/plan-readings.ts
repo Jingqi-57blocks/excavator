@@ -33,7 +33,9 @@ import { PLAN_BUDGET_TABLE } from "../src/report/plan-budget.ts";
 import { buildPlanArtifacts, planCatalogDigest, reportRequestsDigest } from "../src/report/plan-artifacts.ts";
 import { summariseObligationAccounting, type PlanObligationAccounting } from "../src/report/plan-obligation-conservation.ts";
 import { AUTHORING_UNIT_KINDS } from "../src/report/plan-proposal.ts";
-import { summarisePlanValidation, validatePlan } from "../src/report/plan-validation.ts";
+import { summarisePlanValidation, measuredDocumentBytes } from "../src/report/plan-validation.ts";
+import { planThroughBudgetRefinement } from "../src/report/plan-unit-split.ts";
+import { loadRunEvidenceReach } from "../src/report/run-evidence-reach.ts";
 import { MATERIALITY_BUCKET_DEFINITIONS, PLANNER_PACKET_BYTE_LIMIT, renderPlannerPacket } from "../src/report/planner-packet.ts";
 import { REPORT_POLICY_REGISTRY } from "../src/report/report-policy-registry.ts";
 import { buildReportRequestsArtifact, type ReportRequestsArtifact } from "../src/report/report-requests-artifact.ts";
@@ -74,6 +76,19 @@ export interface PlanReadings {
   readonly units: number;
   readonly unitsByKind: readonly { readonly kind: string; readonly units: number }[];
   readonly documents: readonly PlanDocumentReadingRow[];
+  /**
+   * R5b: every over-budget unit the budget refinement divided, with the rung and the parts it became.
+   *
+   * Empty means the proposal already fitted. It is a reading rather than an assertion: what the ladder actually did
+   * on a real corpus is the thing a reviewer has to be able to see.
+   */
+  readonly divisions: readonly { readonly unitId: string; readonly level: string; readonly measuredBytes: number; readonly byteLimit: number; readonly partUnitIds: readonly string[] }[];
+  /** Measurement passes the refinement took. 1 means nothing was divided. */
+  readonly refinementPasses: number;
+  /** Per-unit measured packet bytes against the per-unit bound, ascending. The same-source measure, recorded. */
+  readonly unitBytes: readonly { readonly unitId: string; readonly kind: string; readonly costState: string; readonly bytes: number; readonly byteLimit: number; readonly overBy: number }[];
+  /** Units over their own bound after refinement. Zero is the acceptance condition. */
+  readonly overBudgetUnitIds: readonly string[];
   readonly overallVerdict: string;
   readonly facetVerdicts: readonly { readonly facet: string; readonly verdict: string }[];
   readonly materialTopics: number;
@@ -126,9 +141,29 @@ export async function extractPlanReadings(runDir: string): Promise<PlanReadings>
     // this projection is to say what the packet costs on a real corpus.
     overBudget: "record-limitation"
   });
-  const proposal = buildFixturePlan(catalog, requests, PLAN_BUDGET_TABLE);
-  const report = validatePlan({ catalog, requests, proposal, registry: REPORT_POLICY_REGISTRY, budgetTable: PLAN_BUDGET_TABLE });
-  const artifacts = buildPlanArtifacts({ catalog, requests, proposal, report });
+  // The fixture plan goes through the SAME door a model's proposal does: validate, divide whatever is over budget,
+  // validate the divided plan. `divisions` and `refinementPasses` below are what that door did on this corpus.
+  const evidence = await loadRunEvidenceReach(runDir, source);
+  const planned = planThroughBudgetRefinement({
+    catalog,
+    requests,
+    proposal: buildFixturePlan(catalog, requests, PLAN_BUDGET_TABLE),
+    registry: REPORT_POLICY_REGISTRY,
+    budgetTable: PLAN_BUDGET_TABLE,
+    evidence: evidence.evidenceById,
+    reach: evidence.reach
+  });
+  if (planned.state === "rejected") {
+    throw new Error(`the fixture plan for ${runDir} cannot be recorded: ${planned.problems.join("; ")}`);
+  }
+  const report = planned.report;
+  const artifacts = buildPlanArtifacts({
+    catalog,
+    requests,
+    proposal: planned.proposal,
+    budgetTable: PLAN_BUDGET_TABLE,
+    verdict: report.overall
+  });
   const requestById = new Map(requests.requests.map((record) => [record.documentId, record]));
   const route = catalog.facets.find((row) => row.facet === "route");
 
@@ -147,6 +182,25 @@ export async function extractPlanReadings(runDir: string): Promise<PlanReadings>
     bucketDefinitions: MATERIALITY_BUCKET_DEFINITIONS.filter((definition) => packet.markdown.includes(definition)),
     units: artifacts.planCatalog.units.length,
     unitsByKind: AUTHORING_UNIT_KINDS.map((kind) => ({ kind, units: artifacts.planCatalog.units.filter((unit) => unit.kind === kind).length })),
+    divisions: planned.divisions.map((row) => ({
+      unitId: row.unitId,
+      level: row.level,
+      measuredBytes: row.measuredBytes,
+      byteLimit: row.byteLimit,
+      partUnitIds: row.partUnitIds
+    })),
+    refinementPasses: planned.iterations,
+    unitBytes: report.packets.state === "measured"
+      ? report.packets.measurement.units.map((row) => ({
+          unitId: row.unitId,
+          kind: row.kind,
+          costState: row.cost.state,
+          bytes: row.cost.bytes,
+          byteLimit: row.byteLimit,
+          overBy: row.overBy
+        }))
+      : [],
+    overBudgetUnitIds: report.packets.state === "measured" ? report.packets.measurement.overBudgetUnitIds : [],
     documents: artifacts.planCatalog.documents.map((row) => {
       const record = requestById.get(row.documentId)!;
       const budget = artifacts.planCatalog.budget.documents.find((entry) => entry.documentId === row.documentId)!;
@@ -157,7 +211,9 @@ export async function extractPlanReadings(runDir: string): Promise<PlanReadings>
         detailBudget: record.request.detailBudget,
         rootUnitId: row.rootUnitId,
         units: row.units,
-        inputBytes: row.inputBytes,
+        // The MEASURED packet bytes of this document's units, from the one measurement `validatePlan` took. R4b
+        // recorded a proxy here (canonical topic rows) that was out by 9x against what a packet renders.
+        inputBytes: measuredDocumentBytes(report.packets, row.documentId) ?? 0,
         perUnitInputBytes: budget.perUnitInputBytes,
         totalInputBytes: budget.totalInputBytes
       };
@@ -182,6 +238,8 @@ export async function extractPlanReadings(runDir: string): Promise<PlanReadings>
     namedEmptyFacets: catalog.facets
       .filter((row) => row.outcome.state !== "populated")
       .map((row) => ({ facet: row.facet, state: row.outcome.state, reason: row.outcome.state === "populated" ? "" : row.outcome.reason })),
-    readPaths: source.readPaths
+    // `evidence.json` is in the list because the budget check RENDERS every packet to measure it, and a read that
+    // does not name itself is a read the forbidden-input assertion cannot see.
+    readPaths: [...new Set([...source.readPaths, ...evidence.readPaths])].sort((a, b) => a.localeCompare(b))
   };
 }

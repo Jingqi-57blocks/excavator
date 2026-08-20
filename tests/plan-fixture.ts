@@ -14,6 +14,9 @@ import { join } from "node:path";
 import type { InvestigationPlan } from "../src/base/types.ts";
 import type { LegacyDocumentRequest } from "../src/report/legacy-request-mapping.ts";
 import { buildTopicCatalog, type TopicCatalogArtifact } from "../src/report/topic-catalog.ts";
+import { loadRunEvidenceReach } from "../src/report/run-evidence-reach.ts";
+import type { EvidenceItem } from "../src/base/types.ts";
+import type { RunEvidenceReach } from "../src/report/unit-packet.ts";
 import { loadTopicCatalogSource } from "../src/report/topic-catalog-source.ts";
 import { buildReportRequestsArtifact, writeReportRequests, type ReportRequestsArtifact } from "../src/report/report-requests-artifact.ts";
 import { copyFixture } from "./helpers.ts";
@@ -32,14 +35,25 @@ export interface MiniRun {
   readonly runDir: string;
   readonly catalog: TopicCatalogArtifact;
   readonly requests: ReportRequestsArtifact;
+  /**
+   * The frozen evidence records and the mechanism-A reach, both required by plan validation since R5b.
+   *
+   * The budget check MEASURES each unit by rendering its packet, and a packet renders the evidence its obligations
+   * bind — so a validation over this fixture needs the same records a packet would print. Carried on the fixture so
+   * no test builds its own (an empty map would make every unit measure small and every budget check pass).
+   */
+  readonly evidenceById: ReadonlyMap<string, EvidenceItem>;
+  readonly reach: RunEvidenceReach;
 }
 
 /** A copy of the frozen mini fixture with `plan/requests.json` recorded. */
 export async function miniRun(documents: readonly LegacyDocumentRequest[] = MINI_DOCUMENTS): Promise<MiniRun> {
   const runDir = await copyFixture(MINI_FIXTURE);
   const requests = await writeReportRequests(runDir, documents);
-  const catalog = buildTopicCatalog(await loadTopicCatalogSource(runDir));
-  return { runDir, catalog, requests };
+  const source = await loadTopicCatalogSource(runDir);
+  const catalog = buildTopicCatalog(source);
+  const evidence = await loadRunEvidenceReach(runDir, source);
+  return { runDir, catalog, requests, evidenceById: evidence.evidenceById, reach: evidence.reach };
 }
 
 /** The requests artifact without touching disk, for the pure-function tests. */

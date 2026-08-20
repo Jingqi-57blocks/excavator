@@ -42,7 +42,8 @@
  */
 
 import { assertNever } from "../base/artifact-result.ts";
-import { unitTopicIds, type AuthoringUnitKind, type ProposedUnit } from "./plan-proposal.ts";
+import { scopeIncludes, type ScopedTopicReference } from "./obligation-scope.ts";
+import { unitTopicIds, unitTopics, type AuthoringUnitKind, type ProposedUnit } from "./plan-proposal.ts";
 import type { TopicCandidate, TopicFacet, TopicObligationBinding } from "./topic-candidate.ts";
 import type { TopicCatalogArtifact } from "./topic-catalog.ts";
 import { TOPIC_DISPOSITION_STATES, type TopicDisposition, type TopicDispositionState } from "./topic-disposition.ts";
@@ -263,7 +264,7 @@ export function materialTopicsCarryingObligations(catalog: TopicCatalogArtifact)
 }
 
 /**
- * ============================ R5a: THE OWNER OF ONE MATERIAL OBLIGATION ============================
+ * ============================ R5a/R5b: THE OWNER OF ONE MATERIAL OBLIGATION ============================
  *
  * WHAT R4b DELIBERATELY DID NOT CLAIM, AND WHY IT COSTS. The per-unit grounding audit made every unit ground every
  * material obligation reachable through ITS topics, and said in as many words that "disposed of exactly once per
@@ -281,10 +282,18 @@ export function materialTopicsCarryingObligations(catalog: TopicCatalogArtifact)
  * different units. So the thing that carries weight is the owner of an OBLIGATION.
  *
  * THE RULE, in full: within one document, an obligation's owner topic is the first — by the pinned facet priority
- * below, then by ascending topic id — of its binding topics that some OWNING unit of that document names; its
- * owner unit is that unit. Ownership is PER DOCUMENT and never across documents: `requiredFor` has always been
- * multi-document, each document answers for itself, and a cross-document owner would mean three of four documents
- * silently stop grounding what they were asked to write.
+ * below, then by ascending topic id — of its binding topics that some OWNING unit of that document names AND holds
+ * INSIDE THAT UNIT'S OBLIGATION SCOPE; its owner unit is that unit. Ownership is PER DOCUMENT and never across
+ * documents: `requiredFor` has always been multi-document, each document answers for itself, and a cross-document
+ * owner would mean three of four documents silently stop grounding what they were asked to write.
+ *
+ * THE SCOPE CLAUSE IS R5b's ONLY CHANGE HERE, AND IT IS WHY DIVISION IS SAFE. A topic too large for one unit is
+ * divided across several by obligation scope; each part owns exactly the obligations its scope holds. Two owning
+ * units may therefore name ONE topic — which R5a refused outright — and what replaces that refusal is strictly
+ * stronger: `obligation-scope.ts` requires the scopes of a topic's owning units to partition its bindings EXACTLY,
+ * so a missed id and a doubly-covered id are both named violations rather than at-most-one being checked. When two
+ * owning units do hold one obligation (a plan that broke the partition), the owner picked here is the lowest unit
+ * id — deterministic, so the reading is stable while the partition violation is what a reader is told to fix.
  *
  * OWNING VS REFERENCING IS DECIDED BY KIND, ONCE. A `leaf` writes a topic dossier and an `appendix` writes the
  * deterministic tail: both OWN what they name. A `bridge` explains a relation between topics another unit owns —
@@ -341,7 +350,8 @@ export interface OwnershipUnit {
   readonly unitId: string;
   readonly documentId: string;
   readonly kind: AuthoringUnitKind;
-  readonly topicIds: readonly string[];
+  /** The topic references, each with its required obligation scope. */
+  readonly topics: readonly ScopedTopicReference[];
 }
 
 /** One material obligation's single owner in one document. */
@@ -359,24 +369,17 @@ export interface ObligationOwnership {
 /**
  * One obligation a document reaches and no unit of it owns.
  *
- * The only way to get here is a topic named ONLY by referencing (bridge) units: a bridge points at topics it does
- * not own, so nothing in the document grounds the obligation. It is a named plan violation
- * (`ownershipProblems`), never a bucket — an obligation nobody owes and nobody skips is the silent loss this whole
- * file exists to make impossible.
+ * Two ways to get here, and both are plan violations rather than buckets: a topic named ONLY by referencing
+ * (bridge) units — a bridge points at topics it does not own, so nothing in the document grounds the obligation —
+ * or a topic whose owning units all scope the obligation out, which is the partition law's `missing` case seen from
+ * the obligation's side. `ownershipProblems` names it; an obligation nobody owes and nobody skips is the silent
+ * loss this whole file exists to make impossible.
  */
 export interface UnownedObligation {
   readonly workItemId: string;
   readonly dimension: string;
   readonly documentId: string;
   readonly reachedByUnitIds: readonly string[];
-}
-
-/** One topic two or more OWNING units of one document name — the uniqueness rule's violation, by id. */
-export interface DuplicateOwningTopic {
-  readonly documentId: string;
-  readonly topicId: string;
-  /** Ascending; always at least two, or this row would not exist. */
-  readonly unitIds: readonly string[];
 }
 
 /** How many obligations one unit of a document owns. Every unit gets a row, so a zero is visible, not absent. */
@@ -399,7 +402,6 @@ export interface DocumentObligationOwnership {
   readonly ownedByUnit: readonly UnitOwnedCount[];
   /** Reached and owned by nobody. Never capped. */
   readonly unowned: readonly UnownedObligation[];
-  readonly duplicateOwningTopics: readonly DuplicateOwningTopic[];
 }
 
 export interface ObligationOwnershipIndex {
@@ -410,7 +412,7 @@ export interface ObligationOwnershipIndex {
 
 /** A proposal's units, as ownership sees them. */
 export function ownershipUnitsOfProposal(units: readonly ProposedUnit[]): readonly OwnershipUnit[] {
-  return units.map((unit) => ({ unitId: unit.unitId, documentId: unit.documentId, kind: unit.kind, topicIds: unitTopicIds(unit) }));
+  return units.map((unit) => ({ unitId: unit.unitId, documentId: unit.documentId, kind: unit.kind, topics: unitTopics(unit) }));
 }
 
 /**
@@ -435,14 +437,20 @@ export function deriveObligationOwnership(
 
   for (const documentId of [...new Set(units.map((unit) => unit.documentId))].sort(ascending)) {
     const documentUnits = units.filter((unit) => unit.documentId === documentId).sort((a, b) => ascending(a.unitId, b.unitId));
+    // Reach is scope-INDEPENDENT: a unit reaches an obligation because it names a topic that binds it, which is the
+    // same set the grounding audit calls `reachable`. Scope decides who OWNS it, not who can see it — a scoped unit
+    // still renders every obligation of its topics, as a full row or as a stub naming the carrier.
     const reachedBy = new Map<string, string[]>();
-    const owners = new Map<string, string[]>();
+    const owningScopes = new Map<string, { readonly unitId: string; readonly scope: ScopedTopicReference }[]>();
     for (const unit of documentUnits) {
       const owning = unitTopicRole(unit.kind) === "owning";
-      for (const topicId of unit.topicIds) {
-        if (!facetOf.has(topicId)) continue;
-        push(reachedBy, topicId, unit.unitId);
-        if (owning) push(owners, topicId, unit.unitId);
+      for (const reference of unit.topics) {
+        if (!facetOf.has(reference.topicId)) continue;
+        push(reachedBy, reference.topicId, unit.unitId);
+        if (!owning) continue;
+        const list = owningScopes.get(reference.topicId);
+        if (list) list.push({ unitId: unit.unitId, scope: reference });
+        else owningScopes.set(reference.topicId, [{ unitId: unit.unitId, scope: reference }]);
       }
     }
 
@@ -456,13 +464,25 @@ export function deriveObligationOwnership(
       if (reaching.size === 0) continue;
       reachedObligations += 1;
       const reachedByUnitIds = [...reaching].sort(ascending);
-      const candidates = row.topicIds.filter((topicId) => owners.has(topicId));
-      if (candidates.length === 0) {
+      // WHO HOLDS THIS OBLIGATION, per topic, in ONE pass. A topic an owning unit names but scopes OUT does not
+      // qualify: the part whose scope holds it is the one that renders it, and if no part does then nothing in this
+      // document renders it and it is named as unowned rather than pinned on a unit that would skip it. The single
+      // pass matters — deciding the owner topic and the owner unit with two separate scope filters is how the two
+      // drift, and a drift here is an obligation stubbed by its holder and skipped by its owner.
+      const holders = new Map<string, readonly string[]>();
+      for (const topicId of row.topicIds) {
+        const holding = (owningScopes.get(topicId) ?? [])
+          .filter((entry) => scopeIncludes(entry.scope.obligationScope, row.workItemId))
+          .map((entry) => entry.unitId)
+          .sort(ascending);
+        if (holding.length > 0) holders.set(topicId, holding);
+      }
+      if (holders.size === 0) {
         unowned.push({ workItemId: row.workItemId, dimension: row.dimension, documentId, reachedByUnitIds });
         continue;
       }
-      const ownerTopicId = [...candidates].sort((a, b) => facetPriorityOf(facetOf, a) - facetPriorityOf(facetOf, b) || ascending(a, b))[0]!;
-      const ownerUnitId = [...owners.get(ownerTopicId)!].sort(ascending)[0]!;
+      const ownerTopicId = [...holders.keys()].sort((a, b) => facetPriorityOf(facetOf, a) - facetPriorityOf(facetOf, b) || ascending(a, b))[0]!;
+      const ownerUnitId = holders.get(ownerTopicId)![0]!;
       obligations.push({
         workItemId: row.workItemId,
         dimension: row.dimension,
@@ -486,13 +506,7 @@ export function deriveObligationOwnership(
         role: unitTopicRole(unit.kind),
         owned: ownedCount.get(unit.unitId) ?? 0
       })),
-      unowned,
-      // De-duplicated by unit id first: a unit whose topic list repeated one topic is a proposal-parse failure
-      // elsewhere, and it must not read here as two units claiming one topic.
-      duplicateOwningTopics: [...owners.entries()]
-        .map(([topicId, unitIds]) => ({ documentId, topicId, unitIds: [...new Set(unitIds)].sort(ascending) }))
-        .filter((row) => row.unitIds.length > 1)
-        .sort((a, b) => ascending(a.topicId, b.topicId))
+      unowned
     };
     // The per-document conservation law, asserted rather than documented: every reached obligation is owned by
     // exactly one unit or listed as owned by none, and the per-unit counts add up to the owned set. A residue here
@@ -539,17 +553,16 @@ export function documentOwnership(index: ObligationOwnershipIndex, documentId: s
 /**
  * The ownership violations of one plan, as named problems.
  *
- * Two of them, and neither is a state: two owning units for one topic (both would ground the same obligations, which
- * is the duplication this slice removes), and an obligation only referencing units reach (nobody grounds it).
+ * One of them, and it is not a state: an obligation a document reaches and no unit of it owns. The other R5a
+ * violation — two owning units naming one topic — is now the stronger partition law in `obligation-scope.ts`, which
+ * plan validation reports beside these: "at most one owner per topic" could not express a legal division, while
+ * "the owning units' scopes partition the topic exactly" catches both a double cover and a missed id.
  */
 export function ownershipProblems(index: ObligationOwnershipIndex): string[] {
   const problems: string[] = [];
   for (const document of index.documents) {
-    for (const row of document.duplicateOwningTopics) {
-      problems.push(`topic ${JSON.stringify(row.topicId)} is named by ${row.unitIds.length} OWNING unit(s) of document ${JSON.stringify(row.documentId)} (${row.unitIds.join(", ")}); in one document a topic has exactly one owning unit, because two owners means both grounding the same obligations in full — a bridge may reference a topic another unit owns, an owning unit may not`);
-    }
     for (const row of document.unowned) {
-      problems.push(`material obligation ${JSON.stringify(row.workItemId)} (${row.dimension}) of document ${JSON.stringify(row.documentId)} is reached only by referencing unit(s) ${row.reachedByUnitIds.join(", ")}; a bridge explains a relation and grounds nothing, so no unit of this document owns this obligation`);
+      problems.push(`material obligation ${JSON.stringify(row.workItemId)} (${row.dimension}) of document ${JSON.stringify(row.documentId)} is reached by unit(s) ${row.reachedByUnitIds.join(", ")} and owned by none of them; either every unit reaching it only REFERENCES its topics (a bridge explains a relation and grounds nothing) or every owning unit scopes it out, and in both cases no unit of this document grounds this obligation`);
     }
   }
   return problems;

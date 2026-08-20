@@ -28,7 +28,7 @@ import type { PacketOverBudgetMode } from "./planner-packet.ts";
 import { REPORT_POLICY_REGISTRY } from "./report-policy-registry.ts";
 import { collectedUnitsFor, readUnitLedger } from "./unit-ledger.ts";
 import { parseUnitSummary, unitSummaryDigest, type UnitSummary } from "./unit-output.ts";
-import { renderUnitPacket, topicDossier, unitInputBound, type RunEvidenceReach, type UnitDossier, type UnitPacket, type UnitPacketInput } from "./unit-packet.ts";
+import { evidenceReachOf, renderUnitPacket, topicDossier, unitInputBound, type RunEvidenceReach, type UnitDossier, type UnitPacket, type UnitPacketInput } from "./unit-packet.ts";
 import { unitPaths } from "./unit-paths.ts";
 import { assertPlanEpoch, loadUnitPlanView, planUnit, requireKnowledgeEpoch, type UnitPlanView } from "./unit-plan-view.ts";
 
@@ -100,23 +100,12 @@ export async function renderUnitPacketForRun(runDir: string, options: UnitPacket
 /**
  * How far the obligation ledger reaches into the frozen evidence set — mechanism A, as three numbers and a list.
  *
- * `unbound` holds whole records so the appendix can name each one; a frozen id with no record in the catalog is a
- * named failure rather than a row that quietly disappears from the census.
+ * Delegated to `evidenceReachOf`, which the plan-side budget measure reads too: this was spelled twice before R5b
+ * and the measure would have made it three times. The packet PRINTS these numbers and the plan CHECKS against a
+ * packet, so two derivations of them are two packets.
  */
 function evidenceReach(view: UnitPlanView, evidenceById: ReadonlyMap<string, EvidenceItem>): RunEvidenceReach {
-  const bound = new Set<string>();
-  for (const item of view.workItems.values()) for (const id of item.evidenceIds) bound.add(id);
-  const frozen = [...view.frozenEvidenceIds].sort((a, b) => a.localeCompare(b));
-  const unbound: EvidenceItem[] = [];
-  for (const id of frozen) {
-    if (bound.has(id)) continue;
-    const item = evidenceById.get(id);
-    if (!item) {
-      throw new Error(`knowledge.json seals evidence ${JSON.stringify(id)} but this run's evidence.json does not hold it; the frozen evidence set and the ledger disagree`);
-    }
-    unbound.push(item);
-  }
-  return { frozenEvidenceIds: frozen.length, boundEvidenceIds: bound.size, unbound };
+  return evidenceReachOf(view.frozenEvidenceIds, view.workItems.values(), evidenceById);
 }
 
 /**

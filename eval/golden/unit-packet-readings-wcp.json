@@ -1,6 +1,218 @@
 {
   "absentBindings": [],
   "boundEvidenceIds": 953,
+  "divisions": [
+    {
+      "level": "topic",
+      "measuredBytes": 1994095,
+      "partUnitIds": [
+        "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-28bd6c37c830540a",
+        "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3"
+      ],
+      "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature"
+    },
+    {
+      "level": "topic",
+      "measuredBytes": 1994074,
+      "partUnitIds": [
+        "feature-请假管理-8c2d685d81-product::leaf::feature#t-28bd6c37c830540a",
+        "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3"
+      ],
+      "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature"
+    },
+    {
+      "level": "topic",
+      "measuredBytes": 1993913,
+      "partUnitIds": [
+        "overview-engineering::leaf::feature#t-28bd6c37c830540a",
+        "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3"
+      ],
+      "unitId": "overview-engineering::leaf::feature"
+    },
+    {
+      "level": "topic",
+      "measuredBytes": 1993892,
+      "partUnitIds": [
+        "overview-product::leaf::feature#t-28bd6c37c830540a",
+        "overview-product::leaf::feature#t-ba5c5ed978e23ca3"
+      ],
+      "unitId": "overview-product::leaf::feature"
+    },
+    {
+      "level": "dimension",
+      "measuredBytes": 866263,
+      "partUnitIds": [
+        "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+        "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-28bd6c37c830540a#d-documentation-drift"
+      ],
+      "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-28bd6c37c830540a"
+    },
+    {
+      "level": "dimension",
+      "measuredBytes": 1227093,
+      "partUnitIds": [
+        "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+        "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift"
+      ],
+      "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3"
+    },
+    {
+      "level": "dimension",
+      "measuredBytes": 866242,
+      "partUnitIds": [
+        "feature-请假管理-8c2d685d81-product::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+        "feature-请假管理-8c2d685d81-product::leaf::feature#t-28bd6c37c830540a#d-documentation-drift"
+      ],
+      "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature#t-28bd6c37c830540a"
+    },
+    {
+      "level": "dimension",
+      "measuredBytes": 1227072,
+      "partUnitIds": [
+        "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+        "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift"
+      ],
+      "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3"
+    },
+    {
+      "level": "dimension",
+      "measuredBytes": 866081,
+      "partUnitIds": [
+        "overview-engineering::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+        "overview-engineering::leaf::feature#t-28bd6c37c830540a#d-documentation-drift"
+      ],
+      "unitId": "overview-engineering::leaf::feature#t-28bd6c37c830540a"
+    },
+    {
+      "level": "dimension",
+      "measuredBytes": 1226911,
+      "partUnitIds": [
+        "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+        "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift"
+      ],
+      "unitId": "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3"
+    },
+    {
+      "level": "dimension",
+      "measuredBytes": 866060,
+      "partUnitIds": [
+        "overview-product::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+        "overview-product::leaf::feature#t-28bd6c37c830540a#d-documentation-drift"
+      ],
+      "unitId": "overview-product::leaf::feature#t-28bd6c37c830540a"
+    },
+    {
+      "level": "dimension",
+      "measuredBytes": 1226890,
+      "partUnitIds": [
+        "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+        "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift"
+      ],
+      "unitId": "overview-product::leaf::feature#t-ba5c5ed978e23ca3"
+    },
+    {
+      "level": "dimension",
+      "measuredBytes": 1147451,
+      "partUnitIds": [
+        "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+        "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function"
+      ],
+      "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints"
+    },
+    {
+      "level": "dimension",
+      "measuredBytes": 1147422,
+      "partUnitIds": [
+        "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+        "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function"
+      ],
+      "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints"
+    },
+    {
+      "level": "dimension",
+      "measuredBytes": 1147223,
+      "partUnitIds": [
+        "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+        "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function"
+      ],
+      "unitId": "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints"
+    },
+    {
+      "level": "dimension",
+      "measuredBytes": 1147194,
+      "partUnitIds": [
+        "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+        "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function"
+      ],
+      "unitId": "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints"
+    },
+    {
+      "level": "items",
+      "measuredBytes": 975824,
+      "partUnitIds": [
+        "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+        "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d"
+      ],
+      "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function"
+    },
+    {
+      "level": "items",
+      "measuredBytes": 975791,
+      "partUnitIds": [
+        "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+        "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d"
+      ],
+      "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function"
+    },
+    {
+      "level": "items",
+      "measuredBytes": 975573,
+      "partUnitIds": [
+        "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+        "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d"
+      ],
+      "unitId": "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function"
+    },
+    {
+      "level": "items",
+      "measuredBytes": 975540,
+      "partUnitIds": [
+        "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+        "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d"
+      ],
+      "unitId": "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function"
+    }
+  ],
+  "documents": [
+    {
+      "documentId": "feature-晋升管理-01e5065d19-engineering",
+      "measuredBytes": 3035631,
+      "renderedBytes": 2954549,
+      "totalInputBytes": 3145728,
+      "units": 10
+    },
+    {
+      "documentId": "feature-请假管理-8c2d685d81-product",
+      "measuredBytes": 3031241,
+      "renderedBytes": 2950216,
+      "totalInputBytes": 3145728,
+      "units": 10
+    },
+    {
+      "documentId": "overview-engineering",
+      "measuredBytes": 3009776,
+      "renderedBytes": 2929083,
+      "totalInputBytes": 3145728,
+      "units": 10
+    },
+    {
+      "documentId": "overview-product",
+      "measuredBytes": 3005386,
+      "renderedBytes": 2924750,
+      "totalInputBytes": 3145728,
+      "units": 10
+    }
+  ],
   "evidenceAbsent": 0,
   "evidenceRequired": 895,
   "frozenEvidenceIds": 1884,
@@ -60,6 +272,7 @@
   "obligationsOwedByMoreThanOneUnit": 0,
   "obligationSummary": "847 material obligation(s): 847 in units, 0 waived (cannot-determine=0, not-applicable=0, omitted-for-audience=0), 0 claimed but unplaced, 0 undispositioned",
   "openOriginExemptObligations": [],
+  "overBudgetUnits": 0,
   "ownerEvidenceRequired": 3580,
   "ownership": [
     {
@@ -75,8 +288,28 @@
           "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::coverage"
         },
         {
-          "owed": 847,
-          "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature"
+          "owed": 274,
+          "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints"
+        },
+        {
+          "owed": 24,
+          "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-28bd6c37c830540a#d-documentation-drift"
+        },
+        {
+          "owed": 0,
+          "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints"
+        },
+        {
+          "owed": 271,
+          "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c"
+        },
+        {
+          "owed": 254,
+          "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d"
+        },
+        {
+          "owed": 24,
+          "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift"
         },
         {
           "owed": 0,
@@ -103,8 +336,28 @@
           "unitId": "feature-请假管理-8c2d685d81-product::leaf::coverage"
         },
         {
-          "owed": 847,
-          "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature"
+          "owed": 274,
+          "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints"
+        },
+        {
+          "owed": 24,
+          "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature#t-28bd6c37c830540a#d-documentation-drift"
+        },
+        {
+          "owed": 0,
+          "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints"
+        },
+        {
+          "owed": 271,
+          "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c"
+        },
+        {
+          "owed": 254,
+          "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d"
+        },
+        {
+          "owed": 24,
+          "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift"
         },
         {
           "owed": 0,
@@ -131,8 +384,28 @@
           "unitId": "overview-engineering::leaf::coverage"
         },
         {
-          "owed": 847,
-          "unitId": "overview-engineering::leaf::feature"
+          "owed": 274,
+          "unitId": "overview-engineering::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints"
+        },
+        {
+          "owed": 24,
+          "unitId": "overview-engineering::leaf::feature#t-28bd6c37c830540a#d-documentation-drift"
+        },
+        {
+          "owed": 0,
+          "unitId": "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints"
+        },
+        {
+          "owed": 271,
+          "unitId": "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c"
+        },
+        {
+          "owed": 254,
+          "unitId": "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d"
+        },
+        {
+          "owed": 24,
+          "unitId": "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift"
         },
         {
           "owed": 0,
@@ -159,8 +432,28 @@
           "unitId": "overview-product::leaf::coverage"
         },
         {
-          "owed": 847,
-          "unitId": "overview-product::leaf::feature"
+          "owed": 274,
+          "unitId": "overview-product::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints"
+        },
+        {
+          "owed": 24,
+          "unitId": "overview-product::leaf::feature#t-28bd6c37c830540a#d-documentation-drift"
+        },
+        {
+          "owed": 0,
+          "unitId": "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints"
+        },
+        {
+          "owed": 271,
+          "unitId": "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c"
+        },
+        {
+          "owed": 254,
+          "unitId": "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d"
+        },
+        {
+          "owed": 24,
+          "unitId": "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift"
         },
         {
           "owed": 0,
@@ -175,7 +468,7 @@
       "unownedObligationIds": []
     }
   ],
-  "planCatalogDigest": "9b5e861758bfc5a9cdf4582a7b5451acb83469b4b70c5acdb41c01a747a91515",
+  "planCatalogDigest": "1b389e7d2b99c32e6f90eae9add966113853dc3dac87d70e7bfc6c3f629c74db",
   "readPaths": [
     "context/boundary-functions.json",
     "context/cross-feature.json",
@@ -191,6 +484,7 @@
     "run.json",
     "workitems.json"
   ],
+  "refinementPasses": 5,
   "rendered": [
     {
       "documentId": "feature-晋升管理-01e5065d19-engineering",
@@ -200,12 +494,15 @@
       "openOriginExempt": 0,
       "ownedMaterial": 0,
       "packetByteLimit": 786432,
-      "packetBytes": 182906,
-      "packetDigest": "b6b01e87538a44b89f44bdf34f75b7777fc60b8d6d9cb40f2b76e81ec416b71b",
+      "packetBytes": 188828,
+      "packetDigest": "140ffd7c41d99fb404d0bc0f95abe83c23e906f799f4f5e505b02147415c0728",
       "packetLimitations": [],
+      "precheckBytes": 188828,
       "reachableMaterial": 0,
       "renderedEvidenceIds": 2,
       "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 0,
+      "scopeExcludedObligations": 0,
       "stubObligations": 0,
       "topics": 55,
       "unitId": "feature-晋升管理-01e5065d19-engineering::appendix::coverage"
@@ -218,12 +515,15 @@
       "openOriginExempt": 0,
       "ownedMaterial": 0,
       "packetByteLimit": 786432,
-      "packetBytes": 46739,
-      "packetDigest": "b8f91bb609aa6bc32a179a75106aba2dafff0a9e8d51616712c80356718d7ad0",
+      "packetBytes": 55207,
+      "packetDigest": "fa18170beb7d202cc610ae1c0991775f79ab40444c340f9a5f8a42aba7e64c49",
       "packetLimitations": [],
+      "precheckBytes": 55207,
       "reachableMaterial": 164,
       "renderedEvidenceIds": 0,
       "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 0,
+      "scopeExcludedObligations": 0,
       "stubObligations": 164,
       "topics": 1,
       "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::coverage"
@@ -231,22 +531,128 @@
     {
       "documentId": "feature-晋升管理-01e5065d19-engineering",
       "kind": "leaf",
-      "materialObligations": 847,
-      "obligations": 905,
+      "materialObligations": 298,
+      "obligations": 327,
       "openOriginExempt": 0,
-      "ownedMaterial": 847,
+      "ownedMaterial": 274,
       "packetByteLimit": 786432,
-      "packetBytes": 1993499,
-      "packetDigest": "7758081831ec2c0b6fa04daabfa1dce1f0cd31024bfbd4f445206320d2b5443f",
-      "packetLimitations": [
-        "The packet for unit \"feature-晋升管理-01e5065d19-engineering::leaf::feature\" renders to 1992890 bytes, over the declared bound of 786432 (1206458 bytes over). NOTHING has been dropped or shortened: all 2 topic(s), 905 obligation row(s) rendered in full, 0 stub row(s) for obligations another unit owns and 933 evidence record(s) are present. The offending unit's topics are: feature:28bd6c37c830540a, feature:ba5c5ed978e23ca3. Give this unit fewer topics, or raise the bound deliberately — semantic splitting by budget is the R5b slice, and truncation is not an option here."
-      ],
-      "reachableMaterial": 847,
-      "renderedEvidenceIds": 933,
+      "packetBytes": 755971,
+      "packetDigest": "9fc8247d5572dfc9c95e50dfa06efd3ab2b67a050890e1cbe74a8bf6f47b86d1",
+      "packetLimitations": [],
+      "precheckBytes": 755971,
+      "reachableMaterial": 298,
+      "renderedEvidenceIds": 313,
       "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 24,
+      "scopeExcludedObligations": 41,
       "stubObligations": 0,
-      "topics": 2,
-      "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature"
+      "topics": 1,
+      "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints"
+    },
+    {
+      "documentId": "feature-晋升管理-01e5065d19-engineering",
+      "kind": "leaf",
+      "materialObligations": 298,
+      "obligations": 327,
+      "openOriginExempt": 0,
+      "ownedMaterial": 24,
+      "packetByteLimit": 786432,
+      "packetBytes": 292738,
+      "packetDigest": "5860a1ccf75aaf0631225ad1e286f67fa10287623d2b9be9790a481397ac885d",
+      "packetLimitations": [],
+      "precheckBytes": 292738,
+      "reachableMaterial": 298,
+      "renderedEvidenceIds": 103,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 274,
+      "scopeExcludedObligations": 286,
+      "stubObligations": 0,
+      "topics": 1,
+      "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-28bd6c37c830540a#d-documentation-drift"
+    },
+    {
+      "documentId": "feature-晋升管理-01e5065d19-engineering",
+      "kind": "leaf",
+      "materialObligations": 549,
+      "obligations": 578,
+      "openOriginExempt": 0,
+      "ownedMaterial": 0,
+      "packetByteLimit": 786432,
+      "packetBytes": 227748,
+      "packetDigest": "ca430edef314f185718b08595a67687b11642aee8a266f9f22f9ecf367afca14",
+      "packetLimitations": [],
+      "precheckBytes": 227748,
+      "reachableMaterial": 549,
+      "renderedEvidenceIds": 63,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 549,
+      "scopeExcludedObligations": 566,
+      "stubObligations": 0,
+      "topics": 1,
+      "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints"
+    },
+    {
+      "documentId": "feature-晋升管理-01e5065d19-engineering",
+      "kind": "leaf",
+      "materialObligations": 549,
+      "obligations": 578,
+      "openOriginExempt": 0,
+      "ownedMaterial": 271,
+      "packetByteLimit": 786432,
+      "packetBytes": 491570,
+      "packetDigest": "ccf8b07488decb4450913b95f4af58f49309733a1ff390f0ae8c4bcd1a27fdf6",
+      "packetLimitations": [],
+      "precheckBytes": 491570,
+      "reachableMaterial": 549,
+      "renderedEvidenceIds": 277,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 278,
+      "scopeExcludedObligations": 307,
+      "stubObligations": 0,
+      "topics": 1,
+      "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c"
+    },
+    {
+      "documentId": "feature-晋升管理-01e5065d19-engineering",
+      "kind": "leaf",
+      "materialObligations": 549,
+      "obligations": 578,
+      "openOriginExempt": 0,
+      "ownedMaterial": 254,
+      "packetByteLimit": 786432,
+      "packetBytes": 493001,
+      "packetDigest": "5759669656bda29bb6555e582623fca5b5c885d05c3f62d12a19aa06361e6f85",
+      "packetLimitations": [],
+      "precheckBytes": 493001,
+      "reachableMaterial": 549,
+      "renderedEvidenceIds": 262,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 295,
+      "scopeExcludedObligations": 324,
+      "stubObligations": 0,
+      "topics": 1,
+      "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d"
+    },
+    {
+      "documentId": "feature-晋升管理-01e5065d19-engineering",
+      "kind": "leaf",
+      "materialObligations": 549,
+      "obligations": 578,
+      "openOriginExempt": 0,
+      "ownedMaterial": 24,
+      "packetByteLimit": 786432,
+      "packetBytes": 190513,
+      "packetDigest": "b19d66d73bc5df18ac7cefd9e564578287e05b31ffdb7e2d165f6b8db0212886",
+      "packetLimitations": [],
+      "precheckBytes": 190513,
+      "reachableMaterial": 549,
+      "renderedEvidenceIds": 105,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 525,
+      "scopeExcludedObligations": 537,
+      "stubObligations": 0,
+      "topics": 1,
+      "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift"
     },
     {
       "documentId": "feature-晋升管理-01e5065d19-engineering",
@@ -256,12 +662,15 @@
       "openOriginExempt": 0,
       "ownedMaterial": 0,
       "packetByteLimit": 786432,
-      "packetBytes": 216784,
-      "packetDigest": "e3053373373f27d2222da264f32fdd293934448259c8c59a9a3b73a88ceb3d20",
+      "packetBytes": 258973,
+      "packetDigest": "5692c2a453c81d8cf771a34256c3f8ffa895a6a36f12c7c2de0bb1b85e428ec8",
       "packetLimitations": [],
+      "precheckBytes": 258973,
       "reachableMaterial": 847,
       "renderedEvidenceIds": 0,
       "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 0,
+      "scopeExcludedObligations": 0,
       "stubObligations": 847,
       "topics": 4,
       "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::work-item-dimension"
@@ -274,12 +683,15 @@
       "openOriginExempt": 0,
       "ownedMaterial": 0,
       "packetByteLimit": 786432,
-      "packetBytes": 182889,
-      "packetDigest": "23b22f01e32dfae92493ef2edbf86e0403c430299d360693479d5d166b06aa4b",
+      "packetBytes": 188807,
+      "packetDigest": "c6e46d902f4644c598add91733efdfb8188d15f3f44c3c63fb41a70ae146491e",
       "packetLimitations": [],
+      "precheckBytes": 188807,
       "reachableMaterial": 0,
       "renderedEvidenceIds": 2,
       "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 0,
+      "scopeExcludedObligations": 0,
       "stubObligations": 0,
       "topics": 55,
       "unitId": "feature-请假管理-8c2d685d81-product::appendix::coverage"
@@ -292,12 +704,15 @@
       "openOriginExempt": 0,
       "ownedMaterial": 0,
       "packetByteLimit": 786432,
-      "packetBytes": 46062,
-      "packetDigest": "9d8a45d3ca5b92325b40e37169a9b031df19dd82ae3043504c4e6d81a8b6b22a",
+      "packetBytes": 54526,
+      "packetDigest": "417a3ef28f7ade73cca8f758b7d8c919383c82555f58fbc66e62a4445779c1c1",
       "packetLimitations": [],
+      "precheckBytes": 54526,
       "reachableMaterial": 164,
       "renderedEvidenceIds": 0,
       "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 0,
+      "scopeExcludedObligations": 0,
       "stubObligations": 164,
       "topics": 1,
       "unitId": "feature-请假管理-8c2d685d81-product::leaf::coverage"
@@ -305,22 +720,128 @@
     {
       "documentId": "feature-请假管理-8c2d685d81-product",
       "kind": "leaf",
-      "materialObligations": 847,
-      "obligations": 905,
+      "materialObligations": 298,
+      "obligations": 327,
       "openOriginExempt": 0,
-      "ownedMaterial": 847,
+      "ownedMaterial": 274,
       "packetByteLimit": 786432,
-      "packetBytes": 1993478,
-      "packetDigest": "7c7d25c51549c317d5d197035d012d7119f833441906183f9c0db6cf74ee8b9d",
-      "packetLimitations": [
-        "The packet for unit \"feature-请假管理-8c2d685d81-product::leaf::feature\" renders to 1992873 bytes, over the declared bound of 786432 (1206441 bytes over). NOTHING has been dropped or shortened: all 2 topic(s), 905 obligation row(s) rendered in full, 0 stub row(s) for obligations another unit owns and 933 evidence record(s) are present. The offending unit's topics are: feature:28bd6c37c830540a, feature:ba5c5ed978e23ca3. Give this unit fewer topics, or raise the bound deliberately — semantic splitting by budget is the R5b slice, and truncation is not an option here."
-      ],
-      "reachableMaterial": 847,
-      "renderedEvidenceIds": 933,
+      "packetBytes": 755942,
+      "packetDigest": "8d3323a208e4508ea3bc8ac2616ca574eb0cb8974054200ca41baea599721fdb",
+      "packetLimitations": [],
+      "precheckBytes": 755942,
+      "reachableMaterial": 298,
+      "renderedEvidenceIds": 313,
       "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 24,
+      "scopeExcludedObligations": 41,
       "stubObligations": 0,
-      "topics": 2,
-      "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature"
+      "topics": 1,
+      "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints"
+    },
+    {
+      "documentId": "feature-请假管理-8c2d685d81-product",
+      "kind": "leaf",
+      "materialObligations": 298,
+      "obligations": 327,
+      "openOriginExempt": 0,
+      "ownedMaterial": 24,
+      "packetByteLimit": 786432,
+      "packetBytes": 292709,
+      "packetDigest": "78318b2ecf92b5944820866742d6927cbdb74245702d456151c3edb90e8ab46b",
+      "packetLimitations": [],
+      "precheckBytes": 292709,
+      "reachableMaterial": 298,
+      "renderedEvidenceIds": 103,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 274,
+      "scopeExcludedObligations": 286,
+      "stubObligations": 0,
+      "topics": 1,
+      "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature#t-28bd6c37c830540a#d-documentation-drift"
+    },
+    {
+      "documentId": "feature-请假管理-8c2d685d81-product",
+      "kind": "leaf",
+      "materialObligations": 549,
+      "obligations": 578,
+      "openOriginExempt": 0,
+      "ownedMaterial": 0,
+      "packetByteLimit": 786432,
+      "packetBytes": 227711,
+      "packetDigest": "2bf4947792c6aa6f73f5e70516112245fcfd81b94623abaf9e17b8ef189b7b5e",
+      "packetLimitations": [],
+      "precheckBytes": 227711,
+      "reachableMaterial": 549,
+      "renderedEvidenceIds": 63,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 549,
+      "scopeExcludedObligations": 566,
+      "stubObligations": 0,
+      "topics": 1,
+      "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints"
+    },
+    {
+      "documentId": "feature-请假管理-8c2d685d81-product",
+      "kind": "leaf",
+      "materialObligations": 549,
+      "obligations": 578,
+      "openOriginExempt": 0,
+      "ownedMaterial": 271,
+      "packetByteLimit": 786432,
+      "packetBytes": 491533,
+      "packetDigest": "ccde0c657b5466d4b6ede6240d71b84c3294d443b312a06386bb50128229505b",
+      "packetLimitations": [],
+      "precheckBytes": 491533,
+      "reachableMaterial": 549,
+      "renderedEvidenceIds": 277,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 278,
+      "scopeExcludedObligations": 307,
+      "stubObligations": 0,
+      "topics": 1,
+      "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c"
+    },
+    {
+      "documentId": "feature-请假管理-8c2d685d81-product",
+      "kind": "leaf",
+      "materialObligations": 549,
+      "obligations": 578,
+      "openOriginExempt": 0,
+      "ownedMaterial": 254,
+      "packetByteLimit": 786432,
+      "packetBytes": 492964,
+      "packetDigest": "0974ceecbf969efb1f0068835fad673c69f35aac4cebc90cd265d6a24bb596da",
+      "packetLimitations": [],
+      "precheckBytes": 492964,
+      "reachableMaterial": 549,
+      "renderedEvidenceIds": 262,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 295,
+      "scopeExcludedObligations": 324,
+      "stubObligations": 0,
+      "topics": 1,
+      "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d"
+    },
+    {
+      "documentId": "feature-请假管理-8c2d685d81-product",
+      "kind": "leaf",
+      "materialObligations": 549,
+      "obligations": 578,
+      "openOriginExempt": 0,
+      "ownedMaterial": 24,
+      "packetByteLimit": 786432,
+      "packetBytes": 190476,
+      "packetDigest": "1a774e636f2d563343c677aec7d8fb9be498e3a73f9eb239fb4603c43faf7f55",
+      "packetLimitations": [],
+      "precheckBytes": 190476,
+      "reachableMaterial": 549,
+      "renderedEvidenceIds": 105,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 525,
+      "scopeExcludedObligations": 537,
+      "stubObligations": 0,
+      "topics": 1,
+      "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift"
     },
     {
       "documentId": "feature-请假管理-8c2d685d81-product",
@@ -330,12 +851,15 @@
       "openOriginExempt": 0,
       "ownedMaterial": 0,
       "packetByteLimit": 786432,
-      "packetBytes": 213363,
-      "packetDigest": "3e2209ed7de7e1914b8d4ee4f35169d7dab2504ad970615d9a0245c8dbd0766c",
+      "packetBytes": 255548,
+      "packetDigest": "0302ffe32948838f1860ee08bb8daf2bbe9da3f1c6089217189b34bb486aca57",
       "packetLimitations": [],
+      "precheckBytes": 255548,
       "reachableMaterial": 847,
       "renderedEvidenceIds": 0,
       "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 0,
+      "scopeExcludedObligations": 0,
       "stubObligations": 847,
       "topics": 4,
       "unitId": "feature-请假管理-8c2d685d81-product::leaf::work-item-dimension"
@@ -348,12 +872,15 @@
       "openOriginExempt": 0,
       "ownedMaterial": 0,
       "packetByteLimit": 786432,
-      "packetBytes": 182747,
-      "packetDigest": "b2561c2614e15a656ee9f192351b4588af3a9d42216b539f1aeedac03664fca7",
+      "packetBytes": 188646,
+      "packetDigest": "a9c0f4a0271ad41bcbea491138c5e820e775d0fc019eba3b8bba389b7500fd1f",
       "packetLimitations": [],
+      "precheckBytes": 188646,
       "reachableMaterial": 0,
       "renderedEvidenceIds": 2,
       "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 0,
+      "scopeExcludedObligations": 0,
       "stubObligations": 0,
       "topics": 55,
       "unitId": "overview-engineering::appendix::coverage"
@@ -366,12 +893,15 @@
       "openOriginExempt": 0,
       "ownedMaterial": 0,
       "packetByteLimit": 786432,
-      "packetBytes": 42785,
-      "packetDigest": "05b804f2816cacda161812594c5be357900a16c1c7ae517346cddde1a9dcd89e",
+      "packetBytes": 51230,
+      "packetDigest": "140615b61d1ee5a8c513c277d8bf876457c4c911341f3e802b676137a782bdbe",
       "packetLimitations": [],
+      "precheckBytes": 51230,
       "reachableMaterial": 164,
       "renderedEvidenceIds": 0,
       "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 0,
+      "scopeExcludedObligations": 0,
       "stubObligations": 164,
       "topics": 1,
       "unitId": "overview-engineering::leaf::coverage"
@@ -379,22 +909,128 @@
     {
       "documentId": "overview-engineering",
       "kind": "leaf",
-      "materialObligations": 847,
-      "obligations": 905,
+      "materialObligations": 298,
+      "obligations": 327,
       "openOriginExempt": 0,
-      "ownedMaterial": 847,
+      "ownedMaterial": 274,
       "packetByteLimit": 786432,
-      "packetBytes": 1993317,
-      "packetDigest": "5f68b58134d8a521cf2e84142bc835f0f70d3dca5d9773ed7de9d42d94904601",
-      "packetLimitations": [
-        "The packet for unit \"overview-engineering::leaf::feature\" renders to 1992731 bytes, over the declared bound of 786432 (1206299 bytes over). NOTHING has been dropped or shortened: all 2 topic(s), 905 obligation row(s) rendered in full, 0 stub row(s) for obligations another unit owns and 933 evidence record(s) are present. The offending unit's topics are: feature:28bd6c37c830540a, feature:ba5c5ed978e23ca3. Give this unit fewer topics, or raise the bound deliberately — semantic splitting by budget is the R5b slice, and truncation is not an option here."
-      ],
-      "reachableMaterial": 847,
-      "renderedEvidenceIds": 933,
+      "packetBytes": 755743,
+      "packetDigest": "f059c14e9fa968d5e43d709226b9ed338b3961e2dbe5754bcff97c1ef0f09aac",
+      "packetLimitations": [],
+      "precheckBytes": 755743,
+      "reachableMaterial": 298,
+      "renderedEvidenceIds": 313,
       "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 24,
+      "scopeExcludedObligations": 41,
       "stubObligations": 0,
-      "topics": 2,
-      "unitId": "overview-engineering::leaf::feature"
+      "topics": 1,
+      "unitId": "overview-engineering::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints"
+    },
+    {
+      "documentId": "overview-engineering",
+      "kind": "leaf",
+      "materialObligations": 298,
+      "obligations": 327,
+      "openOriginExempt": 0,
+      "ownedMaterial": 24,
+      "packetByteLimit": 786432,
+      "packetBytes": 292510,
+      "packetDigest": "c596dfec07bdff75c08966673536779725cbdc3f1b5104669c4080db8641156d",
+      "packetLimitations": [],
+      "precheckBytes": 292510,
+      "reachableMaterial": 298,
+      "renderedEvidenceIds": 103,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 274,
+      "scopeExcludedObligations": 286,
+      "stubObligations": 0,
+      "topics": 1,
+      "unitId": "overview-engineering::leaf::feature#t-28bd6c37c830540a#d-documentation-drift"
+    },
+    {
+      "documentId": "overview-engineering",
+      "kind": "leaf",
+      "materialObligations": 549,
+      "obligations": 578,
+      "openOriginExempt": 0,
+      "ownedMaterial": 0,
+      "packetByteLimit": 786432,
+      "packetBytes": 227474,
+      "packetDigest": "dee400105171a037faa7d23f64d7027177464a861af0f24797f18b11916f5c6a",
+      "packetLimitations": [],
+      "precheckBytes": 227474,
+      "reachableMaterial": 549,
+      "renderedEvidenceIds": 63,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 549,
+      "scopeExcludedObligations": 566,
+      "stubObligations": 0,
+      "topics": 1,
+      "unitId": "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints"
+    },
+    {
+      "documentId": "overview-engineering",
+      "kind": "leaf",
+      "materialObligations": 549,
+      "obligations": 578,
+      "openOriginExempt": 0,
+      "ownedMaterial": 271,
+      "packetByteLimit": 786432,
+      "packetBytes": 491296,
+      "packetDigest": "cf12469bb58e281801078a0f4341a596568a135fd4b13e8c990fbe7ff648a0aa",
+      "packetLimitations": [],
+      "precheckBytes": 491296,
+      "reachableMaterial": 549,
+      "renderedEvidenceIds": 277,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 278,
+      "scopeExcludedObligations": 307,
+      "stubObligations": 0,
+      "topics": 1,
+      "unitId": "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c"
+    },
+    {
+      "documentId": "overview-engineering",
+      "kind": "leaf",
+      "materialObligations": 549,
+      "obligations": 578,
+      "openOriginExempt": 0,
+      "ownedMaterial": 254,
+      "packetByteLimit": 786432,
+      "packetBytes": 492727,
+      "packetDigest": "501247cfc9c71e95ea35ba49c05f52a8d55b6d44e050b76602f3185e9bbed8ab",
+      "packetLimitations": [],
+      "precheckBytes": 492727,
+      "reachableMaterial": 549,
+      "renderedEvidenceIds": 262,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 295,
+      "scopeExcludedObligations": 324,
+      "stubObligations": 0,
+      "topics": 1,
+      "unitId": "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d"
+    },
+    {
+      "documentId": "overview-engineering",
+      "kind": "leaf",
+      "materialObligations": 549,
+      "obligations": 578,
+      "openOriginExempt": 0,
+      "ownedMaterial": 24,
+      "packetByteLimit": 786432,
+      "packetBytes": 190239,
+      "packetDigest": "f83e8a79a3f471c7e908876206dec39f99ce3caa113aeaba067b4ef294b3ec9a",
+      "packetLimitations": [],
+      "precheckBytes": 190239,
+      "reachableMaterial": 549,
+      "renderedEvidenceIds": 105,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 525,
+      "scopeExcludedObligations": 537,
+      "stubObligations": 0,
+      "topics": 1,
+      "unitId": "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift"
     },
     {
       "documentId": "overview-engineering",
@@ -404,12 +1040,15 @@
       "openOriginExempt": 0,
       "ownedMaterial": 0,
       "packetByteLimit": 786432,
-      "packetBytes": 197052,
-      "packetDigest": "19e880afdea8bb9fa3f076c5f4dda4bb576ecab8e796ce33edf15d4c19a7be7b",
+      "packetBytes": 239218,
+      "packetDigest": "86b7775bab6f905e4ffbb95bc70acc2a36c99563dda22d2e235f02e3e8e0d286",
       "packetLimitations": [],
+      "precheckBytes": 239218,
       "reachableMaterial": 847,
       "renderedEvidenceIds": 0,
       "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 0,
+      "scopeExcludedObligations": 0,
       "stubObligations": 847,
       "topics": 4,
       "unitId": "overview-engineering::leaf::work-item-dimension"
@@ -422,12 +1061,15 @@
       "openOriginExempt": 0,
       "ownedMaterial": 0,
       "packetByteLimit": 786432,
-      "packetBytes": 182730,
-      "packetDigest": "997af453735880d9461339ccbfde6de751fbb229f993c441aa885ac07ec5f405",
+      "packetBytes": 188625,
+      "packetDigest": "faf7f2c8e3658b4479be5ae3250bc8b81cd44ebbef26321e1fe3dfd121d10836",
       "packetLimitations": [],
+      "precheckBytes": 188625,
       "reachableMaterial": 0,
       "renderedEvidenceIds": 2,
       "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 0,
+      "scopeExcludedObligations": 0,
       "stubObligations": 0,
       "topics": 55,
       "unitId": "overview-product::appendix::coverage"
@@ -440,12 +1082,15 @@
       "openOriginExempt": 0,
       "ownedMaterial": 0,
       "packetByteLimit": 786432,
-      "packetBytes": 42108,
-      "packetDigest": "a86501bb20e01a3075e09bff6d01b70041b32952392d376215341aea75ec8c4e",
+      "packetBytes": 50549,
+      "packetDigest": "bee2d82b4f854cf526548e8a707304587dc0e1a63bc7a4caedd1a23950df9bde",
       "packetLimitations": [],
+      "precheckBytes": 50549,
       "reachableMaterial": 164,
       "renderedEvidenceIds": 0,
       "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 0,
+      "scopeExcludedObligations": 0,
       "stubObligations": 164,
       "topics": 1,
       "unitId": "overview-product::leaf::coverage"
@@ -453,22 +1098,128 @@
     {
       "documentId": "overview-product",
       "kind": "leaf",
-      "materialObligations": 847,
-      "obligations": 905,
+      "materialObligations": 298,
+      "obligations": 327,
       "openOriginExempt": 0,
-      "ownedMaterial": 847,
+      "ownedMaterial": 274,
       "packetByteLimit": 786432,
-      "packetBytes": 1993296,
-      "packetDigest": "c2091d9c9533dc8c217500bb35c3b93dd9f773c389ba16a1706da718d5f7622d",
-      "packetLimitations": [
-        "The packet for unit \"overview-product::leaf::feature\" renders to 1992714 bytes, over the declared bound of 786432 (1206282 bytes over). NOTHING has been dropped or shortened: all 2 topic(s), 905 obligation row(s) rendered in full, 0 stub row(s) for obligations another unit owns and 933 evidence record(s) are present. The offending unit's topics are: feature:28bd6c37c830540a, feature:ba5c5ed978e23ca3. Give this unit fewer topics, or raise the bound deliberately — semantic splitting by budget is the R5b slice, and truncation is not an option here."
-      ],
-      "reachableMaterial": 847,
-      "renderedEvidenceIds": 933,
+      "packetBytes": 755714,
+      "packetDigest": "996bed180fc3fdc8026d886f9c912b76e521995b97962e603bdb474bf0347b40",
+      "packetLimitations": [],
+      "precheckBytes": 755714,
+      "reachableMaterial": 298,
+      "renderedEvidenceIds": 313,
       "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 24,
+      "scopeExcludedObligations": 41,
       "stubObligations": 0,
-      "topics": 2,
-      "unitId": "overview-product::leaf::feature"
+      "topics": 1,
+      "unitId": "overview-product::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints"
+    },
+    {
+      "documentId": "overview-product",
+      "kind": "leaf",
+      "materialObligations": 298,
+      "obligations": 327,
+      "openOriginExempt": 0,
+      "ownedMaterial": 24,
+      "packetByteLimit": 786432,
+      "packetBytes": 292481,
+      "packetDigest": "06b8c46f12ba97623ff704e15b5d002bb5d702081f23912bc41be3a358a7f78f",
+      "packetLimitations": [],
+      "precheckBytes": 292481,
+      "reachableMaterial": 298,
+      "renderedEvidenceIds": 103,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 274,
+      "scopeExcludedObligations": 286,
+      "stubObligations": 0,
+      "topics": 1,
+      "unitId": "overview-product::leaf::feature#t-28bd6c37c830540a#d-documentation-drift"
+    },
+    {
+      "documentId": "overview-product",
+      "kind": "leaf",
+      "materialObligations": 549,
+      "obligations": 578,
+      "openOriginExempt": 0,
+      "ownedMaterial": 0,
+      "packetByteLimit": 786432,
+      "packetBytes": 227437,
+      "packetDigest": "06f333d340b6fba20ba716c618a766af19b837a1e82d3cf378dce7cdcdcdfcd2",
+      "packetLimitations": [],
+      "precheckBytes": 227437,
+      "reachableMaterial": 549,
+      "renderedEvidenceIds": 63,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 549,
+      "scopeExcludedObligations": 566,
+      "stubObligations": 0,
+      "topics": 1,
+      "unitId": "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints"
+    },
+    {
+      "documentId": "overview-product",
+      "kind": "leaf",
+      "materialObligations": 549,
+      "obligations": 578,
+      "openOriginExempt": 0,
+      "ownedMaterial": 271,
+      "packetByteLimit": 786432,
+      "packetBytes": 491259,
+      "packetDigest": "569c4b2b4179719bb6976f2f8575e1d93649dfdeddfc3c699c79649a66ef93b7",
+      "packetLimitations": [],
+      "precheckBytes": 491259,
+      "reachableMaterial": 549,
+      "renderedEvidenceIds": 277,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 278,
+      "scopeExcludedObligations": 307,
+      "stubObligations": 0,
+      "topics": 1,
+      "unitId": "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c"
+    },
+    {
+      "documentId": "overview-product",
+      "kind": "leaf",
+      "materialObligations": 549,
+      "obligations": 578,
+      "openOriginExempt": 0,
+      "ownedMaterial": 254,
+      "packetByteLimit": 786432,
+      "packetBytes": 492690,
+      "packetDigest": "ba99296984a1315eb02497f0131749fe7e225227e3d35c571a521e026f765f92",
+      "packetLimitations": [],
+      "precheckBytes": 492690,
+      "reachableMaterial": 549,
+      "renderedEvidenceIds": 262,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 295,
+      "scopeExcludedObligations": 324,
+      "stubObligations": 0,
+      "topics": 1,
+      "unitId": "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d"
+    },
+    {
+      "documentId": "overview-product",
+      "kind": "leaf",
+      "materialObligations": 549,
+      "obligations": 578,
+      "openOriginExempt": 0,
+      "ownedMaterial": 24,
+      "packetByteLimit": 786432,
+      "packetBytes": 190202,
+      "packetDigest": "16b5079bcd9cd2ae6499e25803ca112275737754feaca512e74a68088a05f8f2",
+      "packetLimitations": [],
+      "precheckBytes": 190202,
+      "reachableMaterial": 549,
+      "renderedEvidenceIds": 105,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 525,
+      "scopeExcludedObligations": 537,
+      "stubObligations": 0,
+      "topics": 1,
+      "unitId": "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift"
     },
     {
       "documentId": "overview-product",
@@ -478,12 +1229,15 @@
       "openOriginExempt": 0,
       "ownedMaterial": 0,
       "packetByteLimit": 786432,
-      "packetBytes": 193631,
-      "packetDigest": "2e239bdc87bc49e38bb1bad2a618b80280e8be5a55c5ee6bf060381a4832f1aa",
+      "packetBytes": 235793,
+      "packetDigest": "365dbe9cdfbc4a88bf9367d1313c63e8e39832a8d1241397df6493db059ecfa5",
       "packetLimitations": [],
+      "precheckBytes": 235793,
       "reachableMaterial": 847,
       "renderedEvidenceIds": 0,
       "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 0,
+      "scopeExcludedObligations": 0,
       "stubObligations": 847,
       "topics": 4,
       "unitId": "overview-product::leaf::work-item-dimension"
@@ -525,7 +1279,7 @@
     }
   ],
   "unboundEvidenceIds": 931,
-  "units": 20,
+  "units": 40,
   "unitsByKind": [
     {
       "kind": "appendix",
@@ -537,7 +1291,7 @@
     },
     {
       "kind": "leaf",
-      "units": 12
+      "units": 32
     },
     {
       "kind": "synthesis",

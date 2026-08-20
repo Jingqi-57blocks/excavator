@@ -31,7 +31,9 @@ import {
   type PlanArtifacts
 } from "../../report/plan-artifacts.ts";
 import { parsePlanProposal, type PlanProposal } from "../../report/plan-proposal.ts";
-import { summarisePlanValidation, validatePlan, type PlanValidationReport } from "../../report/plan-validation.ts";
+import { summarisePlanValidation, type PlanValidationReport } from "../../report/plan-validation.ts";
+import { planThroughBudgetRefinement, type PlanUnitDivision } from "../../report/plan-unit-split.ts";
+import { loadRunEvidenceReach } from "../../report/run-evidence-reach.ts";
 import {
   PLANNER_PACKET_BYTE_LIMIT,
   renderPlannerPacket,
@@ -41,7 +43,7 @@ import {
 import { REPORT_POLICY_REGISTRY } from "../../report/report-policy-registry.ts";
 import { readReportRequests, reportRequestsPath } from "../../report/report-requests-artifact.ts";
 import { buildTopicCatalog, type TopicCatalogArtifact } from "../../report/topic-catalog.ts";
-import { loadTopicCatalogSource } from "../../report/topic-catalog-source.ts";
+import { loadTopicCatalogSource, type TopicCatalogSource } from "../../report/topic-catalog-source.ts";
 import { topicsPath, writeTopicCatalog } from "../../report/topics-artifact.ts";
 import type { ReportRequestsArtifact } from "../../report/report-requests-artifact.ts";
 
@@ -59,16 +61,26 @@ export interface PlanRunResult {
   readonly report: PlanValidationReport;
   /** One line per facet plus the overall line, in the verdict's own three-state vocabulary. */
   readonly verdicts: readonly string[];
+  /**
+   * Every over-budget unit this plan divided, with the rung it was divided at and the parts it became.
+   *
+   * Empty when the proposal already fitted. It is reported rather than hidden because a division changes the unit
+   * set an operator will see on disk, and "why are there nine units where the proposal said four" has to have an
+   * answer that is not "read the code".
+   */
+  readonly divisions: readonly PlanUnitDivision[];
+  /** Measurement passes the refinement took. 1 means nothing was divided. */
+  readonly refinementPasses: number;
 }
 
-/** Load the two inputs every plan action needs, naming whichever file is not there. */
-async function planInputs(runDir: string): Promise<{ catalog: TopicCatalogArtifact; requests: ReportRequestsArtifact }> {
+/** Load the three inputs every plan action needs, naming whichever file is not there. */
+async function planInputs(runDir: string): Promise<{ catalog: TopicCatalogArtifact; requests: ReportRequestsArtifact; source: TopicCatalogSource }> {
   const requestsPath = reportRequestsPath(runDir);
   if (!await exists(requestsPath)) {
     throw new Error(`${requestsPath} is missing; a plan is validated against the recorded request set, and this run has none. Re-prepare the run under the current version.`);
   }
-  const catalog = buildTopicCatalog(await loadTopicCatalogSource(runDir));
-  return { catalog, requests: await readReportRequests(runDir) };
+  const source = await loadTopicCatalogSource(runDir);
+  return { catalog: buildTopicCatalog(source), requests: await readReportRequests(runDir), source };
 }
 
 /** Render the model-facing planner packet. Read-only: it writes nothing into the run. */
@@ -93,20 +105,32 @@ export const DEFAULT_PLANNER_PACKET_BYTE_LIMIT = PLANNER_PACKET_BYTE_LIMIT;
 /** Validate a proposal against this run's epoch and record it. Writes `plan/topics.json`, `catalog.json`, `dag.json`. */
 export async function planRun(runDirInput: string, source: PlanProposalSource): Promise<PlanRunResult> {
   const runDir = resolve(runDirInput);
-  const { catalog, requests } = await planInputs(runDir);
+  const { catalog, requests, source: catalogSource } = await planInputs(runDir);
   await writeTopicCatalog(runDir, catalog);
-  const proposal = await loadProposal(catalog, requests, source);
-  const report = validatePlan({
+  const proposed = await loadProposal(catalog, requests, source);
+  // The evidence records are an input to PLANNING now: the budget check measures each unit's packet by rendering
+  // it, and a packet renders the evidence its obligations bind.
+  const evidence = await loadRunEvidenceReach(runDir, catalogSource);
+  // One door for both proposal sources: validate, divide whatever is over budget, validate the divided plan.
+  const planned = planThroughBudgetRefinement({
     catalog,
     requests,
-    proposal,
+    proposal: proposed,
     registry: REPORT_POLICY_REGISTRY,
-    budgetTable: PLAN_BUDGET_TABLE
+    budgetTable: PLAN_BUDGET_TABLE,
+    evidence: evidence.evidenceById,
+    reach: evidence.reach
   });
-  if (report.overall.conclusion === "violations") {
-    throw new Error(`The proposal does not validate against this run's epoch (${report.overall.problems.length} problem(s)): ${report.overall.problems.join("; ")}`);
+  if (planned.state === "rejected") {
+    throw new Error(`The proposal does not validate against this run's epoch (${planned.problems.length} problem(s)): ${planned.problems.join("; ")}`);
   }
-  const artifacts = buildPlanArtifacts({ catalog, requests, proposal, report });
+  const artifacts = buildPlanArtifacts({
+    catalog,
+    requests,
+    proposal: planned.proposal,
+    budgetTable: PLAN_BUDGET_TABLE,
+    verdict: planned.report.overall
+  });
   await writePlanArtifacts(runDir, artifacts, catalog);
   return {
     runDir,
@@ -114,8 +138,10 @@ export async function planRun(runDirInput: string, source: PlanProposalSource): 
     planCatalogPath: planCatalogPath(runDir),
     planDagPath: planDagPath(runDir),
     artifacts,
-    report,
-    verdicts: summarisePlanValidation(report)
+    report: planned.report,
+    verdicts: summarisePlanValidation(planned.report),
+    divisions: planned.divisions,
+    refinementPasses: planned.iterations
   };
 }
 
