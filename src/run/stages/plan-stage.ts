@@ -33,7 +33,9 @@ import {
   readPlanCatalog,
   readPlanDag,
   writePlanArtifacts,
-  type PlanArtifacts
+  type PlanArtifacts,
+  type PlanCatalogArtifact,
+  type PlanRevisionRef
 } from "../../report/plan-artifacts.ts";
 import { nextPlanRevision, recordPlanRevision, type PlanRevisionArchive } from "../../report/plan-revision.ts";
 import { parsePlanProposal, type PlanProposal } from "../../report/plan-proposal.ts";
@@ -70,6 +72,17 @@ export type PlanProposalSource =
 export type PlanRecording =
   | { readonly kind: "record" }
   | { readonly kind: "revise"; readonly reason: string };
+
+/**
+ * What one recording put on disk. The plain arm archives nothing, so `archive` is nullable HERE and not in
+ * `RecordedPlanRevision` — a recorded revision always has an archive, and a type that allowed it not to would let
+ * the "archive first" precondition be omitted one call site at a time.
+ */
+interface RecordedPlan {
+  readonly artifacts: PlanArtifacts;
+  readonly archive: PlanRevisionArchive | null;
+  readonly succession: readonly string[];
+}
 
 /** What a revise did, or what a plain recording did not do. Reported so the two are never inferred from paths. */
 export interface PlanRevisionResult {
@@ -153,8 +166,7 @@ export async function planRun(runDirInput: string, source: PlanProposalSource, r
   const runDir = resolve(runDirInput);
   const { catalog, requests, source: catalogSource } = await planInputs(runDir);
   await writeTopicCatalog(runDir, catalog);
-  const superseded = await planBeingSuperseded(runDir, catalog, recording);
-  const revision = superseded === null ? FIRST_PLAN_REVISION : nextPlanRevision(superseded.planCatalog, revisionReasonOf(recording));
+  const { revision, superseded } = await planRevisionFor(runDir, catalog, recording);
   const proposed = await loadProposal(catalog, requests, source);
   // The evidence records are an input to PLANNING now: the budget check measures each unit's packet by rendering
   // it, and a packet renders the evidence its obligations bind.
@@ -180,15 +192,17 @@ export async function planRun(runDirInput: string, source: PlanProposalSource, r
     verdict: planned.report.overall,
     revision
   });
-  const recorded = superseded === null
-    ? { archive: null, succession: [] as readonly string[], written: await writePlanArtifacts(runDir, artifacts, catalog, { kind: "record" }) }
-    : await recordPlanRevision(runDir, artifacts, catalog, superseded).then((result) => ({ archive: result.archive, succession: result.succession, written: result.artifacts }));
+  // Both arms produce the same three things, so the recording mode is the ONLY difference between them: a plain
+  // recording archives nothing and has no chain to report, a revision does both.
+  const recorded: RecordedPlan = superseded === null
+    ? { artifacts: await writePlanArtifacts(runDir, artifacts, catalog, { kind: "record" }), archive: null, succession: [] }
+    : await recordPlanRevision(runDir, artifacts, catalog, superseded);
   return {
     runDir,
     topicsPath: topicsPath(runDir),
     planCatalogPath: planCatalogPath(runDir),
     planDagPath: planDagPath(runDir),
-    artifacts: recorded.written,
+    artifacts: recorded.artifacts,
     revision: { ...revision, archive: recorded.archive, succession: recorded.succession },
     report: planned.report,
     verdicts: summarisePlanValidation(planned.report),
@@ -198,39 +212,35 @@ export async function planRun(runDirInput: string, source: PlanProposalSource, r
 }
 
 /**
- * The plan a `revise` supersedes, or `null` when this action records the first revision of the epoch.
+ * Which revision this action records, and the plan it supersedes — `null` when it supersedes nothing.
  *
- * Exhaustive over the recording modes. The `revise` arm refuses by name in the two ways it can fail: no plan is
- * recorded at all, or the recorded one does not read against this epoch (which is what a re-freeze produces — and
- * its remedy is a plain `plan`, not a revision of a plan belonging to another epoch).
+ * Exhaustive over the recording modes, and the two facts come out together because they are one decision: the
+ * revision number is a function of the plan being superseded, so deriving them apart would be two answers to the
+ * same question. The `revise` arm refuses by name in the two ways it can fail: no plan is recorded at all, or the
+ * recorded one does not read against this epoch (which is what a re-freeze produces — and its remedy is a plain
+ * `plan`, not a revision of a plan belonging to another epoch).
  */
-async function planBeingSuperseded(runDir: string, catalog: TopicCatalogArtifact, recording: PlanRecording): Promise<PlanArtifacts | null> {
+async function planRevisionFor(
+  runDir: string,
+  catalog: TopicCatalogArtifact,
+  recording: PlanRecording
+): Promise<{ revision: PlanRevisionRef; superseded: PlanArtifacts | null }> {
   switch (recording.kind) {
     case "record":
-      return null;
+      return { revision: FIRST_PLAN_REVISION, superseded: null };
     case "revise": {
       if (!await exists(planCatalogPath(runDir))) {
         throw new Error(`${planCatalogPath(runDir)} is missing, so there is no plan for --revise to supersede; record one first with \`excavator plan --run ${runDir} --fixture-plan\` (or \`--proposal <file>\`)`);
       }
-      let planCatalog;
+      let planCatalog: PlanCatalogArtifact;
       try {
         planCatalog = await readPlanCatalog(runDir, catalog);
       } catch (error) {
         throw new Error(`--revise cannot supersede the plan this run records: ${(error as Error).message}. A plan that does not read against this run's epoch is re-planned (plain \`plan\`), not revised.`);
       }
-      return { planCatalog, dag: await readPlanDag(runDir, planCatalog) };
+      const superseded = { planCatalog, dag: await readPlanDag(runDir, planCatalog) };
+      return { revision: nextPlanRevision(planCatalog, recording.reason), superseded };
     }
-  }
-  return assertNever(recording, "plan recording mode");
-}
-
-/** The reason a revision states. Exhaustive: the `record` arm has none, and calling it here would be a mistake. */
-function revisionReasonOf(recording: PlanRecording): string {
-  switch (recording.kind) {
-    case "record":
-      throw new Error("A plain plan recording states no revision reason; the first revision of an epoch supersedes nothing");
-    case "revise":
-      return recording.reason;
   }
   return assertNever(recording, "plan recording mode");
 }
