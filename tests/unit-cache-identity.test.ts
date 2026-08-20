@@ -6,6 +6,7 @@ import { buildFixturePlan } from "../src/report/fixture-plan.ts";
 import { PLAN_BUDGET_TABLE } from "../src/report/plan-budget.ts";
 import { documentOwnership } from "../src/report/plan-obligation-conservation.ts";
 import { parsePlanProposal, type PlanProposal, type ProposedUnit } from "../src/report/plan-proposal.ts";
+import { planCatalogDigest } from "../src/report/plan-artifacts.ts";
 import { intentPolicyFor, lensPolicyFor, REPORT_POLICY_REGISTRY } from "../src/report/report-policy-registry.ts";
 import {
   IDENTITY_NORMALIZED_HEADER_LABELS,
@@ -109,6 +110,15 @@ test("every renderable unit's identity view differs from its packet in EXACTLY t
     for (const label of IDENTITY_NORMALIZED_HEADER_LABELS) {
       assert.equal(packet.split("\n").filter((line) => line.startsWith(`- ${label}: `)).length, 1,
         `${unitId}: ${label} must appear exactly once, or normalizing it would leave a copy behind`);
+    }
+    // AND NO PLAN-GLOBAL DIGEST VALUE SURVIVES ANYWHERE IN THE VIEW. The line diff above catches a normalization
+    // nobody declared; this catches the other direction — a renderer that starts printing one of these three
+    // digests a SECOND time, in a line of its own or inside a sentence, would make every unit of the run depend on
+    // every other change to the run again, and the second-audience equality below would be the only thing to
+    // notice. Two of the three are printed elsewhere in this codebase's artifacts, so this is not hypothetical.
+    for (const digest of [base.planCatalog.topicsDigest, planCatalogDigest(base.planCatalog), base.planCatalog.requestsDigest]) {
+      assert.equal(identity.includes(digest), false,
+        `${unitId}: the identity view still carries the plan-global digest ${digest.slice(0, 12)}…, so a change anywhere in the plan or the request set moves it`);
     }
     // The epoch is NOT normalized: a re-freeze must invalidate every unit of the run.
     assert.ok(identity.includes(`- knowledge epoch: ${base.planCatalog.knowledgeEpoch} (digest ${base.planCatalog.knowledgeDigest})`),
@@ -262,6 +272,44 @@ test("two parts of one DIVIDED topic have different identities, and the sketched
     "one part's verified draft would be admitted as the other's: the scope is what makes them two units");
   const differences = identitySectionDifferences(identityA, identityB);
   assert.ok(differences.length > 0 && differences.some((row) => row.includes("Obligations bound to this unit's topics")), differences.join(" | "));
+});
+
+test("the SAME part id carrying a DIFFERENT scope is a different identity — the collapse with nothing else left to tell them apart", async () => {
+  const fix = await fixture();
+  const featureTopics = fix.base.catalog.topics.filter((topic) => topic.facet === "feature").sort((a, b) => a.topicId.localeCompare(b.topicId));
+  const bindingsOf = (topicId: string): readonly string[] => topicOf(fix.base.catalog, topicId).bindings.map((binding) => binding.workItemId).sort((a, b) => a.localeCompare(b));
+  // Two parts, and two states that SWAP their scopes. The ids are stable across the two states on purpose: a
+  // division rung whose component is the leading dimension keeps a part's id when its bucket membership changes
+  // (`plan-unit-split.ts` derives the `dimension` component from `group[0]`), so "same unit id, different scope" is
+  // a state a real re-division reaches — and it is the one case where nothing outside the scope distinguishes the
+  // two. If the scope were not in the key, one part's verified draft would be admitted as the other's.
+  const part = (suffix: string, index: number): ProposedUnit => ({
+    kind: "leaf",
+    unitId: `${OVERVIEW_PRODUCT}::leaf::feature#d-${suffix}`,
+    documentId: OVERVIEW_PRODUCT,
+    title: "Material feature topics — part",
+    topics: featureTopics.map((topic) => ({ topicId: topic.topicId, obligationScope: { kind: "work-items" as const, workItemIds: [bindingsOf(topic.topicId)[index]!] } }))
+  });
+  const shared = sharedUnits(fix);
+  const stateFor = (label: string, firstIndex: number): PlanState => {
+    const first = part("alpha", firstIndex);
+    const second = part("beta", firstIndex === 0 ? 1 : 0);
+    return planStateOf(fix.run, label, fix.base.catalog, fix.run.requests,
+      proposalFor(fix, [...shared, first, second, synthesisOver([...shared.map((unit) => unit.unitId), first.unitId, second.unitId])]));
+  };
+  const straight = stateFor("scopes-straight", 0);
+  const swapped = stateFor("scopes-swapped", 1);
+  const alpha = `${OVERVIEW_PRODUCT}::leaf::feature#d-alpha`;
+
+  const rowStraight = straight.planCatalog.units.find((unit) => unit.unitId === alpha)!;
+  const rowSwapped = swapped.planCatalog.units.find((unit) => unit.unitId === alpha)!;
+  assert.deepEqual(rowStraight.topics.map((topic) => [topic.topicId, topic.topicDigest]), rowSwapped.topics.map((topic) => [topic.topicId, topic.topicDigest]),
+    "same unit, same topics, same topic digests");
+  assert.equal(sketchedKey(straight, alpha), sketchedKey(swapped, alpha),
+    "the epic's key sketch is IDENTICAL across the swap — same epoch, same topics, same audience, same policy, same unit id");
+  assert.notEqual(canonicalJson(rowStraight.topics.map((topic) => topic.obligationScope)), canonicalJson(rowSwapped.topics.map((topic) => topic.obligationScope)));
+  assert.notEqual(identityOf(fix, straight, alpha).digest, identityOf(fix, swapped, alpha).digest,
+    "the obligation scope is what makes these two different units of work, and the identity must say so");
 });
 
 test("adding a HIGHER-priority owning unit moves the identity of a sibling that never named its topic", async () => {
