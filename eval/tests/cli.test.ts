@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { join } from "node:path";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
+import { tempDir } from "../../tests/temp-dir.ts";
 import { tmpdir } from "node:os";
 
 const PROJECT_ROOT = join(import.meta.dirname, "..", "..");
@@ -80,7 +81,7 @@ test("extract prints Knowledge JSON to stdout", async () => {
 });
 
 test("extract --out writes Knowledge JSON to a file", async () => {
-  const dir = await mkdtemp(join(tmpdir(), "eval-extract-"));
+  const dir = await tempDir("eval-extract-");
   const out = join(dir, "knowledge.json");
   const { code } = await cli(["extract", "--run", RUN_MINI, "--out", out]);
   assert.equal(code, 0);

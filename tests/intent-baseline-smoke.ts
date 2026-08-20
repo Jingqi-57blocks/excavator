@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile, writeFile, mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { tempDir } from "./temp-dir.ts";
 import type { ReportRequest } from "../src/base/types.ts";
 import type { AttributionArtifact, AttributionSelection } from "../src/attribution/attribution-artifact.ts";
 import { canonicalJson } from "../src/base/util.ts";
@@ -56,7 +57,7 @@ async function runFixture(name: string): Promise<void> {
   const corpusDir = join(tmpdir(), `excavator-corpus-${name}`);
   await materializeCorpus(fixture.corpus, corpusDir, fixture.codegraphMode === "auto");
 
-  const workdir = await mkdtemp(join(tmpdir(), `excavator-baseline-${name}-`));
+  const workdir = await tempDir(`excavator-baseline-${name}-`);
   const { runDir } = await prepareRun({
     target: corpusDir,
     workdir,

@@ -370,45 +370,24 @@ test("a line of chained operators is handled without recursion", () => {
   assert.doesNotThrow(() => redactSecrets("=".repeat(30000)));
 });
 
-// THE COST GUARD IS A RATIO, NOT A CLOCK. This used to read `Date.now() - started < 5000`, which failed in a
-// loaded suite and passed on a rerun — and a gate that goes red for a reason outside the code under test teaches
-// everyone to rerun until green, which is how a real red gets discarded next time. It was also mislabelled "in
-// linear time": measured here, doubling the input multiplies the cost by ~3.8, so this function is roughly
-// QUADRATIC in the length of one line, and the old budget only held because 5000 is small enough that quadratic
-// still fits in five seconds (at 20000 it already takes ~5.1s).
+// WE CHOSE NOT TO GUARD SUPER-LINEAR GROWTH BY MEASUREMENT, and this comment is the record of that decision.
+// Three shapes were tried against the same property and all three went red on a busy machine rather than on a
+// code change: an absolute 5s budget; a single doubling ratio (30.7x observed against a bound of 6); and the
+// median of five ratios (10.1x observed, samples 1.8 / 5.6 / 10.1 / 12.0 / 18.6). The median argument was that a
+// burst spoils one sample and the median discards it — but under sustained load MOST samples are spoiled and the
+// median moves with them.
 //
-// A ratio is load-robust where a budget is not: machine load scales both measurements, so it divides out.
+// `npm test` is this repo's only gate. A gate that cannot tell "the code regressed" from "the machine was busy"
+// teaches everyone to rerun until green, which is exactly how the next real red gets discarded — the same reason
+// `read-coverage.ts` refuses to emit an advisory that is always true. That cost is certain; the protection was
+// not, because a catastrophic regex shows up as the suite HANGING, which no ratio would have caught either
+// (probed: node:test cannot interrupt a blocked event loop). So the timing assertion is gone, and the property is
+// recorded as unguarded here rather than guarded in name only. The `doesNotThrow` pair above still covers the
+// stack overflow this test was originally written for, and that one is deterministic.
 //
-// WHAT THIS GUARD CAN AND CANNOT DO, measured rather than assumed. It catches a worsening EXPONENT that still
-// returns: quadratic doubles to ~3.7-4.2x here, cubic would be 8x, so the bound of 6 sits between them with
-// margin on both sides. It deliberately does not pin today's ~3.8 — pinning the exponent would turn an
-// optimisation into a red test. It does NOT catch a true hang, and neither did the wall-clock budget it
-// replaces: a synchronous loop that never returns never reaches an assertion line. Nor would `{ timeout }`
-// help — node:test cannot interrupt a blocked event loop (probed: a 300ms timeout let a 3s synchronous spin
-// pass). Catching non-termination needs process isolation with a hard kill, which is a capability this test
-// never had; it is recorded here rather than left as a thing the name seems to promise.
-test("doubling a pathological line keeps the cost near quadratic, not worse", () => {
-  const line = (repeats: number) => `x ${"== a ".repeat(repeats)}`;
-  const costOf = (repeats: number): number => {
-    const started = process.hrtime.bigint();
-    redactSecrets(line(repeats));
-    return Number(process.hrtime.bigint() - started);
-  };
-  redactSecrets(line(1000)); // warm up: the first call through a cold JIT is not a measurement of the algorithm
-  // THE MEDIAN, NOT ONE SAMPLE. The first version of this took one pair and divided, on the argument that load
-  // scales both measurements so it cancels — which is true only while the load is STEADY. A load that arrives
-  // between the two measurements scales them by different factors and the ratio keeps the difference: measured
-  // here at 30.7x against a bound of 6, twice, both times while another full suite was running. The verification
-  // that missed it was four steady busy-loops, i.e. exactly the condition the cancellation argument assumes —
-  // so it confirmed the premise instead of testing the claim. A median over independent pairs survives both
-  // shapes: a burst spoils individual samples and is discarded, while sustained load moves every sample together
-  // and still cancels.
-  const ratios: number[] = [];
-  for (let sample = 0; sample < 5; sample += 1) ratios.push(costOf(2000) / costOf(1000));
-  ratios.sort((a, b) => a - b);
-  const ratio = ratios[2]!;
-  assert.ok(ratio < 6, `doubling the input multiplied the cost by a median ${ratio.toFixed(1)}x over 5 pairs (${ratios.map((r) => r.toFixed(1)).join(", ")}); this function measures ~3.8x (quadratic) and a cubic one would measure 8x, so 6x means the exponent got worse`);
-});
+// The option not taken: an in-process control benchmark — time a known-linear operation in the same window and
+// compare ratios-of-ratios — cancels load far more tightly than sampling across windows. Declined for cost, not
+// because it cannot work. If super-linear growth ever needs a real gate, start there.
 
 // A sensitive word inside a string is not the name of what an operator assigns. This SQL was measured being
 // redacted at `where year = ?` only because `${type}_token` appeared earlier in the same template — the
