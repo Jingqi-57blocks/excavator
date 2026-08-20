@@ -7,6 +7,12 @@
  * `loadUnitPacketSource` per unit rather than rebuilding the input map beside it — one spelling of "what a unit's
  * packet is rendered from", or the identity would be measured over inputs no packet was ever rendered from.
  *
+ * THAT COSTS A RELOAD PER UNIT, deliberately. Each call re-reads the plan gate's inputs and the evidence ledger, so
+ * a forty-unit plan opens them forty times. The alternative is to assemble the packet inputs once here, which is
+ * exactly the second spelling R5b's nine-fold measurement gap came from — and this is a read-only diagnostic, while
+ * that would be a drift the identity itself could not detect. A projection over MANY plan states (the eval readings)
+ * builds its inputs in memory once per state instead, which is the right place for the sharper cost.
+ *
  * A SYNTHESIS WITHOUT COLLECTED CHILDREN IS NAMED, NEVER SKIPPED AND NEVER GUESSED. Its packet is its children's
  * verified summaries, so before any child is collected there is no identity to compute — and that is a fact about
  * the run's state, not a gap in the reading. The row says which children are missing. Nothing here invents a
