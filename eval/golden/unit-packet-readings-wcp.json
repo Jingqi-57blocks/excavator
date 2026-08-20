@@ -57,8 +57,124 @@
     ],
     "waivedObligations": []
   },
+  "obligationsOwedByMoreThanOneUnit": 0,
   "obligationSummary": "847 material obligation(s): 847 in units, 0 waived (cannot-determine=0, not-applicable=0, omitted-for-audience=0), 0 claimed but unplaced, 0 undispositioned",
   "openOriginExemptObligations": [],
+  "ownerEvidenceRequired": 3580,
+  "ownership": [
+    {
+      "documentId": "feature-晋升管理-01e5065d19-engineering",
+      "owedByMoreThanOneUnit": 0,
+      "owedByUnit": [
+        {
+          "owed": 0,
+          "unitId": "feature-晋升管理-01e5065d19-engineering::appendix::coverage"
+        },
+        {
+          "owed": 0,
+          "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::coverage"
+        },
+        {
+          "owed": 847,
+          "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature"
+        },
+        {
+          "owed": 0,
+          "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::work-item-dimension"
+        },
+        {
+          "owed": 0,
+          "unitId": "feature-晋升管理-01e5065d19-engineering::synthesis::document"
+        }
+      ],
+      "reachedObligations": 847,
+      "unownedObligationIds": []
+    },
+    {
+      "documentId": "feature-请假管理-8c2d685d81-product",
+      "owedByMoreThanOneUnit": 0,
+      "owedByUnit": [
+        {
+          "owed": 0,
+          "unitId": "feature-请假管理-8c2d685d81-product::appendix::coverage"
+        },
+        {
+          "owed": 0,
+          "unitId": "feature-请假管理-8c2d685d81-product::leaf::coverage"
+        },
+        {
+          "owed": 847,
+          "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature"
+        },
+        {
+          "owed": 0,
+          "unitId": "feature-请假管理-8c2d685d81-product::leaf::work-item-dimension"
+        },
+        {
+          "owed": 0,
+          "unitId": "feature-请假管理-8c2d685d81-product::synthesis::document"
+        }
+      ],
+      "reachedObligations": 847,
+      "unownedObligationIds": []
+    },
+    {
+      "documentId": "overview-engineering",
+      "owedByMoreThanOneUnit": 0,
+      "owedByUnit": [
+        {
+          "owed": 0,
+          "unitId": "overview-engineering::appendix::coverage"
+        },
+        {
+          "owed": 0,
+          "unitId": "overview-engineering::leaf::coverage"
+        },
+        {
+          "owed": 847,
+          "unitId": "overview-engineering::leaf::feature"
+        },
+        {
+          "owed": 0,
+          "unitId": "overview-engineering::leaf::work-item-dimension"
+        },
+        {
+          "owed": 0,
+          "unitId": "overview-engineering::synthesis::document"
+        }
+      ],
+      "reachedObligations": 847,
+      "unownedObligationIds": []
+    },
+    {
+      "documentId": "overview-product",
+      "owedByMoreThanOneUnit": 0,
+      "owedByUnit": [
+        {
+          "owed": 0,
+          "unitId": "overview-product::appendix::coverage"
+        },
+        {
+          "owed": 0,
+          "unitId": "overview-product::leaf::coverage"
+        },
+        {
+          "owed": 847,
+          "unitId": "overview-product::leaf::feature"
+        },
+        {
+          "owed": 0,
+          "unitId": "overview-product::leaf::work-item-dimension"
+        },
+        {
+          "owed": 0,
+          "unitId": "overview-product::synthesis::document"
+        }
+      ],
+      "reachedObligations": 847,
+      "unownedObligationIds": []
+    }
+  ],
   "planCatalogDigest": "9b5e861758bfc5a9cdf4582a7b5451acb83469b4b70c5acdb41c01a747a91515",
   "readPaths": [
     "context/boundary-functions.json",
@@ -82,13 +198,15 @@
       "materialObligations": 0,
       "obligations": 2,
       "openOriginExempt": 0,
+      "ownedMaterial": 0,
       "packetByteLimit": 786432,
-      "packetBytes": 181745,
-      "packetDigest": "2db652d4dac30ae5c23abe415ff36bc9a7042746dfdf363df28c8622de1925c7",
+      "packetBytes": 182906,
+      "packetDigest": "b6b01e87538a44b89f44bdf34f75b7777fc60b8d6d9cb40f2b76e81ec416b71b",
       "packetLimitations": [],
       "reachableMaterial": 0,
       "renderedEvidenceIds": 2,
       "renderedTwiceIdentical": true,
+      "stubObligations": 0,
       "topics": 55,
       "unitId": "feature-晋升管理-01e5065d19-engineering::appendix::coverage"
     },
@@ -98,13 +216,15 @@
       "materialObligations": 164,
       "obligations": 164,
       "openOriginExempt": 0,
+      "ownedMaterial": 0,
       "packetByteLimit": 786432,
-      "packetBytes": 472480,
-      "packetDigest": "d3c0ca50e203ea5d3319d611f82265abea5404480684929ba1c719a3fbb4c5e6",
+      "packetBytes": 46739,
+      "packetDigest": "b8f91bb609aa6bc32a179a75106aba2dafff0a9e8d51616712c80356718d7ad0",
       "packetLimitations": [],
       "reachableMaterial": 164,
-      "renderedEvidenceIds": 173,
+      "renderedEvidenceIds": 0,
       "renderedTwiceIdentical": true,
+      "stubObligations": 164,
       "topics": 1,
       "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::coverage"
     },
@@ -114,15 +234,17 @@
       "materialObligations": 847,
       "obligations": 905,
       "openOriginExempt": 0,
+      "ownedMaterial": 847,
       "packetByteLimit": 786432,
-      "packetBytes": 1992275,
-      "packetDigest": "0fb448326f670ae1fdab0ed6a796ba41d88802f51f78cdc96258af095ab13920",
+      "packetBytes": 1993499,
+      "packetDigest": "7758081831ec2c0b6fa04daabfa1dce1f0cd31024bfbd4f445206320d2b5443f",
       "packetLimitations": [
-        "The packet for unit \"feature-晋升管理-01e5065d19-engineering::leaf::feature\" renders to 1991725 bytes, over the declared bound of 786432 (1205293 bytes over). NOTHING has been dropped or shortened: all 2 topic(s), 905 obligation row(s) and 933 evidence record(s) are present in full. The offending unit's topics are: feature:28bd6c37c830540a, feature:ba5c5ed978e23ca3. Give this unit fewer topics, or raise the bound deliberately — semantic splitting by budget is the R5 slice, and truncation is not an option here."
+        "The packet for unit \"feature-晋升管理-01e5065d19-engineering::leaf::feature\" renders to 1992890 bytes, over the declared bound of 786432 (1206458 bytes over). NOTHING has been dropped or shortened: all 2 topic(s), 905 obligation row(s) rendered in full, 0 stub row(s) for obligations another unit owns and 933 evidence record(s) are present. The offending unit's topics are: feature:28bd6c37c830540a, feature:ba5c5ed978e23ca3. Give this unit fewer topics, or raise the bound deliberately — semantic splitting by budget is the R5b slice, and truncation is not an option here."
       ],
       "reachableMaterial": 847,
       "renderedEvidenceIds": 933,
       "renderedTwiceIdentical": true,
+      "stubObligations": 0,
       "topics": 2,
       "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature"
     },
@@ -132,15 +254,15 @@
       "materialObligations": 847,
       "obligations": 847,
       "openOriginExempt": 0,
+      "ownedMaterial": 0,
       "packetByteLimit": 786432,
-      "packetBytes": 1597214,
-      "packetDigest": "f2e6db9ed5851a6c1ee015c5137380dd877f882ce32342c062fc23337dcca43f",
-      "packetLimitations": [
-        "The packet for unit \"feature-晋升管理-01e5065d19-engineering::leaf::work-item-dimension\" renders to 1596553 bytes, over the declared bound of 786432 (810121 bytes over). NOTHING has been dropped or shortened: all 4 topic(s), 847 obligation row(s) and 833 evidence record(s) are present in full. The offending unit's topics are: work-item-dimension:34fcd3cb942604c7, work-item-dimension:58232f9feb524ed6, work-item-dimension:678265653ee48bdd, work-item-dimension:a8d8ef527dcc6649. Give this unit fewer topics, or raise the bound deliberately — semantic splitting by budget is the R5 slice, and truncation is not an option here."
-      ],
+      "packetBytes": 216784,
+      "packetDigest": "e3053373373f27d2222da264f32fdd293934448259c8c59a9a3b73a88ceb3d20",
+      "packetLimitations": [],
       "reachableMaterial": 847,
-      "renderedEvidenceIds": 833,
+      "renderedEvidenceIds": 0,
       "renderedTwiceIdentical": true,
+      "stubObligations": 847,
       "topics": 4,
       "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::work-item-dimension"
     },
@@ -150,13 +272,15 @@
       "materialObligations": 0,
       "obligations": 2,
       "openOriginExempt": 0,
+      "ownedMaterial": 0,
       "packetByteLimit": 786432,
-      "packetBytes": 181732,
-      "packetDigest": "031b5027b43ad44a74d16f98e46bbf87dd48903e0774b93bfd1a31b2fc0c6e53",
+      "packetBytes": 182889,
+      "packetDigest": "23b22f01e32dfae92493ef2edbf86e0403c430299d360693479d5d166b06aa4b",
       "packetLimitations": [],
       "reachableMaterial": 0,
       "renderedEvidenceIds": 2,
       "renderedTwiceIdentical": true,
+      "stubObligations": 0,
       "topics": 55,
       "unitId": "feature-请假管理-8c2d685d81-product::appendix::coverage"
     },
@@ -166,13 +290,15 @@
       "materialObligations": 164,
       "obligations": 164,
       "openOriginExempt": 0,
+      "ownedMaterial": 0,
       "packetByteLimit": 786432,
-      "packetBytes": 472467,
-      "packetDigest": "3ead6a5b0e4a61789ea7dc16d4b04fb30ea09b95419ed4f05f89562c9b700f9c",
+      "packetBytes": 46062,
+      "packetDigest": "9d8a45d3ca5b92325b40e37169a9b031df19dd82ae3043504c4e6d81a8b6b22a",
       "packetLimitations": [],
       "reachableMaterial": 164,
-      "renderedEvidenceIds": 173,
+      "renderedEvidenceIds": 0,
       "renderedTwiceIdentical": true,
+      "stubObligations": 164,
       "topics": 1,
       "unitId": "feature-请假管理-8c2d685d81-product::leaf::coverage"
     },
@@ -182,15 +308,17 @@
       "materialObligations": 847,
       "obligations": 905,
       "openOriginExempt": 0,
+      "ownedMaterial": 847,
       "packetByteLimit": 786432,
-      "packetBytes": 1992258,
-      "packetDigest": "c0065213e2ed4618c13c2ba19ca67cf3eaba63161b4b7b9c364146d6b3b35bf2",
+      "packetBytes": 1993478,
+      "packetDigest": "7c7d25c51549c317d5d197035d012d7119f833441906183f9c0db6cf74ee8b9d",
       "packetLimitations": [
-        "The packet for unit \"feature-请假管理-8c2d685d81-product::leaf::feature\" renders to 1991712 bytes, over the declared bound of 786432 (1205280 bytes over). NOTHING has been dropped or shortened: all 2 topic(s), 905 obligation row(s) and 933 evidence record(s) are present in full. The offending unit's topics are: feature:28bd6c37c830540a, feature:ba5c5ed978e23ca3. Give this unit fewer topics, or raise the bound deliberately — semantic splitting by budget is the R5 slice, and truncation is not an option here."
+        "The packet for unit \"feature-请假管理-8c2d685d81-product::leaf::feature\" renders to 1992873 bytes, over the declared bound of 786432 (1206441 bytes over). NOTHING has been dropped or shortened: all 2 topic(s), 905 obligation row(s) rendered in full, 0 stub row(s) for obligations another unit owns and 933 evidence record(s) are present. The offending unit's topics are: feature:28bd6c37c830540a, feature:ba5c5ed978e23ca3. Give this unit fewer topics, or raise the bound deliberately — semantic splitting by budget is the R5b slice, and truncation is not an option here."
       ],
       "reachableMaterial": 847,
       "renderedEvidenceIds": 933,
       "renderedTwiceIdentical": true,
+      "stubObligations": 0,
       "topics": 2,
       "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature"
     },
@@ -200,15 +328,15 @@
       "materialObligations": 847,
       "obligations": 847,
       "openOriginExempt": 0,
+      "ownedMaterial": 0,
       "packetByteLimit": 786432,
-      "packetBytes": 1597197,
-      "packetDigest": "babca03416c1e852a0df6964323f5e6149d575b455bd11957467b07690c63232",
-      "packetLimitations": [
-        "The packet for unit \"feature-请假管理-8c2d685d81-product::leaf::work-item-dimension\" renders to 1596540 bytes, over the declared bound of 786432 (810108 bytes over). NOTHING has been dropped or shortened: all 4 topic(s), 847 obligation row(s) and 833 evidence record(s) are present in full. The offending unit's topics are: work-item-dimension:34fcd3cb942604c7, work-item-dimension:58232f9feb524ed6, work-item-dimension:678265653ee48bdd, work-item-dimension:a8d8ef527dcc6649. Give this unit fewer topics, or raise the bound deliberately — semantic splitting by budget is the R5 slice, and truncation is not an option here."
-      ],
+      "packetBytes": 213363,
+      "packetDigest": "3e2209ed7de7e1914b8d4ee4f35169d7dab2504ad970615d9a0245c8dbd0766c",
+      "packetLimitations": [],
       "reachableMaterial": 847,
-      "renderedEvidenceIds": 833,
+      "renderedEvidenceIds": 0,
       "renderedTwiceIdentical": true,
+      "stubObligations": 847,
       "topics": 4,
       "unitId": "feature-请假管理-8c2d685d81-product::leaf::work-item-dimension"
     },
@@ -218,13 +346,15 @@
       "materialObligations": 0,
       "obligations": 2,
       "openOriginExempt": 0,
+      "ownedMaterial": 0,
       "packetByteLimit": 786432,
-      "packetBytes": 181609,
-      "packetDigest": "47f6fac6bb2a775fc8cf1a9c1faad9bb5f98852ba92b1f0dffd30b39b5694000",
+      "packetBytes": 182747,
+      "packetDigest": "b2561c2614e15a656ee9f192351b4588af3a9d42216b539f1aeedac03664fca7",
       "packetLimitations": [],
       "reachableMaterial": 0,
       "renderedEvidenceIds": 2,
       "renderedTwiceIdentical": true,
+      "stubObligations": 0,
       "topics": 55,
       "unitId": "overview-engineering::appendix::coverage"
     },
@@ -234,13 +364,15 @@
       "materialObligations": 164,
       "obligations": 164,
       "openOriginExempt": 0,
+      "ownedMaterial": 0,
       "packetByteLimit": 786432,
-      "packetBytes": 472344,
-      "packetDigest": "ebc59d93c2480c48c5cf36fb9d768e81e85eb26358b4afde9ce1417499d07450",
+      "packetBytes": 42785,
+      "packetDigest": "05b804f2816cacda161812594c5be357900a16c1c7ae517346cddde1a9dcd89e",
       "packetLimitations": [],
       "reachableMaterial": 164,
-      "renderedEvidenceIds": 173,
+      "renderedEvidenceIds": 0,
       "renderedTwiceIdentical": true,
+      "stubObligations": 164,
       "topics": 1,
       "unitId": "overview-engineering::leaf::coverage"
     },
@@ -250,15 +382,17 @@
       "materialObligations": 847,
       "obligations": 905,
       "openOriginExempt": 0,
+      "ownedMaterial": 847,
       "packetByteLimit": 786432,
-      "packetBytes": 1992116,
-      "packetDigest": "83657d19d7fccfc2ae3de4b92d90d91721e9e243e64ff4dffbe1ee0aae57a547",
+      "packetBytes": 1993317,
+      "packetDigest": "5f68b58134d8a521cf2e84142bc835f0f70d3dca5d9773ed7de9d42d94904601",
       "packetLimitations": [
-        "The packet for unit \"overview-engineering::leaf::feature\" renders to 1991589 bytes, over the declared bound of 786432 (1205157 bytes over). NOTHING has been dropped or shortened: all 2 topic(s), 905 obligation row(s) and 933 evidence record(s) are present in full. The offending unit's topics are: feature:28bd6c37c830540a, feature:ba5c5ed978e23ca3. Give this unit fewer topics, or raise the bound deliberately — semantic splitting by budget is the R5 slice, and truncation is not an option here."
+        "The packet for unit \"overview-engineering::leaf::feature\" renders to 1992731 bytes, over the declared bound of 786432 (1206299 bytes over). NOTHING has been dropped or shortened: all 2 topic(s), 905 obligation row(s) rendered in full, 0 stub row(s) for obligations another unit owns and 933 evidence record(s) are present. The offending unit's topics are: feature:28bd6c37c830540a, feature:ba5c5ed978e23ca3. Give this unit fewer topics, or raise the bound deliberately — semantic splitting by budget is the R5b slice, and truncation is not an option here."
       ],
       "reachableMaterial": 847,
       "renderedEvidenceIds": 933,
       "renderedTwiceIdentical": true,
+      "stubObligations": 0,
       "topics": 2,
       "unitId": "overview-engineering::leaf::feature"
     },
@@ -268,15 +402,15 @@
       "materialObligations": 847,
       "obligations": 847,
       "openOriginExempt": 0,
+      "ownedMaterial": 0,
       "packetByteLimit": 786432,
-      "packetBytes": 1597055,
-      "packetDigest": "63e8d4a91cda473f4f749bc363e5654dede3e89f2b5ef93cdb91fd7de469f877",
-      "packetLimitations": [
-        "The packet for unit \"overview-engineering::leaf::work-item-dimension\" renders to 1596417 bytes, over the declared bound of 786432 (809985 bytes over). NOTHING has been dropped or shortened: all 4 topic(s), 847 obligation row(s) and 833 evidence record(s) are present in full. The offending unit's topics are: work-item-dimension:34fcd3cb942604c7, work-item-dimension:58232f9feb524ed6, work-item-dimension:678265653ee48bdd, work-item-dimension:a8d8ef527dcc6649. Give this unit fewer topics, or raise the bound deliberately — semantic splitting by budget is the R5 slice, and truncation is not an option here."
-      ],
+      "packetBytes": 197052,
+      "packetDigest": "19e880afdea8bb9fa3f076c5f4dda4bb576ecab8e796ce33edf15d4c19a7be7b",
+      "packetLimitations": [],
       "reachableMaterial": 847,
-      "renderedEvidenceIds": 833,
+      "renderedEvidenceIds": 0,
       "renderedTwiceIdentical": true,
+      "stubObligations": 847,
       "topics": 4,
       "unitId": "overview-engineering::leaf::work-item-dimension"
     },
@@ -286,13 +420,15 @@
       "materialObligations": 0,
       "obligations": 2,
       "openOriginExempt": 0,
+      "ownedMaterial": 0,
       "packetByteLimit": 786432,
-      "packetBytes": 181596,
-      "packetDigest": "418d9d1c79db45a951a5bfe06d622bee2c7e0535399f1c69c91aee5d0b12f097",
+      "packetBytes": 182730,
+      "packetDigest": "997af453735880d9461339ccbfde6de751fbb229f993c441aa885ac07ec5f405",
       "packetLimitations": [],
       "reachableMaterial": 0,
       "renderedEvidenceIds": 2,
       "renderedTwiceIdentical": true,
+      "stubObligations": 0,
       "topics": 55,
       "unitId": "overview-product::appendix::coverage"
     },
@@ -302,13 +438,15 @@
       "materialObligations": 164,
       "obligations": 164,
       "openOriginExempt": 0,
+      "ownedMaterial": 0,
       "packetByteLimit": 786432,
-      "packetBytes": 472331,
-      "packetDigest": "2809d12f31c6c09b6a0815db2c861297b1a5687be2cf88b04f737769173986f2",
+      "packetBytes": 42108,
+      "packetDigest": "a86501bb20e01a3075e09bff6d01b70041b32952392d376215341aea75ec8c4e",
       "packetLimitations": [],
       "reachableMaterial": 164,
-      "renderedEvidenceIds": 173,
+      "renderedEvidenceIds": 0,
       "renderedTwiceIdentical": true,
+      "stubObligations": 164,
       "topics": 1,
       "unitId": "overview-product::leaf::coverage"
     },
@@ -318,15 +456,17 @@
       "materialObligations": 847,
       "obligations": 905,
       "openOriginExempt": 0,
+      "ownedMaterial": 847,
       "packetByteLimit": 786432,
-      "packetBytes": 1992099,
-      "packetDigest": "e4b8e8b5dce0c36ef68a13617450044f3ac6532a7429e9e5aba20dcc99898935",
+      "packetBytes": 1993296,
+      "packetDigest": "c2091d9c9533dc8c217500bb35c3b93dd9f773c389ba16a1706da718d5f7622d",
       "packetLimitations": [
-        "The packet for unit \"overview-product::leaf::feature\" renders to 1991576 bytes, over the declared bound of 786432 (1205144 bytes over). NOTHING has been dropped or shortened: all 2 topic(s), 905 obligation row(s) and 933 evidence record(s) are present in full. The offending unit's topics are: feature:28bd6c37c830540a, feature:ba5c5ed978e23ca3. Give this unit fewer topics, or raise the bound deliberately — semantic splitting by budget is the R5 slice, and truncation is not an option here."
+        "The packet for unit \"overview-product::leaf::feature\" renders to 1992714 bytes, over the declared bound of 786432 (1206282 bytes over). NOTHING has been dropped or shortened: all 2 topic(s), 905 obligation row(s) rendered in full, 0 stub row(s) for obligations another unit owns and 933 evidence record(s) are present. The offending unit's topics are: feature:28bd6c37c830540a, feature:ba5c5ed978e23ca3. Give this unit fewer topics, or raise the bound deliberately — semantic splitting by budget is the R5b slice, and truncation is not an option here."
       ],
       "reachableMaterial": 847,
       "renderedEvidenceIds": 933,
       "renderedTwiceIdentical": true,
+      "stubObligations": 0,
       "topics": 2,
       "unitId": "overview-product::leaf::feature"
     },
@@ -336,15 +476,15 @@
       "materialObligations": 847,
       "obligations": 847,
       "openOriginExempt": 0,
+      "ownedMaterial": 0,
       "packetByteLimit": 786432,
-      "packetBytes": 1597038,
-      "packetDigest": "41569e01c81439ede7c589a3ab6d17bd2ec32218b244caa77c712443305556b9",
-      "packetLimitations": [
-        "The packet for unit \"overview-product::leaf::work-item-dimension\" renders to 1596404 bytes, over the declared bound of 786432 (809972 bytes over). NOTHING has been dropped or shortened: all 4 topic(s), 847 obligation row(s) and 833 evidence record(s) are present in full. The offending unit's topics are: work-item-dimension:34fcd3cb942604c7, work-item-dimension:58232f9feb524ed6, work-item-dimension:678265653ee48bdd, work-item-dimension:a8d8ef527dcc6649. Give this unit fewer topics, or raise the bound deliberately — semantic splitting by budget is the R5 slice, and truncation is not an option here."
-      ],
+      "packetBytes": 193631,
+      "packetDigest": "2e239bdc87bc49e38bb1bad2a618b80280e8be5a55c5ee6bf060381a4832f1aa",
+      "packetLimitations": [],
       "reachableMaterial": 847,
-      "renderedEvidenceIds": 833,
+      "renderedEvidenceIds": 0,
       "renderedTwiceIdentical": true,
+      "stubObligations": 847,
       "topics": 4,
       "unitId": "overview-product::leaf::work-item-dimension"
     }

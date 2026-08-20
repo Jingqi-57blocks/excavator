@@ -23,6 +23,7 @@ import type { EvidenceItem, RunManifest } from "../base/types.ts";
 import { readJson } from "../base/util.ts";
 import { readEvidenceCatalog } from "../investigation/evidence-store.ts";
 import type { PlanCatalogUnit } from "./plan-artifacts.ts";
+import { documentOwnership } from "./plan-obligation-conservation.ts";
 import type { PacketOverBudgetMode } from "./planner-packet.ts";
 import { REPORT_POLICY_REGISTRY } from "./report-policy-registry.ts";
 import { collectedUnitsFor, readUnitLedger } from "./unit-ledger.ts";
@@ -79,6 +80,9 @@ export async function loadUnitPacketSource(runDirInput: string, options: UnitPac
       registry: REPORT_POLICY_REGISTRY,
       unitId: unit.unitId,
       dossier,
+      // The ownership the grounding audit will use, from the view's single derivation: the author must be handed
+      // the same owner map the gate reads, or the packet's stubs and the audit's exemptions would be two answers.
+      ownership: documentOwnership(view.ownership, unit.documentId),
       reach,
       byteLimit: options.byteLimit ?? unitInputBound(view.planCatalog, unit),
       overBudget: options.overBudget

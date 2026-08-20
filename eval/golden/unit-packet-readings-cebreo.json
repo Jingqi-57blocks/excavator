@@ -60,8 +60,28 @@
     ],
     "waivedObligations": []
   },
+  "obligationsOwedByMoreThanOneUnit": 0,
   "obligationSummary": "0 material obligation(s): 0 in units, 0 waived (cannot-determine=0, not-applicable=0, omitted-for-audience=0), 0 claimed but unplaced, 0 undispositioned",
   "openOriginExemptObligations": [],
+  "ownerEvidenceRequired": 0,
+  "ownership": [
+    {
+      "documentId": "overview-product",
+      "owedByMoreThanOneUnit": 0,
+      "owedByUnit": [
+        {
+          "owed": 0,
+          "unitId": "overview-product::appendix::coverage"
+        },
+        {
+          "owed": 0,
+          "unitId": "overview-product::synthesis::document"
+        }
+      ],
+      "reachedObligations": 0,
+      "unownedObligationIds": []
+    }
+  ],
   "planCatalogDigest": "1b4bd3ecc8884f64ec073fca17cf29314345c7f37f699708dfed92344b7a07fd",
   "readPaths": [
     "context/boundary-functions.json",
@@ -83,13 +103,15 @@
       "materialObligations": 0,
       "obligations": 1,
       "openOriginExempt": 0,
+      "ownedMaterial": 0,
       "packetByteLimit": 786432,
-      "packetBytes": 22457,
-      "packetDigest": "d2564f4f7a090829ab2cfccf102efc75834369e5d92695a30fdca06381258b2e",
+      "packetBytes": 23589,
+      "packetDigest": "32c2ff503c8ba111fd66881c30d6a2076e1f1d0ebf507a21ce4602a1db27cfea",
       "packetLimitations": [],
       "reachableMaterial": 0,
       "renderedEvidenceIds": 3,
       "renderedTwiceIdentical": true,
+      "stubObligations": 0,
       "topics": 2,
       "unitId": "overview-product::appendix::coverage"
     }

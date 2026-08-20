@@ -114,6 +114,156 @@
   },
   "obligationSummary": "847 material obligation(s): 847 in units, 0 waived (cannot-determine=0, not-applicable=0, omitted-for-audience=0), 0 claimed but unplaced, 0 undispositioned",
   "overallVerdict": "complete: all 7 material topic(s) carry a disposition",
+  "ownership": [
+    {
+      "documentId": "feature-晋升管理-01e5065d19-engineering",
+      "ownedByUnit": [
+        {
+          "kind": "appendix",
+          "owned": 0,
+          "role": "owning",
+          "unitId": "feature-晋升管理-01e5065d19-engineering::appendix::coverage"
+        },
+        {
+          "kind": "leaf",
+          "owned": 0,
+          "role": "owning",
+          "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::coverage"
+        },
+        {
+          "kind": "leaf",
+          "owned": 847,
+          "role": "owning",
+          "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature"
+        },
+        {
+          "kind": "leaf",
+          "owned": 0,
+          "role": "owning",
+          "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::work-item-dimension"
+        },
+        {
+          "kind": "synthesis",
+          "owned": 0,
+          "role": "topic-free",
+          "unitId": "feature-晋升管理-01e5065d19-engineering::synthesis::document"
+        }
+      ],
+      "reachedObligations": 847,
+      "unownedObligationIds": []
+    },
+    {
+      "documentId": "feature-请假管理-8c2d685d81-product",
+      "ownedByUnit": [
+        {
+          "kind": "appendix",
+          "owned": 0,
+          "role": "owning",
+          "unitId": "feature-请假管理-8c2d685d81-product::appendix::coverage"
+        },
+        {
+          "kind": "leaf",
+          "owned": 0,
+          "role": "owning",
+          "unitId": "feature-请假管理-8c2d685d81-product::leaf::coverage"
+        },
+        {
+          "kind": "leaf",
+          "owned": 847,
+          "role": "owning",
+          "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature"
+        },
+        {
+          "kind": "leaf",
+          "owned": 0,
+          "role": "owning",
+          "unitId": "feature-请假管理-8c2d685d81-product::leaf::work-item-dimension"
+        },
+        {
+          "kind": "synthesis",
+          "owned": 0,
+          "role": "topic-free",
+          "unitId": "feature-请假管理-8c2d685d81-product::synthesis::document"
+        }
+      ],
+      "reachedObligations": 847,
+      "unownedObligationIds": []
+    },
+    {
+      "documentId": "overview-engineering",
+      "ownedByUnit": [
+        {
+          "kind": "appendix",
+          "owned": 0,
+          "role": "owning",
+          "unitId": "overview-engineering::appendix::coverage"
+        },
+        {
+          "kind": "leaf",
+          "owned": 0,
+          "role": "owning",
+          "unitId": "overview-engineering::leaf::coverage"
+        },
+        {
+          "kind": "leaf",
+          "owned": 847,
+          "role": "owning",
+          "unitId": "overview-engineering::leaf::feature"
+        },
+        {
+          "kind": "leaf",
+          "owned": 0,
+          "role": "owning",
+          "unitId": "overview-engineering::leaf::work-item-dimension"
+        },
+        {
+          "kind": "synthesis",
+          "owned": 0,
+          "role": "topic-free",
+          "unitId": "overview-engineering::synthesis::document"
+        }
+      ],
+      "reachedObligations": 847,
+      "unownedObligationIds": []
+    },
+    {
+      "documentId": "overview-product",
+      "ownedByUnit": [
+        {
+          "kind": "appendix",
+          "owned": 0,
+          "role": "owning",
+          "unitId": "overview-product::appendix::coverage"
+        },
+        {
+          "kind": "leaf",
+          "owned": 0,
+          "role": "owning",
+          "unitId": "overview-product::leaf::coverage"
+        },
+        {
+          "kind": "leaf",
+          "owned": 847,
+          "role": "owning",
+          "unitId": "overview-product::leaf::feature"
+        },
+        {
+          "kind": "leaf",
+          "owned": 0,
+          "role": "owning",
+          "unitId": "overview-product::leaf::work-item-dimension"
+        },
+        {
+          "kind": "synthesis",
+          "owned": 0,
+          "role": "topic-free",
+          "unitId": "overview-product::synthesis::document"
+        }
+      ],
+      "reachedObligations": 847,
+      "unownedObligationIds": []
+    }
+  ],
   "packetByteLimit": 524288,
   "packetBytes": 394778,
   "packetLimitations": [],

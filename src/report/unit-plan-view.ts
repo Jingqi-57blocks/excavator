@@ -27,7 +27,13 @@
 import type { InvestigationWorkItem, RunManifest } from "../base/types.ts";
 import { assertValidatedPlanForAuthoring } from "./plan-gate.ts";
 import { planCatalogDigest, type PlanCatalogArtifact, type PlanCatalogUnit, type PlanDagArtifact } from "./plan-artifacts.ts";
-import { materialObligationTopics, type MaterialObligationTopics } from "./plan-obligation-conservation.ts";
+import {
+  deriveObligationOwnership,
+  materialObligationTopics,
+  type MaterialObligationTopics,
+  type ObligationOwnershipIndex,
+  type OwnershipUnit
+} from "./plan-obligation-conservation.ts";
 import type { ReportRequestsArtifact } from "./report-requests-artifact.ts";
 import type { TopicCandidate } from "./topic-candidate.ts";
 import type { TopicCatalogArtifact } from "./topic-catalog.ts";
@@ -54,6 +60,14 @@ export interface UnitPlanView {
   readonly workItems: ReadonlyMap<string, InvestigationWorkItem>;
   /** The shared material-obligation index: the same rows gate 1b's plan accounting is computed from. */
   readonly obligations: readonly MaterialObligationTopics[];
+  /**
+   * R5a's ownership, derived once per load from the same catalog the index above comes from.
+   *
+   * Carried on the view rather than derived per unit so the packet renderer, the grounding audit and any reading
+   * over this run read ONE ownership: three derivations of "who owes this obligation" would be three denominators,
+   * which is what gate 1b forbids one level up.
+   */
+  readonly ownership: ObligationOwnershipIndex;
   /** The evidence ids the epoch sealed. The denominator of "how far does the obligation ledger reach". */
   readonly frozenEvidenceIds: readonly string[];
   /** Every run-relative path the catalog projection opened, sorted. A caller republishes it, never re-derives it. */
@@ -82,12 +96,30 @@ export async function loadUnitPlanView(runDir: string): Promise<UnitPlanView> {
     topicsById: new Map(gate.catalog.topics.map((topic) => [topic.topicId, topic])),
     workItems: new Map(gate.source.workItems.map((item) => [item.id, item])),
     obligations: materialObligationTopics(gate.catalog),
+    ownership: deriveObligationOwnership(gate.catalog, ownershipUnitsOfPlanCatalog(units)),
     frozenEvidenceIds: gate.source.knowledge.evidenceIds ?? [],
     sourceReadPaths: gate.source.readPaths,
     units,
     byId: new Map(units.map((unit) => [unit.unitId, unit])),
     collectionOrder
   };
+}
+
+/**
+ * A recorded plan's units, as ownership sees them.
+ *
+ * It lives here rather than in `plan-obligation-conservation.ts` because that file may not import
+ * `plan-artifacts.ts`: the two already point the other way, and `tests/layer-order.test.ts` refuses the cycle
+ * (measured — it named `plan-artifacts -> plan-obligation-conservation -> plan-validation` the moment the import
+ * was added). The projection is field selection, not a second derivation; the derivation stays in one file.
+ */
+function ownershipUnitsOfPlanCatalog(units: readonly PlanCatalogUnit[]): readonly OwnershipUnit[] {
+  return units.map((unit) => ({
+    unitId: unit.unitId,
+    documentId: unit.documentId,
+    kind: unit.kind,
+    topicIds: unit.topics.map((topic) => topic.topicId)
+  }));
 }
 
 /** The epoch a unit is drafted from. Absent is a named refusal, never a draft that skips the comparison. */

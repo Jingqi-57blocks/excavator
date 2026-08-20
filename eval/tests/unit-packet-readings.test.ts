@@ -1,13 +1,18 @@
-// Unit packet readings of the two R0 baselines (57B-434 R4b).
+// Unit packet readings of the two R0 baselines (57B-434 R4b, narrowed to the owner by R5a).
 //
 // `eval/golden/unit-packet-readings-{wcp,cebreo}.json` are produced by
 // `npm run eval -- unit-packet-readings --run <dir> --out <file>` against the archival run directories (which are
 // NOT in this repository). They are records, not assertions about a run this suite can re-derive — so what is
 // asserted here is their INTERNAL consistency plus the one reading this slice exists to produce:
 //
-//   * 57B-453 IS CLOSED ON THE PACKET SIDE: every material obligation in units has every one of its own evidence
-//     ids in the packet of a unit that names one of its binding topics. `evidenceAbsent` is 0. The measurement it
-//     replaces, on this same baseline and its per-document packets, was 179 of 310 (60.1%) and 409 of 564 (74.5%);
+//   * 57B-453 IS CLOSED ON THE PACKET SIDE, now under R5a's STRICTER reading: every material obligation in units
+//     has every one of its own evidence ids in the packet of the unit that OWNS it — not merely in one of the three
+//     units that could reach it. `evidenceAbsent` is 0. The measurement it replaces, on this same baseline and its
+//     per-document packets, was 179 of 310 (60.1%) and 409 of 564 (74.5%);
+//   * R5a's ownership reading: no material obligation is OWED by more than one unit of one document. Before this
+//     slice every wcp document owed the same 847 obligations three times over (847 through its feature leaf, 847
+//     through its work-item-dimension leaf, 164 through its coverage leaf) and rendered the evidence in full each
+//     time — which is what put one document's four packets at 4,243,714 bytes against a 3,145,728-byte budget;
 //   * nothing is dropped to fit: a packet is either inside its declared bound or records the overrun, and the two
 //     are mutually exclusive rather than "usually" one of them;
 //   * the mechanism-A residue is counted, not silent: `bound + unbound == frozen` for the evidence ledger, with the
@@ -57,6 +62,9 @@ test("every checked-in unit packet reading is internally consistent", async () =
       assert.ok(unit.materialObligations <= unit.obligations, `${target}: ${unit.unitId} material obligations are a subset`);
       assert.ok(unit.openOriginExempt <= unit.reachableMaterial, `${target}: ${unit.unitId} exemptions are a subset of the reach`);
       assert.equal(unit.kind === "synthesis", false, `${target}: a synthesis packet cannot be rendered from an archival run`);
+      // R5a: a unit's reach splits into what it owns and what it stubs, with nothing unaccounted for.
+      assert.equal(unit.ownedMaterial + unit.stubObligations, unit.reachableMaterial,
+        `${target}: ${unit.unitId} must own or stub every material obligation it reaches`);
     }
 
     // Gate 1b's four buckets, READ from the plan and conserving.
@@ -65,9 +73,21 @@ test("every checked-in unit packet reading is internally consistent", async () =
       obligations.materialObligations, `${target}: the obligation buckets must conserve`);
     assert.equal(row.inUnitsObligations, obligations.inUnits, `${target}: the closure reading's denominator IS the plan's in-units bucket`);
 
-    // The 57B-453 closure reading.
+    // The 57B-453 closure reading, owner-scoped.
     assert.equal(row.evidenceAbsent, row.absentBindings.length, `${target}: every absent binding is listed by id`);
-    assert.equal(row.evidenceAbsent, 0, `${target}: every in-unit material obligation's own evidence must reach a packet that names it`);
+    assert.equal(row.evidenceAbsent, 0, `${target}: every in-unit material obligation's own evidence must reach the packet of the unit that OWNS it`);
+    assert.ok(row.ownerEvidenceRequired >= row.evidenceRequired,
+      `${target}: the owner-scoped denominator counts one requirement per document that must ground the obligation, so it is never smaller`);
+
+    // R5a's ownership reading: nothing is owed twice, and every unit has a row.
+    assert.equal(row.obligationsOwedByMoreThanOneUnit, row.ownership.reduce((total, entry) => total + entry.owedByMoreThanOneUnit, 0),
+      `${target}: the run-level duplication count is the sum of the per-document ones`);
+    assert.equal(row.obligationsOwedByMoreThanOneUnit, 0, `${target}: no material obligation may be owed by two units of one document`);
+    for (const entry of row.ownership) {
+      assert.equal(entry.owedByUnit.reduce((total, unit) => total + unit.owed, 0), entry.reachedObligations,
+        `${target}: ${entry.documentId} owes every material obligation it reaches exactly once`);
+      assert.deepEqual([...entry.unownedObligationIds], [], `${target}: ${entry.documentId} leaves no obligation owned by nobody`);
+    }
 
     // Mechanism A: the residue is counted, and it conserves against the frozen set.
     assert.equal(row.boundEvidenceIds + row.unboundEvidenceIds, row.frozenEvidenceIds,
@@ -87,13 +107,34 @@ test("every checked-in unit packet reading is internally consistent", async () =
   }
 });
 
-test("the wcp reading closes 57B-453 on the packet side: 0 of 895 required evidence bindings absent", async () => {
+test("the wcp reading closes 57B-453 on the packet side: 0 of 3,580 owner-scoped evidence bindings absent", async () => {
   const row = await readings(READINGS[0]!.path);
   assert.equal(row.obligations.materialObligations, 847);
   assert.equal(row.inUnitsObligations, 847);
+  // 895 distinct (obligation, evidence) pairs, and 3,580 of them once per document that must ground the obligation:
+  // four documents reach all 847, so the author-facing requirement is four times the run-level one.
   assert.equal(row.evidenceRequired, 895);
+  assert.equal(row.ownerEvidenceRequired, 3580);
   assert.equal(row.evidenceAbsent, 0);
   assert.deepEqual(row.absentBindings, []);
+
+  // R5a: one owner per obligation per document. Before this slice each document owed all 847 through its feature
+  // leaf AND its work-item-dimension leaf, and 164 of them through its coverage leaf as well — 847 obligations owed
+  // by more than one unit, per document, 3,388 across the four.
+  assert.equal(row.obligationsOwedByMoreThanOneUnit, 0);
+  assert.equal(row.ownership.length, 4);
+  for (const entry of row.ownership) {
+    assert.equal(entry.reachedObligations, 847, entry.documentId);
+    assert.deepEqual(entry.owedByUnit.filter((unit) => unit.owed > 0).map((unit) => [unit.unitId, unit.owed]),
+      [[`${entry.documentId}::leaf::feature`, 847]], entry.documentId);
+  }
+  // The other two leaves still SEE all of it and say whose it is: uncapped stub rows, no evidence body.
+  const stubs = new Map(row.rendered.map((unit) => [unit.unitId, unit.stubObligations]));
+  for (const entry of row.ownership) {
+    assert.equal(stubs.get(`${entry.documentId}::leaf::feature`), 0);
+    assert.equal(stubs.get(`${entry.documentId}::leaf::work-item-dimension`), 847);
+    assert.equal(stubs.get(`${entry.documentId}::leaf::coverage`), 164);
+  }
 
   // The open-origin bucket: latent on this baseline, and visible as a zero rather than absent.
   assert.deepEqual(row.openOriginExemptObligations, []);
@@ -109,13 +150,26 @@ test("the wcp reading closes 57B-453 on the packet side: 0 of 895 required evide
     "overview-product::synthesis::document"
   ]);
 
-  // The measured cost of carrying the whole binding: the two biggest leaf kinds are over the plan's per-unit input
-  // allowance, and say so instead of dropping a row. This is the number R5's budget system has to answer for — the
-  // plan validated `unitInputBytes` over topic ROWS, which does not include the evidence an author actually reads.
+  // The measured cost of carrying the whole binding, after deduplication: only the four FEATURE leaves are still
+  // over the plan's per-unit input allowance, down from eight (the four work-item-dimension leaves fell back inside
+  // their bound once they stopped re-rendering the owner's evidence). That residual is the number R5b's budget
+  // system has to answer for — the plan validated `unitInputBytes` over topic ROWS, which does not include the
+  // evidence an author actually reads — and it is a per-unit overrun, not a document-level one any more.
   const overBudget = row.rendered.filter((unit) => unit.packetLimitations.length === 1);
-  assert.equal(overBudget.length, 8);
-  for (const unit of overBudget) assert.ok(unit.unitId.endsWith("::leaf::feature") || unit.unitId.endsWith("::leaf::work-item-dimension"), unit.unitId);
+  assert.equal(overBudget.length, 4);
+  for (const unit of overBudget) assert.ok(unit.unitId.endsWith("::leaf::feature"), unit.unitId);
   for (const unit of row.rendered) assert.equal(unit.packetByteLimit, 786_432);
+
+  // And the document-level sum, which is what made ownership the prerequisite of R5b's budget truth: the four
+  // packets of one document were 4,243,714 bytes against `standard`'s 3,145,728-byte document total, and splitting
+  // cannot change a sum. Deduplicated, every document is inside it.
+  const perDocument = new Map<string, number>();
+  for (const unit of row.rendered) perDocument.set(unit.documentId, (perDocument.get(unit.documentId) ?? 0) + unit.packetBytes);
+  assert.equal(perDocument.size, 4);
+  for (const [documentId, bytes] of perDocument) {
+    assert.ok(bytes < 3_145_728, `${documentId}: ${bytes} bytes of packets must fit the standard document total`);
+    assert.ok(bytes > 2_000_000, `${documentId}: ${bytes} bytes — a suspiciously small total would mean rows went missing`);
+  }
 
   // Mechanism A on this baseline: 931 of 1,884 frozen records are bound by no work item — including the manifest,
   // README, scope and provider rows a coverage section is required to report.
@@ -142,7 +196,19 @@ test("the cebreo reading is the zero-material shape: no leaf, an appendix that r
   const appendix = row.rendered[0]!;
   assert.equal(appendix.kind, "appendix");
   assert.equal(appendix.reachableMaterial, 0, "nothing material is reachable, which is `vacuous` and not `complete`");
+  assert.equal(appendix.ownedMaterial, 0);
+  assert.equal(appendix.stubObligations, 0, "there is nothing to stub either: ownership is vacuous on the empty set");
   assert.deepEqual(appendix.packetLimitations, [], "the zero-material appendix fits its bound with room to spare");
+  assert.deepEqual(row.ownership, [{
+    documentId: "overview-product",
+    reachedObligations: 0,
+    owedByUnit: [
+      { unitId: "overview-product::appendix::coverage", owed: 0 },
+      { unitId: "overview-product::synthesis::document", owed: 0 }
+    ],
+    owedByMoreThanOneUnit: 0,
+    unownedObligationIds: []
+  }]);
 
   // The 27 records 57B-453 measured as never reaching a packet. They are now enumerated by the deterministic tail.
   assert.equal(row.frozenEvidenceIds, 62);

@@ -20,6 +20,16 @@
 //  4. Determinism is recorded per unit (`renderedTwiceIdentical`), because a packet that differs between two
 //     renderings of the same bytes would make every other number here unrepeatable.
 //
+// R5a adds two readings on top, and both are measured rather than asserted:
+//
+//  5. `obligationsOwedByMoreThanOneUnit` per document — how many material obligations more than one unit of one
+//     document OWES. It is counted from the per-unit audits' own `owed` lists, so it cannot come out zero merely
+//     because the ownership derivation says each obligation has one owner. Before ownership it was 847 per wcp
+//     document (1,858 owed instances against 847 distinct), and that duplication is what put the four packets of one
+//     document at 4,243,714 bytes against a 3,145,728-byte document budget.
+//  6. `stubObligations` per unit — the material obligations a unit renders as a stub because another unit owns them.
+//     Stubs are uncapped and exhaustive; a stub is not a truncation, so the number is reported next to the bytes.
+//
 // Zero model calls. Any input it cannot project is a named throw.
 
 import { join } from "node:path";
@@ -30,7 +40,7 @@ import { featureKeyOf } from "../src/report/authoring-packet.ts";
 import { buildFixturePlan } from "../src/report/fixture-plan.ts";
 import { PLAN_BUDGET_TABLE } from "../src/report/plan-budget.ts";
 import { buildPlanArtifacts, planCatalogDigest, type PlanCatalogUnit } from "../src/report/plan-artifacts.ts";
-import { materialObligationTopics, summariseObligationAccounting, type PlanObligationAccounting } from "../src/report/plan-obligation-conservation.ts";
+import { documentOwnership, materialObligationTopics, summariseObligationAccounting, type ObligationOwnershipIndex, type PlanObligationAccounting } from "../src/report/plan-obligation-conservation.ts";
 import { AUTHORING_UNIT_KINDS } from "../src/report/plan-proposal.ts";
 import { validatePlan } from "../src/report/plan-validation.ts";
 import { REPORT_POLICY_REGISTRY } from "../src/report/report-policy-registry.ts";
@@ -53,6 +63,9 @@ export interface UnitPacketReadingRow {
   readonly reachableMaterial: number;
   readonly openOriginExempt: number;
   readonly renderedEvidenceIds: number;
+  /** Material obligations this unit OWNS, and the ones it renders as a stub because another unit owns them. */
+  readonly ownedMaterial: number;
+  readonly stubObligations: number;
   readonly packetBytes: number;
   readonly packetByteLimit: number;
   /** Empty when the packet fits; one recorded overrun when it does not. Never a dropped row. */
@@ -85,9 +98,17 @@ export interface UnitPacketReadings {
   readonly obligationSummary: string;
   /** THE 57B-453 CLOSURE READING. */
   readonly inUnitsObligations: number;
-  /** Distinct (obligation, evidence id) pairs the in-unit obligations require, from `workitems.json` directly. */
+  /**
+   * Distinct (obligation, evidence id) pairs the in-unit obligations require, from `workitems.json` directly.
+   *
+   * Kept at run granularity so it stays comparable across R4b and R5a. It is NOT the number an author answers for:
+   * a document that reaches an obligation has to ground it, so the author-facing denominator is the triple count
+   * below — one per (owner unit, obligation, evidence id).
+   */
   readonly evidenceRequired: number;
-  /** Pairs whose evidence appears in NO packet of a unit naming a binding topic. The R0 numbers were 179 and 409. */
+  /** (owner unit, obligation, evidence id) triples: what the owning units of every document must carry between them. */
+  readonly ownerEvidenceRequired: number;
+  /** Triples whose evidence is absent from the OWNER unit's packet. The R0 numbers were 179 and 409 of 310/564. */
   readonly evidenceAbsent: number;
   /** Every absent pair, by id. Never capped: a cap on a coverage residue is where the next silent loss hides. */
   readonly absentBindings: readonly AbsentEvidenceBinding[];
@@ -98,6 +119,16 @@ export interface UnitPacketReadings {
   readonly unboundEvidenceByKind: readonly { readonly kind: string; readonly records: number }[];
   /** Open-origin material obligations across the whole plan, by id. wcp reads 0; non-zero is visible. */
   readonly openOriginExemptObligations: readonly string[];
+  /** R5a's ownership reading, one row per document. `owedByMoreThanOneUnit` is the acceptance number. */
+  readonly ownership: readonly {
+    readonly documentId: string;
+    readonly reachedObligations: number;
+    readonly owedByUnit: readonly { readonly unitId: string; readonly owed: number }[];
+    readonly owedByMoreThanOneUnit: number;
+    readonly unownedObligationIds: readonly string[];
+  }[];
+  /** The sum of the row above across documents. Zero is the point; it was 3,388 on wcp before ownership. */
+  readonly obligationsOwedByMoreThanOneUnit: number;
   /** The facets the catalog reports as empty, with the state and reason the appendix packet prints. */
   readonly namedEmptyFacets: readonly { readonly facet: string; readonly state: string; readonly reason: string }[];
   readonly readPaths: readonly string[];
@@ -137,10 +168,21 @@ export async function extractUnitPacketReadings(runDir: string): Promise<UnitPac
   const notRenderable: { unitId: string; reason: string }[] = [];
   const packetsByUnit = new Map<string, UnitPacket>();
   const openOriginExempt = new Set<string>();
+  const ownedByUnit = new Map<string, Map<string, string[]>>();
 
   for (const unit of planCatalog.units) {
-    const grounding = auditUnitGrounding({ unit, obligations, workItems, claims: [] });
+    const ownership = documentOwnership(report.ownership, unit.documentId);
+    const grounding = auditUnitGrounding({ unit, obligations, ownership, workItems, claims: [] });
     for (const row of grounding.openOriginExempt) openOriginExempt.add(row.workItemId);
+    // Who OWES what, taken from the audit rather than from the ownership derivation: a reading read off the
+    // derivation would agree with it whatever the audit did.
+    let owedIn = ownedByUnit.get(unit.documentId);
+    if (!owedIn) ownedByUnit.set(unit.documentId, owedIn = new Map());
+    for (const workItemId of grounding.owed) {
+      const list = owedIn.get(workItemId);
+      if (list) list.push(unit.unitId);
+      else owedIn.set(workItemId, [unit.unitId]);
+    }
     if (unit.kind === "synthesis") {
       notRenderable.push({
         unitId: unit.unitId,
@@ -157,6 +199,7 @@ export async function extractUnitPacketReadings(runDir: string): Promise<UnitPac
       registry: REPORT_POLICY_REGISTRY,
       unitId: unit.unitId,
       dossier,
+      ownership,
       reach,
       byteLimit: unitInputBound(planCatalog, unit),
       // Recorded, not refused: a baseline reading that threw would report nothing at all, and what this projection
@@ -175,6 +218,8 @@ export async function extractUnitPacketReadings(runDir: string): Promise<UnitPac
       materialObligations: obligationCount(unit, topicsById, true),
       reachableMaterial: grounding.reachable.length,
       openOriginExempt: grounding.openOriginExempt.length,
+      ownedMaterial: grounding.owed.length + grounding.openOriginExempt.length,
+      stubObligations: packet.stubObligationIds.length,
       renderedEvidenceIds: packet.renderedEvidenceIds.length,
       packetBytes: packet.bytes,
       packetByteLimit: packet.byteLimit,
@@ -184,7 +229,19 @@ export async function extractUnitPacketReadings(runDir: string): Promise<UnitPac
     });
   }
 
-  const closure = closureReading(planCatalog.units, obligations, packetsByUnit, await ledgerItems(runDir));
+  const closure = closureReading(planCatalog.units, obligations, packetsByUnit, report.ownership, await ledgerItems(runDir));
+  const ownership = report.ownership.documents.map((document) => {
+    const owed = ownedByUnit.get(document.documentId) ?? new Map<string, string[]>();
+    const perUnit = new Map<string, number>();
+    for (const unitIds of owed.values()) for (const unitId of unitIds) perUnit.set(unitId, (perUnit.get(unitId) ?? 0) + 1);
+    return {
+      documentId: document.documentId,
+      reachedObligations: document.reachedObligations,
+      owedByUnit: document.ownedByUnit.map((row) => ({ unitId: row.unitId, owed: perUnit.get(row.unitId) ?? 0 })),
+      owedByMoreThanOneUnit: [...owed.values()].filter((unitIds) => unitIds.length > 1).length,
+      unownedObligationIds: document.unowned.map((row) => row.workItemId)
+    };
+  });
   return {
     version: UNIT_PACKET_READINGS_VERSION,
     runId: catalog.runId,
@@ -203,6 +260,8 @@ export async function extractUnitPacketReadings(runDir: string): Promise<UnitPac
     unboundEvidenceIds: reach.unbound.length,
     unboundEvidenceByKind: censusByKind(reach.unbound),
     openOriginExemptObligations: [...openOriginExempt].sort((a, b) => a.localeCompare(b)),
+    ownership,
+    obligationsOwedByMoreThanOneUnit: ownership.reduce((total, row) => total + row.owedByMoreThanOneUnit, 0),
     namedEmptyFacets: catalog.facets
       .filter((row) => row.outcome.state !== "populated")
       .map((row) => ({ facet: row.facet, state: row.outcome.state, reason: row.outcome.state === "populated" ? "" : row.outcome.reason })),
@@ -216,20 +275,28 @@ async function ledgerItems(runDir: string): Promise<InvestigationPlan["items"]> 
 }
 
 /**
- * The 57B-453 closure reading: every in-unit material obligation's OWN evidence, in a packet that names it.
+ * The 57B-453 closure reading: every in-unit material obligation's OWN evidence, in the packet of the unit that
+ * OWNS it.
  *
  * The requirement side is read from `workitems.json` itself, so this cannot be satisfied by the catalog and the
  * packet agreeing with each other: a denominator taken from the code under test agrees with it whatever it does.
+ *
+ * R5a NARROWS THE CARRIER SET FROM "any unit naming a binding topic" TO "the owner", which is a STRICTER reading,
+ * not a looser one: before, an obligation counted as answerable if any of the three units that could reach it
+ * happened to render the evidence; now the one unit that must ground it has to be the one carrying the bytes. An
+ * obligation with no owner in a document it reaches is a named throw, because such a plan cannot be recorded.
  */
 function closureReading(
   units: readonly PlanCatalogUnit[],
   obligations: readonly ReturnType<typeof materialObligationTopics>[number][],
   packetsByUnit: ReadonlyMap<string, UnitPacket>,
+  ownership: ObligationOwnershipIndex,
   items: InvestigationPlan["items"]
-): { inUnitsObligations: number; evidenceRequired: number; evidenceAbsent: number; absentBindings: readonly AbsentEvidenceBinding[] } {
+): { inUnitsObligations: number; evidenceRequired: number; ownerEvidenceRequired: number; evidenceAbsent: number; absentBindings: readonly AbsentEvidenceBinding[] } {
   const ledgerById = new Map(items.map((item) => [item.id, item]));
   const absent: AbsentEvidenceBinding[] = [];
   let required = 0;
+  let ownerRequired = 0;
   let inUnits = 0;
   for (const row of obligations) {
     const naming = units.filter((unit) => unit.topics.some((reference) => row.topicIds.includes(reference.topicId)));
@@ -237,17 +304,24 @@ function closureReading(
     inUnits += 1;
     const ledgerRow = ledgerById.get(row.workItemId);
     if (!ledgerRow) throw new Error(`material obligation ${JSON.stringify(row.workItemId)} has no row in workitems.json`);
+    const owners = [...new Set(naming.map((unit) => unit.documentId))].sort((a, b) => a.localeCompare(b)).map((documentId) => {
+      const owner = documentOwnership(ownership, documentId).ownerByObligation.get(row.workItemId);
+      if (!owner) throw new Error(`material obligation ${JSON.stringify(row.workItemId)} is reached by document ${JSON.stringify(documentId)} and owned by no unit of it`);
+      return owner.ownerUnitId;
+    });
     for (const evidenceId of ledgerRow.evidenceIds) {
       required += 1;
-      const carriers = naming.filter((unit) => packetsByUnit.get(unit.unitId)?.renderedEvidenceIds.includes(evidenceId));
-      if (carriers.length === 0) {
-        absent.push({ unitId: naming.map((unit) => unit.unitId).sort((a, b) => a.localeCompare(b))[0]!, workItemId: row.workItemId, evidenceId });
+      for (const ownerUnitId of owners) {
+        ownerRequired += 1;
+        if (packetsByUnit.get(ownerUnitId)?.renderedEvidenceIds.includes(evidenceId)) continue;
+        absent.push({ unitId: ownerUnitId, workItemId: row.workItemId, evidenceId });
       }
     }
   }
   return {
     inUnitsObligations: inUnits,
     evidenceRequired: required,
+    ownerEvidenceRequired: ownerRequired,
     evidenceAbsent: absent.length,
     absentBindings: absent
   };

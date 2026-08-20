@@ -18,6 +18,10 @@
 //  3. Verdicts are recorded as their three states, never as a boolean, and the obligation buckets are recorded
 //     with their id lists. A count with no list is a count nobody can check.
 //
+// R5a adds the ownership reading: per document, which unit owns each material obligation it reaches. On wcp it is
+// what turns "each of the four documents owes the same 847 obligations three times over" into "the feature leaf owns
+// 847 and the other two own 0", which is the deduplication the packet bytes then show.
+//
 // Zero model calls. Any input it cannot project is a named throw from the loader.
 
 import { join } from "node:path";
@@ -76,6 +80,18 @@ export interface PlanReadings {
   /** Gate 1b's reading. The denominator here is the OBLIGATION ledger's material bucket, not the topic count. */
   readonly obligations: PlanObligationAccounting;
   readonly obligationSummary: string;
+  /**
+   * R5a's ownership reading, per document: who owns each material obligation the document reaches.
+   *
+   * One row per unit, always, so a unit that owns nothing is a visible zero. `unownedObligationIds` is empty on any
+   * plan that validates — an obligation only referencing units reach is a named violation, not a bucket.
+   */
+  readonly ownership: readonly {
+    readonly documentId: string;
+    readonly reachedObligations: number;
+    readonly ownedByUnit: readonly { readonly unitId: string; readonly kind: string; readonly role: string; readonly owned: number }[];
+    readonly unownedObligationIds: readonly string[];
+  }[];
   /** The route facet's unobligated count, next to the definition that says what the word means. */
   readonly routeFacetUnobligated: number;
   readonly namedEmptyFacets: readonly { readonly facet: string; readonly state: string; readonly reason: string }[];
@@ -156,6 +172,12 @@ export async function extractPlanReadings(runDir: string): Promise<PlanReadings>
     materialTopics: catalog.materiality.material,
     obligations: report.obligations,
     obligationSummary: summariseObligationAccounting(report.obligations),
+    ownership: report.ownership.documents.map((document) => ({
+      documentId: document.documentId,
+      reachedObligations: document.reachedObligations,
+      ownedByUnit: document.ownedByUnit.map((row) => ({ unitId: row.unitId, kind: row.kind, role: row.role, owned: row.owned })),
+      unownedObligationIds: document.unowned.map((row) => row.workItemId)
+    })),
     routeFacetUnobligated: route ? route.materiality.unobligated : 0,
     namedEmptyFacets: catalog.facets
       .filter((row) => row.outcome.state !== "populated")

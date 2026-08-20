@@ -96,6 +96,27 @@
   },
   "obligationSummary": "0 material obligation(s): 0 in units, 0 waived (cannot-determine=0, not-applicable=0, omitted-for-audience=0), 0 claimed but unplaced, 0 undispositioned",
   "overallVerdict": "vacuous: the material-topic denominator is empty, so nothing was checked — this catalog holds 14 topic(s) of which 0 are material, 13 obligated-non-material and 1 unobligated, over 12 work item(s)",
+  "ownership": [
+    {
+      "documentId": "overview-product",
+      "ownedByUnit": [
+        {
+          "kind": "appendix",
+          "owned": 0,
+          "role": "owning",
+          "unitId": "overview-product::appendix::coverage"
+        },
+        {
+          "kind": "synthesis",
+          "owned": 0,
+          "role": "topic-free",
+          "unitId": "overview-product::synthesis::document"
+        }
+      ],
+      "reachedObligations": 0,
+      "unownedObligationIds": []
+    }
+  ],
   "packetByteLimit": 524288,
   "packetBytes": 9944,
   "packetLimitations": [],
