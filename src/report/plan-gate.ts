@@ -79,6 +79,15 @@ export async function assertValidatedPlanForAuthoring(runDir: string, manifest: 
   const source = await loadTopicCatalogSource(runDir, manifest);
   const catalog = buildTopicCatalog(source);
   if (stableJson(recordedCatalog) !== stableJson(catalog)) {
+    // TWO CAUSES, TWO MESSAGES, because only one of them is the operator's fault. A recorded catalog for a
+    // SUPERSEDED epoch is what a justified supplement plus a re-freeze legitimately produces, and its remedy is one
+    // command; a catalog that disagrees with the epoch it claims to project is a ledger somebody edited. Before the
+    // catalog read the manifest's epoch these were indistinguishable here (the re-derivation projected epoch 0 too,
+    // so the bytes matched and the superseded-plan refusal came later, from `assertPlanEpoch`). Now the
+    // re-derivation catches it first, and it must not tell a re-frozen run that its plan was tampered with.
+    if (recordedCatalog.knowledgeEpoch !== catalog.knowledgeEpoch) {
+      throw new Error(`${topicsPath(runDir)} records the Topic Catalog of knowledge epoch ${recordedCatalog.knowledgeEpoch}, but this run's manifest is at epoch ${catalog.knowledgeEpoch}; the plan was superseded by a re-freeze. Run \`excavator plan --run ${runDir} --fixture-plan\` (or \`--proposal <file>\`) to re-plan onto the current epoch.`);
+    }
     throw new Error(`${topicsPath(runDir)} is not what this run's frozen knowledge derives; the recorded Topic Catalog and the epoch disagree`);
   }
   const planCatalog = await readPlanCatalog(runDir, catalog);

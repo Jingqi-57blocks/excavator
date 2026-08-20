@@ -30,9 +30,8 @@ import { buildTopicCatalog, type TopicCatalogArtifact } from "../src/report/topi
 import { loadTopicCatalogSource } from "../src/report/topic-catalog-source.ts";
 import { collectUnits } from "../src/report/unit-collect.ts";
 import { draftUnit } from "../src/report/unit-draft.ts";
-import { loadUnitPlanView } from "../src/report/unit-plan-view.ts";
 import type { UnitAuthorship } from "../src/report/unit-provenance.ts";
-import { FIXTURE_DRAFT_AUTHORSHIP, plannedRun, unitDraftFor, type PlannedRun } from "./unit-fixture.ts";
+import { FIXTURE_DRAFT_AUTHORSHIP, manifestOf, planViewOf, plannedRun, unitDraftFor, type PlannedRun } from "./unit-fixture.ts";
 
 /** The author of every draft and every admission in these tests — the same one, so nothing measures an author change. */
 export const ADMISSION_AUTHORSHIP: UnitAuthorship = FIXTURE_DRAFT_AUTHORSHIP;
@@ -50,9 +49,9 @@ export async function admissionRun(): Promise<PlannedRun> {
   return recordPlan(run, "with-leaf", withExtraLeaf(FIRST_DOCUMENT));
 }
 
-/** Reload the plan view after anything that re-plans the run. */
+/** Reload the plan view after anything that re-plans the run, at the epoch the manifest selects NOW. */
 export async function reloadPlan(run: PlannedRun): Promise<PlannedRun> {
-  return { ...run, view: await loadUnitPlanView(run.runDir, run.manifest) };
+  return { ...run, manifest: await manifestOf(run.runDir), view: await planViewOf(run.runDir) };
 }
 
 /**
@@ -70,7 +69,7 @@ export async function reloadPlan(run: PlannedRun): Promise<PlannedRun> {
  * The missing piece (an explicit re-plan operation) is reported with the slice, not worked around in `src/`.
  */
 export async function recordPlan(run: PlannedRun, label: string, mutate: ProposalMutation): Promise<PlannedRun> {
-  const catalog = buildTopicCatalog(await loadTopicCatalogSource(run.runDir, run.manifest));
+  const catalog = buildTopicCatalog(await loadTopicCatalogSource(run.runDir, await manifestOf(run.runDir)));
   const requests = await readReportRequests(run.runDir);
   const base = buildFixturePlan(catalog, requests, PLAN_BUDGET_TABLE);
   const units = [...mutate(base.units, catalog)].sort((a, b) => a.unitId.localeCompare(b.unitId));

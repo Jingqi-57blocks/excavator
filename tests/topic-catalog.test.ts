@@ -240,7 +240,14 @@ test("an unfrozen or unsealed run is refused by name rather than projected", asy
 
   const noEpoch = await copyFixture(FIXTURE);
   await editJson(noEpoch, "knowledge.json", (value) => { delete value.epoch; });
-  await assert.rejects(async () => loadTopicCatalogSource(noEpoch, await manifestOf(noEpoch)), /carries no epoch number/);
+  await assert.rejects(async () => loadTopicCatalogSource(noEpoch, await manifestOf(noEpoch)), /carries no usable epoch number \(undefined\)/);
+
+  // A negative epoch is refused HERE, naming the file, rather than downstream by the path mapping's own generic
+  // message: this loader promises that every failure names what was being projected and from where.
+  const negativeEpoch = await copyFixture(FIXTURE);
+  await editJson(negativeEpoch, "knowledge.json", (value) => { value.epoch = -1; });
+  await assert.rejects(async () => loadTopicCatalogSource(negativeEpoch, await manifestOf(negativeEpoch)),
+    /knowledge\.json carries no usable epoch number \(-1\); an unsealed record cannot be projected/);
 
   const wrongVersion = await copyFixture(FIXTURE);
   await editJson(wrongVersion, "knowledge.json", (value) => { value.version = "knowledge-v2"; });

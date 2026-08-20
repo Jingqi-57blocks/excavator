@@ -9,6 +9,9 @@ import { freezeRun, searchSourceEvidence } from "../src/run/run.ts";
 import { DEFAULT_PLANNER_PACKET_BYTE_LIMIT, planRun, renderPlannerPacketForRun } from "../src/run/stages/plan-stage.ts";
 import { loadTopicCatalogSource } from "../src/report/topic-catalog-source.ts";
 import { assertPlanEpoch, type UnitPlanView } from "../src/report/unit-plan-view.ts";
+import { unitStatus } from "../src/report/unit-status.ts";
+import { readUnitGroundingForRun } from "../src/report/unit-grounding-reading.ts";
+import { installFixturePlan } from "./helpers.ts";
 import { copyFixture, manifestOf } from "./helpers.ts";
 import { frozenRun } from "./unit-fixture.ts";
 
@@ -29,9 +32,8 @@ import { frozenRun } from "./unit-fixture.ts";
 
 const SEARCH_TERM = "Leave requests";
 
-/** A frozen run taken to epoch 1 through the supported supplement loop. */
-async function epochOneRun(): Promise<{ runDir: string; manifest: RunManifest }> {
-  const base = await frozenRun();
+/** Take an already-frozen run to epoch 1 through the supported supplement loop. */
+async function epochOneRunFrom(base: { runDir: string }): Promise<{ runDir: string; manifest: RunManifest }> {
   const plan = JSON.parse(await readFile(join(base.runDir, "workitems.json"), "utf8")) as { items: Array<{ id: string }> };
   await searchSourceEvidence(base.runDir, [SEARCH_TERM], "topic catalog epoch fixture", { maxResults: 5 }, {
     reason: "the sealed epoch lacks this search",
@@ -42,6 +44,11 @@ async function epochOneRun(): Promise<{ runDir: string; manifest: RunManifest }>
   const manifest = await manifestOf(base.runDir);
   assert.equal(manifest.knowledgeEpoch, 1, "the supplement loop must have sealed a second epoch");
   return { runDir: base.runDir, manifest };
+}
+
+/** A frozen run at epoch 1, with no plan recorded. */
+async function epochOneRun(): Promise<{ runDir: string; manifest: RunManifest }> {
+  return epochOneRunFrom(await frozenRun());
 }
 
 test("a re-frozen run's catalog is projected from the epoch its manifest selects, and says which file that was", async () => {
@@ -100,6 +107,31 @@ test("the model-facing planner packet and the recorded plan of a re-frozen run b
   const recorded = JSON.parse(await readFile(join(runDir, "plan", "topics.json"), "utf8")) as { knowledgeEpoch: number; knowledgeDigest: string };
   assert.equal(recorded.knowledgeDigest, (await loadTopicCatalogSource(runDir, manifest)).knowledgeDigest);
   assert.equal(recorded.knowledgeEpoch, 1);
+});
+
+test("between the re-freeze and the re-plan, every command names the superseded plan and the one command that fixes it", async () => {
+  /*
+   * THE INTERVAL, which is a state an operator really sits in: the epoch has moved and the plan has not yet been
+   * re-recorded. The refusal here has to say "re-plan", because that is the whole remedy.
+   *
+   * It is the plan GATE that answers now, not `assertPlanEpoch`. The gate re-derives the topics catalog from the
+   * manifest-selected epoch, so the recorded epoch-0 catalog no longer matches and the mismatch is caught one step
+   * earlier than it used to be. Two mismatches reach that comparison and they are not the same event — a
+   * superseded plan versus a hand-edited ledger — so the gate separates them; telling a re-frozen run that its
+   * ledgers disagree with their own epoch would send the operator looking for tampering that never happened.
+   */
+  const base = await frozenRun();
+  await installFixturePlan(base.runDir);
+  const { runDir } = await epochOneRunFrom(base);
+  const superseded = /plan\/topics\.json records the Topic Catalog of knowledge epoch 0, but this run's manifest is at epoch 1; the plan was superseded by a re-freeze\. Run `excavator plan --run .* --fixture-plan`/;
+  // Read-only commands too: they have nothing to author, and the reason they cannot answer is still the plan.
+  await assert.rejects(() => unitStatus(runDir), superseded);
+  await assert.rejects(() => readUnitGroundingForRun(runDir), superseded);
+
+  // And the named remedy is the whole remedy: one re-plan and the same commands answer.
+  await planRun(runDir, { mode: "fixture" });
+  assert.equal((await unitStatus(runDir)).knowledgeEpoch, 1);
+  assert.equal((await readUnitGroundingForRun(runDir)).knowledgeEpoch, 1);
 });
 
 test("epoch 0 and a manifest with no epoch field both still read knowledge.json", async () => {

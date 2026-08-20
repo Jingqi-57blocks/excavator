@@ -12,13 +12,13 @@ import { collectUnits } from "../src/report/unit-collect.ts";
 import { draftUnit } from "../src/report/unit-draft.ts";
 import { readUnitLedger } from "../src/report/unit-ledger.ts";
 import { unitPaths } from "../src/report/unit-paths.ts";
-import { loadUnitPlanView, unitCollectionOrder } from "../src/report/unit-plan-view.ts";
+import { unitCollectionOrder } from "../src/report/unit-plan-view.ts";
 import { resumeUnits, unitStatus } from "../src/report/unit-status.ts";
 import { UNIT_SUMMARY_VERSION, unitContentDigest } from "../src/report/unit-output.ts";
 import { normalizeSection } from "../src/report/checkpoint.ts";
 import {
   FIXTURE_DRAFT_AUTHORSHIP,
-  frozenRun, manifestOf, planWithLeaf, planWithRenamedUnits, plannedRun, unitDraftFor, type PlannedRun
+  frozenRun, manifestOf, planViewOf, planWithLeaf, planWithRenamedUnits, plannedRun, unitDraftFor, type PlannedRun
 } from "./unit-fixture.ts";
 
 /**
@@ -283,7 +283,7 @@ test("a bad unit is refused at draft time, and each refusal names what is wrong"
 test("a leaf plan gives all three unit states at once, and the leaf covers exactly its plan topics", async () => {
   const base = await frozenRun();
   const leafId = await planWithLeaf(base.runDir, base.workdir, "work-item-dimension", 3);
-  const run: PlannedRun = { ...base, view: await loadUnitPlanView(base.runDir, base.manifest) };
+  const run: PlannedRun = { ...base, manifest: await manifestOf(base.runDir), view: await planViewOf(base.runDir) };
   assert.equal(run.view.units.length, 3);
   assert.deepEqual(run.view.byId.get(leafId)!.topics.length, 3);
 
@@ -407,7 +407,7 @@ test("a leaf plan gives all three unit states at once, and the leaf covers exact
 test("collect refuses a synthesis whose child summary has moved since it was written", async () => {
   const base = await frozenRun();
   const leafId = await planWithLeaf(base.runDir, base.workdir, "work-item-dimension", 2);
-  const run: PlannedRun = { ...base, view: await loadUnitPlanView(base.runDir, base.manifest) };
+  const run: PlannedRun = { ...base, manifest: await manifestOf(base.runDir), view: await planViewOf(base.runDir) };
   const appendixId = run.view.collectionOrder.find((unitId) => run.view.byId.get(unitId)!.kind === "appendix")!;
   const synthesisId = run.view.collectionOrder.at(-1)!;
 
@@ -481,7 +481,7 @@ test("an unsealed supplement stops collect, a superseded receipt is refused, and
     /Unit draft receipt for .* was written from knowledge epoch 0; re-draft it from current epoch 1/);
 
   // Re-draw from epoch 1 and the whole chain closes: status reports, the barrier records, the timeline audits.
-  const replanned: PlannedRun = { ...run, manifest: await manifestOf(run.runDir), view: await loadUnitPlanView(run.runDir, await manifestOf(run.runDir)) };
+  const replanned: PlannedRun = { ...run, manifest: await manifestOf(run.runDir), view: await planViewOf(run.runDir) };
   assert.equal(replanned.view.knowledgeEpoch, 1);
   await draftUnit(replanned.runDir, await unitDraftFor(replanned, appendixId));
   assert.equal((await unitStatus(replanned.runDir)).knowledgeEpoch, 1);

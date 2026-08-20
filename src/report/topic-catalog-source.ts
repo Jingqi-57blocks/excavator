@@ -171,8 +171,10 @@ function assertFrozen(knowledge: KnowledgeArtifact, epochPath: string): number {
   if (typeof knowledge.frozenAt !== "string" || knowledge.frozenAt.trim() === "") {
     throw new Error(`${epochPath} carries no frozenAt; the run is not frozen and its knowledge can still move`);
   }
-  if (knowledge.epoch === undefined || !Number.isSafeInteger(knowledge.epoch)) {
-    throw new Error(`${epochPath} carries no epoch number (${JSON.stringify(knowledge.epoch)}); an unsealed record cannot be projected`);
+  // `< 0` belongs here rather than being left to the path mapping: the mapping would throw its own generic
+  // `Invalid knowledge epoch`, which names neither this file nor that a catalog was being projected from it.
+  if (knowledge.epoch === undefined || !Number.isSafeInteger(knowledge.epoch) || knowledge.epoch < 0) {
+    throw new Error(`${epochPath} carries no usable epoch number (${JSON.stringify(knowledge.epoch)}); an unsealed record cannot be projected`);
   }
   if (typeof knowledge.workitemsDigest !== "string" || knowledge.workitemsDigest.trim() === "") {
     throw new Error(`${epochPath} carries no workitemsDigest; the obligation ledger it sealed cannot be identified`);

@@ -79,7 +79,18 @@ export async function frozenRun(audiences: Array<"product" | "engineering"> = ["
 export async function plannedRun(audiences: Array<"product" | "engineering"> = ["product"]): Promise<PlannedRun> {
   const base = await frozenRun(audiences);
   await planRun(base.runDir, { mode: "fixture" });
-  return { ...base, view: await loadUnitPlanView(base.runDir, base.manifest) };
+  return { ...base, manifest: await manifestOf(base.runDir), view: await planViewOf(base.runDir) };
+}
+
+/**
+ * One run's plan view, derived at the epoch its manifest selects RIGHT NOW.
+ *
+ * Every fixture goes through this instead of holding a manifest it read earlier. The manifest is what SELECTS the
+ * epoch, so a cached one would let a fixture that re-freezes hand its test a view of the SUPERSEDED epoch — which
+ * is a silently wrong view, not a refusal. Costs one file read per reload.
+ */
+export async function planViewOf(runDir: string): Promise<UnitPlanView> {
+  return loadUnitPlanView(runDir, await manifestOf(runDir));
 }
 
 
