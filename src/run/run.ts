@@ -31,6 +31,7 @@ import { buildFactsStage, unavailableFactsStage, writeFactsStage } from "./facts
 import { buildWorksetStage, writeUnavailableWorksetStage, writeWorksetStage } from "./workset-stage.ts";
 import { buildObligationStage, declarationWorkItems, writeObligationStage, writeUnavailableObligationStage } from "./obligation-stage.ts";
 import { applyInvestigationDispositions, buildInvestigationStage, writeInvestigationStage } from "./investigation-stage.ts";
+import { readWindowShortfall, recordedWindowDemand } from "../investigation/read-budget.ts";
 import type { ObligationDeclarations } from "../obligation/declarations.ts";
 import { unnegatedAdvice } from "../report/recommendation-language.ts";
 import { overviewCensusResidual, scopeCensusResidual, type OverviewCensusV2, type ScopeCensusV2 } from "../workset/census.ts";
@@ -468,12 +469,17 @@ export async function prepareRun(rawRequest: ReportRequest): Promise<{ runDir: s
     snapshotId: result.prepared.snapshot.id,
     filesContentManifestDigest: result.ledger.contentManifestDigest,
     cacheDir: projectCacheDir(runDir),
-    maxWindows: Math.max(0, effectiveRequest.budgets.maxSourceWindows - result.stats.sourceWindows),
+    windowBudget: { total: effectiveRequest.budgets.maxSourceWindows, consumed: result.stats.sourceWindows },
     maxCharacters: Math.max(0, effectiveRequest.budgets.maxSourceCharacters - result.stats.sourceCharacters),
     redact: effectiveRequest.redactSecrets === true,
     workset: workset.readSpecs,
     obligations
   });
+  // The demand is stated whether or not it was met, and the shortfall sentence only when there is one. An
+  // operator who has to discover the required number by doubling the budget until prepare stops complaining
+  // is being asked to search for a figure the run already knows.
+  const windowShortfall = investigation.demand ? readWindowShortfall(investigation.demand) : null;
+  if (windowShortfall) result.stats.warnings.push(windowShortfall);
   await writeInvestigationStage(runDir, investigation.results);
   evidence.push(...investigation.evidence);
   result.stats.sourceWindows += investigation.stats.windows;
@@ -505,6 +511,7 @@ export async function prepareRun(rawRequest: ReportRequest): Promise<{ runDir: s
       sourceWindows: result.stats.sourceWindows,
       sourceWindowCacheHits: result.stats.sourceWindowCacheHits,
       sourceCharacters: result.stats.sourceCharacters,
+      ...(investigation.demand ? { sourceWindowDemand: recordedWindowDemand(investigation.demand) } : {}),
       sourceSearches: 0,
       sourceSearchCacheHits: 0,
       sourceFilesSearched: 0,

@@ -6,10 +6,11 @@ import {
 } from "../base/coverage-basis.ts";
 import type {
   AuditFinding, CompletenessSource, DomainCompleteness, EvidenceItem, FreezeAuditCheck, InvestigationPlan,
-  KnowledgeCompleteness, RunManifest
+  KnowledgeCompleteness, RunManifest, RunMetrics
 } from "../base/types.ts";
 import type { ContractManifest } from "../contract/contract-manifest.ts";
 import { attributionContentDigest, type AttributionArtifact } from "../attribution/attribution-artifact.ts";
+import { displacedReadsAdvisory } from "../investigation/read-budget.ts";
 import type { InvestigationResults } from "../investigation/read-execution.ts";
 import type { MechanismLedger } from "../mechanism/mechanism-ledger.ts";
 import { ledgerContentIdentity, type FileLedger } from "../snapshot/file-ledger.ts";
@@ -84,7 +85,7 @@ export async function buildFreezeCompleteness(input: FreezeCompletenessInput): P
   checks.sort((a, b) => a.family.localeCompare(b.family));
   return {
     completeness: {
-      version: "knowledge-completeness-v3",
+      version: "knowledge-completeness-v4",
       domains,
       closure: buildClosure(input.plan, input.investigationResults, input.evidence),
       checks,
@@ -102,7 +103,7 @@ async function executeCheck(family: string, version: string, input: FreezeComple
     case "coverage-conservation": return inspectDomainCompleteness(input.runDir, input.contract);
     case "boundary-identity": return { findings: await auditBoundaryIdentity(input.runDir, input.manifest) };
     case "not-applicable-premises": return { findings: v15 ? await auditNotApplicablePremises(input.runDir, input.contract) : [] };
-    case "investigation-closure": return { findings: v15 ? auditInvestigationClosure(input.investigationResults, input.evidence) : [] };
+    case "investigation-closure": return { findings: v15 ? auditInvestigationClosure(input.investigationResults, input.evidence, input.manifest.metrics.sourceWindowDemand) : [] };
     default: return null;
   }
 }
@@ -437,9 +438,34 @@ async function resolveBasis(runDir: string, reference: string): Promise<unknown>
 /** How many unclaimed-read ids one advisory names before it rolls the rest up. A finding is a bounded field. */
 const UNCLAIMED_READ_ADVISORY_LIMIT = 20;
 
-function auditInvestigationClosure(results: InvestigationResults | null, evidence: readonly EvidenceItem[]): AuditFinding[] {
+function auditInvestigationClosure(results: InvestigationResults | null, evidence: readonly EvidenceItem[], demand: RunMetrics["sourceWindowDemand"]): AuditFinding[] {
   if (!results) return [error("investigation-closure", "L7 investigation results were not available to the closure check")];
   const findings: AuditFinding[] = [];
+  // ONE aggregate advisory for the reads a recorded ceiling displaced, and it comes first so that it is the
+  // finding this check seals into `FreezeAuditCheck.reason` when it is the only thing to report.
+  //
+  // THE RULING THIS SETTLES. Two modules held opposite policies on one fact. `read-coverage.ts` reports "N
+  // counted read obligations were never opened" as `level: "warning"`, and says why at :67 — an advisory that
+  // is necessarily true every time trains the author to ignore advisories. This check reported the SAME fact,
+  // per row, as a freeze-blocking error. Measured: a four-document wcp run failed freeze with 1,777 errors, of
+  // which 1,687 (892 source-reading, 795 decision-reading) no work item could ever clear, because they are
+  // written once at prepare into `investigation/results.json` and no runtime mutator can reach that file. The
+  // same code with the ceiling raised from 60 to 1,500 produced zero of them. Across the whole workspace, 43 of
+  // 83 runs carried such a read and not one of them had ever been frozen — the budget had stopped being a
+  // performance knob and become a correctness cliff, and a cliff that hid an entire class of runs from
+  // knowledge. Ruled: a ceiling this run recorded itself is a LIMITATION, and limitations are recorded, not
+  // fatal. What stays fatal is the source failing to yield (`unavailable`, below) and a ledger that lies —
+  // `read-coverage.ts` still errors on a work item disposed `found` whose windows never touch what it reports,
+  // and `read-execution.ts` still refuses an execution that claims displacement while covering its whole span.
+  const displacedExecutions = results.executions.filter((row) => row.outcome === "budget-displaced");
+  const displacedDispositions = results.dispositions.filter((row) => row.status === "displaced").length;
+  if (displacedExecutions.length) {
+    findings.push({
+      level: "warning",
+      document: "investigation-closure",
+      message: displacedReadsAdvisory({ causes: displacedExecutions.map((row) => row.cause), displacedDispositions, demand })
+    });
+  }
   // ADVISORY, not an error, and not silence either.
   //
   // The check only ever asked the forward question — did every AUTHORIZED read complete — so a run that read
@@ -459,6 +485,8 @@ function auditInvestigationClosure(results: InvestigationResults | null, evidenc
       message: `${unclaimed.length} recorded read(s) are claimed by no read execution: ${named.join(", ")}${rest ? ` (+${rest} more)` : ""}. A run with no ReadSpec authorizes none, so prepare-time reads land here until layer 5 issues run-scoped authorizations.`
     });
   }
+  // Still hard, and unchanged: the source would not yield. A missing file, a rejected path or a span the file
+  // does not have is a defect in the authorization or the target, not a number an operator can raise.
   for (const execution of results.executions.filter((row) => row.outcome === "unavailable")) {
     findings.push(error("investigation-closure", `source-reading ${execution.declarationId} remains pending: ${execution.cause ?? "authorized source unavailable"}`));
   }
@@ -508,10 +536,18 @@ function buildClosure(plan: InvestigationPlan, results: InvestigationResults | n
     decisions: {
       positive: results?.dispositions.filter((row) => row.status === "fulfilled").length ?? 0,
       negative: results?.dispositions.filter((row) => row.status === "closed-negative").length ?? 0,
-      pending: results?.dispositions.filter((row) => row.status === "pending").length ?? 0
+      pending: results?.dispositions.filter((row) => row.status === "pending").length ?? 0,
+      displaced: results?.dispositions.filter((row) => row.status === "displaced").length ?? 0
     },
     probeResiduals: results?.residuals.length ?? 0,
     materialFlowsWithTraces: plan.items.filter((item) => item.material && item.status === "found" && MATERIAL_FLOW_DIMENSIONS.has(item.dimension) && item.traceIds.length > 0).length,
+    // Recorded only when the results were there to count. A sealed `authorizedReads: 0` says "this run
+    // authorized no reading"; an absent one says "the check never saw the results" — two different facts that
+    // a `?? 0` would print as the same number.
+    ...(results ? {
+      authorizedReads: results.executions.length,
+      readsDisplacedByBudget: results.executions.filter((row) => row.outcome === "budget-displaced").length
+    } : {}),
     sourceReadsWithoutObligation: unclaimedReads(results, evidence).length
   };
 }

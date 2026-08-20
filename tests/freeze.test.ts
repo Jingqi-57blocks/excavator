@@ -100,7 +100,7 @@ test("freeze writes epoch 0, stamps the manifest and refuses a re-freeze with no
   assert.ok(knowledge.workitems.length > 0);
   assert.ok(knowledge.workitems.every((item) => item.status === "not-applicable"));
   assert.ok(knowledge.workitems.every((item, index) => index === 0 || knowledge.workitems[index - 1].id.localeCompare(item.id) <= 0), "work items are recorded sorted by id");
-  assert.equal(knowledge.completeness.version, "knowledge-completeness-v3");
+  assert.equal(knowledge.completeness.version, "knowledge-completeness-v4");
   assert.equal(knowledge.completeness.closure.workItems.negative, knowledge.workitems.length);
   assert.equal(knowledge.completeness.closure.workItems.pending, 0);
   assert.equal(knowledge.completeness.closure.materialFlowsWithTraces, 0);

@@ -45,7 +45,11 @@ const ANCHORS: Record<string, Classification> = {
   "src/base/assurance-version.ts:91": { kind: "current", expect: "export function runUsesCurrentAssurance" },
   "src/run/stages/investigation-stage.ts:35": { kind: "current", expect: "plan.items.some((item) => item.id === normalized.workItemId)" },
   "src/crossrepo/link-match.ts:42": { kind: "current", expect: "export interface MatchedLink" },
-  "src/run/run.ts:355": { kind: "current", expect: "createInvestigationPlan(runId, effectiveRequest, documents)" },
+  "src/run/run.ts:356": { kind: "current", expect: "createInvestigationPlan(runId, effectiveRequest, documents)" },
+  // The two-bucket ruling on "the read did not happen": the demand arithmetic and the module whose advisory
+  // policy the ruling aligns with. Cited by file, so the citation cannot rot on a line.
+  "src/investigation/read-budget.ts": { kind: "current-file" },
+  "src/investigation/read-coverage.ts": { kind: "current-file" },
 
   // --- §二: the seven edges, as a landing record --------------------------------------------------------------
   // The "before" column is where each violating import USED to sit. Several of those line numbers now happen to
