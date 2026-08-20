@@ -16,6 +16,7 @@ import { admitUnits, planUnitAdmission } from "./report/unit-cache-admission-run
 import { summariseAdmission, type CandidateLedgerRow } from "./report/unit-cache-admission.ts";
 import { describeAuthorship, describeProvenance, type UnitAuthorship, type UnitProvenance } from "./report/unit-provenance.ts";
 import { readUnitGroundingForRun, summariseUnitGroundingReading } from "./report/unit-grounding-reading.ts";
+import { assembleUnits, UNIT_ASSEMBLE_MODES, type UnitAssembleMode } from "./run/stages/unit-assemble-stage.ts";
 import { planRun, renderPlannerPacketForRun, DEFAULT_PLANNER_PACKET_BYTE_LIMIT, type PlanProposalSource, type PlanRecording } from "./run/stages/plan-stage.ts";
 import { appendReportRequest } from "./report/report-requests-append.ts";
 import { plannedDocumentId, type LegacyDocumentRequest } from "./report/legacy-request-mapping.ts";
@@ -342,7 +343,22 @@ async function main(): Promise<void> {
         print(await updateTraces(required(args.run, "--run"), Array.isArray(raw) ? raw : raw.traces, supplementFrom(args)));
         break;
       }
-      case "assemble": print(await assembleRun(required(parseArgs(argv).run, "--run"))); break;
+      case "assemble": {
+        const args = parseArgs(argv);
+        if (unitScoped(args, "assemble")) {
+          // The unit path's deterministic assembly. `--mode` is required and has no default: one arm writes the
+          // deliverable into the run and the other only proves it could be written.
+          print(await assembleUnits(required(args.run, "--run"), assembleMode(required(args.mode, "--mode"))));
+          break;
+        }
+        // A dropped `--units` must not silently become the SECTION assemble, which writes every section report,
+        // sets `manifest.state` and appends its own event. Same slip `unitScoped` refuses one token earlier.
+        if (args.mode !== undefined) {
+          throw new Error(`excavator assemble takes --mode only together with --units; without --units it assembles the section path, which has no mode and writes every section report. Add --units, or drop --mode.`);
+        }
+        print(await assembleRun(required(args.run, "--run")));
+        break;
+      }
       case "audit": {
         const args = parseArgs(argv);
         if (unitScoped(args, "audit")) {
@@ -633,6 +649,17 @@ async function unitDraftInput(args: Record<string, string>): Promise<UnitDraftIn
 const UNIT_ADMISSION_MODES = ["plan-only", "admit"] as const;
 type UnitAdmissionMode = (typeof UNIT_ADMISSION_MODES)[number];
 
+/**
+ * The unit-assemble mode. Required at the call site, so an unknown value is a refusal rather than a fallback.
+ *
+ * Same shape as `admissionMode` and for the same reason: `write` puts the deliverable on disk and `plan-only`
+ * cannot, so a default would be a mode somebody gets by forgetting to say which one they wanted.
+ */
+function assembleMode(value: string): UnitAssembleMode {
+  if ((UNIT_ASSEMBLE_MODES as readonly string[]).includes(value)) return value as UnitAssembleMode;
+  throw new Error(`--mode ${JSON.stringify(value)} is not one of: ${UNIT_ASSEMBLE_MODES.join(", ")}; assembling the unit path is an explicit act and there is no default mode`);
+}
+
 function admissionMode(value: string): UnitAdmissionMode {
   if ((UNIT_ADMISSION_MODES as readonly string[]).includes(value)) return value as UnitAdmissionMode;
   throw new Error(`--mode ${JSON.stringify(value)} is not one of: ${UNIT_ADMISSION_MODES.join(", ")}; admission is an explicit act and there is no default mode`);
@@ -787,7 +814,7 @@ Commands:
   workitem   Update the investigation plan and coverage ledger
   trace      Record call, data, business, state or cross-repository traces
   resume     List incomplete sections and resume a stopped run; --units lists what is left on the unit path
-  assemble   Join completed sections into Markdown reports
+  assemble   Join completed sections into Markdown reports (--units: assemble the unit path, --mode required)
   audit      Validate snapshot, evidence, claims, checklist and report structure; --document <id> scopes to one document, --units reruns the unit grounding audit
   status     Show progress and timing; --units shows the authoring-unit view of the plan
 
@@ -813,6 +840,7 @@ Examples:
   excavator trace --run <run> --file traces.json
   excavator checklist --run <run> --file checklist-updates.json
   excavator plan-packet --run <run> --unit <unit-id> --over-budget record-limitation --out unit-packet.md
+  excavator assemble --run <run> --units --mode write
   excavator unit-cache-identity --run <run> --authorship model-family:example
   excavator unit-cache-admit --run <run> --authorship model-free:fixture-plan --mode plan-only
   excavator audit --run <run> --document <id>
@@ -1150,9 +1178,14 @@ const COMMAND_HELP: Record<string, CommandHelp> = {
     example: "excavator trace --run <run> --file traces.json"
   },
   assemble: {
-    synopsis: "assemble --run <dir>",
-    flags: ["--run <dir>          Run directory (required)"],
-    example: "excavator assemble --run <run>"
+    synopsis: "assemble --run <dir> [--units --mode plan-only|write]",
+    flags: [
+      "--run <dir>          Run directory (required)",
+      "--units              Assemble the authoring-unit path instead of the section path (run-wide)",
+      "--mode <how>         With --units: plan-only (prove the assembly, write nothing) or write — required, no default"
+    ],
+    example: "excavator assemble --run <run> --units --mode write",
+    notes: "With --units it is all-or-nothing per run: every unit of every planned document must be collected against the recorded plan and this epoch, and every unit's content, claims and summary on disk must still digest to what its ledger row promised, or the run is refused by name with the offending unit ids. What it writes is deterministic and carries no clock reading — front matter (request row, both policy references, epoch and plan digests), a contents table in the plan's one authoring order, per-unit navigation anchors, then each unit's own collected bytes — plus a claims companion keyed by (unit, claim id) so two units may share a claim id, a traces companion selected only by explicit trace-id reference, and this run's coverage companion. It writes no coverage figure of its own and touches no section-path file; a target the section path already names is a refusal, not an overwrite."
   },
   audit: {
     synopsis: "audit --run <dir> [--document <id>] [--units]",

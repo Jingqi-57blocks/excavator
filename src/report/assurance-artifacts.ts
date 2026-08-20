@@ -29,6 +29,18 @@ export async function collectClaims(runDir: string, documents: DocumentPlan[]): 
   return claims;
 }
 
+/**
+ * The three run-relative companion paths one SECTION-path document occupies.
+ *
+ * Extracted from `writeReportCompanions` below, which is its only writer, so the unit path can refuse to assemble
+ * into a name this path already owns without spelling these three names a second time. Pure move: the writer joins
+ * the same strings it built inline before.
+ */
+export function sectionCompanionRelativePaths(documentId: string): { readonly claims: string; readonly traces: string; readonly coverage: string } {
+  const base = `reports/companions/${documentId}`;
+  return { claims: `${base}.claims.json`, traces: `${base}.traces.json`, coverage: `${base}.coverage.json` };
+}
+
 export async function writeReportCompanions(runDir: string, document: DocumentPlan, plan: InvestigationPlan, traces: TraceCatalog): Promise<void> {
   const claims: Array<SectionClaimsFile> = [];
   for (const section of document.sections) {
@@ -38,10 +50,10 @@ export async function writeReportCompanions(runDir: string, document: DocumentPl
   const documentClaimIds = new Set(claims.flatMap((file) => file.claims.map((claim) => claim.id)));
   const documentTraces = traces.traces.filter((trace) => trace.documentIds.includes(document.id) || trace.steps.some((step) => (step.claimIds ?? []).some((id) => documentClaimIds.has(id))));
   const workItems = plan.items.filter((item) => item.requiredFor.includes(document.id));
-  const base = join(runDir, "reports", "companions", document.id);
-  await writeJson(`${base}.claims.json`, { version: 1, documentId: document.id, sections: claims });
-  await writeJson(`${base}.traces.json`, { version: 1, documentId: document.id, traces: documentTraces });
-  await writeJson(`${base}.coverage.json`, {
+  const companions = sectionCompanionRelativePaths(document.id);
+  await writeJson(join(runDir, companions.claims), { version: 1, documentId: document.id, sections: claims });
+  await writeJson(join(runDir, companions.traces), { version: 1, documentId: document.id, traces: documentTraces });
+  await writeJson(join(runDir, companions.coverage), {
     version: 1,
     documentId: document.id,
     total: workItems.length,

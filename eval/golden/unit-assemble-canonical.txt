@@ -1,0 +1,232 @@
+===== file: companions/overview-product.unit-claims.json =====
+{
+  "claims": [
+    {
+      "claim": {
+        "confidence": "high",
+        "evidenceIds": [
+          "<EVIDENCE source src/server.ts:1-7>"
+        ],
+        "id": "C-overview-product::appendix::coverage",
+        "marker": "fact",
+        "statement": "overview-product::appendix::coverage 记录当前状态。",
+        "status": "verified"
+      },
+      "claimId": "C-overview-product::appendix::coverage",
+      "key": "overview-product::appendix::coverage#C-overview-product::appendix::coverage",
+      "unitId": "overview-product::appendix::coverage"
+    },
+    {
+      "claim": {
+        "confidence": "high",
+        "evidenceIds": [
+          "<EVIDENCE source src/server.ts:1-7>"
+        ],
+        "id": "C-overview-product::synthesis::document",
+        "marker": "fact",
+        "statement": "overview-product::synthesis::document 记录当前状态。",
+        "status": "verified"
+      },
+      "claimId": "C-overview-product::synthesis::document",
+      "key": "overview-product::synthesis::document#C-overview-product::synthesis::document",
+      "unitId": "overview-product::synthesis::document"
+    }
+  ],
+  "documentId": "overview-product",
+  "knowledgeEpoch": 0,
+  "planCatalogDigest": "<PLAN-CATALOG-DIGEST>",
+  "runId": "<RUN-ID>",
+  "units": [
+    {
+      "claims": 1,
+      "kind": "appendix",
+      "unitId": "overview-product::appendix::coverage"
+    },
+    {
+      "claims": 1,
+      "kind": "synthesis",
+      "unitId": "overview-product::synthesis::document"
+    }
+  ],
+  "version": "unit-claims-companion-v1"
+}
+
+===== file: companions/overview-product.unit-traces.json =====
+{
+  "catalogTraces": 0,
+  "citedTraceIdsNotInCatalog": [],
+  "documentId": "overview-product",
+  "knowledgeEpoch": 0,
+  "planCatalogDigest": "<PLAN-CATALOG-DIGEST>",
+  "runId": "<RUN-ID>",
+  "traces": [],
+  "version": "unit-traces-companion-v1"
+}
+
+===== file: companions/unit-coverage.md =====
+# Coverage companion (coverage-companion-v1)
+
+- run: <RUN-ID>
+- knowledge epoch: 0 (digest <KNOWLEDGE-DIGEST>)
+- plan catalog digest: <PLAN-CATALOG-DIGEST>
+
+## What this companion is and is not
+
+It is a projection of four ledgers this run already sealed, each answering for its own rows: the plan's material
+obligation accounting, this run's read-obligation ledger, the sealed epoch's completeness closure, and the
+obligation ledger's determinations. Every statement below names the ONE ledger its denominator came from. There
+is deliberately no combined coverage figure and no percentage anywhere: combining two ledgers' rows requires
+joining ids across them, and that join was measured to lose 665 of 946 rows silently. Four statements a reader
+must weigh are more useful than one number that is wrong.
+
+An empty denominator is reported as `vacuous`, never as covered. A run that recorded nothing to measure is not a
+run that measured everything, and `ledger-absent` (nobody can tell) and `ledger-empty` (this run genuinely
+recorded none) stay two different sentences.
+
+## Material obligations: where the plan puts them
+
+vacuous (ledger-empty): this run has no material obligations at all, so no coverage statement about them applies — plan/catalog.json obligation accounting is present and its denominator is empty.
+
+## Material obligations of overview-product: which unit grounds them
+
+vacuous (ledger-empty): this run has no material obligations reached by this document at all, so no coverage statement about them applies — plan/catalog.json ownership derivation is present and its denominator is empty.
+
+## Read obligations: which have a source window
+
+vacuous (ledger-empty): this run has no read obligations at all, so no coverage statement about them applies — coverage/read-obligations.json is present and its denominator is empty.
+
+## Authorized reads: which were executed
+
+vacuous (ledger-empty): this run has no authorized reads at all, so no coverage statement about them applies — the sealed epoch's completeness closure is present and its denominator is empty.
+
+## Obligation determinations: which were settled
+
+complete: all 12 recorded obligations in workitems.json are accounted for, and nothing is withheld.
+
+## Written units: which state an unknown about themselves
+
+complete: all 2 collected units in units/collected.json are accounted for, and nothing is withheld.
+
+## Topic catalog: which topics carry an unknown
+
+complete: all 14 catalog topics in plan/topics.json are accounted for, and nothing is withheld.
+
+## Reading, in the run's own words
+
+0 obligations were READ AND SETTLED NEGATIVELY: the window was opened, the thing looked for was not there, and that is a determination rather than a gap.
+
+0 decision reading(s) are sealed as `displaced` in this run's closure record.
+That is the disposition side of the same recorded ceiling the authorized-read statement above counts. The two
+are reported separately because they count different things (executions, and the obligations those executions
+were for), and neither is the same fact as a read that happened and settled the question negatively.
+
+### Read residual per topic
+
+Derived from each topic's own catalog row (path/window overlap), never from an id join between the obligation
+ledger and the work-item ledger. A topic with no residual row is not listed; that is not a claim it was read.
+
+| topic | title | residual rows | unread lines |
+| --- | --- | --- | --- |
+| (none) | no topic of this catalog carries a read residual row | 0 | 0 |
+
+### Material obligations waived, by disposition state
+
+| state | obligations |
+| --- | --- |
+| cannot-determine | 0 |
+| not-applicable | 0 |
+| omitted-for-audience | 0 |
+
+### Ownership per document
+
+| document | reached | owned | owned by no unit | grounding-exempt |
+| --- | --- | --- | --- | --- |
+| overview-product | 0 | 0 | 0 | 0 |
+
+| document | unit | obligations owned |
+| --- | --- | --- |
+| overview-product | overview-product::appendix::coverage | 0 |
+| overview-product | overview-product::synthesis::document | 0 |
+
+### Unknowns stated by written units
+
+- overview-product::appendix::coverage — states no unknown
+- overview-product::synthesis::document — states no unknown
+
+===== file: overview-product.md =====
+---
+assembly: unit-assembly-v1
+title: "overview-product synthesis"
+documentId: "overview-product"
+scope: project
+scopeIds: []
+audience: product-manager
+intent: overview
+detailBudget: standard
+language: "zh-CN"
+policyVersion: "report-policy-v1"
+lensPolicy: "lens.product-manager@v1"
+lensPolicyDigest: 2f840ba8c03ff6c2ac27ad29a45dee01797b33e45c05c4de611b954c4c18125c
+intentPolicy: "intent.overview@v1"
+intentPolicyDigest: 9581cc05cbf0c293e5df6814a2501e3c8c664d06430a7c343d98c280b5aa5d09
+requestMappingVersion: "legacy-request-mapping-v1"
+run: "<RUN-ID>"
+knowledgeEpoch: 0
+knowledgeDigest: <KNOWLEDGE-DIGEST>
+planCatalogDigest: <PLAN-CATALOG-DIGEST>
+planRevision: 0
+units: 2
+claimsCompanion: "reports/companions/overview-product.unit-claims.json"
+tracesCompanion: "reports/companions/overview-product.unit-traces.json"
+coverageCompanion: "reports/companions/unit-coverage.md"
+sourceText: redacted
+---
+
+# overview-product synthesis
+
+Assembled by Excavator from 2 authoring unit(s) of this run's recorded plan, in the one
+order the plan records (`plan/dag.json`: children before their parent, because a synthesis is written from
+summaries that already exist). Nothing below was written at assembly time: each unit's bytes are the bytes its
+collected ledger row vouches for. Every path named in this document is relative to the RUN directory, not to
+this file.
+
+This document states no coverage figure of its own. The coverage account of this run is `reports/companions/unit-coverage.md`,
+which names the one ledger behind every number it gives and reports an empty denominator as `vacuous` rather
+than as covered.
+
+<a id="contents"></a>
+
+## Contents
+
+| # | unit | kind | parent |
+| --- | --- | --- | --- |
+| 1 | [Coverage and unknowns](#unit-overview-product-appendix-coverage-16df53b9d2376409) | appendix | [overview-product synthesis](#unit-overview-product-synthesis-document-6bed0e1f4b070bd6) |
+| 2 | [overview-product synthesis](#unit-overview-product-synthesis-document-6bed0e1f4b070bd6) | synthesis | (root) |
+
+## Companions
+
+| companion | path |
+| --- | --- |
+| claims | `reports/companions/overview-product.unit-claims.json` |
+| traces | `reports/companions/overview-product.unit-traces.json` |
+| coverage | `reports/companions/unit-coverage.md` |
+
+---
+
+<a id="unit-overview-product-appendix-coverage-16df53b9d2376409"></a>
+
+## Coverage and unknowns
+
+overview-product::appendix::coverage 记录当前状态。`事实`
+
+[contents](#contents) · [next: overview-product synthesis](#unit-overview-product-synthesis-document-6bed0e1f4b070bd6) · [parent: overview-product synthesis](#unit-overview-product-synthesis-document-6bed0e1f4b070bd6)
+
+---
+
+<a id="unit-overview-product-synthesis-document-6bed0e1f4b070bd6"></a>
+
+## overview-product synthesis
+
+overview-product::synthesis::document 记录当前状态。`事实`
+
+[contents](#contents) · [previous: Coverage and unknowns](#unit-overview-product-appendix-coverage-16df53b9d2376409)
