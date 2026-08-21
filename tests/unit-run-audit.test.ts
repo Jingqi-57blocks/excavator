@@ -65,7 +65,6 @@ test("a unit-path run's audit rejects stale source evidence after the target cha
 
 test("a unit-path run's audit detects timeline tampering", async () => {
   const run = await auditedUnitRun();
-  const pattern = /digest|start/i;
   const timelinePath = join(run.runDir, "timeline.jsonl");
   const before = await auditRun(run.runDir);
   assert.deepEqual(before.findings.filter((finding) => finding.document === "timeline"), [],
@@ -77,7 +76,10 @@ test("a unit-path run's audit detects timeline tampering", async () => {
   lines[0] = JSON.stringify(first);
   await writeFile(timelinePath, `${lines.join("\n")}\n`);
 
+  // The HASH CHAIN specifically. Editing an event also trips "does not start with run.prepared" and the byte
+  // offset, so a pattern that accepted any timeline finding would stay green with the digest recomputation
+  // deleted — which is the one check this test is named after.
   const after = await auditRun(run.runDir);
-  assert.ok(after.findings.some((finding) => finding.document === "timeline" && pattern.test(finding.message)),
+  assert.ok(after.findings.some((finding) => finding.document === "timeline" && finding.message.includes("timeline event 1 digest is invalid")),
     JSON.stringify(after.findings, null, 2));
 });

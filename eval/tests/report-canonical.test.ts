@@ -2,14 +2,16 @@
 //
 // `eval/report-canonical.ts` outlives the section path: `eval/unit-assemble-canonical.ts` reuses
 // `canonicalAssembleProjection` and its six substitution rules rather than restating them, which is why the unit
-// path's golden depends on exactly the same folding. Both of the properties below were pinned only inside
+// path's golden depends on exactly the same folding. Each property below was pinned only inside
 // `eval/tests/assemble-golden.test.ts`, whose whole file retires with the section golden — so they are re-scaffolded
 // here, where nothing about them depends on a section ever having been drafted.
 //
-// They are the two directions the projection can silently fail in:
+// The three ways the projection can silently fail:
 //
 //   * a rule eats something STABLE — a bare date, a bare clock time, a non-Z instant, an id-shaped string the run's
 //     catalog does not hold, ordinary prose — and the golden then hides a real change behind a placeholder;
+//   * a rule stops replacing anything and no fixture notices, because every run-shaped fixture asserts that rule
+//     fires zero times (which is true of the target path and the target name, hence the second test);
 //   * two catalog ids fold to ONE placeholder, and a swap between the two evidence records stops moving the golden.
 //     That one is a named refusal rather than a collapse, and this asserts the refusal by its message.
 //
@@ -52,6 +54,36 @@ test("the substitution rules leave stable content alone", () => {
   assert.ok(text.includes("第 1 节记录当前状态。 The snapshot digest column header stays."), "prose survives verbatim");
   // Two distinct ids keep distinct placeholders, so a swap between them would still diff.
   assert.ok(text.includes("cited: <EVIDENCE source src/a.ts:1-3> and <EVIDENCE source src/b.ts:4-6> and <EVIDENCE source src/a.ts:1-3>"));
+});
+
+/**
+ * Rules 4 and 5 in the FIRING direction, which nothing else has.
+ *
+ * The two run-shaped fixtures both assert `target-path: 0` and `target-name: 0` — the absolute path never reaches a
+ * report, and on the unit path the document title comes from the plan rather than from the target's basename. So
+ * the only place either substitution was ever seen to replace anything was the section golden's front matter
+ * (`title: "<TARGET-NAME> — product overview"`), which retires with that golden. Without this, a regression in
+ * either rule would go red nowhere and a golden could quietly carry a machine-dependent basename.
+ *
+ * The ORDER is part of the statement: the name is a substring of the path, and the path is substituted first, so a
+ * reordering would turn the path into `/tmp/<TARGET-NAME>` instead of `<TARGET-PATH>`.
+ */
+test("the target path and the target name each get their own placeholder, path first", () => {
+  const identity: VolatileIdentity = {
+    runId: "run-x", snapshotId: "0123456789abcdef0123",
+    targetPath: "/tmp/excavator-test-AbCdEf", targetName: "excavator-test-AbCdEf",
+    evidencePlaceholders: {}
+  };
+  const { text, applied } = canonicalizeText(
+    ['target: /tmp/excavator-test-AbCdEf', 'title: "excavator-test-AbCdEf — product overview"'].join("\n"),
+    identity
+  );
+  const fired = Object.fromEntries(applied.map((rule) => [rule.name, rule.replacements]));
+  assert.equal(fired["target-path"], 1);
+  assert.equal(fired["target-name"], 1);
+  assert.equal(text, ['target: <TARGET-PATH>', 'title: "<TARGET-NAME> — product overview"'].join("\n"));
+  assert.ok(!text.includes(identity.targetPath));
+  assert.ok(!text.includes(identity.targetName));
 });
 
 test("two catalog ids that describe the same evidence fail by name instead of collapsing", () => {

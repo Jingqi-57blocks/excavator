@@ -168,8 +168,10 @@ test("audit --units exits non-zero on a violating written unit and zero once the
   assert.deepEqual((await collectUnits(materialised.runDir)).collected.map((receipt) => receipt.unitId), [unitId]);
   const passed = await cli(["audit", "--run", materialised.runDir, "--units"]);
   assert.equal(passed.code, 0, passed.stderr || passed.stdout);
+  // The POSITIVE conclusion, not "anything but violations": a regression that dropped the corrected unit from
+  // the reading altogether would leave an absent row and an exit code of 0, and a `notEqual` would pass on it.
   const passedReading = JSON.parse(passed.stdout) as { units: Array<{ unitId: string; verdict: { conclusion: string } }> };
-  assert.notEqual(passedReading.units.find((row) => row.unitId === unitId)?.verdict.conclusion, "violations");
+  assert.equal(passedReading.units.find((row) => row.unitId === unitId)?.verdict.conclusion, "complete");
 });
 
 test("subcommand --help prints usage and does not execute", async () => {

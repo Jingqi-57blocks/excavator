@@ -460,9 +460,11 @@ test("relocated run: resume --units and status --units read the copy's own unit 
     const status = await unitStatus(dir);
     assert.equal(status.census.collected, 1);
     assert.equal(status.census.unwritten, planned.units.length - 1);
+    // Positively constrained: an empty result would satisfy "does not offer the collected unit" too.
     const resumed = await resumeUnits(dir);
-    assert.ok(!resumed.pending.includes(first), `${first} is collected, so resume must not offer it: ${resumed.pending.join(", ")}`);
+    assert.deepEqual([...resumed.pending].sort(), planned.collectionOrder.filter((unitId) => unitId !== first).sort());
     assert.notEqual(resumed.next, first);
+    assert.ok(resumed.next, "one unit collected out of two leaves a next one");
   });
   // The recorded location never learned any of it: the same two readers there see a run with nothing written.
   assert.deepEqual((await unitStatus(base.runDir)).census, { collected: 0, drafted: 0, unwritten: planned.units.length });

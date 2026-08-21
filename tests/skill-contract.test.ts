@@ -8,7 +8,7 @@ import { assembleRun, checkpointSection, freezeRun, prepareRun } from "../src/ru
 import { collectDrafts, draftSection } from "../src/report/parallel-authoring.ts";
 import { checkpointUnit } from "../src/report/unit-checkpoint.ts";
 import { assembleUnits } from "../src/run/stages/unit-assemble-stage.ts";
-import { slugify } from "../src/base/util.ts";
+import { exists, slugify } from "../src/base/util.ts";
 import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, installFixturePlan, manifestOf, tempDir } from "./helpers.ts";
 import { planViewOf, unitDraftFor } from "./unit-fixture.ts";
 
@@ -217,7 +217,7 @@ test("SKILL.md run-directory layout matches what the CLI produces", async () => 
   }
   const redrawn = unitRun.view.collectionOrder[0]!;
   await checkpointUnit(runDir, await unitDraftFor({ ...unitRun, view: await planViewOf(runDir) }, redrawn));
-  await assembleUnits(runDir, "write");
+  const assembledUnits = await assembleUnits(runDir, "write");
 
   // Every documented entry must exist somewhere under the run directory. Matching on basename keeps the
   // check independent of the tree's nesting (e.g. companions/ lives under reports/).
@@ -225,9 +225,12 @@ test("SKILL.md run-directory layout matches what the CLI produces", async () => 
   for (const entry of documented) {
     assert.ok(present.has(entry), `SKILL.md documents \`${entry}\` but the run produced no such path`);
   }
-  // The unit path's own top-level directories, which the documented tree does not name yet. Asserted here so
-  // that when it does, the lifecycle above is already producing them — and so the addition is not inert.
-  for (const entry of ["plan", "units"]) {
-    assert.ok(present.has(entry), `the unit lifecycle produced no \`${entry}/\` directory`);
+  // What ONLY the unit lifecycle produces, so the addition above is not inert and cannot be deleted silently.
+  // `plan/` is deliberately not in this list: `installFixturePlan` already created it before any unit command,
+  // so asserting it would pass for a reason that has nothing to do with the lifecycle it names.
+  assert.ok(present.has("units"), "the unit lifecycle produced no `units/` directory");
+  assert.ok(assembledUnits.documents.length > 0, "the unit lifecycle assembled no document");
+  for (const document of assembledUnits.documents) {
+    assert.ok(await exists(join(runDir, document.path)), `the unit deliverable ${document.path} is not on disk`);
   }
 });
