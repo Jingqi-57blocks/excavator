@@ -11,7 +11,7 @@ import { REPORT_POLICY_REGISTRY } from "../src/report/report-policy-registry.ts"
 import { TOPIC_FACETS } from "../src/report/topic-candidate.ts";
 import { materialTopics, type TopicCatalogArtifact } from "../src/report/topic-catalog.ts";
 import type { ReportRequestsArtifact } from "../src/report/report-requests-artifact.ts";
-import { materialWorkItemIds, miniRun, topicsBinding, type MiniRun } from "./plan-fixture.ts";
+import { materialWorkItemIds, miniRequests, miniRun, MINI_DOCUMENTS, topicsBinding, type MiniRun } from "./plan-fixture.ts";
 
 // Plan validation over `tests/fixtures/topic-catalog-mini` (57B-434 R3). The fixture's numbers are hand-checkable:
 // 6 work items of which 3 are material, 7 material topics, 22 topics over 6 facets. That gap — 7 topic-granular
@@ -330,13 +330,18 @@ test("an unknown topic may not be rendered not-applicable, and an omission must 
 // --- ⑥ the vacuous arm still validates the rest of the plan ------------------------------------------
 
 test("a catalog with no material topic reads vacuous, and a broken plan over it still reads violations", async () => {
-  const { catalog, requests } = await fixture();
+  const { catalog } = await fixture();
   const empty: TopicCatalogArtifact = {
     ...catalog,
     topics: catalog.topics.filter((topic) => topic.materiality !== "material"),
     materiality: { ...catalog.materiality, material: 0 },
     obligationAccounting: { total: 0, assigned: 0, unassigned: 0, unassignedWorkItemIds: [] }
   };
+  // The REQUESTS lose their feature document with the same cut, because the two inputs describe one run: this
+  // catalog holds no feature topic, and `projectFeatures` mints exactly one per key the contract binds — so the
+  // run it belongs to bound no feature, and a feature document over it is a boundary violation rather than part of
+  // the vacuous reading being tested. Cutting only the catalog would test the boundary check by accident.
+  const requests = miniRequests(MINI_DOCUMENTS.filter((document) => document.kind !== "feature"));
   const proposal = parsed(raw(buildFixturePlan(empty, requests, PLAN_BUDGET_TABLE)));
   const report = validate(empty, requests, proposal);
   assert.equal(report.overall.conclusion, "vacuous");

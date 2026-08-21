@@ -18,6 +18,35 @@
  * material topic at all (measured: 14 topics, 0 material). This generator mints no unit for a facet with no
  * material topic — it never forges a feature that does not exist — so on that catalog the plan is a synthesis over
  * a single appendix, and validation reads `vacuous`, not `complete`.
+ *
+ * ---------------------------------------------------------------------------------------------------------------
+ * TWO KNOWN HOLES IN THIS GENERATOR, NAMED HERE BECAUSE THEY ARE NOT FIXED (57B-434 R8 pre-cleanup, items #7b/#9).
+ * Both are about the same thing: this generator reads a document's ID and nothing else about the document.
+ *
+ * 1. IT DOES NOT READ THE REQUEST'S KNOWLEDGE BOUNDARY (`scope` / `scopeIds`), so a feature document gets EVERY
+ *    material topic of every facet, including other features'. That boundary is real, not a placeholder: the live
+ *    chain produces `scope: "feature", scopeIds: ["<key>"]` from a key `contract/run-intent.json` binds (measured
+ *    on `tests/fixtures/sample-target` via `excavator feature` — one request row, one real key).
+ *    `plan-scope-boundary.ts` therefore checks that the boundary a request NAMES exists; what is NOT checked is
+ *    that a feature document's units stay inside it. Measured on the wcp baseline (two features, four documents):
+ *    the plan this generator derives puts 3 out-of-boundary topic references in one feature document and 4 in the
+ *    other — the other feature's own topic, its dimension leaves, and one coverage row. So the containment rule
+ *    cannot be added while this generator is the plan producer: every existing reading of that baseline would go
+ *    red, and dividing topics by boundary here moves `plan/catalog.json` bytes, which moves every unit's cache
+ *    identity and every archived digest reading keyed on it.
+ *    WHEN TO COME BACK: with the R8 cutover, when the real chain's plans come from a proposal that is written per
+ *    document. At that point containment becomes a `validatePlan` rule (a feature document's units may only name
+ *    topics attributable to its own `scopeIds`), and THIS generator is what has to be divided by boundary first —
+ *    in the same change that re-derives the archived readings, never as a quiet edit here.
+ *
+ * 2. THE ROOT SYNTHESIS IS NAMED `${documentId} synthesis`, so an assembled document's `title:` and H1 read
+ *    "overview-product synthesis". Assembly takes the plan's title as authoritative, which is correct; the ugly
+ *    name is minted here. A document title should come from the request's audience and intent, not from its id.
+ *    NOT FIXED HERE for the same byte reason as (1): the title is part of `plan/catalog.json`, so changing it
+ *    re-digests the canonical pin and the archived identity readings. R8 decides it on evidence — if the real
+ *    chain's titles come from the model's proposal, this is an eval-internal blemish and stays; if any real
+ *    document falls back to this generator's title, it is fixed inside R8, with the canonical re-pin it forces.
+ * ---------------------------------------------------------------------------------------------------------------
  */
 
 import { FULL_OBLIGATION_SCOPE } from "./obligation-scope.ts";
