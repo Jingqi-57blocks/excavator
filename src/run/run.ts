@@ -16,7 +16,7 @@ import { materializeBoundRunContract, type BoundRunContract, type PlannedDocumen
 import { deriveContractManifest, type ContractManifest } from "../contract/contract-manifest.ts";
 import { auditContractInstances } from "../freeze/contract-instance-audit.ts";
 import { auditChecklist, auditEvidenceCatalog, auditTraces, auditWorkItems, createInvestigationChecklist, createInvestigationPlan, workItemsToChecklist } from "../investigation/assurance.ts";
-import { auditWorkItemClaimCoverage } from "../report/section-audit.ts";
+import { auditWorkItemClaimCoverage } from "../report/work-item-claim-coverage.ts";
 import { ASSURANCE_VERSION, READ_EXECUTION_ASSURANCE_GENERATION, WORKSET_OBLIGATION_ASSURANCE_GENERATION, assuranceGenerationAtLeast } from "../base/assurance-version.ts";
 import type { AuditFinding } from "../base/types.ts";
 import { auditFreezeOrder, auditFrozenKnowledge, canonicalInvestigationResults, readCurrentKnowledge } from "../freeze/freeze.ts";

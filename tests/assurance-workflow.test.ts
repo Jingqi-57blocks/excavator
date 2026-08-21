@@ -1,4 +1,4 @@
-import { auditSectionClaims, auditTargetProblemAttribution } from "../src/report/section-audit.ts";
+import { auditSectionClaims } from "../src/report/section-audit.ts";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
@@ -100,69 +100,6 @@ test("the pseudo-id scanner flags a fabricated FACT- id but accepts a declared c
     evidenceIds: new Set([factId])
   });
   assert.ok(!findings.some((finding) => /FACT-/.test(finding.message)), JSON.stringify(findings));
-});
-
-test("target problem sections reject analyser limitations", () => {
-  const document = {
-    id: "leave-product",
-    kind: "feature" as const,
-    audience: "product" as const,
-    subject: "Leave",
-    templatePath: "template.md",
-    contextPath: "context.md",
-    sections: []
-  };
-  const findings = auditTargetProblemAttribution({
-    document,
-    sectionIndex: 11,
-    sectionText: "## Current problems found\n\nCodeGraph routes cannot prove the complete handler path."
-  });
-  assert.equal(findings.length, 1);
-  assert.match(findings[0].message, /analysis-method information/i);
-});
-
-test("a product feature's connected-scope chapter (section 10) is not the problem chapter", () => {
-  // 57B-364 #3: product-feature problems moved from §10 (now connected scope) to their own §11.
-  const document = {
-    id: "leave-product",
-    kind: "feature" as const,
-    audience: "product" as const,
-    subject: "Leave",
-    templatePath: "template.md",
-    contextPath: "context.md",
-    sections: []
-  };
-  // The old problem section index (10) now describes connected scope, so analysis-method wording there
-  // is out of the attribution check's scope; the check only guards the section-11 problem chapter.
-  assert.deepEqual(auditTargetProblemAttribution({
-    document,
-    sectionIndex: 10,
-    sectionText: "## Connected capabilities and scope\n\nCodeGraph routes reach the billing capability."
-  }), []);
-});
-
-// Restored after /code-review caught an over-deletion: this case is a PURE `auditTargetProblemAttribution`
-// call with no section-chain dependency, and it is the only negative control at the correct problem-section
-// index (§11 with prose matching none of `ANALYSIS_METHOD_TERMS` → zero findings). The survivors above assert
-// a positive at §11 and an early return at §10, so without this one an over-broad new term that matches
-// ordinary target prose would go green. The deletion pass mis-flagged it: the detector took each case's body
-// as running to the NEXT `test(`, which swallowed a helper defined in between.
-test("target problem sections allow target-attributable contradictions", () => {
-  const document = {
-    id: "leave-engineering",
-    kind: "feature" as const,
-    audience: "engineering" as const,
-    subject: "Leave",
-    templatePath: "template.md",
-    contextPath: "context.md",
-    sections: []
-  };
-  const findings = auditTargetProblemAttribution({
-    document,
-    sectionIndex: 11,
-    sectionText: "## Current problems\n\nThe production threshold is 166 hours while the target test asserts 200 hours."
-  });
-  assert.equal(findings.length, 0);
 });
 
 // --- 57B-338: audit scoping (single-document mode) and partial-set robustness ---

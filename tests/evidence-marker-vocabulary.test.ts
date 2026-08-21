@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { markersIn, MARKER_TOKENS } from "../src/report/section-audit.ts";
+import { markersIn, MARKER_TOKENS } from "../src/report/evidence-markers.ts";
 
 // ONE VOCABULARY, TWO READERS — and a test that fails if they drift.
 //
