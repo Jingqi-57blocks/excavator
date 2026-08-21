@@ -72,14 +72,21 @@ test("append then revise, at the command line: the revision block reports what i
   assert.match(again.stderr, /nothing is superseded, so no revision is recorded/);
 });
 
-test("the append door refuses a feature document and refuses --feature-key rather than dropping it", async () => {
+test("the append door pairs --kind with --feature-key in both directions, and checks the key against the run", async () => {
+  // This run investigated no feature at all, which is the case where a boundary refusal is easiest to get wrong:
+  // an empty bound-key list must read as "this run investigated no feature", never as a key that matched nothing.
   const run = await plannedRun(["product"]);
-  const asFeature = await cli(["request-append", "--run", run.runDir, "--kind", "feature", "--audience", "product", "--detail", "standard", "--language", "zh-CN"]);
-  assert.equal(asFeature.code, 1);
-  assert.match(asFeature.stderr, /--kind .*feature.* is not appendable: a feature document names a knowledge boundary this command cannot check/);
+  const noKey = await cli(["request-append", "--run", run.runDir, "--kind", "feature", "--audience", "product", "--detail", "standard", "--language", "zh-CN"]);
+  assert.equal(noKey.code, 1);
+  assert.match(noKey.stderr, /Missing --feature-key \(a feature document is written against exactly one feature key from contract\/run-intent\.json\)/);
+
+  const unknownKey = await cli(["request-append", "--run", run.runDir, "--kind", "feature", "--audience", "product", "--detail", "standard", "--language", "zh-CN", "--feature-key", "leave"]);
+  assert.equal(unknownKey.code, 1);
+  // The CLI prints the refusal as JSON, so the message's own quotes arrive escaped.
+  assert.match(unknownKey.stderr, /names feature key \\"leave\\", which contract\/run-intent\.json does not bind \(this run investigated: no feature\)/);
 
   const withKey = await cli(["request-append", "--run", run.runDir, "--kind", "overview", "--audience", "engineering", "--detail", "standard", "--language", "zh-CN", "--feature-key", "leave"]);
   assert.equal(withKey.code, 1);
-  assert.match(withKey.stderr, /--feature-key names a knowledge boundary this command cannot verify against what the run investigated/);
-  assert.equal((await readReportRequests(run.runDir)).requests.length, 1, "neither refusal appended anything");
+  assert.match(withKey.stderr, /--feature-key \\"leave\\" was given for --kind overview; the project scope is not addressed by feature/);
+  assert.equal((await readReportRequests(run.runDir)).requests.length, 1, "no refusal appended anything");
 });

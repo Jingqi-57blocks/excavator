@@ -23,17 +23,21 @@
  * `validatePlan`: "the requests are the document set"). An appended document is therefore plannable and
  * authorable on the unit path, and invisible to the section path — which is where the cutover puts it anyway.
  *
- * ONLY A PROJECT-SCOPE DOCUMENT MAY BE APPENDED, and that is a refusal rather than a gap left open. A feature
- * document's request names a knowledge BOUNDARY — `scope: feature`, `scopeIds: [key]` — and nothing downstream
- * re-checks that key against the run: `buildFixturePlan` reads neither field, so a mistyped key would mint a whole
- * document of authoring units for a feature this run never investigated. The key prepare records came from the
- * `FeatureRequest` that drove the investigation; this door has no such tie and does not pretend to one. Appending a
- * feature document therefore fails by name, saying what to do instead (re-prepare with the feature requested).
+ * THE BOUNDARY AN APPENDED ROW NAMES IS VERIFIED, NOT AVOIDED. A feature document's request carries a knowledge
+ * BOUNDARY — `scope: feature`, `scopeIds: [key]` — and nothing downstream re-derives that key: `buildFixturePlan`
+ * reads neither field, so a mistyped key mints a whole document of authoring units for a feature this run never
+ * investigated. This door used to close that hole by refusing every feature document, which also made the epic's
+ * own feature-scope deliverables unreachable except by re-preparing the run (and throwing the investigation away).
+ * It now checks the key against `contract/run-intent.json` — the run's own record of what was investigated, read-only
+ * since before any producer ran — and refuses by name, listing the keys that ARE bound. The check lives in
+ * `request-append-boundary.ts`, and the bound keys are a REQUIRED argument to `appendedRequestSet` rather than
+ * something it reads: a pure function that reached for a file would be a second reader of the contract, and an
+ * optional argument would be the check one call site forgets.
  */
 
-import { assertNever } from "../base/artifact-result.ts";
 import { canonicalJson, exists, stableJson, writeJson } from "../base/util.ts";
 import type { LegacyDocumentRequest } from "./legacy-request-mapping.ts";
+import { assertAppendableBoundary, boundFeatureKeys } from "./request-append-boundary.ts";
 import { REPORT_POLICY_REGISTRY, type ReportPolicyRegistry } from "./report-policy-registry.ts";
 import {
   readReportRequests,
@@ -59,9 +63,10 @@ export interface AppendedReportRequest {
 export function appendedRequestSet(
   recorded: ReportRequestsArtifact,
   document: LegacyDocumentRequest,
+  boundKeys: readonly string[],
   registry: ReportPolicyRegistry = REPORT_POLICY_REGISTRY
 ): ReportRequestsArtifact {
-  assertAppendableKind(document);
+  assertAppendableBoundary(document, boundKeys);
   if (recorded.requests.some((row) => row.documentId === document.documentId)) {
     throw new Error(`Document ${JSON.stringify(document.documentId)} is already in the recorded request set; a request row is appended once and never edited`);
   }
@@ -70,22 +75,6 @@ export function appendedRequestSet(
     version: recorded.version,
     requests: [...recorded.requests, appended].sort((a, b) => a.documentId.localeCompare(b.documentId))
   };
-}
-
-/**
- * Exhaustive over the document kinds: a third kind has to say whether this door can verify its boundary.
- *
- * The `feature` arm is a refusal for the reason in the header — an unverifiable knowledge boundary — and it is
- * stated here, in the door itself, rather than only in the CLI, so no API caller has a quieter way in.
- */
-function assertAppendableKind(document: LegacyDocumentRequest): void {
-  switch (document.kind) {
-    case "overview":
-      return;
-    case "feature":
-      throw new Error(`Document ${JSON.stringify(document.documentId)} is a feature document, and this door appends project-scope documents only: a feature request names a knowledge boundary (${JSON.stringify(document.featureKey)}) that nothing here can check against what this run investigated. Re-prepare the run with that feature requested.`);
-  }
-  return assertNever(document.kind, "appended document kind");
 }
 
 /**
@@ -131,7 +120,9 @@ export async function appendReportRequest(
     throw new Error(`${path} is missing, so there is no recorded request set to append to. Re-prepare the run under the current version.`);
   }
   const recorded = await readReportRequests(runDir, registry);
-  const next = appendedRequestSet(recorded, document, registry);
+  // The contract is read HERE, once, and handed to the pure function: the boundary check and the append are one
+  // act, and a door that verified the boundary against a second reading of the contract would be two.
+  const next = appendedRequestSet(recorded, document, await boundFeatureKeys(runDir), registry);
   assertRequestsOnlyAppended(recorded, next);
   await writeJson(path, next);
   const appended = next.requests.find((row) => row.documentId === document.documentId);
