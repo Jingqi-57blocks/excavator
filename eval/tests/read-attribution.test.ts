@@ -2,7 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, writeFileSync } from "node:fs";
 import { tempDirSync } from "../../tests/temp-dir.ts";
-import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { attributionExitCode, buildAttributionReport, loadAttributionGolden } from "../read-attribution.ts";

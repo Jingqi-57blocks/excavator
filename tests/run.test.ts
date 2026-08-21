@@ -159,7 +159,7 @@ test("searched-not-found checklist dispositions reject non-search evidence", asy
   const request = await makeRequest();
   request.overviewAudiences = ["product"];
   request.features = [];
-  const { runDir, manifest } = await prepareRun(request);
+  const { runDir } = await prepareRun(request);
   const id = await evidenceId(runDir);
   const checklist = JSON.parse(await readFile(join(runDir, "checklist.json"), "utf8")) as { items: Array<{ id: string }> };
   await updateChecklist(runDir, checklist.items.map((item) => ({ id: item.id, verdict: "searched-not-found" as const, material: false, evidenceIds: [id], searchScope: "synthetic source files" })));
@@ -171,7 +171,7 @@ test("searched-not-found checklist dispositions reject search receipts that cont
   const request = await makeRequest();
   request.overviewAudiences = ["product"];
   request.features = [];
-  const { runDir, manifest } = await prepareRun(request);
+  const { runDir } = await prepareRun(request);
   const receipt = await searchSourceEvidence(runDir, ["Leave requests"], "find an existing fixture phrase", { maxResults: 10 });
   const searchId = String((receipt.evidence as EvidenceItem).id);
   const checklist = JSON.parse(await readFile(join(runDir, "checklist.json"), "utf8")) as { items: Array<{ id: string }> };

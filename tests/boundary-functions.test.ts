@@ -1,7 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, writeFile } from "node:fs/promises";
 import { join, dirname } from "node:path";
 import { tempDir } from "./temp-dir.ts";
 import { BOUNDARY_FUNCTION_KINDS, enumerateBoundaryFunctions } from "../src/facts/probe/boundary-functions.ts";

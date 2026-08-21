@@ -2,7 +2,7 @@
 // degree pre-exclusion, and Aider RepoMap's PageRank + budget ordering. Both occupy the same slot as
 // `maxFeatureNodes` — they choose WHICH nodes survive the budget — so they are measured against the same
 // boundary gold as the shipped prune, on the same frozen pool.
-import { loadPrunePool, prunePool, prunePoolToNodes } from "./prune-replay.ts";
+import { loadPrunePool, prunePoolToNodes } from "./prune-replay.ts";
 import { boundaryRecall } from "./boundary.ts";
 import { loadBoundaryGold } from "./boundary-gold.ts";
 import { dirname, join } from "node:path";

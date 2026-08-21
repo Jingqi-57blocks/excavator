@@ -1,5 +1,5 @@
 import { DatabaseSync } from "node:sqlite";
-import { cp, mkdir, writeFile } from "node:fs/promises";
+import { cp } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { readFile } from "node:fs/promises";
 import type { InvestigationPlan, RunManifest } from "../src/base/types.ts";

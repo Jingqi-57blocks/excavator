@@ -4,7 +4,6 @@ import { spawn } from "node:child_process";
 import { join } from "node:path";
 import { readFile } from "node:fs/promises";
 import { tempDir } from "../../tests/temp-dir.ts";
-import { tmpdir } from "node:os";
 
 const PROJECT_ROOT = join(import.meta.dirname, "..", "..");
 const CLI = join("eval", "cli.ts");

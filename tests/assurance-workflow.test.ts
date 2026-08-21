@@ -3,7 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
 import { readFile } from "node:fs/promises";
-import type { Audience, ReportRequest, SectionClaim } from "../src/base/types.ts";
+import type { Audience, ReportRequest } from "../src/base/types.ts";
 import { auditRun, prepareRun } from "../src/run/run.ts";
 import { copyFixture, createCodeGraphFixture, tempDir } from "./helpers.ts";
 
@@ -28,9 +28,6 @@ async function request(options: { feature?: boolean; graph?: boolean } = {}): Pr
   };
 }
 
-function claims(index: number, evidenceId: string): SectionClaim[] {
-  return [{ id: `C-${index}`, marker: "fact", statement: `第 ${index} 节记录当前状态。`, evidenceIds: [evidenceId], confidence: "high", status: "verified" }];
-}
 
 test("prepare persists analysis scope, provider registry, work items, traces and a valid timeline", async () => {
   const { runDir, manifest } = await prepareRun(await request({ graph: true }));

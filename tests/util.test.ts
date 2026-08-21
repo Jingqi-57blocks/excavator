@@ -40,8 +40,7 @@ test("runIdTimestamp formats a run-id stamp in local time, zero-padded, YYYY_MM_
 });
 
 test("source window cache ignores legacy unversioned excerpts", async () => {
-  const { mkdtemp, mkdir, writeFile } = await import("node:fs/promises");
-  const { tmpdir } = await import("node:os");
+  const { mkdir, writeFile } = await import("node:fs/promises");
   const { join } = await import("node:path");
   const { SourceReader } = await import("../src/snapshot/source.ts");
   const { sha256 } = await import("../src/base/util.ts");
@@ -72,8 +71,7 @@ test("source window cache ignores legacy unversioned excerpts", async () => {
 // excerpt recorded without it, and audit — which re-derives from the run's own mode — would then report a
 // stale digest on a window nobody touched.
 test("a window cached in one redaction mode is not served to the other", async () => {
-  const { mkdtemp, mkdir, writeFile } = await import("node:fs/promises");
-  const { tmpdir } = await import("node:os");
+  const { mkdir, writeFile } = await import("node:fs/promises");
   const { join } = await import("node:path");
   const { SourceReader } = await import("../src/snapshot/source.ts");
   const root = await tempDir("excavator-cache-mode-");

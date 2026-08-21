@@ -2,7 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile, writeFile } from "node:fs/promises";
 import { tempDir } from "../../../tests/temp-dir.ts";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { mkdir } from "node:fs/promises";
 import { buildSite } from "../src/renderer.ts";

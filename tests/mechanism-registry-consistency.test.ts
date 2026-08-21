@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { SOURCE_EXTENSIONS } from "../src/snapshot/snapshot.ts";
 import { TEXTUAL_EXTENSIONS } from "../src/snapshot/source.ts";
 import {
-  LANGUAGE_REGISTRY, corpusResolver, extensionsOfLanguage, isRegisteredCorpusMember,
+  LANGUAGE_REGISTRY, corpusResolver, isRegisteredCorpusMember,
   scannedExtensions, textualExtensions, type LanguageRegistry
 } from "../src/base/language-registry.ts";
 import {

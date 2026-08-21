@@ -198,7 +198,7 @@ test("a hand-edited obligation accounting, disposition or topic digest fails by 
 });
 
 test("a synthesis row with a topic, and a leaf row with children, are refused when the plan is read back", async () => {
-  const { runDir, catalog, artifacts } = await planned();
+  const { catalog, artifacts } = await planned();
   const synthesis = artifacts.planCatalog.units.find((unit) => unit.kind === "synthesis")!;
   const leaf = artifacts.planCatalog.units.find((unit) => unit.kind === "leaf")!;
   assert.throws(

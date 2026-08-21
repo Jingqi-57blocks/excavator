@@ -1,5 +1,4 @@
 import { basename, join } from "node:path";
-import { readFile } from "node:fs/promises";
 import type { Audience, CodeGraphCoverage, CollectedFeatureFactPack, EvidenceItem, FeatureRequest, GraphNode, ProviderRegistry, ReportRequest, Snapshot } from "../base/types.ts";
 import { CodeGraphIndex, type GraphReader, type GraphSummary } from "../codegraph/codegraph.ts";
 import { CodeGraphSet } from "../codegraph/codegraph-set.ts";
@@ -458,7 +457,6 @@ async function buildSharedContext(snapshot: Snapshot, files: ScannedFile[], ledg
     // as observed data rather than as a rule, so a reader can see that `.scss` and `.html` dominate the gap
     // without the engine having to assert which extensions "should" have been indexed.
     coverage = codegraphCoverage(countedRowSet(ledger), ledger, graphPaths);
-    const { counted, indexed } = coverage;
     graphSummary = graph.summary();
     representativeNodes = graph.representativeNodes(60);
     routes = graph.routeSummary(60);

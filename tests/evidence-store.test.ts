@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { cp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { DocumentPlan, EvidenceItem } from "../src/base/types.ts";
+import type { EvidenceItem } from "../src/base/types.ts";
 import { canonicalJson, sha256, stableJson } from "../src/base/util.ts";
 import {
   EVIDENCE_MODEL_VIEW_MAX_BYTES, EVIDENCE_RECORD_MAX_BYTES, EVIDENCE_SCALAR_MAX_BYTES,

@@ -30,7 +30,7 @@ import { planBudgetFor, type PlanBudgetTable } from "./plan-budget.ts";
 import { intentPolicyFor, lensPolicyFor, type ReportPolicyRegistry } from "./report-policy-registry.ts";
 import type { ReportRequestsArtifact } from "./report-requests-artifact.ts";
 import { TOPIC_DISPOSITION_STATES } from "./topic-disposition.ts";
-import { TOPIC_FACETS, type TopicCandidate, type TopicFacet } from "./topic-candidate.ts";
+import { TOPIC_FACETS, type TopicCandidate } from "./topic-candidate.ts";
 import type { FacetOutcome, TopicCatalogArtifact } from "./topic-catalog.ts";
 import { topicCatalogDigest } from "./topics-artifact.ts";
 import { reportRequestsDigest } from "./plan-artifacts.ts";
