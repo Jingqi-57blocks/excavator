@@ -426,6 +426,28 @@ export type PlanWriteMode =
  * passes forever — and the first one would vanish with nothing archived, while any row minted against it named a
  * plan that is nowhere on disk. That is a lost update, not a race nobody can reach: nothing in `src/` locks a run
  * directory.
+ *
+ * THE WINDOW BETWEEN THE TWO WRITES IS STILL OPEN, AND THAT IS A DECISION (57B-434, item #6 of the R8
+ * pre-cleanup). For the instant between `writeJson(dag)` and `writeJson(catalog)` — and in the `record` arm,
+ * between the two `writeOnce` calls — the directory holds a pair that does not read through: the graph is the new
+ * revision's and the catalog is still the old one. What that costs is bounded and stated:
+ *
+ *   * A READER that arrives inside the window gets a NAMED refusal, never a wrong answer. `readPlanDag` refuses a
+ *     graph whose plan catalog is not the one it was derived against, so the mismatch is reported, not consumed.
+ *   * AN INTERRUPTION inside the window is recoverable: re-running the same revise completes it, because both
+ *     writes are idempotent and `assertReplaceable` accepts the half-written state as well as the starting one.
+ *   * A CONCURRENT SECOND WRITER inside the window is refused rather than silently merged, by the same
+ *     precondition.
+ *
+ * WHY IT IS NOT CLOSED. The only two ways to close it are to merge the pair into one file, or to lock the run
+ * directory. Merging changes `plan/catalog.json`'s bytes — which is every unit's cache identity and every archived
+ * digest reading keyed on it — to buy an instant that already fails closed. A run-directory lock introduces a new
+ * failure surface (a stale lock stops a run with no command to clear it, which is strictly worse than a refusal
+ * that says "revise again") and there is no other lock in `src/` for it to be consistent with.
+ *
+ * WHEN TO COME BACK: when a SECOND concurrent writer of the plan pair becomes a real scenario — a scheduler, a
+ * server, more than one operator against one run directory. At that point "refused" stops being good enough
+ * (whoever loses has to notice and retry), and the pair needs one of the two closures above, priced deliberately.
  */
 export async function writePlanArtifacts(runDir: string, artifacts: PlanArtifacts, catalog: TopicCatalogArtifact, mode: PlanWriteMode): Promise<PlanArtifacts> {
   switch (mode.kind) {

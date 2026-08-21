@@ -35,6 +35,39 @@
 //     `not-applicable` BY NAME with the reason, rather than as a zero that looks like a measurement.
 //
 // A hand-edited number in either file breaks one of those identities.
+//
+// =================================================================================================================
+// WHAT THE THREE NAILS OVER THESE TWO FILES DO AND DO NOT COVER (57B-434, items #3 and #4 of the R8 pre-cleanup).
+// Read this before approving a diff to either golden.
+//
+// The nails:
+//   1. THE CONTRACT PIN (below): every reading records the `contract` its digests were minted under, and it is
+//      asserted against the code's own constants (`UNIT_IDENTITY_KEY_VERSIONS`). A schema bump that would make
+//      these digests unproducible turns this test red instead of leaving 37 stale numbers looking fine.
+//   2. THE FUNCTION NAIL: `unit-cache-identity-fixture-readings.test.ts` recomputes a WHOLE reading byte for byte
+//      over `tests/fixtures/unit-cache-identity-mini`, whose input IS in this repository, plus a formula witness
+//      over the identity composition. A change to the derivation moves that, in CI, with no archive needed.
+//   3. THE INTERNAL IDENTITIES (this file): the arithmetic and set relations between the numbers in each record.
+//
+// THE RESIDUAL EXPOSURE, NAMED: a hand edit of ONE `identityDigest` (or one `bytes` figure) in these two files
+// that leaves `contract`, the formula witness and the per-section projection untouched is invisible to all three.
+// Closing it would take either checking the archived runs into the repository (their size is not acceptable) or a
+// corpus-scale in-repo fixture; the mini fixture already closes the FUNCTION side, and no fixture can close the
+// "someone typed a different number for a real run" side. So the residual is a REVIEW obligation, not a covered
+// case, and it must not be read as closed.
+//
+// WHAT A REVIEWER CHECKS ON A GOLDEN DIFF HERE: a digest that moved must move TOGETHER with something that
+// explains it — the `contract` version, the formula witness, or the per-section projection of the unit it belongs
+// to. An isolated digest change, with the contract and the witness and the section rows all unchanged, is the
+// exact shape of a hand edit and is suspect on its face. And a digest that moved must have been RE-DERIVED from
+// the archived run by whoever holds it, not adjusted to match: two derivations, byte-identical, stated in the PR.
+//
+// AND WHEN A READING CAN NO LONGER BE RE-DERIVED AT ALL (item #4): the rule is RETIRE, never label. A golden that
+// its contract version made unreproducible is re-derived from the archive (57B-434 R6c's rule). If the ARCHIVE
+// itself is gone, the golden is DELETED and the deletion is named in the PR that does it. It is never kept with a
+// "stale" marker: a stale label is a fourth state in a file whose whole purpose is to be a measurement, and every
+// reader downstream would go on reading it as one.
+// =================================================================================================================
 
 import test from "node:test";
 import assert from "node:assert/strict";
