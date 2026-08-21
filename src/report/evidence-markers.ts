@@ -19,7 +19,7 @@
 import type { EvidenceMarker } from "../base/types.ts";
 
 /** The visible reading surface of a section: no collapsed evidence blocks, no fenced code, no HTML comments. */
-export function visibleText(section: string): string {
+function visibleText(section: string): string {
   return section
     .replace(/<details[\s\S]*?<\/details>/gi, " ")
     .replace(/```[\s\S]*?```/g, " ")

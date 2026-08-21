@@ -98,7 +98,7 @@ const ANCHORS: Record<string, Classification> = {
   "src/workset/factpack-view.ts:54": { kind: "current", expect: "maxRowsPerCategory = 60" },
 
   // --- §五 P1-P18 -------------------------------------------------------------------------------------------
-  "src/workset/census.ts:95": { kind: "current", expect: "export function buildScopeCensus" },
+  "src/workset/census.ts:94": { kind: "current", expect: "export function buildScopeCensus" },
   "snapshot.ts:211": { kind: "historical", why: "P13's provenance: the pre-57B-418 scan loop, kept because the document says so explicitly" },
   "snapshot.ts:215": { kind: "historical", why: "P13's provenance: the silent path-escape continue" },
   "snapshot.ts:218": { kind: "historical", why: "P13's provenance: the silent irregular-file/symlink/oversize continue" },

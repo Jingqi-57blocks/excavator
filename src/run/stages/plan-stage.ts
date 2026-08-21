@@ -307,17 +307,3 @@ async function loadProposal(
   return assertNever(source, "plan proposal source");
 }
 
-/** Where the plan artifacts of one run live, for a caller that reports paths without reading them. */
-export function planPaths(runDir: string): { readonly topics: string; readonly catalog: string; readonly dag: string; readonly requests: string } {
-  return {
-    requests: reportRequestsPath(runDir),
-    topics: topicsPath(runDir),
-    catalog: planCatalogPath(runDir),
-    dag: planDagPath(runDir)
-  };
-}
-
-/** The `plan/` directory of one run. Stated once so no caller re-spells it. */
-export function planDir(runDir: string): string {
-  return join(runDir, "plan");
-}

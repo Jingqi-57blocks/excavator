@@ -156,7 +156,7 @@ src/run/  src/cli.ts ✓ 编排
 | P2 | 噪声判断只在下游生效 | 事实信封：unit kind 由第 3 层唯一声明，下游禁止再分类——第二份拷贝在接口上不可表达 |
 | P3 | 结构工具不能准入、不可引用 | 事实 → 归属 与 事实 → 调查结果：工具成为第 3 层生产者，产物经通道计分、经证据目录可引用 |
 | P4 | 加语言要改六处 | 边界 → 机制：注册表在基座唯一；未注册扩展名在第 1 层落 `excluded{unsupported-extension}` 并按扩展名分组，已 counted 而无机制支持的在第 2 层落 no-mechanism 行——两个桶都进 census，「忘了」在分母所在的层就可见 |
-| P5 | census 分母取自索引 | 台账 → 工作集：census 分母只能通过两扇 RowSet 门进入；`src/workset/census.ts:95` 只接受 `ledger/files.json` 的 file RowSet 与 `facts/units.json.partition` 的 partition-cell RowSet，旧 `GraphSummary["roots"]` 路径已删除 |
+| P5 | census 分母取自索引 | 台账 → 工作集：census 分母只能通过两扇 RowSet 门进入；`src/workset/census.ts:94` 只接受 `ledger/files.json` 的 file RowSet 与 `facts/units.json.partition` 的 partition-cell RowSet，旧 `GraphSummary["roots"]` 路径已删除 |
 | P6 | 记账按 feature、整 run 可沉默 | 工作集 与 义务声明：overview census 无条件产出；无 feature 的 run 也收 run 级 requirements 与义务声明 |
 | P7 | 模块身份 = 路径首段 | 工作集产物契约：模块 × 语言双分组强制，每行声明粒度，比值绝不跨粒度、绝不跨 UnitKind |
 | P8 | 全局预算整模块清零 | 台账 → 归属（零命中侧：分母成员资格构造性完整）+ 归属产物契约（有命中侧：挤出必带记录） |

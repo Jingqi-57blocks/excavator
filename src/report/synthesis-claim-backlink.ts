@@ -33,7 +33,6 @@
  * and "its claims cite nothing" are two different things a reader must be able to tell apart) and `violations`.
  */
 
-import { join } from "node:path";
 import { assertNever } from "../base/artifact-result.ts";
 import type { SectionClaim } from "../base/types.ts";
 import { readJson } from "../base/util.ts";
@@ -243,7 +242,3 @@ async function readClaimsOf(runDir: string, unitId: string): Promise<readonly Se
   return parsed.claims.claims;
 }
 
-/** The run-relative path of one unit's claims sidecar, for a caller that publishes what it read. */
-export function unitClaimsReadPath(runDir: string, unitId: string): string {
-  return join("units", unitPaths(runDir, unitId).key, "claims.json");
-}
