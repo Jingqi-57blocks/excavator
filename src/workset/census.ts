@@ -1,4 +1,3 @@
-import type { ArtifactResult } from "../base/artifact-result.ts";
 import { summarizeCoverage, summarizeSelection, type CoverageConservation, type SelectionConservation } from "../base/conservation.ts";
 import { corpusResolver, LANGUAGE_REGISTRY } from "../base/language-registry.ts";
 import { RowSet, type RowSetIdentity } from "../base/row-set.ts";
@@ -237,11 +236,6 @@ export function overviewCensusResidual(census: OverviewCensusV2): { balanced: bo
     balanced: census.rows.every((row) => row.totals.total === row.totals.counted + row.totals.excluded + row.totals.unexplained),
     unexplained: census.rows.filter((row) => row.totals.unexplained > 0).map((row) => `${row.module}/${row.language}`)
   };
-}
-
-export function requireBuilt<T>(result: ArtifactResult<T>, name: string): T {
-  if (result.status === "built") return result.value;
-  throw new Error(`${name} is ${result.status === "unavailable" ? `unavailable: ${result.cause}` : `not applicable: ${result.determination}`}`);
 }
 
 function denominator(rowSet: RowSet): CensusDenominator {

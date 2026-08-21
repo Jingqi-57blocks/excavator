@@ -699,6 +699,17 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
     // gone or moved: claim↔prose binding and the evidence-level markers went to the unit path with 57B-491,
     // attribution (G6) and the readability advisory (G10) were ruled retired with a named future home in R7c's
     // policy checker, and the detailed-feature fact-pack rule is G14's already-accepted reduction.
+    //   WHAT RETIRED IS THE ENFORCEMENT HALF, NOT THE RULE — grep-verified when this was written, because "it
+    //   went with a named future home" and "nothing says it any more" are different claims. G6's rule is written
+    //   out in `skills/excavator/references/writing-rules.md` ("analysis-method information, not target problems,
+    //   and MUST NOT appear in a target risk/current-problem section"); G10's glossary table is required by
+    //   `product-feature.md` ("Present the glossary as a Markdown table"); the marker-placement advisory's rule is
+    //   in all five templates ("do not leave a marker on its own line or behind an \"Evidence level:\" lead-in");
+    //   the detailed-mode table and Mermaid requirements are in `engineering-feature.md`, sections 3 and 10 named
+    //   individually. Those files are the bound contract's per-section requirement producers and R8c kept them
+    //   alive on purpose, so an author is still told each rule. What no longer happens is a run being FAILED for
+    //   breaking one. Commands: grep -rn "MUST NOT appear in a target risk" skills/; grep -rln "do not leave a
+    //   marker on its own line" skills/excavator/references/.
     //
     // ONE OF THEM LOSES A GUARANTEE NO RULING HAD NAMED, so it is named here. `auditComparativeClaims`'s layer 2
     // — the SINGLE-SIDED EQUIVALENCE warning: a `fact` claim that asserts sameness across implementations,
@@ -711,6 +722,20 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
     //   WHERE IT GOES IF IT COMES BACK: R7c's policy checker, with G6 and G10 — all three are prose-level rules
     //   with no chapter anchor, which is why none of them survived a mechanical port. `claim-comparison.ts`
     //   itself STAYS: its layer 1 (`assertValidClaim`'s shape validation of `sides`) is live on both sidecars.
+    //
+    // A SECOND DISAPPEARANCE, DOCUMENT-LEVEL RATHER THAN PER-SECTION, NAMED HERE FOR THE SAME REASON.
+    // `auditRescuedLogicCoverage` — the advisory that every rescued `logic` fact-pack item be represented in the
+    // assembled report, by a claim disposing its work item or by the prose naming it — was also called from this
+    // function and went with the deletion (57B-481).
+    //   WHAT DOES INHERIT IT, AND MORE STRONGLY: a rescued logic item is promoted to a work item
+    //   (`logic-workitems.ts`), so on the unit path `auditUnitGrounding` demands a LINKED CLAIM REUSING ITS
+    //   EVIDENCE — a harder requirement than "the report represents it somewhere".
+    //   WHAT DOES NOT: items beyond `LOGIC_WORKITEM_CAP` are never promoted, so no obligation exists for them and
+    //   the advisory was their only net. TWO OPERATOR-VISIBLE SENTENCES STILL PROMISE NETS THAT NO LONGER EXIST,
+    //   and correcting them is a statement about what the product guarantees rather than a deletion, so they are
+    //   named rather than edited here: `logic-workitems.ts`'s over-cap warning says the remainder is "covered only
+    //   by the fact-pack advisory", and `cli.ts`'s `--detail detailed` help says it requires "minimum report
+    //   density" — the density floor was `auditDetailedFeatureSection`, deleted as G14's accepted reduction.
     //
     // WHAT REPLACES IT IS A READ, NOT A RULE. `claimsByDocument` feeds RUN-LEVEL families — work-item claim
     // coverage, the condition inventory's claim statements — and those are explicitly kept running. Deleting the

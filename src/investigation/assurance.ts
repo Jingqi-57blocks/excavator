@@ -2,7 +2,7 @@
  * The knowledge side of auditing: the investigation plan / checklist machinery and the audits whose subject is
  * the run's own record — evidence, traces, work items, checklist. Freeze consumes exactly these.
  *
- * The report-side section and claim audits live in `section-audit.ts`, and the assurance-generation gate in
+ * The report-side section and claim audits went with the section path (57B-481), and the generation gate is in
  * `base/assurance-version.ts`. Nothing here may import either the report side or layer 8.
  */
 

@@ -25,7 +25,7 @@ import type { SectionClaim } from "../src/base/types.ts";
 //
 // WHAT MOVED AND WHAT DID NOT. The unit path had no binding check at all, so this file is the check arriving
 // there, not a second copy of one. The corpus sentences are byte-identical to the section-path file
-// (`tests/claim-statement-binding.test.ts`, which stays where it is until 57B-481 retires `section-audit.ts`);
+// (the section-path file it came from, deleted with `section-audit.ts` in 57B-481);
 // the shape around them is unit-keyed. FOUR cases changed DIRECTION, and each says so at its own site: they are
 // the ones whose outcome came from the section path's LEGACY folding generation, which is deliberately not
 // migrated because no unit product predates the current folding. Their sentences are kept verbatim precisely so
@@ -453,7 +453,7 @@ test("a marker that lives only inside a collapsed evidence block is not in the r
 // three `unclaimed-statement`. Add a single claim whose statement is `验证` — which the same audit reports as
 // too short to bind to anything — and all three disappear, leaving only the too-short finding.
 //
-// IT IS NOT FIXED HERE, ON PURPOSE. It is `section-audit.ts`'s behaviour byte for byte, and both paths are alive
+// IT IS NOT FIXED HERE, ON PURPOSE. It was the section path's behaviour byte for byte, and both paths were alive
 // until 57B-481 retires the section one. Making the unit path silently stricter than the section path, on a rule
 // 57B-491 was told to move unchanged, is the same two-rules-one-name drift this file exists to record — so the
 // divergence is refused and the hole is pinned instead. The fix, when it is decided, is one filter: drop

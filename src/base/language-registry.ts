@@ -221,13 +221,6 @@ export function nameClassIds(registry: LanguageRegistry = LANGUAGE_REGISTRY): re
   return registry.nameClasses.map((entry) => entry.id);
 }
 
-/** The names in one exact-match class; the scanner's former `PROJECT_FILE_NAMES` reads through here. */
-export function namesOfClass(id: string, registry: LanguageRegistry = LANGUAGE_REGISTRY): ReadonlySet<string> {
-  const rule = registry.nameClasses.find((entry) => entry.id === id)?.rule;
-  if (rule?.kind !== "exact") throw new Error(`Name class ${JSON.stringify(id)} is not an exact-name class`);
-  return new Set(rule.names);
-}
-
 /** The compiled pattern of one pattern class; the scanner's `SAFE_ENV_SAMPLE` reads through here. */
 export function patternOfClass(id: string, registry: LanguageRegistry = LANGUAGE_REGISTRY): RegExp {
   const rule = registry.nameClasses.find((entry) => entry.id === id)?.rule;
