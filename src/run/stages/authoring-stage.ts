@@ -4,7 +4,8 @@ import type { InvestigationPlan, RunManifest, SectionClaim, SectionClaimsFile, T
 import { atomicWrite, exists, nowIso, readJson, writeJson } from "../../base/util.ts";
 import { appendTimeline, readTimeline } from "../../base/timeline.ts";
 import { collectClaims, writeReportCompanions } from "../../report/assurance-artifacts.ts";
-import { outputFrontMatter, reportFileName } from "../../report/authoring-plan.ts";
+import { outputFrontMatter } from "../../report/authoring-plan.ts";
+import { reportFileName } from "../../report/section-report-name.ts";
 import { archiveCheckpoint, normalizeSection } from "../../report/checkpoint.ts";
 import { scaffoldSectionClaims } from "../../report/claims-scaffold.ts";
 import { sectionPaths } from "../../report/section-paths.ts";
