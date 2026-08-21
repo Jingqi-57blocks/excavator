@@ -245,10 +245,15 @@ test("a statement only the legacy folding could bind is now reported", () => {
 // The construction matters and is kept verbatim: a marker-bearing statement like `` `事实` 共5项 `` does NOT
 // demonstrate this, because segments strip the marker token either way. Decoration ADJACENT to text is the only
 // shape that moves the length alone.
-test("a statement only the legacy generation made long enough is reported as too short", () => {
+//
+// DIRECTION CHANGED AGAIN IN 57B-494, AND THIS IS THE SECOND HALF OF THE SAME TIGHTENING. The old assertion ended
+// "and the segment is still covered by it" — the 5-character statement was too short to bind AND was counted as
+// coverage for the very segment it could not bind to. With sub-threshold statements out of the coverage set the
+// unit now reports both facts: the claim is unbindable, and the sentence it was standing in for is unclaimed.
+test("a statement only the legacy generation made long enough is reported as too short, and covers nothing", () => {
   const content = "## 1. 项\n\n配置项 `abc`de 与其余项各自独立声明于主配置文件 `事实`。\n";
-  assert.deepEqual(problemKinds(content, [claim("`abc`de")]), ["statement-too-short"],
-    "5 folded characters is below the binding threshold, and the segment is still covered by it");
+  assert.deepEqual(problemKinds(content, [claim("`abc`de")]), ["statement-too-short", "unclaimed-statement"],
+    "5 folded characters is below the binding threshold, so it binds to nothing and vouches for nothing");
 });
 
 // ═══ THE SINGLE-FOLDING-AUTHORITY PROPERTY, ASSERTED AND THEN FALSIFIED ═══════════════════════════════════════
@@ -322,6 +327,58 @@ test("a table row is segmented cell by cell, and non-final cells carry a termina
   assert.deepEqual(problemKinds(content, [claim("缓存层负责对象与实例数据 保存对象与实例数据以降低查询")]),
     ["statement-absent", "unclaimed-statement"],
     "a whole-row claim matches neither the folded prose nor the `；`-terminated non-final cell");
+});
+
+// ═══ THE TABLE JUDGEMENT, DECIDED BY MEASUREMENT AND RECORDED AS ONE (57B-494) ════════════════════════════════
+//
+// THE QUESTION: `writing-rules.md` prefers tables for inventories and comparisons, so an author writing a
+// detailed chapter is pushed into a shape where a claim covering the row AS A READER READS IT binds to nothing
+// and one claim per substantive cell is the only form that passes. Should the rule tighten to row-level binding?
+//
+// THE ANSWER IS NO, AND IT IS NOT A PREFERENCE — the two measurements below are why. Row-level binding is not one
+// change to a join character; it needs the FOLD and the SEGMENTER moved together, which is a second segmentation
+// semantics. This codebase has one segmentation authority on purpose (see the file header of
+// `unit-claim-binding.ts`: the two halves sharing one fold BY CONSTRUCTION is the structural form of the fix for
+// the ~30-error defect this corpus records), and inventing a second is the drift that file exists to prevent.
+//
+// The honest statement of today's rule, therefore: PER-CELL IS THE CURRENT FOLD'S TRUTHFUL SHAPE, not an
+// oversight. `writing-rules.md` already tells authors so in as many words ("a claim must cover each substantive
+// cell, not the row as a whole"), so the contract and the code agree and no author is being surprised.
+test("row-level binding would need the fold AND the segmenter moved together, which is why it is not done", () => {
+  // A table in the shape writing-rules asks for: header row, separator, a data row, the evidence-level marker
+  // inside the cell it qualifies (which writing-rules explicitly permits).
+  const table = [
+    "## 6. 实体与存储",
+    "",
+    "| 实体 | 存储位置 | 写入方 |",
+    "| --- | --- | --- |",
+    "| 用户档案实体 | zms_user 表持久化 | 注册流程与后台管理 `事实` |",
+    ""
+  ].join("\n");
+  const segments = substantiveUnitSegments(table);
+  assert.deepEqual(segments, ["zms user 表持久化；", "注册流程与后台管理"], "cells, not a row");
+
+  // MEASUREMENT ONE — why a row claim cannot bind today: `|` is NOT in the fold's removal or spacing set, so the
+  // separators survive into the folded visible text and no statement a reader would write is a substring of it.
+  const rowStatement = "用户档案实体 zms_user 表持久化 注册流程与后台管理";
+  const visible = foldUnitText(visibleUnitText(table));
+  assert.equal((visible.match(/\|/gu) ?? []).length, 12, "the folded prose still carries every separator");
+  assert.equal(visible.includes(foldUnitText(rowStatement)), false);
+  assert.deepEqual(problemKinds(table, [claim(rowStatement)]), ["statement-absent", "unclaimed-statement"],
+    "so the row claim is absent, and the non-final cell it was meant to cover is unclaimed");
+
+  // MEASUREMENT TWO — and why fixing that alone would not be enough. Space `|` out of the fold and the
+  // `statement-absent` half clears; the `；` the segmenter joins cells with then orphans every NON-FINAL cell,
+  // because neither containment direction holds against a statement that does not carry the terminator. Both the
+  // fold and the cell join would have to change, in step, for a row to be claimable as a row.
+  const pipeSpacingFold = (value: string) => foldUnitText(value.replace(/\|/gu, " "));
+  const rowVisible = pipeSpacingFold(visibleUnitText(table));
+  assert.equal(rowVisible.includes(foldUnitText(rowStatement)), true, "the absent half would clear");
+  const covered = (segment: string) =>
+    foldUnitText(rowStatement).includes(segment) || segment.includes(foldUnitText(rowStatement));
+  assert.equal(covered("注册流程与后台管理"), true, "the final cell is swallowed by the row statement");
+  assert.equal(covered("zms user 表持久化；"), false,
+    "but the `；`-terminated non-final cell is not — the join has to go too, and that is the second change");
 });
 
 // AND THE FALSIFICATION: reproduce the original accident by folding the two halves differently, and watch the
@@ -442,30 +499,69 @@ test("a marker that lives only inside a collapsed evidence block is not in the r
   assert.deepEqual(markerProblems(hidden), ["missing-evidence-marker"]);
 });
 
-// ═══ AN INHERITED SILENCING HOLE, PINNED RATHER THAN CARRIED IN SILENCE ═══════════════════════════════════════
+// ═══ THE SILENCING HOLE, CLOSED — AND THE SAME FIXTURE RUN IN REVERSE (57B-494) ═══════════════════════════════
 //
-// The coverage set for `unclaimed-statement` is EVERY claim's folded statement, including the ones this very
-// audit just reported as too short to bind. Coverage is bidirectional containment, so a two-character statement
-// is a substring of almost any segment and acts as a wildcard: one unbindable claim silences the unclaimed
-// findings for a whole unit.
+// WHAT THIS FIXTURE MEASURED WHEN 57B-491 PINNED IT. The coverage set for `unclaimed-statement` was EVERY claim's
+// folded statement, including the ones the very same audit had just reported as too short to bind. Coverage is
+// bidirectional containment, so a two-character statement is a substring of almost any segment and acted as a
+// wildcard: `problemKinds(WILDCARD_UNIT, [claim("验证")])` returned `["statement-too-short"]` — one unbindable
+// claim silenced all three `unclaimed-statement` findings of the unit.
 //
-// MEASURED, not reasoned: the unit below has three substantive statements. With no claims at all it reports
-// three `unclaimed-statement`. Add a single claim whose statement is `验证` — which the same audit reports as
-// too short to bind to anything — and all three disappear, leaving only the too-short finding.
+// 57B-491 refused to fix it because both paths were alive and it had been told to move the rule unchanged;
+// 57B-481 then deleted the section path, and 57B-494 is the decision that constraint was waiting for. It is not
+// a new rule: `statement-too-short` says the binding guarantee is VOID for a claim, and coverage says that same
+// claim vouches for a sentence — two internal states that cannot both be true. A claim that cannot be bound to
+// the prose cannot vouch for the prose.
 //
-// IT IS NOT FIXED HERE, ON PURPOSE. It was the section path's behaviour byte for byte, and both paths were alive
-// until 57B-481 retires the section one. Making the unit path silently stricter than the section path, on a rule
-// 57B-491 was told to move unchanged, is the same two-rules-one-name drift this file exists to record — so the
-// divergence is refused and the hole is pinned instead. The fix, when it is decided, is one filter: drop
-// sub-threshold statements from the coverage set, which makes the two rules independent. This test is what says
-// so out loud, and it is the test that changes when that happens.
+// THE ASSERTION BELOW IS THE ONE THAT GOES RED IF THE FILTER IS REMOVED: with `验证` present, the three unclaimed
+// statements are STILL THERE, and the too-short finding is reported beside them rather than instead of them.
 const WILDCARD_UNIT = "## 1. 校验\n\n入站请求在持久化之前会被验证一次 `事实`。审批结果也会被验证一次 `事实`。归档流程同样验证一次 `事实`。\n";
 
-test("a claim too short to bind still counts as coverage, silencing unclaimed statements (inherited, pinned)", () => {
+test("a claim too short to bind no longer counts as coverage, so it silences nothing", () => {
   assert.equal(substantiveUnitSegments(WILDCARD_UNIT).length, 3, "three substantive statements");
   assert.deepEqual(problemKinds(WILDCARD_UNIT, []),
     ["unclaimed-statement", "unclaimed-statement", "unclaimed-statement"],
     "with no claim, every statement is unclaimed");
-  assert.deepEqual(problemKinds(WILDCARD_UNIT, [claim("验证")]), ["statement-too-short"],
-    "and one two-character claim — reported as unbindable in the same breath — silences all three");
+  // The reversal, stated as the equality that matters: adding the unbindable claim ADDS its own finding and
+  // takes none away. Before 57B-494 this was `["statement-too-short"]`.
+  assert.deepEqual(problemKinds(WILDCARD_UNIT, [claim("验证")]),
+    ["statement-too-short", "unclaimed-statement", "unclaimed-statement", "unclaimed-statement"],
+    "the two-character claim is reported unbindable AND leaves all three statements unclaimed");
+  // Its own finding still fires — the tightening removes a silencing power, it does not turn the claim silent.
+  assert.equal(audit(WILDCARD_UNIT, [claim("验证")]).problems.filter((p) => p.kind === "statement-too-short").length, 1);
+});
+
+// ═══ WHAT THE TIGHTENING MUST NOT DO — THE COVERAGE SIDE, ASSERTED POSITIVELY ═════════════════════════════════
+//
+// A filter on the coverage set has a degenerate way to pass every test above: cover NOTHING. "No claim vouches
+// for any statement" satisfies every red assertion in this file and reports the whole corpus as unclaimed. The
+// three cases below are the ones that go red if the filter is written that way, so the rule has a floor as well
+// as a ceiling.
+const THRESHOLD_UNIT = "## 1. 校验\n\n入站请求在持久化之前会被验证一次 `事实`。\n";
+
+// THE BOUNDARY, FROM BOTH SIDES, on one constant. `MINIMUM_BINDABLE_STATEMENT_LENGTH` is 6, and it is now the
+// only threshold in the rule: the claim that is judged bindable is exactly the claim that is allowed to vouch.
+// Six folded characters bind AND cover; five do neither. If the two questions were ever answered by two numbers
+// again, one of these two assertions is what says so.
+test("a claim at the length threshold still covers the segment it is contained by", () => {
+  assert.deepEqual(problemKinds(THRESHOLD_UNIT, [claim("入站请求在持")]), [],
+    "six folded characters is bindable, so it is coverage — the clean conclusion this rule must still be able to reach");
+  assert.deepEqual(audit(THRESHOLD_UNIT, [claim("入站请求在持")]).verdict,
+    { conclusion: "complete", segments: 1, statements: 1 });
+});
+
+test("a claim one character below the threshold neither binds nor covers", () => {
+  assert.deepEqual(problemKinds(THRESHOLD_UNIT, [claim("入站请求在")]), ["statement-too-short", "unclaimed-statement"],
+    "five folded characters is the same defect reported from both directions");
+});
+
+// THE MIXED UNIT, which is the shape a real author produces: most claims bind, one is a stub. The bindable claim
+// must go on covering its segment with the unbindable one sitting beside it — the filter drops one claim from the
+// coverage set, not the set. This is the assertion that fails if the coverage set is emptied instead of filtered.
+test("an unbindable claim beside a bindable one removes only itself from the coverage set", () => {
+  const mixed = [claim("入站请求在持久化之前会被验证一次", "c-long"), claim("入站", "c-short")];
+  assert.deepEqual(problemKinds(THRESHOLD_UNIT, mixed), ["statement-too-short"],
+    "the long claim still vouches for the only substantive statement; only the stub is reported");
+  assert.deepEqual(audit(THRESHOLD_UNIT, mixed).problems.map((problem) => problem.claimId), ["c-short"],
+    "and the finding names the claim that caused it");
 });

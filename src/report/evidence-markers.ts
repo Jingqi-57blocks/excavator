@@ -50,6 +50,49 @@ export const MARKER_TOKENS: Record<string, EvidenceMarker> = {
   "无法获得": "unavailable",
 };
 
+/**
+ * The English half of the same vocabulary, which `references/evidence-markers.json` lists under `en-US`.
+ *
+ * It is a table rather than four inline regexes because it now has TWO readers — `markersIn` below, and the
+ * folding pattern this module exports — and four inline literals cannot be widened in one place.
+ */
+const ENGLISH_MARKER_WORDS: Record<string, EvidenceMarker> = {
+  fact: "fact",
+  verified: "verified",
+  inferred: "inferred",
+  unavailable: "unavailable",
+};
+
+/**
+ * THE ONE PATTERN FOR "THIS IS A BACKTICKED EVIDENCE-LEVEL MARKER", derived from the vocabulary above rather
+ * than spelled a second time.
+ *
+ * WHY IT LIVES HERE AND NOT AT ITS CONSUMER (57B-494). `unit-claim-binding.ts` folds prose and claim statements
+ * into one comparable form, and folding has to REMOVE the marker token — a claim statement never repeats the
+ * author's `` `事实` ``. Until this export existed it carried its own literal of four Chinese tokens while
+ * `MARKER_TOKENS` here listed eight, so the two halves of the marker rule answered different questions about
+ * `` `已验证` ``: recognised as an evidence level by `markersIn`, folded as ordinary prose by the comparator.
+ * Both halves were internally consistent, so nothing bound wrongly — but widening the vocabulary would have
+ * moved only one of them, which is a drift with no test able to see it. Deriving the pattern makes the widening
+ * atomic: A TOKEN ADDED TO `MARKER_TOKENS` (or to `ENGLISH_MARKER_WORDS`) IS RECOGNISED AND FOLDED IN THE SAME
+ * EDIT. `tests/evidence-marker-vocabulary.test.ts` falsifies this by widening a copy of the table and checking
+ * both halves move together.
+ *
+ * LONGEST TOKEN FIRST. Alternation is first-match, and `验证` is a prefix of `已验证`; the backticks make a
+ * short-token match impossible in practice, but ordering by length removes the dependence on that argument.
+ *
+ * `g` AND `replace` ONLY. A global regex carries `lastIndex`, which `String.prototype.replace` resets and
+ * `RegExp.prototype.test` does not. Every consumer of this export replaces with it; none tests with it. Ask
+ * "does this prose carry a marker" through `markersIn`/`hasEvidenceMarkers`, which is the reader that answers it.
+ */
+export const EVIDENCE_MARKER_TOKEN_PATTERN: RegExp = new RegExp(
+  `\`(?:${[...Object.keys(MARKER_TOKENS), ...Object.keys(ENGLISH_MARKER_WORDS)]
+    .sort((a, b) => b.length - a.length)
+    .map((token) => token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .join("|")})\``,
+  "gi",
+);
+
 export function markersIn(text: string): Set<EvidenceMarker> {
   const markers = new Set<EvidenceMarker>();
   for (const match of text.matchAll(/`([^`]+)`/g)) {
@@ -57,10 +100,9 @@ export function markersIn(text: string): Set<EvidenceMarker> {
     if (level) markers.add(level);
   }
   // English markers stay bare words, as they always were — changing that would move existing runs.
-  if (/\bfact\b/i.test(text)) markers.add("fact");
-  if (/\bverified\b/i.test(text)) markers.add("verified");
-  if (/\binferred\b/i.test(text)) markers.add("inferred");
-  if (/\bunavailable\b/i.test(text)) markers.add("unavailable");
+  for (const [word, level] of Object.entries(ENGLISH_MARKER_WORDS)) {
+    if (new RegExp(`\\b${word}\\b`, "i").test(text)) markers.add(level);
+  }
   return markers;
 }
 

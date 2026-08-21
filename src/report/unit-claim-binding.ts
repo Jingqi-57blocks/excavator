@@ -58,16 +58,21 @@
 
 import { assertNever } from "../base/artifact-result.ts";
 import type { SectionClaim } from "../base/types.ts";
-// THE MARKER VOCABULARY HAS ONE READER, AND THIS IS THE IMPORT THAT KEEPS IT SO. `hasEvidenceMarkers` routes
+// THE MARKER VOCABULARY HAS ONE READER, AND THESE TWO IMPORTS ARE WHAT KEEP IT SO. `hasEvidenceMarkers` routes
 // through `markersIn`/`MARKER_TOKENS`, which `tests/evidence-marker-vocabulary.test.ts` pins BIDIRECTIONALLY
 // against `skills/excavator/references/evidence-markers.json`. Copying the table here would give that contract a
-// second reader covered by half a test — a worse trade than one import into a file 57B-481 retires.
+// second reader covered by half a test.
 //
-// THE RELOCATION THAT PARAGRAPH PREDICTED IS DONE: `section-audit.ts` no longer exists. `hasEvidenceMarkers`
+// THE SECOND IMPORT IS 57B-494's WHOLE MARKER CHANGE. This file used to spell the marker token itself, as four
+// Chinese words, beside a vocabulary that listed eight — see `EVIDENCE_MARKER_TOKEN_PATTERN`'s own header for
+// what that cost and why deriving it is the fix. The rule it buys: WIDENING THE VOCABULARY IS ONE EDIT, and it
+// reaches the fold and the check together.
+//
+// THE RELOCATION AN EARLIER PARAGRAPH PREDICTED IS DONE: `section-audit.ts` no longer exists. `hasEvidenceMarkers`
 // moved to `evidence-markers.ts` (this import), `assertValidClaim` to `claim-validity.ts`, the work-item coverage
 // audit to `work-item-claim-coverage.ts`; everything else in that module was section-keyed and was deleted with
-// the section path (57B-481). This import is the whole of what the unit path inherited from it.
-import { hasEvidenceMarkers } from "./evidence-markers.ts";
+// the section path (57B-481). These imports are the whole of what the unit path inherited from it.
+import { EVIDENCE_MARKER_TOKEN_PATTERN, hasEvidenceMarkers } from "./evidence-markers.ts";
 
 export const UNIT_CLAIM_BINDING_VERSION = "unit-claim-binding-v1";
 
@@ -81,22 +86,25 @@ export const UNIT_CLAIM_BINDING_VERSION = "unit-claim-binding-v1";
 const MINIMUM_BINDABLE_STATEMENT_LENGTH = 6;
 
 /**
- * The evidence-level marker token, as prose carries it.
+ * The evidence-level marker token, as prose carries it — IMPORTED, NOT SPELLED HERE (57B-494).
  *
  * ONE definition, used by the segmenter and by the fold: the segmenter strips it and the fold must strip it
  * identically, or a segment stops being a substring of the very unit that produced it. That was the SECOND
  * independent drift of this kind on the section path — the segmenter removed the token outright while the fold
  * removed only the backticks and left `事实` standing as a bare word.
  *
- * The four tokens here are the section path's, verbatim. Note that `markersIn`'s vocabulary is WIDER (it accepts
- * `已验证`, `不可用`, `无法获得` too); the two sets have differed since the vocabulary was widened, which means a
- * unit written with a synonym has the synonym folded as ordinary text on both sides. That is consistent — both
- * halves see the same thing — but it is not the same set, and it is stated here rather than left to be
- * rediscovered.
- */
-const EVIDENCE_MARKER_TOKEN = /`(?:事实|验证|推断|不可得|fact|verified|inferred|unavailable)`/gi;
-
-/**
+ * WHAT 57B-494 CHANGED, AND THE ONE BINDING CONSEQUENCE IT HAS. The four Chinese tokens this file used to spell
+ * were the section path's, verbatim, while `markersIn`'s vocabulary listed eight: `已验证`, `已推断`, `不可用`
+ * and `无法获得` were recognised as evidence levels and folded as ORDINARY PROSE. Both halves of THIS file saw
+ * the same thing, so nothing bound wrongly — the defect was that widening the vocabulary would have moved the
+ * recognition and not the fold, silently. The token pattern is now derived from that one vocabulary, so those
+ * four synonyms fold like the other four: a unit that annotates with `` `已验证` `` now has the token removed
+ * from its prose, as `` `验证` `` always did, rather than left standing as a bare word inside every segment
+ * around it. Measured before the change: zero occurrences of any of the four as a backticked token in any unit
+ * product, fixture, corpus or golden in this repository (`grep -rn '`已验证`\|`不可用`\|`无法获得`\|`已推断`'`),
+ * so the folding generation this widens has an empty population — which is the only reason it may be done under
+ * the one-generation rule stated above rather than with a per-generation rebuild.
+ *
  * Remove what is decoration rather than content: the marker token, and the backticks and asterisks that sit
  * BETWEEN characters a reader sees as adjacent.
  *
@@ -104,7 +112,7 @@ const EVIDENCE_MARKER_TOKEN = /`(?:事实|验证|推断|不可得|fact|verified|
  * or `` ` `` into whitespace injects a separator that exists in no rendering of the text.
  */
 function foldInlineDecoration(value: string): string {
-  return value.replace(EVIDENCE_MARKER_TOKEN, "").replace(/[`*]/g, "");
+  return value.replace(EVIDENCE_MARKER_TOKEN_PATTERN, "").replace(/[`*]/g, "");
 }
 
 /**
@@ -165,7 +173,7 @@ export function substantiveUnitSegments(content: string): readonly string[] {
       .replace(/^[-*+]\s+/, "")
       .replace(/^\d+[.)]\s+/, "")
       .replace(/\*\*([^*]+)\*\*/g, "$1")
-      .replace(EVIDENCE_MARKER_TOKEN, "")
+      .replace(EVIDENCE_MARKER_TOKEN_PATTERN, "")
       .trim();
     if (line.startsWith("|") && line.endsWith("|")) {
       line = line.slice(1, -1).split("|").map((cell) => cell.trim()).filter(Boolean).join("；");
@@ -279,13 +287,19 @@ export function auditUnitClaimBinding(input: UnitClaimBindingInput): UnitClaimBi
   // Bidirectional containment, as on the section path: a claim may state more than one segment carries, and a
   // segment split off a longer sentence may be a substring of the statement that covers it.
   //
-  // AN INHERITED HOLE, NAMED SO IT IS NOT REDISCOVERED: this set includes statements the loop above just reported
-  // as TOO SHORT TO BIND, and bidirectional containment makes a two-character one a wildcard — measured, a single
-  // `验证` claim silences three unclaimed statements. It was the section path's behaviour byte for byte, carried
-  // here unchanged when that path was retired (57B-481) rather than tightened under cover of a move — a rule
-  // change needs its own decision. The fix, when it is decided, is filtering this set by the same threshold;
-  // `tests/unit-claim-binding.test.ts` pins the current behaviour and is the test that changes with it.
-  const folded = claims.map((claim) => foldUnitText(claim.statement)).filter(Boolean);
+  // THE COVERAGE SET IS THE BINDABLE CLAIMS, NOT ALL OF THEM (57B-494), and the threshold is the SAME ONE the
+  // loop above judges with — one constant, so the two answers cannot disagree. A CLAIM THAT CANNOT BE BOUND TO
+  // THE PROSE CANNOT VOUCH FOR THE PROSE: letting a sub-threshold statement into this set made it a wildcard
+  // under bidirectional containment, because a two-character string is a substring of nearly every segment.
+  // Measured on the inherited behaviour: a single `验证` claim — reported as unbindable in the same breath —
+  // silenced all three `unclaimed-statement` findings of a three-statement unit. That is two internal states
+  // that cannot both be true, not a policy: `statement-too-short` says the binding guarantee is VOID for this
+  // claim, and coverage says it holds for a segment. The too-short finding still fires; what it no longer does
+  // is stand in for a claim nobody wrote. `tests/unit-claim-binding.test.ts` carries that fixture with its
+  // direction reversed and is the test that goes red if the filter is removed.
+  const folded = claims
+    .map((claim) => foldUnitText(claim.statement))
+    .filter((statement) => statement.length >= MINIMUM_BINDABLE_STATEMENT_LENGTH);
   for (const segment of segments) {
     if (folded.some((statement) => statement.includes(segment) || segment.includes(statement))) continue;
     problems.push({
