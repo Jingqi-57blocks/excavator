@@ -434,6 +434,11 @@ function projectDocument(
   occurrences: Map<string, DuplicatedUnit>,
   mode: PacketReadingsMode
 ): DocumentPacketReading {
+  // ARCHIVE-ONLY FROM 57B-480 ON. Freeze no longer writes `context/authoring/`, so this extractor — and the
+  // `frozen-not-authored` mode in particular, which names exactly the state a fresh freeze leaves — can only be
+  // run against a run frozen BEFORE that cutover, or against the committed fixtures. The fail below is the right
+  // shape and is deliberately not softened: a reading that silently reported zero packets would be worse than one
+  // that refuses, and `--mode frozen-not-authored` on a post-cutover run should say so rather than produce a number.
   if (!Array.isArray(document.sections) || document.sections.length === 0) fail(`document ${document.id} has no sections`);
   const packetPath = join(runDir, "context", "authoring", `${document.id}.md`);
   if (!existsSync(packetPath)) fail(`document ${document.id} has no authoring packet at context/authoring/${basename(packetPath)}`);

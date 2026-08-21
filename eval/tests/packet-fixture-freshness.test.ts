@@ -12,11 +12,13 @@
 //
 // Scope, stated plainly: this covers the FIXTURES, not real runs. A fixture packet was rendered with no condition
 // inventory and no reading-boundary input, so re-rendering it needs only run.json / workitems.json /
-// evidence.json / traces.json / the fact pack, all of which are on disk. A real run's packet also depends on the
-// condition inventory and on the reading-boundary input, whose `annotated` flag freeze passes from memory
-// (`src/run/stages/freeze-stage.ts:122`) and does not persist, so the same check cannot be run against a real run
-// directory without recovering that flag. The guard below refuses to pretend otherwise: if a fixture ever grows a
-// condition inventory, this test fails rather than silently re-rendering with the wrong arguments.
+// evidence.json / traces.json / the fact pack, all of which are on disk. When these fixtures were captured, a real
+// run's packet also depended on the condition inventory and on the reading-boundary input, whose `annotated` flag
+// freeze passed from memory without persisting it — so the same check could not be run against a real run directory
+// without recovering that flag. 57B-480 retired the freeze-time write entirely, so there is no longer a real run to
+// compare against at all: these fixtures ARE the corpus, and this test pins the renderer against them. The guard
+// below refuses to pretend otherwise: if a fixture ever grows a condition inventory, this test fails rather than
+// silently re-rendering with the wrong arguments.
 
 import test from "node:test";
 import assert from "node:assert/strict";

@@ -237,9 +237,26 @@ test("freeze renders no authoring packet, and its event claims no packet count",
   for (const document of manifest.documents) {
     assert.equal(await exists(join(runDir, "context", "authoring", `${document.id}.md`)), false, `freeze wrote a packet for ${document.id}`);
   }
-  // Not just "the name we know is absent": nothing was written under that directory at all, so a renamed or
-  // per-epoch packet could not slip through this check.
-  assert.deepEqual(await readdir(join(runDir, "context", "authoring")).catch(() => [] as string[]), []);
+  // Not just "the name we know is absent". The first version of this assertion listed `context/authoring/` and
+  // swallowed the ENOENT — which nothing creates any more, so it could only ever go green, and a packet written
+  // to `context/packets/` would have passed it. Two checks that a renamed or relocated packet must also satisfy:
+  // `context/` grew no `authoring` entry, and NO file anywhere under the run carries the packet's own header line.
+  assert.deepEqual((await readdir(join(runDir, "context"))).filter((entry) => entry === "authoring"), []);
+  const everyFile = async (dir: string): Promise<string[]> => {
+    const out: string[] = [];
+    for (const entry of await readdir(dir, { withFileTypes: true })) {
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) out.push(...await everyFile(path));
+      else if (entry.isFile()) out.push(path);
+    }
+    return out;
+  };
+  const carriers: string[] = [];
+  for (const path of await everyFile(runDir)) {
+    if (!path.endsWith(".md")) continue;
+    if ((await readFile(path, "utf8")).includes("Sealed knowledge epoch:")) carriers.push(path);
+  }
+  assert.deepEqual(carriers, [], "some file still carries the authoring packet's own header line");
 
   const timeline = (await readFile(join(runDir, "timeline.jsonl"), "utf8")).trim().split("\n").map((line) => JSON.parse(line));
   const frozen = timeline.find((event) => event.action === "investigation.frozen");

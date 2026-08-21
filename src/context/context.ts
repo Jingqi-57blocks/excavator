@@ -752,7 +752,7 @@ function renderOverviewContext(audience: Audience, language: string): string {
 - Output language: ${language}
 - Read the shared project context once from \`context/shared.md\`.
 - When two or more features are prepared, the shared context ends with a "Cross-feature relationships" section and the same data is in \`context/cross-feature.json\`; use it for the cross-feature relationship matrix. It is deterministic prepared context, not an audited claim.
-- After freeze, read this document's bounded view with \`excavator plan-packet --run <run-dir> --unit <unit-id>\`, rendered on demand from the recorded plan. Do not load the machine evidence catalog or content store into the model context.
+- After freeze, read the bounded view one authoring unit is written from with \`excavator plan-packet --run <run-dir> --unit <unit-id> --over-budget record-limitation\`, rendered on demand from the recorded plan (\`--over-budget\` is required and has no default). Do not load the machine evidence catalog or content store into the model context.
 - Describe the current source snapshot only. State observed problems, but do not recommend fixes or future architecture.
 - Inference from code is allowed when marked and grounded.
 - Additional source must be recorded through the Excavator source command before use.
@@ -775,7 +775,7 @@ function renderFeatureContext(audience: Audience, language: string, subject: str
 - Output language: ${language}
 - Reuse \`context/shared.md\`; do not reread or rebuild project-wide context.
 - Read the feature scope once from \`context/features/${key}.md\`.
-- After freeze, read this document's bounded view with \`excavator plan-packet --run <run-dir> --unit <unit-id>\`, rendered on demand from the recorded plan. Do not load the machine evidence catalog or content store into the model context.
+- After freeze, read the bounded view one authoring unit is written from with \`excavator plan-packet --run <run-dir> --unit <unit-id> --over-budget record-limitation\`, rendered on demand from the recorded plan (\`--over-budget\` is required and has no default). Do not load the machine evidence catalog or content store into the model context.
 - Describe current state and current problems only. Do not recommend fixes.
 - Inference from code is allowed when marked and grounded.
 
