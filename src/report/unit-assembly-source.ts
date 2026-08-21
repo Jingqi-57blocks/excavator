@@ -31,7 +31,7 @@ import type { RunManifest, TraceCatalog } from "../base/types.ts";
 import { readJson } from "../base/util.ts";
 import { sectionCompanionRelativePaths } from "./assurance-artifacts.ts";
 import { reportFileName } from "./authoring-plan.ts";
-import { coverageStatements, renderCoverageCompanion } from "./coverage-companion.ts";
+import { coverageStatements, renderCoverageCompanion, type TitledCoverageStatement } from "./coverage-companion.ts";
 import { loadCoverageStateFacts } from "./coverage-companion-source.ts";
 import type { PlanCatalogUnit } from "./plan-artifacts.ts";
 import { describePromisedArtifactProblem, promisedArtifactProblems, type PromiseSubject } from "./unit-artifact-promise.ts";
@@ -73,6 +73,14 @@ export interface AssembledUnitDocument {
   readonly path: string;
   readonly markdown: string;
   readonly units: readonly string[];
+  /**
+   * The very rows `renderUnitDocument` was handed: each unit's kind, plan title, parent and collected bytes.
+   *
+   * Carried so a reader of an assembly does not have to open the units again to know which bytes went into which
+   * part of the document — R7c's consistency checker needs exactly that, and re-reading them would give it a
+   * second opportunity to disagree with what was assembled.
+   */
+  readonly assemblyUnits: readonly AssemblyUnit[];
   readonly claims: { readonly path: string; readonly companion: UnitClaimsCompanion };
   readonly traces: { readonly path: string; readonly companion: UnitTracesCompanion };
 }
@@ -82,15 +90,29 @@ export interface UnitAssembly {
   readonly runId: string;
   readonly knowledgeEpoch: number;
   readonly planCatalogDigest: string;
+  /**
+   * The plan this assembly was computed from, as the gate re-validated it.
+   *
+   * Carried so a caller that needs the plan too — R7c's checker needs the unit titles, the child edges, the
+   * obligation ledger and the sealed evidence ids — reads ONE validated plan rather than putting the run through
+   * the plan gate a second time and hoping the two passes agree.
+   */
+  readonly plan: UnitPlanView;
   readonly documents: readonly AssembledUnitDocument[];
   /**
-   * The run-scoped coverage companion, and the arm every statement in it took.
+   * The run-scoped coverage companion, the arm every statement in it took, and the statements themselves.
    *
    * `arms` is carried rather than dropped so that "assembly shipped a defective coverage statement" is an
    * observable fact rather than an absence: a reader of this value can see the four arms went through, and a test
-   * can assert the defective one did.
+   * can assert the defective one did. `statements` is the same value the arms were read off — carried so R7c's
+   * checker can route them without deriving R7a's coverage state a second time.
    */
-  readonly coverage: { readonly path: string; readonly markdown: string; readonly arms: readonly ShippedCoverageArm[] };
+  readonly coverage: {
+    readonly path: string;
+    readonly markdown: string;
+    readonly arms: readonly ShippedCoverageArm[];
+    readonly statements: readonly TitledCoverageStatement[];
+  };
   /** Every run-relative path this load opened, sorted. A caller republishes it rather than re-deriving it. */
   readonly readPaths: readonly string[];
 }
@@ -193,6 +215,7 @@ export async function loadUnitAssembly(runDirInput: string): Promise<UnitAssembl
       path,
       markdown: renderUnitDocument(assembly),
       units: units.map((unit) => unit.unitId),
+      assemblyUnits: units,
       claims: { path: companions.claims, companion: aggregateUnitClaims(aggregation, unitClaimKey) },
       traces: { path: companions.traces, companion: aggregateUnitTraces({ ...aggregation, traces: traces.traces }) }
     });
@@ -200,15 +223,20 @@ export async function loadUnitAssembly(runDirInput: string): Promise<UnitAssembl
 
   const coverage = await loadCoverageStateFacts(runDir);
   for (const path of coverage.readPaths) readPaths.add(path);
+  // Derived once and both published: the arms are a reading of these statements, so computing them twice would be
+  // two derivations of one run's coverage state.
+  const statements = coverageStatements(coverage.facts);
   return {
     runId: view.runId,
     knowledgeEpoch,
     planCatalogDigest: view.planCatalogDigest,
+    plan: view,
     documents,
     coverage: {
       path: UNIT_COVERAGE_COMPANION_PATH,
       markdown: renderCoverageCompanion(coverage.facts),
-      arms: shippedCoverageArms(coverageStatements(coverage.facts))
+      arms: shippedCoverageArms(statements),
+      statements
     },
     readPaths: [...readPaths].sort(compareUnitIds)
   };

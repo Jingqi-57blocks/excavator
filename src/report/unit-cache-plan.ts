@@ -22,7 +22,9 @@
  * identity can only be computed from the CANDIDATE children's verified summaries — which is a legitimate identity
  * exactly while every one of those children is itself reusable. The moment one child is rebuilt or new, the
  * summary a candidate synthesis would be measured against is stale, so the synthesis is `rebuild` and the reason
- * NAMES the child. There is no fifth state for it: "its children moved" is a rebuild, told with a reason.
+ * NAMES the child. There is no fifth state for it: "its children moved" is a rebuild, told with a reason. The test
+ * for "which of my children moved" is `blockingChildUnitIds`, shared with R7c's repair set — which propagates the
+ * same relation transitively — so there is one answer to "who else has to be written again".
  *
  * THE REASON COMES FROM THE SAME BYTES THE DIGEST DOES. A rebuild caused by a changed identity names the sections
  * of the identity view that differ (`identitySectionDifferences`), so the explanation cannot disagree with the
@@ -40,6 +42,7 @@
 
 import { assertNever } from "../base/artifact-result.ts";
 import type { AuthoringUnitKind } from "./plan-proposal.ts";
+import { blockingChildUnitIds } from "./unit-ancestor-closure.ts";
 import { compareUnitIds } from "./unit-paths.ts";
 import { identitySectionDifferences, identityTermDifferences, type UnitIdentity } from "./unit-cache-identity.ts";
 
@@ -408,7 +411,9 @@ function entryFor(
   candidateUnits: number
 ): UnitCacheEntry {
   const { unitId, documentId, kind } = plannedRow(planned);
-  const blocking = plannedChildren(planned).filter((childUnitId) => decided.get(childUnitId)!.status !== "reusable").sort(compareUnitIds);
+  // The one spelling of "which of my children moved" — shared with R7c's repair set, which propagates the same
+  // relation transitively. See `unit-ancestor-closure.ts`.
+  const blocking = blockingChildUnitIds(plannedChildren(planned), (childUnitId) => decided.get(childUnitId)!.status !== "reusable");
   if (!candidate) {
     const digest = planned.derivation === "children-unavailable" ? "" : planned.identity.digest;
     return {

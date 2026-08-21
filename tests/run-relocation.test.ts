@@ -22,6 +22,10 @@ import { planRevisionArchive } from "../src/report/plan-revision.ts";
 import { appendReportRequest } from "../src/report/report-requests-append.ts";
 import { readReportRequests } from "../src/report/report-requests-artifact.ts";
 import { plannedDocumentId } from "../src/report/legacy-request-mapping.ts";
+import { checkpointUnit } from "../src/report/unit-checkpoint.ts";
+import { checkRunConsistency } from "../src/report/unit-consistency-source.ts";
+import { assembleUnits } from "../src/run/stages/unit-assemble-stage.ts";
+import { planViewOf, unitDraftFor } from "./unit-fixture.ts";
 
 /**
  * 57B-452 — a run directory must be movable.
@@ -339,6 +343,34 @@ test("relocated run: plan, request-append, plan-packet, unit-cache-identity, uni
   }
   assert.equal((await readReportRequests(runDir)).requests.length, 2, "the appended row is in the copy");
   assert.equal((await readReportRequests(base.runDir)).requests.length, 1, "and not in the recorded location");
+});
+
+/**
+ * The unit path's read-only checker, on a run that has been moved.
+ *
+ * It is the sharpest read-side fixture in this file, because the checker refuses unless the ASSEMBLED deliverable
+ * on disk is the one the plan and the collected units produce. Reading either half through the recorded location
+ * therefore cannot merely look fine: units read from the original with a document read from the copy would make
+ * the comparison fail, and a document read from the original would not exist at all.
+ */
+test("relocated run: unit-consistency checks the copy's own assembled deliverable", async () => {
+  const base = await authoringBase();
+  const runDir = await onRelocatedRun(base, ["unit-consistency"], async (dir) => {
+    for (const unitId of (await planViewOf(dir)).collectionOrder) {
+      const run = { runDir: dir, workdir: base.workdir, manifest: await manifestOf(dir), evidenceId: base.evidenceId, view: await planViewOf(dir) };
+      await checkpointUnit(dir, await unitDraftFor(run, unitId));
+    }
+    await assembleUnits(dir, "write");
+    const reading = await checkRunConsistency(dir);
+    assert.equal(reading.runId, (await manifestOf(dir)).id);
+    assert.deepEqual(reading.result.findings, [], "the canned drafts are clean, so a finding here would be the fixture's own defect");
+    assert.deepEqual(reading.repair.targets, []);
+    assert.equal(reading.preconditions.length, 5);
+    assert.ok(reading.readPaths.every((path) => !path.startsWith("/")), `run-relative only: ${reading.readPaths.join(", ")}`);
+    assert.ok(reading.readPaths.some((path) => path.endsWith("/summary.json")), reading.readPaths.join(", "));
+  });
+  assert.ok(await exists(join(runDir, "units", "collected.json")));
+  assert.equal(await exists(join(base.runDir, "units")), false, "no unit artifact may land in the recorded location");
 });
 
 test("relocated run: source and search append evidence to the copy", async () => {

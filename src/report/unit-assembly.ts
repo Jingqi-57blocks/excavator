@@ -29,6 +29,7 @@
  */
 
 import { assertNever } from "../base/artifact-result.ts";
+import { stableJson } from "../base/util.ts";
 import type { AuthoringUnitKind } from "./plan-proposal.ts";
 import type { ReportRequestRecord } from "./report-requests-artifact.ts";
 import type { UnitDocumentCompanionPaths } from "./unit-assembly-paths.ts";
@@ -81,6 +82,18 @@ export interface UnitDocumentAssembly {
 /** The anchor id one unit is reachable at. `unitPathKey`, so distinct units cannot share one anchor. */
 export function unitAnchorId(unitId: string): string {
   return `unit-${unitPathKey(unitId)}`;
+}
+
+/**
+ * The bytes one assembled JSON companion has on disk: the canonical form, with the trailing newline.
+ *
+ * ONE SPELLING, because two consumers now compare against it. The stage writes these bytes and R7c's checker
+ * re-reads them to decide whether the deliverable on disk is still the one the plan produces; if each wrote its own
+ * `${stableJson(x)}\n`, the day one of them gained a formatting option the checker would report every run as
+ * drifted. It is the same reason `promisedArtifactProblems` is one function rather than two comparisons.
+ */
+export function assembledJsonBytes(value: unknown): string {
+  return `${stableJson(value)}\n`;
 }
 
 /**
