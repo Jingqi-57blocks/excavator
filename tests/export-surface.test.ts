@@ -9,9 +9,11 @@ import { join, relative, resolve } from "node:path";
  *
  * WHY THE COMPILER CANNOT DO THIS. `noUnusedLocals` (57B-492) catches a FILE-INTERNAL orphan and nothing else:
  * the moment a symbol carries `export`, TypeScript stops asking whether anyone wants it. So the export keyword
- * is a way to make dead code compile — measured on this tree at 57B-481, EIGHT exported functions had no
- * mention anywhere in `src/`, `tests/`, `eval/` or `packages/`, including `requireBuilt`, which no caller had
- * ever had. They were deleted in that slice; this test is what stops the ninth from arriving unnoticed.
+ * is a way to make dead code compile — measured on this tree at 57B-481, TEN exported functions had no mention
+ * in code anywhere in `src/`, `tests/`, `eval/` or `packages/`, including `requireBuilt`, which no caller had
+ * ever had. Two of the ten were found only after this test's first version was written, because it counted
+ * mentions in COMMENTS too and a doc comment naming the function above it was enough to hide them. All ten were
+ * deleted in that slice; this test is what stops the eleventh from arriving unnoticed.
  *
  * THE CENSUS IS TOTAL AND HAS THREE BUCKETS, so nothing falls through:
  *   - REACHED — some file other than its own mentions it. Fine, and the overwhelming majority.
