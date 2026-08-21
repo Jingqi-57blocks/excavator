@@ -5,7 +5,6 @@ import { join } from "node:path";
 import type { EvidenceItem, ReportRequest, RunManifest } from "../src/base/types.ts";
 import { stableJson } from "../src/base/util.ts";
 import { beginDocument, freezeRun, prepareRun } from "../src/run/run.ts";
-import { draftSection } from "../src/report/parallel-authoring.ts";
 import { planRun, renderPlannerPacketForRun } from "../src/run/stages/plan-stage.ts";
 import { assertValidatedPlanForAuthoring, PLAN_ARTIFACT_PATHS } from "../src/report/plan-gate.ts";
 import { planCatalogPath, planDagPath } from "../src/report/plan-artifacts.ts";
@@ -40,19 +39,15 @@ function frozenOnce(): Promise<{ runDir: string; manifest: RunManifest; evidence
   return (frozen ??= frozenRun());
 }
 
-test("begin and draft refuse a frozen run with no plan, naming the file and the command", async () => {
-  const { runDir, manifest, evidenceId } = await frozenRun();
+test("begin refuses a frozen run with no plan, naming the file and the command", async () => {
+  const { runDir, manifest } = await frozenRun();
   const document = manifest.documents[0]!;
   await assert.rejects(() => beginDocument(runDir, document.id),
     /plan\/topics\.json is missing from .*; authoring cannot start without a validated plan\. Run `excavator plan --run .* --fixture-plan` \(or `--proposal <file>`\) first\./);
-  await assert.rejects(() => draftSection(runDir, document.id, document.sections[0]!.index, `## ${document.sections[0]!.title}\n\ntext\n`),
-    /plan\/topics\.json is missing from .*authoring cannot start without a validated plan/);
 
-  // And with the plan in place the same calls go through, on the same run.
+  // And with the plan in place the same call goes through, on the same run.
   await planRun(runDir, { mode: "fixture" }, { kind: "record" });
   assert.equal((await beginDocument(runDir, document.id)).state, "authoring");
-  const receipt = await draftSection(runDir, document.id, document.sections[0]!.index, `## ${document.sections[0]!.title}\n\n第 1 节记录当前状态。\`事实\`\n\n<details><summary>依据</summary>\n\n- ${evidenceId}\n\n</details>\n`);
-  assert.equal(receipt.section, document.sections[0]!.index);
 });
 
 test("each of the four plan files is named individually when it is the one that is missing", async () => {

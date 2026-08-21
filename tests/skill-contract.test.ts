@@ -5,7 +5,6 @@ import { readFile, readdir } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import type { EvidenceItem, ReportRequest } from "../src/base/types.ts";
 import { assembleRun, checkpointSection, freezeRun, prepareRun } from "../src/run/run.ts";
-import { collectDrafts, draftSection } from "../src/report/parallel-authoring.ts";
 import { checkpointUnit } from "../src/report/unit-checkpoint.ts";
 import { assembleUnits } from "../src/run/stages/unit-assemble-stage.ts";
 import { exists, slugify } from "../src/base/util.ts";
@@ -199,9 +198,6 @@ test("SKILL.md run-directory layout matches what the CLI produces", async () => 
   for (const section of document.sections) await checkpointSection(runDir, document.id, section.index, body(section.title));
   // Re-checkpoint the first section so archiveCheckpoint writes the documented history/ directory.
   await checkpointSection(runDir, document.id, document.sections[0].index, body(document.sections[0].title));
-  // Exercise the parallel draft/collect path so the documented drafts/ directory is produced.
-  await draftSection(runDir, document.id, document.sections[0].index, body(document.sections[0].title));
-  await collectDrafts(runDir);
   await assembleRun(runDir);
 
   // The UNIT lifecycle on the same run, so the tree this test drives is not only the section one:

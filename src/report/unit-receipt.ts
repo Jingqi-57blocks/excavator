@@ -6,8 +6,8 @@
  * the promise `collect` verifies, which is why it carries the three digests: a promise whose subject was edited
  * afterwards is a named refusal, not a checkpoint over bytes nobody re-checked.
  *
- * `knowledgeEpoch` IS REQUIRED, unlike `DraftReceipt`'s optional one. That optionality is a grandfathering
- * clause for runs archived before epochs existed, and there are none for units — the unit path is new, and every
+ * `knowledgeEpoch` IS REQUIRED, unlike the retired section draft receipt's optional one. That optionality was a
+ * grandfathering clause for runs archived before epochs existed, and there are none for units — the unit path is new, and every
  * unit is drafted through a gate that already refuses an unfrozen run. Copying the optional shape would have
  * meant a stale-epoch check that reads `undefined !== 0` as "fine" on the one receipt where it matters most.
  *
