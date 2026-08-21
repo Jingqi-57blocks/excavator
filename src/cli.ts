@@ -15,6 +15,7 @@ import { admitUnits, planUnitAdmission } from "./report/unit-cache-admission-run
 import { summariseAdmission, type CandidateLedgerRow } from "./report/unit-cache-admission.ts";
 import { describeAuthorship, describeProvenance, type UnitAuthorship, type UnitProvenance } from "./report/unit-provenance.ts";
 import { readUnitGroundingForRun, summariseUnitGroundingReading } from "./report/unit-grounding-reading.ts";
+import { readUnitClaimBindingForRun, summariseUnitClaimBindingReading } from "./report/unit-claim-binding-source.ts";
 import { checkRunConsistency } from "./report/unit-consistency-source.ts";
 import { describeFinding } from "./report/unit-consistency.ts";
 import { assembleUnits, UNIT_ASSEMBLE_MODES, type UnitAssembleMode } from "./run/stages/unit-assemble-stage.ts";
@@ -346,8 +347,17 @@ async function main(): Promise<void> {
         if (unitScoped(args, "audit")) {
           // The read-only rerun of the grounding verdict `collect` already applied. Same rules, same denominator.
           const reading = await readUnitGroundingForRun(required(args.run, "--run"));
-          print({ ...reading, lines: summariseUnitGroundingReading(reading) });
-          if (reading.units.some((row) => row.verdict.conclusion === "violations")) process.exitCode = 1;
+          // The second per-unit audit on this command: the claim ↔ prose binding contract. It is NOT part of the
+          // grounding result because `auditUnitFromDisk` is a collect gate and this is an audit finding — the
+          // section path's own split, kept. Both readings load the same run read-only; neither writes.
+          const binding = await readUnitClaimBindingForRun(required(args.run, "--run"));
+          print({
+            ...reading,
+            binding,
+            lines: [...summariseUnitGroundingReading(reading), ...summariseUnitClaimBindingReading(binding)]
+          });
+          if (reading.units.some((row) => row.verdict.conclusion === "violations")
+            || binding.units.some((row) => row.verdict.conclusion === "violations")) process.exitCode = 1;
           break;
         }
         const result = await auditRun(required(args.run, "--run"), args.document ? { documentId: args.document } : {});
@@ -839,7 +849,7 @@ Commands:
   trace      Record call, data, business, state or cross-repository traces
   resume     List what is left to draft and collect on the unit path (--units required)
   assemble   Join collected units into the run's Markdown deliverables (--units and --mode required)
-  audit      Validate snapshot, evidence, claims, checklist and report structure; --document <id> scopes to one document, --units reruns the unit grounding audit
+  audit      Validate snapshot, evidence, claims, checklist and report structure; --document <id> scopes to one document, --units reruns the unit grounding and claim-binding audits
   status     Show progress and timing; --units shows the authoring-unit view of the plan
 
 Examples:
@@ -1186,10 +1196,10 @@ const COMMAND_HELP: Record<string, CommandHelp> = {
     flags: [
       "--run <dir>          Run directory (required)",
       "--document <id>      Scope the audit to one document (advisory run-wide checks)",
-      "--units              Rerun the authoring-unit grounding audit (read-only): every material obligation a unit reaches, grounded by that unit's own claims"
+      "--units              Rerun the two per-unit audits (read-only): every material obligation a unit reaches grounded by that unit's own claims, and every claim statement bound to that unit's own prose"
     ],
     example: "excavator audit --run <run> --document <id>",
-    notes: "With --units it reports the plan's own obligation accounting, one three-state verdict per written unit, the open-origin exemptions by id, and the units nothing has been written for. It writes nothing; collect already applied the same verdict when each unit was recorded."
+    notes: "With --units it reports the plan's own obligation accounting, one three-state grounding verdict per written unit, the open-origin exemptions by id, and the units nothing has been written for; then, under `binding`, one three-state verdict per unit for the claim \u2194 prose contract \u2014 an unclaimed substantive statement, a claim statement absent from the unit that declares it, a statement too short to bind, and substantive prose carrying no evidence-level marker. It writes nothing; collect already applied the grounding verdict when each unit was recorded, and the binding contract is checked here rather than at collect so a written unit can be inspected instead of refused."
   },
   resume: {
     synopsis: "resume --run <dir> --units",

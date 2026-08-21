@@ -205,7 +205,13 @@ export function claimFor(id: string, workItemId: string, overrides: Partial<Sect
 export async function unitDraftWithClaims(run: MaterialisedRun, unitId: string, claims: readonly SectionClaim[]): Promise<UnitDraftInput> {
   const unit = run.view.byId.get(unitId);
   if (!unit) throw new Error(`fixture asked for unit ${unitId}, which this plan does not hold`);
-  const content = `## ${unit.title}\n\n${unit.unitId} 记录当前状态。\`事实\`\n`;
+  // THE PROSE STATES WHAT THE CLAIMS CLAIM, AND NOTHING ELSE. Before `unit-claim-binding.ts` existed this
+  // fixture wrote one fixed sentence about the unit id beside whatever claims the caller chose, so it produced
+  // units whose claims appeared nowhere in their own prose and whose only sentence no claim covered — collectable,
+  // and unbindable to a reader. Nothing checked, so nothing said so. With no claims there is no statement to make:
+  // a heading-only unit is `vacuous` for binding, which is the honest shape for a unit that asserts nothing.
+  const body = claims.map((claim) => `${claim.statement}\`事实\``);
+  const content = body.length > 0 ? `## ${unit.title}\n\n${body.join("\n\n")}\n` : `## ${unit.title}\n`;
   const ledger = await readUnitLedger(run.runDir, run.manifest.id);
   const collected = new Map(collectedUnitsFor(ledger, run.view.knowledgeEpoch, run.view.planCatalogDigest).map((row) => [row.unitId, row]));
   const summary: UnitSummary = {
