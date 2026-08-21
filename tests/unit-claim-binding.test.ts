@@ -565,3 +565,61 @@ test("an unbindable claim beside a bindable one removes only itself from the cov
   assert.deepEqual(audit(THRESHOLD_UNIT, mixed).problems.map((problem) => problem.claimId), ["c-short"],
     "and the finding names the claim that caused it");
 });
+
+// ═══ WHAT 57B-494 DID NOT CLOSE — MEASURED, AND PINNED SO IT IS NOT READ AS CLOSED ════════════════════════════
+//
+// THE HOLE IS NARROWED, NOT CLOSED, AND THIS IS THE SIZE OF WHAT IS LEFT. The tightening above removes claims
+// BELOW the threshold from the coverage set. It says nothing about a claim ABOVE it, and bidirectional
+// containment still makes any statement that appears in every sentence a wildcard. Measured on an
+// English-language unit — the language `writing-rules` supports and this file's zh corpus does not exercise — a
+// single claim whose statement is the word `system` silences THREE unclaimed statements and produces NO finding
+// of any kind. That is strictly worse to read than the case 57B-494 fixed: with `验证` the audit at least emitted
+// `statement-too-short` beside the silence, so a reader saw something; here the unit reads `complete`.
+//
+// WHY IT IS NOT FIXED HERE. Closing it needs a DIFFERENT rule, not a different threshold — containment either
+// direction is what makes a short common substring sufficient, so the candidates are things like requiring a
+// claim to cover some proportion of the segment, or matching claims to segments one-to-one instead of by
+// containment. Each is a new rule with its own decision and its own effect on every authored unit; 57B-494's
+// scope is the state contradiction between "too short to bind" and "counts as coverage". THE THRESHOLD IS ALSO
+// COUNTED IN UTF-16 CODE UNITS, not the `\p{Letter}|\p{Number}` semantic characters the segmenter's 8-character
+// floor counts, so the same rule is meaningfully stricter for CJK prose than for English — six characters is six
+// Chinese words' worth of meaning and one short English word. This test is what says so out loud, and it is the
+// test that changes when the coverage rule is next revisited.
+test("a claim above the threshold is still a wildcard, which this slice did not close (pinned)", () => {
+  const english = [
+    "## 1. Scope",
+    "",
+    "The system validates every inbound request before persisting it `fact`.",
+    "The system rejects a request whose token has expired `fact`.",
+    "The system records an audit row for every rejection `fact`.",
+    ""
+  ].join("\n");
+  assert.equal(substantiveUnitSegments(english).length, 3, "three substantive statements");
+  assert.deepEqual(problemKinds(english, []),
+    ["unclaimed-statement", "unclaimed-statement", "unclaimed-statement"]);
+  // Six characters — exactly the threshold, so it is bindable, so it is coverage. And it appears in all three.
+  assert.deepEqual(problemKinds(english, [claim("system")]), [],
+    "one common six-character word covers every statement and the unit reads clean — the residual hole");
+  assert.deepEqual(audit(english, [claim("system")]).verdict, { conclusion: "complete", segments: 3, statements: 1 });
+});
+
+// THE OTHER HALF THAT IS STILL OPEN, AND IT IS THE WIDER ONE. `auditUnitClaimBinding` rejects a claim for two
+// reasons — too short, and ABSENT from the prose — and 57B-494 removed only the first from the coverage set. A
+// claim whose statement is nowhere in the unit still silences every segment it contains. It is a wider hole than
+// the one just closed: a two-character stub is a rare thing for an author to write, while a long PARAPHRASE that
+// is not verbatim in the prose is the ordinary failure of a model asked to quote — and one of them blanket-covers
+// a whole unit. Not closed here because the decision 57B-494 records is about the sub-threshold contradiction,
+// and closing this half moves the finding volume of every unit whose claims are paraphrased, which needs its own
+// measurement on a real run. Pinned so nobody reads the coverage axis as sound.
+test("a claim absent from the prose still counts as coverage, which this slice did not close (pinned)", () => {
+  const superset = [
+    "入站请求在持久化之前会被验证一次 。",
+    "审批结果也会被验证一次 。",
+    "归档流程同样验证一次 。",
+    "另有一段正文中完全不存在的补充说明"
+  ].join("");
+  assert.deepEqual(problemKinds(WILDCARD_UNIT, [claim(superset, "C-absent")]), ["statement-absent"],
+    "one absent claim reports itself and silences all three unclaimed statements");
+  assert.equal(audit(WILDCARD_UNIT, [claim(superset, "C-absent")]).verdict.conclusion, "violations",
+    "the unit is not clean — but it names one problem where four are true");
+});

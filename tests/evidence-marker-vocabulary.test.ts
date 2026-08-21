@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { markersIn, MARKER_TOKENS } from "../src/report/evidence-markers.ts";
+import { markersIn, MARKER_FOLDING, MARKER_TOKENS } from "../src/report/evidence-markers.ts";
 // THE FOLD'S OWN ENTRY POINT, imported on purpose rather than the pattern it routes through: the property this
 // file guards is that the CHECK and the FOLD read one vocabulary, and the fold as its consumer actually calls it
 // is `foldUnitText`. Asserting the pattern alone would leave a re-spelled literal inside that consumer invisible.
@@ -74,42 +74,68 @@ test("prose with no marker still reads as having none", () => {
   assert.deepEqual([...markersIn("本章说明请假小时数如何按年度扣减，具体规则见折叠证据块。")], []);
 });
 
-// ═══ ONE VOCABULARY, BOTH HALVES OF THE MARKER RULE (57B-494) ═════════════════════════════════════════════════
+// ═══ THE VOCABULARY'S TWO READERS, AND THE PARTITION THAT KEEPS WIDENING FROM BEING SILENT (57B-494) ══════════
 //
-// THE TWO HALVES, AND WHY THEY HAVE TO MOVE TOGETHER. A marker token is read twice by two different questions:
-// `markersIn` asks "does this prose carry an evidence level" (the CHECK), and `foldUnitText` has to REMOVE the
-// token before comparing prose to a claim statement (the FOLD) — an author's claim never repeats the `` `事实` ``
-// they annotated with, so a token left standing becomes a bare word inside the segment around it.
+// A marker token is read by two different questions. `markersIn` asks "does this prose carry an evidence level"
+// (the CHECK) and accepts all eight. `foldUnitText` has to REMOVE the token before comparing prose against a
+// claim statement (the FOLD) — an author's claim statement does not repeat the `` `事实` `` they annotated with —
+// and it removes only four. So `` `已验证` `` is a recognised evidence level that folds as ORDINARY PROSE.
 //
-// Until 57B-494 those were two literals in two files: eight tokens here, four spelled again in
-// `unit-claim-binding.ts`. Nothing bound wrongly, because each file was internally consistent — the defect was
-// that WIDENING was not atomic. Adding a synonym here made it recognised and left it unfolded, silently, and no
-// test in the repository could see the difference.
+// THAT ASYMMETRY IS NOT WHAT 57B-494 FIXED, AND THE REASON IS A MIGRATION. Making the fold strip all eight was
+// measured on the real command: a unit whose claim statement swallowed `` `已验证` `` goes from `complete` to
+// `violations`. `unit-claim-binding.ts`'s header calls that a change of FOLDING GENERATION and states the law —
+// prior unit products become a second generation whose judgement has to be rebuilt. Unit products live in
+// arbitrary target run dirs `audit --units` is pointed at, so the population is not bounded by this repo, and
+// the header of THIS file records why it is probably not empty: a real zh-CN run wrote `` `已验证` `` and
+// `` `不可用` `` in good faith. Unifying the sets is a decision with a migration attached.
 //
-// THE LOOP IS DRIVEN BY THE TABLE, WHICH IS WHAT MAKES IT A GUARD RATHER THAN A RESTATEMENT: a ninth token added
-// to `MARKER_TOKENS` extends this test to itself, and goes red here if the fold does not follow it.
-test("every token the vocabulary recognises is also a token the fold removes", () => {
-  for (const [token, level] of Object.entries(MARKER_TOKENS)) {
-    assert.deepEqual([...markersIn(`处理器在标志未设置时拒绝该请求 \`${token}\`。`)], [level],
-      `${token} must be recognised as ${level}`);
-    assert.equal(foldUnitText(`前置说明 \`${token}\` 后续说明`), "前置说明 后续说明",
-      `${token} must fold away, or every claim around it stops binding`);
+// WHAT WAS SILENT AND IS NOW NOT. The hazard was never today's asymmetry — both halves of the fold agree with
+// each other, so no segment goes missing from its own unit. It was that widening the vocabulary moved only the
+// RECOGNITION, with nothing able to see it. The split is now DECLARED (`MARKER_FOLDING`), and this test is what
+// makes the declaration binding: the partition must be total over `MARKER_TOKENS`, and each token's real folding
+// behaviour must match the list it was put in. A NINTH SYNONYM BELONGS TO NEITHER LIST AND GOES RED HERE until
+// somebody decides which — widening now has to pass the fold as well as the check, without a migration.
+test("every recognised token is declared either folded or deliberately unfolded, and behaves that way", () => {
+  const declared = [...MARKER_FOLDING.folded, ...MARKER_FOLDING.unfolded].sort((a, b) => a.localeCompare(b));
+  assert.deepEqual(declared, Object.keys(MARKER_TOKENS).sort((a, b) => a.localeCompare(b)),
+    "a token the vocabulary recognises must be declared folded or unfolded — a new synonym belongs to one of the two lists");
+  assert.equal(new Set(declared).size, declared.length, "no token may be in both lists");
+
+  // The declaration is checked against the real fold, not trusted. This is the half that goes red if the fold
+  // moves without the list moving — the same drift in the other direction.
+  for (const token of MARKER_FOLDING.folded) {
+    assert.equal(foldUnitText(`前置说明 \`${token}\` 后续说明`), "前置说明 后续说明", `${token} is declared folded`);
+  }
+  for (const token of MARKER_FOLDING.unfolded) {
+    assert.equal(foldUnitText(`前置说明 \`${token}\` 后续说明`), `前置说明 ${token} 后续说明`,
+      `${token} is declared unfolded, so it stays in the prose as an ordinary word`);
+  }
+  // And both lists are recognised by the CHECK regardless — which is the asymmetry, stated as an assertion.
+  for (const token of declared) {
+    assert.equal(markersIn(`处理器在标志未设置时拒绝该请求 \`${token}\`。`).size, 1, `${token} is a recognised level`);
   }
 });
 
-// AND THE FALSIFICATION, so the loop above is shown to be load-bearing rather than vacuously true. This is the
-// literal `unit-claim-binding.ts` carried before 57B-494. Run the same loop against it and four named tokens
-// fail — the exact four the vocabulary had been widened by, recognised as evidence levels and folded as ordinary
-// prose. A test that cannot name what it would have caught has not been shown to catch anything.
-test("the pre-57B-494 hand-spelled pattern fails that loop on four named tokens", () => {
-  const preTightening = /`(?:事实|验证|推断|不可得|fact|verified|inferred|unavailable)`/gi;
-  const unfolded = Object.keys(MARKER_TOKENS)
-    .filter((token) => `前置说明 \`${token}\` 后续说明`.replace(preTightening, "").replace(/[`*]/g, "").replace(/\s+/g, " ").trim()
-      !== "前置说明 后续说明");
-  assert.deepEqual(unfolded, ["已验证", "已推断", "不可用", "无法获得"],
-    "the second spelling recognised eight tokens through markersIn and folded only four");
-  // The drift in its exact shape: every one of them WAS a recognised evidence level while it was not folded.
-  for (const token of unfolded) {
-    assert.equal(markersIn(`处理器在标志未设置时拒绝该请求 \`${token}\`。`).size, 1, token);
+// THE en-US HALF, PINNED IN THE DIRECTION THAT WAS MISSING. The bidirectional test above compares `MARKER_TOKENS`
+// against the contract's `zh-CN` lists only, so the English words — a second table since 57B-494 — were checked
+// contract → code and not code → contract: dropping or renaming one stayed green. That is the half-covered
+// contract this module's own header says a second spelling must not have.
+test("the code recognises exactly the en-US tokens the contract lists, and no others", () => {
+  const fromContract = new Map<string, string>();
+  for (const [level, byLanguage] of Object.entries(VOCABULARY.levels)) {
+    for (const token of byLanguage["en-US"] ?? []) fromContract.set(token, level);
+  }
+  // Code → contract: every English word the audit reads must be one the contract lists, at the same level.
+  const fromCode = new Map<string, string>();
+  for (const token of fromContract.keys()) {
+    const seen = [...markersIn(`The handler rejects the request when the flag is unset ${token}.`)];
+    assert.equal(seen.length, 1, `${token} must read as exactly one level`);
+    fromCode.set(token, seen[0]);
+  }
+  assert.deepEqual([...fromCode].sort(), [...fromContract].sort(),
+    "the en-US vocabulary and the words the audit accepts must be the same set, mapped the same way");
+  // And nothing beyond it: an ordinary English word is not an evidence level.
+  for (const word of ["asserted", "confirmed", "unknown", "factory", "verification"]) {
+    assert.deepEqual([...markersIn(`The handler rejects the request when the flag is ${word}.`)], [], word);
   }
 });
