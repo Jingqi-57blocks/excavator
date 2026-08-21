@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { join, resolve } from "node:path";
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import type { EvidenceItem, ReportRequest, SectionClaim } from "../src/base/types.ts";
 import { assembleRun, checkpointSection, prepareRun, updateChecklist } from "../src/run/run.ts";
 import { collectUnits } from "../src/report/unit-collect.ts";
@@ -115,23 +115,6 @@ test("search CLI records a reusable source-search receipt", async () => {
   assert.equal(JSON.parse(second.stdout).cacheHit, true);
 });
 
-test("claims scaffold CLI emits a claims skeleton from section markdown", async () => {
-  const { runDir, manifest } = await prepareRun(await request());
-  const document = manifest.documents[0];
-  const sectionFile = join(await tempDir(), "section.md");
-  await writeFile(sectionFile, "## Overview\n\nThe system validates each incoming request before persistence.\n\n| Component | Responsibility |\n| --- | --- |\n| Authentication middleware | Rejects unauthenticated requests |\n");
-  const result = await cli(["claims", "scaffold", "--run", runDir, "--document", document.id, "--section", "1", "--file", sectionFile]);
-  assert.equal(result.code, 0, result.stderr || result.stdout);
-  const parsed = JSON.parse(result.stdout) as { documentId: string; section: number; claims: SectionClaim[] };
-  assert.equal(parsed.documentId, document.id);
-  assert.equal(parsed.section, 1);
-  assert.ok(parsed.claims.length >= 3, result.stdout);
-  for (const claim of parsed.claims) {
-    assert.equal(claim.marker, "fact");
-    assert.deepEqual(claim.evidenceIds, []);
-  }
-});
-
 /**
  * `audit`'s exit code, on the unit keying.
  *
@@ -175,15 +158,7 @@ test("audit --units exits non-zero on a violating written unit and zero once the
 });
 
 test("subcommand --help prints usage and does not execute", async () => {
-  // A new-style subcommand and an existing command both resolve to their own usage.
-  const scaffold = await cli(["claims", "scaffold", "--help"]);
-  assert.equal(scaffold.code, 0, scaffold.stderr || scaffold.stdout);
-  for (const flag of ["--run", "--document", "--section", "--file"]) assert.match(scaffold.stdout, new RegExp(flag));
-  // Not executed: no error JSON is emitted for the missing required flags.
-  assert.doesNotMatch(scaffold.stderr, /Missing|"error"/);
-
-  // A second subcommand, on a command that outlives the section path: the "subcommand help resolves to its own
-  // page" contract must not be carried by `claims scaffold` alone.
+  // A subcommand resolves to its own usage page rather than falling back to the bare command's.
   const build = await cli(["codegraph", "build", "--help"]);
   assert.equal(build.code, 0, build.stderr || build.stdout);
   assert.match(build.stdout, /^Excavator codegraph build$/m);

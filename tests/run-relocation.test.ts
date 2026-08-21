@@ -5,7 +5,7 @@ import { basename, join, relative, resolve } from "node:path";
 import type { ReportRequest, RunManifest, SectionClaim } from "../src/base/types.ts";
 import {
   addSourceEvidence, assembleRun, auditRun, beginDocument, checkpointSection, freezeRun, prepareRun,
-  readingCheck, resumeRun, runStatus, scaffoldClaims, searchSourceEvidence, updateChecklist, updateTraces,
+  readingCheck, resumeRun, runStatus, searchSourceEvidence, updateChecklist, updateTraces,
   updateWorkItems
 } from "../src/run/run.ts";
 import { collectDrafts, draftSection } from "../src/report/parallel-authoring.ts";
@@ -192,12 +192,6 @@ test("relocated run: checkpoint archives the revision it replaces into the copy'
   // A revision archive proves the second checkpoint SAW the first one: reading through the recorded path
   // would have found no prior section in the copy and archived nothing.
   assert.equal((await filesIn(join(runDir, "history", base.documentId))).length, 2);
-});
-
-test("relocated run: begin records the document start in the copy", async () => {
-  const base = await authoringBase();
-  const runDir = await onRelocatedRun(base, ["begin"], async (dir) => { await beginDocument(dir, base.documentId); });
-  assert.ok((await manifestOf(runDir)).documents[0]!.startedAt);
 });
 
 test("relocated run: draft and collect keep the drafted section with the ledger that records it", async () => {
@@ -502,12 +496,10 @@ test("relocated run: checklist, workitem and trace update the copy's ledger", as
 
 // --- the read-only run-scoped commands ------------------------------------------------------------------
 
-test("relocated run: claims, status and reading read the copy without touching the recorded location", async () => {
+test("relocated run: status and reading read the copy without touching the recorded location", async () => {
   const base = await investigatingBase();
   const runId = (await manifestOf(base.runDir)).id;
-  await onRelocatedRun(base, ["claims", "status", "reading"], async (dir) => {
-    const scaffold = await scaffoldClaims(dir, base.documentId, 1, "## 一\n\n一句实质陈述。\n");
-    assert.equal(scaffold.documentId, base.documentId);
+  await onRelocatedRun(base, ["status", "reading"], async (dir) => {
     assert.equal((await runStatus(dir) as { id: string }).id, runId);
     assert.ok((await readingCheck(dir)).report.length > 0);
   });
