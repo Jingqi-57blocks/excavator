@@ -196,22 +196,28 @@ export function claimFor(id: string, workItemId: string, overrides: Partial<Sect
 }
 
 /**
- * A legal draft for one unit of a materialised run, with the claims a test chose.
+ * THE PROSE A LEGAL UNIT CARRIES: every claim statement, each with a marker, and nothing a claim does not cover.
+ *
+ * With no claims there is no statement to make, so a heading-only unit is the honest shape — `vacuous` for the
+ * binding contract rather than a sentence nobody claimed.
+ */
+export function boundProse(title: string, claims: readonly SectionClaim[]): string {
+  const body = claims.map((claim) => `${claim.statement}\`事实\``);
+  return body.length > 0 ? `## ${title}\n\n${body.join("\n\n")}\n` : `## ${title}\n`;
+}
+
+/**
+ * A draft for one unit of a materialised run, with the claims AND the prose a test chose.
+ *
+ * `content` is a required parameter rather than an option with a default: a test that wants prose its claims do
+ * not bind to is asking for a specific defect, and an optional override would let one arrive by accident.
  *
  * The digests come from Core's own normalizer and digest functions, exactly as `tests/unit-fixture.ts` argues: a
- * fixture that computed them a second way would be testing the second way. What varies here is only the claims,
- * because the claims are what the grounding audit reads.
+ * fixture that computed them a second way would be testing the second way.
  */
-export async function unitDraftWithClaims(run: MaterialisedRun, unitId: string, claims: readonly SectionClaim[]): Promise<UnitDraftInput> {
+export async function unitDraftWithProse(run: MaterialisedRun, unitId: string, claims: readonly SectionClaim[], content: string): Promise<UnitDraftInput> {
   const unit = run.view.byId.get(unitId);
   if (!unit) throw new Error(`fixture asked for unit ${unitId}, which this plan does not hold`);
-  // THE PROSE STATES WHAT THE CLAIMS CLAIM, AND NOTHING ELSE. Before `unit-claim-binding.ts` existed this
-  // fixture wrote one fixed sentence about the unit id beside whatever claims the caller chose, so it produced
-  // units whose claims appeared nowhere in their own prose and whose only sentence no claim covered — collectable,
-  // and unbindable to a reader. Nothing checked, so nothing said so. With no claims there is no statement to make:
-  // a heading-only unit is `vacuous` for binding, which is the honest shape for a unit that asserts nothing.
-  const body = claims.map((claim) => `${claim.statement}\`事实\``);
-  const content = body.length > 0 ? `## ${unit.title}\n\n${body.join("\n\n")}\n` : `## ${unit.title}\n`;
   const ledger = await readUnitLedger(run.runDir, run.manifest.id);
   const collected = new Map(collectedUnitsFor(ledger, run.view.knowledgeEpoch, run.view.planCatalogDigest).map((row) => [row.unitId, row]));
   const summary: UnitSummary = {
@@ -232,6 +238,19 @@ export async function unitDraftWithClaims(run: MaterialisedRun, unitId: string, 
     })
   };
   return { unitId, content, claims: [...claims], summary, authorship: FIXTURE_DRAFT_AUTHORSHIP, provenance: { kind: "fresh" } };
+}
+
+/**
+ * A LEGAL draft for one unit: the claims a test chose, and the prose that binds them.
+ *
+ * Before `unit-claim-binding.ts` existed this wrote one fixed sentence about the unit id beside whatever claims
+ * the caller chose, so it produced units whose claims appeared nowhere in their own prose and whose only sentence
+ * no claim covered — collectable, and unbindable to a reader. Nothing checked it, so nothing said so.
+ */
+export async function unitDraftWithClaims(run: MaterialisedRun, unitId: string, claims: readonly SectionClaim[]): Promise<UnitDraftInput> {
+  const unit = run.view.byId.get(unitId);
+  if (!unit) throw new Error(`fixture asked for unit ${unitId}, which this plan does not hold`);
+  return unitDraftWithProse(run, unitId, claims, boundProse(unit.title, claims));
 }
 
 export interface MaterialisedRun {

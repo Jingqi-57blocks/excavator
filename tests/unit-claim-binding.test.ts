@@ -4,7 +4,9 @@ import {
   auditUnitClaimBinding,
   foldUnitText,
   substantiveUnitSegments,
-  visibleUnitText
+  visibleUnitText,
+  UNIT_BINDING_PROBLEM_KINDS,
+  type UnitBindingProblemKind
 } from "../src/report/unit-claim-binding.ts";
 import type { SectionClaim } from "../src/base/types.ts";
 
@@ -262,7 +264,15 @@ test("every segment is contained in the folded visible text of the unit that pro
     "## 4. 表\n\n同名 zms_user 表存在两套声明，read-obligations 记录了分母 `事实`。\n",
     "## 3. 取值\n\n值为 **on**/**off** 两态 `事实`。\n",
     "## 2\n\n| 组件 | 职责 |\n| --- | --- |\n| **缓存层** | 保存对象与实例数据以降低查询 |\n",
-    "## 5\n\n**加粗引导**：其后跟随足够长的说明文字以形成一个独立段落 `验证`。\n"
+    "## 5\n\n**加粗引导**：其后跟随足够长的说明文字以形成一个独立段落 `验证`。\n",
+    // DECORATION ADJACENT TO TEXT, and the corpus is incomplete without it — measured. The segmenter strips
+    // `**bold**` and the marker token at LINE level, before folding, so a segmenter folding `*` differently
+    // produces the same segment anyway and this assertion stays green through the drift. Only decoration with no
+    // space beside it — `` `abc`de ``, ``on`off`切换`` — is folded rather than pre-stripped, so only these shapes
+    // put the two halves' folds in contact. Removing them makes this test unable to see the very divergence it
+    // exists to catch.
+    "## 1. 项\n\n配置项 `abc`de 与其余项各自独立声明于主配置文件 `事实`。\n",
+    "## 1\n\n配置项 on`off`切换 生效于启动流程。配置项 on off 切换 生效于启动流程。\n"
   ];
   for (const content of corpus) {
     const visible = foldUnitText(visibleUnitText(content));
@@ -286,4 +296,94 @@ test("folding the two halves differently reproduces the bold lead-in defect", ()
   // And the shape of the damage, named: the space before the comma that appears in no rendering of the prose.
   assert.match(visible, /CMS3000 ，其源码/);
   assert.doesNotMatch(foldUnitText(visibleUnitText(REAL_UNIT)), /CMS3000 ，其源码/);
+});
+
+// ═══ THE FOUR PROBLEM KINDS, EACH REACHED BY A NAMED FIXTURE ══════════════════════════════════════════════════
+//
+// A census rather than a spot check: the loop walks `UNIT_BINDING_PROBLEM_KINDS` itself, so a fifth kind added to
+// the union with nothing producing it goes red instead of shipping unreached.
+const KIND_FIXTURES: Record<UnitBindingProblemKind, { readonly content: string; readonly claims: SectionClaim[] }> = {
+  "unclaimed-statement": {
+    content: REAL_UNIT,
+    claims: []
+  },
+  "statement-absent": {
+    content: REAL_UNIT,
+    claims: [...stubs(REAL_UNIT), claim("本系统由三个独立服务组成，彼此通过消息队列通信", "claim-absent")]
+  },
+  "statement-too-short": {
+    content: REAL_UNIT,
+    claims: [...stubs(REAL_UNIT), claim("三处", "claim-short")]
+  },
+  "missing-evidence-marker": {
+    // Verbatim from the section path's marker corpus: a substantive chapter whose only evidence-level words are
+    // plain Chinese prose with no backticks. This is the exact shape the old document-level regex accepted.
+    content: "## 概览\n\n系统在持久化之前会验证每个进入的请求，并记录处理结果。\n\n审批流程也会对结果进行验证。\n",
+    claims: stubs("## 概览\n\n系统在持久化之前会验证每个进入的请求，并记录处理结果。\n\n审批流程也会对结果进行验证。\n")
+  }
+};
+
+test("every binding problem kind is produced by a named fixture", () => {
+  for (const kind of UNIT_BINDING_PROBLEM_KINDS) {
+    const fixture = KIND_FIXTURES[kind];
+    assert.ok(problemKinds(fixture.content, fixture.claims).includes(kind), `no fixture produces ${kind}`);
+  }
+});
+
+// ═══ THE CLEAN CONCLUSIONS ════════════════════════════════════════════════════════════════════════════════════
+//
+// A rule with several exits and no assertion about a clean one is a rule nobody has seen conclude. Both
+// non-violating states are pinned here, WITH their denominators: "complete" over an empty denominator would be
+// the true-sounding sentence three states exist to prevent, so `vacuous` is a separate arm with its own source.
+
+test("a unit whose prose states exactly what its claims claim is complete, with both denominators", () => {
+  assert.deepEqual(audit(REAL_UNIT, stubs(REAL_UNIT)).verdict, { conclusion: "complete", segments: 1, statements: 1 });
+});
+
+test("a unit with no substantive statement and no claim is vacuous, and says which emptiness it is", () => {
+  const verdict = audit("## 1. 项目目的与边界\n", []).verdict;
+  assert.equal(verdict.conclusion, "vacuous");
+  assert.match(verdict.conclusion === "vacuous" ? verdict.source : "",
+    /makes no substantive statement in its visible prose and declares no claim/);
+});
+
+// The other empty: no segments, but claims. Those are still checked — a heading-only unit whose claim asserts a
+// sentence nobody wrote is a defect, not a vacuum, and reading it as vacuous would silence exactly that.
+test("a unit with no substantive statement but a claim is still checked against its prose", () => {
+  assert.deepEqual(problemKinds("## 1. 项目目的与边界\n", [claim("本系统由三个独立服务组成，彼此通过消息队列通信")]),
+    ["statement-absent"]);
+});
+
+// ═══ THE EVIDENCE-LEVEL MARKER RULE (57B-491 G5) ══════════════════════════════════════════════════════════════
+//
+// Migrated from `auditSectionEvidenceMarkers` at error level, WITHOUT its assurance-version gate: the section
+// path grandfathers runs prepared before the rule existed, and no unit product predates this contract, so a gate
+// here would have an empty population. The vocabulary reader is `hasEvidenceMarkers` — imported, not re-spelled,
+// so `references/evidence-markers.json` keeps one reader in the codebase.
+
+function markerProblems(content: string): string[] {
+  return problemKinds(content, stubs(content)).filter((kind) => kind === "missing-evidence-marker");
+}
+
+// Verbatim from the section path's marker corpus, both halves of the pair.
+const PLAIN_PROSE = "## 概览\n\n系统在持久化之前会验证每个进入的请求，并记录处理结果。\n\n审批流程也会对结果进行验证。\n";
+const MARKED = "## 概览\n\n系统在持久化之前会验证每个进入的请求，并记录处理结果。`验证`\n\n审批流程也会对结果进行验证。\n";
+
+test("a unit whose only evidence-level words are plain prose has no marker", () => {
+  assert.deepEqual(markerProblems(PLAIN_PROSE), ["missing-evidence-marker"]);
+});
+
+test("the same unit passes once it carries a real backtick marker", () => {
+  assert.deepEqual(markerProblems(MARKED), []);
+});
+
+test("a unit with no substantive statement needs no marker", () => {
+  // A bare heading carries no substantive statement, so the annotation conclusion says nothing about it — the
+  // silent exit of this rule, asserted rather than assumed.
+  assert.deepEqual(markerProblems("## 概览\n"), []);
+});
+
+test("a marker that lives only inside a collapsed evidence block is not in the reading flow", () => {
+  const hidden = `## 概览\n\n系统在持久化之前会验证每个进入的请求，并记录处理结果。\n\n<details><summary>证据</summary>\n\n\`验证\`\n\n</details>\n`;
+  assert.deepEqual(markerProblems(hidden), ["missing-evidence-marker"]);
 });

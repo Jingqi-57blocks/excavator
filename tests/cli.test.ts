@@ -8,7 +8,7 @@ import { prepareRun } from "../src/run/run.ts";
 import { collectUnits } from "../src/report/unit-collect.ts";
 import { draftUnit } from "../src/report/unit-draft.ts";
 import { copyFixture, createCodeGraphFixture, tempDir } from "./helpers.ts";
-import { claimFor, materialisedRun, unitDraftWithClaims } from "./unit-grounding-fixture.ts";
+import { claimFor, materialisedRun, unitDraftWithClaims, unitDraftWithProse } from "./unit-grounding-fixture.ts";
 
 async function cli(args: string[]): Promise<{ code: number | null; stdout: string; stderr: string }> {
   const child = spawn(process.execPath, ["--experimental-strip-types", "src/cli.ts", ...args], {
@@ -103,6 +103,55 @@ test("audit --units exits non-zero on a violating written unit and zero once the
   // the reading altogether would leave an absent row and an exit code of 0, and a `notEqual` would pass on it.
   const passedReading = JSON.parse(passed.stdout) as { units: Array<{ unitId: string; verdict: { conclusion: string } }> };
   assert.equal(passedReading.units.find((row) => row.unitId === unitId)?.verdict.conclusion, "complete");
+});
+
+/**
+ * THE SECOND PER-UNIT AUDIT ON THE SAME COMMAND: the claim ↔ prose binding contract (57B-491).
+ *
+ * The shape is deliberately the grounding arm's, one test above: a unit that breaks the contract is COLLECTED
+ * (collect applies the grounding verdict and nothing else, so a unit whose claims are nowhere in its prose is
+ * recorded without complaint), and `audit --units` is what an operator runs to see it. So the exit code has to
+ * carry it without anyone parsing the reading, and the finding has to name the unit AND the statement — a
+ * "somewhere in this run a claim does not bind" is not a repair instruction.
+ *
+ * Both halves, because an exit code that is always 1 proves nothing: the corrected draft goes through the same
+ * two commands and the same command exits 0 with a POSITIVE `complete` verdict for that unit.
+ */
+test("audit --units exits non-zero on a unit whose claims are not in its prose, and zero once the prose binds", async () => {
+  const materialised = await materialisedRun();
+  const unitId = materialised.view.collectionOrder.find((id) => id.endsWith("::leaf::work-item-dimension"));
+  assert.ok(unitId, "the materialised run must have a work-item-dimension leaf");
+  const claims: SectionClaim[] = [
+    claimFor("C-found", materialised.foundWorkItemId, { evidenceIds: [materialised.foundEvidenceId] }),
+    claimFor("C-unresolved", materialised.unresolvedWorkItemId, { marker: "unavailable" })
+  ];
+
+  // Grounded exactly as the grounding audit requires, and about something else entirely.
+  const unbound = `## 材料\n\n本单元的正文完全不提任何 claim 所声称的内容。\`事实\`\n`;
+  await draftUnit(materialised.runDir, await unitDraftWithProse(materialised, unitId, claims, unbound));
+  assert.deepEqual((await collectUnits(materialised.runDir)).collected.map((receipt) => receipt.unitId), [unitId],
+    "collect records it: the grounding verdict is clean and collect checks nothing about prose");
+
+  const failed = await cli(["audit", "--run", materialised.runDir, "--units"]);
+  assert.equal(failed.code, 1, failed.stderr || failed.stdout);
+  const failedReading = JSON.parse(failed.stdout) as {
+    binding: { units: Array<{ unitId: string; verdict: { conclusion: string }; problems: Array<{ kind: string; message: string }> }> };
+  };
+  const row = failedReading.binding.units.find((unit) => unit.unitId === unitId);
+  assert.equal(row?.verdict.conclusion, "violations");
+  assert.deepEqual(row?.problems.map((problem) => problem.kind).sort(),
+    ["statement-absent", "statement-absent", "unclaimed-statement"]);
+  // The finding is actionable on its face: it names the unit and quotes the statement that does not bind.
+  assert.ok(row?.problems.some((problem) => problem.message.includes(unitId) && problem.message.includes("的当前行为已记录")),
+    `no finding names both the unit and the statement: ${JSON.stringify(row?.problems)}`);
+
+  // The corrected draft, through the same two commands: prose that states what the claims claim.
+  await draftUnit(materialised.runDir, await unitDraftWithClaims(materialised, unitId, claims));
+  assert.deepEqual((await collectUnits(materialised.runDir)).collected.map((receipt) => receipt.unitId), [unitId]);
+  const passed = await cli(["audit", "--run", materialised.runDir, "--units"]);
+  assert.equal(passed.code, 0, passed.stderr || passed.stdout);
+  const passedReading = JSON.parse(passed.stdout) as { binding: { units: Array<{ unitId: string; verdict: { conclusion: string } }> } };
+  assert.equal(passedReading.binding.units.find((unit) => unit.unitId === unitId)?.verdict.conclusion, "complete");
 });
 
 /**
