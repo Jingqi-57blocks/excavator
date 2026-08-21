@@ -124,7 +124,3 @@ export async function assertValidatedPlanForAuthoring(runDir: string, manifest: 
   return { requests, catalog, source, planCatalog, dag, report };
 }
 
-/** Where the recorded request set lives, for a caller that wants to name it without reading it. */
-export function planRequestsPath(runDir: string): string {
-  return reportRequestsPath(runDir);
-}

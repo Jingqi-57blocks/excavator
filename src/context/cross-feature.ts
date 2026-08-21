@@ -10,7 +10,7 @@ import { consumableFactPackItems } from "../workset/factpack-view.ts";
  * fact-pack data, so the same code serves any target.
  *
  * The honesty limit is stated in `notes`: a multi-module target produces no cross-module CodeGraph
- * edges by design (see `src/codegraph-set.ts`), so relationships are limited to shared files,
+ * edges by design (see `src/codegraph/codegraph-set.ts`), so relationships are limited to shared files,
  * entities and config keys. Single-graph call/reference edge relationships are deferred, not included.
  */
 

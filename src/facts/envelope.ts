@@ -1,7 +1,7 @@
 import type { ArtifactResult } from "../base/artifact-result.ts";
 import { summarizeCoverage, type CoverageConservation } from "../base/conservation.ts";
 import { factKindById, type FactKindId, type Membership } from "../base/fact-kind-registry.ts";
-import { canonicalJson, sha256 } from "../base/util.ts";
+import { canonicalJson } from "../base/util.ts";
 import {
   MEMBERSHIP_MAP_VERSION,
   type FactDetail, type FactDetailValue, type MappedFact, type UnmappedAnchor
@@ -173,11 +173,6 @@ function sortedKeys<T>(record: Readonly<Record<string, T>>): Readonly<Record<str
   const out: Record<string, T> = {};
   for (const key of Object.keys(record).sort()) out[key] = record[key]!;
   return out;
-}
-
-/** The envelope's own content digest, over the declared fields. Recorded by whoever binds to this producer. */
-export function producerFactSetDigest(factSet: ProducerFactSet): string {
-  return sha256(canonicalJson(factSet));
 }
 
 /**

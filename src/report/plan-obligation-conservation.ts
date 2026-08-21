@@ -44,7 +44,7 @@
 import { assertNever } from "../base/artifact-result.ts";
 import { scopeIncludes, type ScopedTopicReference } from "./obligation-scope.ts";
 import { unitTopicIds, unitTopics, type AuthoringUnitKind, type ProposedUnit } from "./plan-proposal.ts";
-import type { TopicCandidate, TopicFacet, TopicObligationBinding } from "./topic-candidate.ts";
+import type { TopicFacet, TopicObligationBinding } from "./topic-candidate.ts";
 import type { TopicCatalogArtifact } from "./topic-catalog.ts";
 import { TOPIC_DISPOSITION_STATES, type TopicDisposition, type TopicDispositionState } from "./topic-disposition.ts";
 
@@ -256,11 +256,6 @@ export function obligationAccountingProblems(accounting: PlanObligationAccountin
 export function summariseObligationAccounting(accounting: PlanObligationAccounting): string {
   const byState = accounting.waivedByState.map((row) => `${row.state}=${row.obligations}`).join(", ");
   return `${accounting.materialObligations} material obligation(s): ${accounting.inUnits} in units, ${accounting.waived} waived (${byState}), ${accounting.unplaced} claimed but unplaced, ${accounting.undispositioned} undispositioned`;
-}
-
-/** Material topics that carry at least one material obligation. The bridge between the 1a and 1b denominators. */
-export function materialTopicsCarryingObligations(catalog: TopicCatalogArtifact): readonly TopicCandidate[] {
-  return catalog.topics.filter((topic) => topic.bindings.some((binding) => binding.material));
 }
 
 /**
