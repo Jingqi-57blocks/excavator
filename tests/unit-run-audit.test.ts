@@ -50,6 +50,7 @@ async function unfrozenRunWithAuthoringEvent(): Promise<{ runDir: string; docume
   const { runDir, manifest } = await prepareRun(await unitRequest());
   const documentId = manifest.documents[0]!.id;
   await appendTimeline(runDir, manifest.id, { stage: "authoring", action: "unit.checkpoint", documentId });
+  // `documentId` is returned because the scoped-audit case below audits THAT document by name.
   return { runDir, documentId };
 }
 
@@ -122,34 +123,42 @@ test("a unit-path run's audit detects timeline tampering", async () => {
  */
 test("a unit-path run's audit fires the freeze-order gate on each of its three branches", async () => {
   const { runDir } = await unfrozenRunWithAuthoringEvent();
+  // Read off the run's OWN stamp before touching it: restoring from a value this test carries (or from an
+  // audit's returned manifest) would make the restore depend on something other than what prepare wrote.
+  const currentStamp = (await manifestOf(runDir)).assuranceVersion;
+  const stampAs = async (version: string | undefined): Promise<void> => {
+    const manifest = await manifestOf(runDir);
+    manifest.assuranceVersion = version;
+    await writeFile(join(runDir, "run.json"), JSON.stringify(manifest, null, 2));
+  };
+  const orderFindings = async (): Promise<readonly AuditFinding[]> =>
+    matching((await auditRun(runDir)).findings, /never frozen|authored before the investigation was frozen/);
 
   // Branch 1: authoring activity, no `investigation.frozen` event at all.
-  const neverFrozen = await auditRun(runDir);
-  assert.deepEqual(
-    matching(neverFrozen.findings, /^run has authoring activity but was never frozen; the current assurance version requires freeze before authoring$/)
-      .map((finding) => finding.level),
-    ["error"]);
+  const neverFrozen = matching((await auditRun(runDir)).findings, /^run has authoring activity but was never frozen; the current assurance version requires freeze before authoring$/);
+  assert.deepEqual(neverFrozen.map((finding) => finding.level), ["error"]);
+  // The `document` key is part of the rule's stated contract (`freeze.ts`: "distinct from the frozen-knowledge
+  // reconciliation, which uses `knowledge`"), so the same sentence under the wrong key must not pass.
+  assert.deepEqual(neverFrozen.map((finding) => finding.document), ["freeze"]);
 
-  // Branch 2: the pre-v3 grandfather — the same timeline, one stamp older, and the rule returns nothing.
-  const legacy = await manifestOf(runDir);
-  legacy.assuranceVersion = LEGACY_VERSION;
-  await writeFile(join(runDir, "run.json"), JSON.stringify(legacy, null, 2));
-  const grandfathered = await auditRun(runDir);
-  assert.deepEqual(matching(grandfathered.findings, /never frozen|authored before the investigation was frozen/), [],
-    "a run stamped before the gate existed is held to the contract it was written under");
+  // Branch 2: the pre-v3 grandfather, on that same timeline.
+  await stampAs(LEGACY_VERSION);
+  assert.deepEqual(await orderFindings(), [], "a run stamped before the gate existed is held to the contract it was written under");
 
-  // Branch 3: freeze LATE. Restoring the current stamp and freezing leaves the authoring event ahead of
+  // Branch 3: freeze LATE. With the current stamp restored, freezing leaves the authoring event ahead of
   // `investigation.frozen` in the chain, which is the ordering the gate exists for.
-  const current = await manifestOf(runDir);
-  current.assuranceVersion = neverFrozen.manifest.assuranceVersion;
-  await writeFile(join(runDir, "run.json"), JSON.stringify(current, null, 2));
+  await stampAs(currentStamp);
   await disposeAllWorkItems(runDir);
   assert.equal((await freezeRun(runDir)).frozen, true);
-  const frozenLate = await auditRun(runDir);
-  assert.deepEqual(
-    matching(frozenLate.findings, /^run was authored before the investigation was frozen \(first authoring event precedes investigation\.frozen\)$/)
-      .map((finding) => finding.level),
-    ["error"]);
+  const frozenLate = matching((await auditRun(runDir)).findings, /^run was authored before the investigation was frozen \(first authoring event precedes investigation\.frozen\)$/);
+  assert.deepEqual(frozenLate.map((finding) => finding.level), ["error"]);
+  assert.deepEqual(frozenLate.map((finding) => finding.document), ["freeze"]);
+
+  // And the grandfather again, now against the FROZEN-LATE ordering rather than the never-frozen one. Branch 2
+  // above only ever asked it about a timeline with no freeze event at all, so a generation gate that leaked on
+  // the ordering it is hardest to reason about would have passed. Both orderings, one stamp.
+  await stampAs(LEGACY_VERSION);
+  assert.deepEqual(await orderFindings(), [], "the grandfather covers the frozen-late ordering too, not only the never-frozen one");
 });
 
 /**
@@ -169,4 +178,46 @@ test("a unit-path run's audit reports a checklist item nobody dispositioned", as
   assert.ok(pending.length > 0, "a prepared run's checklist starts undispositioned, and the audit has to say so");
   assert.deepEqual([...new Set(pending.map((finding) => finding.level))], ["error"]);
   assert.deepEqual([...new Set(pending.map((finding) => finding.document))], ["checklist"]);
+});
+
+/**
+ * MIGRATED (57B-480 batch 2e, added after `/code-review` found a third gap the first pass missed).
+ *
+ * TWO THINGS, both with every existing assertion on the section chain:
+ *
+ * 1. THE SCOPED DOWNGRADE. `auditRun(runDir, { documentId })` keeps run-wide certifications advisory
+ *    (`run.ts:600`'s `runWide = toAdvisory`), because a partial scope cannot certify the whole run. `audit
+ *    --document <id>` is a LIVE CLI arm, but every assertion of the downgrade sat on `checkpointSection`-driven
+ *    cases (`freeze-hard-gate` ⑤, `freeze.test.ts:355`, `assurance-workflow.test.ts:371`); the one surviving
+ *    scoped call, `read-accountability-wiring.test.ts:170`, asserts a non-write rather than a level. Deleting
+ *    the downgrade so scoped audits hard-fail would have gone green everywhere.
+ * 2. THE RULE'S SILENT PATHS. `auditFreezeOrder` has five outcomes, not three: it also returns nothing when
+ *    there is NO authoring event, and when the freeze correctly precedes the authoring. A regression that fired
+ *    on a correctly ordered run would have passed the whole unit chain, because no `unit-*` test asserted a
+ *    clean freeze-order verdict — the pattern-scoped `deepEqual(..., [])` assertions elsewhere in this file all
+ *    happen to be about other rules.
+ */
+test("the freeze-order gate is silent when the order is right, and advisory when the audit is scoped", async () => {
+  const ORDER = /never frozen|authored before the investigation was frozen/;
+
+  // Silent path 1: a frozen, planned, collected unit run — freeze precedes every authoring event by construction.
+  const clean = await collectedRun();
+  assert.deepEqual(matching((await auditRun(clean.runDir)).findings, ORDER), [],
+    "a run whose freeze precedes its authoring must draw no freeze-order finding at all");
+
+  // Silent path 2: an unfrozen run with NO authoring event. The rule is about ordering, so a run that has not
+  // begun writing is legitimately un-gated — and this is the branch a "fire whenever unfrozen" regression trips.
+  const { runDir: untouched } = await prepareRun(await unitRequest());
+  assert.deepEqual(matching((await auditRun(untouched)).findings, ORDER), [],
+    "a run that never authored anything is not out of order");
+
+  // The scoped downgrade, on the same fixture the run-wide case uses: same finding, warning instead of error.
+  const { runDir, documentId } = await unfrozenRunWithAuthoringEvent();
+  const wide = matching((await auditRun(runDir)).findings, ORDER);
+  assert.deepEqual(wide.map((finding) => finding.level), ["error"], "run-wide, the order violation is an error");
+  const scoped = matching((await auditRun(runDir, { documentId })).findings, ORDER);
+  assert.deepEqual(scoped.map((finding) => finding.message), wide.map((finding) => finding.message),
+    "the scope changes the level, never which rule fired");
+  assert.deepEqual(scoped.map((finding) => finding.level), ["warning"],
+    "a partial scope cannot certify the whole run, so its run-wide findings are advisory");
 });
