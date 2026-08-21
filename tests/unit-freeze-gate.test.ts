@@ -139,7 +139,9 @@ test("a supplement recorded after collect refuses both assemble modes by name, a
     ...admitted.documents.flatMap((document) => [document.path, document.claimsCompanion.path, document.tracesCompanion.path]),
     admitted.coverageCompanion.path
   ];
-  assert.equal(wouldHaveShipped.length, 4, "the control named every file the write arm would have put on the shelf");
+  // Derived, not a literal: three files per document plus the one run-scoped companion. It is here so the loop
+  // below cannot pass over an empty list, and it survives a fixture that grows a second document.
+  assert.equal(wouldHaveShipped.length, admitted.documents.length * 3 + 1, "the control named every file the write arm would have put on the shelf");
   for (const path of wouldHaveShipped) {
     assert.equal(await exists(join(run.runDir, ...path.split("/"))), false, `${path} was shipped behind the gate`);
   }
