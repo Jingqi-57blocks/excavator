@@ -3,75 +3,28 @@ import assert from "node:assert/strict";
 import { join } from "node:path";
 import { mkdir, writeFile } from "node:fs/promises";
 import { auditTraces } from "../src/investigation/assurance.ts";
-import { auditRescuedLogicCoverage } from "../src/report/section-audit.ts";
 import { collectClaims } from "../src/report/assurance-artifacts.ts";
-import type { DocumentPlan, EvidenceItem, SectionClaim, TraceCatalog } from "../src/base/types.ts";
+import type { DocumentPlan, SectionClaim, TraceCatalog } from "../src/base/types.ts";
 import { tempDir } from "./helpers.ts";
 
-// TWO CHECKS THAT WERE MEASURING SOMETHING OTHER THAN WHAT THEY PROMISED.
+// A CHECK THAT WAS MEASURING SOMETHING OTHER THAN WHAT IT PROMISED.
 //
-// 1. The rescued-logic advisory searched the report text for an identifier, while `writing-rules.md` tells
-//    authors the opposite — "The prose need not contain the identifier — the coverage ledger binds through
-//    the cited evidence." On a real run it warned about five items that were all properly disposed, and the
-//    author silenced it by stuffing identifiers into a collapsed block. An advisory that fires when the
-//    documented practice is followed teaches people to ignore advisories.
-// 2. `collectClaims` keyed on the claim id alone, but ids are unique only within a section. A run with 472
-//    claims across 12 sections reported 81 — the number that becomes `metrics.claims` and feeds `eval
-//    compare`. Fixing the key then endangers `auditTraces`, which compares against BARE ids; that hazard is
-//    the third test here, and the suite could not see it before it was written.
-
-function logicEvidence(items: Array<{ name: string; filePath: string; line: number; signal: string }>): EvidenceItem[] {
-  return [{
-    id: "FACT-logic", snapshotId: "s", kind: "structured", title: "logic", reason: "r", digest: "d",
-    data: { category: "logic", items },
-  } as unknown as EvidenceItem];
-}
-
-const ITEM = { name: "recordTakeLeaveHours", filePath: "wcp-service/services/leaveService.js", line: 139, signal: "rescued" };
+// `collectClaims` keyed on the claim id alone, but ids are unique only within a section. A run with 472 claims
+// across 12 sections reported 81 — the number that becomes `metrics.claims` and feeds `eval compare`. Fixing the
+// key then endangers `auditTraces`, which compares against BARE ids; that hazard is the second test here, and the
+// suite could not see it before it was written.
+//
+// THE FILE HELD A SECOND SUBJECT UNTIL 57B-481. The rescued-logic advisory — which searched the report text for
+// an identifier while `writing-rules.md` told authors the opposite ("The prose need not contain the identifier —
+// the coverage ledger binds through the cited evidence"), warned about five properly disposed items on a real
+// run, and was silenced by stuffing identifiers into a collapsed block — was retired with the section audit. Its
+// disposition-through-evidence half is what the unit path enforces instead, and enforces harder: a rescued logic
+// item is promoted to a work item (`logic-workitems.ts`), so `auditUnitGrounding` demands a linked claim reusing
+// its evidence rather than warning when the prose omits a name.
 
 function claim(overrides: Partial<SectionClaim>): SectionClaim {
   return { id: "claim-1", kind: "fact", statement: "s", evidenceIds: [], ...overrides } as SectionClaim;
 }
-
-const DISPOSED = `feature:k:logic:${ITEM.name}@${ITEM.filePath}:${ITEM.line}`;
-
-test("a rescued item disposed by a claim is covered, even when the prose never names it", () => {
-  const report = "本章说明请假小时数如何按年度扣减，具体规则见折叠证据块。";
-  assert.deepEqual(auditRescuedLogicCoverage("doc", report, logicEvidence([ITEM]), [claim({ workItemIds: [DISPOSED] })], "k"), [],
-    "the contract binds through the ledger, so the check must read the ledger");
-});
-
-// The id is matched WHOLE. A suffix match drops the feature key, and then — measured while writing this —
-// one feature's disposition silences another feature's rescued item in a multi-feature run. A silenced real
-// miss is strictly worse than a false warning, so this is the collision that decides the matching rule.
-test("another feature's disposition does not cover this feature's item", () => {
-  const otherFeature = claim({ workItemIds: [`feature:OTHER:logic:${ITEM.name}@${ITEM.filePath}:${ITEM.line}`] });
-  const findings = auditRescuedLogicCoverage("doc", "无关正文。", logicEvidence([ITEM]), [otherFeature], "k");
-  assert.equal(findings.length, 1, "same name, same file, same line — different feature");
-});
-
-test("without a feature key the binding path stays closed rather than matching loosely", () => {
-  const findings = auditRescuedLogicCoverage("doc", "无关正文。", logicEvidence([ITEM]), [claim({ workItemIds: [DISPOSED] })], "");
-  assert.equal(findings.length, 1, "no key means no exact id to check against; the text fallback still applies");
-});
-
-test("a rescued item nothing disposed and nothing names is still reported", () => {
-  const findings = auditRescuedLogicCoverage("doc", "报告完全没提这件事。", logicEvidence([ITEM]), [], "k");
-  assert.equal(findings.length, 1);
-  assert.match(findings[0].message, /1 rescued logic fact/);
-  assert.equal(findings[0].level, "warning", "advisory, as it has always been");
-});
-
-// The fallback stays: a report that names the item is covered even with no claim binding, which keeps every
-// run that predates work-item ids passing exactly as before.
-test("naming the item in the report still counts, so older runs are unaffected", () => {
-  assert.deepEqual(auditRescuedLogicCoverage("doc", `见 ${ITEM.name} 的实现。`, logicEvidence([ITEM]), [], "k"), []);
-});
-
-test("a claim disposing a different item does not cover this one", () => {
-  const other = claim({ workItemIds: ["feature:k:logic:somethingElse@other/file.js:10"] });
-  assert.equal(auditRescuedLogicCoverage("doc", "无关正文。", logicEvidence([ITEM]), [other], "k").length, 1);
-});
 
 // --- claim counting ---
 

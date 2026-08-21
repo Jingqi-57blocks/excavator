@@ -67,6 +67,10 @@ export function logicWorkItems(factPacks: FeatureFactPack[], documents: Document
     const rescued = consumableFactPackItems(pack)
       .filter((item) => item.category === "logic" && typeof item.signal === "string" && item.signal.length > 0)
       .sort((a, b) => rankOf(a) - rankOf(b) || compareStrings(a.filePath, b.filePath) || a.line - b.line || compareStrings(a.name, b.name));
+    // THE SENTENCE BELOW NAMES A NET THAT NO LONGER EXISTS (57B-481). The fact-pack advisory it points at was
+    // `auditRescuedLogicCoverage`, deleted with the section audit; over-cap items are promoted to no work item,
+    // so nothing on the unit path covers them. Left unedited on purpose — changing what the product tells an
+    // operator it guarantees is a decision, not a consequence of a deletion. See the retirement site in `run.ts`.
     if (rescued.length > cap) {
       warnings.push(`Logic disposition: feature ${featureKey} has ${rescued.length} rescued logic functions; only the ${cap} highest-ranked were promoted to work items — ${rescued.length - cap} lower-ranked remain covered only by the fact-pack advisory.`);
     }

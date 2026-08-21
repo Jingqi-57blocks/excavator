@@ -712,6 +712,20 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
     //   with no chapter anchor, which is why none of them survived a mechanical port. `claim-comparison.ts`
     //   itself STAYS: its layer 1 (`assertValidClaim`'s shape validation of `sides`) is live on both sidecars.
     //
+    // A SECOND DISAPPEARANCE, DOCUMENT-LEVEL RATHER THAN PER-SECTION, NAMED HERE FOR THE SAME REASON.
+    // `auditRescuedLogicCoverage` — the advisory that every rescued `logic` fact-pack item be represented in the
+    // assembled report, by a claim disposing its work item or by the prose naming it — was also called from this
+    // function and went with the deletion (57B-481).
+    //   WHAT DOES INHERIT IT, AND MORE STRONGLY: a rescued logic item is promoted to a work item
+    //   (`logic-workitems.ts`), so on the unit path `auditUnitGrounding` demands a LINKED CLAIM REUSING ITS
+    //   EVIDENCE — a harder requirement than "the report represents it somewhere".
+    //   WHAT DOES NOT: items beyond `LOGIC_WORKITEM_CAP` are never promoted, so no obligation exists for them and
+    //   the advisory was their only net. TWO OPERATOR-VISIBLE SENTENCES STILL PROMISE NETS THAT NO LONGER EXIST,
+    //   and correcting them is a statement about what the product guarantees rather than a deletion, so they are
+    //   named rather than edited here: `logic-workitems.ts`'s over-cap warning says the remainder is "covered only
+    //   by the fact-pack advisory", and `cli.ts`'s `--detail detailed` help says it requires "minimum report
+    //   density" — the density floor was `auditDetailedFeatureSection`, deleted as G14's accepted reduction.
+    //
     // WHAT REPLACES IT IS A READ, NOT A RULE. `claimsByDocument` feeds RUN-LEVEL families — work-item claim
     // coverage, the condition inventory's claim statements — and those are explicitly kept running. Deleting the
     // loop without this read would leave them seeing zero claims on an archived run and reporting nothing, which

@@ -4,7 +4,7 @@
  * WHY IT HAS ITS OWN FILE. It began inside `section-audit.ts` because the section sidecar was the first caller,
  * and 57B-475 then hardened it into the validator BOTH sidecars call, so that a second claims sidecar could not
  * grow a weaker copy of the rules. That made it a shared piece living inside a module scheduled for retirement:
- * `section-audit.ts` goes with the section path (57B-481), and a validator the unit path depends on must not be
+ * `section-audit.ts` went with the section path (57B-481), and a validator the unit path depends on must not be
  * a passenger on that deletion. So it moved here first, alone, with its body unchanged byte for byte — the two
  * refusal messages, their order, and the two helpers it delegates to are all exactly what they were.
  *

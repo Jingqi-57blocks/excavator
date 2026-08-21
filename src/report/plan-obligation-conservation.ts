@@ -1,7 +1,7 @@
 /**
  * Gate 1b's first deterministic reading: where every MATERIAL OBLIGATION goes under a plan.
  *
- * WHY THIS EXISTS AT ALL. The full audit's material grounding check (`section-audit.ts`) uses
+ * WHY THIS EXISTS AT ALL. The full audit's material grounding check uses
  * `item.requiredFor.includes(document.id)` as its denominator, and in the new world `requiredFor` is DERIVED FROM
  * THE PLAN. So a plan that marks one material topic `omitted-for-audience` can take every obligation bound to that
  * topic out of every unit's required set — and the audit then passes over a denominator the plan shrank. Measured

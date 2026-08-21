@@ -19,7 +19,7 @@
  *   - The frozen-evidence coverage account IS on the unit path, in the appendix packet, WITH counts:
  *     `evidenceReachOf` (`unit-packet.ts:180`) returns `frozenEvidenceIds` / `boundEvidenceIds` / `unbound`, the
  *     last as whole records and never capped. So the reduction is one specific denominator, not the account.
- *   - The enforcement half, `auditDetailedFeatureSection` (`section-audit.ts:258`), dies with 57B-481. Same
+ *   - The enforcement half, `auditDetailedFeatureSection`, was deleted with the section audit (57B-481). Same
  *     reduction, other half.
  *
  * RESTORING IT NEEDS A DENOMINATOR FROM A LOWER LEDGER FIRST: "visible consumable fact-pack item" has to be

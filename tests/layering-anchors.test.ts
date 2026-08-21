@@ -70,7 +70,9 @@ const ANCHORS: Record<string, Classification> = {
   "src/context/context.ts:174": { kind: "current", expect: "new SourceReader({" },
   "src/report/checkpoint.ts": { kind: "current-file" },
   "src/base/assurance-version.ts": { kind: "current-file" },
-  "src/report/section-audit.ts": { kind: "current-file" },
+  // Deleted with the section authoring path (57B-481). §三's sentence records the assurance.ts split as it
+  // happened, so the anchor stays in the document as provenance and stops being a claim about today's tree.
+  "src/report/section-audit.ts": { kind: "historical", why: "the third piece of the assurance.ts split; the file was deleted when the section audit retired" },
   "src/investigation/investigation-artifacts.ts": { kind: "current-file" },
   "src/investigation/assurance.ts": { kind: "current-file" },
   "src/report/assurance-artifacts.ts": { kind: "current-file" },
