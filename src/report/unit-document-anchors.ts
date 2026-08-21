@@ -42,13 +42,26 @@ const EXPLICIT_ANCHOR = /<a\s+id="([^"]*)"/gi;
 const ATX_HEADING = /^[ \t]{0,3}(#{1,6})[ \t]+(.+?)[ \t]*#*[ \t]*$/gm;
 const ANCHOR_LINK = /\]\(#([^)\s]*)\)/g;
 
-/** The slug a markdown renderer gives one heading's text. Deterministic and total; see the file header. */
+/**
+ * The slug a markdown renderer gives one heading's text. Deterministic and total; see the file header.
+ *
+ * One space becomes one hyphen, which is what a slugger does: `## A & B` loses the `&` and keeps both spaces, so
+ * the id is `a--b`. `headingSlugVariants` also offers the whitespace-COLLAPSED form, because renderers differ on
+ * exactly that and the resolvable set may only ever be too large — a link a reader's renderer resolves must not be
+ * reported as a repair.
+ */
 export function headingSlug(text: string): string {
   return text
     .toLowerCase()
     .replace(/[^\p{L}\p{N} _-]/gu, "")
     .trim()
-    .replace(/\s+/g, "-");
+    .replace(/\s/g, "-");
+}
+
+/** Both slug spellings of one heading, distinct: one hyphen per space, and whitespace runs collapsed to one. */
+export function headingSlugVariants(text: string): readonly string[] {
+  const spaced = headingSlug(text);
+  return [...new Set([spaced, spaced.replace(/-+/g, "-")])];
 }
 
 /** Every `<a id="…">` id in one markdown text, in document order and including repeats. */
@@ -69,11 +82,14 @@ export function readDocumentAnchors(markdown: string): DocumentAnchorReading {
   const resolvable = new Set<string>(explicit);
   const slugCounts = new Map<string, number>();
   for (const match of markdown.matchAll(new RegExp(ATX_HEADING.source, ATX_HEADING.flags))) {
-    const slug = headingSlug(match[2]!);
-    if (slug === "") continue;
-    const seen = slugCounts.get(slug) ?? 0;
-    slugCounts.set(slug, seen + 1);
-    resolvable.add(seen === 0 ? slug : `${slug}-${seen}`);
+    for (const slug of headingSlugVariants(match[2]!)) {
+      if (slug === "") continue;
+      const seen = slugCounts.get(slug) ?? 0;
+      slugCounts.set(slug, seen + 1);
+      // The `-N` suffix a slugger appends to a repeated heading, so `#contents-1` resolves in a document with two
+      // `## Contents` headings.
+      resolvable.add(seen === 0 ? slug : `${slug}-${seen}`);
+    }
   }
   return {
     explicitAnchorIds: explicit,
