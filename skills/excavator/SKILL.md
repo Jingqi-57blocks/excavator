@@ -303,7 +303,7 @@ excavator unit-consistency --run <run-dir>
 excavator coverage-companion --run <run-dir> --out <coverage.md>
 ```
 
-`audit --units` is the read-only rerun of the verdict `collect` already applied; its exit code follows the verdict. `assemble --units` is all-or-nothing per run: every unit of every planned document must be collected against the recorded plan and this epoch, and every unit's bytes on disk must still digest to what its ledger row promised, or the run is refused by name with the offending unit ids. `--mode write` puts the deliverable in `reports/`; `--mode plan-only` proves it could be written and writes nothing. `unit-consistency` then checks the assembled deliverable for the cross-unit defects no collect gate can see and prints the exact repair set, exiting non-zero when there is a finding.
+`audit --units` reruns two read-only per-unit audits: the grounding verdict `collect` already applied, and the claim ↔ prose binding contract, which `collect` never applies. Its exit code follows both. `assemble --units` is all-or-nothing per run: every unit of every planned document must be collected against the recorded plan and this epoch, and every unit's bytes on disk must still digest to what its ledger row promised, or the run is refused by name with the offending unit ids. `--mode write` puts the deliverable in `reports/`; `--mode plan-only` proves it could be written and writes nothing. `unit-consistency` then checks the assembled deliverable for the cross-unit defects no collect gate can see and prints the exact repair set, exiting non-zero when there is a finding.
 
 ### 5. Adding a document, and reusing verified units
 

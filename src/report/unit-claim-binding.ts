@@ -138,10 +138,25 @@ export function visibleUnitText(content: string): string {
 /**
  * Every substantive statement a unit's visible prose makes, folded, de-duplicated, in reading order.
  *
- * Headings, table rules and list markers are structure rather than statement; a table row becomes its cells
- * joined by `；`, so a row is claimed like a sentence. A part survives only if it carries at least eight letters
- * or digits after folding — the threshold that keeps a `| --- |` fragment or a two-word cell from demanding a
- * claim of its own.
+ * Headings, table rules and list markers are structure rather than statement. A part survives only if it carries
+ * at least eight letters or digits after folding — the threshold that keeps a `| --- |` fragment or a two-word
+ * cell from demanding a claim of its own.
+ *
+ * A TABLE ROW IS CLAIMED CELL BY CELL, NOT AS A ROW, AND ONE ARTEFACT COMES WITH THAT. The cells are joined with
+ * `；` and the very next line SPLITS on `；`, so the join is an artificial sentence terminator that makes each
+ * cell its own segment — a row is not one statement. The cost, measured rather than assumed: every non-final
+ * cell keeps a trailing `；` that appears in no rendering of the prose, so such a segment is NOT a substring of
+ * the folded visible text. `claims-scaffold.ts` recorded the same artefact on the section path and dealt with it
+ * the same way this file's contract does — a claim statement is the segment MINUS its trailing terminator, which
+ * is contained in the prose, and coverage is bidirectional containment so the trimmed statement still covers the
+ * segment it came from. `tests/unit-claim-binding.test.ts` states the containment invariant in exactly that form
+ * and carries a two-long-cell row so the caveat is exercised rather than avoided.
+ *
+ * WHAT THIS COSTS AN AUTHOR, stated because writing-rules mandates tables: a claim that covers a whole row as a
+ * reader reads it binds to nothing — the folded prose keeps the `|` separators and the segments carry `；` — so
+ * a table needs one claim per substantive cell. That is the section path's behaviour, byte for byte, and it is
+ * carried here unchanged rather than quietly improved: changing which parts of a table demand a claim is a rule
+ * change, not a move, and this slice moves the rule.
  *
  * THE FOLD IS NOT A PARAMETER. See the file header: the segmenter and the comparator sharing one fold by
  * construction is the fix for the defect this whole file records.
@@ -260,6 +275,13 @@ export function auditUnitClaimBinding(input: UnitClaimBindingInput): UnitClaimBi
 
   // Bidirectional containment, as on the section path: a claim may state more than one segment carries, and a
   // segment split off a longer sentence may be a substring of the statement that covers it.
+  //
+  // AN INHERITED HOLE, NAMED SO IT IS NOT REDISCOVERED: this set includes statements the loop above just reported
+  // as TOO SHORT TO BIND, and bidirectional containment makes a two-character one a wildcard — measured, a single
+  // `验证` claim silences three unclaimed statements. It is `section-audit.ts`'s behaviour byte for byte and both
+  // paths are alive until 57B-481, so making this one stricter would be the two-rules-one-name drift this file
+  // exists to record. The fix, when it is decided, is filtering this set by the same threshold;
+  // `tests/unit-claim-binding.test.ts` pins the current behaviour and is the test that changes with it.
   const folded = claims.map((claim) => foldUnitText(claim.statement)).filter(Boolean);
   for (const segment of segments) {
     if (folded.some((statement) => statement.includes(segment) || segment.includes(statement))) continue;

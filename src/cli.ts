@@ -350,6 +350,13 @@ async function main(): Promise<void> {
           // The second per-unit audit on this command: the claim ↔ prose binding contract. It is NOT part of the
           // grounding result because `auditUnitFromDisk` is a collect gate and this is an audit finding — the
           // section path's own split, kept. Both readings load the same run read-only; neither writes.
+          //
+          // EACH READING ESTABLISHES ITS OWN PREMISES, so the plan view is loaded twice. That is the house form —
+          // every `…ForRun` entry point in `src/report/` reads the manifest, checks the knowledge epoch with its
+          // own verb and re-checks the plan epoch — and hoisting it here would put a seventh copy of that
+          // sequence in the CLI layer. Measured on a real run rather than assumed: the second load is ~6 ms, and
+          // it does not close the race it looks like it would, because the window that matters is the per-unit
+          // file reads inside each loop, which both readings do either way.
           const binding = await readUnitClaimBindingForRun(required(args.run, "--run"));
           print({
             ...reading,

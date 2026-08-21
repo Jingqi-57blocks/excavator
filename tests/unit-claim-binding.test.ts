@@ -253,11 +253,23 @@ test("a statement only the legacy generation made long enough is reported as too
 
 // ═══ THE SINGLE-FOLDING-AUTHORITY PROPERTY, ASSERTED AND THEN FALSIFIED ═══════════════════════════════════════
 //
-// The invariant that both drifts violated: every segment the segmenter produces is contained in the folded
-// visible text of the unit that produced it. It holds by construction only because there is ONE fold, and it is
-// the property that makes "a stub binds to its own unit" true rather than lucky.
-test("every segment is contained in the folded visible text of the unit that produced it", () => {
+// The invariant that both drifts violated, IN ITS TRUE FORM: the statement a claim carries for each segment —
+// the segment minus its trailing terminator, which is what `stubs` above and `claims-scaffold.ts` both produce —
+// is contained in the folded visible text of the unit that produced it. It holds by construction only because
+// there is ONE fold, and it is the property that makes "a stub binds to its own unit" true rather than lucky.
+//
+// THE TRIM IS LOAD-BEARING, NOT COSMETIC, AND THE FIRST VERSION OF THIS TEST WAS WRONG WITHOUT IT. Asserting
+// containment of the RAW segment is a stronger claim than the code makes and was green only by accident of the
+// corpus: the segmenter joins table cells with `；` and then splits on it, so every non-final cell carries a
+// terminator absent from the prose. Measured on `| 缓存层负责对象与实例数据 | 保存对象与实例数据以降低查询 |`,
+// the raw segment `缓存层负责对象与实例数据；` is NOT in the folded prose while the trimmed statement is. The
+// original corpus hid this because its one table row had a first cell (`**缓存层**`, 3 semantic characters)
+// that the 8-character filter dropped. The row below has two cells that both survive.
+test("the statement built from each segment is contained in the folded visible text of its own unit", () => {
   const corpus = [
+    // The shape that broke the raw-containment version of this assertion. Keep it: without it, this test cannot
+    // see the table artefact it exists to bound.
+    "## 2\n\n| 组件职责说明 | 说明 |\n| --- | --- |\n| 缓存层负责对象与实例数据 | 保存对象与实例数据以降低查询 `事实` |\n",
     REAL_UNIT,
     "## 2. 组成\n\n凭据被写在代码里 `事实`：三处配置各自声明。\n",
     "## 3. 入口\n\n控制单元 `ZMS::Controller::Content` 声明了内容树的入口 `事实`。\n",
@@ -276,10 +288,39 @@ test("every segment is contained in the folded visible text of the unit that pro
   ];
   for (const content of corpus) {
     const visible = foldUnitText(visibleUnitText(content));
-    for (const segment of substantiveUnitSegments(content)) {
-      assert.ok(visible.includes(segment), `segment ${JSON.stringify(segment)} must be present in ${JSON.stringify(visible)}`);
+    for (const built of stubs(content)) {
+      assert.ok(visible.includes(foldUnitText(built.statement)),
+        `statement ${JSON.stringify(built.statement)} must be present in ${JSON.stringify(visible)}`);
     }
+    // And end to end, which is the only form that matters to a reader: the claims the segmentation implies
+    // produce no BINDING finding against the very unit they were built from. The marker rule is orthogonal to
+    // the folding authority and is asserted on its own below, so it is excluded rather than silenced — two of
+    // these corpus fixtures deliberately carry no marker.
+    assert.deepEqual(
+      audit(content, stubs(content)).problems.filter((problem) => problem.kind !== "missing-evidence-marker"),
+      [], content);
   }
+});
+
+// THE ARTEFACT ITSELF, PINNED RATHER THAN LEFT TO BE REDISCOVERED. A table row is claimed cell by cell and every
+// non-final cell's segment carries a `；` the prose does not. This is the section path's behaviour byte for byte
+// (`claims-scaffold.ts` documents the same artefact and trims it the same way), carried here unchanged because
+// changing which parts of a table demand a claim is a rule change rather than a move. If it is ever decided that
+// a row should be claimable as a row, this is the test that says what changes.
+test("a table row is segmented cell by cell, and non-final cells carry a terminator the prose does not", () => {
+  const content = "## 2\n\n| 组件职责说明 | 说明 |\n| --- | --- |\n| 缓存层负责对象与实例数据 | 保存对象与实例数据以降低查询 `事实` |\n";
+  const segments = substantiveUnitSegments(content);
+  assert.deepEqual(segments, ["缓存层负责对象与实例数据；", "保存对象与实例数据以降低查询"], "cell by cell, not one row");
+  const visible = foldUnitText(visibleUnitText(content));
+  assert.equal(visible.includes(segments[0]), false, "the `；` join is in no rendering of the prose");
+  assert.equal(visible.includes(segments[0].replace(/；$/u, "")), true, "and the trimmed statement is");
+  // The cost to an author, stated as an assertion rather than as prose: a claim covering the row as a reader
+  // reads it is reported ABSENT — the folded prose keeps the `|` separators — and the `；`-terminated first cell
+  // is then reported unclaimed. The final cell escapes only because bidirectional containment lets the long
+  // statement swallow it, which is luck of that cell being last, not a rule an author can rely on.
+  assert.deepEqual(problemKinds(content, [claim("缓存层负责对象与实例数据 保存对象与实例数据以降低查询")]),
+    ["statement-absent", "unclaimed-statement"],
+    "a whole-row claim matches neither the folded prose nor the `；`-terminated non-final cell");
 });
 
 // AND THE FALSIFICATION: reproduce the original accident by folding the two halves differently, and watch the
@@ -386,4 +427,32 @@ test("a unit with no substantive statement needs no marker", () => {
 test("a marker that lives only inside a collapsed evidence block is not in the reading flow", () => {
   const hidden = `## 概览\n\n系统在持久化之前会验证每个进入的请求，并记录处理结果。\n\n<details><summary>证据</summary>\n\n\`验证\`\n\n</details>\n`;
   assert.deepEqual(markerProblems(hidden), ["missing-evidence-marker"]);
+});
+
+// ═══ AN INHERITED SILENCING HOLE, PINNED RATHER THAN CARRIED IN SILENCE ═══════════════════════════════════════
+//
+// The coverage set for `unclaimed-statement` is EVERY claim's folded statement, including the ones this very
+// audit just reported as too short to bind. Coverage is bidirectional containment, so a two-character statement
+// is a substring of almost any segment and acts as a wildcard: one unbindable claim silences the unclaimed
+// findings for a whole unit.
+//
+// MEASURED, not reasoned: the unit below has three substantive statements. With no claims at all it reports
+// three `unclaimed-statement`. Add a single claim whose statement is `验证` — which the same audit reports as
+// too short to bind to anything — and all three disappear, leaving only the too-short finding.
+//
+// IT IS NOT FIXED HERE, ON PURPOSE. It is `section-audit.ts`'s behaviour byte for byte, and both paths are alive
+// until 57B-481 retires the section one. Making the unit path silently stricter than the section path, on a rule
+// 57B-491 was told to move unchanged, is the same two-rules-one-name drift this file exists to record — so the
+// divergence is refused and the hole is pinned instead. The fix, when it is decided, is one filter: drop
+// sub-threshold statements from the coverage set, which makes the two rules independent. This test is what says
+// so out loud, and it is the test that changes when that happens.
+const WILDCARD_UNIT = "## 1. 校验\n\n入站请求在持久化之前会被验证一次 `事实`。审批结果也会被验证一次 `事实`。归档流程同样验证一次 `事实`。\n";
+
+test("a claim too short to bind still counts as coverage, silencing unclaimed statements (inherited, pinned)", () => {
+  assert.equal(substantiveUnitSegments(WILDCARD_UNIT).length, 3, "three substantive statements");
+  assert.deepEqual(problemKinds(WILDCARD_UNIT, []),
+    ["unclaimed-statement", "unclaimed-statement", "unclaimed-statement"],
+    "with no claim, every statement is unclaimed");
+  assert.deepEqual(problemKinds(WILDCARD_UNIT, [claim("验证")]), ["statement-too-short"],
+    "and one two-character claim — reported as unbindable in the same breath — silences all three");
 });
