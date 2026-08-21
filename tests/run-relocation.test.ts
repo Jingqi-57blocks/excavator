@@ -94,8 +94,8 @@ async function buildInvestigating(): Promise<Base> {
   };
 }
 
-/** A frozen, planned run: the authoring commands can all still run. (`begin` retired with 57B-480, and
- *  `checkpointSection` stamps `startedAt` itself when it is absent, so nothing here depended on it.) */
+/** A frozen, planned run: the unit authoring commands can all run against it. (`begin` and the section
+ *  checkpoint both retired with 57B-480; nothing left here reads `documents[].startedAt`.) */
 async function buildAuthoring(): Promise<Base> {
   const base = await buildInvestigating();
   assert.equal((await freezeRun(base.runDir)).frozen, true);

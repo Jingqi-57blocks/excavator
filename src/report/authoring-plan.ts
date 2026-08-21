@@ -3,10 +3,10 @@
  * bound contract's per-section REQUIREMENT producers (`bound-run-contract.ts` materializes one requirement row per
  * template section, and layer 6 declares each row as a `knowledge-requirement`). They are deliberately NOT retired.
  *
- * AND ONE STRANDED EXPORT, NAMED SO THE NEXT SLICE DOES NOT HAVE TO REDISCOVER IT: `outputFrontMatter` (with its
- * `yamlScalar` helper) is still here, and its only caller is `assembleRun` — which the CLI already refuses ("the
- * section assemble is retired"). So it is reachable from tests and from nothing else, and it goes with `assembleRun`
- * in the next PR of this family. It is NOT a requirements producer; do not read the paragraph above as covering it.
+ * NOTHING ELSE IS LEFT HERE. The stranded `outputFrontMatter` this banner used to name went with `assembleRun`
+ * in the same slice, so the two functions above are the whole file — and both of them are requirements
+ * producers, not authoring machinery. Grep-verified when this was rewritten: `git grep -n "authoring-plan"
+ * -- src tests` reaches only `run.ts`, which imports exactly `referencePath` and `makeDocumentPlan`.
  *
  * THE AUTHORING PROMPT IS GONE, AND ONE COVERAGE DENOMINATOR WENT WITH IT. `authorPrompt` carried the instruction
  * that a `detailed` feature document account for the consumable fact pack item by item. Stated precisely, because
