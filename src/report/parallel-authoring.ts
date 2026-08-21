@@ -8,9 +8,17 @@ import { exists, listDirectories } from "../base/util.ts";
  *
  * `draftSection` and `collectDrafts` are gone (57B-480). They were the "write in parallel, account serially" pair
  * of the section path — N drafts at per-(document, section) unique paths, then one single-writer barrier recording
- * them into the timeline in a deterministic order. The unit path answers the same requirement with the same shape
- * (`unit-collect.ts`, which is what `docs/layering.md` now cites as the sequence authority), so what was deleted
- * is one implementation of it, not the property.
+ * them into the timeline in a deterministic order. `unit-collect.ts` answers THAT requirement with the same shape,
+ * which is why `docs/layering.md` now cites it as the sequence authority.
+ *
+ * TWO OF `collectDrafts`'s BEHAVIOURS HAVE NO UNIT COUNTERPART, and neither is covered by the sentence above — it
+ * is about the sequence authority alone. (1) The author-budget overrun that set `manifest.state = "timed-out"` and
+ * pushed a warning: `budgets.authorMs` is named for retirement (the epic's G1), because the unit path's budget
+ * authority is the plan's BYTE budget and a wall-clock gate is the assertion shape this repository forbids. Until
+ * that lands, `checkpointSection` is its last enforcer. (2) The once-per-run `metrics.claims` aggregation, which
+ * R8a classified as going with the deletion. `unit-collect.ts`'s own header says it touches neither
+ * `manifest.state` nor `metrics.claims`, deliberately — so "same shape" is a claim about the ordering guarantee,
+ * not about these two.
  *
  * WHY THE ADVISORY OUTLIVES BOTH. `drafts/` receipts are bytes an already-prepared run may be carrying, and its
  * only writer is gone — so from here on this can only ever fire on a run drafted before the cutover. It is an

@@ -25,8 +25,9 @@ import {
  * R4a - the authoring-unit execution path, end to end and model-free.
  *
  * The chain is prepare -> freeze -> plan (deterministic fixture plan) -> concurrent unit draft -> collect ->
- * status/resume. It is the unit twin of `parallel-authoring.test.ts`, and it makes the same safety argument the
- * section path makes: `draft` is provably isolated from the shared ledger (so any number run concurrently), and
+ * status/resume. It began as the unit twin of `tests/parallel-authoring.test.ts` — retired with the section
+ * draft/collect pair in 57B-480, which is why this file is now the only place the argument is made — and it makes
+ * that same argument: `draft` is provably isolated from the shared ledger (so any number run concurrently), and
  * `collect` is the single-writer barrier whose serial appends produce a chain that passes the same hash audit.
  * What is NEW here is the primary key: everything is keyed by `AuthoringUnitId` instead of
  * `(documentId, sectionIndex)`, and every unit carries a REQUIRED summary.
