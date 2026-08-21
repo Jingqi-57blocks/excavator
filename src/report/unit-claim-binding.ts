@@ -6,14 +6,18 @@
  * "appears in" means anything. Plus the fourth rule that shares this file's folding — a unit with substantive
  * prose must carry a real evidence-level marker in it.
  *
- * WHY THE UNIT PATH NEEDED THIS FILE AT ALL. It had none of it. `unit-draft`, `unit-collect`,
- * `unit-grounding-audit` and `unit-consistency` were each read for a comparison between `claim.statement` and the
- * unit's bytes and none of them makes one: draft and collect check the summary's digests and the grounding
- * verdict, the grounding audit's subject is OBLIGATIONS (which claim links which work item), and the consistency
- * checker's five classes are cross-unit properties whose own doc forbids anything a per-unit gate could see. So
- * a unit could state anything at all in its prose and satisfy every gate by linking claims whose statements were
- * nowhere in it. The section path has checked this since the beginning (`section-audit.ts`); this is that check,
- * on the unit key.
+ * WHY THE UNIT PATH NEEDED THIS FILE AT ALL. It had none of it. Draft and collect check the summary's digests and
+ * the grounding verdict; the grounding audit's subject is OBLIGATIONS (which claim links which work item); the
+ * consistency checker's five classes are the properties no per-unit gate sees, and none of them reads a claim's
+ * `statement` at all. So a unit could state anything whatever in its prose and satisfy every gate by linking
+ * claims whose statements were nowhere in it. The section path has checked this since the beginning
+ * (`section-audit.ts`); this is that check, on the unit key.
+ *
+ * VERIFIED, NOT REMEMBERED: `grep -rn --include='*.ts' '\.statement' src/` — outside this file and
+ * `section-audit.ts`, every hit is a statement of some OTHER kind (a coverage statement, a finding's own text, a
+ * cache-intent reason) or reads a claim statement for something other than prose containment
+ * (`claim-comparison.ts` checks comparative wording, `condition-inventory.ts` looks for a literal, `run.ts` copies
+ * it into the claims companion). Re-run it before treating this paragraph as current.
  *
  * ═══ SINGLE FOLDING AUTHORITY ═══
  *
@@ -54,6 +58,21 @@
 
 import { assertNever } from "../base/artifact-result.ts";
 import type { SectionClaim } from "../base/types.ts";
+// THE MARKER VOCABULARY HAS ONE READER, AND THIS IS THE IMPORT THAT KEEPS IT SO. `hasEvidenceMarkers` routes
+// through `markersIn`/`MARKER_TOKENS`, which `tests/evidence-marker-vocabulary.test.ts` pins BIDIRECTIONALLY
+// against `skills/excavator/references/evidence-markers.json`. Copying the table here would give that contract a
+// second reader covered by half a test — a worse trade than one import into a file 57B-481 retires.
+//
+// WHAT 57B-481 INHERITS BECAUSE OF THIS LINE, grep-verified rather than recalled: after this slice the `src/`
+// importers of `section-audit.ts` are exactly four —
+//   `claims-scaffold.ts` (substantiveSegments), `unit-output.ts` (assertValidClaim), THIS file
+//   (hasEvidenceMarkers), and `run.ts` (the section path itself, which goes with it).
+// Command: grep -rn --include='*.ts' section-audit.ts src/ — and read the import lines out of the hits. (Spelled
+// this way rather than as a quoted import specifier because `layer-order.test.ts` refuses a relative specifier
+// written inside a comment: it looks like an import to a reader and is invisible to the graph.)
+// So retiring `section-audit.ts` means relocating exactly `assertValidClaim` and `hasEvidenceMarkers` (with the
+// `markersIn` / `MARKER_TOKENS` / `visibleText` support the latter stands on); `claims-scaffold.ts` retires with
+// it, per that file's own deferral note.
 import { hasEvidenceMarkers } from "./section-audit.ts";
 
 export const UNIT_CLAIM_BINDING_VERSION = "unit-claim-binding-v1";
