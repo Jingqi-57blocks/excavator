@@ -279,8 +279,6 @@ test("an abruptly killed author process leaves the completed section on disk and
   child.kill("SIGKILL");
   await new Promise<void>((resolveExit) => child.once("exit", () => resolveExit()));
 
-  await writeFile(`${document.sections[1].file}.orphan.tmp`, "partial section");
-
   const persistedAfterKill = JSON.parse(await readFile(join(runDir, "run.json"), "utf8")) as RunManifest;
   assert.equal(persistedAfterKill.documents[0].sections[0].complete, true, "the checkpoint the child completed is recorded");
   assert.equal(persistedAfterKill.documents[0].sections[1].complete, false, "the one it was killed during is not");

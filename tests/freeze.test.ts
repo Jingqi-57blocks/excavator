@@ -198,7 +198,6 @@ test("a supplement re-freezes N to immutable N+1, pins the prior digest and cons
     reason: "the first epoch did not contain this phrase search",
     workItemId: itemId
   });
-  const beforeRefreeze = await readManifest(runDir);
   const result = await freezeRun(runDir);
   assert.equal(result.frozen, true, JSON.stringify(result.findings, null, 2));
   assert.equal(await readFile(join(runDir, "knowledge.json"), "utf8"), epochZeroBytes, "epoch 0 bytes never change");
