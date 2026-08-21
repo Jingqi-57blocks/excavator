@@ -25,7 +25,7 @@ import type { SectionClaim } from "../src/base/types.ts";
 //
 // WHAT MOVED AND WHAT DID NOT. The unit path had no binding check at all, so this file is the check arriving
 // there, not a second copy of one. The corpus sentences are byte-identical to the section-path file
-// (`tests/claim-statement-binding.test.ts`, which stays where it is until 57B-481 retires `section-audit.ts`);
+// (the section-path file it came from, deleted with `section-audit.ts` in 57B-481);
 // the shape around them is unit-keyed. FOUR cases changed DIRECTION, and each says so at its own site: they are
 // the ones whose outcome came from the section path's LEGACY folding generation, which is deliberately not
 // migrated because no unit product predates the current folding. Their sentences are kept verbatim precisely so
@@ -254,7 +254,8 @@ test("a statement only the legacy generation made long enough is reported as too
 // ═══ THE SINGLE-FOLDING-AUTHORITY PROPERTY, ASSERTED AND THEN FALSIFIED ═══════════════════════════════════════
 //
 // The invariant that both drifts violated, IN ITS TRUE FORM: the statement a claim carries for each segment —
-// the segment minus its trailing terminator, which is what `stubs` above and `claims-scaffold.ts` both produce —
+// the segment minus its trailing terminator, which is what `stubs` above produces and what the section path's
+// deleted scaffolder produced —
 // is contained in the folded visible text of the unit that produced it. It holds by construction only because
 // there is ONE fold, and it is the property that makes "a stub binds to its own unit" true rather than lucky.
 //
@@ -304,7 +305,7 @@ test("the statement built from each segment is contained in the folded visible t
 
 // THE ARTEFACT ITSELF, PINNED RATHER THAN LEFT TO BE REDISCOVERED. A table row is claimed cell by cell and every
 // non-final cell's segment carries a `；` the prose does not. This is the section path's behaviour byte for byte
-// (`claims-scaffold.ts` documents the same artefact and trims it the same way), carried here unchanged because
+// (its scaffolder documented the same artefact and trimmed it the same way), carried here unchanged because
 // changing which parts of a table demand a claim is a rule change rather than a move. If it is ever decided that
 // a row should be claimable as a row, this is the test that says what changes.
 test("a table row is segmented cell by cell, and non-final cells carry a terminator the prose does not", () => {
@@ -395,6 +396,18 @@ test("a unit with no substantive statement but a claim is still checked against 
     ["statement-absent"]);
 });
 
+// THE OTHER WAY A UNIT ARRIVES WITH NOTHING TO CLAIM, migrated from the section path's segmenter test (57B-481)
+// because the shape is not a bare heading and the two exits are reached differently. A line that is a LABEL plus
+// a marker — the shape an author writes when annotating an evidence level — leaves 4 semantic characters once
+// the marker token is stripped, below the 8-character floor, so it produces no segment and demands no claim. The
+// section-path assertion said this about `substantiveSegments`; the unit segmenter is a different function and
+// was never covered by it.
+test("a line that is only a label and a marker produces no segment, so it demands no claim", () => {
+  const content = "## 证据级别\n\n证据级别：`事实`\n";
+  assert.deepEqual(substantiveUnitSegments(content), []);
+  assert.deepEqual(audit(content, []).verdict.conclusion, "vacuous");
+});
+
 // ═══ THE EVIDENCE-LEVEL MARKER RULE (57B-491 G5) ══════════════════════════════════════════════════════════════
 //
 // Migrated from `auditSectionEvidenceMarkers` at error level, WITHOUT its assurance-version gate: the section
@@ -440,7 +453,7 @@ test("a marker that lives only inside a collapsed evidence block is not in the r
 // three `unclaimed-statement`. Add a single claim whose statement is `验证` — which the same audit reports as
 // too short to bind to anything — and all three disappear, leaving only the too-short finding.
 //
-// IT IS NOT FIXED HERE, ON PURPOSE. It is `section-audit.ts`'s behaviour byte for byte, and both paths are alive
+// IT IS NOT FIXED HERE, ON PURPOSE. It was the section path's behaviour byte for byte, and both paths were alive
 // until 57B-481 retires the section one. Making the unit path silently stricter than the section path, on a rule
 // 57B-491 was told to move unchanged, is the same two-rules-one-name drift this file exists to record — so the
 // divergence is refused and the hole is pinned instead. The fix, when it is decided, is one filter: drop

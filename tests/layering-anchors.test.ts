@@ -70,7 +70,9 @@ const ANCHORS: Record<string, Classification> = {
   "src/context/context.ts:174": { kind: "current", expect: "new SourceReader({" },
   "src/report/checkpoint.ts": { kind: "current-file" },
   "src/base/assurance-version.ts": { kind: "current-file" },
-  "src/report/section-audit.ts": { kind: "current-file" },
+  // Deleted with the section authoring path (57B-481). §三's sentence records the assurance.ts split as it
+  // happened, so the anchor stays in the document as provenance and stops being a claim about today's tree.
+  "src/report/section-audit.ts": { kind: "historical", why: "the third piece of the assurance.ts split; the file was deleted when the section audit retired" },
   "src/investigation/investigation-artifacts.ts": { kind: "current-file" },
   "src/investigation/assurance.ts": { kind: "current-file" },
   "src/report/assurance-artifacts.ts": { kind: "current-file" },
@@ -96,7 +98,7 @@ const ANCHORS: Record<string, Classification> = {
   "src/workset/factpack-view.ts:54": { kind: "current", expect: "maxRowsPerCategory = 60" },
 
   // --- §五 P1-P18 -------------------------------------------------------------------------------------------
-  "src/workset/census.ts:95": { kind: "current", expect: "export function buildScopeCensus" },
+  "src/workset/census.ts:94": { kind: "current", expect: "export function buildScopeCensus" },
   "snapshot.ts:211": { kind: "historical", why: "P13's provenance: the pre-57B-418 scan loop, kept because the document says so explicitly" },
   "snapshot.ts:215": { kind: "historical", why: "P13's provenance: the silent path-escape continue" },
   "snapshot.ts:218": { kind: "historical", why: "P13's provenance: the silent irregular-file/symlink/oversize continue" },

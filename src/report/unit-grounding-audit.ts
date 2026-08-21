@@ -3,7 +3,7 @@
  * claims — evaluated when the unit is completed, not when the document is.
  *
  * WHY IT RUNS AT UNIT COMPLETION. `audit --document` skips the grounding loop for a document it is told is
- * incomplete (`section-audit.ts`), so on the section path a mis-grounded claim is invisible until the last section
+ * incomplete, so on the section path a mis-grounded claim was invisible until the last section
  * lands. 57B-453 measured what that window costs on a real run: the author's only inferable rule ("the window whose
  * line range covers the function") was wrong for 5 of 18 obligations, and 2 of those could not be grounded from the
  * packet at all — all of it hidden behind "work-item coverage was not evaluated". A unit is a completion boundary,

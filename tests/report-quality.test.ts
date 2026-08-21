@@ -1,7 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import type { DocumentPlan, EvidenceItem, InvestigationPlan, SectionClaim, SectionClaimsFile } from "../src/base/types.ts";
-import { auditDetailedFeatureSection } from "../src/report/section-audit.ts";
+import type { DocumentPlan, InvestigationPlan } from "../src/base/types.ts";
 import { auditWorkItemClaimCoverage } from "../src/report/work-item-claim-coverage.ts";
 
 function featureDocument(): DocumentPlan {
@@ -15,84 +14,6 @@ function featureDocument(): DocumentPlan {
     sections: Array.from({ length: 12 }, (_, index) => ({ index: index + 1, title: `Section ${index + 1}`, file: `${index + 1}.md`, claimsFile: `${index + 1}.json`, complete: true }))
   };
 }
-
-function claimsFile(section: number, count: number): SectionClaimsFile {
-  return {
-    version: 2,
-    documentId: "feature-account-engineering",
-    section,
-    claims: Array.from({ length: count }, (_, index): SectionClaim => ({
-      id: `C-${section}-${index + 1}`,
-      marker: "fact",
-      statement: `Distinct material fact ${section}-${index + 1}.`,
-      evidenceIds: ["S-1"]
-    }))
-  };
-}
-
-test("detailed engineering features reject synopsis-level chapter density", () => {
-  const findings = auditDetailedFeatureSection({
-    document: featureDocument(),
-    detailLevel: "detailed",
-    sectionIndex: 4,
-    sectionText: "## Business rules\n\nOne broad summary. `fact`\n",
-    claimsFile: claimsFile(4, 2)
-  });
-  assert.ok(findings.some((item) => /minimum is 16/i.test(item.message)));
-  assert.ok(findings.some((item) => /requires an inventory/i.test(item.message)));
-});
-
-function entrypointFactEvidence(truncated: boolean): EvidenceItem[] {
-  return [{
-    id: "FACT-account-en-entrypoints-abc12345",
-    snapshotId: "snap",
-    kind: "derived",
-    title: "Fact pack: entrypoints",
-    reason: "enumerate entrypoints",
-    digest: "d",
-    data: {
-      category: "entrypoints",
-      coverage: { category: "entrypoints", method: "graph", itemCount: 2, truncated },
-      items: [
-        { category: "entrypoints", name: "GET /accounts", filePath: "src/routes/accounts.ts", line: 10, source: "graph" },
-        { category: "entrypoints", name: "POST /accounts/close", filePath: "src/routes/accounts.ts", line: 42, source: "graph" }
-      ]
-    }
-  }];
-}
-
-test("detailed enumeration under-coverage of a non-truncated fact pack is an advisory warning", () => {
-  const base = { document: featureDocument(), detailLevel: "detailed" as const, sectionIndex: 2, claimsFile: claimsFile(2, 8) };
-  const table = "| Name | Location |\n|---|---|\n";
-
-  // Only the first entry point appears; the second is under-covered → one warning, never an error.
-  const partial = auditDetailedFeatureSection({ ...base, sectionText: `## API entry points\n\n${table}| GET /accounts | src/routes/accounts.ts:10 |\n`, factEvidence: entrypointFactEvidence(false) });
-  assert.ok(partial.some((item) => item.level === "warning" && /under-covers fact pack category entrypoints/.test(item.message) && /POST \/accounts\/close/.test(item.message)));
-  assert.ok(!partial.some((item) => item.level === "error"));
-
-  // Both items are represented → no reconciliation finding.
-  const full = auditDetailedFeatureSection({ ...base, sectionText: `## API entry points\n\n${table}| GET /accounts | src/routes/accounts.ts:10 |\n| POST /accounts/close | src/routes/accounts.ts:42 |\n`, factEvidence: entrypointFactEvidence(false) });
-  assert.ok(!full.some((item) => /under-covers fact pack/.test(item.message)));
-
-  // A truncated category is already declared incomplete, so the prose is never held to it.
-  const truncated = auditDetailedFeatureSection({ ...base, sectionText: `## API entry points\n\n${table}| unrelated | row |\n`, factEvidence: entrypointFactEvidence(true) });
-  assert.ok(!truncated.some((item) => /under-covers fact pack/.test(item.message)));
-
-  // An absent fact pack (older run) reconciles nothing.
-  const absent = auditDetailedFeatureSection({ ...base, sectionText: `## API entry points\n\n${table}| unrelated | row |\n` });
-  assert.ok(!absent.some((item) => /under-covers fact pack/.test(item.message)));
-});
-
-test("standard mode keeps evidence checks without enforcing the detailed density floor", () => {
-  const findings = auditDetailedFeatureSection({
-    document: featureDocument(),
-    detailLevel: "standard",
-    sectionIndex: 4,
-    sectionText: "## Business rules\n\nOne broad summary. `fact`\n",
-    claimsFile: claimsFile(4, 1)
-  });
-  assert.deepEqual(findings, []);
-});
 
 test("material work items must be visible in the assigned chapter and reuse their grounding", () => {
   const document = featureDocument();

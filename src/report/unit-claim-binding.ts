@@ -10,11 +10,11 @@
  * the grounding verdict; the grounding audit's subject is OBLIGATIONS (which claim links which work item); the
  * consistency checker's five classes are the properties no per-unit gate sees, and none of them reads a claim's
  * `statement` at all. So a unit could state anything whatever in its prose and satisfy every gate by linking
- * claims whose statements were nowhere in it. The section path has checked this since the beginning
- * (`section-audit.ts`); this is that check, on the unit key.
+ * claims whose statements were nowhere in it. The section path checked this from the beginning; this is that
+ * check, on the unit key, and since 57B-481 retired the section audit it is the only one.
  *
- * VERIFIED, NOT REMEMBERED: `grep -rn --include='*.ts' '\.statement' src/` — outside this file and
- * `section-audit.ts`, every hit is a statement of some OTHER kind (a coverage statement, a finding's own text, a
+ * VERIFIED, NOT REMEMBERED: `grep -rn --include='*.ts' '\.statement' src/` — outside this file every hit is a
+ * statement of some OTHER kind (a coverage statement, a finding's own text, a
  * cache-intent reason) or reads a claim statement for something other than prose containment
  * (`claim-comparison.ts` checks comparative wording, `condition-inventory.ts` looks for a literal, `run.ts` copies
  * it into the claims companion). Re-run it before treating this paragraph as current.
@@ -63,17 +63,10 @@ import type { SectionClaim } from "../base/types.ts";
 // against `skills/excavator/references/evidence-markers.json`. Copying the table here would give that contract a
 // second reader covered by half a test — a worse trade than one import into a file 57B-481 retires.
 //
-// WHAT 57B-481 STILL INHERITS BECAUSE OF THIS LINE, grep-verified rather than recalled, re-run after the shared
-// validator moved out: the `src/` importers of `section-audit.ts` are now exactly three —
-//   `claims-scaffold.ts` (substantiveSegments), THIS file (hasEvidenceMarkers), and `run.ts` (the section path
-//   itself, which goes with it). `unit-output.ts` is off the list: `assertValidClaim` now lives in
-//   `claim-validity.ts`, and `validateClaimsInput` was deleted with that move.
-// Command: grep -rn --include='*.ts' section-audit.ts src/ — and read the import lines out of the hits. (Spelled
-// this way rather than as a quoted import specifier because `layer-order.test.ts` refuses a relative specifier
-// written inside a comment: it looks like an import to a reader and is invisible to the graph.)
-// So retiring `section-audit.ts` now means relocating exactly `hasEvidenceMarkers` (with the `markersIn` /
-// `MARKER_TOKENS` / `visibleText` support it stands on); `claims-scaffold.ts` retires with it, per that file's
-// own deferral note.
+// THE RELOCATION THAT PARAGRAPH PREDICTED IS DONE: `section-audit.ts` no longer exists. `hasEvidenceMarkers`
+// moved to `evidence-markers.ts` (this import), `assertValidClaim` to `claim-validity.ts`, the work-item coverage
+// audit to `work-item-claim-coverage.ts`; everything else in that module was section-keyed and was deleted with
+// the section path (57B-481). This import is the whole of what the unit path inherited from it.
 import { hasEvidenceMarkers } from "./evidence-markers.ts";
 
 export const UNIT_CLAIM_BINDING_VERSION = "unit-claim-binding-v1";
@@ -147,7 +140,7 @@ export function visibleUnitText(content: string): string {
  * `；` and the very next line SPLITS on `；`, so the join is an artificial sentence terminator that makes each
  * cell its own segment — a row is not one statement. The cost, measured rather than assumed: every non-final
  * cell keeps a trailing `；` that appears in no rendering of the prose, so such a segment is NOT a substring of
- * the folded visible text. `claims-scaffold.ts` recorded the same artefact on the section path and dealt with it
+ * the folded visible text. The section path's scaffolder recorded the same artefact and dealt with it
  * the same way this file's contract does — a claim statement is the segment MINUS its trailing terminator, which
  * is contained in the prose, and coverage is bidirectional containment so the trimmed statement still covers the
  * segment it came from. `tests/unit-claim-binding.test.ts` states the containment invariant in exactly that form
@@ -192,6 +185,15 @@ export function substantiveUnitSegments(content: string): readonly string[] {
  *
  * THE ARRAY IS A CENSUS, NOT DECORATION: `tests/unit-claim-binding.test.ts` walks it and demands a named fixture
  * that produces each member, so a fifth kind cannot be added with nothing reaching it.
+ *
+ * ONE SECTION-PATH RULE HAS NO MEMBER HERE, AND SAYING SO IS THE POINT OF THIS PARAGRAPH. `auditSectionClaims`
+ * also SCANNED THE PROSE for evidence-id shapes and reported two things this census does not: an id written in
+ * the text that no claim declares, and a token of id shape (`FACT-…`, `S-…`) matching nothing in the catalog —
+ * a fabricated citation. That check read prose, not claims, so nothing on the unit path inherits it: the census
+ * above is claim-keyed and the unit segmenter never looks at id shapes. It was already unreachable in the
+ * product before deletion — after 57B-481 moved the audit to units, `auditSectionClaims` had no `src/` caller
+ * at all — so retiring it removed tests of dead code rather than a running gate. Whether a unit's prose may
+ * cite an id no claim declares is therefore an OPEN question for the unit path, not a settled one.
  */
 export const UNIT_BINDING_PROBLEM_KINDS = [
   "unclaimed-statement",
@@ -279,9 +281,9 @@ export function auditUnitClaimBinding(input: UnitClaimBindingInput): UnitClaimBi
   //
   // AN INHERITED HOLE, NAMED SO IT IS NOT REDISCOVERED: this set includes statements the loop above just reported
   // as TOO SHORT TO BIND, and bidirectional containment makes a two-character one a wildcard — measured, a single
-  // `验证` claim silences three unclaimed statements. It is `section-audit.ts`'s behaviour byte for byte and both
-  // paths are alive until 57B-481, so making this one stricter would be the two-rules-one-name drift this file
-  // exists to record. The fix, when it is decided, is filtering this set by the same threshold;
+  // `验证` claim silences three unclaimed statements. It was the section path's behaviour byte for byte, carried
+  // here unchanged when that path was retired (57B-481) rather than tightened under cover of a move — a rule
+  // change needs its own decision. The fix, when it is decided, is filtering this set by the same threshold;
   // `tests/unit-claim-binding.test.ts` pins the current behaviour and is the test that changes with it.
   const folded = claims.map((claim) => foldUnitText(claim.statement)).filter(Boolean);
   for (const segment of segments) {
