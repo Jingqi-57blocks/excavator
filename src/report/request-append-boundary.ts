@@ -19,6 +19,35 @@
  * every material topic, so a feature document's units today name the other features' topics too. That is a
  * PLAN-side boundary rule, it is named at `buildFixturePlan`, and it is not this door's to enforce — this door
  * verifies that the boundary the row names exists at all.
+ *
+ * =================================================================================================================
+ * THE PREMISE THIS CHECK RESTS ON, AS A TRIPWIRE CONDITION. This door used to refuse every feature document, which
+ * was a STRUCTURAL guarantee: the shape could not get in. What replaced it is a VALUE COMPARISON — is this key in
+ * that array — and a value comparison is only as strong as the premise that makes the array authoritative:
+ *
+ *     `contract/run-intent.json`'s `features[]` is the COMPLETE set of features this run holds knowledge about.
+ *
+ * WHY IT HOLDS TODAY, mechanically and in both directions. The keys are minted once, by `featureCacheKey` over the
+ * operator's `FeatureRequest`, and written by `prepareRun` before any producer runs; the file is read-only
+ * afterwards and its digest is in the bound contract. Every downstream attribution of knowledge to a feature goes
+ * through that same list: the Topic Catalog's feature facet mints exactly one topic per key in it
+ * (`projectFeatures`), and a work item whose scope names a feature is attributed by matching against it
+ * (`featureKeyOfScope`, which THROWS on a `feature:` scope matching no bound key rather than inventing one). So
+ * today there is no route by which a run acquires feature knowledge that this list does not name.
+ *
+ * IT IS A PREMISE, NOT A TYPE. Nothing in the type system prevents a future producer from minting feature-scoped
+ * knowledge on its own — a discovery pass that names features it found in the source, a supplement loop that adds
+ * a feature at epoch N+1, a cross-repo or cross-feature ledger that introduces a key of its own, an import of
+ * another run's knowledge. The moment any of those exists, this array stops being the complete set, and this
+ * check inverts from "refuses documents with no knowledge behind them" into "refuses documents whose knowledge
+ * this file cannot see" — a false refusal, which is the worse failure of the two, because the operator's remedy
+ * ("re-prepare the run with that feature requested") would be wrong advice.
+ *
+ * WHEN TO COME BACK: any change that lets feature knowledge into a run WITHOUT going through
+ * `run-intent.json`'s `features[]`. Then the bound-key list must become a derivation over every producer of
+ * feature-scoped knowledge (the catalog's feature facet is the natural owner, since it already has to attribute
+ * all of it), and this door must read THAT instead — never a second, wider list kept beside it.
+ * =================================================================================================================
  */
 
 import { join } from "node:path";
