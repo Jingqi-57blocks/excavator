@@ -10,7 +10,6 @@ import {
   boundEvidenceModelView, canonicalEvidenceDigest, readContentRef, readEvidenceCatalog, writeEvidenceCatalog
 } from "../src/investigation/evidence-store.ts";
 import { tempDir } from "./helpers.ts";
-import { authorPrompt } from "../src/report/authoring-plan.ts";
 
 function item(id: string, kind: EvidenceItem["kind"], data: unknown): EvidenceItem {
   return { id, snapshotId: "snapshot", kind, title: id, data, reason: "fixture", digest: sha256(stableJson(data)) };
@@ -147,18 +146,3 @@ test("an offline archive audit fails when a content-addressed evidence blob is t
   assert.ok((await auditEvidenceStorage(archived, (await readEvidenceCatalog(archived)).evidence, false)).some((message) => /contentRef cannot be resolved/.test(message)));
 });
 
-test("the author reads the bounded logical view and is explicitly barred from physical JSON/blob storage", () => {
-  const document: DocumentPlan = {
-    id: "overview-product",
-    kind: "overview",
-    audience: "product",
-    templatePath: "/run/templates/overview.md",
-    contextPath: "/run/context/overview.md",
-    sections: []
-  };
-  const prompt = authorPrompt("/run", document, "zh-CN", "detailed");
-  assert.match(prompt, /Frozen investigation view: `context\/authoring\/overview-product\.md`/);
-  assert.match(prompt, /Do not load `evidence\.json`/);
-  assert.doesNotMatch(prompt, /- Evidence catalog: `evidence\.json`/);
-  assert.doesNotMatch(prompt, /- Investigation work items: `workitems\.json`/);
-});

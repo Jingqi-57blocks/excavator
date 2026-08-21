@@ -48,7 +48,7 @@ Optional:
 
 Treat the target as read-only. Do not run target scripts, install target dependencies, start services, execute migrations, connect to databases, or display secret configuration values.
 
-All Skill instructions, report templates, prepared prompts, and tool-facing investigation instructions are written in English. The requested language controls only the generated report content, headings, diagram labels, and visible evidence-level wording.
+All Skill instructions, report templates, rendered planner and unit packets, and tool-facing investigation instructions are written in English. The requested language controls only the generated report content, headings, diagram labels, and visible evidence-level wording.
 
 ## Architecture boundary
 
@@ -148,7 +148,6 @@ The prepare command creates a run under the target's own directory inside the wo
 ├── knowledge.json              # frozen investigation record (written by freeze)
 ├── timeline.jsonl
 ├── checklist.json              # compatibility view of workitems
-├── prompts/
 ├── sections/
 ├── claims/
 ├── history/

@@ -132,7 +132,6 @@ A workdir holds one directory per analyzed target, named after the target's base
     └── runs/
         └── <run-id>/
             ├── context/
-            ├── prompts/
             ├── sections/
             ├── claims/
             ├── reports/

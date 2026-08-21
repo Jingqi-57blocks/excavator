@@ -46,7 +46,7 @@ import { runScopeSlug } from "./run-label.ts";
 import { auditPendingDrafts } from "../report/parallel-authoring.ts";
 import { writeReportRequests } from "../report/report-requests-artifact.ts";
 import { plannedDocumentId } from "../report/legacy-request-mapping.ts";
-import { authorPrompt, makeDocumentPlan, referencePath } from "../report/authoring-plan.ts";
+import { makeDocumentPlan, referencePath } from "../report/authoring-plan.ts";
 import { reportFileName } from "../report/section-report-name.ts";
 import { sectionPaths } from "../report/section-paths.ts";
 import { projectCacheDir, reDeriveIdentities } from "./stages/runtime-identity.ts";
@@ -307,8 +307,8 @@ export async function prepareRun(rawRequest: ReportRequest): Promise<{ runDir: s
     throw error;
   }
   // Resolved ONCE, here, for the same reason `redactSecrets` is resolved once at the top: the detail level reaches
-  // the manifest, the author prompts and the recorded v2 request, and three sites each applying `?? "detailed"` is
-  // how the redaction flag came to disagree with itself.
+  // the manifest and the recorded v2 request (it reached the author prompt too, until 57B-480 retired it), and
+  // three sites each applying `?? "detailed"` is how the redaction flag came to disagree with itself.
   const detailLevel: DetailLevel = request.detailLevel ?? "detailed";
   const effectiveRequest: ReportRequest = { ...request, detailLevel, codegraph: result.stats.codegraphPath, codegraphModules: result.stats.codegraphModulePaths };
   const timestamp = runIdTimestamp();
@@ -322,7 +322,6 @@ export async function prepareRun(rawRequest: ReportRequest): Promise<{ runDir: s
   await ensureDir(join(runDir, "claims"));
   await ensureDir(join(runDir, "reports"));
   await ensureDir(join(runDir, "audit"));
-  await ensureDir(join(runDir, "prompts"));
 
   // The v2 request each planned document was asked for, written under the run's `plan/` directory BEFORE the work
   // it describes: it is a function of the request alone, so a request that names one document twice has to fail
@@ -558,7 +557,6 @@ export async function prepareRun(rawRequest: ReportRequest): Promise<{ runDir: s
   await writeJson(join(runDir, "checklist.json"), workItemsToChecklist(plan));
 
   for (const document of documents) {
-    await atomicWrite(join(runDir, "prompts", `${document.id}.md`), authorPrompt(runDir, document, effectiveRequest.language, detailLevel));
   }
   await appendTimeline(runDir, runId, { stage: "prepare", action: "run.prepared", data: { snapshotId: result.prepared.snapshot.id, documents: documents.map((document) => document.id), providerRegistryDigest: providerRegistry.digest, analysisScopeDigest: analysisScope.digest } });
   manifest.metrics.timelineEvents = 1;

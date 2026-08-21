@@ -395,31 +395,3 @@ test("prepare writes the fact pack as JSON, as a markdown section and as per-cat
   assert.ok(factEvidence.every((item) => ((item.data as { items?: unknown[] }).items ?? []).length === 0), "co-located scan rows produce no automatic fact evidence rows");
 });
 
-test("detailed feature prompts require item-by-item consumable fact coverage; overview prompts do not", async () => {
-  const target = await copyFixture();
-  const workdir = await tempDir();
-  const { runDir, manifest } = await prepareRun({
-    target,
-    codegraphMode: "off",
-    language: "zh-CN",
-    detailLevel: "detailed",
-    workdir,
-    overviewAudiences: ["engineering"],
-    features: [{ subject: "Leave management", aliases: ["leave"], audiences: ["engineering"] }],
-    budgets: { prepareMs: 30_000, authorMs: 30_000, maxGraphQueries: 10, maxSourceWindows: 70, maxSourceCharacters: 160_000, maxFiles: 10_000, maxFeatureNodes: 80, maxExpansionDepth: 2 }
-  });
-  const featureDocument = manifest.documents.find((document) => document.kind === "feature")!;
-  const key = featureDocument.id.replace(/^feature-/, "").replace(/-engineering$/, "");
-  const prompt = await readFile(join(runDir, "prompts", `${featureDocument.id}.md`), "utf8");
-
-  assert.match(prompt, /## Fact pack/);
-  assert.match(prompt, /context\/workset\.md/);
-  assert.doesNotMatch(prompt, new RegExp(`context/features/${key}\\.factpack\\.json`), "the prompt must not direct the model to machine JSON");
-  assert.match(prompt, /must cover every visible consumable fact-pack item of the matching category/);
-  assert.match(prompt, /explicitly counted group/);
-  assert.match(prompt, /Cite the category's `FACT-\*` evidence id/);
-  assert.match(prompt, /truncated or view-bounded must be reported as incomplete/);
-
-  const overviewPrompt = await readFile(join(runDir, "prompts", "overview-engineering.md"), "utf8");
-  assert.ok(!/fact pack/i.test(overviewPrompt), "an overview has no feature fact pack to enumerate");
-});
