@@ -22,6 +22,28 @@
  * refused, and a bad proposal is refused before anything is written — two different inputs, so removing either
  * leaves a reachable hole.
  *
+ * NO PRODUCER IN THIS REPOSITORY TRIGGERS IT TODAY, AND IT IS STILL NOT AN UNREACHABLE CHECK (57B-434, item #10 of
+ * the R8 pre-cleanup). The observation that raised the question is true: `buildFixturePlan` never mints a second
+ * parent — it gives each document one synthesis over a fixed child list — so nothing in `src/` or in the fixtures
+ * produces the shape this file refuses, and the coverage in `tests/unit-parentage.test.ts` is over hand-made unit
+ * lists.
+ *
+ * WHY THAT DOES NOT MAKE IT THE SAME KIND OF THING AS `assertPlanEpoch`, which IS structurally unreachable and is
+ * kept on different grounds (see its own note): this is a check on an EXTERNAL INPUT, not an internal consistency
+ * check squeezed out by upstream checks. `validatePlan`'s proposal comes from `plan --proposal <file>` — a file a
+ * model or a person writes — and "two syntheses named the same leaf" is an ordinary thing for a writer to produce:
+ * it is a plausible-looking plan, it passes the root count, and it passes acyclicity. `assertPlanEpoch` is
+ * unreachable because three checks in front of it catch its state first; this one has nothing in front of it. The
+ * proposal input space contains the over-parented shape whether or not a generator in this repository happens to
+ * emit it, so "no test-external producer has triggered it" is not evidence of unreachability — it is a fact about
+ * today's generators.
+ *
+ * WHEN TO COME BACK: nothing about this check needs revisiting when a producer finally does emit the shape — that
+ * is it working. What WOULD need revisiting is the reverse: if the proposal door ever stops accepting
+ * externally-authored plans (no `--proposal <file>`, every plan derived in-process), this becomes an internal
+ * consistency check like `assertPlanEpoch`, and it should then be re-argued on THAT basis rather than inheriting
+ * this one.
+ *
  * Pure: no I/O, no model call, ascending output.
  */
 

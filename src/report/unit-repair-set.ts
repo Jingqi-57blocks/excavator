@@ -240,8 +240,36 @@ export function deriveUnitRepairPlan(input: UnitRepairPlanInput): UnitRepairPlan
 /**
  * The two equations. Both are bugs in this file when they fail, so both throw.
  *
- * The second one is not implied by the first: a plan row could be handed in twice under one id, or a closure could
- * return a unit the plan does not hold, and either would leave the counts adding up over the wrong denominator.
+ * EQUATION ONE IS LOAD-BEARING: "every unit a finding names is in the repair set". Break the closure and it fires
+ * by name, which is what `tests/unit-repair-set.test.ts` does to it — a finding reported and then dropped is worse
+ * than one never made, and this is the throw that says so.
+ *
+ * EQUATION TWO IS STRUCTURALLY UNREACHABLE, AND IT IS KEPT AS DEPTH WITH NO CLAIM TO BEING A TESTED GUARD
+ * (57B-434, item #13, raised by R7c). It asks whether the repair set stays inside the plan. It cannot fail, because
+ * every id that could put it outside dies earlier, in one of four named refusals:
+ *
+ *   1. a finding naming a unit the plan does not hold — refused in `deriveUnitRepairPlan` above, before the
+ *      closure is even called ("a repair set over a unit nothing would draw is not a repair set");
+ *   2. the same id as a closure SEED — refused by `ancestorClosure` ("a repair set may only name units this plan
+ *      holds");
+ *   3. a child edge pointing at an id the plan does not hold — refused by `ancestorClosure`'s edge-completeness
+ *      check, which is what would otherwise let a foreign id in through a `via` derivation;
+ *   4. one plan row handed in twice under one id — refused twice, by `byId` above and by `ancestorClosure`'s own
+ *      duplicate check.
+ *
+ * And beyond those refusals the closure's membership set is SEEDED from ids it verified and only ever grows by
+ * iterating the plan's own rows, so its output is a subset of the plan by construction. (The two examples this
+ * note used to give as reasons equation two is not implied by equation one — a duplicated plan row, a closure
+ * returning an unheld unit — are exactly cases 4 and 2 above: both are caught before this function runs. The
+ * reasoning is corrected here rather than left standing, because it read as if this throw were reachable.)
+ *
+ * IT IS NOT DELETED for the same reason `assertPlanEpoch` is not: the property it states — the repair set is a
+ * subset of the plan now in force — is what makes `plannedUnits` a denominator rather than a number, and it is held
+ * today by four separate refusals in two files. An unexercised throw is the one nobody notices going missing.
+ *
+ * WHEN TO COME BACK: the day the closure admits an id from any source other than the plan's own rows — a repair
+ * set seeded from a ledger, an archived plan, or another run — this stops being depth and becomes the first line.
+ * At that point it needs a reachability fixture through the real entry point, not a hand-made input.
  */
 function assertConservation(
   input: UnitRepairPlanInput,

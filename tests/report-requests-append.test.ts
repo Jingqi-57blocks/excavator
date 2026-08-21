@@ -109,23 +109,45 @@ test("appending to a run that records no request set at all is refused, not crea
     /is missing, so there is no recorded request set to append to. Re-prepare the run under the current version./);
 });
 
-test("a FEATURE document may not be appended: the door refuses a boundary it cannot check", () => {
+/** One feature document, as an operator would ask for it. The key is the parameter under test. */
+function featureDocument(featureKey: string): LegacyDocumentRequest {
+  return {
+    documentId: plannedDocumentId("feature", "product", featureKey),
+    kind: "feature", audience: "product", featureKey, detailLevel: "standard", language: "zh-CN"
+  };
+}
+
+test("a FEATURE document is appendable exactly when the contract binds its key", () => {
   const recorded = buildReportRequestsArtifact([FIRST]);
-  // The hole this closes was measured: with the append allowed, a mistyped feature key produced a request row with
-  // `scope: feature, scopeIds: ["this-feature-does-not-exist"]`, the plan validated `complete`, and five authoring
-  // units were minted for a feature the run never investigated — `buildFixturePlan` reads neither field, so nothing
-  // downstream catches it. The key prepare records came from the FeatureRequest that drove the investigation.
-  assert.throws(() => appendedRequestSet(recorded, {
-    documentId: plannedDocumentId("feature", "product", "leave-management"),
-    kind: "feature", audience: "product", featureKey: "leave-management", detailLevel: "standard", language: "zh-CN"
-  }), /is a feature document, and this door appends project-scope documents only: a feature request names a knowledge boundary \("leave-management"\) that nothing here can check against what this run investigated/);
+  // The hole being closed was measured: with the append unchecked, a mistyped feature key produced a request row
+  // with `scope: feature, scopeIds: ["this-feature-does-not-exist"]`, the plan validated `complete`, and five
+  // authoring units were minted for a feature the run never investigated — `buildFixturePlan` reads neither field,
+  // so nothing downstream catches it. Refusing EVERY feature document closed the hole by closing the door; the
+  // check is against `contract/run-intent.json`, the run's own record of what it investigated.
+  const appended = appendedRequestSet(recorded, featureDocument("leave-management-abc"), ["leave-management-abc", "promotion-def"]);
+  assert.deepEqual(appended.requests.map((row) => row.documentId), ["feature-leave-management-abc-product", "overview-product"]);
+  const row = appended.requests.find((record) => record.documentId === "feature-leave-management-abc-product")!;
+  assert.equal(row.request.scope, "feature");
+  assert.deepEqual(row.request.scopeIds, ["leave-management-abc"], "the boundary the row names is the key that was checked");
+
+  assert.throws(() => appendedRequestSet(recorded, featureDocument("this-feature-does-not-exist"), ["leave-management-abc", "promotion-def"]),
+    /names feature key "this-feature-does-not-exist", which contract\/run-intent\.json does not bind \(this run investigated: leave-management-abc, promotion-def\); this run has no knowledge to write that document from/);
+  // And a run that investigated nothing says so as a list, not as an empty verdict.
+  assert.throws(() => appendedRequestSet(recorded, featureDocument("leave-management-abc"), []),
+    /\(this run investigated: no feature\)/);
+});
+
+test("an overview document carrying a feature key is refused: the project scope has no feature boundary", () => {
+  const recorded = buildReportRequestsArtifact([FIRST]);
+  assert.throws(() => appendedRequestSet(recorded, { ...FIRST, documentId: "overview-product", featureKey: "leave-management-abc" }, ["leave-management-abc"]),
+    /is an overview and carries feature key "leave-management-abc"; the project scope is not addressed by feature/);
 });
 
 test("a document whose kind and audience have no v2 request is refused by the same mapping prepare goes through", () => {
   const recorded = buildReportRequestsArtifact([FIRST]);
   assert.throws(() => appendedRequestSet(recorded, {
     documentId: "overview-prd", kind: "overview", audience: "prd", featureKey: null, detailLevel: "standard", language: "zh-CN"
-  }), /has no v2 request: the prd audience is feature-only/);
+  }, []), /has no v2 request: the prd audience is feature-only/);
 });
 
 // --- ③ the window an append opens, and the revision that closes it ------------------------------------

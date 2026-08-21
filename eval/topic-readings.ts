@@ -64,9 +64,14 @@ export interface TopicReadings {
   readonly namedEmptyFacets: readonly { readonly facet: string; readonly state: string; readonly reason: string }[];
   readonly overallVerdictWithNoDispositions: string;
   /**
-   * The CATALOG PROJECTION's input contract, recorded next to the numbers: every run-relative path
-   * `loadTopicCatalogSource` opened, and no others. `run.json` is not among them — the extractor reads the
-   * manifest to choose which epoch to project, and the epoch file it chose IS in the list, by its own name.
+   * THIS EXTRACTOR's input contract, recorded next to the numbers: every run-relative path the projection opened,
+   * sorted and de-duplicated. That is the loader's list PLUS `run.json`, which this file opens itself to choose
+   * which sealed epoch to project — the epoch file it chose is also in the list, by its own name.
+   *
+   * The manifest used to be missing from it (57B-434 R6a suspended item #2). One concept spelled two ways across
+   * four readings is a measuring instrument that cannot be compared with itself: `plan-readings`,
+   * `unit-packet-readings` and both `unit-cache-*-readings` all publish the manifest they opened, so a reader
+   * diffing this list against theirs was reading a shape difference as a behaviour difference.
    */
   readonly readPaths: readonly string[];
 }
@@ -112,6 +117,8 @@ export async function extractTopicReadings(runDir: string): Promise<TopicReading
     facets,
     namedEmptyFacets: facets.filter((row) => row.state !== "populated").map((row) => ({ facet: row.facet, state: row.state, reason: row.reason })),
     overallVerdictWithNoDispositions: summariseVerdict(report.overall),
-    readPaths: source.readPaths
+    // The loader's paths plus the one this file opened. Same construction as the other three readings, so the
+    // four lists are comparable: union, de-duplicate, sort.
+    readPaths: [...new Set([...source.readPaths, "run.json"])].sort((a, b) => a.localeCompare(b))
   };
 }

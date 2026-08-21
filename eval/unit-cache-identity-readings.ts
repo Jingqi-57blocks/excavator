@@ -26,6 +26,14 @@
 // reason both are needed is that the baselines' inputs are archival: the reading is split into a VALUE projection
 // (recomputed byte for byte over the in-repo mini fixture on every run) and a directory loader over it, and every
 // reading carries the `contract` the digests were minted under, pinned to the code's constants by the golden tests.
+//
+// SECTION-LEVEL LOCATION IS THE PROMISED GRANULARITY, AND SENTENCE-LEVEL IS RULED OUT (57B-434, item #12 of the R8
+// pre-cleanup). A packet wording change shows up here as a byte delta and a moved digest; to see WHICH SENTENCES
+// moved you have the per-section digests and `sectionHeadings`, which narrow it to the section that changed. That
+// is as fine as this reading goes, on purpose: a sentence-level projection means putting the packet's PROSE into
+// the golden, and the packets are megabytes (measured on the wcp baseline) — a golden nobody can review is not a
+// finer instrument, it is a bigger one. So the reading answers "which section of which unit moved", and the diff
+// of the packet renderer answers "which sentence".
 
 import { join } from "node:path";
 import { assertNever } from "../src/base/artifact-result.ts";

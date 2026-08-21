@@ -143,7 +143,30 @@ export function requireKnowledgeEpoch(manifest: RunManifest, action: string): nu
   return manifest.knowledgeEpoch;
 }
 
-/** The plan and the manifest must name one epoch. A disagreement is a bug in the run, and it is named as one. */
+/**
+ * The plan and the manifest must name one epoch. A disagreement is a bug in the run, and it is named as one.
+ *
+ * THIS CHECK IS DEFENCE IN DEPTH, NOT A LIVE GATE, AND IT IS KEPT DELIBERATELY (57B-434, item #1 of the R8
+ * pre-cleanup). It used to be the visible face of the epoch defect: after a re-freeze the recorded plan projected
+ * epoch 0 while the manifest was at epoch 1, and every unit command refused with this message. 57B-462 put three
+ * checks in front of it, each of which now catches that state first:
+ *
+ *   1. `assertSelectedEpoch` in `topic-catalog-source.ts` pins the projected record to the epoch the manifest selects;
+ *   2. the plan gate re-derives the topics catalog and refuses a recorded `plan/topics.json` that differs;
+ *   3. `readPlanCatalog` (`plan-artifacts.ts`) refuses a `plan/catalog.json` whose `knowledgeEpoch` is not the
+ *      topics catalog's.
+ *
+ * So no supported operation and no hand edit of a run directory reaches this throw today. It is NOT DELETED,
+ * because an unexercised throw is the one nobody notices going missing, and the three checks above are three
+ * separate files that a future change may reorder or retire. Its coverage is the pure function it is:
+ * `tests/topic-catalog-epoch.test.ts` asserts both directions over a hand-made view and states in writing that it
+ * does not claim a run can produce the disagreement — measured coverage with an honest scope, not a fixture that
+ * pretends to be an end-to-end path.
+ *
+ * WHEN TO COME BACK: if any one of the three upstream checks is retired or moved behind this one, this becomes the
+ * FIRST line again, and it then needs a fixture that reaches it through a command — not a pure-function test. Same
+ * for a new caller that loads a plan view without going through the plan gate.
+ */
 export function assertPlanEpoch(view: UnitPlanView, knowledgeEpoch: number): void {
   if (view.knowledgeEpoch !== knowledgeEpoch) {
     throw new Error(`The recorded plan projects knowledge epoch ${view.knowledgeEpoch} but the run manifest is at epoch ${knowledgeEpoch}; re-plan this run before authoring units`);

@@ -225,6 +225,17 @@ export async function loadUnitAssembly(runDirInput: string): Promise<UnitAssembl
   for (const path of coverage.readPaths) readPaths.add(path);
   // Derived once and both published: the arms are a reading of these statements, so computing them twice would be
   // two derivations of one run's coverage state.
+  //
+  // THE ARMS ARE NOT WRITTEN TO DISK, AND THAT IS A DECISION (57B-434, item #11 of the R8 pre-cleanup). Which arm
+  // each coverage statement took reaches an operator through `unit-assemble` stdout only; nothing in `reports/`
+  // records it. The machine consumer that made this worth asking — R7c's cross-unit checker — takes
+  // `assembly.coverage.statements`, THIS value, from THIS load, and separately asserts that the companion on disk
+  // is byte for byte `assembly.coverage.markdown`. So there is no second derivation to drift from and no recompute
+  // cost to save: the checker reads the arms the assembly shipped, not arms it re-derived from bytes.
+  // WHEN TO COME BACK: the first consumer that CANNOT come through this value — anything outside one
+  // `loadUnitAssembly` call, such as a later audit of a shipped run, or a reader comparing two runs' arms. At that
+  // point the arms need a companion-side JSON sidecar, written in the same batch as the markdown and required, and
+  // the choice between "recompute" and "record" stops being free.
   const statements = coverageStatements(coverage.facts);
   return {
     runId: view.runId,

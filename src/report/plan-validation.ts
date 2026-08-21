@@ -13,6 +13,8 @@
  *   * the unit graph is acyclic, each document has exactly one root, and no unit is named as a child twice — the
  *     tree law `unit-parentage.ts` owns, which the root count cannot see;
  *   * every unit belongs to a requested document, and every requested document has at least one unit;
+ *   * the KNOWLEDGE BOUNDARY each request names is one this catalog can account for — a feature document bounded
+ *     to a key the run never investigated is refused here rather than planned for (`plan-scope-boundary.ts`);
  *   * the lens policy a plan invokes to omit something is a lens some request in this plan actually reads under;
  *   * GATE 1b's reading: where each material OBLIGATION goes, with the ones a waiving disposition removed
  *     listed by id (`plan-obligation-conservation.ts`);
@@ -54,6 +56,7 @@ import {
   type UnitPacketMeasureInputs
 } from "./plan-packet-measure.ts";
 import { scopePartitionProblems, type ScopePartitionUnit } from "./obligation-scope.ts";
+import { scopeBoundaryProblems } from "./plan-scope-boundary.ts";
 import {
   accountPlanObligations,
   deriveObligationOwnership,
@@ -193,6 +196,10 @@ export function validatePlan(input: PlanValidationInput): PlanValidationReport {
       problems.push(`document ${JSON.stringify(documentId)} is requested and no unit writes any part of it`);
     }
   }
+
+  // --- and the boundary each requested document is written against. Checked here, next to "the requests are the
+  // document set", because it is the same input read the same way: a row on disk that decides what gets minted.
+  problems.push(...scopeBoundaryProblems(catalog, requests));
 
   // --- references: a topic id the catalog does not hold, or a child id no unit declares.
   for (const unit of proposal.units) {

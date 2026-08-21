@@ -413,12 +413,15 @@ export type PlanWriteMode =
  * Write both artifacts, under the law the mode names.
  *
  * THE PAIR IS TWO FILES AND THERE IS NO TWO-FILE ATOMIC WRITE, so the ORDER is chosen for what an interrupted
- * write leaves behind. The DAG goes first and the catalog second, because the catalog is the anchor: every receipt,
- * every ledger row and every candidate names `planCatalogDigest`, so as long as the catalog has not moved the run
- * still reads as the revision it was — with a graph that does not match it, which the reader refuses by name. The
- * other order would leave a catalog nobody can pair a graph with, and the next revise would then archive a
- * mismatched pair. Re-running the same revise completes the interrupted one: both writes are idempotent, and the
- * preconditions below accept the state a completed write leaves as well as the state it started from.
+ * write leaves behind. IN THE SUPERSEDE ARM the DAG goes first and the catalog second, because the catalog is the
+ * anchor: every receipt, every ledger row and every candidate names `planCatalogDigest`, so as long as the catalog
+ * has not moved the run still reads as the revision it was — with a graph that does not match it, which the reader
+ * refuses by name. The other order would leave a catalog nobody can pair a graph with, and the next revise would
+ * then archive a mismatched pair. Re-running the same revise completes the interrupted one: both writes are
+ * idempotent, and `assertReplaceable` accepts the state a completed write leaves as well as the state it started
+ * from. THE RECORD ARM writes in the opposite order and does not need this argument: it replaces nothing, so an
+ * interrupted write leaves a catalog with no graph beside it, and `writeOnce` completes the pair on the next run
+ * (identical bytes are a no-op, different bytes for a recorded revision are refused).
  *
  * THE SUPERSEDE ARM CHECKS BOTH SIDES OF THE REPLACEMENT: the revision being replaced is archived (verified at the
  * archive paths, byte for byte) AND the files about to be overwritten still hold that revision. Without the second
@@ -426,6 +429,30 @@ export type PlanWriteMode =
  * passes forever — and the first one would vanish with nothing archived, while any row minted against it named a
  * plan that is nowhere on disk. That is a lost update, not a race nobody can reach: nothing in `src/` locks a run
  * directory.
+ *
+ * THE WINDOW BETWEEN THE TWO WRITES IS STILL OPEN, AND THAT IS A DECISION (57B-434, item #6 of the R8
+ * pre-cleanup). For the instant between the pair's two writes the directory holds a pair that does not read
+ * through, and WHICH HALF IS STALE DEPENDS ON THE ARM — supersede leaves the new graph beside the old catalog,
+ * record leaves the new catalog with no graph at all. What that costs is bounded and stated, and is the same
+ * either way:
+ *
+ *   * A READER that arrives inside the window gets a NAMED refusal, never a wrong answer. `readPlanDag` refuses a
+ *     graph whose plan catalog is not the one it was derived against, so the mismatch is reported, not consumed.
+ *   * AN INTERRUPTION inside the window is recoverable: re-running the same action completes it, because both
+ *     writes are idempotent — in the supersede arm because `assertReplaceable` accepts the half-written state as
+ *     well as the starting one, in the record arm because `writeOnce` treats identical bytes as a no-op.
+ *   * A CONCURRENT SECOND WRITER inside the window is refused rather than silently merged: `assertReplaceable` in
+ *     the supersede arm, `writeOnce`'s different-bytes refusal in the record arm.
+ *
+ * WHY IT IS NOT CLOSED. The only two ways to close it are to merge the pair into one file, or to lock the run
+ * directory. Merging changes `plan/catalog.json`'s bytes — which is every unit's cache identity and every archived
+ * digest reading keyed on it — to buy an instant that already fails closed. A run-directory lock introduces a new
+ * failure surface (a stale lock stops a run with no command to clear it, which is strictly worse than a refusal
+ * that says "revise again") and there is no other lock in `src/` for it to be consistent with.
+ *
+ * WHEN TO COME BACK: when a SECOND concurrent writer of the plan pair becomes a real scenario — a scheduler, a
+ * server, more than one operator against one run directory. At that point "refused" stops being good enough
+ * (whoever loses has to notice and retry), and the pair needs one of the two closures above, priced deliberately.
  */
 export async function writePlanArtifacts(runDir: string, artifacts: PlanArtifacts, catalog: TopicCatalogArtifact, mode: PlanWriteMode): Promise<PlanArtifacts> {
   switch (mode.kind) {

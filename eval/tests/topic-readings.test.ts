@@ -89,6 +89,20 @@ test("the readings extractor is deterministic over one run directory", async () 
   await assert.rejects(async () => readFile(topicsPath(runDir), "utf8"), /ENOENT/);
 });
 
+test("the readings publish every file the extractor opened, the manifest included", async () => {
+  // The input contract has to cover the WHOLE extractor, not just the loader it delegates to. This projection
+  // opens `run.json` itself to choose the epoch, so a `readPaths` taken straight off `loadTopicCatalogSource`
+  // under-reports by exactly that file — and under-reporting is what makes one concept read as two, since the
+  // other three readings (`plan`, `unit-packet`, `unit-cache-*`) all publish the manifest they opened.
+  const runDir = await fixtureCopy();
+  const readings = await extractTopicReadings(runDir);
+  assert.ok(readings.readPaths.includes("run.json"), `the manifest the extractor opened must be published: ${readings.readPaths.join(", ")}`);
+  assert.deepEqual([...readings.readPaths], [...new Set(readings.readPaths)].sort((a, b) => a.localeCompare(b)), "readPaths is a sorted, de-duplicated set");
+  for (const path of readings.readPaths) {
+    await readFile(join(runDir, path), "utf8");
+  }
+});
+
 test("every checked-in baseline reading is internally consistent", async () => {
   for (const { target, path } of READINGS) {
     const readings = JSON.parse(await readFile(path, "utf8")) as TopicReadings;
@@ -125,6 +139,8 @@ test("every checked-in baseline reading is internally consistent", async () => {
         assert.ok(!readPath.startsWith(prefix), `${target}: ${readPath} is an authoring-side input`);
       }
     }
+    assert.ok(readings.readPaths.includes("run.json"), `${target}: the manifest the extractor opened is part of the recorded input contract`);
+    assert.deepEqual([...readings.readPaths], [...new Set(readings.readPaths)].sort((a, b) => a.localeCompare(b)), `${target}: readPaths is a sorted, de-duplicated set`);
   }
 });
 

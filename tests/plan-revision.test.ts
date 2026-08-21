@@ -377,7 +377,12 @@ test("a plan cannot be derived at an incoherent revision at all", async () => {
 test("plan --revise records the next revision of a real run, and a plain plan of the same run is unchanged bytes", async () => {
   const base = await frozenRun(["product"]);
   const first = await planRun(base.runDir, { mode: "fixture" }, { kind: "record" });
-  assert.deepEqual(first.revision, { planRevision: 0, previousPlanCatalogDigest: null, revisionReason: null, archive: null, succession: [] });
+  const { strandedDrafts, ...firstRevision } = first.revision;
+  assert.deepEqual(firstRevision, { planRevision: 0, previousPlanCatalogDigest: null, revisionReason: null, archive: null, succession: [] });
+  // The stranded-draft reading is taken on this arm too, and over a run with no receipt it is a MEASURED zero
+  // (it names the plan it checked against) rather than an absent field.
+  assert.equal(strandedDrafts.state, "read");
+  assert.match(strandedDrafts.sentence, /^No drafted unit is waiting to be collected against a superseded plan, so this plan costs no re-drawing \(0 pending draft\(s\) checked against plan [0-9a-f]{16}\)$/);
   const recordedBytes = await readFile(planCatalogPath(base.runDir), "utf8");
 
   // Re-running the same plan writes the same bytes: the revision did not make a repeat plan a new revision.
