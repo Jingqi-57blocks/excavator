@@ -82,7 +82,8 @@ test("a prd feature request reaches an assembled unit-path deliverable whose hea
   assert.equal(header.get("audience"), "product-manager");
   assert.equal(header.get("intent"), "prd");
   assert.equal(header.get("scope"), "feature");
-  assert.ok(header.get("scopeIds")?.startsWith("["), header.get("scopeIds"));
+  // One scope id, and it is the requested feature's own key — not the empty list a scope-less row would print.
+  assert.match(header.get("scopeIds") ?? "", /^\["leave-management-[0-9a-f]{10}"\]$/);
 
   // And the policies in force are the registry's prd/product-manager entries, digest included.
   const intent = intentPolicyFor("prd");
