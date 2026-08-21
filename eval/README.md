@@ -298,12 +298,11 @@ The point of the harness is that most iterations never call a model:
   that delivered source and so records no cause, an execution citing no limitation evidence, an execution with no
   disposition, and one whose disposition is `fulfilled`), two transcribable items carrying two **different**
   causes, and one item already `found` so the never-touch-a-terminal-item rule has a witness.
-- `golden/assemble-canonical.txt` — the canonical projection of the model-free canned-draft chain's
-  `reports/` output, pinned byte for byte by `tests/assemble-golden.test.ts`.
-- `golden/unit-assemble-canonical.txt` — the same shape for the UNIT path: the canonical projection of
-  `assemble --units --mode write` over the model-free unit chain (plan → draft every unit → collect), pinned byte
-  for byte by `eval/tests/unit-assemble-golden.test.ts`. It adds two substitution rules the section projection does
-  not need — the plan catalog digest and the knowledge digest, both of which the unit front matter prints.
+- `golden/unit-assemble-canonical.txt` — the canonical projection of `assemble --units --mode write` over the
+  model-free unit chain (plan → draft every unit → collect), pinned byte for byte by
+  `eval/tests/unit-assemble-golden.test.ts`. It adds two substitution rules the shared rule set in
+  `report-canonical.ts` does not need — the plan catalog digest and the knowledge digest, both of which the unit
+  front matter prints.
 - `golden/unit-consistency-readings.json` — the cross-unit consistency checker's own reading (R7c), over six
   scenarios of the model-free chain in `tests/unit-consistency-fixture.ts`: clean, an unknown overclaim, a
   terminology drift, a contradiction plus two unresolvable references plus a policy violation, the drift run after
