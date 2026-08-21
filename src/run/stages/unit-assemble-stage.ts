@@ -7,6 +7,19 @@
  * run the SAME loader, so a `plan-only` pass that succeeds is a real statement about what `write` would do rather
  * than a lighter check.
  *
+ * THE SEALED-KNOWLEDGE GATE IS HERE, IN BOTH MODES, AND IT IS THE ONE IN `freeze.ts`. Assembly is the last
+ * authoring entry point a run passes through, and what the gate protects is not "a unit gets written" but "the
+ * sealed truth is stable at the moment of shipping". `collect --units` holding the same gate is not enough: a
+ * `searchSourceEvidence --supplement-*` landing AFTER a clean collect leaves a run whose next assemble would ship
+ * a deliverable that neither mentions the new knowledge nor says the knowledge is moving. `plan-only` is refused
+ * on the same line as `write` — a mode that passes the gate while the other fails would be a third answer to "may
+ * this run ship", and `plan-only`'s whole contract is that it runs every refusal `write` runs.
+ *
+ * IT IS CALLED HERE AND NOT IN `loadUnitAssembly` because the checker (`unit-consistency-source.ts`) loads the
+ * same assembly to re-derive what was shipped; a read-only check that refused on knowledge state would stop an
+ * operator from inspecting the very run the gate just told them to re-freeze. Shipping gates live at the shipping
+ * entry point.
+ *
  * NOTHING IS COMPUTED HERE. `loadUnitAssembly` returns paths and bytes; this file writes them, appends one timeline
  * event, and updates the two counters. That split is what makes "assemble is a pure function of the plan, the
  * collected units and the companions" a property of the code rather than a claim in a comment.
@@ -34,6 +47,7 @@ import { assertNever } from "../../base/artifact-result.ts";
 import type { RunManifest } from "../../base/types.ts";
 import { appendTimeline } from "../../base/timeline.ts";
 import { atomicWrite, nowIso, readJson, writeJson } from "../../base/util.ts";
+import { assertCurrentKnowledgeEpochForAuthoring } from "../../freeze/freeze.ts";
 import { assembledJsonBytes } from "../../report/unit-assembly.ts";
 import { runRelativePath } from "../../report/unit-assembly-paths.ts";
 import { loadUnitAssembly } from "../../report/unit-assembly-source.ts";
@@ -71,6 +85,8 @@ export async function assembleUnits(runDirInput: string, mode: UnitAssembleMode)
   // Before the load, not after it — see the file header.
   const manifest = await readJson<RunManifest>(runPath);
   const baseline = manifest.updatedAt;
+  // Both modes, before anything is computed — see the file header.
+  await assertCurrentKnowledgeEpochForAuthoring(runDir, manifest);
   const assembly = await loadUnitAssembly(runDir);
 
   const files: Array<{ readonly path: string; readonly content: string }> = [];
