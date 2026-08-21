@@ -51,7 +51,7 @@
           {
             "authority": "asserted-here",
             "name": "assembled-deliverable-current",
-            "statement": "the 1 assembled document(s) and the coverage companion on disk are byte for byte the bytes this plan and these collected units produce, so every reference this checker resolves is a reference the deliverable holds"
+            "statement": "every assembled artifact on disk — 1 document(s), their 2 companion(s) and the run's coverage companion — is byte for byte what this plan and these collected units produce, so every reference this checker resolves is a reference the deliverable holds"
           },
           {
             "authority": "asserted-here",
@@ -72,6 +72,8 @@
           "plan/dag.json",
           "plan/requests.json",
           "plan/topics.json",
+          "reports/companions/overview-product.unit-claims.json",
+          "reports/companions/overview-product.unit-traces.json",
           "reports/companions/unit-coverage.md",
           "reports/overview-product.md",
           "run.json",
@@ -227,9 +229,9 @@
               "objects": {
                 "objects": 8,
                 "state": "examined",
-                "subject": "unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against an evidence-only lens)"
+                "subject": "unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against this document's evidence-only product-manager lens)"
               },
-              "statement": "checked: policy-violation over 8 unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against an evidence-only lens) of overview-product — 0 finding(s)"
+              "statement": "checked: policy-violation over 8 unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against this document's evidence-only product-manager lens) of overview-product — 0 finding(s)"
             }
           ],
           "version": "unit-consistency-v1"
@@ -263,7 +265,7 @@
           {
             "authority": "asserted-here",
             "name": "assembled-deliverable-current",
-            "statement": "the 1 assembled document(s) and the coverage companion on disk are byte for byte the bytes this plan and these collected units produce, so every reference this checker resolves is a reference the deliverable holds"
+            "statement": "every assembled artifact on disk — 1 document(s), their 2 companion(s) and the run's coverage companion — is byte for byte what this plan and these collected units produce, so every reference this checker resolves is a reference the deliverable holds"
           },
           {
             "authority": "asserted-here",
@@ -284,6 +286,8 @@
           "plan/dag.json",
           "plan/requests.json",
           "plan/topics.json",
+          "reports/companions/overview-product.unit-claims.json",
+          "reports/companions/overview-product.unit-traces.json",
           "reports/companions/unit-coverage.md",
           "reports/overview-product.md",
           "run.json",
@@ -479,9 +483,9 @@
               "objects": {
                 "objects": 8,
                 "state": "examined",
-                "subject": "unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against an evidence-only lens)"
+                "subject": "unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against this document's evidence-only product-manager lens)"
               },
-              "statement": "checked: policy-violation over 8 unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against an evidence-only lens) of overview-product — 0 finding(s)"
+              "statement": "checked: policy-violation over 8 unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against this document's evidence-only product-manager lens) of overview-product — 0 finding(s)"
             }
           ],
           "version": "unit-consistency-v1"
@@ -515,7 +519,7 @@
           {
             "authority": "asserted-here",
             "name": "assembled-deliverable-current",
-            "statement": "the 1 assembled document(s) and the coverage companion on disk are byte for byte the bytes this plan and these collected units produce, so every reference this checker resolves is a reference the deliverable holds"
+            "statement": "every assembled artifact on disk — 1 document(s), their 2 companion(s) and the run's coverage companion — is byte for byte what this plan and these collected units produce, so every reference this checker resolves is a reference the deliverable holds"
           },
           {
             "authority": "asserted-here",
@@ -536,6 +540,8 @@
           "plan/dag.json",
           "plan/requests.json",
           "plan/topics.json",
+          "reports/companions/overview-product.unit-claims.json",
+          "reports/companions/overview-product.unit-traces.json",
           "reports/companions/unit-coverage.md",
           "reports/overview-product.md",
           "run.json",
@@ -757,9 +763,9 @@
               "objects": {
                 "objects": 8,
                 "state": "examined",
-                "subject": "unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against an evidence-only lens)"
+                "subject": "unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against this document's evidence-only product-manager lens)"
               },
-              "statement": "checked: policy-violation over 8 unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against an evidence-only lens) of overview-product — 0 finding(s)"
+              "statement": "checked: policy-violation over 8 unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against this document's evidence-only product-manager lens) of overview-product — 0 finding(s)"
             }
           ],
           "version": "unit-consistency-v1"
@@ -793,7 +799,7 @@
           {
             "authority": "asserted-here",
             "name": "assembled-deliverable-current",
-            "statement": "the 1 assembled document(s) and the coverage companion on disk are byte for byte the bytes this plan and these collected units produce, so every reference this checker resolves is a reference the deliverable holds"
+            "statement": "every assembled artifact on disk — 1 document(s), their 2 companion(s) and the run's coverage companion — is byte for byte what this plan and these collected units produce, so every reference this checker resolves is a reference the deliverable holds"
           },
           {
             "authority": "asserted-here",
@@ -814,6 +820,8 @@
           "plan/dag.json",
           "plan/requests.json",
           "plan/topics.json",
+          "reports/companions/overview-product.unit-claims.json",
+          "reports/companions/overview-product.unit-traces.json",
           "reports/companions/unit-coverage.md",
           "reports/overview-product.md",
           "run.json",
@@ -1085,9 +1093,9 @@
               "objects": {
                 "objects": 8,
                 "state": "examined",
-                "subject": "unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against an evidence-only lens)"
+                "subject": "unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against this document's evidence-only product-manager lens)"
               },
-              "statement": "checked: policy-violation over 8 unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against an evidence-only lens) of overview-product — 1 finding(s)"
+              "statement": "checked: policy-violation over 8 unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against this document's evidence-only product-manager lens) of overview-product — 1 finding(s)"
             }
           ],
           "version": "unit-consistency-v1"
@@ -1121,7 +1129,7 @@
           {
             "authority": "asserted-here",
             "name": "assembled-deliverable-current",
-            "statement": "the 1 assembled document(s) and the coverage companion on disk are byte for byte the bytes this plan and these collected units produce, so every reference this checker resolves is a reference the deliverable holds"
+            "statement": "every assembled artifact on disk — 1 document(s), their 2 companion(s) and the run's coverage companion — is byte for byte what this plan and these collected units produce, so every reference this checker resolves is a reference the deliverable holds"
           },
           {
             "authority": "asserted-here",
@@ -1142,6 +1150,8 @@
           "plan/dag.json",
           "plan/requests.json",
           "plan/topics.json",
+          "reports/companions/overview-product.unit-claims.json",
+          "reports/companions/overview-product.unit-traces.json",
           "reports/companions/unit-coverage.md",
           "reports/overview-product.md",
           "run.json",
@@ -1298,9 +1308,9 @@
               "objects": {
                 "objects": 8,
                 "state": "examined",
-                "subject": "unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against an evidence-only lens)"
+                "subject": "unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against this document's evidence-only product-manager lens)"
               },
-              "statement": "checked: policy-violation over 8 unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against an evidence-only lens) of overview-product — 0 finding(s)"
+              "statement": "checked: policy-violation over 8 unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against this document's evidence-only product-manager lens) of overview-product — 0 finding(s)"
             }
           ],
           "version": "unit-consistency-v1"
@@ -1334,7 +1344,7 @@
           {
             "authority": "asserted-here",
             "name": "assembled-deliverable-current",
-            "statement": "the 1 assembled document(s) and the coverage companion on disk are byte for byte the bytes this plan and these collected units produce, so every reference this checker resolves is a reference the deliverable holds"
+            "statement": "every assembled artifact on disk — 1 document(s), their 2 companion(s) and the run's coverage companion — is byte for byte what this plan and these collected units produce, so every reference this checker resolves is a reference the deliverable holds"
           },
           {
             "authority": "asserted-here",
@@ -1355,6 +1365,8 @@
           "plan/dag.json",
           "plan/requests.json",
           "plan/topics.json",
+          "reports/companions/overview-product.unit-claims.json",
+          "reports/companions/overview-product.unit-traces.json",
           "reports/companions/unit-coverage.md",
           "reports/overview-product.md",
           "run.json",
@@ -1551,9 +1563,9 @@
               "objects": {
                 "objects": 8,
                 "state": "examined",
-                "subject": "unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against an evidence-only lens)"
+                "subject": "unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against this document's evidence-only product-manager lens)"
               },
-              "statement": "checked: policy-violation over 8 unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against an evidence-only lens) of overview-product — 1 finding(s)"
+              "statement": "checked: policy-violation over 8 unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against this document's evidence-only product-manager lens) of overview-product — 1 finding(s)"
             }
           ],
           "version": "unit-consistency-v1"

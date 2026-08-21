@@ -5,8 +5,9 @@
  * IT RUNS AFTER ASSEMBLE, AND THAT IS A CHECKED PRECONDITION RATHER THAN AN ASSUMPTION. The dangling-reference
  * class resolves references against the ASSEMBLED DOCUMENT, so a run whose deliverable is absent, or whose
  * deliverable is not the one this plan and these collected units produce, cannot be checked: every anchor answer
- * would be about bytes nobody is shipping. So the on-disk document and the on-disk coverage companion are compared
- * against the bytes `loadUnitAssembly` derives, and a difference is a named refusal that says to re-assemble.
+ * would be about bytes nobody is shipping. So EVERY assembled artifact on disk — each document, each document's
+ * claims and traces companions, and the run's coverage companion — is compared against the bytes
+ * `loadUnitAssembly` derives, and a difference is a named refusal that says to re-assemble.
  *
  * THE FIVE PRECONDITIONS ARE NAMED, WITH THEIR AUTHORITY, and three of them are INHERITED rather than restated.
  * The board this checker reads has to be the board the run recorded, and every way it could have drifted after
@@ -18,8 +19,8 @@
  *   2. `every-unit-collected` (inherited, `loadUnitAssembly`) — no partial assembly, so no partial check.
  *   3. `ledger-promise-intact` (inherited, `promisedArtifactProblems`) — each unit's content, claims and summary
  *      still digest to what its ledger row promised. THIS is the tripwire for a hand-edited summary byte.
- *   4. `assembled-deliverable-current` (asserted here) — the document and the coverage companion on disk are the
- *      bytes the plan and the collected units produce.
+ *   4. `assembled-deliverable-current` (asserted here) — every assembled artifact on disk (each document, its two
+ *      companions, and the run's coverage companion) is the bytes the plan and the collected units produce.
  *   5. `child-summary-digests-current` (asserted here) — every synthesis's recorded `childSummaryDigests` equal
  *      the digests of its children's summaries as they are on disk NOW. Nothing re-checks this after collect: the
  *      promise check compares each unit against its OWN row, so a child re-drafted and re-collected without its
@@ -39,6 +40,7 @@ import { resolve } from "node:path";
 import type { SectionClaim } from "../base/types.ts";
 import { exists, readJson } from "../base/util.ts";
 import { lensPolicyFor } from "./report-policy-registry.ts";
+import { assembledJsonBytes } from "./unit-assembly.ts";
 import { runRelativePath } from "./unit-assembly-paths.ts";
 import { loadUnitAssembly, type AssembledUnitDocument, type UnitAssembly } from "./unit-assembly-source.ts";
 import {
@@ -102,7 +104,7 @@ export async function checkRunConsistency(runDirInput: string): Promise<UnitCons
   preconditions.push({
     name: "assembled-deliverable-current",
     authority: "asserted-here",
-    statement: `the ${assembly.documents.length} assembled document(s) and the coverage companion on disk are byte for byte the bytes this plan and these collected units produce, so every reference this checker resolves is a reference the deliverable holds`
+    statement: `every assembled artifact on disk — ${assembly.documents.length} document(s), their ${assembly.documents.length * 2} companion(s) and the run's coverage companion — is byte for byte what this plan and these collected units produce, so every reference this checker resolves is a reference the deliverable holds`
   });
 
   const summaries = await readUnitSummaries(runDir, assembly, readPaths);
@@ -152,8 +154,15 @@ export async function checkRunConsistency(runDirInput: string): Promise<UnitCons
 async function assertAssembledDeliverableCurrent(runDir: string, assembly: UnitAssembly, readPaths: Set<string>): Promise<void> {
   const absent: string[] = [];
   const stale: string[] = [];
+  // EVERY assembled artifact, not only the documents: the two companions per document carry the claim rows and the
+  // trace rows a reader follows, and a hand-edited companion would otherwise be the one file on this path nothing
+  // re-checks. Their byte form comes from `assembledJsonBytes`, the same function the stage writes them with.
   const files: Array<{ readonly path: string; readonly expected: string }> = [
-    ...assembly.documents.map((document) => ({ path: document.path, expected: document.markdown })),
+    ...assembly.documents.flatMap((document) => [
+      { path: document.path, expected: document.markdown },
+      { path: document.claims.path, expected: assembledJsonBytes(document.claims.companion) },
+      { path: document.traces.path, expected: assembledJsonBytes(document.traces.companion) }
+    ]),
     { path: assembly.coverage.path, expected: assembly.coverage.markdown }
   ];
   for (const file of files) {

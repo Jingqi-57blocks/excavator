@@ -25,7 +25,7 @@ import { spawn } from "node:child_process";
 import { join, resolve } from "node:path";
 import type { SectionClaim } from "../src/base/types.ts";
 import { CONTENTS_ANCHOR } from "../src/report/unit-assembly.ts";
-import { unitDocumentReportPath } from "../src/report/unit-assembly-paths.ts";
+import { unitDocumentCompanionPaths, unitDocumentReportPath } from "../src/report/unit-assembly-paths.ts";
 import { checkRunConsistency } from "../src/report/unit-consistency-source.ts";
 import { readUnitGroundingForRun } from "../src/report/unit-grounding-reading.ts";
 import { readUnitLedger } from "../src/report/unit-ledger.ts";
@@ -262,6 +262,23 @@ test("a deliverable that is absent, and one that no longer matches the plan, get
   await assert.rejects(() => checkRunConsistency(run.runDir), /assembled artifact\(s\) on disk are not the bytes this plan and these collected units produce/);
   await rm(reportPath);
   await assert.rejects(() => checkRunConsistency(run.runDir), /assembled artifact\(s\) are not on disk: reports\/overview-product\.md/);
+  await assembleUnits(run.runDir, "write");
+  assert.deepEqual((await checkRunConsistency(run.runDir)).result.findings, []);
+});
+
+test("a hand-edited claims companion is caught too: the check covers every assembled artifact, not only the documents", async () => {
+  // The companions carry the claim rows and the trace rows a reader follows. Before the check covered them they
+  // were the one file on this path nothing re-verified: the ledger promise check compares each UNIT's artifacts,
+  // and a companion is written by assembly out of all of them.
+  const run = await assembledConsistencyRun();
+  const companion = join(run.runDir, ...unitDocumentCompanionPaths(DOCUMENT).claims.split("/"));
+  const rows = JSON.parse(await readFile(companion, "utf8")) as { claims: Array<{ claim: { statement: string } }> };
+  rows.claims[0]!.claim.statement = "手改过的断言。";
+  await writeFile(companion, `${JSON.stringify(rows)}\n`);
+  await assert.rejects(
+    () => checkRunConsistency(run.runDir),
+    /assembled artifact\(s\) on disk are not the bytes this plan and these collected units produce: reports\/companions\/overview-product\.unit-claims\.json/
+  );
   await assembleUnits(run.runDir, "write");
   assert.deepEqual((await checkRunConsistency(run.runDir)).result.findings, []);
 });

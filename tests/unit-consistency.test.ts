@@ -260,6 +260,35 @@ test("one obligation asserted by one unit and disclaimed by another is a finding
   assert.deepEqual(of(check([document(oneUnit)]), "cross-unit-contradiction"), []);
 });
 
+test("an inferred claim in one unit against an unavailable claim in another is a contradiction too", () => {
+  // One reading of `inferred` across the two classes: the overclaim class treats an inference as a statement about
+  // the system, so this class must too — otherwise a document infers a conclusion about an obligation while another
+  // unit records that nobody could reach one, and nothing says so.
+  const units = [
+    unit(LEAF, { claims: [{ id: "I-1", marker: "inferred", statement: "推断为是。", workItemIds: ["project:settled"] }] }),
+    unit(OTHER, { claims: [{ id: "U-1", marker: "unavailable", statement: "无法判定。", workItemIds: ["project:settled"] }] })
+  ];
+  const findings = of(check([document(units)]), "cross-unit-contradiction");
+  assert.equal(findings.length, 1);
+  assert.deepEqual(findings[0]!.unitIds, [LEAF, OTHER]);
+  const conflict = findings[0]!.kind === "cross-unit-contradiction" ? findings[0]!.conflict : null;
+  assert.deepEqual(conflict?.shape === "incompatible-markers" ? conflict.asserting.map((row) => row.marker) : null, ["inferred"]);
+});
+
+test("one disagreement between two claims is ONE finding, however many evidence pairs it spans", () => {
+  // `[[E1,E2,E3]]` against `[[E1],[E2],[E3]]` disagrees about three pairs and is one disagreement between one pair
+  // of claims. Reporting it three times tripled the finding count and the examined objects for one repair.
+  const together: SectionClaim = { id: "S-1", marker: "fact", statement: "两者共享同一阈值。", evidenceIds: ["E-1", "E-2", "E-3"], sides: [["E-1", "E-2", "E-3"], ["E-4"]] };
+  const apart: SectionClaim = { id: "S-2", marker: "fact", statement: "两者共享同一阈值。", evidenceIds: ["E-1", "E-2", "E-3"], sides: [["E-1"], ["E-2"], ["E-3"]] };
+  const result = check([document([unit(LEAF, { claims: [{ ...together, evidenceIds: ["E-1", "E-2", "E-3", "E-4"] }] }), unit(OTHER, { claims: [apart] })])]);
+  const findings = of(result, "cross-unit-contradiction");
+  assert.equal(findings.length, 1, findings.map((row) => row.statement).join("\n"));
+  const conflict = findings[0]!.kind === "cross-unit-contradiction" ? findings[0]!.conflict : null;
+  assert.deepEqual(conflict?.shape === "comparison-side-disagreement" ? conflict.evidencePairs : null,
+    [["E-1", "E-2"], ["E-1", "E-3"], ["E-2", "E-3"]]);
+  assert.match(findings[0]!.statement, /disagrees about 3 evidence pair\(s\)/);
+});
+
 test("two units disagreeing about which side of a comparison a pair of evidence is on is a finding", () => {
   const together: SectionClaim = {
     id: "S-1",
@@ -281,7 +310,7 @@ test("two units disagreeing about which side of a comparison a pair of evidence 
   assert.deepEqual(findings[0]!.unitIds, [LEAF, OTHER]);
   const conflict = findings[0]!.kind === "cross-unit-contradiction" ? findings[0]!.conflict : null;
   assert.equal(conflict?.shape, "comparison-side-disagreement");
-  assert.deepEqual(conflict?.shape === "comparison-side-disagreement" ? conflict.evidenceIds : null, ["E-1", "E-2"]);
+  assert.deepEqual(conflict?.shape === "comparison-side-disagreement" ? conflict.evidencePairs : null, [["E-1", "E-2"]]);
 
   // Removed: two units grouping the same pair the same way is agreement, and it is still an EXAMINED object.
   const agreeing = check([document([unit(LEAF, { claims: [together] }), unit(OTHER, { claims: [{ ...together, id: "S-3" }] })])]);
@@ -306,6 +335,31 @@ test("a prose link the assembled document cannot resolve is a finding; a heading
   // And a link to the assembler's own contents anchor resolves.
   const toContents = unit(LEAF, { content: `## ${LEAF}\n\n见 [目录](#${CONTENTS_ANCHOR})。\n` });
   assert.deepEqual(of(check([document([toContents])]), "dangling-reference"), []);
+});
+
+test("a link inside a fenced code block is an example, not a dangling reference", () => {
+  // A unit documenting markdown syntax writes a literal link nobody follows. Reporting it would put that unit AND
+  // every ancestor into a repair set for nothing, and a repair set is required to be exact.
+  const fenced = unit(LEAF, { content: `## ${LEAF}\n\n写法如下：\n\n\`\`\`markdown\n[见下文](#nowhere-at-all)\n<a id="${CONTENTS_ANCHOR}"></a>\n\`\`\`\n` });
+  const result = check([document([fenced])]);
+  assert.deepEqual(of(result, "dangling-reference"), [], result.findings.map((row) => row.statement).join("\n"));
+  // And the same two shapes OUTSIDE the fence are still findings, so the exclusion is not a hole.
+  const bare = unit(LEAF, { content: `## ${LEAF}\n\n[见下文](#nowhere-at-all)\n<a id="${CONTENTS_ANCHOR}"></a>\n` });
+  assert.equal(of(check([document([bare])]), "dangling-reference").length, 2);
+  // An inline code span is code too.
+  const inline = unit(LEAF, { content: `## ${LEAF}\n\n锚点写法是 \`[x](#nowhere-at-all)\`。\n` });
+  assert.deepEqual(of(check([document([inline])]), "dangling-reference"), []);
+});
+
+test("a titled link is a reference like any other, counted and resolved", () => {
+  // The regex used to require `](#target)` exactly, so `](#target "title")` was neither resolved nor counted — a
+  // silent fourth state for a legal markdown shape.
+  const titled = unit(LEAF, { content: `## ${LEAF}\n\n见 [下文](#nowhere-at-all "说明")。\n` });
+  const findings = of(check([document([titled])]), "dangling-reference");
+  assert.equal(findings.length, 1);
+  assert.match(findings[0]!.statement, /links to "#nowhere-at-all"/);
+  const resolvable = unit(LEAF, { content: `## ${LEAF}\n\n见 [目录](#${CONTENTS_ANCHOR} '说明')。\n` });
+  assert.deepEqual(of(check([document([resolvable])]), "dangling-reference"), []);
 });
 
 test("a prose anchor id the document already holds is a duplicate, named to the unit that wrote it", () => {
@@ -370,7 +424,16 @@ test("an evidence id in visible prose violates an evidence-only lens and not an 
 
   const relaxed = check([document([leaking], { audience: "engineer", identifierPlacement: "in-prose" })]);
   assert.deepEqual(of(relaxed, "policy-violation"), []);
-  assert.match(reading(relaxed, "policy-violation").statement, /recommendation language only/);
+  assert.match(reading(relaxed, "policy-violation").statement, /lens places identifiers in prose/);
+
+  // THREE STATES, NOT TWO. A run that sealed no evidence id has no denominator for the rule — and it must not say
+  // the lens allows identifiers in prose, because this lens does not. Folding the two into one boolean made the
+  // reading state something false about the policy.
+  const noIdentifiers = check([document([leaking])], []);
+  assert.deepEqual(of(noIdentifiers, "policy-violation"), []);
+  assert.match(reading(noIdentifiers, "policy-violation").statement,
+    /lens IS evidence-only, but this run sealed no evidence id, so that rule had no object to check/);
+  assert.notEqual(reading(noIdentifiers, "policy-violation").statement, reading(relaxed, "policy-violation").statement);
 
   // A longer id that merely CONTAINS a sealed one is not a match: the boundary is the id character class.
   const longer = unit(LEAF, { content: `## ${LEAF}\n\n证据 ${EVIDENCE}0 显示当前行为。\n` });

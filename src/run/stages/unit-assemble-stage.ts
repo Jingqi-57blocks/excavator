@@ -32,7 +32,8 @@ import { join, resolve } from "node:path";
 import { assertNever } from "../../base/artifact-result.ts";
 import type { RunManifest } from "../../base/types.ts";
 import { appendTimeline } from "../../base/timeline.ts";
-import { atomicWrite, nowIso, readJson, stableJson, writeJson } from "../../base/util.ts";
+import { atomicWrite, nowIso, readJson, writeJson } from "../../base/util.ts";
+import { assembledJsonBytes } from "../../report/unit-assembly.ts";
 import { runRelativePath } from "../../report/unit-assembly-paths.ts";
 import { loadUnitAssembly } from "../../report/unit-assembly-source.ts";
 import type { ShippedCoverageArm } from "../../report/unit-assembly-coverage.ts";
@@ -142,11 +143,13 @@ export async function assertNotConcurrentlyModified(runPath: string, expectedUpd
 }
 
 /**
- * The companion's bytes: the one canonical JSON form, with the trailing newline `writeJson` also appends.
+ * The companion's bytes: `assembledJsonBytes`, the one spelling of the canonical JSON form with the trailing
+ * newline `writeJson` also appends.
  *
  * Rendered here rather than handed to `writeJson` so the byte count in the reading is the count of the bytes that
- * were written, and so `plan-only` can report it without writing anything.
+ * were written, and so `plan-only` can report it without writing anything. The convention itself lives in
+ * `unit-assembly.ts` because R7c's checker compares the bytes on disk against it.
  */
 function jsonBytes(value: unknown): string {
-  return `${stableJson(value)}\n`;
+  return assembledJsonBytes(value);
 }

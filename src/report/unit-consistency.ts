@@ -83,8 +83,16 @@ export const UNKNOWN_OBLIGATION_STATUSES: readonly WorkItemStatus[] = ["cannot-d
  */
 export const OVERCLAIM_MARKERS: readonly EvidenceMarker[] = ["fact", "inferred"];
 
-/** The markers that assert an obligation's subject is established, for the contradiction pair. */
-const ASSERTING_MARKERS: readonly EvidenceMarker[] = ["fact", "verified"];
+/**
+ * The markers that state something about an obligation, for the contradiction pair: everything but `unavailable`.
+ *
+ * `inferred` IS here, and keeping it out was an inconsistency worth naming: the overclaim class treats an inference
+ * as a statement about the system ("an inference presented in a document reads as a statement about the system"),
+ * so excluding it here would have let one unit infer a conclusion about an obligation while another unit recorded
+ * that nobody could reach one — a document contradicting itself, with no finding. One reading of `inferred`, used
+ * by both classes.
+ */
+const ASSERTING_MARKERS: readonly EvidenceMarker[] = ["fact", "verified", "inferred"];
 
 export const CONSISTENCY_FINDING_KINDS = [
   "terminology-drift",
@@ -143,7 +151,7 @@ export interface ConsistencyDocument {
 }
 
 export interface ConsistencyInput {
-  /** Ascending by document id. */
+  /** In the plan's document order; the result republishes it rather than re-sorting. */
   readonly documents: readonly ConsistencyDocument[];
   /** This run's obligation ledger by id — the same map the grounding audit does its equality lookup in. */
   readonly workItems: ReadonlyMap<string, InvestigationWorkItem>;
@@ -176,8 +184,14 @@ export type ContradictionConflict =
     }
   | {
       readonly shape: "comparison-side-disagreement";
-      /** The two evidence ids the two units place differently, ascending. */
-      readonly evidenceIds: readonly string[];
+      /**
+       * Every pair of evidence ids these two claims place differently, each pair ascending. Never empty.
+       *
+       * A LIST OF PAIRS rather than one pair: two claims grouping three ids one way and three ways disagree about
+       * three pairs, and reporting that as three findings triples the count of one disagreement between one pair
+       * of units. The repair is the same either way, so the finding says what it is: one disagreement, these pairs.
+       */
+      readonly evidencePairs: readonly (readonly string[])[];
       /** The claim that puts them on ONE side of its comparison. */
       readonly sameSide: ClaimReference;
       /** The claim that puts them on TWO sides of its comparison. */
@@ -256,11 +270,17 @@ export interface ConsistencyClassReading {
 
 export interface ConsistencyResult {
   readonly version: typeof UNIT_CONSISTENCY_VERSION;
-  /** Ascending. */
+  /**
+   * In the input's document order — which is the plan's, and `plan-artifacts.ts` sorts that by `localeCompare`.
+   *
+   * Stated as "the plan's order" rather than "ascending" on purpose: naming a comparator here would be a SECOND
+   * claim about the ordering, and the findings below are ordered by `compareUnitIds` (code point), so the two
+   * disagree for ids differing only in punctuation. One authority — the plan — and one place that sorts.
+   */
   readonly documents: readonly string[];
-  /** One row per (document, class), documents ascending then classes in `CONSISTENCY_FINDING_KINDS` order. */
+  /** One row per (document, class): the plan's document order, then classes in `CONSISTENCY_FINDING_KINDS` order. */
   readonly readings: readonly ConsistencyClassReading[];
-  /** Ascending by (document, class, statement). */
+  /** Totally ordered by (documentId, class, statement) under `compareUnitIds`, so one input has one byte form. */
   readonly findings: readonly ConsistencyFinding[];
 }
 
@@ -285,7 +305,7 @@ export function describeFinding(finding: ConsistencyFinding): string {
     case "cross-unit-contradiction":
       return finding.conflict.shape === "incompatible-markers"
         ? `obligation ${finding.conflict.workItemId} is asserted and declared unavailable by different units`
-        : `evidence ${finding.conflict.evidenceIds.join(" and ")} are one comparison side in ${finding.conflict.sameSide.claimId} and two in ${finding.conflict.differentSides.claimId}`;
+        : `${finding.conflict.evidencePairs.length} evidence pair(s) are one comparison side in ${finding.conflict.sameSide.claimId} and two in ${finding.conflict.differentSides.claimId}`;
     case "dangling-reference":
       switch (finding.reference.shape) {
         case "unresolvable-anchor":
@@ -437,7 +457,10 @@ function unknownOverclaim(
   let links = 0;
   for (const unit of document.units) {
     for (const claim of unit.claims) {
-      for (const workItemId of claim.workItemIds ?? []) {
+      // De-duplicated per claim: nothing forbids a claim from listing one obligation twice
+      // (`claimIdShapeProblems` checks the shape of the list, not its members' distinctness), and one citation is
+      // one object however many times it was written down.
+      for (const workItemId of new Set(claim.workItemIds ?? [])) {
         const row = workItems.get(workItemId);
         // A citation of an id the ledger does not hold is a dangling reference, reported by that class. It is
         // skipped here rather than guessed at: an unknown status cannot be read off a row that does not exist.
@@ -508,7 +531,7 @@ function crossUnitContradiction(
   const byObligation = new Map<string, ClaimReference[]>();
   for (const unit of document.units) {
     for (const claim of unit.claims) {
-      for (const workItemId of claim.workItemIds ?? []) {
+      for (const workItemId of new Set(claim.workItemIds ?? [])) {
         if (!workItems.has(workItemId)) continue;
         const rows = byObligation.get(workItemId) ?? [];
         rows.push({ unitId: unit.unitId, claimId: claim.id, marker: claim.marker });
@@ -558,6 +581,11 @@ function crossUnitContradiction(
     .filter(([, pairing]) => new Set([...pairing.sameSide, ...pairing.differentSides].map((row) => row.unitId)).size > 1)
     .sort(([a], [b]) => compareUnitIds(a, b))
     .map(([, pairing]) => pairing);
+  // ONE FINDING PER DISAGREEING CLAIM PAIR, carrying EVERY evidence pair they disagree about. Keyed per pair it
+  // reported the same disagreement once per pair of ids — three findings for `[[E1,E2,E3]]` against
+  // `[[E1],[E2],[E3]]` — which inflates the finding count and the examined objects while the repair set (the two
+  // units) is identical. The grouping is the honest shape: two claims disagree, about these pairs.
+  const disagreements = new Map<string, { readonly sameSide: ClaimReference; readonly differentSides: ClaimReference; readonly evidencePairs: string[][] }>();
   for (const pairing of comparablePairs) {
     const same = [...pairing.sameSide].sort(compareClaimReferences);
     const split = [...pairing.differentSides].sort(compareClaimReferences);
@@ -566,12 +594,19 @@ function crossUnitContradiction(
     const disagreement = same.flatMap((one) => split.filter((other) => other.unitId !== one.unitId).map((other) => [one, other] as const))[0];
     if (!disagreement) continue;
     const [one, other] = disagreement;
+    const key = JSON.stringify([one.unitId, one.claimId, other.unitId, other.claimId]);
+    const row = disagreements.get(key) ?? { sameSide: one, differentSides: other, evidencePairs: [] };
+    row.evidencePairs.push([...pairing.evidenceIds]);
+    disagreements.set(key, row);
+  }
+  for (const key of [...disagreements.keys()].sort()) {
+    const { sameSide: one, differentSides: other, evidencePairs } = disagreements.get(key)!;
     findings.push({
       kind: "cross-unit-contradiction",
       documentId: document.documentId,
       unitIds: unitList([one.unitId, other.unitId]),
-      conflict: { shape: "comparison-side-disagreement", evidenceIds: pairing.evidenceIds, sameSide: one, differentSides: other },
-      statement: `document ${document.documentId} disagrees about evidence ${pairing.evidenceIds.join(" and ")}: ${one.unitId}/${one.claimId} groups them as ONE comparison side and ${other.unitId}/${other.claimId} puts them on two, so the same two sources are the same thing and two compared things in one document`
+      conflict: { shape: "comparison-side-disagreement", evidencePairs, sameSide: one, differentSides: other },
+      statement: `document ${document.documentId} disagrees about ${evidencePairs.length} evidence pair(s) (${evidencePairs.map((pair) => pair.join(" and ")).join("; ")}): ${one.unitId}/${one.claimId} groups each pair as ONE comparison side and ${other.unitId}/${other.claimId} puts it on two, so the same two sources are the same thing and two compared things in one document`
     });
   }
 
@@ -612,7 +647,7 @@ function danglingReference(
   let references = 0;
   const proseAnchors = new Map<string, string[]>();
   for (const unit of document.units) {
-    for (const target of anchorReferences(unit.content)) {
+    for (const target of anchorReferences(unit.content, "excluded")) {
       references += 1;
       if (target !== "" && anchors.resolvable.has(target)) continue;
       findings.push({
@@ -623,12 +658,12 @@ function danglingReference(
         statement: `unit ${unit.unitId} links to ${JSON.stringify(`#${target}`)}, which the assembled document ${document.documentId} holds neither as an explicit anchor nor as a heading a renderer would slug to it`
       });
     }
-    for (const anchorId of explicitAnchorIds(unit.content)) {
+    for (const anchorId of explicitAnchorIds(unit.content, "excluded")) {
       references += 1;
       proseAnchors.set(anchorId, [...(proseAnchors.get(anchorId) ?? []), unit.unitId]);
     }
     for (const claim of unit.claims) {
-      for (const workItemId of claim.workItemIds ?? []) {
+      for (const workItemId of new Set(claim.workItemIds ?? [])) {
         references += 1;
         if (workItems.has(workItemId)) continue;
         findings.push({
@@ -700,7 +735,15 @@ function policyViolation(
   frozenEvidenceIds: readonly string[]
 ): { kind: "policy-violation"; objects: ClassObjects; findings: ConsistencyFinding[] } {
   const findings: ConsistencyFinding[] = [];
-  const identifierRule = document.identifierPlacement === "evidence-only" && frozenEvidenceIds.length > 0;
+  // TWO INDEPENDENT CONDITIONS, KEPT APART. Folding them into one boolean made the reading say "this document's
+  // product-manager lens places identifiers in prose" on a run whose sealed evidence set was empty — false about
+  // the lens, and the actual fact ("no sealed id, so the rule had no object") was gone. `identifierRuleState` is a
+  // closed three-way answer and the subject below prints one sentence per state.
+  const identifierRuleState: "applies" | "no-sealed-identifier" | "lens-allows-prose" =
+    document.identifierPlacement === "in-prose"
+      ? "lens-allows-prose"
+      : frozenEvidenceIds.length === 0 ? "no-sealed-identifier" : "applies";
+  const identifierRule = identifierRuleState === "applies";
   for (const unit of document.units) {
     if (identifierRule) {
       for (const evidenceId of [...frozenEvidenceIds].sort()) {
@@ -733,10 +776,25 @@ function policyViolation(
     objects: {
       state: "examined",
       objects: document.units.length * (identifierRule ? 2 : 1),
-      subject: identifierRule
-        ? `unit prose scan(s) (recommendation language, and ${frozenEvidenceIds.length} sealed evidence id(s) against an evidence-only lens)`
-        : `unit prose scan(s) (recommendation language only; this document's ${document.audience} lens places identifiers in prose)`
+      subject: `unit prose scan(s) (${identifierPlacementSubject(identifierRuleState, document, frozenEvidenceIds.length)})`
     },
     findings
   };
+}
+
+/** Which rules the policy scan ran, per state. Exhaustive: a fourth state has to say its own sentence. */
+function identifierPlacementSubject(
+  state: "applies" | "no-sealed-identifier" | "lens-allows-prose",
+  document: ConsistencyDocument,
+  sealedIdentifiers: number
+): string {
+  switch (state) {
+    case "applies":
+      return `recommendation language, and ${sealedIdentifiers} sealed evidence id(s) against this document's evidence-only ${document.audience} lens`;
+    case "no-sealed-identifier":
+      return `recommendation language only; this document's ${document.audience} lens IS evidence-only, but this run sealed no evidence id, so that rule had no object to check`;
+    case "lens-allows-prose":
+      return `recommendation language only; this document's ${document.audience} lens places identifiers in prose`;
+  }
+  return assertNever(state, "identifier placement rule state");
 }

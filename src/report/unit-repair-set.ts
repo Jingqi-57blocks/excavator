@@ -217,7 +217,7 @@ export function deriveUnitRepairPlan(input: UnitRepairPlanInput): UnitRepairPlan
   });
 
   const targetIds = new Set(targets.map((target) => target.unitId));
-  assertConservation(input, targetIds, byId, seeds.length);
+  assertConservation(input, targetIds, byId);
   const conservation: RepairConservation = {
     findings: input.findings.length,
     namedUnits: seeds.length,
@@ -246,8 +246,7 @@ export function deriveUnitRepairPlan(input: UnitRepairPlanInput): UnitRepairPlan
 function assertConservation(
   input: UnitRepairPlanInput,
   targetIds: ReadonlySet<string>,
-  planned: ReadonlyMap<string, RepairPlanUnit>,
-  namedUnits: number
+  planned: ReadonlyMap<string, RepairPlanUnit>
 ): void {
   for (const finding of input.findings) {
     const missing = finding.unitIds.filter((unitId) => !targetIds.has(unitId));
@@ -258,9 +257,6 @@ function assertConservation(
   const outside = [...targetIds].filter((unitId) => !planned.has(unitId)).sort(compareUnitIds);
   if (outside.length > 0) {
     throw new Error(`The repair set names ${outside.length} unit(s) the plan now in force does not hold (${outside.join(", ")}); nothing would draw them`);
-  }
-  if (namedUnits > targetIds.size) {
-    throw new Error(`The repair set holds ${targetIds.size} unit(s) but ${namedUnits} were named by findings; the closure cannot be smaller than its seeds`);
   }
 }
 
