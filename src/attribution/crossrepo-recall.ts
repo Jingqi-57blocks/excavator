@@ -94,12 +94,15 @@ type ScanLink = CrossRepoScan["links"][number];
 /**
  * Join a module-relative path onto its module directory.
  *
- * MEASURED, not assumed: on the frozen wcp corpus all 383 confirmed links carry module-relative paths on BOTH
- * ends — `wcp-ui/src/api/account-service.ts`, `wcp-service-v2/internal/handlers/handlers.go`, each written with
- * its module so the module-relative half is visible — and zero are target-relative. Getting this frame wrong
- * does not raise an error; it drops every link into a
- * visible not-found bucket, and a reader would take the resulting silence as "this target has no cross-repo
- * recall to gain", which is the exact wrong conclusion for the slice after this one to draw.
+ * MEASURED, not assumed: on the frozen wcp corpus all 383 confirmed links carry MODULE-RELATIVE paths on BOTH
+ * ends — `<wcp-ui>/src/api/account-service.ts`, `<wcp-service-v2>/internal/handlers/handlers.go`, where the angle
+ * brackets are the module root and the RECORDED path is everything after it — and zero are target-relative. So
+ * `modulePath` arrives without its module prefix, which is what this function joins on. (The roots are bracketed
+ * rather than written plainly because `tests/comment-anchors.test.ts` reads a bare `src/…` in a comment as an
+ * anchor into THIS repository; a target's path is not one, and the bracket says so structurally.) Getting this
+ * frame wrong does not raise an error; it drops every link into a visible not-found bucket, and a reader would
+ * take the resulting silence as "this target has no cross-repo recall to gain", which is the exact wrong
+ * conclusion for the slice after this one to draw.
  */
 function targetRelative(moduleDirs: ReadonlyMap<string, string>, moduleId: string, modulePath: string): string | null {
   const dir = moduleDirs.get(moduleId);
