@@ -210,7 +210,7 @@ export async function planRun(runDirInput: string, source: PlanProposalSource, r
   const recorded: RecordedPlan = superseded === null
     ? { artifacts: await writePlanArtifacts(runDir, artifacts, catalog, { kind: "record" }), archive: null, succession: [] }
     : await recordPlanRevision(runDir, artifacts, catalog, superseded);
-  const stranded = await strandedDraftsOf(runDir, planCatalogDigest(recorded.artifacts.planCatalog));
+  const stranded = await strandedDraftsOf(runDir, recorded.artifacts.planCatalog);
   return {
     runDir,
     topicsPath: topicsPath(runDir),
@@ -235,9 +235,11 @@ export async function planRun(runDirInput: string, source: PlanProposalSource, r
  * moving — hostage to a file it does not need, with nothing on offer to clear it. The plan is still recorded; the
  * reading says it could not be taken, and why.
  */
-async function strandedDraftsOf(runDir: string, recordedPlanDigest: string): Promise<StrandedUnitDrafts> {
+async function strandedDraftsOf(runDir: string, recorded: PlanCatalogArtifact): Promise<StrandedUnitDrafts> {
   try {
-    return strandedUnitDrafts(await pendingUnitReceipts(runDir), recordedPlanDigest);
+    // The digest and the unit ids both come off THIS artifact: the classification's two halves must be about one
+    // plan, and reading the ids back from the plan view would be a second read of what was just written.
+    return strandedUnitDrafts(await pendingUnitReceipts(runDir), planCatalogDigest(recorded), recorded.units.map((unit) => unit.unitId));
   } catch (error) {
     return strandedUnitDraftsUnread((error as Error).message);
   }

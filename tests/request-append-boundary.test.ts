@@ -82,5 +82,5 @@ test("a run whose contract cannot be read refuses the append instead of reading 
   const { runDir, featureKey } = await featureRun();
   await rm(join(runDir, "contract", "run-intent.json"));
   await assert.rejects(async () => appendReportRequest(runDir, featureDocument(featureKey, "engineering")),
-    /run-intent\.json is missing, so the feature keys this run investigated cannot be read/);
+    /contract\/run-intent\.json is missing from .*, so the feature keys this run investigated cannot be read/);
 });

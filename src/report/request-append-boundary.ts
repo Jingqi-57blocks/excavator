@@ -27,8 +27,16 @@ import { exists, readJson } from "../base/util.ts";
 import type { RunIntent } from "../contract/bound-run-contract.ts";
 import type { LegacyDocumentRequest } from "./legacy-request-mapping.ts";
 
-/** Run-relative location of the contract input this check reads. Named once; it appears in refusals verbatim. */
+/**
+ * Run-relative location of the contract input this check reads. ONE owner: the read below joins these segments and
+ * both refusals name this constant, so the file that is opened and the file the message blames cannot drift apart.
+ */
 export const RUN_INTENT_RELATIVE_PATH = "contract/run-intent.json";
+
+/** The absolute path, built from the constant rather than re-spelled. */
+function runIntentPath(runDir: string): string {
+  return join(runDir, ...RUN_INTENT_RELATIVE_PATH.split("/"));
+}
 
 /**
  * The feature keys this run's contract binds, in the contract's own order.
@@ -38,9 +46,9 @@ export const RUN_INTENT_RELATIVE_PATH = "contract/run-intent.json";
  * instead of a file nobody could read.
  */
 export async function boundFeatureKeys(runDir: string): Promise<readonly string[]> {
-  const path = join(runDir, "contract", "run-intent.json");
+  const path = runIntentPath(runDir);
   if (!await exists(path)) {
-    throw new Error(`${path} is missing, so the feature keys this run investigated cannot be read; a feature document's boundary is checked against the recorded contract. Re-prepare the run under the current version.`);
+    throw new Error(`${RUN_INTENT_RELATIVE_PATH} is missing from ${runDir}, so the feature keys this run investigated cannot be read; a feature document's boundary is checked against the recorded contract. Re-prepare the run under the current version.`);
   }
   const intent = await readJson<RunIntent>(path);
   if (!Array.isArray(intent.features)) {
