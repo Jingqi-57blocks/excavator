@@ -181,7 +181,7 @@ test("SKILL.md run-directory layout matches what the CLI produces", async () => 
     features: [],
     budgets: { prepareMs: 30_000, authorMs: 30_000, maxGraphQueries: 30, maxSourceWindows: 30, maxSourceCharacters: 80_000, maxFiles: 10_000, maxFeatureNodes: 60, maxExpansionDepth: 2 }
   };
-  const { runDir, manifest } = await prepareRun(request);
+  const { runDir } = await prepareRun(request);
 
   // The workdir-layout contract the SKILL documents: `<workdir>/<project>/runs/<run-id>/`, where
   // `<project>` is the slugified target basename. Validate the template without pinning the run-id value.

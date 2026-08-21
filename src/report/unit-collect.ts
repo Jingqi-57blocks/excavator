@@ -33,11 +33,11 @@
  * corrected re-draft is collected on the next run: there is no state a bad draft can put a run into for good.
  */
 
-import { readFile, rm } from "node:fs/promises";
+import { rm } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
 import type { RunManifest } from "../base/types.ts";
 import { appendTimeline } from "../base/timeline.ts";
-import { canonicalJson, exists, listDirectories, nowIso, readJson, sha256, writeJson } from "../base/util.ts";
+import { exists, listDirectories, nowIso, readJson, writeJson } from "../base/util.ts";
 import { assertCurrentKnowledgeEpochForAuthoring } from "../freeze/freeze.ts";
 import {
   collectedUnitsFor,

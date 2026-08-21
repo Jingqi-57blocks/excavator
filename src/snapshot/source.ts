@@ -1,9 +1,9 @@
 import { readFile } from "node:fs/promises";
-import { basename, dirname, extname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import type { EvidenceItem, SourceWindow } from "../base/types.ts";
 import type { ScannedFile } from "./snapshot.ts";
 import { CONTRACT_CATEGORIES, primaryCategory, projectDocumentGroup, scoreProjectDocument } from "./document-scoring.ts";
-import { atomicWrite, ensureDir, exists, readJson, redactSecrets, redactionCacheTag, REDACTION_VERSION, sha256, truncate, writeJson } from "../base/util.ts";
+import { exists, readJson, redactSecrets, redactionCacheTag, REDACTION_VERSION, sha256, truncate, writeJson } from "../base/util.ts";
 import { nameClassesMatching, textualExtensions } from "../base/language-registry.ts";
 import { declaredExtensions, mechanismById } from "../base/mechanism-registry.ts";
 

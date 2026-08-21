@@ -2,7 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { cp, readFile } from "node:fs/promises";
 import { tempDir } from "../../tests/temp-dir.ts";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { prepareRun } from "../../src/run/run.ts";
 import type { ReportRequest } from "../../src/base/types.ts";

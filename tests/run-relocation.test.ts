@@ -4,7 +4,7 @@ import { cp, readFile, readdir } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
 import type { ReportRequest, RunManifest } from "../src/base/types.ts";
 import {
-  addSourceEvidence, auditRun, freezeRun, prepareRun,
+  addSourceEvidence, freezeRun, prepareRun,
   readingCheck, runStatus, searchSourceEvidence, updateChecklist, updateTraces,
   updateWorkItems
 } from "../src/run/run.ts";

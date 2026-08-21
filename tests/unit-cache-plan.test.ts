@@ -2,7 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { canonicalJson, sha256, stableJson } from "../src/base/util.ts";
 import { buildFixturePlan } from "../src/report/fixture-plan.ts";
-import { FULL_OBLIGATION_SCOPE } from "../src/report/obligation-scope.ts";
 import { PLAN_BUDGET_TABLE } from "../src/report/plan-budget.ts";
 import { parsePlanProposal, type PlanProposal, type ProposedUnit } from "../src/report/plan-proposal.ts";
 import {

@@ -6,6 +6,7 @@
     "moduleResolution": "NodeNext",
     "types": ["node"],
     "strict": true,
+    "noUnusedLocals": true,
     "noEmit": true,
     "allowImportingTsExtensions": true,
     "skipLibCheck": true

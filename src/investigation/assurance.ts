@@ -428,4 +428,3 @@ function featureScopeKey(subject: string, aliases: string[]): string { return sh
 
 function error(document: string, message: string): AuditFinding { return { level: "error", document, message }; }
 
-function warning(document: string, message: string): AuditFinding { return { level: "warning", document, message }; }

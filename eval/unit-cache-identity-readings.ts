@@ -36,7 +36,6 @@
 // of the packet renderer answers "which sentence".
 
 import { join } from "node:path";
-import { assertNever } from "../src/base/artifact-result.ts";
 import type { DocumentPlan, EvidenceItem, RunManifest } from "../src/base/types.ts";
 import { canonicalJson, readJson, sha256 } from "../src/base/util.ts";
 import { featureKeyOf } from "../src/report/authoring-packet.ts";
@@ -70,7 +69,7 @@ import {
   type RunEvidenceReach,
   type UnitPacketInput
 } from "../src/report/unit-packet.ts";
-import { UNIT_IDENTITY_KEY_VERSIONS, unitIdentityOf, type UnitIdentity, type UnitIdentityKeyVersions } from "../src/report/unit-cache-identity.ts";
+import { UNIT_IDENTITY_KEY_VERSIONS, unitIdentityOf, type UnitIdentityKeyVersions } from "../src/report/unit-cache-identity.ts";
 import { describeAuthorship, type UnitAuthorship } from "../src/report/unit-provenance.ts";
 import {
   deriveUnitCachePlan,

@@ -195,7 +195,7 @@ test("a supplement re-freezes N to immutable N+1, pins the prior digest and cons
   const refrozen = (await readTimeline(runDir)).filter((event) => event.action === "investigation.refrozen").at(-1);
   assert.equal(refrozen?.data?.epoch, 1);
   assert.equal(refrozen?.data?.knowledgeDigest, manifest.knowledgeDigest, "the causal timeline anchors the epoch head digest");
-  const evidenceId = await firstEvidence(runDir);
+  await firstEvidence(runDir);
   // Epoch 1 needs its own plan: the catalog projects the epoch, so a re-freeze is re-planned, not inherited.
   await installFixturePlan(runDir);
   const audit = await auditRun(runDir);
@@ -248,8 +248,8 @@ test("a supplement reason without a work item — and a work item without a reas
 // --- Group 4: audit consistency ---
 
 test("a frozen run with a recorded supplement audits without a frozen-knowledge error", async () => {
-  const { runDir, manifest } = await prepareRun(await overviewRequest());
-  const evidenceId = await firstEvidence(runDir);
+  const { runDir } = await prepareRun(await overviewRequest());
+  await firstEvidence(runDir);
   await disposeAllWorkItems(runDir);
   assert.equal((await freezeRun(runDir)).frozen, true);
   await installFixturePlan(runDir);
@@ -261,7 +261,7 @@ test("a frozen run with a recorded supplement audits without a frozen-knowledge 
 });
 
 test("changing a work item's disposition after freeze without a supplement fails audit", async () => {
-  const { runDir, manifest } = await prepareRun(await overviewRequest());
+  const { runDir } = await prepareRun(await overviewRequest());
   const evidenceId = await firstEvidence(runDir);
   await disposeAllWorkItems(runDir);
   assert.equal((await freezeRun(runDir)).frozen, true);
