@@ -1,4 +1,34 @@
-import { basename, dirname, join, relative, resolve } from "node:path";
+/**
+ * WHAT THIS FILE IS AFTER 57B-480: the template half — `referencePath` and `makeDocumentPlan`, which are the
+ * bound contract's per-section REQUIREMENT producers (`bound-run-contract.ts` materializes one requirement row per
+ * template section, and layer 6 declares each row as a `knowledge-requirement`). They are deliberately NOT retired.
+ *
+ * AND ONE STRANDED EXPORT, NAMED SO THE NEXT SLICE DOES NOT HAVE TO REDISCOVER IT: `outputFrontMatter` (with its
+ * `yamlScalar` helper) is still here, and its only caller is `assembleRun` — which the CLI already refuses ("the
+ * section assemble is retired"). So it is reachable from tests and from nothing else, and it goes with `assembleRun`
+ * in the next PR of this family. It is NOT a requirements producer; do not read the paragraph above as covering it.
+ *
+ * THE AUTHORING PROMPT IS GONE, AND ONE COVERAGE DENOMINATOR WENT WITH IT. `authorPrompt` carried the instruction
+ * that a `detailed` feature document account for the consumable fact pack item by item. Stated precisely, because
+ * the next reader has to be able to tell a decision from an oversight:
+ *
+ *   - The six STRUCTURAL fact-pack categories (entrypoints, entities, states, config-keys, jobs, external-calls)
+ *     have NO coverage denominator on the unit path. They never became obligations: `logic-workitems.ts` promotes
+ *     only the rescued `logic` items — the ones its own header says "the six structural fact-pack categories do
+ *     not name" — and `read-obligations.ts` derives READ obligations from the pack, not report-coverage ones.
+ *   - The frozen-evidence coverage account IS on the unit path, in the appendix packet, WITH counts:
+ *     `evidenceReachOf` (`unit-packet.ts:180`) returns `frozenEvidenceIds` / `boundEvidenceIds` / `unbound`, the
+ *     last as whole records and never capped. So the reduction is one specific denominator, not the account.
+ *   - The enforcement half, `auditDetailedFeatureSection` (`section-audit.ts:258`), dies with 57B-481. Same
+ *     reduction, other half.
+ *
+ * RESTORING IT NEEDS A DENOMINATOR FROM A LOWER LEDGER FIRST: "visible consumable fact-pack item" has to be
+ * defined against a recorded fact ledger before anything can be held to covering them all. That is why this was
+ * ruled an accepted, named reduction rather than a blocker — it is the same family as the incomplete fact-side
+ * denominators tracked separately, and it moves no ledger byte and no digest.
+ */
+
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Audience, DocumentPlan, RunManifest } from "../base/types.ts";
 import type { PlannedDocument } from "../contract/bound-run-contract.ts";
@@ -59,44 +89,4 @@ export function outputFrontMatter(document: DocumentPlan, manifest: RunManifest,
 
 function yamlScalar(value: string): string {
   return JSON.stringify(value);
-}
-
-export function authorPrompt(runDir: string, document: DocumentPlan, language: string, detailLevel: "standard" | "detailed"): string {
-  const templatePath = relative(runDir, document.templatePath).replaceAll("\\", "/");
-  const contextPath = relative(runDir, document.contextPath).replaceAll("\\", "/");
-  return `# Excavator authoring task
-
-Write **${document.id}** in **${language}** at **${detailLevel}** detail level. All instructions and report contracts are English; translate the visible report naturally into the requested output language.
-
-Read these inputs before writing:
-
-- Report contract: \`${templatePath}\`
-- Document instructions: \`${contextPath}\`
-- Shared project context: \`context/shared.md\`
-- Bounded layer-5 census and ReadSpec view: \`context/workset.md\`
-- Frozen investigation view: \`context/authoring/${document.id}.md\`
-
-The frozen investigation view is written by freeze and is the only model-facing evidence/work-item view. Read it before writing: it lists, per section, the work items, deterministic facts and frozen evidence that section must cover — cover each listed item or state explicitly why it does not apply. Do not load \`evidence.json\`, its shards/content store, \`workitems.json\`, \`traces.json\`, \`checklist.json\` or \`knowledge.json\` into the model context; those are authoritative machine/audit storage.
-
-For a feature document, the document instructions identify the reusable feature-scope file under \`context/features/\`.
-
-Use the report contract's chapter order exactly. In section 1, begin with one localized level-one report title that identifies the audience, then write the localized level-two chapter heading. Write one section at a time and checkpoint it immediately. Every checkpoint must include a claims JSON file: every substantive sentence or table row is bound to an exact statement in the section; supported claims cite evidence IDs that also appear in that section's collapsed evidence block. Claims also list the work-item IDs they satisfy. Every material work item required for this document must be represented by at least one claim in its assigned section and must reuse that work item's evidence or trace.
-
-When the requested detail level above is \`detailed\`, do not compress distinct rules, states, types, thresholds, entry points, records, jobs or side effects into a few summary sentences. Build the section inventory first, then enumerate every material distinct item supported by the prepared evidence. Use the contract-required tables and Mermaid diagrams. The feature context is a candidate corpus, not a finished summary.
-${factPackInstructions(document, detailLevel)}
-The investigation is frozen before authoring: the bounded authoring view and prepared context are the model input, while the machine artifacts remain the audit authority. Consume the view as written; do not re-investigate to fill a gap. When a claim seems to lack evidence, first decide whether it is an expression problem — the evidence you need is almost always already present under a different framing. Only when the frozen knowledge is genuinely incomplete, open a supplement: re-run the relevant Excavator command with \`--supplement-reason "<why the frozen knowledge is insufficient>" --supplement-workitem <work item id>\`, then run \`excavator freeze --run ${runDir}\` again to seal the new epoch and refresh this packet before authoring resumes. Ensure each material item appears in the report.
-
-Describe current state and current problems only. Do not provide recommendations, remediation, future architecture, migration steps, or action items. A target problem must be attributable to the target snapshot. Never place CodeGraph/Excavator limitations, unresolved graph references, source fallback, provider coverage, analysis budgets or static-review limitations in a target risk/current-problem section; put them only in the coverage chapter or an Excavator validation report.
-`;
-}
-
-/**
- * Detailed feature chapters must account for the prepared consumable fact-pack view item by item.
- * The machine pack remains the audit denominator; co-located rows are not authoring claims.
- */
-function factPackInstructions(document: DocumentPlan, detailLevel: "standard" | "detailed"): string {
-  if (document.kind !== "feature" || detailLevel !== "detailed") return "";
-  return `
-The feature scope file carries the bounded \`## Fact pack\` model view and its source digest. The corresponding machine pack remains audit storage and must not be read directly by the author. Authoring consumes only rows marked \`seeded\` or \`retained\`; \`co-located\` and \`not-applicable\` rows are audit context, not facts to repeat. The categories are \`entrypoints\`, \`entities\`, \`states\`, \`config-keys\`, \`jobs\`, \`external-calls\` and \`logic\` (the business and decision functions inside the boundary that the structural categories do not already name). The enumerating chapters — entry points, rules and states, data, configuration and integrations — must cover every visible consumable fact-pack item of the matching category: each item either appears in that chapter, or is folded into an explicitly counted group such as "N further items of kind X". Cite the category's \`FACT-*\` evidence id in the chapter that covers it. The consumable \`logic\` items belong to the flow, decision and authorization chapters; a consumable logic item carrying a \`signal\` (rescued into the boundary by structural analysis) must be dispositioned individually — named and placed where its behavior belongs — never folded into an aggregate count. Each such rescued \`logic\` function is also a \`logic-disposition\` work item in \`workitems.json\` (id \`feature:<key>:logic:<name>@<path>:<line>\`, no pinned section): dispose it before freeze, then satisfy it with at least one visible claim that DESCRIBES THE BUSINESS BEHAVIOR and cites the deciding source window, listing the work-item id in the claim's \`workItemIds\`. The prose need not repeat the symbol name — identifiers stay in the collapsed evidence block or coverage chapter, and covering the behavior counts because the ledger binds through the cited evidence, not the name. A genuinely boundary-noise item is disposed \`not-applicable\` with a reason; one claim may batch-dispose several such n/a items by listing them all in \`workItemIds\`. When source reading contradicts a consumable fact-pack item, say so explicitly and state which reading the source supports; a fact-pack category marked truncated or view-bounded must be reported as incomplete rather than presented as a full inventory. Silently omitting a visible consumable item is a defect.
-`;
 }

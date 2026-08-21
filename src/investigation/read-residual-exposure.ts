@@ -4,7 +4,7 @@
 // was mechanically verified: the `retained`/`named`/`in-directory` partitions are 92.9% real misses, while
 // `unclassified` is 84.1% denominator noise. But measured on the real run that produced those numbers, the
 // partition reached nobody who could use it: `read residual`, `not opened` and `阅读义务` appear ZERO times
-// in that run's `prompts/` and `context/authoring/`, while the condition inventory — which IS rendered into
+// in that run's `prompts/` (retired in 57B-480) and `context/authoring/`, while the condition inventory — which IS rendered into
 // the packet — appears in both. The only channel was two aggregate lines on freeze's stdout plus a pointer
 // to a JSON file. A reading nobody reads changes no reading.
 //

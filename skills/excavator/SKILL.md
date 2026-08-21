@@ -48,9 +48,11 @@ Optional:
 
 Treat the target as read-only. Do not run target scripts, install target dependencies, start services, execute migrations, connect to databases, or display secret configuration values.
 
-All Skill instructions, report templates, prepared prompts, and tool-facing investigation instructions are written in English. The requested language controls only the generated report content, headings, diagram labels, and visible evidence-level wording.
+All Skill instructions, report templates, rendered planner and unit packets, and tool-facing investigation instructions are written in English. The requested language controls only the generated report content, headings, diagram labels, and visible evidence-level wording.
 
 ## Architecture boundary
+
+**Machine artifacts are not model input.** `evidence.json` and its shards/content store, `workitems.json`, `traces.json`, `checklist.json`, `knowledge.json` and the machine fact pack (`context/features/<feature>.factpack.json`) are authoritative machine and audit storage: read them with Excavator commands, never by loading them into model context. What a unit is written from is its packet (`excavator plan-packet --run <run-dir> --unit <id>`), which renders every bound record in full and never truncates — so there is no gap in it that reaching for the raw files would close. Paths to those files appear in this document so you can recognise them, not so you can open them. (This rule used to live in the generated authoring prompt, which 57B-480 retired along with the section authoring path; it is stated here because it is a property of the boundary, not of that prompt.)
 
 Source code is the required and complete reviewed artifact. CodeGraph is an optional compressed navigation index. Normal report generation must not install CodeGraph, run its installer, or create an index automatically.
 
@@ -148,7 +150,6 @@ The prepare command creates a run under the target's own directory inside the wo
 ├── knowledge.json              # frozen investigation record (written by freeze)
 ├── timeline.jsonl
 ├── checklist.json              # compatibility view of workitems
-├── prompts/
 ├── sections/
 ├── claims/
 ├── history/

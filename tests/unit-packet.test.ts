@@ -317,6 +317,16 @@ test("the packet prints the grounding rule for every status, verbatim from the a
   assert.ok(packet.markdown.includes("`plan/catalog.json` records every unit's scope by work item id"),
     "a divided topic's partition must be addressable from the packet, not merely asserted");
 
+  // MIGRATED FROM THE RETIRED AUTHORING PROMPT (57B-480). `tests/language.test.ts` asserted that the generated
+  // prompt told the author which language to write in (`Write **<doc>** in **zh-CN**`). The unit packet carries
+  // that instruction instead — it is the only thing an author of a unit reads — but nothing asserted it, so the
+  // capability would have survived the prompt's deletion with no cover. The value comes from the RECORDED request
+  // row, the same authority the assembled front matter uses, and the tag shape is checked too: a regression that
+  // rendered `undefined` would otherwise print a line and pass.
+  const requested = mini.requests.requests.find((row) => row.documentId === "overview-product")!.request;
+  assert.match(requested.language, /^[a-z]{2}(-[A-Za-z]{2,4})?$/, "the fixture must record a real language tag for this to mean anything");
+  assert.ok(packet.markdown.includes(`- language: ${requested.language};`), "the packet must tell the author which language to write in");
+
   // And the non-owner's header says the same thing with its own numbers - a zero it owns, stated rather than absent.
   const dimension = miniPacket(mini, LEAF_DIMENSION);
   assert.match(dimension.markdown, /- this document reaches 3 material obligation\(s\); THIS unit owns 0 of them, and grounds exactly those\./);
