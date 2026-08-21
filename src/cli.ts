@@ -443,7 +443,7 @@ function defaultBudgets(docs: Pick<ReportRequest, "overviewAudiences" | "feature
 
 function budgetOverrides(args: Record<string, string>): Partial<BudgetConfig> {
   const mapping: Record<string, keyof BudgetConfig> = {
-    prepareMs: "prepareMs", authorMs: "authorMs", maxGraphQueries: "maxGraphQueries", maxSourceWindows: "maxSourceWindows",
+    prepareMs: "prepareMs", maxGraphQueries: "maxGraphQueries", maxSourceWindows: "maxSourceWindows",
     maxSourceCharacters: "maxSourceCharacters", maxFiles: "maxFiles", maxFeatureNodes: "maxFeatureNodes", maxExpansionDepth: "maxExpansionDepth"
   };
   const result: Partial<BudgetConfig> = {};
@@ -1066,7 +1066,7 @@ const COMMAND_HELP: Record<string, CommandHelp> = {
     synopsis: "freeze --run <dir>",
     flags: ["--run <dir>          Run directory (required)"],
     example: "excavator freeze --run <run>",
-    notes: "On success, also renders per-document authoring packets under context/authoring/, including a reading-boundary block naming what the investigation never opened."
+    notes: "The reading boundary — what the investigation never opened — is reported by `excavator reading --run <dir>` before freeze, and by the coverage companion after it. Freeze itself writes only the sealed epoch; it no longer renders a per-document authoring packet (57B-480)."
   },
   source: {
     synopsis: "source --run <dir> --path <file> --start <n> --end <n> --reason <text> [--supplement-reason <text> --supplement-workitem <id>]",

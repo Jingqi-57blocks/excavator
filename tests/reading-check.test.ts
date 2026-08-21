@@ -147,20 +147,17 @@ test("a run with no denominator is told why, and nothing is written", async () =
   assert.equal(await readFile(join(runDir, "timeline.jsonl"), "utf8"), timelineBefore);
 });
 
-// The end-to-end leg: without it, the packet renderer can be perfect while freeze never hands it anything.
-test("freeze writes the block into the packet on disk", async () => {
-  const { runDir } = await prepareLegacyReadingRun();
-  await disposeAllWorkItems(runDir);
-  assert.equal((await freezeRun(runDir)).frozen, true);
-  const manifest = JSON.parse(await readFile(join(runDir, "run.json"), "utf8")) as RunManifest;
-  const packet = await readFile(join(runDir, "context", "authoring", `${manifest.documents[0].id}.md`), "utf8");
-  assert.match(packet, /## Reading boundary — feature-associated decision code never opened/);
-  assert.match(packet, /3 functions across 1 file, 24 unread lines — retained 3, named 0, in-directory 0\./);
-  assert.match(packet, /`settleLeaveBalance`/);
-  const readingBoundary = packet.slice(packet.indexOf("## Reading boundary"));
-  assert.doesNotMatch(readingBoundary, /computeOvertimeCap/, "the read residual counts the unclassified partition but does not expand it; layer-6 obligations may name it elsewhere");
-  assert.match(packet, /A further 1 never-opened function \(7 line\(s\)\)/);
-});
+// THE END-TO-END LEG LOST ITS DESTINATION (57B-480). This asserted that freeze handed the read residual to the
+// per-document authoring packet and that the block landed on disk; freeze no longer renders that packet, so there
+// is nothing to hand it to. The renderer itself is still covered above (this file builds packets directly), and
+// the residual still reaches a reader by two routes: `excavator reading` NAMES the never-opened functions before
+// freeze (the cases above assert exactly that), and after freeze the coverage companion carries the read-obligation
+// family with its own denominator (`coverage-companion.ts:220`; asserted at `unit-assemble.test.ts:260` and pinned
+// in `eval/golden/unit-assemble-canonical.txt:94`).
+//
+// WHAT IS SMALLER, STATED PLAINLY: the companion's read-residual entry carries counts and unread-line totals, not
+// the function NAMES the packet block listed. So post-freeze naming of never-opened functions is gone; pre-freeze
+// naming is not. That is a named reduction, reported rather than papered over.
 
 test("the check is read-only: it opens no window and needs no supplement after freeze", async () => {
   const { runDir } = await prepareLegacyReadingRun();

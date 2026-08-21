@@ -13,7 +13,6 @@ export function deriveDefaultBudgets(documentCount: number, featureCount: number
   const features = Math.max(0, Math.trunc(featureCount));
   return {
     prepareMs: Math.min(MAX_PREPARE_MS, 180_000 + 120_000 * features),
-    authorMs: 2_400_000,
     maxGraphQueries: 60 + 80 * features,
     maxSourceWindows: 150 + 150 * documents,
     maxSourceCharacters: 300_000 + 700_000 * documents,

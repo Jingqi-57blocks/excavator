@@ -116,11 +116,6 @@ test("freeze writes epoch 0, stamps the manifest and refuses a re-freeze with no
   assert.equal(frozen.stage, "investigation");
   assert.equal((frozen.data as Record<string, unknown>).knowledgeDigest, persisted.knowledgeDigest);
 
-  // Freeze renders one authoring packet per document; the frozen event records how many.
-  assert.equal((frozen.data as Record<string, unknown>).authoringPackets, manifest.documents.length);
-  for (const document of manifest.documents) {
-    assert.equal(await exists(join(runDir, "context", "authoring", `${document.id}.md`)), true, `packet missing for ${document.id}`);
-  }
 
   await assert.rejects(() => freezeRun(runDir), /no new supplement to seal/);
 });
@@ -200,9 +195,6 @@ test("a supplement re-freezes N to immutable N+1, pins the prior digest and cons
   const refrozen = (await readTimeline(runDir)).filter((event) => event.action === "investigation.refrozen").at(-1);
   assert.equal(refrozen?.data?.epoch, 1);
   assert.equal(refrozen?.data?.knowledgeDigest, manifest.knowledgeDigest, "the causal timeline anchors the epoch head digest");
-  for (const document of manifest.documents) {
-    assert.match(await readFile(join(runDir, "context", "authoring", `${document.id}.md`), "utf8"), /Sealed knowledge epoch: 1/);
-  }
   const evidenceId = await firstEvidence(runDir);
   // Epoch 1 needs its own plan: the catalog projects the epoch, so a re-freeze is re-planned, not inherited.
   await installFixturePlan(runDir);

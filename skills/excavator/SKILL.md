@@ -141,7 +141,6 @@ The prepare command creates a run under the target's own directory inside the wo
 ```text
 <workdir>/<project>[-<hash>]/runs/<run-id>/
 ├── context/
-│   └── authoring/            # per-document authoring packets (written by freeze)
 ├── evidence.json
 ├── analysis-scope.json
 ├── provider-status.json
@@ -228,7 +227,7 @@ excavator freeze --run <run-dir>
 
 Run `reading` first because freeze changes the price: before it, a window is ordinary investigation; after it, every window is a supplement charged to a work item. Whatever you decide to leave unread is a legitimate outcome — the point of asking beforehand is that it becomes a decision rather than an accident.
 
-Freeze is a deterministic gate: it admits the run only when the investigation would already pass audit — every required item disposed, every `found` material flow carrying a verified trace, the evidence catalog and its digest intact, and the snapshot unchanged. On a non-zero exit it reports the exact gaps — items still pending, flows still missing a trace — so continue investigating and freeze again. The first success writes immutable epoch 0 at `knowledge.json`; each later success writes epoch N under `knowledge/epochs/epoch-N.json`, pins the previous epoch digest, and never changes earlier bytes. Supplements append separately to `knowledge/supplements.json`. Every success renders an epoch-bound authoring packet per document under `context/authoring/<document-id>.md`: a deterministic, model-free view of the frozen knowledge organized by report section, listing the work items, deterministic facts and evidence excerpts each section must cover, and closing with the reading boundary — the feature-associated decision code the investigation never opened.
+Freeze is a deterministic gate: it admits the run only when the investigation would already pass audit — every required item disposed, every `found` material flow carrying a verified trace, the evidence catalog and its digest intact, and the snapshot unchanged. On a non-zero exit it reports the exact gaps — items still pending, flows still missing a trace — so continue investigating and freeze again. The first success writes immutable epoch 0 at `knowledge.json`; each later success writes epoch N under `knowledge/epochs/epoch-N.json`, pins the previous epoch digest, and never changes earlier bytes. Supplements append separately to `knowledge/supplements.json`. Freeze writes the sealed epoch and nothing else for the author: the bounded, model-free view one authoring unit is written from is rendered on demand by `excavator plan-packet --run <run-dir> --unit <unit-id>`, from the recorded plan.
 
 Redaction of secrets is part of that version: when it changes, every existing run drops out of the current assurance generation and is grandfathered, so a run must be re-prepared to be held to the strict checks again. Its recorded evidence is never rewritten.
 

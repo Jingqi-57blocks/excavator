@@ -57,7 +57,24 @@ export interface ReportRequest {
 
 export interface BudgetConfig {
   prepareMs: number;
-  authorMs: number;
+  /**
+   * RETIRED (57B-480). Optional because archived requests and archived `run.json` files carry it; nothing reads
+   * it. This is a statement of what happened, not a judgement call:
+   *
+   *   - Its two executors were `checkpointSection` and `collectDrafts`, both deleted with the section authoring
+   *     chain. Since then `--author-ms` was accepted, written into `run.json`, and enforced by nothing.
+   *   - Even before that it had self-destructed: `beginDocument` was the only path that re-armed the timer, so
+   *     once `documents[].completedAt` was set, every later `checkpointSection` short-circuited the elapsed
+   *     recalculation permanently. Deleting `begin` left a budget that could not be enforced again.
+   *   - The unit path never had it. Its budget authority is the plan's BYTE budget (`plan/catalog.json`'s
+   *     `perUnitInputBytes` / document total, enforced by `unit-packet.ts`, which is both the measure and the
+   *     renderer). A wall-clock gate is the assertion shape this repository forbids: 57B-466 and 57B-474 are two
+   *     separate slices spent on wall-clock ratios that jittered under load.
+   *
+   * So no replacement is planned, and nothing new should read this field. It is kept only so a recorded request
+   * from before the retirement still parses.
+   */
+  authorMs?: number;
   maxGraphQueries: number;
   maxSourceWindows: number;
   maxSourceCharacters: number;

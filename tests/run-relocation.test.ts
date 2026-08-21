@@ -163,7 +163,6 @@ test("relocated run: freeze seals the copy's knowledge epoch", async () => {
     assert.equal(result.frozen, true, result.findings.map((finding) => `${finding.level}: ${finding.message}`).join("\n"));
   });
   assert.ok(await exists(join(runDir, "knowledge.json")));
-  assert.ok((await filesIn(join(runDir, "context", "authoring"))).length > 0);
   assert.equal(await exists(join(base.runDir, "knowledge.json")), false);
 });
 
