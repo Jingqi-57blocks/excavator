@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { join, resolve } from "node:path";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile, writeFile } from "node:fs/promises";
 import type { EvidenceItem, ReportRequest, SectionClaim } from "../src/base/types.ts";
 import { assembleRun, checkpointSection, prepareRun, updateChecklist } from "../src/run/run.ts";
 import { collectUnits } from "../src/report/unit-collect.ts";
@@ -155,6 +155,54 @@ test("audit --units exits non-zero on a violating written unit and zero once the
   // the reading altogether would leave an absent row and an exit code of 0, and a `notEqual` would pass on it.
   const passedReading = JSON.parse(passed.stdout) as { units: Array<{ unitId: string; verdict: { conclusion: string } }> };
   assert.equal(passedReading.units.find((row) => row.unitId === unitId)?.verdict.conclusion, "complete");
+});
+
+/**
+ * The retired section arms, as REFUSALS rather than silent fallthroughs.
+ *
+ * Every one of these invocations used to write: `begin` moved `manifest.state` and stamped `startedAt`,
+ * `checkpoint`/`draft` wrote a section and its claims, `collect`/`assemble` rewrote the manifest. So the property
+ * under test is not the wording — it is that the command line an operator still has in shell history now changes
+ * nothing on disk. A future edit that restored any arm, or that made `--units` optional again, would write here,
+ * and `run.json` is the witness those arms all touched.
+ */
+test("the retired section arms are named refusals that write nothing", async () => {
+  const { runDir, manifest } = await prepareRun(await request());
+  const runJsonPath = join(runDir, "run.json");
+  const before = await readFile(runJsonPath, "utf8");
+  const documentId = manifest.documents[0].id;
+  // A REAL file, not a missing path: with a missing `--file` every arm would fail on the read no matter what the
+  // dispatch did, and the "writes nothing" half of this test would be satisfied for the wrong reason.
+  const sectionFile = join(await tempDir(), "section.md");
+  await writeFile(sectionFile, `## ${manifest.documents[0].sections[0].title}\n\nThe system records each incoming request. \`fact\`\n`);
+
+  // Retired outright: the command is gone from dispatch, so it cannot be reached by any flag combination.
+  for (const gone of [["begin", "--run", runDir, "--document", documentId], ["claims", "scaffold", "--run", runDir]]) {
+    const result = await cli(gone);
+    assert.equal(result.code, 1, result.stdout);
+    assert.match(result.stderr, new RegExp(`Unknown command: ${gone[0]}`));
+  }
+
+  // The section KEYING is retired on the two per-unit writers: the refusal names the keying, not just the flag,
+  // because an operator repeating an old command needs to be told the keying went away.
+  for (const command of ["checkpoint", "draft"]) {
+    const keyed = await cli([command, "--run", runDir, "--document", documentId, "--section", "1", "--file", sectionFile]);
+    assert.equal(keyed.code, 1, keyed.stdout);
+    assert.match(keyed.stderr, new RegExp(`excavator ${command} requires --unit <id>`));
+    assert.match(keyed.stderr, /section keying \(--document <id> --section <n>\) is retired/);
+  }
+
+  // The run-wide arms: `--units` is required because there is no second arm to fall back to.
+  for (const command of ["collect", "resume", "assemble"]) {
+    const bare = await cli([command, "--run", runDir]);
+    assert.equal(bare.code, 1, bare.stdout);
+    assert.match(bare.stderr, new RegExp(`excavator ${command} requires --units`));
+  }
+
+  // Nothing was written by any of the seven refusals.
+  assert.equal(await readFile(runJsonPath, "utf8"), before, "a refused command rewrote run.json");
+  assert.deepEqual(await readdir(join(runDir, "sections", documentId)).catch(() => []), [], "a refused command wrote a section");
+  assert.deepEqual(await readdir(join(runDir, "reports")), [], "a refused command wrote a report");
 });
 
 test("subcommand --help prints usage and does not execute", async () => {
