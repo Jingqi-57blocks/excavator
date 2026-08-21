@@ -2,23 +2,21 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
 import { readFile, writeFile } from "node:fs/promises";
-import type { EvidenceItem, InvestigationPlan, ReportRequest, RunManifest, SectionClaim, TraceCatalog, TraceRecord } from "../src/base/types.ts";
-import { assembleRun, auditRun, checkpointSection, freezeRun, prepareRun, updateTraces } from "../src/run/run.ts";
-import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, installFixturePlan, tempDir } from "./helpers.ts";
+import type { EvidenceItem, InvestigationPlan, ReportRequest, TraceCatalog, TraceRecord } from "../src/base/types.ts";
+import { auditRun, freezeRun, prepareRun, updateTraces } from "../src/run/run.ts";
+import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, tempDir } from "./helpers.ts";
 
-// The freeze-before-authoring HARD gate (assurance v3), AUDIT SIDE ONLY. The gate has two enforcement points
-// and they move in lock-step: one refuses to START authoring an unfrozen current-version run, and the full
-// audit fails a run that was authored without — or before — an `investigation.frozen` event. Only the second
-// is tested here. The first used to be `begin`, retired with the section authoring chain in 57B-480; it now
-// lives on `draft --unit` / `collect --units` and is tested in `tests/unit-freeze-gate.test.ts` — which is why
-// the cases below start at ③: ① and ② moved there rather than disappearing, and the numbering is left alone so
-// the two files can still be read against each other.
-// Both points are version-gated, so a run stamped under a pre-v3 version is grandfathered. A pre-v3 literal
-// ("assurance-v2-redaction-v4") stands in for such a run: it is not the current ASSURANCE_VERSION, so
-// `runUsesCurrentAssurance` returns false for it.
+// What is left of the freeze HARD gate's own test file: the FROZEN-SET reconciliation — deleting a frozen work
+// item or trace after freeze must fail the audit, instead of passing as a silent deletion.
+//
+// The gate's other two enforcement points moved out with the section chain (57B-480), and neither disappeared:
+//   - the write-side refusal (`begin` refused an unfrozen run, ①②) is now `draft --unit` / `collect --units`,
+//     tested in `tests/unit-freeze-gate.test.ts`;
+//   - the audit-side order gate (③④) and its scoped downgrade (⑤) are in `tests/unit-run-audit.test.ts`, which
+//     covers all three of `auditFreezeOrder`'s findings plus its two silent paths — strictly more than ③④⑤ did.
+// The surviving case keeps its ⑥ so the two files can still be read against each other.
 
 const BUDGETS = { prepareMs: 30_000, authorMs: 30_000, maxGraphQueries: 40, maxSourceWindows: 50, maxSourceCharacters: 120_000, maxFiles: 10_000, maxFeatureNodes: 80, maxExpansionDepth: 2 };
-const LEGACY_VERSION = "assurance-v2-redaction-v4";
 
 async function overviewRequest(): Promise<ReportRequest> {
   const target = await copyFixture();
@@ -28,88 +26,9 @@ async function overviewRequest(): Promise<ReportRequest> {
   return { target, codegraph, workdir, language: "zh-CN", detailLevel: "standard", overviewAudiences: ["product"], features: [], budgets: BUDGETS };
 }
 
-function sectionText(title: string, index: number, evidenceId: string): string {
-  return `## ${title}\n\n第 ${index} 节记录当前状态。\`事实\`\n\n<details><summary>依据</summary>\n\n- ${evidenceId}\n\n</details>\n`;
-}
-function sectionClaims(index: number, evidenceId: string): SectionClaim[] {
-  return [{ id: `C-${index}`, marker: "fact", statement: `第 ${index} 节记录当前状态。`, evidenceIds: [evidenceId], confidence: "high", status: "verified" }];
-}
-async function firstEvidence(runDir: string): Promise<string> {
-  const catalog = JSON.parse(await readFile(join(runDir, "evidence.json"), "utf8")) as { evidence: EvidenceItem[] };
-  return catalog.evidence.find((item) => item.kind === "source")?.id ?? catalog.evidence[0].id;
-}
 async function readPlan(runDir: string): Promise<InvestigationPlan> {
   return JSON.parse(await readFile(join(runDir, "workitems.json"), "utf8")) as InvestigationPlan;
 }
-async function readManifest(runDir: string): Promise<RunManifest> {
-  return JSON.parse(await readFile(join(runDir, "run.json"), "utf8")) as RunManifest;
-}
-async function downgradeToLegacy(runDir: string): Promise<void> {
-  const manifest = await readManifest(runDir);
-  manifest.assuranceVersion = LEGACY_VERSION;
-  await writeFile(join(runDir, "run.json"), JSON.stringify(manifest, null, 2));
-}
-async function authorEvery(runDir: string, manifest: RunManifest, evidenceId: string): Promise<void> {
-  const document = manifest.documents[0];
-  for (const section of document.sections) await checkpointSection(runDir, document.id, section.index, sectionText(section.title, section.index, evidenceId), sectionClaims(section.index, evidenceId));
-}
-
-// --- ③ authoring without freezing fails the full audit's order gate; downgrading clears it ---
-
-test("a current-version run authored without freezing fails the audit order gate; a downgrade clears it", async () => {
-  const { runDir, manifest } = await prepareRun(await overviewRequest());
-  const evidenceId = await firstEvidence(runDir);
-  // Never freeze: checkpoint straight onto an unfrozen run, which is what the audit-side gate has to catch.
-  await authorEvery(runDir, manifest, evidenceId);
-  await disposeAllWorkItems(runDir);
-  await assembleRun(runDir);
-
-  const current = await auditRun(runDir);
-  assert.ok(
-    current.findings.some((finding) => finding.level === "error" && finding.document === "freeze"),
-    JSON.stringify(current.findings, null, 2)
-  );
-
-  await downgradeToLegacy(runDir);
-  const legacy = await auditRun(runDir);
-  assert.ok(!legacy.findings.some((finding) => finding.document === "freeze"), JSON.stringify(legacy.findings, null, 2));
-});
-
-// --- ④ freeze is version-agnostic and permits a late freeze, but the audit still fails the order gate ---
-
-test("freezing after a section is already authored succeeds yet still fails the audit order gate", async () => {
-  const { runDir, manifest } = await prepareRun(await overviewRequest());
-  const evidenceId = await firstEvidence(runDir);
-  const document = manifest.documents[0];
-  // Author section 1 before freezing — the write freeze is meant to forbid.
-  await checkpointSection(runDir, document.id, 1, sectionText(document.sections[0].title, 1, evidenceId), sectionClaims(1, evidenceId));
-  await disposeAllWorkItems(runDir);
-  // Freeze itself is version-agnostic and permits a late freeze: it succeeds even though a section exists.
-  assert.equal((await freezeRun(runDir)).frozen, true);
-  await installFixturePlan(runDir);
-  for (const section of document.sections.slice(1)) await checkpointSection(runDir, document.id, section.index, sectionText(section.title, section.index, evidenceId), sectionClaims(section.index, evidenceId));
-  await assembleRun(runDir);
-
-  const audit = await auditRun(runDir);
-  assert.ok(
-    audit.findings.some((finding) => finding.level === "error" && finding.document === "freeze" && /before the investigation was frozen/.test(finding.message)),
-    JSON.stringify(audit.findings, null, 2)
-  );
-});
-
-// --- ⑤ a scoped single-document audit downgrades the order violation to advisory ---
-
-test("a scoped single-document audit downgrades the freeze-order violation to a warning", async () => {
-  const { runDir, manifest } = await prepareRun(await overviewRequest());
-  const evidenceId = await firstEvidence(runDir);
-  const document = manifest.documents[0];
-  await authorEvery(runDir, manifest, evidenceId);
-
-  const scoped = await auditRun(runDir, { documentId: document.id });
-  const freezeFindings = scoped.findings.filter((finding) => finding.document === "freeze");
-  assert.ok(freezeFindings.length >= 1, JSON.stringify(scoped.findings, null, 2));
-  assert.ok(freezeFindings.every((finding) => finding.level === "warning"), "scoped run-wide freeze-order findings are advisory");
-});
 
 // --- ⑥ deleting a frozen work item or trace after freeze fails the audit as a silent deletion ---
 

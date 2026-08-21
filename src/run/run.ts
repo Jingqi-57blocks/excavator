@@ -54,7 +54,9 @@ import { readFrozenFactPacks, readRequiredInvestigationResults, readRequiredObli
 import { resolveCrossRepoLinks } from "../crossrepo/resolve-links.ts";
 import { auditEvidenceStorage, evidenceStreamDigest, readEvidenceCatalog, writeEvidenceCatalog } from "../investigation/evidence-store.ts";
 
-export { assembleRun, checkpointSection, runStatus } from "./stages/authoring-stage.ts";
+// LONG-TERM, not transitional: `run.ts` is the module every command and test imports a stage function from,
+// and `status` is a live command. What is open is not this line but what `runStatus` REPORTS — see that file.
+export { runStatus } from "./stages/run-status-stage.ts";
 export { addSourceEvidence, searchCacheVersion, searchSourceEvidence, SOURCE_SEARCH_VERSION, updateChecklist, updateTraces, updateWorkItems, type SupplementInput } from "./stages/investigation-stage.ts";
 export { readingCheck } from "./stages/investigation-read-model.ts";
 export { freezeRun } from "./stages/freeze-stage.ts";

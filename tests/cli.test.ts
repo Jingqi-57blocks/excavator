@@ -3,11 +3,11 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { join, resolve } from "node:path";
 import { readdir, readFile, writeFile } from "node:fs/promises";
-import type { EvidenceItem, ReportRequest, SectionClaim } from "../src/base/types.ts";
-import { assembleRun, checkpointSection, prepareRun, updateChecklist } from "../src/run/run.ts";
+import type { ReportRequest, SectionClaim } from "../src/base/types.ts";
+import { prepareRun } from "../src/run/run.ts";
 import { collectUnits } from "../src/report/unit-collect.ts";
 import { draftUnit } from "../src/report/unit-draft.ts";
-import { copyFixture, createCodeGraphFixture, installFixturePlan, tempDir } from "./helpers.ts";
+import { copyFixture, createCodeGraphFixture, tempDir } from "./helpers.ts";
 import { claimFor, materialisedRun, unitDraftWithClaims } from "./unit-grounding-fixture.ts";
 
 async function cli(args: string[]): Promise<{ code: number | null; stdout: string; stderr: string }> {
@@ -41,11 +41,6 @@ async function request(): Promise<ReportRequest> {
   };
 }
 
-async function sourceEvidenceId(runDir: string): Promise<string> {
-  const catalog = JSON.parse(await readFile(join(runDir, "evidence.json"), "utf8")) as { evidence: EvidenceItem[] };
-  return catalog.evidence.find((item) => item.kind === "source")?.id ?? catalog.evidence[0].id;
-}
-
 function text(title: string, evidenceId: string): string {
   return `## ${title}\n\nThis section describes the current implementation. \`fact\`\n\n**What this means** It establishes context for the following sections. \`inferred\`\n\n<details>\n<summary>Evidence</summary>\n\n- ${evidenceId}\n\n</details>\n`;
 }
@@ -56,42 +51,6 @@ function claims(index: number, evidenceId: string): SectionClaim[] {
     { id: `claim-${index}-meaning`, marker: "inferred", statement: "It establishes context for the following sections.", evidenceIds: [evidenceId] }
   ];
 }
-
-test("audit CLI exits non-zero on errors and zero after complete assurance", async () => {
-  const { runDir, manifest } = await prepareRun(await request());
-  const id = await sourceEvidenceId(runDir);
-  const document = manifest.documents[0];
-
-  // Freeze-before-authoring order (assurance v3): dispose the checklist and freeze before any authoring.
-  const search = await cli(["search", "--run", runDir, "--terms", "__excavator_no_such_fixture_marker__", "--reason", "complete checklist search receipt", "--max-results", "10"]);
-  assert.equal(search.code, 0, search.stderr || search.stdout);
-  const searchId = JSON.parse(search.stdout).evidence.id;
-  const checklist = JSON.parse(await readFile(join(runDir, "checklist.json"), "utf8")) as { items: Array<{ id: string }> };
-  await updateChecklist(runDir, checklist.items.map((item) => ({
-    id: item.id,
-    verdict: "searched-not-found" as const,
-    material: false,
-    evidenceIds: [searchId],
-    searchScope: "all candidate source files in the immutable synthetic fixture snapshot"
-  })));
-  const frozen = await cli(["freeze", "--run", runDir]);
-  assert.equal(frozen.code, 0, frozen.stderr || frozen.stdout);
-  const planned = await cli(["plan", "--run", runDir, "--fixture-plan"]);
-  assert.equal(planned.code, 0, planned.stderr || planned.stdout);
-
-  // Authoring the sections without claims leaves the run un-auditable: the audit CLI exits non-zero.
-  for (const section of document.sections) await checkpointSection(runDir, document.id, section.index, text(section.title, id));
-  await assembleRun(runDir);
-  const failed = await cli(["audit", "--run", runDir]);
-  assert.equal(failed.code, 1, failed.stderr || failed.stdout);
-
-  // Re-checkpoint each section with its claims; the frozen, fully-authored run now audits clean.
-  for (const section of document.sections) await checkpointSection(runDir, document.id, section.index, text(section.title, id), claims(section.index, id));
-  await assembleRun(runDir);
-  const passed = await cli(["audit", "--run", runDir]);
-  assert.equal(passed.code, 0, passed.stderr || passed.stdout);
-});
-
 
 test("the audience parser accepts prd but the overview command rejects it (feature-only)", async () => {
   // prd is a valid audience the parser accepts; the Core guard rejects it only for overviews. Reaching the

@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { cp, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
-import { basename, join, relative, resolve } from "node:path";
-import type { ReportRequest, RunManifest, SectionClaim } from "../src/base/types.ts";
+import { cp, readFile, readdir } from "node:fs/promises";
+import { join, relative, resolve } from "node:path";
+import type { ReportRequest, RunManifest } from "../src/base/types.ts";
 import {
-  addSourceEvidence, assembleRun, auditRun, checkpointSection, freezeRun, prepareRun,
+  addSourceEvidence, auditRun, freezeRun, prepareRun,
   readingCheck, runStatus, searchSourceEvidence, updateChecklist, updateTraces,
   updateWorkItems
 } from "../src/run/run.ts";
@@ -150,109 +150,9 @@ async function onRelocatedRun(base: Base, commands: string[], operate: (runDir: 
   return runDir;
 }
 
-function sectionText(title: string, index: number, evidenceId: string): string {
-  return `## ${title}\n\n第 ${index} 节记录当前状态。\`事实\`\n\n<details><summary>依据</summary>\n\n- ${evidenceId}\n\n</details>\n`;
-}
-
-function sectionClaims(documentId: string, index: number, evidenceId: string): SectionClaim[] {
-  return [{ id: `C-${documentId}-${index}`, marker: "fact", statement: `第 ${index} 节记录当前状态。`, evidenceIds: [evidenceId], confidence: "high", status: "verified" }];
-}
-
 async function filesIn(dir: string): Promise<string[]> {
   return (await readdir(dir).catch(() => [] as string[])).sort();
 }
-
-// --- the authoring commands: where the split was found -------------------------------------------------
-
-test("relocated run: checkpoint writes the section and its claims into the copy, not the recorded location", async () => {
-  const base = await authoringBase();
-  const document = (await manifestOf(base.runDir)).documents[0]!;
-  const section = document.sections[0]!;
-  const runDir = await onRelocatedRun(base, ["checkpoint"], async (dir) => {
-    await checkpointSection(dir, base.documentId, section.index, sectionText(section.title, section.index, base.evidenceId), sectionClaims(base.documentId, section.index, base.evidenceId));
-  });
-
-  // The artifacts and the ledger that claims them are on the same side.
-  assert.deepEqual(await filesIn(join(runDir, "sections", base.documentId)), [basename(section.file)]);
-  assert.deepEqual(await filesIn(join(runDir, "claims", base.documentId)), [basename(section.claimsFile)]);
-  assert.equal((await manifestOf(runDir)).documents[0]!.sections[0]!.complete, true);
-  assert.equal((await manifestOf(runDir)).metrics.claims, 1);
-  // And the recorded location still has no section at all.
-  assert.deepEqual(await filesIn(join(base.runDir, "sections", base.documentId)), []);
-});
-
-test("relocated run: checkpoint archives the revision it replaces into the copy's history", async () => {
-  const base = await authoringBase();
-  const section = (await manifestOf(base.runDir)).documents[0]!.sections[0]!;
-  const runDir = await onRelocatedRun(base, ["checkpoint"], async (dir) => {
-    await checkpointSection(dir, base.documentId, section.index, sectionText(section.title, section.index, base.evidenceId), sectionClaims(base.documentId, section.index, base.evidenceId));
-    await checkpointSection(dir, base.documentId, section.index, `${sectionText(section.title, section.index, base.evidenceId)}\n修订。\n`, sectionClaims(base.documentId, section.index, base.evidenceId));
-  });
-  // A revision archive proves the second checkpoint SAW the first one: reading through the recorded path
-  // would have found no prior section in the copy and archived nothing.
-  assert.equal((await filesIn(join(runDir, "history", base.documentId))).length, 2);
-});
-
-test("relocated run: assemble and audit read the copy's own sections", async () => {
-  const base = await authoringBase();
-  const document = (await manifestOf(base.runDir)).documents[0]!;
-  const runDir = await onRelocatedRun(base, ["assemble", "audit"], async (dir) => {
-    for (const section of document.sections) {
-      await checkpointSection(dir, base.documentId, section.index, sectionText(section.title, section.index, base.evidenceId), sectionClaims(base.documentId, section.index, base.evidenceId));
-    }
-    await assembleRun(dir);
-    const { findings } = await auditRun(dir);
-    // The recorded location holds no sections, so reading through it would report every one as missing.
-    assert.deepEqual(findings.filter((finding) => /section .* file is missing/.test(finding.message)), []);
-  });
-  const reports = await filesIn(join(runDir, "reports"));
-  assert.ok(reports.some((name) => name.endsWith(".md")), reports.join(", "));
-  // The assembled report is the concatenation of the copy's sections, so it must carry all of them.
-  const report = await readFile(join(runDir, "reports", reports.find((name) => name.endsWith(".md"))!), "utf8");
-  assert.equal([...report.matchAll(/^##\s+/gm)].length, document.sections.length);
-});
-
-/**
- * The read side on its own. Every other fixture here writes first, and under the pre-fix behaviour the write
- * put the artifacts back at the recorded location — where the readers then happened to find them, so the
- * reads looked fine. Placing the sections in the copy BY HAND, with no command involved, is the only way to
- * ask the readers the real question: given a run that has been moved, do they read the run they were given?
- *
- * It gets its OWN base rather than the shared one, and that is not tidiness. Measured: on the shared base
- * this test passed against the pre-fix code, because an earlier fixture's checkpoint had (through the very
- * bug under test) written all ten sections into the recorded location, so the readers found them there. A
- * fixture that the defect itself repairs is not a fixture.
- */
-test("relocated run: assemble, audit and the claims total read the copy's own sections, not the recorded location", async () => {
-  const base = await buildAuthoring();
-  const runDir = await relocate(base);
-  const documentId = base.documentId;
-  const manifest = await manifestOf(runDir);
-  await mkdir(join(runDir, "sections", documentId), { recursive: true });
-  await mkdir(join(runDir, "claims", documentId), { recursive: true });
-  for (const section of manifest.documents[0]!.sections) {
-    await writeFile(join(runDir, "sections", documentId, basename(section.file)), sectionText(section.title, section.index, base.evidenceId));
-    await writeFile(join(runDir, "claims", documentId, basename(section.claimsFile)), `${JSON.stringify({ version: 2, documentId, section: section.index, claims: sectionClaims(documentId, section.index, base.evidenceId) }, null, 2)}\n`);
-    section.complete = true;
-  }
-  await writeFile(join(runDir, "run.json"), `${JSON.stringify(manifest, null, 2)}\n`);
-  const sections = manifest.documents[0]!.sections;
-
-  const before = await treeDigest(base.workdir);
-  const { findings } = await auditRun(runDir);
-  assert.deepEqual(findings.filter((finding) => /section .* file is missing/.test(finding.message)), [],
-    "audit read the sections through the path run.json records instead of through --run");
-  await assembleRun(runDir);
-  // `writeReportCompanions` and the `metrics.claims` total both walk the claims sidecars; a re-checkpoint of
-  // one section recomputes the total, which can only reach the full count if all of them resolve under --run.
-  await checkpointSection(runDir, documentId, 1, sectionText(sections[0]!.title, 1, base.evidenceId), sectionClaims(documentId, 1, base.evidenceId));
-  assert.equal((await manifestOf(runDir)).metrics.claims, sections.length);
-  const companion = JSON.parse(await readFile(join(runDir, "reports", "companions", `${documentId}.claims.json`), "utf8")) as { sections: unknown[] };
-  assert.equal(companion.sections.length, sections.length);
-  assert.deepEqual(changes(before, await treeDigest(base.workdir)), [],
-    "an operation on the relocated run wrote into the location run.json records, splitting the run in two");
-  for (const command of ["assemble", "audit", "checkpoint"]) exercised.add(command);
-});
 
 // --- the investigation commands ------------------------------------------------------------------------
 

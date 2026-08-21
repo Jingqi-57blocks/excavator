@@ -4,7 +4,7 @@ import { spawn } from "node:child_process";
 import { readFile, readdir } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import type { EvidenceItem, ReportRequest } from "../src/base/types.ts";
-import { assembleRun, checkpointSection, freezeRun, prepareRun } from "../src/run/run.ts";
+import { freezeRun, prepareRun } from "../src/run/run.ts";
 import { checkpointUnit } from "../src/report/unit-checkpoint.ts";
 import { assembleUnits } from "../src/run/stages/unit-assemble-stage.ts";
 import { exists, slugify } from "../src/base/util.ts";
@@ -188,17 +188,11 @@ test("SKILL.md run-directory layout matches what the CLI produces", async () => 
   assert.equal(dirname(dirname(runDir)), projectDir, `run directory is not under <workdir>/<project>: ${runDir}`);
   assert.equal(basename(dirname(runDir)), "runs", `run directory is not under a runs/ segment: ${runDir}`);
 
-  const document = manifest.documents[0];
-  const body = (title: string): string => `## ${title}\n\nThe system records each incoming request. \`fact\`\n`;
   // Dispose the plan and freeze so the run produces knowledge.json, the frozen record the tree documents.
   await disposeAllWorkItems(runDir);
   await freezeRun(runDir);
   // The plan precondition of authoring, derived from this run's own catalog (zero model calls).
   await installFixturePlan(runDir);
-  for (const section of document.sections) await checkpointSection(runDir, document.id, section.index, body(section.title));
-  // Re-checkpoint the first section so archiveCheckpoint writes the documented history/ directory.
-  await checkpointSection(runDir, document.id, document.sections[0].index, body(document.sections[0].title));
-  await assembleRun(runDir);
 
   // The UNIT lifecycle on the same run, so the tree this test drives is not only the section one:
   //   plan (already recorded above) -> checkpoint each unit -> re-draft one (writes units/<key>/history/)
