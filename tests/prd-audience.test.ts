@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import type { DocumentPlan, InvestigationPlan, InvestigationWorkItem, SectionClaim } from "../src/base/types.ts";
-import { auditWorkItemClaimCoverage } from "../src/report/section-audit.ts";
+import { auditWorkItemClaimCoverage } from "../src/report/work-item-claim-coverage.ts";
 
 // --- 1. the ONE substantive prd relaxation: the section-link check, with a hard negative control ---
 

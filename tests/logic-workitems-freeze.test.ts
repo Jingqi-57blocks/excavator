@@ -5,7 +5,7 @@ import { readdir, readFile } from "node:fs/promises";
 import type { DocumentPlan, FactPackItem, FeatureFactPack, InvestigationPlan, InvestigationWorkItem, KnowledgeArtifact, ReportRequest, RunManifest, SectionClaim } from "../src/base/types.ts";
 import { auditRun, freezeRun, prepareRun, updateWorkItems } from "../src/run/run.ts";
 import { workItemsToChecklist } from "../src/investigation/assurance.ts";
-import { auditWorkItemClaimCoverage } from "../src/report/section-audit.ts";
+import { auditWorkItemClaimCoverage } from "../src/report/work-item-claim-coverage.ts";
 import { logicWorkItems } from "../src/obligation/logic-workitems.ts";
 import { readJson, writeJson } from "../src/base/util.ts";
 import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, tempDir } from "./helpers.ts";

@@ -6,16 +6,8 @@
  * direction is now one-way: this module may read the knowledge side, never the reverse.
  */
 
-import type {
-  AuditFinding,
-  DocumentPlan,
-  EvidenceItem,
-  EvidenceMarker,
-  FactPackCategory,
-  InvestigationPlan,
-  SectionClaim,
-  SectionClaimsFile
-} from "../base/types.ts";
+import { hasEvidenceMarkers, markersIn, visibleText } from "./evidence-markers.ts";
+import type { AuditFinding, DocumentPlan, EvidenceItem, EvidenceMarker, FactPackCategory, SectionClaim, SectionClaimsFile } from "../base/types.ts";
 
 export function auditSectionClaims(options: {
   documentId: string;
@@ -366,55 +358,6 @@ export function auditRescuedLogicCoverage(
   return [warning(documentId, `report does not represent ${uncovered.length} rescued logic fact(s) that need individual disposition (e.g. ${sample})`)];
 }
 
-/**
- * Coverage findings split into two kinds. Claim-attribution defects (a claim pointing at an
- * unknown work item, a document it is not required for, or the wrong section) are always errors:
- * they are detectable from the single document under audit, so they run for every document passed,
- * complete or not. Completeness findings (a material work item that no claim represents) assert
- * something about the WHOLE requested document set: a caller auditing a partial or single-document
- * scope passes `coverageLevel: "warning"` to keep them advisory, and passes `completeDocumentIds`
- * so completeness is certified only for documents whose sections are all checkpointed — an
- * incomplete document is still attribution-checked but never reported as falsely under-covered.
- */
-export function auditWorkItemClaimCoverage(plan: InvestigationPlan, documents: DocumentPlan[], claimsByDocument: Map<string, Array<{ section: number; claim: SectionClaim }>>, options: { coverageLevel?: "error" | "warning"; completeDocumentIds?: Set<string> } = {}): AuditFinding[] {
-  const coverageLevel = options.coverageLevel ?? "error";
-  const coverage = (document: string, message: string): AuditFinding => ({ level: coverageLevel, document, message });
-  const findings: AuditFinding[] = [];
-  const items = new Map(plan.items.map((item) => [item.id, item]));
-  for (const document of documents) {
-    const claims = claimsByDocument.get(document.id) ?? [];
-    for (const { section, claim } of claims) {
-      for (const id of claim.workItemIds ?? []) {
-        const item = items.get(id);
-        if (!item) { findings.push(error(document.id, `claim ${claim.id} references unknown work item ${id}`)); continue; }
-        if (!item.requiredFor.includes(document.id)) findings.push(error(document.id, `claim ${claim.id} references work item ${id} that is not required for this document`));
-        // The exact section-link check assumes the canonical 1..12 feature chapter numbering. A prd feature
-        // report has its own (fewer) chapters, so a work item pinned to §N need not land in the prd chapter N;
-        // skip only this check for prd (product/engineering paths are byte-unchanged). Every other coverage
-        // rule below still applies to prd.
-        if (document.audience !== "prd" && item.reportSection && item.reportSection !== section) findings.push(error(document.id, `claim ${claim.id} links work item ${id} to section ${section}, expected section ${item.reportSection}`));
-      }
-    }
-    // Completeness certifies the full requested set; skip it for a document the caller marks incomplete.
-    if (options.completeDocumentIds && !options.completeDocumentIds.has(document.id)) continue;
-    for (const item of plan.items.filter((candidate) => candidate.material && candidate.requiredFor.includes(document.id) && candidate.origin !== "open")) {
-      const linked = claims.filter(({ claim }) => (claim.workItemIds ?? []).includes(item.id));
-      if (!linked.length) { findings.push(coverage(document.id, `material work item ${item.id} is not represented by any report claim`)); continue; }
-      if (item.status === "found") {
-        const grounded = linked.some(({ claim }) => (claim.evidenceIds ?? []).some((id) => item.evidenceIds.includes(id)) || (claim.traceIds ?? []).some((id) => item.traceIds.includes(id)));
-        if (!grounded) findings.push(coverage(document.id, `claims for material work item ${item.id} do not reuse its evidence or trace`));
-      }
-      if (item.status === "searched-not-found" && !linked.some(({ claim }) => claim.marker === "verified" && (claim.evidenceIds ?? []).some((id) => item.evidenceIds.includes(id)))) {
-        findings.push(coverage(document.id, `searched-not-found work item ${item.id} requires a linked verified claim using its search receipt`));
-      }
-      if (["cannot-determine", "not-applicable"].includes(item.status) && !linked.some(({ claim }) => claim.marker === "unavailable" || claim.marker === "verified")) {
-        findings.push(coverage(document.id, `unresolved work item ${item.id} requires a linked unavailable or verified claim`));
-      }
-    }
-  }
-  return findings;
-}
-
 export function substantiveSegments(section: string, fold: (value: string) => string = normalizeText): string[] {
   const lines = visibleText(section).split(/\r?\n/);
   const segments: string[] = [];
@@ -438,61 +381,6 @@ export function substantiveSegments(section: string, fold: (value: string) => st
     }
   }
   return [...new Set(segments)];
-}
-
-function visibleText(section: string): string {
-  return section
-    .replace(/<details[\s\S]*?<\/details>/gi, " ")
-    .replace(/```[\s\S]*?```/g, " ")
-    .replace(/<!--([\s\S]*?)-->/g, " ");
-}
-
-/**
- * The localized marker vocabulary, as whole backticked tokens.
- *
- * `writing-rules.md` tells authors to "render these semantic markers naturally … in the requested output
- * language", while this function accepted exactly four Chinese strings — so an author following the contract
- * wrote `` `已验证` `` or `` `不可用` `` and the chapter was reported as having no marker at all. Measured on a
- * real Chinese run: `` `不可得` `` was the only accepted way to say "unavailable", which reads badly, and the
- * accepted set appeared in no document.
- *
- * Matched as COMPLETE tokens rather than substrings: `` `验证服务` `` is a component name, not a marker, and a
- * substring rule would read it as one. Adding a synonym means adding it here AND to `writing-rules.md`,
- * which is the honest state — the deeper fix is one vocabulary both the doc and the code read.
- */
-export const MARKER_TOKENS: Record<string, EvidenceMarker> = {
-  "事实": "fact",
-  "验证": "verified",
-  "已验证": "verified",
-  "推断": "inferred",
-  "已推断": "inferred",
-  "不可得": "unavailable",
-  "不可用": "unavailable",
-  "无法获得": "unavailable",
-};
-
-export function markersIn(text: string): Set<EvidenceMarker> {
-  const markers = new Set<EvidenceMarker>();
-  for (const match of text.matchAll(/`([^`]+)`/g)) {
-    const level = MARKER_TOKENS[match[1].trim()];
-    if (level) markers.add(level);
-  }
-  // English markers stay bare words, as they always were — changing that would move existing runs.
-  if (/\bfact\b/i.test(text)) markers.add("fact");
-  if (/\bverified\b/i.test(text)) markers.add("verified");
-  if (/\binferred\b/i.test(text)) markers.add("inferred");
-  if (/\bunavailable\b/i.test(text)) markers.add("unavailable");
-  return markers;
-}
-
-/**
- * The one rule for "does this prose carry an evidence-level marker". Document- and section-level
- * checks both route through `markersIn` over `visibleText`, so they cannot drift onto different rules:
- * a bare backtick-free word like an incidental "事实" in prose is not a marker, only a real
- * `事实`/`验证`/`推断`/`不可得` (or the English marker words the paragraph audit already accepts) is.
- */
-export function hasEvidenceMarkers(text: string): boolean {
-  return markersIn(visibleText(text)).size > 0;
 }
 
 /**

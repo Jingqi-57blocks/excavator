@@ -74,7 +74,7 @@ import type { SectionClaim } from "../base/types.ts";
 // So retiring `section-audit.ts` now means relocating exactly `hasEvidenceMarkers` (with the `markersIn` /
 // `MARKER_TOKENS` / `visibleText` support it stands on); `claims-scaffold.ts` retires with it, per that file's
 // own deferral note.
-import { hasEvidenceMarkers } from "./section-audit.ts";
+import { hasEvidenceMarkers } from "./evidence-markers.ts";
 
 export const UNIT_CLAIM_BINDING_VERSION = "unit-claim-binding-v1";
 
