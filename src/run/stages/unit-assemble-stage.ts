@@ -8,12 +8,19 @@
  * than a lighter check.
  *
  * THE SEALED-KNOWLEDGE GATE IS HERE, IN BOTH MODES, AND IT IS THE ONE IN `freeze.ts`. Assembly is the last
- * authoring entry point a run passes through, and what the gate protects is not "a unit gets written" but "the
- * sealed truth is stable at the moment of shipping". `collect --units` holding the same gate is not enough: a
- * `searchSourceEvidence --supplement-*` landing AFTER a clean collect leaves a run whose next assemble would ship
- * a deliverable that neither mentions the new knowledge nor says the knowledge is moving. `plan-only` is refused
- * on the same line as `write` — a mode that passes the gate while the other fails would be a third answer to "may
- * this run ship", and `plan-only`'s whole contract is that it runs every refusal `write` runs.
+ * authoring entry point a run passes through, and what the gate protects is not "a unit gets written" but "this
+ * run may ship at all". `collect --units` holding the same gate is not enough: a `searchSourceEvidence
+ * --supplement-*` landing AFTER a clean collect leaves a run whose next assemble would ship a deliverable that
+ * neither mentions the new knowledge nor says the knowledge is moving. `plan-only` is refused on the same line as
+ * `write` — a mode that passes the gate while the other fails would be a third answer to "may this run ship", and
+ * `plan-only`'s whole contract is that it runs every refusal `write` runs.
+ *
+ * WHAT THE GATE DOES NOT BUY, STATED RATHER THAN IMPLIED: it is evaluated ONCE, at entry, exactly as `draft`,
+ * `collect` and `unit-cache-admit` evaluate it. A supplement that is recorded WHILE an assemble is running is not
+ * caught — `recordSupplement` appends the supplement checkpoint without touching `run.json`, so the concurrency
+ * baseline below cannot see it either. So this refuses a run whose knowledge had already moved when the command
+ * started; it is not a lock over the shipping window, and closing that window would take the run writer, not a
+ * second reading of the same files.
  *
  * IT IS CALLED HERE AND NOT IN `loadUnitAssembly` because the checker (`unit-consistency-source.ts`) loads the
  * same assembly to re-derive what was shipped; a read-only check that refused on knowledge state would stop an
