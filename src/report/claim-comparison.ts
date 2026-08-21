@@ -9,11 +9,22 @@ import type { AuditFinding, EvidenceItem, SectionClaim } from "../base/types.ts"
  * Core makes zero model calls, so the assertion's scope can only be APPROXIMATED mechanically. Two
  * layers do that here:
  *   1. Structural (hard): when a claim declares `sides` (its per-side grouping of evidence), the
- *      grouping must be well-formed — validated at checkpoint and re-checked at audit.
+ *      grouping must be well-formed — refused at the claims door (`assertValidClaim`, in
+ *      `claim-validity.ts`, which turns these violations into a throw) and re-checked at audit.
  *   2. Advisory (warning): a `fact` claim whose statement uses comparative wording, declares no
  *      `sides`, and cites path-bearing evidence that all falls in a single source unit is flagged so
  *      the author either cites every side and declares `sides` or downgrades to `inferred`.
  * Both are framework-independent: no target name, route, table, or repository is hard-coded.
+ *
+ * THE TWO LAYERS DO NOT HAVE THE SAME FUTURE, and saying so here is the point of this paragraph.
+ * grep-verified while writing it — `grep -rn --include='*.ts' auditComparativeClaims src/` and the same for
+ * `comparativeWording`: layer 1 is reached on every claim either sidecar writes, through `assertValidClaim`.
+ * Layer 2 has exactly ONE `src/` caller, `run.ts`, inside the section-path audit that 57B-481 retires, and
+ * `comparativeWording` has none outside this file. The unit path never re-checks it: `unit-consistency.ts`
+ * hands intra-unit side disagreement back to `validateComparisonSides`, i.e. to the door, and nothing
+ * re-derives the advisory. So when the section audit wiring goes, layer 2 stops running with no successor —
+ * the same shape as G6/G10, and a decision (re-home on the unit path, or retire it by name) that 57B-481 owes
+ * rather than one this file can make.
  */
 
 /**

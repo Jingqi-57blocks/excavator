@@ -16,8 +16,6 @@ import type {
   SectionClaim,
   SectionClaimsFile
 } from "../base/types.ts";
-import { validateComparisonSides } from "./claim-comparison.ts";
-import { claimIdShapeProblems } from "./claim-id-shape.ts";
 
 export function auditSectionClaims(options: {
   documentId: string;
@@ -415,28 +413,6 @@ export function auditWorkItemClaimCoverage(plan: InvestigationPlan, documents: D
     }
   }
   return findings;
-}
-
-/**
- * Every rule ONE claim must satisfy, at one address, so a second claims sidecar cannot grow a weaker copy of
- * them. `where` is the place the caller names in the message — `"<documentId> section <n>"` for the section
- * sidecar, `"unit <unitId>"` for the unit-keyed one — which is the only difference between the two callers.
- */
-export function assertValidClaim(claim: SectionClaim, where: string): void {
-  if (!claim || typeof claim !== "object") throw new Error("Each claim must be an object");
-  if (!claim.id || !claim.statement || !["fact", "verified", "inferred", "unavailable"].includes(claim.marker)) throw new Error(`Invalid claim in ${where}`);
-  // The three id lists' SHAPE, before anything iterates them: both sidecars arrive as JSON cast to `SectionClaim`,
-  // so `"traceIds": "T-1"` reaches every consumer as four one-character ids and fails for the wrong reason.
-  const shape = claimIdShapeProblems(claim as unknown as Record<string, unknown>);
-  if (shape.length) throw new Error(`Invalid claim id list in ${where}: ${shape.join("; ")}`);
-  const sideViolations = validateComparisonSides(claim);
-  if (sideViolations.length) throw new Error(`Invalid comparison sides in ${where}: ${sideViolations.join("; ")}`);
-}
-
-export function validateClaimsInput(documentId: string, section: number, claims: SectionClaim[]): SectionClaimsFile {
-  if (!Array.isArray(claims)) throw new Error("Claims must be an array");
-  for (const claim of claims) assertValidClaim(claim, `${documentId} section ${section}`);
-  return { version: 2, documentId, section, claims };
 }
 
 export function substantiveSegments(section: string, fold: (value: string) => string = normalizeText): string[] {

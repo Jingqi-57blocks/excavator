@@ -63,16 +63,17 @@ import type { SectionClaim } from "../base/types.ts";
 // against `skills/excavator/references/evidence-markers.json`. Copying the table here would give that contract a
 // second reader covered by half a test — a worse trade than one import into a file 57B-481 retires.
 //
-// WHAT 57B-481 INHERITS BECAUSE OF THIS LINE, grep-verified rather than recalled: after this slice the `src/`
-// importers of `section-audit.ts` are exactly four —
-//   `claims-scaffold.ts` (substantiveSegments), `unit-output.ts` (assertValidClaim), THIS file
-//   (hasEvidenceMarkers), and `run.ts` (the section path itself, which goes with it).
+// WHAT 57B-481 STILL INHERITS BECAUSE OF THIS LINE, grep-verified rather than recalled, re-run after the shared
+// validator moved out: the `src/` importers of `section-audit.ts` are now exactly three —
+//   `claims-scaffold.ts` (substantiveSegments), THIS file (hasEvidenceMarkers), and `run.ts` (the section path
+//   itself, which goes with it). `unit-output.ts` is off the list: `assertValidClaim` now lives in
+//   `claim-validity.ts`, and `validateClaimsInput` was deleted with that move.
 // Command: grep -rn --include='*.ts' section-audit.ts src/ — and read the import lines out of the hits. (Spelled
 // this way rather than as a quoted import specifier because `layer-order.test.ts` refuses a relative specifier
 // written inside a comment: it looks like an import to a reader and is invisible to the graph.)
-// So retiring `section-audit.ts` means relocating exactly `assertValidClaim` and `hasEvidenceMarkers` (with the
-// `markersIn` / `MARKER_TOKENS` / `visibleText` support the latter stands on); `claims-scaffold.ts` retires with
-// it, per that file's own deferral note.
+// So retiring `section-audit.ts` now means relocating exactly `hasEvidenceMarkers` (with the `markersIn` /
+// `MARKER_TOKENS` / `visibleText` support it stands on); `claims-scaffold.ts` retires with it, per that file's
+// own deferral note.
 import { hasEvidenceMarkers } from "./section-audit.ts";
 
 export const UNIT_CLAIM_BINDING_VERSION = "unit-claim-binding-v1";
