@@ -8,7 +8,6 @@ import {
   readingCheck, resumeRun, runStatus, searchSourceEvidence, updateChecklist, updateTraces,
   updateWorkItems
 } from "../src/run/run.ts";
-import { collectDrafts, draftSection } from "../src/report/parallel-authoring.ts";
 import { sectionPaths } from "../src/report/section-paths.ts";
 import { exists, sha256 } from "../src/base/util.ts";
 import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, installFixturePlan, tempDir } from "./helpers.ts";
@@ -192,21 +191,6 @@ test("relocated run: checkpoint archives the revision it replaces into the copy'
   // A revision archive proves the second checkpoint SAW the first one: reading through the recorded path
   // would have found no prior section in the copy and archived nothing.
   assert.equal((await filesIn(join(runDir, "history", base.documentId))).length, 2);
-});
-
-test("relocated run: draft and collect keep the drafted section with the ledger that records it", async () => {
-  const base = await authoringBase();
-  const section = (await manifestOf(base.runDir)).documents[0]!.sections[0]!;
-  const runDir = await onRelocatedRun(base, ["draft", "collect"], async (dir) => {
-    const receipt = await draftSection(dir, base.documentId, section.index, sectionText(section.title, section.index, base.evidenceId), sectionClaims(base.documentId, section.index, base.evidenceId));
-    assert.equal(receipt.hasClaims, true);
-    assert.deepEqual(await filesIn(join(dir, "sections", base.documentId)), [basename(section.file)]);
-    // `collect` is fail-closed: it refuses a receipt whose section is not on disk, so it can only succeed
-    // if it looks for the section under `--run` rather than under the path the manifest records.
-    assert.equal((await collectDrafts(dir)).collected.length, 1);
-  });
-  assert.equal((await manifestOf(runDir)).documents[0]!.sections[0]!.complete, true);
-  assert.deepEqual(await filesIn(join(base.runDir, "sections", base.documentId)), []);
 });
 
 test("relocated run: assemble and audit read the copy's own sections", async () => {

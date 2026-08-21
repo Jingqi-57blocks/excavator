@@ -152,7 +152,6 @@ The prepare command creates a run under the target's own directory inside the wo
 ├── sections/
 ├── claims/
 ├── history/
-├── drafts/                     # pending parallel-draft receipts, cleared by collect
 ├── reports/
 │   └── companions/
 ├── audit/

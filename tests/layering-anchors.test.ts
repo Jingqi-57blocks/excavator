@@ -91,7 +91,7 @@ const ANCHORS: Record<string, Classification> = {
   "src/base/timeline.ts:18-19": { kind: "historical", why: "the pre-57B-430 full-history read on every timeline append; the document explicitly says 57B-430 前" },
   "src/base/single-writer.ts:28-50": { kind: "current", expect: "export async function withRunWriter" },
   "src/investigation/evidence-store.ts:129-145": { kind: "current", expect: "export async function appendEvidence" },
-  "src/report/parallel-authoring.ts:100-110": { kind: "current", expect: "export async function collectDrafts" },
+  "src/report/unit-collect.ts:115-120": { kind: "current", expect: "view.collectionOrder.filter" },
   "src/run/stages/investigation-stage.ts:152": { kind: "historical", why: "the pre-57B-430 full-catalog normalize-and-hash on each evidence append; the document explicitly says 57B-430 前" },
   "src/workset/factpack-view.ts:54": { kind: "current", expect: "maxRowsPerCategory = 60" },
 
