@@ -5,7 +5,10 @@ import { join, resolve } from "node:path";
 import { readFile, writeFile } from "node:fs/promises";
 import type { EvidenceItem, ReportRequest, SectionClaim } from "../src/base/types.ts";
 import { assembleRun, checkpointSection, prepareRun, updateChecklist } from "../src/run/run.ts";
+import { collectUnits } from "../src/report/unit-collect.ts";
+import { draftUnit } from "../src/report/unit-draft.ts";
 import { copyFixture, createCodeGraphFixture, installFixturePlan, tempDir } from "./helpers.ts";
+import { claimFor, materialisedRun, unitDraftWithClaims } from "./unit-grounding-fixture.ts";
 
 async function cli(args: string[]): Promise<{ code: number | null; stdout: string; stderr: string }> {
   const child = spawn(process.execPath, ["--experimental-strip-types", "src/cli.ts", ...args], {
@@ -129,6 +132,48 @@ test("claims scaffold CLI emits a claims skeleton from section markdown", async 
   }
 });
 
+/**
+ * `audit`'s exit code, on the unit keying.
+ *
+ * The section keying's version of this is the first test in this file. The unit arm reaches the same contract by a
+ * different door: `collect` refuses a unit whose claims leave a material obligation ungrounded, and the refused
+ * draft's artifacts stay on disk — so `audit --units` is exactly the command an operator runs next to see why, and
+ * its exit code has to say so without anyone parsing the reading. The corrected draft then collects and the same
+ * command exits 0, which is what makes the first half a statement about the verdict rather than about the command.
+ */
+test("audit --units exits non-zero on a violating written unit and zero once the corrected draft is collected", async () => {
+  const materialised = await materialisedRun();
+  const unitId = materialised.view.collectionOrder.find((id) => id.endsWith("::leaf::work-item-dimension"));
+  assert.ok(unitId, "the materialised run must have a work-item-dimension leaf");
+
+  // The wrong draft: both obligations linked, neither grounded the way its determination requires.
+  const wrong: SectionClaim[] = [
+    claimFor("C-found", materialised.foundWorkItemId, { evidenceIds: [] }),
+    claimFor("C-unresolved", materialised.unresolvedWorkItemId, { marker: "fact" })
+  ];
+  await draftUnit(materialised.runDir, await unitDraftWithClaims(materialised, unitId, wrong));
+  await assert.rejects(() => collectUnits(materialised.runDir), /cannot be collected: violations:/);
+
+  const failed = await cli(["audit", "--run", materialised.runDir, "--units"]);
+  assert.equal(failed.code, 1, failed.stderr || failed.stdout);
+  const failedReading = JSON.parse(failed.stdout) as { units: Array<{ unitId: string; verdict: { conclusion: string } }> };
+  assert.equal(failedReading.units.find((row) => row.unitId === unitId)?.verdict.conclusion, "violations");
+
+  // The corrected draft, through the same two commands: collect records it and the exit code goes back to 0.
+  const right: SectionClaim[] = [
+    claimFor("C-found", materialised.foundWorkItemId, { evidenceIds: [materialised.foundEvidenceId] }),
+    claimFor("C-unresolved", materialised.unresolvedWorkItemId, { marker: "unavailable" })
+  ];
+  await draftUnit(materialised.runDir, await unitDraftWithClaims(materialised, unitId, right));
+  assert.deepEqual((await collectUnits(materialised.runDir)).collected.map((receipt) => receipt.unitId), [unitId]);
+  const passed = await cli(["audit", "--run", materialised.runDir, "--units"]);
+  assert.equal(passed.code, 0, passed.stderr || passed.stdout);
+  // The POSITIVE conclusion, not "anything but violations": a regression that dropped the corrected unit from
+  // the reading altogether would leave an absent row and an exit code of 0, and a `notEqual` would pass on it.
+  const passedReading = JSON.parse(passed.stdout) as { units: Array<{ unitId: string; verdict: { conclusion: string } }> };
+  assert.equal(passedReading.units.find((row) => row.unitId === unitId)?.verdict.conclusion, "complete");
+});
+
 test("subcommand --help prints usage and does not execute", async () => {
   // A new-style subcommand and an existing command both resolve to their own usage.
   const scaffold = await cli(["claims", "scaffold", "--help"]);
@@ -136,6 +181,14 @@ test("subcommand --help prints usage and does not execute", async () => {
   for (const flag of ["--run", "--document", "--section", "--file"]) assert.match(scaffold.stdout, new RegExp(flag));
   // Not executed: no error JSON is emitted for the missing required flags.
   assert.doesNotMatch(scaffold.stderr, /Missing|"error"/);
+
+  // A second subcommand, on a command that outlives the section path: the "subcommand help resolves to its own
+  // page" contract must not be carried by `claims scaffold` alone.
+  const build = await cli(["codegraph", "build", "--help"]);
+  assert.equal(build.code, 0, build.stderr || build.stdout);
+  assert.match(build.stdout, /^Excavator codegraph build$/m);
+  assert.match(build.stdout, /--target/);
+  assert.doesNotMatch(build.stderr, /Missing|"error"/);
 
   // -h short flag and no execution: a required flag is absent but no "Missing" error is raised.
   const audit = await cli(["audit", "-h"]);

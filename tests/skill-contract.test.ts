@@ -3,11 +3,14 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { readFile, readdir } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
-import type { ReportRequest } from "../src/base/types.ts";
+import type { EvidenceItem, ReportRequest } from "../src/base/types.ts";
 import { assembleRun, checkpointSection, freezeRun, prepareRun } from "../src/run/run.ts";
 import { collectDrafts, draftSection } from "../src/report/parallel-authoring.ts";
-import { slugify } from "../src/base/util.ts";
-import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, installFixturePlan, tempDir } from "./helpers.ts";
+import { checkpointUnit } from "../src/report/unit-checkpoint.ts";
+import { assembleUnits } from "../src/run/stages/unit-assemble-stage.ts";
+import { exists, slugify } from "../src/base/util.ts";
+import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, installFixturePlan, manifestOf, tempDir } from "./helpers.ts";
+import { planViewOf, unitDraftFor } from "./unit-fixture.ts";
 
 // SKILL.md tells the model which `excavator` commands and flags to run. When it drifts from the real
 // CLI the skill breaks silently, so this test pins the two together: every command/subcommand/flag the
@@ -201,10 +204,33 @@ test("SKILL.md run-directory layout matches what the CLI produces", async () => 
   await collectDrafts(runDir);
   await assembleRun(runDir);
 
+  // The UNIT lifecycle on the same run, so the tree this test drives is not only the section one:
+  //   plan (already recorded above) -> checkpoint each unit -> re-draft one (writes units/<key>/history/)
+  //   -> assemble --units --mode write (writes the unit deliverable and its companions).
+  // The two paths write disjoint names under reports/, and `assemble --units` refuses a collision by name
+  // rather than overwriting, so driving both on one run is legal rather than lucky.
+  const evidence = JSON.parse(await readFile(join(runDir, "evidence.json"), "utf8")) as { evidence: EvidenceItem[] };
+  const evidenceId = (evidence.evidence.find((item) => item.kind === "source") ?? evidence.evidence[0]!).id;
+  const unitRun = { runDir, workdir, manifest: await manifestOf(runDir), evidenceId, view: await planViewOf(runDir) };
+  for (const unitId of unitRun.view.collectionOrder) {
+    await checkpointUnit(runDir, await unitDraftFor({ ...unitRun, view: await planViewOf(runDir) }, unitId));
+  }
+  const redrawn = unitRun.view.collectionOrder[0]!;
+  await checkpointUnit(runDir, await unitDraftFor({ ...unitRun, view: await planViewOf(runDir) }, redrawn));
+  const assembledUnits = await assembleUnits(runDir, "write");
+
   // Every documented entry must exist somewhere under the run directory. Matching on basename keeps the
   // check independent of the tree's nesting (e.g. companions/ lives under reports/).
   const present = await collectBasenames(runDir);
   for (const entry of documented) {
     assert.ok(present.has(entry), `SKILL.md documents \`${entry}\` but the run produced no such path`);
+  }
+  // What ONLY the unit lifecycle produces, so the addition above is not inert and cannot be deleted silently.
+  // `plan/` is deliberately not in this list: `installFixturePlan` already created it before any unit command,
+  // so asserting it would pass for a reason that has nothing to do with the lifecycle it names.
+  assert.ok(present.has("units"), "the unit lifecycle produced no `units/` directory");
+  assert.ok(assembledUnits.documents.length > 0, "the unit lifecycle assembled no document");
+  for (const document of assembledUnits.documents) {
+    assert.ok(await exists(join(runDir, document.path)), `the unit deliverable ${document.path} is not on disk`);
   }
 });

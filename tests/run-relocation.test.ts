@@ -23,9 +23,14 @@ import { appendReportRequest } from "../src/report/report-requests-append.ts";
 import { readReportRequests } from "../src/report/report-requests-artifact.ts";
 import { plannedDocumentId } from "../src/report/legacy-request-mapping.ts";
 import { checkpointUnit } from "../src/report/unit-checkpoint.ts";
+import { collectUnits } from "../src/report/unit-collect.ts";
 import { checkRunConsistency } from "../src/report/unit-consistency-source.ts";
+import { draftUnit } from "../src/report/unit-draft.ts";
+import { readUnitGroundingForRun } from "../src/report/unit-grounding-reading.ts";
+import { unitPaths } from "../src/report/unit-paths.ts";
+import { resumeUnits, unitStatus } from "../src/report/unit-status.ts";
 import { assembleUnits } from "../src/run/stages/unit-assemble-stage.ts";
-import { planViewOf, unitDraftFor } from "./unit-fixture.ts";
+import { planViewOf, unitDraftFor, type PlannedRun } from "./unit-fixture.ts";
 
 /**
  * 57B-452 — a run directory must be movable.
@@ -371,6 +376,100 @@ test("relocated run: unit-consistency checks the copy's own assembled deliverabl
   });
   assert.ok(await exists(join(runDir, "units", "collected.json")));
   assert.equal(await exists(join(base.runDir, "units")), false, "no unit artifact may land in the recorded location");
+});
+
+// --- the same commands, keyed on a unit ---------------------------------------------------------------
+//
+// `exercised` keys on the COMMAND, and `checkpoint`, `draft`, `collect`, `assemble`, `audit`, `resume` and `status`
+// each carry two arms: the section keying above, and the `--unit`/`--units` keying below. Only the section arm was
+// fixtured here, so the totality check was satisfied by a command whose unit arm nobody had moved. These four
+// fixtures give every surviving arm its own relocated run, on the same rule: operate on the copy, and the recorded
+// location must be byte-for-byte what it was.
+
+/** One `PlannedRun` view of the relocated copy, rebuilt per call because collecting a unit changes it. */
+async function relocatedPlannedRun(base: Base, dir: string): Promise<PlannedRun> {
+  return { runDir: dir, workdir: base.workdir, manifest: await manifestOf(dir), evidenceId: base.evidenceId, view: await planViewOf(dir) };
+}
+
+test("relocated run: checkpoint --unit writes the unit's three artifacts and the ledger into the copy", async () => {
+  const base = await authoringBase();
+  // First in collection order, so it is a childless unit: nothing has to be collected before it.
+  const firstUnitId = (await planViewOf(base.runDir)).collectionOrder[0]!;
+  const runDir = await onRelocatedRun(base, ["checkpoint"], async (dir) => {
+    const result = await checkpointUnit(dir, await unitDraftFor(await relocatedPlannedRun(base, dir), firstUnitId));
+    assert.equal(result.receipt.unitId, firstUnitId);
+    assert.deepEqual(result.collected.collected.map((receipt) => receipt.unitId), [firstUnitId]);
+  });
+
+  // The content, the claims, the summary and the collect-written ledger are all on the same side.
+  const paths = unitPaths(runDir, firstUnitId);
+  for (const path of [paths.content, paths.claims, paths.summary]) assert.ok(await exists(path), path);
+  assert.ok(await exists(join(runDir, "units", "collected.json")));
+  assert.equal(await exists(paths.receipt), false, "checkpoint is draft plus collect, so the receipt is consumed in the copy");
+  // And the recorded location has no unit path at all.
+  assert.equal(await exists(join(base.runDir, "units")), false);
+});
+
+test("relocated run: draft --unit and collect --units keep the drafted unit with the ledger that records it", async () => {
+  const base = await authoringBase();
+  const firstUnitId = (await planViewOf(base.runDir)).collectionOrder[0]!;
+  const runDir = await onRelocatedRun(base, ["draft", "collect"], async (dir) => {
+    const receipt = await draftUnit(dir, await unitDraftFor(await relocatedPlannedRun(base, dir), firstUnitId));
+    assert.equal(receipt.unitId, firstUnitId);
+    // Between the two commands the receipt is the only record, and it must be in the copy: `collect` is
+    // fail-closed on the artifacts the receipt promises, so it can only succeed by resolving them from --run.
+    assert.ok(await exists(unitPaths(dir, firstUnitId).receipt));
+    assert.deepEqual((await collectUnits(dir)).collected.map((row) => row.unitId), [firstUnitId]);
+  });
+  assert.equal((await unitStatus(runDir)).census.collected, 1);
+  assert.equal(await exists(join(base.runDir, "units")), false);
+});
+
+test("relocated run: assemble --units writes the copy's deliverable and audit --units grades the copy's units", async () => {
+  const base = await authoringBase();
+  const runDir = await onRelocatedRun(base, ["assemble", "audit"], async (dir) => {
+    for (const unitId of (await planViewOf(dir)).collectionOrder) {
+      await checkpointUnit(dir, await unitDraftFor(await relocatedPlannedRun(base, dir), unitId));
+    }
+    const view = await planViewOf(dir);
+    const assembled = await assembleUnits(dir, "write");
+    assert.equal(assembled.written, true);
+    assert.deepEqual(assembled.documents.map((document) => document.documentId).sort(),
+      [...new Set(view.units.map((unit) => unit.documentId))].sort(), "every planned document of the copy is assembled");
+    // The read-only grounding rerun. Its denominator comes from the plan and its numerator from the collected
+    // summaries, so a reading taken through the recorded location would have neither on this run's disk.
+    const reading = await readUnitGroundingForRun(dir);
+    assert.equal(reading.runId, (await manifestOf(dir)).id);
+    assert.deepEqual(reading.units.filter((row) => row.verdict.conclusion === "violations"), [],
+      "the canned drafts ground everything they reach, so a violation here would be the fixture's own defect");
+  });
+  const reports = await filesIn(join(runDir, "reports"));
+  assert.ok(reports.some((name) => name.endsWith(".md")), reports.join(", "));
+  assert.ok(await exists(join(runDir, "units", "collected.json")));
+  assert.equal(await exists(join(base.runDir, "units")), false, "no unit artifact may land in the recorded location");
+});
+
+test("relocated run: resume --units and status --units read the copy's own unit ledger", async () => {
+  const base = await authoringBase();
+  const planned = await planViewOf(base.runDir);
+  const runDir = await onRelocatedRun(base, ["resume", "status"], async (dir) => {
+    const first = planned.collectionOrder[0]!;
+    await checkpointUnit(dir, await unitDraftFor(await relocatedPlannedRun(base, dir), first));
+    // Both readers are the run's own ledger read back. Reading through the recorded location would find an
+    // untouched run and report every unit unwritten, which is a wrong answer rather than a refusal.
+    const status = await unitStatus(dir);
+    assert.equal(status.census.collected, 1);
+    assert.equal(status.census.unwritten, planned.units.length - 1);
+    // Positively constrained: an empty result would satisfy "does not offer the collected unit" too.
+    const resumed = await resumeUnits(dir);
+    assert.deepEqual([...resumed.pending].sort(), planned.collectionOrder.filter((unitId) => unitId !== first).sort());
+    assert.notEqual(resumed.next, first);
+    assert.ok(resumed.next, "one unit collected out of two leaves a next one");
+  });
+  // The recorded location never learned any of it: the same two readers there see a run with nothing written.
+  assert.deepEqual((await unitStatus(base.runDir)).census, { collected: 0, drafted: 0, unwritten: planned.units.length });
+  assert.deepEqual([...(await resumeUnits(base.runDir)).pending].sort(), [...planned.collectionOrder].sort());
+  assert.equal((await unitStatus(runDir)).census.collected, 1);
 });
 
 test("relocated run: source and search append evidence to the copy", async () => {
