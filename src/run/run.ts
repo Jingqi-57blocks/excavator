@@ -556,8 +556,6 @@ export async function prepareRun(rawRequest: ReportRequest): Promise<{ runDir: s
   await writeJson(join(runDir, "metrics.json"), manifest.metrics);
   await writeJson(join(runDir, "checklist.json"), workItemsToChecklist(plan));
 
-  for (const document of documents) {
-  }
   await appendTimeline(runDir, runId, { stage: "prepare", action: "run.prepared", data: { snapshotId: result.prepared.snapshot.id, documents: documents.map((document) => document.id), providerRegistryDigest: providerRegistry.digest, analysisScopeDigest: analysisScope.digest } });
   manifest.metrics.timelineEvents = 1;
   await writeJson(join(runDir, "run.json"), manifest);

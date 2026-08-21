@@ -190,6 +190,6 @@ function diagnoseTimeout(manifest: RunManifest, documentId: string, sectionIndex
       "the request combined too many documents without reusing shared context",
       "the model spent time generating recommendations or unsupported detail outside the report contract",
     ],
-    recovery: "Inspect metrics and the prepared prompt, reduce repeated or low-value context, then resume from the first incomplete section.",
+    recovery: "Inspect metrics and the prepared context, reduce repeated or low-value context, then resume from the first incomplete section.",
   };
 }

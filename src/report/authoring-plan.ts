@@ -1,7 +1,12 @@
 /**
- * WHAT THIS FILE IS AFTER 57B-480: the template half only — `referencePath` and `makeDocumentPlan`, which are the
+ * WHAT THIS FILE IS AFTER 57B-480: the template half — `referencePath` and `makeDocumentPlan`, which are the
  * bound contract's per-section REQUIREMENT producers (`bound-run-contract.ts` materializes one requirement row per
  * template section, and layer 6 declares each row as a `knowledge-requirement`). They are deliberately NOT retired.
+ *
+ * AND ONE STRANDED EXPORT, NAMED SO THE NEXT SLICE DOES NOT HAVE TO REDISCOVER IT: `outputFrontMatter` (with its
+ * `yamlScalar` helper) is still here, and its only caller is `assembleRun` — which the CLI already refuses ("the
+ * section assemble is retired"). So it is reachable from tests and from nothing else, and it goes with `assembleRun`
+ * in the next PR of this family. It is NOT a requirements producer; do not read the paragraph above as covering it.
  *
  * THE AUTHORING PROMPT IS GONE, AND ONE COVERAGE DENOMINATOR WENT WITH IT. `authorPrompt` carried the instruction
  * that a `detailed` feature document account for the consumable fact pack item by item. Stated precisely, because
