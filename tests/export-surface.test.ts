@@ -60,10 +60,6 @@ const INNER_ONLY: readonly string[] = [
   // src/investigation/read-residual-exposure.ts
   "absentReadingCoverageStatement",
   "readingCoverageStatement",
-  // src/report/assurance-artifacts.ts
-  "writeReportCompanions",
-  // src/report/checkpoint.ts
-  "archiveCheckpoint",
   // src/report/plan-obligation-conservation.ts
   "dispositionEffect",
   // src/report/plan-revision.ts
@@ -95,6 +91,21 @@ const INNER_ONLY: readonly string[] = [
   // src/workset/factpack-view.ts
   "factPackItemIsConsumable"
 ];
+
+/**
+ * Occurrences of `symbol` in `text` with comments removed.
+ *
+ * FAIL-CLOSED, because a stripper that eats code would turn a live export into a false "dead" report and this
+ * test promises it never cries wolf: the declaration must survive the strip, or the test fails saying the
+ * instrument is broken rather than saying the tree is.
+ */
+function countInCode(text: string, symbol: string): number {
+  const stripped = text.replace(/\/\*[\s\S]*?\*\//g, "")
+    .split("\n").filter((line) => !line.trimStart().startsWith("//")).join("\n");
+  assert.match(stripped, new RegExp(`function\\s+${symbol}\\b`),
+    `stripping comments removed the declaration of ${symbol}; the stripper is broken, not the tree`);
+  return (stripped.match(new RegExp(`\\b${symbol}\\b`, "g")) ?? []).length;
+}
 
 async function tsFiles(dir: string): Promise<string[]> {
   const entries = await readdir(dir, { withFileTypes: true });
@@ -130,9 +141,13 @@ test("no exported src/ function is unreachable, and the inner-only surface is th
   for (const [symbol, homes] of [...declaredIn].sort()) {
     const elsewhere = [...words].some(([file, tokens]) => !homes.has(file) && tokens.has(symbol));
     if (elsewhere) continue;
-    // Its own file names it at the declaration; a second mention there means the body or a comment uses it.
+    // Its own file names it at the declaration; a second mention IN CODE means something there uses it. Comments
+    // are stripped first, and that is the whole difference between a tripwire and a loophole: a doc comment that
+    // names the function it sits above is one mention, so counting comments let an export with no caller anywhere
+    // score 2 and land in the registry below as "inner-only" — measured on `writeReportCompanions` and
+    // `archiveCheckpoint`, which were the ninth and tenth dead exports and were deleted rather than registered.
     const mentions = (await Promise.all([...homes].map(async (home) =>
-      ((await readFile(home, "utf8")).match(new RegExp(`\\b${symbol}\\b`, "g")) ?? []).length))).reduce((a, b) => a + b, 0);
+      countInCode(await readFile(home, "utf8"), symbol)))).reduce((a, b) => a + b, 0);
     const where = [...homes].map((home) => relative(ROOT, home)).sort().join(", ");
     if (mentions <= 1) dead.push(`${symbol} (${where})`);
     else innerOnly.push(symbol);

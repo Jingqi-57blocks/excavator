@@ -1,7 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { execFile } from "node:child_process";
 import { readdir, readFile } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
+import { promisify } from "node:util";
 
 /**
  * Every path this repository's own `src/` comments point at must exist.
@@ -45,9 +47,20 @@ async function tsFiles(dir: string): Promise<string[]> {
   return out.sort();
 }
 
+/**
+ * The repository's top-level directories, TAKEN FROM WHAT GIT TRACKS rather than from what is on disk.
+ *
+ * This is not a stylistic preference; the first version read the filesystem and was wrong. Run the coverage
+ * reporter once and a gitignored `coverage/` appears at the root — whereupon five correct comments citing the
+ * RUN-DIRECTORY-relative `coverage/read-obligations.json` start being read as repo anchors and the suite goes red
+ * until someone deletes a directory. `tmp/` is the same trap. A tracked-file listing has no such state: it says
+ * what this repository contains, which is exactly the question "is this token an anchor into this tree?" asks.
+ */
 async function topLevelDirectories(): Promise<Set<string>> {
-  const entries = await readdir(ROOT, { withFileTypes: true });
-  return new Set(entries.filter((entry) => entry.isDirectory() && !entry.name.startsWith(".")).map((entry) => entry.name));
+  const { stdout } = await promisify(execFile)("git", ["-C", ROOT, "ls-files", "-z"], { maxBuffer: 64 * 1024 * 1024 });
+  const tracked = stdout.split("\0").filter(Boolean);
+  assert.ok(tracked.length > 100, `git ls-files returned ${tracked.length} paths; the listing is broken, not the tree`);
+  return new Set(tracked.filter((path) => path.includes("/")).map((path) => path.split("/")[0]));
 }
 
 test("every repository path named in a src/ comment exists", async () => {
