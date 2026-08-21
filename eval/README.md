@@ -304,3 +304,12 @@ The point of the harness is that most iterations never call a model:
   `assemble --units --mode write` over the model-free unit chain (plan → draft every unit → collect), pinned byte
   for byte by `eval/tests/unit-assemble-golden.test.ts`. It adds two substitution rules the section projection does
   not need — the plan catalog digest and the knowledge digest, both of which the unit front matter prints.
+- `golden/unit-consistency-readings.json` — the cross-unit consistency checker's own reading (R7c), over six
+  scenarios of the model-free chain in `tests/unit-consistency-fixture.ts`: clean, an unknown overclaim, a
+  terminology drift, a contradiction plus two unresolvable references plus a policy violation, the drift run after
+  it was repaired through exactly the repair set it named, and the run's own evidence id in visible prose. What it
+  pins is the SENTENCES — the vacuous reasons, the finding statements, the "no collect gate catches this because …"
+  clauses, the repair reasons and the coverage routes — because those are what an operator acts on. Volatile
+  identifiers (run id, plan catalog digest in both the full and 16-character forms, and the sealed evidence ids) are
+  substituted as exact strings and every rule reports its replacement count, so a hand-pinned constant still shows
+  as a diff. Pinned by `eval/tests/unit-consistency-readings.test.ts`.

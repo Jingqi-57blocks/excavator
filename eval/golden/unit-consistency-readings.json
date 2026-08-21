@@ -1,0 +1,1568 @@
+{
+  "applied": [
+    {
+      "name": "evidence-id",
+      "placeholder": "<EVIDENCE-N>",
+      "replacements": 0
+    },
+    {
+      "name": "plan-catalog-digest",
+      "placeholder": "<PLAN-CATALOG-DIGEST>",
+      "replacements": 6
+    },
+    {
+      "name": "plan-catalog-digest-16",
+      "placeholder": "<PLAN-CATALOG-DIGEST-16>",
+      "replacements": 6
+    },
+    {
+      "name": "run-id",
+      "placeholder": "<RUN-ID>",
+      "replacements": 6
+    },
+    {
+      "name": "source-evidence-id",
+      "placeholder": "<SOURCE-EVIDENCE-ID>",
+      "replacements": 6
+    }
+  ],
+  "scenarios": [
+    {
+      "injected": "nothing: the canned draft of every unit",
+      "reading": {
+        "knowledgeEpoch": 0,
+        "planCatalogDigest": "<PLAN-CATALOG-DIGEST>",
+        "preconditions": [
+          {
+            "authority": "inherited",
+            "name": "plan-in-force",
+            "statement": "the recorded plan <PLAN-CATALOG-DIGEST-16> re-validates against knowledge epoch 0 through the one plan gate: dispositions readable, obligation accounting and ownership conserving, one parent per child"
+          },
+          {
+            "authority": "inherited",
+            "name": "every-unit-collected",
+            "statement": "all 4 planned unit(s) of 1 document(s) have a ledger row for this epoch and this plan; assembly is all-or-nothing, so a check over part of a run is unreachable"
+          },
+          {
+            "authority": "inherited",
+            "name": "ledger-promise-intact",
+            "statement": "every collected unit's content, claims and summary still digest to what its ledger row promised, through the one comparison collect and unit-cache-admit use"
+          },
+          {
+            "authority": "asserted-here",
+            "name": "assembled-deliverable-current",
+            "statement": "the 1 assembled document(s) and the coverage companion on disk are byte for byte the bytes this plan and these collected units produce, so every reference this checker resolves is a reference the deliverable holds"
+          },
+          {
+            "authority": "asserted-here",
+            "name": "child-summary-digests-current",
+            "statement": "every synthesis unit's recorded childSummaryDigests equal the digests of its children's summaries as they are on disk now (4 summary/summaries read)"
+          }
+        ],
+        "readPaths": [
+          "context/boundary-functions.json",
+          "contract/run-intent.json",
+          "coverage/read-obligations.json",
+          "coverage/read-residual.json",
+          "facts/producers/codegraph.json",
+          "facts/producers/crossrepo.json",
+          "facts/producers/db-schema.json",
+          "knowledge.json",
+          "plan/catalog.json",
+          "plan/dag.json",
+          "plan/requests.json",
+          "plan/topics.json",
+          "reports/companions/unit-coverage.md",
+          "reports/overview-product.md",
+          "run.json",
+          "traces.json",
+          "units/collected.json",
+          "units/overview-product-appendix-coverage-16df53b9d2376409/claims.json",
+          "units/overview-product-appendix-coverage-16df53b9d2376409/content.md",
+          "units/overview-product-appendix-coverage-16df53b9d2376409/summary.json",
+          "units/overview-product-leaf-coverage-2325f46cef66df15/claims.json",
+          "units/overview-product-leaf-coverage-2325f46cef66df15/content.md",
+          "units/overview-product-leaf-coverage-2325f46cef66df15/summary.json",
+          "units/overview-product-leaf-work-item-dimension-56f87314160710e5/claims.json",
+          "units/overview-product-leaf-work-item-dimension-56f87314160710e5/content.md",
+          "units/overview-product-leaf-work-item-dimension-56f87314160710e5/summary.json",
+          "units/overview-product-synthesis-document-6bed0e1f4b070bd6/claims.json",
+          "units/overview-product-synthesis-document-6bed0e1f4b070bd6/content.md",
+          "units/overview-product-synthesis-document-6bed0e1f4b070bd6/summary.json",
+          "workitems.json"
+        ],
+        "repair": {
+          "action": "nothing to repair: the checker found no cross-unit defect, so no unit needs to be written again",
+          "conservation": {
+            "ancestors": 0,
+            "findings": 0,
+            "namedUnits": 0,
+            "plannedUnits": 4,
+            "statements": [
+              "every finding's units are in the repair set: 0 finding(s) naming 0 unit(s), all present",
+              "the repair set is inside the plan: 0 = 0 named + 0 written-from, of 4 planned unit(s)"
+            ]
+          },
+          "coverage": [
+            {
+              "route": {
+                "clause": "every row of plan/catalog.json obligation accounting is accounted for, so no unit is owed a repair on its account",
+                "route": "nothing-owed"
+              },
+              "state": "complete",
+              "title": "Material obligations: where the plan puts them"
+            },
+            {
+              "route": {
+                "clause": "every row of plan/catalog.json ownership derivation is accounted for, so no unit is owed a repair on its account",
+                "route": "nothing-owed"
+              },
+              "state": "complete",
+              "title": "Material obligations of overview-product: which unit grounds them"
+            },
+            {
+              "route": {
+                "clause": "coverage/read-obligations.json recorded no denominator (ledger-empty), so there is nothing a repair could act on",
+                "route": "nothing-owed"
+              },
+              "state": "vacuous",
+              "title": "Read obligations: which have a source window"
+            },
+            {
+              "route": {
+                "clause": "the sealed epoch's completeness closure recorded no denominator (ledger-empty), so there is nothing a repair could act on",
+                "route": "nothing-owed"
+              },
+              "state": "vacuous",
+              "title": "Authorized reads: which were executed"
+            },
+            {
+              "route": {
+                "clause": "2 row(s) of workitems.json are owed and unpaid (cannot-determine); every one of these kinds is owed by the investigation's reading, the obligation ledger's own determinations or the plan, so re-drafting a unit cannot pay it — see the coverage companion for the rows and the file header for why none of them is a repair seed",
+                "kinds": [
+                  "cannot-determine"
+                ],
+                "owedRows": 2,
+                "route": "owed-outside-unit-authoring"
+              },
+              "state": "defective",
+              "title": "Obligation determinations: which were settled"
+            },
+            {
+              "route": {
+                "clause": "every row of units/collected.json is accounted for, so no unit is owed a repair on its account",
+                "route": "nothing-owed"
+              },
+              "state": "complete",
+              "title": "Written units: which state an unknown about themselves"
+            },
+            {
+              "route": {
+                "clause": "3 row(s) of plan/topics.json are owed and unpaid (unknown-topic); every one of these kinds is owed by the investigation's reading, the obligation ledger's own determinations or the plan, so re-drafting a unit cannot pay it — see the coverage companion for the rows and the file header for why none of them is a repair seed",
+                "kinds": [
+                  "unknown-topic"
+                ],
+                "owedRows": 3,
+                "route": "owed-outside-unit-authoring"
+              },
+              "state": "defective",
+              "title": "Topic catalog: which topics carry an unknown"
+            }
+          ],
+          "targets": [],
+          "version": "unit-repair-set-v1"
+        },
+        "result": {
+          "documents": [
+            "overview-product"
+          ],
+          "findings": [],
+          "readings": [
+            {
+              "documentId": "overview-product",
+              "findings": 0,
+              "kind": "terminology-drift",
+              "objects": {
+                "reason": "no unit of overview-product defines a term, so there is no definition to compare",
+                "state": "vacuous"
+              },
+              "statement": "vacuous: terminology-drift had no object to check in overview-product — no unit of overview-product defines a term, so there is no definition to compare"
+            },
+            {
+              "documentId": "overview-product",
+              "findings": 0,
+              "kind": "unknown-overclaim",
+              "objects": {
+                "objects": 2,
+                "state": "examined",
+                "subject": "claim link(s) to obligations recorded as cannot-determine or searched-not-found"
+              },
+              "statement": "checked: unknown-overclaim over 2 claim link(s) to obligations recorded as cannot-determine or searched-not-found of overview-product — 0 finding(s)"
+            },
+            {
+              "documentId": "overview-product",
+              "findings": 0,
+              "kind": "cross-unit-contradiction",
+              "objects": {
+                "reason": "no obligation of overview-product is cited by claims of two units and no pair of evidence ids is grouped by two units, so nothing is comparable across its 4 unit(s)",
+                "state": "vacuous"
+              },
+              "statement": "vacuous: cross-unit-contradiction had no object to check in overview-product — no obligation of overview-product is cited by claims of two units and no pair of evidence ids is grouped by two units, so nothing is comparable across its 4 unit(s)"
+            },
+            {
+              "documentId": "overview-product",
+              "findings": 0,
+              "kind": "dangling-reference",
+              "objects": {
+                "objects": 2,
+                "state": "examined",
+                "subject": "reference(s) written in unit prose and unit claims (anchor links, explicit anchor ids, work-item citations)"
+              },
+              "statement": "checked: dangling-reference over 2 reference(s) written in unit prose and unit claims (anchor links, explicit anchor ids, work-item citations) of overview-product — 0 finding(s)"
+            },
+            {
+              "documentId": "overview-product",
+              "findings": 0,
+              "kind": "policy-violation",
+              "objects": {
+                "objects": 8,
+                "state": "examined",
+                "subject": "unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against an evidence-only lens)"
+              },
+              "statement": "checked: policy-violation over 8 unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against an evidence-only lens) of overview-product — 0 finding(s)"
+            }
+          ],
+          "version": "unit-consistency-v1"
+        },
+        "runId": "<RUN-ID>",
+        "version": "unit-consistency-reading-v1"
+      },
+      "scenario": "clean"
+    },
+    {
+      "injected": "a fact claim on project:deprecated-or-unfinished, which this run recorded cannot-determine",
+      "reading": {
+        "knowledgeEpoch": 0,
+        "planCatalogDigest": "<PLAN-CATALOG-DIGEST>",
+        "preconditions": [
+          {
+            "authority": "inherited",
+            "name": "plan-in-force",
+            "statement": "the recorded plan <PLAN-CATALOG-DIGEST-16> re-validates against knowledge epoch 0 through the one plan gate: dispositions readable, obligation accounting and ownership conserving, one parent per child"
+          },
+          {
+            "authority": "inherited",
+            "name": "every-unit-collected",
+            "statement": "all 4 planned unit(s) of 1 document(s) have a ledger row for this epoch and this plan; assembly is all-or-nothing, so a check over part of a run is unreachable"
+          },
+          {
+            "authority": "inherited",
+            "name": "ledger-promise-intact",
+            "statement": "every collected unit's content, claims and summary still digest to what its ledger row promised, through the one comparison collect and unit-cache-admit use"
+          },
+          {
+            "authority": "asserted-here",
+            "name": "assembled-deliverable-current",
+            "statement": "the 1 assembled document(s) and the coverage companion on disk are byte for byte the bytes this plan and these collected units produce, so every reference this checker resolves is a reference the deliverable holds"
+          },
+          {
+            "authority": "asserted-here",
+            "name": "child-summary-digests-current",
+            "statement": "every synthesis unit's recorded childSummaryDigests equal the digests of its children's summaries as they are on disk now (4 summary/summaries read)"
+          }
+        ],
+        "readPaths": [
+          "context/boundary-functions.json",
+          "contract/run-intent.json",
+          "coverage/read-obligations.json",
+          "coverage/read-residual.json",
+          "facts/producers/codegraph.json",
+          "facts/producers/crossrepo.json",
+          "facts/producers/db-schema.json",
+          "knowledge.json",
+          "plan/catalog.json",
+          "plan/dag.json",
+          "plan/requests.json",
+          "plan/topics.json",
+          "reports/companions/unit-coverage.md",
+          "reports/overview-product.md",
+          "run.json",
+          "traces.json",
+          "units/collected.json",
+          "units/overview-product-appendix-coverage-16df53b9d2376409/claims.json",
+          "units/overview-product-appendix-coverage-16df53b9d2376409/content.md",
+          "units/overview-product-appendix-coverage-16df53b9d2376409/summary.json",
+          "units/overview-product-leaf-coverage-2325f46cef66df15/claims.json",
+          "units/overview-product-leaf-coverage-2325f46cef66df15/content.md",
+          "units/overview-product-leaf-coverage-2325f46cef66df15/summary.json",
+          "units/overview-product-leaf-work-item-dimension-56f87314160710e5/claims.json",
+          "units/overview-product-leaf-work-item-dimension-56f87314160710e5/content.md",
+          "units/overview-product-leaf-work-item-dimension-56f87314160710e5/summary.json",
+          "units/overview-product-synthesis-document-6bed0e1f4b070bd6/claims.json",
+          "units/overview-product-synthesis-document-6bed0e1f4b070bd6/content.md",
+          "units/overview-product-synthesis-document-6bed0e1f4b070bd6/summary.json",
+          "workitems.json"
+        ],
+        "repair": {
+          "action": "re-draft and re-collect exactly these 2 unit(s) — overview-product::leaf::work-item-dimension, overview-product::synthesis::document — through the existing revision path (draft --unit … then collect --units), then assemble --units --mode write. Every other unit of the plan is left as it is; there is no whole-document rewrite to ask for.",
+          "conservation": {
+            "ancestors": 1,
+            "findings": 1,
+            "namedUnits": 1,
+            "plannedUnits": 4,
+            "statements": [
+              "every finding's units are in the repair set: 1 finding(s) naming 1 unit(s), all present",
+              "the repair set is inside the plan: 2 = 1 named + 1 written-from, of 4 planned unit(s)"
+            ]
+          },
+          "coverage": [
+            {
+              "route": {
+                "clause": "every row of plan/catalog.json obligation accounting is accounted for, so no unit is owed a repair on its account",
+                "route": "nothing-owed"
+              },
+              "state": "complete",
+              "title": "Material obligations: where the plan puts them"
+            },
+            {
+              "route": {
+                "clause": "every row of plan/catalog.json ownership derivation is accounted for, so no unit is owed a repair on its account",
+                "route": "nothing-owed"
+              },
+              "state": "complete",
+              "title": "Material obligations of overview-product: which unit grounds them"
+            },
+            {
+              "route": {
+                "clause": "coverage/read-obligations.json recorded no denominator (ledger-empty), so there is nothing a repair could act on",
+                "route": "nothing-owed"
+              },
+              "state": "vacuous",
+              "title": "Read obligations: which have a source window"
+            },
+            {
+              "route": {
+                "clause": "the sealed epoch's completeness closure recorded no denominator (ledger-empty), so there is nothing a repair could act on",
+                "route": "nothing-owed"
+              },
+              "state": "vacuous",
+              "title": "Authorized reads: which were executed"
+            },
+            {
+              "route": {
+                "clause": "2 row(s) of workitems.json are owed and unpaid (cannot-determine); every one of these kinds is owed by the investigation's reading, the obligation ledger's own determinations or the plan, so re-drafting a unit cannot pay it — see the coverage companion for the rows and the file header for why none of them is a repair seed",
+                "kinds": [
+                  "cannot-determine"
+                ],
+                "owedRows": 2,
+                "route": "owed-outside-unit-authoring"
+              },
+              "state": "defective",
+              "title": "Obligation determinations: which were settled"
+            },
+            {
+              "route": {
+                "clause": "every row of units/collected.json is accounted for, so no unit is owed a repair on its account",
+                "route": "nothing-owed"
+              },
+              "state": "complete",
+              "title": "Written units: which state an unknown about themselves"
+            },
+            {
+              "route": {
+                "clause": "3 row(s) of plan/topics.json are owed and unpaid (unknown-topic); every one of these kinds is owed by the investigation's reading, the obligation ledger's own determinations or the plan, so re-drafting a unit cannot pay it — see the coverage companion for the rows and the file header for why none of them is a repair seed",
+                "kinds": [
+                  "unknown-topic"
+                ],
+                "owedRows": 3,
+                "route": "owed-outside-unit-authoring"
+              },
+              "state": "defective",
+              "title": "Topic catalog: which topics carry an unknown"
+            }
+          ],
+          "targets": [
+            {
+              "documentId": "overview-product",
+              "kind": "leaf",
+              "reason": {
+                "cause": "named-by-finding",
+                "findingKinds": [
+                  "unknown-overclaim"
+                ],
+                "statements": [
+                  "unknown-overclaim: unit overview-product::leaf::work-item-dimension states claim F-overclaim as \"fact\" and links it to obligation project:deprecated-or-unfinished, which this run's ledger records as \"cannot-determine\"; a document may not present an unanswered question as an established one — no collect gate catches this because both grounding gates ask whether a satisfying claim EXISTS and neither forbids an additional claim that overstates the same obligation, so an unavailable claim beside a fact claim on one unanswerable obligation passes"
+                ]
+              },
+              "unitId": "overview-product::leaf::work-item-dimension"
+            },
+            {
+              "documentId": "overview-product",
+              "kind": "synthesis",
+              "reason": {
+                "cause": "written-from-a-repaired-unit",
+                "statement": "unit overview-product::synthesis::document is written from 1 repaired child unit(s) (overview-product::leaf::work-item-dimension), and its summary records their summary digests; re-drafting a child mints a new summary, so leaving this unit out does not make the repair smaller — it makes the run uncollectable at this unit's next collect",
+                "viaChildUnitIds": [
+                  "overview-product::leaf::work-item-dimension"
+                ]
+              },
+              "unitId": "overview-product::synthesis::document"
+            }
+          ],
+          "version": "unit-repair-set-v1"
+        },
+        "result": {
+          "documents": [
+            "overview-product"
+          ],
+          "findings": [
+            {
+              "claimId": "F-overclaim",
+              "documentId": "overview-product",
+              "kind": "unknown-overclaim",
+              "marker": "fact",
+              "statement": "unit overview-product::leaf::work-item-dimension states claim F-overclaim as \"fact\" and links it to obligation project:deprecated-or-unfinished, which this run's ledger records as \"cannot-determine\"; a document may not present an unanswered question as an established one",
+              "unitIds": [
+                "overview-product::leaf::work-item-dimension"
+              ],
+              "workItemId": "project:deprecated-or-unfinished",
+              "workItemStatus": "cannot-determine"
+            }
+          ],
+          "readings": [
+            {
+              "documentId": "overview-product",
+              "findings": 0,
+              "kind": "terminology-drift",
+              "objects": {
+                "reason": "no unit of overview-product defines a term, so there is no definition to compare",
+                "state": "vacuous"
+              },
+              "statement": "vacuous: terminology-drift had no object to check in overview-product — no unit of overview-product defines a term, so there is no definition to compare"
+            },
+            {
+              "documentId": "overview-product",
+              "findings": 1,
+              "kind": "unknown-overclaim",
+              "objects": {
+                "objects": 3,
+                "state": "examined",
+                "subject": "claim link(s) to obligations recorded as cannot-determine or searched-not-found"
+              },
+              "statement": "checked: unknown-overclaim over 3 claim link(s) to obligations recorded as cannot-determine or searched-not-found of overview-product — 1 finding(s)"
+            },
+            {
+              "documentId": "overview-product",
+              "findings": 0,
+              "kind": "cross-unit-contradiction",
+              "objects": {
+                "reason": "no obligation of overview-product is cited by claims of two units and no pair of evidence ids is grouped by two units, so nothing is comparable across its 4 unit(s)",
+                "state": "vacuous"
+              },
+              "statement": "vacuous: cross-unit-contradiction had no object to check in overview-product — no obligation of overview-product is cited by claims of two units and no pair of evidence ids is grouped by two units, so nothing is comparable across its 4 unit(s)"
+            },
+            {
+              "documentId": "overview-product",
+              "findings": 0,
+              "kind": "dangling-reference",
+              "objects": {
+                "objects": 3,
+                "state": "examined",
+                "subject": "reference(s) written in unit prose and unit claims (anchor links, explicit anchor ids, work-item citations)"
+              },
+              "statement": "checked: dangling-reference over 3 reference(s) written in unit prose and unit claims (anchor links, explicit anchor ids, work-item citations) of overview-product — 0 finding(s)"
+            },
+            {
+              "documentId": "overview-product",
+              "findings": 0,
+              "kind": "policy-violation",
+              "objects": {
+                "objects": 8,
+                "state": "examined",
+                "subject": "unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against an evidence-only lens)"
+              },
+              "statement": "checked: policy-violation over 8 unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against an evidence-only lens) of overview-product — 0 finding(s)"
+            }
+          ],
+          "version": "unit-consistency-v1"
+        },
+        "runId": "<RUN-ID>",
+        "version": "unit-consistency-reading-v1"
+      },
+      "scenario": "unknown-overclaim"
+    },
+    {
+      "injected": "two units defining the term Tenant with two meanings",
+      "reading": {
+        "knowledgeEpoch": 0,
+        "planCatalogDigest": "<PLAN-CATALOG-DIGEST>",
+        "preconditions": [
+          {
+            "authority": "inherited",
+            "name": "plan-in-force",
+            "statement": "the recorded plan <PLAN-CATALOG-DIGEST-16> re-validates against knowledge epoch 0 through the one plan gate: dispositions readable, obligation accounting and ownership conserving, one parent per child"
+          },
+          {
+            "authority": "inherited",
+            "name": "every-unit-collected",
+            "statement": "all 4 planned unit(s) of 1 document(s) have a ledger row for this epoch and this plan; assembly is all-or-nothing, so a check over part of a run is unreachable"
+          },
+          {
+            "authority": "inherited",
+            "name": "ledger-promise-intact",
+            "statement": "every collected unit's content, claims and summary still digest to what its ledger row promised, through the one comparison collect and unit-cache-admit use"
+          },
+          {
+            "authority": "asserted-here",
+            "name": "assembled-deliverable-current",
+            "statement": "the 1 assembled document(s) and the coverage companion on disk are byte for byte the bytes this plan and these collected units produce, so every reference this checker resolves is a reference the deliverable holds"
+          },
+          {
+            "authority": "asserted-here",
+            "name": "child-summary-digests-current",
+            "statement": "every synthesis unit's recorded childSummaryDigests equal the digests of its children's summaries as they are on disk now (4 summary/summaries read)"
+          }
+        ],
+        "readPaths": [
+          "context/boundary-functions.json",
+          "contract/run-intent.json",
+          "coverage/read-obligations.json",
+          "coverage/read-residual.json",
+          "facts/producers/codegraph.json",
+          "facts/producers/crossrepo.json",
+          "facts/producers/db-schema.json",
+          "knowledge.json",
+          "plan/catalog.json",
+          "plan/dag.json",
+          "plan/requests.json",
+          "plan/topics.json",
+          "reports/companions/unit-coverage.md",
+          "reports/overview-product.md",
+          "run.json",
+          "traces.json",
+          "units/collected.json",
+          "units/overview-product-appendix-coverage-16df53b9d2376409/claims.json",
+          "units/overview-product-appendix-coverage-16df53b9d2376409/content.md",
+          "units/overview-product-appendix-coverage-16df53b9d2376409/summary.json",
+          "units/overview-product-leaf-coverage-2325f46cef66df15/claims.json",
+          "units/overview-product-leaf-coverage-2325f46cef66df15/content.md",
+          "units/overview-product-leaf-coverage-2325f46cef66df15/summary.json",
+          "units/overview-product-leaf-work-item-dimension-56f87314160710e5/claims.json",
+          "units/overview-product-leaf-work-item-dimension-56f87314160710e5/content.md",
+          "units/overview-product-leaf-work-item-dimension-56f87314160710e5/summary.json",
+          "units/overview-product-synthesis-document-6bed0e1f4b070bd6/claims.json",
+          "units/overview-product-synthesis-document-6bed0e1f4b070bd6/content.md",
+          "units/overview-product-synthesis-document-6bed0e1f4b070bd6/summary.json",
+          "workitems.json"
+        ],
+        "repair": {
+          "action": "re-draft and re-collect exactly these 3 unit(s) — overview-product::appendix::coverage, overview-product::leaf::coverage, overview-product::synthesis::document — through the existing revision path (draft --unit … then collect --units), then assemble --units --mode write. Every other unit of the plan is left as it is; there is no whole-document rewrite to ask for.",
+          "conservation": {
+            "ancestors": 1,
+            "findings": 1,
+            "namedUnits": 2,
+            "plannedUnits": 4,
+            "statements": [
+              "every finding's units are in the repair set: 1 finding(s) naming 2 unit(s), all present",
+              "the repair set is inside the plan: 3 = 2 named + 1 written-from, of 4 planned unit(s)"
+            ]
+          },
+          "coverage": [
+            {
+              "route": {
+                "clause": "every row of plan/catalog.json obligation accounting is accounted for, so no unit is owed a repair on its account",
+                "route": "nothing-owed"
+              },
+              "state": "complete",
+              "title": "Material obligations: where the plan puts them"
+            },
+            {
+              "route": {
+                "clause": "every row of plan/catalog.json ownership derivation is accounted for, so no unit is owed a repair on its account",
+                "route": "nothing-owed"
+              },
+              "state": "complete",
+              "title": "Material obligations of overview-product: which unit grounds them"
+            },
+            {
+              "route": {
+                "clause": "coverage/read-obligations.json recorded no denominator (ledger-empty), so there is nothing a repair could act on",
+                "route": "nothing-owed"
+              },
+              "state": "vacuous",
+              "title": "Read obligations: which have a source window"
+            },
+            {
+              "route": {
+                "clause": "the sealed epoch's completeness closure recorded no denominator (ledger-empty), so there is nothing a repair could act on",
+                "route": "nothing-owed"
+              },
+              "state": "vacuous",
+              "title": "Authorized reads: which were executed"
+            },
+            {
+              "route": {
+                "clause": "2 row(s) of workitems.json are owed and unpaid (cannot-determine); every one of these kinds is owed by the investigation's reading, the obligation ledger's own determinations or the plan, so re-drafting a unit cannot pay it — see the coverage companion for the rows and the file header for why none of them is a repair seed",
+                "kinds": [
+                  "cannot-determine"
+                ],
+                "owedRows": 2,
+                "route": "owed-outside-unit-authoring"
+              },
+              "state": "defective",
+              "title": "Obligation determinations: which were settled"
+            },
+            {
+              "route": {
+                "clause": "every row of units/collected.json is accounted for, so no unit is owed a repair on its account",
+                "route": "nothing-owed"
+              },
+              "state": "complete",
+              "title": "Written units: which state an unknown about themselves"
+            },
+            {
+              "route": {
+                "clause": "3 row(s) of plan/topics.json are owed and unpaid (unknown-topic); every one of these kinds is owed by the investigation's reading, the obligation ledger's own determinations or the plan, so re-drafting a unit cannot pay it — see the coverage companion for the rows and the file header for why none of them is a repair seed",
+                "kinds": [
+                  "unknown-topic"
+                ],
+                "owedRows": 3,
+                "route": "owed-outside-unit-authoring"
+              },
+              "state": "defective",
+              "title": "Topic catalog: which topics carry an unknown"
+            }
+          ],
+          "targets": [
+            {
+              "documentId": "overview-product",
+              "kind": "appendix",
+              "reason": {
+                "cause": "named-by-finding",
+                "findingKinds": [
+                  "terminology-drift"
+                ],
+                "statements": [
+                  "terminology-drift: document overview-product defines term \"tenant\" with 2 different meanings: overview-product::appendix::coverage says \"一个付费客户\"; overview-product::leaf::coverage says \"一个数据库 schema\". Every unit that defines it is named because making them agree is the repair and this checker does not choose which meaning is right. — no collect gate catches this because collect audits one unit at a time, so the other definition of a term — in another unit's summary — is not in anything it reads"
+                ]
+              },
+              "unitId": "overview-product::appendix::coverage"
+            },
+            {
+              "documentId": "overview-product",
+              "kind": "leaf",
+              "reason": {
+                "cause": "named-by-finding",
+                "findingKinds": [
+                  "terminology-drift"
+                ],
+                "statements": [
+                  "terminology-drift: document overview-product defines term \"tenant\" with 2 different meanings: overview-product::appendix::coverage says \"一个付费客户\"; overview-product::leaf::coverage says \"一个数据库 schema\". Every unit that defines it is named because making them agree is the repair and this checker does not choose which meaning is right. — no collect gate catches this because collect audits one unit at a time, so the other definition of a term — in another unit's summary — is not in anything it reads"
+                ]
+              },
+              "unitId": "overview-product::leaf::coverage"
+            },
+            {
+              "documentId": "overview-product",
+              "kind": "synthesis",
+              "reason": {
+                "cause": "written-from-a-repaired-unit",
+                "statement": "unit overview-product::synthesis::document is written from 2 repaired child unit(s) (overview-product::appendix::coverage, overview-product::leaf::coverage), and its summary records their summary digests; re-drafting a child mints a new summary, so leaving this unit out does not make the repair smaller — it makes the run uncollectable at this unit's next collect",
+                "viaChildUnitIds": [
+                  "overview-product::appendix::coverage",
+                  "overview-product::leaf::coverage"
+                ]
+              },
+              "unitId": "overview-product::synthesis::document"
+            }
+          ],
+          "version": "unit-repair-set-v1"
+        },
+        "result": {
+          "documents": [
+            "overview-product"
+          ],
+          "findings": [
+            {
+              "definitions": [
+                {
+                  "meaning": "一个付费客户",
+                  "term": "Tenant",
+                  "unitId": "overview-product::appendix::coverage"
+                },
+                {
+                  "meaning": "一个数据库 schema",
+                  "term": "tenant",
+                  "unitId": "overview-product::leaf::coverage"
+                }
+              ],
+              "documentId": "overview-product",
+              "kind": "terminology-drift",
+              "statement": "document overview-product defines term \"tenant\" with 2 different meanings: overview-product::appendix::coverage says \"一个付费客户\"; overview-product::leaf::coverage says \"一个数据库 schema\". Every unit that defines it is named because making them agree is the repair and this checker does not choose which meaning is right.",
+              "term": "tenant",
+              "unitIds": [
+                "overview-product::appendix::coverage",
+                "overview-product::leaf::coverage"
+              ]
+            }
+          ],
+          "readings": [
+            {
+              "documentId": "overview-product",
+              "findings": 1,
+              "kind": "terminology-drift",
+              "objects": {
+                "objects": 1,
+                "state": "examined",
+                "subject": "term(s) defined more than once across 4 unit(s)"
+              },
+              "statement": "checked: terminology-drift over 1 term(s) defined more than once across 4 unit(s) of overview-product — 1 finding(s)"
+            },
+            {
+              "documentId": "overview-product",
+              "findings": 0,
+              "kind": "unknown-overclaim",
+              "objects": {
+                "objects": 2,
+                "state": "examined",
+                "subject": "claim link(s) to obligations recorded as cannot-determine or searched-not-found"
+              },
+              "statement": "checked: unknown-overclaim over 2 claim link(s) to obligations recorded as cannot-determine or searched-not-found of overview-product — 0 finding(s)"
+            },
+            {
+              "documentId": "overview-product",
+              "findings": 0,
+              "kind": "cross-unit-contradiction",
+              "objects": {
+                "reason": "no obligation of overview-product is cited by claims of two units and no pair of evidence ids is grouped by two units, so nothing is comparable across its 4 unit(s)",
+                "state": "vacuous"
+              },
+              "statement": "vacuous: cross-unit-contradiction had no object to check in overview-product — no obligation of overview-product is cited by claims of two units and no pair of evidence ids is grouped by two units, so nothing is comparable across its 4 unit(s)"
+            },
+            {
+              "documentId": "overview-product",
+              "findings": 0,
+              "kind": "dangling-reference",
+              "objects": {
+                "objects": 2,
+                "state": "examined",
+                "subject": "reference(s) written in unit prose and unit claims (anchor links, explicit anchor ids, work-item citations)"
+              },
+              "statement": "checked: dangling-reference over 2 reference(s) written in unit prose and unit claims (anchor links, explicit anchor ids, work-item citations) of overview-product — 0 finding(s)"
+            },
+            {
+              "documentId": "overview-product",
+              "findings": 0,
+              "kind": "policy-violation",
+              "objects": {
+                "objects": 8,
+                "state": "examined",
+                "subject": "unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against an evidence-only lens)"
+              },
+              "statement": "checked: policy-violation over 8 unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against an evidence-only lens) of overview-product — 0 finding(s)"
+            }
+          ],
+          "version": "unit-consistency-v1"
+        },
+        "runId": "<RUN-ID>",
+        "version": "unit-consistency-reading-v1"
+      },
+      "scenario": "terminology-drift"
+    },
+    {
+      "injected": "one obligation (project:literal-secrets) asserted by one unit and disclaimed by another, an unresolvable prose link, a duplicated anchor id, and advice nothing negates",
+      "reading": {
+        "knowledgeEpoch": 0,
+        "planCatalogDigest": "<PLAN-CATALOG-DIGEST>",
+        "preconditions": [
+          {
+            "authority": "inherited",
+            "name": "plan-in-force",
+            "statement": "the recorded plan <PLAN-CATALOG-DIGEST-16> re-validates against knowledge epoch 0 through the one plan gate: dispositions readable, obligation accounting and ownership conserving, one parent per child"
+          },
+          {
+            "authority": "inherited",
+            "name": "every-unit-collected",
+            "statement": "all 4 planned unit(s) of 1 document(s) have a ledger row for this epoch and this plan; assembly is all-or-nothing, so a check over part of a run is unreachable"
+          },
+          {
+            "authority": "inherited",
+            "name": "ledger-promise-intact",
+            "statement": "every collected unit's content, claims and summary still digest to what its ledger row promised, through the one comparison collect and unit-cache-admit use"
+          },
+          {
+            "authority": "asserted-here",
+            "name": "assembled-deliverable-current",
+            "statement": "the 1 assembled document(s) and the coverage companion on disk are byte for byte the bytes this plan and these collected units produce, so every reference this checker resolves is a reference the deliverable holds"
+          },
+          {
+            "authority": "asserted-here",
+            "name": "child-summary-digests-current",
+            "statement": "every synthesis unit's recorded childSummaryDigests equal the digests of its children's summaries as they are on disk now (4 summary/summaries read)"
+          }
+        ],
+        "readPaths": [
+          "context/boundary-functions.json",
+          "contract/run-intent.json",
+          "coverage/read-obligations.json",
+          "coverage/read-residual.json",
+          "facts/producers/codegraph.json",
+          "facts/producers/crossrepo.json",
+          "facts/producers/db-schema.json",
+          "knowledge.json",
+          "plan/catalog.json",
+          "plan/dag.json",
+          "plan/requests.json",
+          "plan/topics.json",
+          "reports/companions/unit-coverage.md",
+          "reports/overview-product.md",
+          "run.json",
+          "traces.json",
+          "units/collected.json",
+          "units/overview-product-appendix-coverage-16df53b9d2376409/claims.json",
+          "units/overview-product-appendix-coverage-16df53b9d2376409/content.md",
+          "units/overview-product-appendix-coverage-16df53b9d2376409/summary.json",
+          "units/overview-product-leaf-coverage-2325f46cef66df15/claims.json",
+          "units/overview-product-leaf-coverage-2325f46cef66df15/content.md",
+          "units/overview-product-leaf-coverage-2325f46cef66df15/summary.json",
+          "units/overview-product-leaf-work-item-dimension-56f87314160710e5/claims.json",
+          "units/overview-product-leaf-work-item-dimension-56f87314160710e5/content.md",
+          "units/overview-product-leaf-work-item-dimension-56f87314160710e5/summary.json",
+          "units/overview-product-synthesis-document-6bed0e1f4b070bd6/claims.json",
+          "units/overview-product-synthesis-document-6bed0e1f4b070bd6/content.md",
+          "units/overview-product-synthesis-document-6bed0e1f4b070bd6/summary.json",
+          "workitems.json"
+        ],
+        "repair": {
+          "action": "re-draft and re-collect exactly these 3 unit(s) — overview-product::appendix::coverage, overview-product::leaf::coverage, overview-product::synthesis::document — through the existing revision path (draft --unit … then collect --units), then assemble --units --mode write. Every other unit of the plan is left as it is; there is no whole-document rewrite to ask for.",
+          "conservation": {
+            "ancestors": 1,
+            "findings": 4,
+            "namedUnits": 2,
+            "plannedUnits": 4,
+            "statements": [
+              "every finding's units are in the repair set: 4 finding(s) naming 2 unit(s), all present",
+              "the repair set is inside the plan: 3 = 2 named + 1 written-from, of 4 planned unit(s)"
+            ]
+          },
+          "coverage": [
+            {
+              "route": {
+                "clause": "every row of plan/catalog.json obligation accounting is accounted for, so no unit is owed a repair on its account",
+                "route": "nothing-owed"
+              },
+              "state": "complete",
+              "title": "Material obligations: where the plan puts them"
+            },
+            {
+              "route": {
+                "clause": "every row of plan/catalog.json ownership derivation is accounted for, so no unit is owed a repair on its account",
+                "route": "nothing-owed"
+              },
+              "state": "complete",
+              "title": "Material obligations of overview-product: which unit grounds them"
+            },
+            {
+              "route": {
+                "clause": "coverage/read-obligations.json recorded no denominator (ledger-empty), so there is nothing a repair could act on",
+                "route": "nothing-owed"
+              },
+              "state": "vacuous",
+              "title": "Read obligations: which have a source window"
+            },
+            {
+              "route": {
+                "clause": "the sealed epoch's completeness closure recorded no denominator (ledger-empty), so there is nothing a repair could act on",
+                "route": "nothing-owed"
+              },
+              "state": "vacuous",
+              "title": "Authorized reads: which were executed"
+            },
+            {
+              "route": {
+                "clause": "2 row(s) of workitems.json are owed and unpaid (cannot-determine); every one of these kinds is owed by the investigation's reading, the obligation ledger's own determinations or the plan, so re-drafting a unit cannot pay it — see the coverage companion for the rows and the file header for why none of them is a repair seed",
+                "kinds": [
+                  "cannot-determine"
+                ],
+                "owedRows": 2,
+                "route": "owed-outside-unit-authoring"
+              },
+              "state": "defective",
+              "title": "Obligation determinations: which were settled"
+            },
+            {
+              "route": {
+                "clause": "every row of units/collected.json is accounted for, so no unit is owed a repair on its account",
+                "route": "nothing-owed"
+              },
+              "state": "complete",
+              "title": "Written units: which state an unknown about themselves"
+            },
+            {
+              "route": {
+                "clause": "3 row(s) of plan/topics.json are owed and unpaid (unknown-topic); every one of these kinds is owed by the investigation's reading, the obligation ledger's own determinations or the plan, so re-drafting a unit cannot pay it — see the coverage companion for the rows and the file header for why none of them is a repair seed",
+                "kinds": [
+                  "unknown-topic"
+                ],
+                "owedRows": 3,
+                "route": "owed-outside-unit-authoring"
+              },
+              "state": "defective",
+              "title": "Topic catalog: which topics carry an unknown"
+            }
+          ],
+          "targets": [
+            {
+              "documentId": "overview-product",
+              "kind": "appendix",
+              "reason": {
+                "cause": "named-by-finding",
+                "findingKinds": [
+                  "cross-unit-contradiction",
+                  "dangling-reference"
+                ],
+                "statements": [
+                  "cross-unit-contradiction: document overview-product both asserts and disclaims obligation project:literal-secrets (ledger status \"not-applicable\"): overview-product::leaf::coverage/F-settled is fact against overview-product::appendix::coverage/U-settled is unavailable — no collect gate catches this because the marker rules and the comparison-sides rule are per claim inside one unit, so two units' claims about one obligation or one piece of evidence are never compared",
+                  "dangling-reference: unit overview-product::appendix::coverage links to \"#nowhere-at-all\", which the assembled document overview-product holds neither as an explicit anchor nor as a heading a renderer would slug to it — no collect gate catches this because assembly resolves the links IT writes and nothing resolves the ones a model wrote in unit prose; a claim's workItemIds are not validated anywhere on the unit path"
+                ]
+              },
+              "unitId": "overview-product::appendix::coverage"
+            },
+            {
+              "documentId": "overview-product",
+              "kind": "leaf",
+              "reason": {
+                "cause": "named-by-finding",
+                "findingKinds": [
+                  "cross-unit-contradiction",
+                  "dangling-reference",
+                  "policy-violation"
+                ],
+                "statements": [
+                  "cross-unit-contradiction: document overview-product both asserts and disclaims obligation project:literal-secrets (ledger status \"not-applicable\"): overview-product::leaf::coverage/F-settled is fact against overview-product::appendix::coverage/U-settled is unavailable — no collect gate catches this because the marker rules and the comparison-sides rule are per claim inside one unit, so two units' claims about one obligation or one piece of evidence are never compared",
+                  "dangling-reference: assembled document overview-product holds anchor id \"contents\" 2 times — written by overview-product::leaf::coverage — so every link to it lands on whichever copy the plan's order put first — no collect gate catches this because assembly resolves the links IT writes and nothing resolves the ones a model wrote in unit prose; a claim's workItemIds are not validated anywhere on the unit path",
+                  "policy-violation: unit overview-product::leaf::coverage of overview-product tells the reader what to do and nothing negates it (/修复建议/g): \"id=\\\"contents\\\"></a> 修复建议见附录，请将超时下调\" — no collect gate catches this because the advice check runs on the section path's assembled report only, and no gate reads the lens policy's identifier placement against prose"
+                ]
+              },
+              "unitId": "overview-product::leaf::coverage"
+            },
+            {
+              "documentId": "overview-product",
+              "kind": "synthesis",
+              "reason": {
+                "cause": "written-from-a-repaired-unit",
+                "statement": "unit overview-product::synthesis::document is written from 2 repaired child unit(s) (overview-product::appendix::coverage, overview-product::leaf::coverage), and its summary records their summary digests; re-drafting a child mints a new summary, so leaving this unit out does not make the repair smaller — it makes the run uncollectable at this unit's next collect",
+                "viaChildUnitIds": [
+                  "overview-product::appendix::coverage",
+                  "overview-product::leaf::coverage"
+                ]
+              },
+              "unitId": "overview-product::synthesis::document"
+            }
+          ],
+          "version": "unit-repair-set-v1"
+        },
+        "result": {
+          "documents": [
+            "overview-product"
+          ],
+          "findings": [
+            {
+              "conflict": {
+                "asserting": [
+                  {
+                    "claimId": "F-settled",
+                    "marker": "fact",
+                    "unitId": "overview-product::leaf::coverage"
+                  }
+                ],
+                "shape": "incompatible-markers",
+                "unavailable": [
+                  {
+                    "claimId": "U-settled",
+                    "marker": "unavailable",
+                    "unitId": "overview-product::appendix::coverage"
+                  }
+                ],
+                "workItemId": "project:literal-secrets",
+                "workItemStatus": "not-applicable"
+              },
+              "documentId": "overview-product",
+              "kind": "cross-unit-contradiction",
+              "statement": "document overview-product both asserts and disclaims obligation project:literal-secrets (ledger status \"not-applicable\"): overview-product::leaf::coverage/F-settled is fact against overview-product::appendix::coverage/U-settled is unavailable",
+              "unitIds": [
+                "overview-product::appendix::coverage",
+                "overview-product::leaf::coverage"
+              ]
+            },
+            {
+              "documentId": "overview-product",
+              "kind": "dangling-reference",
+              "reference": {
+                "anchorId": "contents",
+                "occurrences": 2,
+                "shape": "duplicate-anchor"
+              },
+              "statement": "assembled document overview-product holds anchor id \"contents\" 2 times — written by overview-product::leaf::coverage — so every link to it lands on whichever copy the plan's order put first",
+              "unitIds": [
+                "overview-product::leaf::coverage"
+              ]
+            },
+            {
+              "documentId": "overview-product",
+              "kind": "dangling-reference",
+              "reference": {
+                "shape": "unresolvable-anchor",
+                "target": "nowhere-at-all"
+              },
+              "statement": "unit overview-product::appendix::coverage links to \"#nowhere-at-all\", which the assembled document overview-product holds neither as an explicit anchor nor as a heading a renderer would slug to it",
+              "unitIds": [
+                "overview-product::appendix::coverage"
+              ]
+            },
+            {
+              "documentId": "overview-product",
+              "kind": "policy-violation",
+              "statement": "unit overview-product::leaf::coverage of overview-product tells the reader what to do and nothing negates it (/修复建议/g): \"id=\\\"contents\\\"></a> 修复建议见附录，请将超时下调\"",
+              "unitIds": [
+                "overview-product::leaf::coverage"
+              ],
+              "violation": {
+                "excerpt": "id=\"contents\"></a> 修复建议见附录，请将超时下调",
+                "pattern": "/修复建议/g",
+                "shape": "recommendation-language"
+              }
+            }
+          ],
+          "readings": [
+            {
+              "documentId": "overview-product",
+              "findings": 0,
+              "kind": "terminology-drift",
+              "objects": {
+                "reason": "no unit of overview-product defines a term, so there is no definition to compare",
+                "state": "vacuous"
+              },
+              "statement": "vacuous: terminology-drift had no object to check in overview-product — no unit of overview-product defines a term, so there is no definition to compare"
+            },
+            {
+              "documentId": "overview-product",
+              "findings": 0,
+              "kind": "unknown-overclaim",
+              "objects": {
+                "objects": 2,
+                "state": "examined",
+                "subject": "claim link(s) to obligations recorded as cannot-determine or searched-not-found"
+              },
+              "statement": "checked: unknown-overclaim over 2 claim link(s) to obligations recorded as cannot-determine or searched-not-found of overview-product — 0 finding(s)"
+            },
+            {
+              "documentId": "overview-product",
+              "findings": 1,
+              "kind": "cross-unit-contradiction",
+              "objects": {
+                "objects": 1,
+                "state": "examined",
+                "subject": "cross-unit subject(s) (1 obligation(s) cited by two or more units, 0 evidence pair(s) grouped by two or more units)"
+              },
+              "statement": "checked: cross-unit-contradiction over 1 cross-unit subject(s) (1 obligation(s) cited by two or more units, 0 evidence pair(s) grouped by two or more units) of overview-product — 1 finding(s)"
+            },
+            {
+              "documentId": "overview-product",
+              "findings": 2,
+              "kind": "dangling-reference",
+              "objects": {
+                "objects": 6,
+                "state": "examined",
+                "subject": "reference(s) written in unit prose and unit claims (anchor links, explicit anchor ids, work-item citations)"
+              },
+              "statement": "checked: dangling-reference over 6 reference(s) written in unit prose and unit claims (anchor links, explicit anchor ids, work-item citations) of overview-product — 2 finding(s)"
+            },
+            {
+              "documentId": "overview-product",
+              "findings": 1,
+              "kind": "policy-violation",
+              "objects": {
+                "objects": 8,
+                "state": "examined",
+                "subject": "unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against an evidence-only lens)"
+              },
+              "statement": "checked: policy-violation over 8 unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against an evidence-only lens) of overview-product — 1 finding(s)"
+            }
+          ],
+          "version": "unit-consistency-v1"
+        },
+        "runId": "<RUN-ID>",
+        "version": "unit-consistency-reading-v1"
+      },
+      "scenario": "contradiction-references-and-policy"
+    },
+    {
+      "injected": "the terminology-drift run, re-drafted through exactly the repair set it named",
+      "reading": {
+        "knowledgeEpoch": 0,
+        "planCatalogDigest": "<PLAN-CATALOG-DIGEST>",
+        "preconditions": [
+          {
+            "authority": "inherited",
+            "name": "plan-in-force",
+            "statement": "the recorded plan <PLAN-CATALOG-DIGEST-16> re-validates against knowledge epoch 0 through the one plan gate: dispositions readable, obligation accounting and ownership conserving, one parent per child"
+          },
+          {
+            "authority": "inherited",
+            "name": "every-unit-collected",
+            "statement": "all 4 planned unit(s) of 1 document(s) have a ledger row for this epoch and this plan; assembly is all-or-nothing, so a check over part of a run is unreachable"
+          },
+          {
+            "authority": "inherited",
+            "name": "ledger-promise-intact",
+            "statement": "every collected unit's content, claims and summary still digest to what its ledger row promised, through the one comparison collect and unit-cache-admit use"
+          },
+          {
+            "authority": "asserted-here",
+            "name": "assembled-deliverable-current",
+            "statement": "the 1 assembled document(s) and the coverage companion on disk are byte for byte the bytes this plan and these collected units produce, so every reference this checker resolves is a reference the deliverable holds"
+          },
+          {
+            "authority": "asserted-here",
+            "name": "child-summary-digests-current",
+            "statement": "every synthesis unit's recorded childSummaryDigests equal the digests of its children's summaries as they are on disk now (4 summary/summaries read)"
+          }
+        ],
+        "readPaths": [
+          "context/boundary-functions.json",
+          "contract/run-intent.json",
+          "coverage/read-obligations.json",
+          "coverage/read-residual.json",
+          "facts/producers/codegraph.json",
+          "facts/producers/crossrepo.json",
+          "facts/producers/db-schema.json",
+          "knowledge.json",
+          "plan/catalog.json",
+          "plan/dag.json",
+          "plan/requests.json",
+          "plan/topics.json",
+          "reports/companions/unit-coverage.md",
+          "reports/overview-product.md",
+          "run.json",
+          "traces.json",
+          "units/collected.json",
+          "units/overview-product-appendix-coverage-16df53b9d2376409/claims.json",
+          "units/overview-product-appendix-coverage-16df53b9d2376409/content.md",
+          "units/overview-product-appendix-coverage-16df53b9d2376409/summary.json",
+          "units/overview-product-leaf-coverage-2325f46cef66df15/claims.json",
+          "units/overview-product-leaf-coverage-2325f46cef66df15/content.md",
+          "units/overview-product-leaf-coverage-2325f46cef66df15/summary.json",
+          "units/overview-product-leaf-work-item-dimension-56f87314160710e5/claims.json",
+          "units/overview-product-leaf-work-item-dimension-56f87314160710e5/content.md",
+          "units/overview-product-leaf-work-item-dimension-56f87314160710e5/summary.json",
+          "units/overview-product-synthesis-document-6bed0e1f4b070bd6/claims.json",
+          "units/overview-product-synthesis-document-6bed0e1f4b070bd6/content.md",
+          "units/overview-product-synthesis-document-6bed0e1f4b070bd6/summary.json",
+          "workitems.json"
+        ],
+        "repair": {
+          "action": "nothing to repair: the checker found no cross-unit defect, so no unit needs to be written again",
+          "conservation": {
+            "ancestors": 0,
+            "findings": 0,
+            "namedUnits": 0,
+            "plannedUnits": 4,
+            "statements": [
+              "every finding's units are in the repair set: 0 finding(s) naming 0 unit(s), all present",
+              "the repair set is inside the plan: 0 = 0 named + 0 written-from, of 4 planned unit(s)"
+            ]
+          },
+          "coverage": [
+            {
+              "route": {
+                "clause": "every row of plan/catalog.json obligation accounting is accounted for, so no unit is owed a repair on its account",
+                "route": "nothing-owed"
+              },
+              "state": "complete",
+              "title": "Material obligations: where the plan puts them"
+            },
+            {
+              "route": {
+                "clause": "every row of plan/catalog.json ownership derivation is accounted for, so no unit is owed a repair on its account",
+                "route": "nothing-owed"
+              },
+              "state": "complete",
+              "title": "Material obligations of overview-product: which unit grounds them"
+            },
+            {
+              "route": {
+                "clause": "coverage/read-obligations.json recorded no denominator (ledger-empty), so there is nothing a repair could act on",
+                "route": "nothing-owed"
+              },
+              "state": "vacuous",
+              "title": "Read obligations: which have a source window"
+            },
+            {
+              "route": {
+                "clause": "the sealed epoch's completeness closure recorded no denominator (ledger-empty), so there is nothing a repair could act on",
+                "route": "nothing-owed"
+              },
+              "state": "vacuous",
+              "title": "Authorized reads: which were executed"
+            },
+            {
+              "route": {
+                "clause": "2 row(s) of workitems.json are owed and unpaid (cannot-determine); every one of these kinds is owed by the investigation's reading, the obligation ledger's own determinations or the plan, so re-drafting a unit cannot pay it — see the coverage companion for the rows and the file header for why none of them is a repair seed",
+                "kinds": [
+                  "cannot-determine"
+                ],
+                "owedRows": 2,
+                "route": "owed-outside-unit-authoring"
+              },
+              "state": "defective",
+              "title": "Obligation determinations: which were settled"
+            },
+            {
+              "route": {
+                "clause": "every row of units/collected.json is accounted for, so no unit is owed a repair on its account",
+                "route": "nothing-owed"
+              },
+              "state": "complete",
+              "title": "Written units: which state an unknown about themselves"
+            },
+            {
+              "route": {
+                "clause": "3 row(s) of plan/topics.json are owed and unpaid (unknown-topic); every one of these kinds is owed by the investigation's reading, the obligation ledger's own determinations or the plan, so re-drafting a unit cannot pay it — see the coverage companion for the rows and the file header for why none of them is a repair seed",
+                "kinds": [
+                  "unknown-topic"
+                ],
+                "owedRows": 3,
+                "route": "owed-outside-unit-authoring"
+              },
+              "state": "defective",
+              "title": "Topic catalog: which topics carry an unknown"
+            }
+          ],
+          "targets": [],
+          "version": "unit-repair-set-v1"
+        },
+        "result": {
+          "documents": [
+            "overview-product"
+          ],
+          "findings": [],
+          "readings": [
+            {
+              "documentId": "overview-product",
+              "findings": 0,
+              "kind": "terminology-drift",
+              "objects": {
+                "objects": 1,
+                "state": "examined",
+                "subject": "term(s) defined more than once across 4 unit(s)"
+              },
+              "statement": "checked: terminology-drift over 1 term(s) defined more than once across 4 unit(s) of overview-product — 0 finding(s)"
+            },
+            {
+              "documentId": "overview-product",
+              "findings": 0,
+              "kind": "unknown-overclaim",
+              "objects": {
+                "objects": 2,
+                "state": "examined",
+                "subject": "claim link(s) to obligations recorded as cannot-determine or searched-not-found"
+              },
+              "statement": "checked: unknown-overclaim over 2 claim link(s) to obligations recorded as cannot-determine or searched-not-found of overview-product — 0 finding(s)"
+            },
+            {
+              "documentId": "overview-product",
+              "findings": 0,
+              "kind": "cross-unit-contradiction",
+              "objects": {
+                "reason": "no obligation of overview-product is cited by claims of two units and no pair of evidence ids is grouped by two units, so nothing is comparable across its 4 unit(s)",
+                "state": "vacuous"
+              },
+              "statement": "vacuous: cross-unit-contradiction had no object to check in overview-product — no obligation of overview-product is cited by claims of two units and no pair of evidence ids is grouped by two units, so nothing is comparable across its 4 unit(s)"
+            },
+            {
+              "documentId": "overview-product",
+              "findings": 0,
+              "kind": "dangling-reference",
+              "objects": {
+                "objects": 2,
+                "state": "examined",
+                "subject": "reference(s) written in unit prose and unit claims (anchor links, explicit anchor ids, work-item citations)"
+              },
+              "statement": "checked: dangling-reference over 2 reference(s) written in unit prose and unit claims (anchor links, explicit anchor ids, work-item citations) of overview-product — 0 finding(s)"
+            },
+            {
+              "documentId": "overview-product",
+              "findings": 0,
+              "kind": "policy-violation",
+              "objects": {
+                "objects": 8,
+                "state": "examined",
+                "subject": "unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against an evidence-only lens)"
+              },
+              "statement": "checked: policy-violation over 8 unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against an evidence-only lens) of overview-product — 0 finding(s)"
+            }
+          ],
+          "version": "unit-consistency-v1"
+        },
+        "runId": "<RUN-ID>",
+        "version": "unit-consistency-reading-v1"
+      },
+      "scenario": "repaired"
+    },
+    {
+      "injected": "the run's own sealed evidence id in the visible prose of a product-manager document",
+      "reading": {
+        "knowledgeEpoch": 0,
+        "planCatalogDigest": "<PLAN-CATALOG-DIGEST>",
+        "preconditions": [
+          {
+            "authority": "inherited",
+            "name": "plan-in-force",
+            "statement": "the recorded plan <PLAN-CATALOG-DIGEST-16> re-validates against knowledge epoch 0 through the one plan gate: dispositions readable, obligation accounting and ownership conserving, one parent per child"
+          },
+          {
+            "authority": "inherited",
+            "name": "every-unit-collected",
+            "statement": "all 4 planned unit(s) of 1 document(s) have a ledger row for this epoch and this plan; assembly is all-or-nothing, so a check over part of a run is unreachable"
+          },
+          {
+            "authority": "inherited",
+            "name": "ledger-promise-intact",
+            "statement": "every collected unit's content, claims and summary still digest to what its ledger row promised, through the one comparison collect and unit-cache-admit use"
+          },
+          {
+            "authority": "asserted-here",
+            "name": "assembled-deliverable-current",
+            "statement": "the 1 assembled document(s) and the coverage companion on disk are byte for byte the bytes this plan and these collected units produce, so every reference this checker resolves is a reference the deliverable holds"
+          },
+          {
+            "authority": "asserted-here",
+            "name": "child-summary-digests-current",
+            "statement": "every synthesis unit's recorded childSummaryDigests equal the digests of its children's summaries as they are on disk now (4 summary/summaries read)"
+          }
+        ],
+        "readPaths": [
+          "context/boundary-functions.json",
+          "contract/run-intent.json",
+          "coverage/read-obligations.json",
+          "coverage/read-residual.json",
+          "facts/producers/codegraph.json",
+          "facts/producers/crossrepo.json",
+          "facts/producers/db-schema.json",
+          "knowledge.json",
+          "plan/catalog.json",
+          "plan/dag.json",
+          "plan/requests.json",
+          "plan/topics.json",
+          "reports/companions/unit-coverage.md",
+          "reports/overview-product.md",
+          "run.json",
+          "traces.json",
+          "units/collected.json",
+          "units/overview-product-appendix-coverage-16df53b9d2376409/claims.json",
+          "units/overview-product-appendix-coverage-16df53b9d2376409/content.md",
+          "units/overview-product-appendix-coverage-16df53b9d2376409/summary.json",
+          "units/overview-product-leaf-coverage-2325f46cef66df15/claims.json",
+          "units/overview-product-leaf-coverage-2325f46cef66df15/content.md",
+          "units/overview-product-leaf-coverage-2325f46cef66df15/summary.json",
+          "units/overview-product-leaf-work-item-dimension-56f87314160710e5/claims.json",
+          "units/overview-product-leaf-work-item-dimension-56f87314160710e5/content.md",
+          "units/overview-product-leaf-work-item-dimension-56f87314160710e5/summary.json",
+          "units/overview-product-synthesis-document-6bed0e1f4b070bd6/claims.json",
+          "units/overview-product-synthesis-document-6bed0e1f4b070bd6/content.md",
+          "units/overview-product-synthesis-document-6bed0e1f4b070bd6/summary.json",
+          "workitems.json"
+        ],
+        "repair": {
+          "action": "re-draft and re-collect exactly these 2 unit(s) — overview-product::leaf::coverage, overview-product::synthesis::document — through the existing revision path (draft --unit … then collect --units), then assemble --units --mode write. Every other unit of the plan is left as it is; there is no whole-document rewrite to ask for.",
+          "conservation": {
+            "ancestors": 1,
+            "findings": 1,
+            "namedUnits": 1,
+            "plannedUnits": 4,
+            "statements": [
+              "every finding's units are in the repair set: 1 finding(s) naming 1 unit(s), all present",
+              "the repair set is inside the plan: 2 = 1 named + 1 written-from, of 4 planned unit(s)"
+            ]
+          },
+          "coverage": [
+            {
+              "route": {
+                "clause": "every row of plan/catalog.json obligation accounting is accounted for, so no unit is owed a repair on its account",
+                "route": "nothing-owed"
+              },
+              "state": "complete",
+              "title": "Material obligations: where the plan puts them"
+            },
+            {
+              "route": {
+                "clause": "every row of plan/catalog.json ownership derivation is accounted for, so no unit is owed a repair on its account",
+                "route": "nothing-owed"
+              },
+              "state": "complete",
+              "title": "Material obligations of overview-product: which unit grounds them"
+            },
+            {
+              "route": {
+                "clause": "coverage/read-obligations.json recorded no denominator (ledger-empty), so there is nothing a repair could act on",
+                "route": "nothing-owed"
+              },
+              "state": "vacuous",
+              "title": "Read obligations: which have a source window"
+            },
+            {
+              "route": {
+                "clause": "the sealed epoch's completeness closure recorded no denominator (ledger-empty), so there is nothing a repair could act on",
+                "route": "nothing-owed"
+              },
+              "state": "vacuous",
+              "title": "Authorized reads: which were executed"
+            },
+            {
+              "route": {
+                "clause": "2 row(s) of workitems.json are owed and unpaid (cannot-determine); every one of these kinds is owed by the investigation's reading, the obligation ledger's own determinations or the plan, so re-drafting a unit cannot pay it — see the coverage companion for the rows and the file header for why none of them is a repair seed",
+                "kinds": [
+                  "cannot-determine"
+                ],
+                "owedRows": 2,
+                "route": "owed-outside-unit-authoring"
+              },
+              "state": "defective",
+              "title": "Obligation determinations: which were settled"
+            },
+            {
+              "route": {
+                "clause": "every row of units/collected.json is accounted for, so no unit is owed a repair on its account",
+                "route": "nothing-owed"
+              },
+              "state": "complete",
+              "title": "Written units: which state an unknown about themselves"
+            },
+            {
+              "route": {
+                "clause": "3 row(s) of plan/topics.json are owed and unpaid (unknown-topic); every one of these kinds is owed by the investigation's reading, the obligation ledger's own determinations or the plan, so re-drafting a unit cannot pay it — see the coverage companion for the rows and the file header for why none of them is a repair seed",
+                "kinds": [
+                  "unknown-topic"
+                ],
+                "owedRows": 3,
+                "route": "owed-outside-unit-authoring"
+              },
+              "state": "defective",
+              "title": "Topic catalog: which topics carry an unknown"
+            }
+          ],
+          "targets": [
+            {
+              "documentId": "overview-product",
+              "kind": "leaf",
+              "reason": {
+                "cause": "named-by-finding",
+                "findingKinds": [
+                  "policy-violation"
+                ],
+                "statements": [
+                  "policy-violation: unit overview-product::leaf::coverage puts evidence id <SOURCE-EVIDENCE-ID> in the visible prose of overview-product, whose product-manager lens keeps implementation identifiers in evidence (identifierPlacement \"evidence-only\"): \"## coverage 证据 <SOURCE-EVIDENCE-ID> 记录当前状态。\" — no collect gate catches this because the advice check runs on the section path's assembled report only, and no gate reads the lens policy's identifier placement against prose"
+                ]
+              },
+              "unitId": "overview-product::leaf::coverage"
+            },
+            {
+              "documentId": "overview-product",
+              "kind": "synthesis",
+              "reason": {
+                "cause": "written-from-a-repaired-unit",
+                "statement": "unit overview-product::synthesis::document is written from 1 repaired child unit(s) (overview-product::leaf::coverage), and its summary records their summary digests; re-drafting a child mints a new summary, so leaving this unit out does not make the repair smaller — it makes the run uncollectable at this unit's next collect",
+                "viaChildUnitIds": [
+                  "overview-product::leaf::coverage"
+                ]
+              },
+              "unitId": "overview-product::synthesis::document"
+            }
+          ],
+          "version": "unit-repair-set-v1"
+        },
+        "result": {
+          "documents": [
+            "overview-product"
+          ],
+          "findings": [
+            {
+              "documentId": "overview-product",
+              "kind": "policy-violation",
+              "statement": "unit overview-product::leaf::coverage puts evidence id <SOURCE-EVIDENCE-ID> in the visible prose of overview-product, whose product-manager lens keeps implementation identifiers in evidence (identifierPlacement \"evidence-only\"): \"## coverage 证据 <SOURCE-EVIDENCE-ID> 记录当前状态。\"",
+              "unitIds": [
+                "overview-product::leaf::coverage"
+              ],
+              "violation": {
+                "evidenceId": "<SOURCE-EVIDENCE-ID>",
+                "excerpt": "## coverage 证据 <SOURCE-EVIDENCE-ID> 记录当前状态。",
+                "shape": "identifier-in-prose"
+              }
+            }
+          ],
+          "readings": [
+            {
+              "documentId": "overview-product",
+              "findings": 0,
+              "kind": "terminology-drift",
+              "objects": {
+                "reason": "no unit of overview-product defines a term, so there is no definition to compare",
+                "state": "vacuous"
+              },
+              "statement": "vacuous: terminology-drift had no object to check in overview-product — no unit of overview-product defines a term, so there is no definition to compare"
+            },
+            {
+              "documentId": "overview-product",
+              "findings": 0,
+              "kind": "unknown-overclaim",
+              "objects": {
+                "objects": 2,
+                "state": "examined",
+                "subject": "claim link(s) to obligations recorded as cannot-determine or searched-not-found"
+              },
+              "statement": "checked: unknown-overclaim over 2 claim link(s) to obligations recorded as cannot-determine or searched-not-found of overview-product — 0 finding(s)"
+            },
+            {
+              "documentId": "overview-product",
+              "findings": 0,
+              "kind": "cross-unit-contradiction",
+              "objects": {
+                "reason": "no obligation of overview-product is cited by claims of two units and no pair of evidence ids is grouped by two units, so nothing is comparable across its 4 unit(s)",
+                "state": "vacuous"
+              },
+              "statement": "vacuous: cross-unit-contradiction had no object to check in overview-product — no obligation of overview-product is cited by claims of two units and no pair of evidence ids is grouped by two units, so nothing is comparable across its 4 unit(s)"
+            },
+            {
+              "documentId": "overview-product",
+              "findings": 0,
+              "kind": "dangling-reference",
+              "objects": {
+                "objects": 2,
+                "state": "examined",
+                "subject": "reference(s) written in unit prose and unit claims (anchor links, explicit anchor ids, work-item citations)"
+              },
+              "statement": "checked: dangling-reference over 2 reference(s) written in unit prose and unit claims (anchor links, explicit anchor ids, work-item citations) of overview-product — 0 finding(s)"
+            },
+            {
+              "documentId": "overview-product",
+              "findings": 1,
+              "kind": "policy-violation",
+              "objects": {
+                "objects": 8,
+                "state": "examined",
+                "subject": "unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against an evidence-only lens)"
+              },
+              "statement": "checked: policy-violation over 8 unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against an evidence-only lens) of overview-product — 1 finding(s)"
+            }
+          ],
+          "version": "unit-consistency-v1"
+        },
+        "runId": "<RUN-ID>",
+        "version": "unit-consistency-reading-v1"
+      },
+      "scenario": "identifier-in-prose"
+    }
+  ],
+  "version": "unit-consistency-readings-v1"
+}
