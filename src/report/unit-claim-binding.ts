@@ -63,17 +63,13 @@ import type { SectionClaim } from "../base/types.ts";
 // against `skills/excavator/references/evidence-markers.json`. Copying the table here would give that contract a
 // second reader covered by half a test — a worse trade than one import into a file 57B-481 retires.
 //
-// WHAT 57B-481 STILL INHERITS BECAUSE OF THIS LINE, grep-verified rather than recalled, re-run after the shared
-// validator moved out: the `src/` importers of `section-audit.ts` are now exactly three —
-//   `claims-scaffold.ts` (substantiveSegments), THIS file (hasEvidenceMarkers), and `run.ts` (the section path
-//   itself, which goes with it). `unit-output.ts` is off the list: `assertValidClaim` now lives in
-//   `claim-validity.ts`, and `validateClaimsInput` was deleted with that move.
+// THE RELOCATION THAT PARAGRAPH PREDICTED IS DONE, and the inventory is re-run rather than recalled: `src/` now
+// has ZERO importers of `section-audit.ts`. `hasEvidenceMarkers` moved to `evidence-markers.ts` (this import),
+// `run.ts`'s section path went with 57B-481, and the section scaffolder was deleted with `substantiveSegments`
+// per its own deferral note. What is left of `section-audit.ts` is reached only from `tests/`.
 // Command: grep -rn --include='*.ts' section-audit.ts src/ — and read the import lines out of the hits. (Spelled
 // this way rather than as a quoted import specifier because `layer-order.test.ts` refuses a relative specifier
 // written inside a comment: it looks like an import to a reader and is invisible to the graph.)
-// So retiring `section-audit.ts` now means relocating exactly `hasEvidenceMarkers` (with the `markersIn` /
-// `MARKER_TOKENS` / `visibleText` support it stands on); `claims-scaffold.ts` retires with it, per that file's
-// own deferral note.
 import { hasEvidenceMarkers } from "./evidence-markers.ts";
 
 export const UNIT_CLAIM_BINDING_VERSION = "unit-claim-binding-v1";
@@ -147,7 +143,7 @@ export function visibleUnitText(content: string): string {
  * `；` and the very next line SPLITS on `；`, so the join is an artificial sentence terminator that makes each
  * cell its own segment — a row is not one statement. The cost, measured rather than assumed: every non-final
  * cell keeps a trailing `；` that appears in no rendering of the prose, so such a segment is NOT a substring of
- * the folded visible text. `claims-scaffold.ts` recorded the same artefact on the section path and dealt with it
+ * the folded visible text. The section path's scaffolder recorded the same artefact and dealt with it
  * the same way this file's contract does — a claim statement is the segment MINUS its trailing terminator, which
  * is contained in the prose, and coverage is bidirectional containment so the trimmed statement still covers the
  * segment it came from. `tests/unit-claim-binding.test.ts` states the containment invariant in exactly that form
@@ -192,6 +188,15 @@ export function substantiveUnitSegments(content: string): readonly string[] {
  *
  * THE ARRAY IS A CENSUS, NOT DECORATION: `tests/unit-claim-binding.test.ts` walks it and demands a named fixture
  * that produces each member, so a fifth kind cannot be added with nothing reaching it.
+ *
+ * ONE SECTION-PATH RULE HAS NO MEMBER HERE, AND SAYING SO IS THE POINT OF THIS PARAGRAPH. `auditSectionClaims`
+ * also SCANNED THE PROSE for evidence-id shapes and reported two things this census does not: an id written in
+ * the text that no claim declares, and a token of id shape (`FACT-…`, `S-…`) matching nothing in the catalog —
+ * a fabricated citation. That check read prose, not claims, so nothing on the unit path inherits it: the census
+ * above is claim-keyed and the unit segmenter never looks at id shapes. It was already unreachable in the
+ * product before deletion — after 57B-481 moved the audit to units, `auditSectionClaims` had no `src/` caller
+ * at all — so retiring it removed tests of dead code rather than a running gate. Whether a unit's prose may
+ * cite an id no claim declares is therefore an OPEN question for the unit path, not a settled one.
  */
 export const UNIT_BINDING_PROBLEM_KINDS = [
   "unclaimed-statement",
