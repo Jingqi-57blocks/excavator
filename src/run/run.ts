@@ -4,8 +4,7 @@ import { join, resolve } from "node:path";
 import type { Audience, DetailLevel, DocumentPlan, EvidenceItem, InvestigationChecklist, InvestigationPlan, ReportRequest, RunManifest, SectionClaim, SectionClaimsFile, TraceCatalog } from "../base/types.ts";
 import { auditAuthoringPacketConsumption } from "../report/authoring-packet.ts";
 import { buildContextsFromBoundary, featureCacheKey, readSourceBoundary, type ContextBuildResult, type SourceBoundary } from "../context/context.ts";
-import { FACT_PACK_CATEGORIES } from "../context/factpack.ts";
-import { factPackEvidenceId } from "../workset/factpack-view.ts";
+
 import { serializeLedgerArtifact, type FileLedger } from "../snapshot/file-ledger.ts";
 import { built, unavailable, type ArtifactResult } from "../base/artifact-result.ts";
 import { buildMechanismLedger, serializeMechanismLedger, type MechanismLedger } from "../mechanism/mechanism-ledger.ts";
@@ -17,10 +16,9 @@ import { materializeBoundRunContract, type BoundRunContract, type PlannedDocumen
 import { deriveContractManifest, type ContractManifest } from "../contract/contract-manifest.ts";
 import { auditContractInstances } from "../freeze/contract-instance-audit.ts";
 import { auditChecklist, auditEvidenceCatalog, auditTraces, auditWorkItems, createInvestigationChecklist, createInvestigationPlan, workItemsToChecklist } from "../investigation/assurance.ts";
-import { auditDetailedFeatureSection, auditEvidenceMarkerPlacement, auditReadabilityTables, auditRescuedLogicCoverage, auditSectionClaims, auditSectionEvidenceMarkers, auditTargetProblemAttribution, auditWorkItemClaimCoverage, hasEvidenceMarkers } from "../report/section-audit.ts";
-import { ASSURANCE_VERSION, READ_EXECUTION_ASSURANCE_GENERATION, WORKSET_OBLIGATION_ASSURANCE_GENERATION, assuranceGenerationAtLeast, runUsesCurrentAssurance } from "../base/assurance-version.ts";
+import { auditWorkItemClaimCoverage } from "../report/section-audit.ts";
+import { ASSURANCE_VERSION, READ_EXECUTION_ASSURANCE_GENERATION, WORKSET_OBLIGATION_ASSURANCE_GENERATION, assuranceGenerationAtLeast } from "../base/assurance-version.ts";
 import type { AuditFinding } from "../base/types.ts";
-import { auditComparativeClaims } from "../report/claim-comparison.ts";
 import { auditFreezeOrder, auditFrozenKnowledge, canonicalInvestigationResults, readCurrentKnowledge } from "../freeze/freeze.ts";
 import { atomicWrite, canonicalJson, ensureDir, exists, nowIso, projectWorkspace, readJson, runIdTimestamp, sha256, stableJson, writeJson } from "../base/util.ts";
 import { logicWorkItems, LOGIC_DISPOSITION_ASSURANCE_GENERATION } from "../obligation/logic-workitems.ts";
@@ -33,7 +31,6 @@ import { buildObligationStage, declarationWorkItems, writeObligationStage, write
 import { applyInvestigationDispositions, buildInvestigationStage, writeInvestigationStage } from "./investigation-stage.ts";
 import { readWindowShortfall, recordedWindowDemand } from "../investigation/read-budget.ts";
 import type { ObligationDeclarations } from "../obligation/declarations.ts";
-import { unnegatedAdvice } from "../report/recommendation-language.ts";
 import { overviewCensusResidual, scopeCensusResidual, type OverviewCensusV2, type ScopeCensusV2 } from "../workset/census.ts";
 import { requireReadSpecs, type ReadSpecsArtifact } from "../workset/read-specs.ts";
 import { auditReadAccountability, reconcileReadCoverage, type ClaimCitation } from "../investigation/read-coverage.ts";
@@ -61,22 +58,6 @@ export { runStatus } from "./stages/run-status-stage.ts";
 export { addSourceEvidence, searchCacheVersion, searchSourceEvidence, SOURCE_SEARCH_VERSION, updateChecklist, updateTraces, updateWorkItems, type SupplementInput } from "./stages/investigation-stage.ts";
 export { readingCheck } from "./stages/investigation-read-model.ts";
 export { freezeRun } from "./stages/freeze-stage.ts";
-
-/**
- * The `FACT-*` fact-pack evidence belonging to a feature document, for enumeration reconciliation.
- * Feature documents are `feature-<featureKey>-<audience>`; each category's evidence id is derived
- * deterministically from the same key and the snapshot, so the lookup is exact. Overview documents,
- * snapshot-less or older runs (no fact-pack evidence in the catalog) resolve to an empty set.
- */
-function factPackEvidenceForDocument(document: DocumentPlan, manifest: RunManifest, evidenceById: Map<string, EvidenceItem>): EvidenceItem[] {
-  if (document.kind !== "feature" || !manifest.snapshot) return [];
-  const feature = manifest.request.features.find((candidate) => `feature-${featureCacheKey(candidate)}-${document.audience}` === document.id);
-  if (!feature) return [];
-  const key = featureCacheKey(feature);
-  return FACT_PACK_CATEGORIES
-    .map((category) => evidenceById.get(factPackEvidenceId(key, category, manifest.snapshot!.id)))
-    .filter((item): item is EvidenceItem => Boolean(item));
-}
 
 /** A source window can satisfy context preparation and a later ReadSpec. Its id names bytes/path/span rather
  * than the reason it was requested, so initialization coalesces that one legitimate duplicate shape while
@@ -692,67 +673,51 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
     if (!sectionCoverageCounts) findings.push({ level: "warning", document: document.id, message: sectionCoverageVacuousStatement(document.id) });
     const reportPath = join(runDir, "reports", reportFileName(document));
     const reportExists = await exists(reportPath);
-    let reportText: string | null = null;
-    if (reportExists) {
-      const text = await readFile(reportPath, "utf8");
-      reportText = text;
-      const headings = [...text.matchAll(/^##\s+/gm)].length;
-      if (headings !== document.sections.length) findings.push({ level: "error", document: document.id, message: `expected ${document.sections.length} sections, found ${headings}` });
-      if (!/<details>/i.test(text)) findings.push({ level: "warning", document: document.id, message: "no collapsed evidence block was found" });
-      // Advice the report does not disclaim. A bare word list reported the §9 lead-in that ANNOUNCES the
-      // absence of advice as the violation itself — see recommendation-language.ts.
-      for (const advice of unnegatedAdvice(text)) {
-        findings.push({ level: "error", document: document.id, message: `recommendation language is not allowed: ${advice.pattern} — ${advice.excerpt}` });
-      }
-      if (!hasEvidenceMarkers(text)) findings.push({ level: "warning", document: document.id, message: "no evidence-level marker was found in the report prose" });
-    } else if (!singleDocument && sectionCoverageCounts) {
+    if (!reportExists && !singleDocument && sectionCoverageCounts) {
       // A single-document audit runs mid-authoring, before assembly, so a missing report is expected there — and
       // so is a run whose section family is vacuous, which said so in its own sentence above.
       findings.push({ level: "error", document: document.id, message: "assembled report is missing" });
     }
 
-    // Section claims live on disk from checkpoint, independent of assembly: read them regardless of
-    // report existence so a checkpointed document is audited even when the run was never assembled.
-    const featureFactEvidence = factPackEvidenceForDocument(document, manifest, evidenceById);
+    // THE SECTION AUDIT RULES ARE RETIRED (57B-481); THE ARCHIVED READ SIDE IS NOT. What used to be here was a
+    // per-section loop that ran nine section-audit rules over every checkpointed section. Their subjects are
+    // gone or moved: claim↔prose binding and the evidence-level markers went to the unit path with 57B-491,
+    // attribution (G6) and the readability advisory (G10) were ruled retired with a named future home in R7c's
+    // policy checker, and the detailed-feature fact-pack rule is G14's already-accepted reduction.
+    //
+    // ONE OF THEM LOSES A GUARANTEE NO RULING HAD NAMED, so it is named here. `auditComparativeClaims`'s layer 2
+    // — the SINGLE-SIDED EQUIVALENCE warning: a `fact` claim that asserts sameness across implementations,
+    // modules, repositories or runtime parts while citing only one side, and declaring no `sides` — had exactly
+    // one caller in `src/`, and it was this line. It disappears with it.
+    //   WHY THE UNIT PATH DOES NOT RE-RUN IT: `unit-consistency.ts` checks side DISAGREEMENT ACROSS units (two
+    //   units putting the same evidence on opposite sides of one comparison) and hands the within-unit case back
+    //   to the claim-validity gate, which validates the SHAPE of `sides` and not whether a comparative sentence
+    //   should have had them. So nothing on the unit path asks the question this warning asked.
+    //   WHERE IT GOES IF IT COMES BACK: R7c's policy checker, with G6 and G10 — all three are prose-level rules
+    //   with no chapter anchor, which is why none of them survived a mechanical port. `claim-comparison.ts`
+    //   itself STAYS: its layer 1 (`assertValidClaim`'s shape validation of `sides`) is live on both sidecars.
+    //
+    // WHAT REPLACES IT IS A READ, NOT A RULE. `claimsByDocument` feeds RUN-LEVEL families — work-item claim
+    // coverage, the condition inventory's claim statements — and those are explicitly kept running. Deleting the
+    // loop without this read would leave them seeing zero claims on an archived run and reporting nothing, which
+    // is the silent-empty shape this repository refuses. So the sidecars are still read; only the rules are gone.
     for (const section of document.sections) {
-      const paths = sectionPaths(runDir, document.id, section);
-      if (!await exists(paths.file)) {
-        // A section marked complete must have its checkpointed file on disk (fail closed); a section
-        // that was never checkpointed is legitimately absent mid-authoring and is simply skipped.
-        if (section.complete) findings.push({ level: "error", document: document.id, message: `checkpointed section ${section.index} file is missing` });
-        continue;
-      }
-      const sectionText = await readFile(paths.file, "utf8");
-      const claimsFile = await exists(paths.claimsFile) ? await readJson<SectionClaimsFile>(paths.claimsFile) : null;
-      if (claimsFile) claimsByDocument.set(document.id, [...(claimsByDocument.get(document.id) ?? []), ...claimsFile.claims.map((claim) => ({ section: section.index, claim }))]);
-      findings.push(...auditSectionClaims({ documentId: document.id, sectionIndex: section.index, sectionText, claimsFile, evidenceIds, traceIds }));
-      findings.push(...auditSectionEvidenceMarkers({ documentId: document.id, sectionIndex: section.index, sectionText, strict: runUsesCurrentAssurance(manifest) }));
-      findings.push(...auditComparativeClaims({
-        documentId: document.id,
-        sectionIndex: section.index,
-        claims: claimsFile?.claims ?? [],
-        evidenceById,
-        multiRoot: (manifest.snapshot?.roots?.length ?? 0) > 1,
-        roots: (manifest.snapshot?.roots ?? []).map((root) => root.name)
-      }));
-      findings.push(...auditDetailedFeatureSection({ document, detailLevel: manifest.request.detailLevel, sectionIndex: section.index, sectionText, claimsFile, factEvidence: featureFactEvidence }));
-      findings.push(...auditTargetProblemAttribution({ document, sectionIndex: section.index, sectionText }));
-      findings.push(...auditReadabilityTables({ document, sectionIndex: section.index, sectionText }));
-      findings.push(...auditEvidenceMarkerPlacement({ document, sectionIndex: section.index, sectionText }));
-      if (/事实|推断|验证|fact|inferred|verified/i.test(sectionText) && !/<details>/i.test(sectionText)) {
-        findings.push({ level: "error", document: document.id, message: `section ${section.index} contains supported claims but has no evidence block` });
-      }
+      const claimsPath = sectionPaths(runDir, document.id, section).claimsFile;
+      if (!await exists(claimsPath)) continue;
+      const claimsFile = await readJson<SectionClaimsFile>(claimsPath);
+      claimsByDocument.set(document.id, [...(claimsByDocument.get(document.id) ?? []), ...claimsFile.claims.map((claim) => ({ section: section.index, claim }))]);
     }
-    // Rescued-logic coverage advisory (document-level, warning-only): every rescued business/decision
-    // function should be DISPOSED — by a claim naming its work item, which is the binding `writing-rules`
-    // promises, with a report-text match kept only as a fallback. Placed after the section loop because the
-    // claims it reads are collected there; running it before them is what left it with nothing but text.
-    if (reportText) {
-      const featureKey = manifest.request.features
-        .map((candidate) => featureCacheKey(candidate))
-        .find((key) => document.id === `feature-${key}-${document.audience}`) ?? "";
-      findings.push(...auditRescuedLogicCoverage(document.id, reportText, featureFactEvidence,
-        (claimsByDocument.get(document.id) ?? []).map((entry) => entry.claim), featureKey));
+    // AND THE ABSENCE IS DECLARED, never implied. A pre-cutover run has section artifacts on disk that used to be
+    // audited by those rules and no longer are; saying nothing would leave its audit indistinguishable from one
+    // where the rules ran and passed. The two states this must stay distinct from are stated in their own
+    // sentences elsewhere: `vacuous (ledger-empty)` for a run that never had sections, and the incomplete error
+    // for one that was abandoned.
+    // Gated on the STATE, not on the boolean: `sectionCoverageCounts` is also true for a run that has no section
+    // artifacts and no plan, where there is nothing to declare. Gating on `reportExists` (the first version of
+    // this line) was worse — an archived run that checkpointed sections and never assembled would have lost the
+    // rules in silence, which is the one outcome this arm forbids.
+    if (sectionCoverage === "section-artifacts-present") {
+      findings.push({ level: "warning", document: document.id, message: `section audit retired with its generation (57B-481): the ${document.sections.length} recorded section(s) of this run were NOT audited by the section rules — no claim binding, evidence-level marker, attribution, readability or fact-pack check ran over them. Everything else in this audit ran normally.` });
     }
     if (sectionCoverageCounts && !document.sections.every((section) => section.complete)) incompleteDocuments.push(document);
   }

@@ -57,6 +57,8 @@ const sectionFamily = (findings: readonly AuditFinding[]): AuditFinding[] =>
   findings.filter((finding) => /assembled report is missing|sections checkpointed/.test(finding.message));
 const vacuous = (findings: readonly AuditFinding[]): AuditFinding[] =>
   findings.filter((finding) => /^vacuous \(ledger-empty\)/.test(finding.message));
+const declared = (findings: readonly AuditFinding[]): AuditFinding[] =>
+  findings.filter((finding) => /section audit retired with its generation/.test(finding.message));
 
 // --- arm 1: an archived run still gets audited (the whitewash guard) ------------------------------------
 
@@ -66,6 +68,11 @@ test("a run with section artifacts on disk is audited as before, plan or no plan
 
   const before = await auditRun(runDir);
   assert.deepEqual(vacuous(before.findings), [], "a run with section artifacts has a section family with a subject");
+  // The absence of the retired rules is DECLARED, on a run that checkpointed sections and never assembled — the
+  // shape a probe caught going silent when this was gated on the assembled report existing instead of on the
+  // state. Silence here would leave this audit indistinguishable from one where the rules ran and passed.
+  assert.equal(declared(before.findings).length, 1, "an archived run must be told its section rules did not run");
+  assert.deepEqual(declared(before.findings).map((finding) => finding.level), ["warning"]);
   assert.ok(before.findings.some((finding) => finding.level === "error" && /assembled report is missing/.test(finding.message)),
     "a checkpointed-but-never-assembled run must still be told its report is missing");
 
@@ -76,6 +83,7 @@ test("a run with section artifacts on disk is audited as before, plan or no plan
   await installFixturePlan(runDir);
   const after = await auditRun(runDir);
   assert.deepEqual(vacuous(after.findings), [], "artifacts outrank the plan: recording one must not silence the family");
+  assert.equal(declared(after.findings).length, 1, "and the declaration survives the plan being recorded");
   assert.ok(after.findings.some((finding) => finding.level === "error" && /assembled report is missing/.test(finding.message)));
 });
 
@@ -89,6 +97,7 @@ test("a planned run with no section artifacts states its vacuity, and run-level 
 
   const audited = await auditRun(runDir);
   assert.equal(vacuous(audited.findings).length, 1, "the vacuity is STATED, not silent");
+  assert.deepEqual(declared(audited.findings), [], "a run that never had sections has no retired rules to declare");
   assert.deepEqual(vacuous(audited.findings).map((finding) => finding.level), ["warning"]);
   assert.deepEqual(sectionFamily(audited.findings), [], "no defect may be reported about a path this run never used");
   assert.deepEqual(audited.findings.filter((finding) => finding.level === "error"), [],
