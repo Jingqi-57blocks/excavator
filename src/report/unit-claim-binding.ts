@@ -84,7 +84,7 @@ export const UNIT_CLAIM_BINDING_VERSION = "unit-claim-binding-v1";
  * three-character statement is contained by most sentences of any length, so a claim that short is bound to
  * nothing in particular and the binding guarantee is void for it.
  */
-export const MINIMUM_BINDABLE_STATEMENT_LENGTH = 6;
+const MINIMUM_BINDABLE_STATEMENT_LENGTH = 6;
 
 /**
  * The evidence-level marker token, as prose carries it.

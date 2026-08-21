@@ -47,8 +47,8 @@ export interface UnitClaimBindingReading {
   readonly summary: string;
 }
 
-/** Check one unit from the artifacts on disk. */
-export async function bindUnitFromDisk(runDir: string, unitId: string, documentId: string): Promise<UnitClaimBindingResult> {
+/** Check one unit from the artifacts on disk. Not exported: nothing outside this reading checks one unit. */
+async function bindUnitFromDisk(runDir: string, unitId: string, documentId: string): Promise<UnitClaimBindingResult> {
   const paths = unitPaths(runDir, unitId);
   const parsed = parseUnitClaims(await readJson<unknown>(paths.claims));
   if (parsed.claims === null) {
