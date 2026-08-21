@@ -46,7 +46,7 @@ import { plannedDocumentId } from "../report/legacy-request-mapping.ts";
 import { makeDocumentPlan, referencePath } from "../report/authoring-plan.ts";
 import { reportFileName } from "../report/section-report-name.ts";
 import { sectionPaths } from "../report/section-paths.ts";
-import { hasRecordedPlan, sectionCoverageApplies, sectionCoverageState, sectionCoverageVacuousStatement } from "../report/section-coverage-vacuity.ts";
+import { hasRecordedPlan, sectionCoverageApplies, sectionCoverageState, sectionCoverageVacuousStatement, unitAuthoringProgress } from "../report/section-coverage-vacuity.ts";
 import { projectCacheDir, reDeriveIdentities } from "./stages/runtime-identity.ts";
 import { readFrozenFactPacks, readRequiredInvestigationResults, readRequiredObligationDeclarations } from "./stages/investigation-read-model.ts";
 import { resolveCrossRepoLinks } from "../crossrepo/resolve-links.ts";
@@ -670,7 +670,22 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
   for (const document of scopedDocuments) {
     const sectionCoverage = await sectionCoverageState(runDir, document, planRecorded);
     const sectionCoverageCounts = sectionCoverageApplies(sectionCoverage);
-    if (!sectionCoverageCounts) findings.push({ level: "warning", document: document.id, message: sectionCoverageVacuousStatement(document.id) });
+    if (!sectionCoverageCounts) {
+      findings.push({ level: "warning", document: document.id, message: sectionCoverageVacuousStatement(document.id) });
+      // THE QUESTION THE SUPPRESSED FAMILY ANSWERED IS STILL ASKED, from the unit ledger instead. Without this a
+      // run that recorded a plan and then authored nothing — no draft, no collect, no deliverable — certified as
+      // `complete`, because state 3 only catches abandonment BEFORE `plan`, and `plan` is step 1 of the unit path.
+      const progress = await unitAuthoringProgress(runDir, manifest.id);
+      if (progress.collected === 0) {
+        findings.push({ level: coverageLevel, document: document.id, message: `this run recorded a plan and collected none of its ${progress.planned} authoring unit(s): it has authored nothing, so there is nothing to certify. Draft and collect the plan's units (\`excavator status --run <dir> --units\` lists what is left).` });
+      } else if (progress.collected < progress.planned) {
+        findings.push({ level: coverageLevel, document: document.id, message: `this run has collected ${progress.collected} of its ${progress.planned} planned authoring unit(s); the rest are unwritten, so its authoring is incomplete.` });
+      }
+      // And the family that used to ANNOUNCE its own skip must not now skip in silence: with no section claims,
+      // `auditWorkItemClaimCoverage` certifies no document, and the sentence that said so went with the section
+      // family. The unit path's equivalent has its own command, named here so the absence is actionable.
+      findings.push({ level: "warning", document: document.id, message: "work-item coverage was not evaluated from section claims: this run has none. Material-obligation grounding for the unit path is `excavator audit --run <dir> --units`, which grades every collected unit against the obligations it owns." });
+    }
     const reportPath = join(runDir, "reports", reportFileName(document));
     const reportExists = await exists(reportPath);
     if (!reportExists && !singleDocument && sectionCoverageCounts) {
@@ -701,10 +716,16 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
     // coverage, the condition inventory's claim statements — and those are explicitly kept running. Deleting the
     // loop without this read would leave them seeing zero claims on an archived run and reporting nothing, which
     // is the silent-empty shape this repository refuses. So the sidecars are still read; only the rules are gone.
+    let sectionFilesOnDisk = 0;
     for (const section of document.sections) {
-      const claimsPath = sectionPaths(runDir, document.id, section).claimsFile;
-      if (!await exists(claimsPath)) continue;
-      const claimsFile = await readJson<SectionClaimsFile>(claimsPath);
+      const paths = sectionPaths(runDir, document.id, section);
+      // FAIL-CLOSED INTEGRITY, KEPT ON PURPOSE. This is not one of the retired RULES — it is the archived-artifact
+      // guarantee this arm promises to keep: a section the manifest calls complete must have its bytes on disk.
+      // Losing it with the rules would let N deleted section files produce zero findings on an archived run.
+      if (await exists(paths.file)) sectionFilesOnDisk += 1;
+      else if (section.complete) findings.push({ level: "error", document: document.id, message: `checkpointed section ${section.index} file is missing` });
+      if (!await exists(paths.claimsFile)) continue;
+      const claimsFile = await readJson<SectionClaimsFile>(paths.claimsFile);
       claimsByDocument.set(document.id, [...(claimsByDocument.get(document.id) ?? []), ...claimsFile.claims.map((claim) => ({ section: section.index, claim }))]);
     }
     // AND THE ABSENCE IS DECLARED, never implied. A pre-cutover run has section artifacts on disk that used to be
@@ -717,7 +738,7 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
     // this line) was worse — an archived run that checkpointed sections and never assembled would have lost the
     // rules in silence, which is the one outcome this arm forbids.
     if (sectionCoverage === "section-artifacts-present") {
-      findings.push({ level: "warning", document: document.id, message: `section audit retired with its generation (57B-481): the ${document.sections.length} recorded section(s) of this run were NOT audited by the section rules — no claim binding, evidence-level marker, attribution, readability or fact-pack check ran over them. Everything else in this audit ran normally.` });
+      findings.push({ level: "warning", document: document.id, message: `section audit retired with its generation (57B-481): this run's ${sectionFilesOnDisk} section file(s) and its assembled report were NOT audited by the section rules. What stopped running: claim↔prose binding, evidence-level markers (both per section and over the report), target-problem attribution, the readability-table advisory, the detailed-feature fact-pack rule, rescued-logic coverage, the report's heading count and collapsed-evidence check, and the ERROR-level recommendation-language rule over the report prose. What still ran: everything else in this audit, including the fail-closed check that every section the manifest calls complete has its file on disk.` });
     }
     if (sectionCoverageCounts && !document.sections.every((section) => section.complete)) incompleteDocuments.push(document);
   }

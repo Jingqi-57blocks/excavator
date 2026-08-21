@@ -39,14 +39,26 @@ import { exists } from "../base/util.ts";
 import { join } from "node:path";
 import { assertNever } from "../base/artifact-result.ts";
 import { COVERAGE_STATEMENT_PREFIXES } from "../investigation/coverage-statement.ts";
+import { readJson } from "../base/util.ts";
 import { PLAN_ARTIFACT_PATHS } from "./plan-gate.ts";
+import { planCatalogDigest, planCatalogPath, type PlanCatalogArtifact } from "./plan-artifacts.ts";
+import { collectedUnitsFor, readUnitLedger } from "./unit-ledger.ts";
 import { sectionPaths } from "./section-paths.ts";
 import { reportFileName } from "./section-report-name.ts";
 
 /** Why this document's section family does or does not have a subject. Closed; consumed exhaustively. */
 export type SectionCoverageState = "section-artifacts-present" | "planned-without-sections" | "unplanned-without-sections";
 
-/** True when the run recorded a validated plan — the same four files `assertValidatedPlanForAuthoring` demands. */
+/**
+ * True when the four plan files `assertValidatedPlanForAuthoring` demands are present.
+ *
+ * EXISTENCE ONLY, which is less than the gate does: the gate also re-derives the catalog and checks it against
+ * the sealed epoch, so four empty files pass here and would not pass there. That is deliberate and safe only
+ * because presence alone decides nothing on its own — `auditRun` pairs it with the unit ledger, and a run whose
+ * plan files are empty has no collected unit either, so it lands in the "authored nothing" error rather than in
+ * a clean verdict. Tightening this to re-derive the plan would make the audit refuse to run on a run whose plan
+ * is corrupt, which is the plan gate's job to say, not this discriminator's.
+ */
 export async function hasRecordedPlan(runDir: string): Promise<boolean> {
   for (const relative of PLAN_ARTIFACT_PATHS) if (!await exists(join(runDir, relative))) return false;
   return true;
@@ -63,7 +75,11 @@ export async function sectionCoverageState(
 ): Promise<SectionCoverageState> {
   if (await exists(join(runDir, "reports", reportFileName(document)))) return "section-artifacts-present";
   for (const section of document.sections) {
-    if (await exists(sectionPaths(runDir, document.id, section).file)) return "section-artifacts-present";
+    // BOTH halves of a checkpoint count. The claims sidecar is a section artifact the run wrote, and the audit
+    // still reads it into the run-level families — a state that said "no section artifacts at all" and then fed
+    // those very files into work-item coverage would be contradicting itself one loop later.
+    const paths = sectionPaths(runDir, document.id, section);
+    if (await exists(paths.file) || await exists(paths.claimsFile)) return "section-artifacts-present";
   }
   return planRecorded ? "planned-without-sections" : "unplanned-without-sections";
 }
@@ -86,4 +102,34 @@ export function sectionCoverageApplies(state: SectionCoverageState): boolean {
     case "planned-without-sections": return false;
   }
   return assertNever(state, "section coverage state");
+}
+
+/**
+ * How far the UNIT path got on this run: how many units the recorded plan holds, and how many of them are
+ * collected against that plan and this epoch.
+ *
+ * WHY THE AUDIT NEEDS THIS AT ALL. Suppressing the section completeness family on a planned run removed the only
+ * sentence that said "this run has not finished". Without a replacement, a run that recorded a plan and then
+ * authored nothing — no draft, no collect, no deliverable — certified as `complete`, which is the exact outcome
+ * 57B-481's guard forbids ("a run that did nothing must not read clean"). The section family's subject is gone;
+ * the QUESTION it answered is not, so it is answered here from the unit path's own ledger.
+ *
+ * Unreadable or absent plan/ledger bytes read as zero collected, never as "finished": this decides whether an
+ * audit may certify, and the failure direction has to be the conservative one.
+ */
+export async function unitAuthoringProgress(runDir: string, runId: string): Promise<{ planned: number; collected: number }> {
+  const catalogPath = planCatalogPath(runDir);
+  if (!await exists(catalogPath)) return { planned: 0, collected: 0 };
+  let catalog: PlanCatalogArtifact;
+  try {
+    catalog = await readJson<PlanCatalogArtifact>(catalogPath);
+  } catch {
+    return { planned: 0, collected: 0 };
+  }
+  if (!Array.isArray(catalog.units)) return { planned: 0, collected: 0 };
+  const ledger = await readUnitLedger(runDir, runId);
+  return {
+    planned: catalog.units.length,
+    collected: collectedUnitsFor(ledger, catalog.knowledgeEpoch, planCatalogDigest(catalog)).length
+  };
 }
