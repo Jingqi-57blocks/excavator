@@ -12,9 +12,9 @@
  * They come back in `superseded`, each carrying the reason it is not current, with the reasons closed by
  * `assertNever`.
  *
- * THIS FILE WRITES NOTHING. `resumeRun` on the section path rewrites the manifest when a run is timed-out; there
- * is no unit equivalent, because `collect` is the only writer of the shared ledger and a status read must not
- * become a second one. A unit run is resumed by drafting what is unwritten and collecting what is drafted, both
+ * THIS FILE WRITES NOTHING. The section path's `resume` rewrote the manifest when a run was timed-out (its
+ * `resumeRun` was retired in 57B-480); there is no unit equivalent, because `collect` is the only writer of the
+ * shared ledger and a status read must not become a second one. A unit run is resumed by drafting what is unwritten and collecting what is drafted, both
  * of which are named here.
  *
  * ZERO PENDING IS NOT "NO PLAN". A run with no validated plan cannot produce this view at all — the plan gate

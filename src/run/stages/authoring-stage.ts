@@ -1,42 +1,17 @@
 import { readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import type { InvestigationPlan, RunManifest, SectionClaim, SectionClaimsFile, TraceCatalog } from "../../base/types.ts";
+import type { InvestigationPlan, RunManifest, SectionClaim, TraceCatalog } from "../../base/types.ts";
 import { atomicWrite, exists, nowIso, readJson, writeJson } from "../../base/util.ts";
 import { appendTimeline, readTimeline } from "../../base/timeline.ts";
 import { collectClaims, writeReportCompanions } from "../../report/assurance-artifacts.ts";
 import { outputFrontMatter } from "../../report/authoring-plan.ts";
 import { reportFileName } from "../../report/section-report-name.ts";
 import { archiveCheckpoint, normalizeSection } from "../../report/checkpoint.ts";
-import { scaffoldSectionClaims } from "../../report/claims-scaffold.ts";
 import { sectionPaths } from "../../report/section-paths.ts";
 import { validateClaimsInput } from "../../report/section-audit.ts";
 import { assertCurrentKnowledgeEpochForAuthoring } from "../../freeze/freeze.ts";
 import { runUsesCurrentAssurance } from "../../base/assurance-version.ts";
 import { assertValidatedPlanForAuthoring } from "../../report/plan-gate.ts";
-
-export async function beginDocument(runDirInput: string, documentId: string): Promise<RunManifest> {
-  const runDir = resolve(runDirInput);
-  const path = join(runDir, "run.json");
-  const manifest = await readJson<RunManifest>(path);
-  await assertCurrentKnowledgeEpochForAuthoring(runDir, manifest);
-  // The plan precondition stands exactly where the epoch precondition stands, and it is grandfathered by the same
-  // gate: a run recorded before plan artifacts existed keeps being authored under the contract it wrote.
-  if (runUsesCurrentAssurance(manifest)) await assertValidatedPlanForAuthoring(runDir, manifest);
-  const document = manifest.documents.find((item) => item.id === documentId);
-  if (!document) throw new Error(`Unknown document: ${documentId}`);
-  if (!document.startedAt || document.completedAt) {
-    document.startedAt = nowIso();
-    document.completedAt = undefined;
-    document.elapsedMs = 0;
-  }
-  manifest.state = "authoring";
-  manifest.updatedAt = nowIso();
-  await appendTimeline(runDir, manifest.id, { stage: "authoring", action: "document.begin", documentId });
-  manifest.metrics.timelineEvents = (manifest.metrics.timelineEvents ?? 0) + 1;
-  await writeJson(path, manifest);
-  await writeJson(join(runDir, "metrics.json"), manifest.metrics);
-  return manifest;
-}
 
 export async function checkpointSection(runDirInput: string, documentId: string, sectionIndex: number, content: string, claims?: SectionClaim[]): Promise<RunManifest> {
   const runDir = resolve(runDirInput);
@@ -88,22 +63,6 @@ export async function checkpointSection(runDirInput: string, documentId: string,
   return manifest;
 }
 
-/**
- * Read-only helper: turn a section's markdown into a claims skeleton the author can fill in and pass
- * back to `checkpoint --claims`. It reuses `scaffoldSectionClaims` (and thus the audit's own
- * `substantiveSegments`), so every stub matches a substantive segment the audit will demand a claim
- * for. The run is consulted only to validate the document/section and stamp the metadata; nothing is
- * mutated and no timeline event is recorded.
- */
-export async function scaffoldClaims(runDirInput: string, documentId: string, sectionIndex: number, sectionText: string): Promise<SectionClaimsFile> {
-  const runDir = resolve(runDirInput);
-  const manifest = await readJson<RunManifest>(join(runDir, "run.json"));
-  const document = manifest.documents.find((item) => item.id === documentId);
-  if (!document) throw new Error(`Unknown document: ${documentId}`);
-  if (!document.sections.some((item) => item.index === sectionIndex)) throw new Error(`Unknown section ${sectionIndex} for ${documentId}`);
-  return { version: 2, documentId, section: sectionIndex, claims: scaffoldSectionClaims(sectionText) };
-}
-
 export async function assembleRun(runDirInput: string): Promise<RunManifest> {
   const runDir = resolve(runDirInput);
   const path = join(runDir, "run.json");
@@ -128,22 +87,6 @@ export async function assembleRun(runDirInput: string): Promise<RunManifest> {
   await writeJson(path, manifest);
   await writeJson(join(runDir, "metrics.json"), manifest.metrics);
   return manifest;
-}
-
-export async function resumeRun(runDirInput: string): Promise<{ manifest: RunManifest; next: Array<{ document: string; section: number; title: string }> }> {
-  const runDir = resolve(runDirInput);
-  const manifest = await readJson<RunManifest>(join(runDir, "run.json"));
-  const next = manifest.documents.flatMap((document) => document.sections.filter((section) => !section.complete).map((section) => ({ document: document.id, section: section.index, title: section.title })));
-  if (manifest.state === "timed-out" || manifest.state === "failed") {
-    manifest.state = next.length ? "authoring" : "assembled";
-    manifest.updatedAt = nowIso();
-    for (const document of manifest.documents) if (document.sections.some((section) => !section.complete)) document.startedAt = nowIso();
-    await appendTimeline(runDir, manifest.id, { stage: "recovery", action: "run.resumed", data: { next } });
-    manifest.metrics.timelineEvents = (manifest.metrics.timelineEvents ?? 0) + 1;
-    await writeJson(join(runDir, "run.json"), manifest);
-    await writeJson(join(runDir, "metrics.json"), manifest.metrics);
-  }
-  return { manifest, next };
 }
 
 export async function runStatus(runDirInput: string): Promise<Record<string, unknown>> {

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { join } from "node:path";
 import { readFile, writeFile } from "node:fs/promises";
 import type { EvidenceItem, InvestigationPlan, ReportRequest, RunManifest, SectionClaim, TraceCatalog, TraceRecord } from "../src/base/types.ts";
-import { assembleRun, auditRun, beginDocument, checkpointSection, freezeRun, prepareRun, updateTraces } from "../src/run/run.ts";
+import { assembleRun, auditRun, checkpointSection, freezeRun, prepareRun, updateTraces } from "../src/run/run.ts";
 import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, installFixturePlan, tempDir } from "./helpers.ts";
 
 // The freeze-before-authoring HARD gate (assurance v3). Two enforcement points move in lock-step: `begin`
@@ -48,31 +48,6 @@ async function authorEvery(runDir: string, manifest: RunManifest, evidenceId: st
   const document = manifest.documents[0];
   for (const section of document.sections) await checkpointSection(runDir, document.id, section.index, sectionText(section.title, section.index, evidenceId), sectionClaims(section.index, evidenceId));
 }
-
-// --- ① begin rejects an unfrozen current-version run, and admits it once frozen ---
-
-test("begin refuses an unfrozen current-version run; dispose + freeze then admits authoring", async () => {
-  const { runDir, manifest } = await prepareRun(await overviewRequest());
-  const documentId = manifest.documents[0].id;
-  await assert.rejects(() => beginDocument(runDir, documentId), /not frozen/);
-  // The run must be untouched by the refusal: still not frozen, still not authoring.
-  assert.equal((await readManifest(runDir)).frozenAt, undefined);
-
-  await disposeAllWorkItems(runDir);
-  assert.equal((await freezeRun(runDir)).frozen, true);
-  await installFixturePlan(runDir);
-  const begun = await beginDocument(runDir, documentId);
-  assert.equal(begun.state, "authoring");
-});
-
-// --- ② a downgraded pre-v3 run may begin without freezing (grandfather) ---
-
-test("a pre-v3 run may begin authoring without freezing", async () => {
-  const { runDir, manifest } = await prepareRun(await overviewRequest());
-  await downgradeToLegacy(runDir);
-  const begun = await beginDocument(runDir, manifest.documents[0].id);
-  assert.equal(begun.state, "authoring");
-});
 
 // --- ③ authoring without freezing fails the full audit's order gate; downgrading clears it ---
 

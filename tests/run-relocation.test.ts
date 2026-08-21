@@ -4,8 +4,8 @@ import { cp, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { basename, join, relative, resolve } from "node:path";
 import type { ReportRequest, RunManifest, SectionClaim } from "../src/base/types.ts";
 import {
-  addSourceEvidence, assembleRun, auditRun, beginDocument, checkpointSection, freezeRun, prepareRun,
-  readingCheck, resumeRun, runStatus, searchSourceEvidence, updateChecklist, updateTraces,
+  addSourceEvidence, assembleRun, auditRun, checkpointSection, freezeRun, prepareRun,
+  readingCheck, runStatus, searchSourceEvidence, updateChecklist, updateTraces,
   updateWorkItems
 } from "../src/run/run.ts";
 import { sectionPaths } from "../src/report/section-paths.ts";
@@ -94,12 +94,12 @@ async function buildInvestigating(): Promise<Base> {
   };
 }
 
-/** A frozen run with its document begun: the authoring commands can all still run. */
+/** A frozen, planned run: the authoring commands can all still run. (`begin` retired with 57B-480, and
+ *  `checkpointSection` stamps `startedAt` itself when it is absent, so nothing here depended on it.) */
 async function buildAuthoring(): Promise<Base> {
   const base = await buildInvestigating();
   assert.equal((await freezeRun(base.runDir)).frozen, true);
   await installFixturePlan(base.runDir);
-  await beginDocument(base.runDir, base.documentId);
   return base;
 }
 
@@ -252,18 +252,6 @@ test("relocated run: assemble, audit and the claims total read the copy's own se
   assert.deepEqual(changes(before, await treeDigest(base.workdir)), [],
     "an operation on the relocated run wrote into the location run.json records, splitting the run in two");
   for (const command of ["assemble", "audit", "checkpoint"]) exercised.add(command);
-});
-
-test("relocated run: resume rewrites the copy's manifest", async () => {
-  const base = await authoringBase();
-  const runDir = await onRelocatedRun(base, ["resume"], async (dir) => {
-    const manifest = await manifestOf(dir);
-    manifest.state = "failed";
-    await writeFile(join(dir, "run.json"), `${JSON.stringify(manifest, null, 2)}\n`);
-    const { next } = await resumeRun(dir);
-    assert.ok(next.length > 0);
-  });
-  assert.equal((await manifestOf(runDir)).state, "authoring");
 });
 
 // --- the investigation commands ------------------------------------------------------------------------
