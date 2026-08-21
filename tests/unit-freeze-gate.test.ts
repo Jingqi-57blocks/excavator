@@ -12,6 +12,7 @@ import { freezeRun } from "../src/run/run.ts";
 import { planRun } from "../src/run/stages/plan-stage.ts";
 import { searchSourceEvidence } from "../src/run/stages/investigation-stage.ts";
 import { assembleUnits, UNIT_ASSEMBLE_MODES } from "../src/run/stages/unit-assemble-stage.ts";
+import { checkRunConsistency } from "../src/report/unit-consistency-source.ts";
 import { checkpointEveryUnit, collectedRun } from "./unit-assembly-fixture.ts";
 import { plannedRun, unitDraftFor, type PlannedRun } from "./unit-fixture.ts";
 
@@ -165,4 +166,18 @@ test("re-freeze, re-plan and redraw put the refused assembly back on the shelf, 
   for (const document of shipped.documents) {
     assert.ok(await exists(join(run.runDir, ...document.path.split("/"))), `${document.path} was not written`);
   }
+});
+
+test("the read-only checker still opens a shipped run whose knowledge has moved on", async () => {
+  // The other half of "the gate is at the shipping entry point, not in the loader". `checkRunConsistency` loads
+  // the SAME assembly, so a gate one level down would refuse it too — and an operator told to re-freeze would be
+  // locked out of inspecting the very deliverable that prompted the supplement. This is the run 57B-482's repair
+  // loop is in: shipped once, knowledge moved, and the checker is how you find out what the redraw has to cover.
+  const run = await collectedRun();
+  await assembleUnits(run.runDir, "write");
+  await recordRealSupplement(run.runDir);
+  await assert.rejects(() => assembleUnits(run.runDir, "write"), /has unsealed supplements/);
+
+  const reading = await checkRunConsistency(run.runDir);
+  assert.ok(reading.result.readings.length > 0, "the checker read the shipped run rather than refusing it");
 });
