@@ -6,7 +6,7 @@
  * direction is now one-way: this module may read the knowledge side, never the reverse.
  */
 
-import { hasEvidenceMarkers, markersIn, visibleText } from "./evidence-markers.ts";
+import { markersIn, visibleText } from "./evidence-markers.ts";
 import type { AuditFinding, DocumentPlan, EvidenceItem, EvidenceMarker, FactPackCategory, SectionClaim, SectionClaimsFile } from "../base/types.ts";
 
 export function auditSectionClaims(options: {
@@ -107,142 +107,6 @@ function auditClaim(documentId: string, sectionIndex: number, visible: string, c
   for (const id of claim.traceIds ?? []) if (!traceIds.has(id)) findings.push(error(documentId, `claim ${claim.id} references missing trace id ${id}`));
   if (claim.status === "verified" && claim.confidence === "low") findings.push(error(documentId, `verified claim ${claim.id} cannot have low confidence`));
   return findings;
-}
-
-const ANALYSIS_METHOD_TERMS: Array<RegExp> = [
-  /\bCodeGraph\b/i,
-  /\bExcavator\b/i,
-  /unresolved[ -]?(?:reference|edge|relation)s?/i,
-  /未解析(?:引用|关系|边)/,
-  /源码回退|source fallback/i,
-  /source window|源码窗口/i,
-  /provider (?:coverage|selection|mode)|provider 覆盖|提供方覆盖/i,
-  /candidate (?:node|file)s?|候选(?:节点|文件)/i,
-  /graph coverage|图覆盖/i,
-  /analysis (?:budget|performance|limitation)|分析(?:预算|性能|限制|不足)/i,
-  /static[- ]review limitation|静态(?:审阅|分析)(?:限制|不足)/i,
-  /handler[- ]resolution|处理角色解析|路由解析能力/i
-];
-
-export function auditTargetProblemAttribution(options: {
-  document: DocumentPlan;
-  sectionIndex: number;
-  sectionText: string;
-}): AuditFinding[] {
-  const { document, sectionIndex, sectionText } = options;
-  // A prd feature report has no "current problems" chapter (rule contradictions are shown inline in ch.2),
-  // so this attribution check does not apply to it.
-  if (document.audience === "prd") return [];
-  // Feature reports now carry a standalone "Current problems found" chapter at §11 for both audiences
-  // (product problems split out of the old §10 connected-scope chapter; engineering was already §11).
-  // Overviews keep their problem chapter in place: product §9, engineering §11.
-  const problemSection = document.kind === "overview"
-    ? (document.audience === "product" ? 9 : 11)
-    : 11;
-  if (sectionIndex !== problemSection) return [];
-  const visible = visibleText(sectionText);
-  const findings: AuditFinding[] = [];
-  for (const pattern of ANALYSIS_METHOD_TERMS) {
-    pattern.lastIndex = 0;
-    if (pattern.test(visible)) findings.push(error(document.id, `section ${sectionIndex} contains analysis-method information in a target problem section: ${pattern}`));
-  }
-  return findings;
-}
-
-/**
- * Advisory readability nudge (warning-only; NOT version-gated; does NOT touch the hard path).
- *
- * The engineering-FEATURE detailed path already HARD-requires inventory/comparison tables via
- * `auditDetailedFeatureSection`. The other three document contracts — product feature, product
- * overview, engineering overview — carried no table requirement at all, which is why their reports
- * came out as walls of prose. For a designated inventory/comparison section that has substantive
- * prose but no Markdown table in its reading flow, this emits a single `warning`. It never emits an
- * `error`, never gates on `ASSURANCE_VERSION`, and never runs for engineering-feature documents.
- *
- * The per-(kind, audience) section-index sets below (1-based, indices as they appear in the four
- * reference templates) list only the clearly-tabular inventory/comparison chapters. Deliberately
- * omitted: narrative openings (purpose/boundary), ordered journeys/flows and runtime topology
- * (Mermaid's job), pure-risk problem prose with no inventory, and the coverage/analysis-boundary
- * meta-chapters. A tests-and-problems chapter is included only where it carries a tests/documentation
- * inventory (the engineering templates), not a product report's pure-risk chapter.
- */
-const READABILITY_TABLE_SECTIONS: Record<string, Set<number>> = {
-  // product-overview.md §2 system parts, §3 capability map, §4 roles/permission boundary,
-  // §5 business objects+states, §7 external dependencies, §8 back-office capabilities.
-  // Omitted: §1 purpose, §6 data movement (a flow narrative), §9 pure risks, §10 coverage.
-  "overview:product": new Set([2, 3, 4, 5, 7, 8]),
-  // engineering-overview.md §2 repositories/units, §3 stack, §5 interfaces/entry points,
-  // §7 data models/storage, §8 identity/auth, §9 external integrations, §10 config/jobs,
-  // §11 tests+problems (tests inventory), §13 database design (per-table column tables).
-  // Omitted: §1 purpose/snapshot, §4 topology (Mermaid), §6 call structure (graph), §12 coverage.
-  "overview:engineering": new Set([2, 3, 5, 7, 8, 9, 10, 11, 13]),
-  // product-feature.md §3 rules, §5 role-by-action, §6 data/fields, §7 side effects,
-  // §8 failure modes, §9 config/switches, §13 glossary (glossary moved from §11 after the problem
-  // chapter split). Omitted: §1 boundary, §2 journey (flow), §4 states (Mermaid state diagram is
-  // mandated there), §10 connected scope, §11 current problems (table-or-list, like product-overview
-  // §9), §12 coverage.
-  "feature:product": new Set([3, 5, 6, 7, 8, 9, 13])
-  // "feature:engineering" is intentionally absent: it stays on the hard `auditDetailedFeatureSection` path.
-};
-
-export function auditReadabilityTables(options: {
-  document: DocumentPlan;
-  sectionIndex: number;
-  sectionText: string;
-}): AuditFinding[] {
-  const { document, sectionIndex, sectionText } = options;
-  const sections = READABILITY_TABLE_SECTIONS[`${document.kind}:${document.audience}`];
-  if (!sections || !sections.has(sectionIndex)) return [];
-  // Only nudge a chapter that actually carries inventory-style prose; a heading-only or empty section
-  // has nothing to tabulate. Reuse the same substantive-segment primitive the claim audit relies on.
-  if (!substantiveSegments(sectionText).length) return [];
-  // Reuse the exact table regex and visible-text scope the engineering-feature hard path uses, so a
-  // table living only inside a collapsed evidence block does not count as a tabular reading flow.
-  if (/^\s*\|.+\|\s*$/m.test(visibleText(sectionText))) return [];
-  return [warning(document.id, `section ${sectionIndex} is an inventory/comparison chapter with no Markdown table; consider presenting the items as a table (advisory)`)];
-}
-
-const EVIDENCE_LEVEL_LEAD_IN = /^\**\s*(?:Evidence level|证据级别)\s*\**\s*[:：]/i;
-
-const EVIDENCE_MARKER_WORD = /`?(?:事实|验证|推断|不可得)`?|`?\b(?:fact|verified|inferred|unavailable)\b`?/gi;
-
-/**
- * Advisory marker-placement nudge (warning-only; NOT version-gated; NOT on the hard path). It does NOT
- * touch the `markersIn`/`visibleText` evidence-level accounting — it only reads the visible reading
- * flow to catch a marker that has drifted off the statement it should qualify.
- *
- * The writing rules require a marker to ride at the end of the statement it qualifies, or to sit in the
- * qualified table cell / a dedicated level column — never as its own line and never behind an
- * "Evidence level:" lead-in. A marker stranded on its own line reads as a floating label. When a
- * visible line's only semantic content is a marker (or such a lead-in), this emits one `warning` for
- * the section. It never emits an `error` and never gates on ASSURANCE_VERSION, so it can never fail a
- * run or retroactively fail an older one.
- */
-export function auditEvidenceMarkerPlacement(options: {
-  document: DocumentPlan;
-  sectionIndex: number;
-  sectionText: string;
-}): AuditFinding[] {
-  const { document, sectionIndex, sectionText } = options;
-  for (const line of visibleText(sectionText).split(/\r?\n/)) {
-    if (isStandaloneMarkerLine(line)) {
-      return [warning(document.id, `section ${sectionIndex} places an evidence marker on its own line or behind an "Evidence level:" lead-in; attach the marker at the end of the statement it qualifies or in the qualified table cell (advisory)`)];
-    }
-  }
-  return [];
-}
-
-/** A visible line whose only semantic content is an evidence marker or an "Evidence level:" lead-in. */
-function isStandaloneMarkerLine(line: string): boolean {
-  const trimmed = line.trim();
-  if (!trimmed) return false;
-  const withoutLeadIn = trimmed.replace(EVIDENCE_LEVEL_LEAD_IN, " ");
-  const hadLeadIn = withoutLeadIn !== trimmed;
-  const withoutMarkers = withoutLeadIn.replace(EVIDENCE_MARKER_WORD, " ");
-  const hadMarker = withoutMarkers !== withoutLeadIn;
-  if (!hadLeadIn && !hadMarker) return false;
-  const semantic = (normalizeText(withoutMarkers).match(/[\p{Letter}\p{Number}]/gu) ?? []).length;
-  return semantic === 0;
 }
 
 export function auditDetailedFeatureSection(options: {
@@ -381,25 +245,6 @@ export function substantiveSegments(section: string, fold: (value: string) => st
     }
   }
   return [...new Set(segments)];
-}
-
-/**
- * The report's "evidence levels are annotated" conclusion is only trustworthy if every substantive
- * section actually carries an evidence-level marker in its visible prose. This reuses the same
- * `markersIn` primitive the paragraph-level claim audit uses, via `hasEvidenceMarkers`, so it cannot
- * diverge from the document-level check. It is gated by assurance version: a run prepared under the
- * current version is held to it as a hard error, while an older or field-less run is grandfathered
- * (the weaker document-level warning still applies) so this tightening never retroactively fails it.
- */
-export function auditSectionEvidenceMarkers(options: {
-  documentId: string;
-  sectionIndex: number;
-  sectionText: string;
-  strict: boolean;
-}): AuditFinding[] {
-  const { documentId, sectionIndex, sectionText, strict } = options;
-  if (!strict || !substantiveSegments(sectionText).length || hasEvidenceMarkers(sectionText)) return [];
-  return [error(documentId, `section ${sectionIndex} has substantive statements but no evidence-level marker`)];
 }
 
 /**

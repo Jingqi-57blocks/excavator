@@ -4,15 +4,17 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
-// Pins the canonical chapter order of the four report templates. Audits in src/investigation/assurance.ts key on a
-// section's 1-based POSITIONAL index (run.ts makeDocumentPlan assigns `index: index + 1` from heading
-// order, not from the number written in the title), so several audit constants encode fixed chapter
-// numbers: auditTargetProblemAttribution (feature problem chapter = §11, product overview = §9),
-// READABILITY_TABLE_SECTIONS ("feature:product" glossary = §13), and the FEATURE_HYPOTHESES canonical
-// reportSection map (connected-change-scope → 10, tests/documentation-drift/unfinished-and-current-
-// problems → 11, coverage-accounting/open-investigation → 12). These tests freeze the template side of
-// that alignment so a future template edit that reorders or renumbers chapters fails here instead of
-// silently misrouting an audit.
+// Pins the canonical chapter order of the four report templates. Placement keys on a section's 1-based
+// POSITIONAL index (run.ts makeDocumentPlan assigns `index: index + 1` from heading order, not from the
+// number written in the title), and one constant still encodes fixed chapter numbers that way: the
+// FEATURE_HYPOTHESES canonical reportSection map in src/investigation/assurance.ts (connected-change-
+// scope → 10, tests/documentation-drift/unfinished-and-current-problems → 11, coverage-accounting/
+// open-investigation → 12). That map reaches both the unit path (authoring-packet places work items by
+// `reportSection`) and the audit path (work-item-claim-coverage rejects a claim filed under a different
+// section). The section-audit constants that used to share this alignment — auditTargetProblemAttribution
+// and READABILITY_TABLE_SECTIONS — were deleted with the section authoring path. These tests freeze the
+// template side of the alignment so a future template edit that reorders or renumbers chapters fails
+// here instead of silently misplacing a work item.
 
 const REFERENCES = join(dirname(fileURLToPath(import.meta.url)), "..", "skills", "excavator", "references");
 
