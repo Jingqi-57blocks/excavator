@@ -16,6 +16,8 @@ import { admitUnits, planUnitAdmission } from "./report/unit-cache-admission-run
 import { summariseAdmission, type CandidateLedgerRow } from "./report/unit-cache-admission.ts";
 import { describeAuthorship, describeProvenance, type UnitAuthorship, type UnitProvenance } from "./report/unit-provenance.ts";
 import { readUnitGroundingForRun, summariseUnitGroundingReading } from "./report/unit-grounding-reading.ts";
+import { checkRunConsistency } from "./report/unit-consistency-source.ts";
+import { describeFinding } from "./report/unit-consistency.ts";
 import { assembleUnits, UNIT_ASSEMBLE_MODES, type UnitAssembleMode } from "./run/stages/unit-assemble-stage.ts";
 import { planRun, renderPlannerPacketForRun, DEFAULT_PLANNER_PACKET_BYTE_LIMIT, type PlanProposalSource, type PlanRecording } from "./run/stages/plan-stage.ts";
 import { appendReportRequest } from "./report/report-requests-append.ts";
@@ -194,6 +196,23 @@ async function main(): Promise<void> {
             : { unit: row.unitId, document: row.documentId, kind: row.kind, identity: "unavailable", reason: row.reason }),
           readPaths: identities.readPaths
         });
+        break;
+      }
+      case "unit-consistency": {
+        // Read-only: the five cross-unit content properties no collect gate can see, over the ASSEMBLED unit path,
+        // plus the exact set of units a repair would have to redraw. It writes nothing and calls no model. Exit 1
+        // when the checker found something, so a pipeline can gate on it without parsing the reading.
+        const args = parseArgs(argv);
+        const reading = await checkRunConsistency(required(args.run, "--run"));
+        print({
+          ...reading,
+          lines: [
+            ...reading.result.readings.map((row) => row.statement),
+            ...reading.result.findings.map((finding) => `${finding.kind} [${finding.unitIds.join(", ")}]: ${describeFinding(finding)}`),
+            reading.repair.action
+          ]
+        });
+        if (reading.result.findings.length > 0) process.exitCode = 1;
         break;
       }
       case "unit-cache-admit": {
@@ -799,6 +818,7 @@ Commands:
   coverage-companion  Render this run's coverage state: four denominators, each naming its own ledger, no combined figure (read-only, zero model)
   unit-cache-identity Print the cache identity of every authoring unit of one planned run (read-only, zero model)
   unit-cache-admit   Re-enter previously verified units through the existing draft/collect gates (--mode required)
+  unit-consistency   Check the assembled unit path for the five cross-unit content defects no collect gate sees, and print the exact repair set (read-only, zero model)
   plan          Validate a plan proposal against the frozen epoch and record plan/catalog.json + plan/dag.json
   request-append Append one requested document to plan/requests.json (recorded rows are immutable)
   begin      Start or restart one document authoring timer
@@ -906,6 +926,12 @@ const COMMAND_HELP: Record<string, CommandHelp> = {
     ],
     example: "excavator unit-cache-admit --run <run> --authorship model-free:fixture-plan --mode plan-only",
     notes: "A unit is admitted only when its cache identity equals the one its ledger row recorded AND its content, claims and summary on disk still digest to what that row promised. Admission then re-enters those exact bytes through `draft` and `collect` — the summary agreement check, the output budget, the grounding audit, the synthesis backlink check and the promised-artifact digests all run again, and a new receipt is minted; no stale receipt is ever revived. Every planned unit comes back as admitted, fell-to-rebuild (with the cause: a changed identity, drifted bytes, a collect refusal, or a pass halted by an earlier refusal) or skipped-new, and every prior ledger row is listed with what was done with it. A refusal leaves the receipt in place so a corrected re-draft can be collected."
+  },
+  "unit-consistency": {
+    synopsis: "unit-consistency --run <dir>",
+    flags: ["--run <dir>          Assembled run directory (required)"],
+    example: "excavator unit-consistency --run <run>",
+    notes: "Read-only, deterministic, zero model. It checks only what no collect gate can see: one term with two meanings inside a document, a `fact` or `inferred` claim linked to an obligation the ledger records as cannot-determine or searched-not-found, one obligation asserted by one unit and disclaimed by another (and two units disagreeing about which side of a comparison a piece of evidence is on), a `](#…)` or an `<a id>` a model wrote that the assembled document cannot resolve or holds twice, and a lens violation in visible prose. It re-checks no topic coverage, no disposition, no grounding audit and no child digest SEMANTICS — those have denominators one level down, and a second derivation of any of them would be a second denominator. It refuses unless the assembled deliverable on disk is the one this plan and these collected units produce. The repair set is exactly the units the findings name plus the units written from them, each row naming why; the coverage account is ROUTED rather than seeded — every defective coverage kind is owed by the investigation's reading, the obligation ledger's determinations or the plan, so re-drafting a unit cannot pay it. Exit code 1 when there is a finding."
   },
   plan: {
     synopsis: "plan --run <dir> (--fixture-plan | --proposal <file>) [--revise --reason <why>]",
