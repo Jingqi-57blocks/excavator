@@ -235,9 +235,9 @@ export async function planRun(runDirInput: string, source: PlanProposalSource, r
  * moving — hostage to a file it does not need, with nothing on offer to clear it. The plan is still recorded; the
  * reading says it could not be taken, and why.
  */
-async function strandedDraftsOf(runDir: string, planCatalogDigest: string): Promise<StrandedUnitDrafts> {
+async function strandedDraftsOf(runDir: string, recordedPlanDigest: string): Promise<StrandedUnitDrafts> {
   try {
-    return strandedUnitDrafts(await pendingUnitReceipts(runDir), planCatalogDigest);
+    return strandedUnitDrafts(await pendingUnitReceipts(runDir), recordedPlanDigest);
   } catch (error) {
     return strandedUnitDraftsUnread((error as Error).message);
   }
