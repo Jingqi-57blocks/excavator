@@ -442,8 +442,14 @@ function defaultBudgets(docs: Pick<ReportRequest, "overviewAudiences" | "feature
 }
 
 function budgetOverrides(args: Record<string, string>): Partial<BudgetConfig> {
+  // `--author-ms` is REFUSED, not ignored. `parseArgs` drops unrecognised flags silently, so removing the mapping
+  // alone would let a command re-run from shell history keep the flag and lose its value without a word — the same
+  // silent drift `requireUnitKeyed` refuses by name for the retired section keying.
+  if (args.authorMs != null) {
+    throw new Error(`--author-ms is retired (57B-480): its two executors went with the section authoring chain, and the unit path's budget authority is the plan's BYTE budget. Drop the flag; there is no wall-clock authoring budget to set.`);
+  }
   const mapping: Record<string, keyof BudgetConfig> = {
-    prepareMs: "prepareMs", authorMs: "authorMs", maxGraphQueries: "maxGraphQueries", maxSourceWindows: "maxSourceWindows",
+    prepareMs: "prepareMs", maxGraphQueries: "maxGraphQueries", maxSourceWindows: "maxSourceWindows",
     maxSourceCharacters: "maxSourceCharacters", maxFiles: "maxFiles", maxFeatureNodes: "maxFeatureNodes", maxExpansionDepth: "maxExpansionDepth"
   };
   const result: Partial<BudgetConfig> = {};
@@ -822,7 +828,7 @@ Commands:
   plan          Validate a plan proposal against the frozen epoch and record plan/catalog.json + plan/dag.json
   request-append Append one requested document to plan/requests.json (recorded rows are immutable)
   reading    Show which in-boundary decision code no source window covers yet — run it before freeze, where opening one is free
-  freeze     Seal epoch 0, or re-seal justified supplements as epoch N+1; renders epoch-bound authoring packets
+  freeze     Seal epoch 0, or re-seal justified supplements as epoch N+1 (writes the sealed epoch and nothing else)
   source     Record a bounded source excerpt as evidence
   search     Search source under the run snapshot and record a reusable receipt
   checkpoint Save one authoring unit atomically: draft it and collect it in one command (--unit required)
@@ -1066,7 +1072,7 @@ const COMMAND_HELP: Record<string, CommandHelp> = {
     synopsis: "freeze --run <dir>",
     flags: ["--run <dir>          Run directory (required)"],
     example: "excavator freeze --run <run>",
-    notes: "On success, also renders per-document authoring packets under context/authoring/, including a reading-boundary block naming what the investigation never opened."
+    notes: "The reading boundary — what the investigation never opened — is reported by `excavator reading --run <dir>` before freeze, and by the coverage companion after it. Freeze itself writes only the sealed epoch; it no longer renders a per-document authoring packet (57B-480)."
   },
   source: {
     synopsis: "source --run <dir> --path <file> --start <n> --end <n> --reason <text> [--supplement-reason <text> --supplement-workitem <id>]",

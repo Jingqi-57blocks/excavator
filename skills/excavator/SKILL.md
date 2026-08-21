@@ -141,7 +141,6 @@ The prepare command creates a run under the target's own directory inside the wo
 ```text
 <workdir>/<project>[-<hash>]/runs/<run-id>/
 ├── context/
-│   └── authoring/            # per-document authoring packets (written by freeze)
 ├── evidence.json
 ├── analysis-scope.json
 ├── provider-status.json
@@ -169,7 +168,7 @@ Investigate before you write. After prepare and before `freeze`, work the plan i
 
 - Reading is accounted for, not assumed. A `logic-disposition` work item names one decision function and its line span; disposing it `found` requires at least one recorded source window that OVERLAPS that span. Freeze rejects a `found` disposition whose citations never touch the function it reports — record the window over the decision function, or dispose the item `cannot-determine` / `not-applicable` with its reason.
 
-- The authoring packet lists the literal conditions found inside the windows you opened (`lv.Hours > 40` at its file and line), per section plus one unassigned block. Read that list before writing the section: state every condition that carries reportable behavior and cite the window it came from. Leaving one out is a decision, not an oversight — if a condition is not reportable behavior, omit it deliberately.
+- The literal conditions found inside the windows you opened (`lv.Hours > 40` at its file and line) are recorded in `coverage/condition-inventory.json`. State every condition that carries reportable behavior and cite the window it came from; leaving one out is a decision, not an oversight. **Note the reduction:** the retired authoring packet used to lay this list out per section for the author to read before writing (57B-480). The unit packet does not carry it, so today the inventory reaches you as a recorded artifact and as an audit advisory after the fact, not as a pre-write list.
 
 - Ask what you have not read, while reading is still free:
 
@@ -179,7 +178,7 @@ Investigate before you write. After prepare and before `freeze`, work the plan i
 
   It lists the in-boundary decision functions no source window covers yet, grouped by file and ranked by unread weight, with the partition that carries this feature's vocabulary first and the rest counted per file below it. Run it before freezing: until then, opening a window is ordinary investigation, while afterwards the same window costs a supplement. It is an investment aid, not a checklist — open the files heavy enough to hide reportable behavior, leave the rest, and read the unread ranges rather than the signature, since a decision function's thresholds and branch conditions live in its body. Nothing counts how many entries you clear, and opening a window you do not use is recorded as a drive-by read. The command is read-only and can be run at any time, including after freeze.
 
-- Freeze also reports the same residual as two aggregate advisories, and the authoring packet carries a `Reading boundary` block naming what was never opened for that document's feature. `coverage/read-obligations.json` (the frozen denominator) and `coverage/read-residual.json` (what was and was not read) carry the detail. Read coverage is relative to the retained boundary: full coverage never means nothing was missed.
+- Freeze also reports the same residual as two aggregate advisories, and after freeze the coverage companion carries the read-obligation family with its own denominator. `coverage/read-obligations.json` (the frozen denominator) and `coverage/read-residual.json` (what was and was not read) carry the detail. **Note the reduction:** the retired authoring packet used to carry a `Reading boundary` block NAMING what was never opened for that document's feature (57B-480); the companion carries counts and unread-line totals, not the names, so run `excavator reading` before freeze if you want them named. Read coverage is relative to the retained boundary: full coverage never means nothing was missed.
 
 - Search under the immutable run snapshot when the prepared context does not identify a path, and retain the reusable receipt. Repeating the same snapshot-bound search is a cache hit; a `searched-not-found` disposition cites the returned `SEARCH-*` evidence ID.
 
@@ -228,7 +227,7 @@ excavator freeze --run <run-dir>
 
 Run `reading` first because freeze changes the price: before it, a window is ordinary investigation; after it, every window is a supplement charged to a work item. Whatever you decide to leave unread is a legitimate outcome — the point of asking beforehand is that it becomes a decision rather than an accident.
 
-Freeze is a deterministic gate: it admits the run only when the investigation would already pass audit — every required item disposed, every `found` material flow carrying a verified trace, the evidence catalog and its digest intact, and the snapshot unchanged. On a non-zero exit it reports the exact gaps — items still pending, flows still missing a trace — so continue investigating and freeze again. The first success writes immutable epoch 0 at `knowledge.json`; each later success writes epoch N under `knowledge/epochs/epoch-N.json`, pins the previous epoch digest, and never changes earlier bytes. Supplements append separately to `knowledge/supplements.json`. Every success renders an epoch-bound authoring packet per document under `context/authoring/<document-id>.md`: a deterministic, model-free view of the frozen knowledge organized by report section, listing the work items, deterministic facts and evidence excerpts each section must cover, and closing with the reading boundary — the feature-associated decision code the investigation never opened.
+Freeze is a deterministic gate: it admits the run only when the investigation would already pass audit — every required item disposed, every `found` material flow carrying a verified trace, the evidence catalog and its digest intact, and the snapshot unchanged. On a non-zero exit it reports the exact gaps — items still pending, flows still missing a trace — so continue investigating and freeze again. The first success writes immutable epoch 0 at `knowledge.json`; each later success writes epoch N under `knowledge/epochs/epoch-N.json`, pins the previous epoch digest, and never changes earlier bytes. Supplements append separately to `knowledge/supplements.json`. Freeze writes the sealed epoch and nothing else for the author: the bounded, model-free view one authoring unit is written from is rendered on demand by `excavator plan-packet --run <run-dir> --unit <unit-id>`, from the recorded plan.
 
 Redaction of secrets is part of that version: when it changes, every existing run drops out of the current assurance generation and is grandfathered, so a run must be re-prepared to be held to the strict checks again. Its recorded evidence is never rewritten.
 
