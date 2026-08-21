@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { markersIn, MARKER_FOLDING, MARKER_TOKENS } from "../src/report/evidence-markers.ts";
+import { hasEvidenceMarkers, markersIn, MARKER_FOLDING, MARKER_TOKENS } from "../src/report/evidence-markers.ts";
 // THE FOLD'S OWN ENTRY POINT, imported on purpose rather than the pattern it routes through: the property this
 // file guards is that the CHECK and the FOLD read one vocabulary, and the fold as its consumer actually calls it
 // is `foldUnitText`. Asserting the pattern alone would leave a re-spelled literal inside that consumer invisible.
@@ -138,4 +138,31 @@ test("the code recognises exactly the en-US tokens the contract lists, and no ot
   for (const word of ["asserted", "confirmed", "unknown", "factory", "verification"]) {
     assert.deepEqual([...markersIn(`The handler rejects the request when the flag is ${word}.`)], [], word);
   }
+});
+
+// THE FAILURE MODE HOISTING INTRODUCES, GUARDED BEFORE IT CAN ARRIVE (57B-494). The English word patterns moved
+// from four regex literals built inside `markersIn` on every call to four compiled ONCE at module scope. That is
+// safe for exactly one reason: `\b…\b` with only the `i` flag carries no `lastIndex`, so `RegExp.test` is
+// stateless. Add `g` or `y` to them and `test` starts resuming from where the previous call stopped — the same
+// text would answer differently on the second call, per module instance, in an order that depends on which unit
+// was audited first. Every other test in this file calls `markersIn` once, so none of them would see it.
+// THE FIXTURE MUST BE ENGLISH-ONLY, AND THE FIRST VERSION OF THIS TEST WAS VACUOUS WITHOUT IT — measured, not
+// feared. A mixed fixture carrying `` `事实` ``/`` `已验证` `` alongside the English words CANNOT see the defect:
+// the backtick arm supplies the same four levels unconditionally, so the Set looks identical whatever the English
+// arm does. Run the `g`-flag version against the mixed text and it answers `["fact","verified","unavailable"]` on
+// every call; run it against the text below and it answers all four, then `[]`, then all four — `test` resuming
+// past the single occurrence, failing, and resetting `lastIndex` to 0. Only a text where the English arm is the
+// SOLE supplier puts the state on display.
+test("markersIn is idempotent — the module-scope patterns hold no state between calls", () => {
+  const englishOnly = "The handler is verified and the value is unavailable, which is a fact while the rest is inferred.";
+  const first = [...markersIn(englishOnly)];
+  assert.deepEqual(first, ["fact", "verified", "inferred", "unavailable"],
+    "every level here comes from the bare-word arm alone — no backticked token supplies any of them");
+  for (let call = 0; call < 5; call++) {
+    assert.deepEqual([...markersIn(englishOnly)], first, `call ${call + 2} must answer exactly as the first did`);
+  }
+  // The same property at the level a caller actually consumes: `hasEvidenceMarkers` is markersIn's only
+  // production reader, and it must not flicker either.
+  const answers = new Set([0, 1, 2, 3, 4].map(() => hasEvidenceMarkers(englishOnly)));
+  assert.deepEqual([...answers], [true], "hasEvidenceMarkers must answer the same way every time");
 });
