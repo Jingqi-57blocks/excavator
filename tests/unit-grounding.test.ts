@@ -21,7 +21,7 @@ import {
 /**
  * R4b/R5a - the unit grounding audit: gate 1b, evaluated the moment a unit is completed.
  *
- * The rules are the section path's (`section-audit.ts`), ported without a change of strength, and the negative
+ * The rules are the section path's, ported without a change of strength before it was retired, and the negative
  * fixtures below are one per rule. What R4b changed is WHEN they run (unit completion, not document completion):
  * 57B-453 measured 28% mis-grounded obligations sitting invisible behind `audit --document`'s "work-item coverage
  * was not evaluated". What R5a changes is WHO OWES: an obligation is owed by the one unit of its document that OWNS
