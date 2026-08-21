@@ -171,8 +171,11 @@ export function substantiveUnitSegments(content: string): readonly string[] {
 }
 
 /**
- * The four ways a unit can break the binding contract. Exhaustive and named, so a caller can route one kind
- * without matching on a message, and so a fifth kind cannot be added without being classified.
+ * The four ways a unit can break the binding contract. Named so a caller can route one kind without matching on
+ * a message.
+ *
+ * THE ARRAY IS A CENSUS, NOT DECORATION: `tests/unit-claim-binding.test.ts` walks it and demands a named fixture
+ * that produces each member, so a fifth kind cannot be added with nothing reaching it.
  */
 export const UNIT_BINDING_PROBLEM_KINDS = [
   "unclaimed-statement",
@@ -180,8 +183,6 @@ export const UNIT_BINDING_PROBLEM_KINDS = [
   "statement-too-short",
   "missing-evidence-marker"
 ] as const;
-// The census, not decoration: `tests/unit-claim-binding.test.ts` walks this array and demands a named fixture
-// that produces each kind, so a fifth kind cannot be added with nothing reaching it.
 
 export type UnitBindingProblemKind = (typeof UNIT_BINDING_PROBLEM_KINDS)[number];
 
