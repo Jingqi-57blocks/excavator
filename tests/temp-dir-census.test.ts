@@ -51,17 +51,19 @@ const ALLOWED_MKDTEMP: ReadonlyArray<readonly [string, number]> = [
 ];
 
 /**
- * Every file allowed to name the system temp area at all, with its occurrence count. Two entries here are not
- * mints and are the reason this census counts sites rather than forbidding the expression:
+ * Every file allowed to name the system temp area at all, with its occurrence count. One entry here is not a mint
+ * and is the reason this census counts sites rather than forbidding the expression:
  *
  *   * `tests/intent-baseline-smoke.ts` × 1 — a STABLE per-fixture corpus path, deliberately reused so that
  *     `materializeCorpus` does not rebuild every navigation index. Bounded by the number of fixtures, not by the
  *     number of runs, and its own comment says so.
- *   * `eval/tests/assemble-golden.test.ts` × 1 — `tmpdir()` as a string to assert the ABSENCE of in the canonical
- *     projection. It creates nothing.
+ *
+ * The other non-mint entry retired with `eval/tests/assemble-golden.test.ts` (57B-479): it named `tmpdir()` as a
+ * string to assert its ABSENCE from a canonical projection. The unit-path golden makes the same statement without
+ * naming the helper — it derives the temp area from the fixture's own target path
+ * (`eval/tests/unit-assemble-golden.test.ts`), which is why nothing took that row's place here.
  */
 const ALLOWED_TMPDIR: ReadonlyArray<readonly [string, number]> = [
-  ["eval/tests/assemble-golden.test.ts", 1],
   ["tests/framework.test.ts", 2],
   ["tests/intent-baseline-smoke.ts", 1],
   ["tests/nativegraph.test.ts", 2],
