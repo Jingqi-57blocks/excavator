@@ -51,12 +51,13 @@ For mixed requests use a request file:
 ./src/cli.ts prepare --request request.json
 ```
 
-Then follow the generated prompt files. Every completed section is checkpointed with a small claims sidecar, and every generated investigation item receives a disposition before audit.
+Then record an authoring plan and write it one unit at a time. Every authoring unit is checkpointed with its claims sidecar and summary, and every generated investigation item receives a disposition before audit.
 
 ```bash
 ./src/cli.ts checkpoint \
-  --run <run-dir> --document <document-id> --section 1 \
-  --file section.md --claims section-claims.json
+  --run <run-dir> --unit <unit-id> \
+  --file content.md --claims claims.json --summary summary.json \
+  --authorship model-family:<name>
 
 ./src/cli.ts checklist \
   --run <run-dir> --file checklist-updates.json

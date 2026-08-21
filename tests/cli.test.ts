@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { join, resolve } from "node:path";
-import { readFile, writeFile } from "node:fs/promises";
+import { readdir, readFile, writeFile } from "node:fs/promises";
 import type { EvidenceItem, ReportRequest, SectionClaim } from "../src/base/types.ts";
 import { assembleRun, checkpointSection, prepareRun, updateChecklist } from "../src/run/run.ts";
 import { collectUnits } from "../src/report/unit-collect.ts";
@@ -115,23 +115,6 @@ test("search CLI records a reusable source-search receipt", async () => {
   assert.equal(JSON.parse(second.stdout).cacheHit, true);
 });
 
-test("claims scaffold CLI emits a claims skeleton from section markdown", async () => {
-  const { runDir, manifest } = await prepareRun(await request());
-  const document = manifest.documents[0];
-  const sectionFile = join(await tempDir(), "section.md");
-  await writeFile(sectionFile, "## Overview\n\nThe system validates each incoming request before persistence.\n\n| Component | Responsibility |\n| --- | --- |\n| Authentication middleware | Rejects unauthenticated requests |\n");
-  const result = await cli(["claims", "scaffold", "--run", runDir, "--document", document.id, "--section", "1", "--file", sectionFile]);
-  assert.equal(result.code, 0, result.stderr || result.stdout);
-  const parsed = JSON.parse(result.stdout) as { documentId: string; section: number; claims: SectionClaim[] };
-  assert.equal(parsed.documentId, document.id);
-  assert.equal(parsed.section, 1);
-  assert.ok(parsed.claims.length >= 3, result.stdout);
-  for (const claim of parsed.claims) {
-    assert.equal(claim.marker, "fact");
-    assert.deepEqual(claim.evidenceIds, []);
-  }
-});
-
 /**
  * `audit`'s exit code, on the unit keying.
  *
@@ -174,16 +157,59 @@ test("audit --units exits non-zero on a violating written unit and zero once the
   assert.equal(passedReading.units.find((row) => row.unitId === unitId)?.verdict.conclusion, "complete");
 });
 
-test("subcommand --help prints usage and does not execute", async () => {
-  // A new-style subcommand and an existing command both resolve to their own usage.
-  const scaffold = await cli(["claims", "scaffold", "--help"]);
-  assert.equal(scaffold.code, 0, scaffold.stderr || scaffold.stdout);
-  for (const flag of ["--run", "--document", "--section", "--file"]) assert.match(scaffold.stdout, new RegExp(flag));
-  // Not executed: no error JSON is emitted for the missing required flags.
-  assert.doesNotMatch(scaffold.stderr, /Missing|"error"/);
+/**
+ * The retired section arms, as REFUSALS rather than silent fallthroughs.
+ *
+ * Every one of these invocations used to write: `begin` moved `manifest.state` and stamped `startedAt`,
+ * `checkpoint`/`draft` wrote a section and its claims, `collect`/`assemble` rewrote the manifest. So the property
+ * under test is not the wording — it is that the command line an operator still has in shell history now changes
+ * nothing on disk. A future edit that restored any arm, or that made `--units` optional again, would write here,
+ * and `run.json` is the witness those arms all touched.
+ */
+test("the retired section arms are named refusals that write nothing", async () => {
+  const { runDir, manifest } = await prepareRun(await request());
+  const runJsonPath = join(runDir, "run.json");
+  const before = await readFile(runJsonPath, "utf8");
+  const documentId = manifest.documents[0].id;
+  // A REAL file, not a missing path: with a missing `--file` every arm would fail on the read no matter what the
+  // dispatch did, and the "writes nothing" half of this test would be satisfied for the wrong reason.
+  const sectionFile = join(await tempDir(), "section.md");
+  await writeFile(sectionFile, `## ${manifest.documents[0].sections[0].title}\n\nThe system records each incoming request. \`fact\`\n`);
 
-  // A second subcommand, on a command that outlives the section path: the "subcommand help resolves to its own
-  // page" contract must not be carried by `claims scaffold` alone.
+  // Retired outright: the command is gone from dispatch, so it cannot be reached by any flag combination.
+  for (const gone of [["begin", "--run", runDir, "--document", documentId], ["claims", "scaffold", "--run", runDir]]) {
+    const result = await cli(gone);
+    assert.equal(result.code, 1, result.stdout);
+    assert.match(result.stderr, new RegExp(`Unknown command: ${gone[0]}`));
+  }
+
+  // The section KEYING is retired on the two per-unit writers: the refusal names the keying, not just the flag,
+  // because an operator repeating an old command needs to be told the keying went away.
+  for (const command of ["checkpoint", "draft"]) {
+    const keyed = await cli([command, "--run", runDir, "--document", documentId, "--section", "1", "--file", sectionFile]);
+    assert.equal(keyed.code, 1, keyed.stdout);
+    assert.match(keyed.stderr, new RegExp(`excavator ${command} no longer takes --document <id> --section <n>`));
+    // And with no keying at all it still names the flag it needs, rather than the one that went away.
+    const bare = await cli([command, "--run", runDir, "--file", sectionFile]);
+    assert.equal(bare.code, 1, bare.stdout);
+    assert.match(bare.stderr, new RegExp(`excavator ${command} requires --unit <id>`));
+  }
+
+  // The run-wide arms: `--units` is required because there is no second arm to fall back to.
+  for (const command of ["collect", "resume", "assemble"]) {
+    const bare = await cli([command, "--run", runDir]);
+    assert.equal(bare.code, 1, bare.stdout);
+    assert.match(bare.stderr, new RegExp(`excavator ${command} requires --units`));
+  }
+
+  // Nothing was written by any of the seven refusals.
+  assert.equal(await readFile(runJsonPath, "utf8"), before, "a refused command rewrote run.json");
+  assert.deepEqual(await readdir(join(runDir, "sections", documentId)).catch(() => []), [], "a refused command wrote a section");
+  assert.deepEqual(await readdir(join(runDir, "reports")), [], "a refused command wrote a report");
+});
+
+test("subcommand --help prints usage and does not execute", async () => {
+  // A subcommand resolves to its own usage page rather than falling back to the bare command's.
   const build = await cli(["codegraph", "build", "--help"]);
   assert.equal(build.code, 0, build.stderr || build.stdout);
   assert.match(build.stdout, /^Excavator codegraph build$/m);
@@ -217,16 +243,16 @@ test("regex search query preserves commas inside quantifiers", async () => {
 });
 
 /**
- * The unit keying is an explicit switch on the commands that already existed, so the two ways of getting it wrong
- * are refusals rather than silent fallbacks: two keyings at once, and `--unit <id>` on a command that is run-wide.
- * A missing letter must not quietly run the section path instead.
+ * The unit keying is an explicit switch, so the two ways of getting it wrong are refusals rather than silent
+ * fallbacks: the retired section flags carried along beside `--unit`, and `--unit <id>` on a command that is
+ * run-wide. A missing letter must not quietly run something else instead.
  */
-test("the unit switch is explicit: both keyings at once, and --unit on a run-wide command, are refused", async () => {
+test("the unit switch is explicit: the retired section flags, and --unit on a run-wide command, are refused", async () => {
   const { runDir } = await prepareRun(await request());
   for (const command of ["draft", "checkpoint"]) {
     const both = await cli([command, "--run", runDir, "--unit", "u::1", "--document", "overview-product", "--section", "1", "--file", "x.md"]);
     assert.equal(both.code, 1);
-    assert.match(both.stderr, new RegExp(`excavator ${command} takes either --unit <id> or --document <id> --section <n>, not both`));
+    assert.match(both.stderr, new RegExp(`excavator ${command} no longer takes --document <id> --section <n>`));
   }
   for (const command of ["collect", "status", "resume"]) {
     const slipped = await cli([command, "--run", runDir, "--unit", "u::1"]);

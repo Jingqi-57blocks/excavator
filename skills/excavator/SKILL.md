@@ -233,82 +233,99 @@ Freeze is a deterministic gate: it admits the run only when the investigation wo
 
 Redaction of secrets is part of that version: when it changes, every existing run drops out of the current assurance generation and is grandfathered, so a run must be re-prepared to be held to the strict checks again. Its recorded evidence is never rewritten.
 
-Under the current assurance version freeze is a hard precondition of authoring, not a suggestion: `excavator begin` refuses an unfrozen run, and a run authored without — or before — a freeze fails audit. Runs prepared under an older assurance version are grandfathered and keep the earlier soft guidance.
+Under the current assurance version freeze is a hard precondition of authoring, not a suggestion: `draft` and `checkpoint` refuse an unfrozen run, and a run authored without — or before — a freeze fails audit. Runs prepared under an older assurance version are grandfathered and keep the earlier soft guidance.
 
 ## Authoring workflow
 
-Budgets derive from the request size (the number of requested documents and features), not a fixed ceiling. Check status after each major section and stop when the authoring budget is exceeded. A budget timeout stops the *next* section, never the one in hand: the current section is checkpointed to disk before the run stops, and `excavator resume --run <run-dir>` continues from the first incomplete section.
+Authoring is keyed by **authoring unit**, not by report section. A unit is one leaf or synthesis node of a recorded plan, identified by its own id in `plan/catalog.json`; the plan — not a fixed template — decides how many units a document has and in what order they are collected. Every authoring command below takes `--unit <id>` or the run-wide `--units`, and there is no section keying to fall back to.
 
-Authoring consumes the frozen knowledge and does not re-investigate. Every substantive section must carry a real backtick evidence-level marker in its visible prose — `fact`, `verified`, `inferred`, or `unavailable`, or their localized equivalents in the requested output language. Under the current assurance version, a substantive section with no real marker is a hard audit error, not a warning. See `references/writing-rules.md` for the marker semantics and the claim binding contract.
+A validated plan is a precondition of authoring, exactly as freeze is: with no `plan/topics.json` the authoring commands refuse by name and say which file is missing.
 
-Author each document one section at a time. Two shapes produce the same audited result: a fully serial `checkpoint` per section (below), and — when the host can run concurrent writing subtasks — a parallel `draft` per section followed by one serial `collect` (see *Parallel drafting*). The parallel shape only moves where each section's timeline event is recorded, into `collect`; the workflow remains valid fully serial.
+### 1. Record the plan
 
-For each document:
+Read the planner view of the frozen run, write a proposal from it, then record it:
 
-1. Read its prompt file.
-2. Start its timer:
+```bash
+excavator plan-packet --run <run-dir> --over-budget refuse --out <planner-packet.md>
+excavator plan --run <run-dir> --proposal <proposal.json>
+```
 
-   ```bash
-   excavator begin --run <run-dir> --document <document-id>
-   ```
+`plan` writes `plan/topics.json`, `plan/catalog.json` and `plan/dag.json`. A proposal that does not validate is refused by name and writes nothing. A recorded plan is identified by (knowledge epoch, plan revision) and written once: re-recording identical bytes is a no-op, and different bytes for a revision already recorded are refused — `plan --revise --reason "<why>"` is the explicit way past that.
 
-3. Write one template section at a time. Start from that section's block in `context/authoring/<document-id>.md`, drawing on the frozen evidence, work items and traces already in the run: cover every work item, deterministic fact and evidence excerpt the block lists for the section, or state explicitly why it does not apply. The packet's closing `Reading boundary` block is the exception to that rule: it names what the investigation never opened, so it is there to keep the writing honest where it borders on unread code, not to be answered entry by entry or mentioned in the report.
-4. Generate the claims skeleton from the written section, then fill it in:
+### 2. Write one unit at a time
 
-   ```bash
-   excavator claims scaffold \
-     --run <run-dir> --document <document-id> --section <n> \
-     --file <section.md>
-   ```
+Read the bounded view that unit is written from — every obligation as its own row with its own evidence and trace ids, every bound record in full, nothing clipped:
 
-   It emits one claim stub per substantive segment using the exact segmentation the audit enforces, so a hand-derived skeleton can never drift from what audit expects. Each stub defaults to the `fact` marker with empty `evidenceIds` and `workItemIds`; fill in the evidence and work-item links and adjust each marker to the right evidence level before checkpointing.
+```bash
+excavator plan-packet --run <run-dir> --unit <unit-id> --over-budget record-limitation --out <unit-packet.md>
+```
 
-5. Save each section and its claims immediately:
+Write the unit's three files: the Markdown content, its claims sidecar, and a summary that covers exactly the plan's topics for that unit and records the digests of the very bytes being written. Then record it:
 
-   ```bash
-   excavator checkpoint \
-     --run <run-dir> --document <document-id> --section <n> \
-     --file <section.md> --claims <section-claims.json>
-   ```
+```bash
+excavator checkpoint \
+  --run <run-dir> --unit <unit-id> \
+  --file <content.md> --claims <claims.json> --summary <summary.json> \
+  --authorship model-family:<name>
+```
 
-   Each claim names an exact statement that appears in the section. `fact`, `verified`, and `inferred` claims cite evidence IDs that also appear in the section's collapsed evidence block. `unavailable` claims carry a reason and no evidence IDs. Claims also list the work-item IDs they satisfy, and every material work item required for the document must be represented by at least one claim that reuses that work item's evidence or trace.
+`checkpoint --unit` is exactly `draft --unit` followed by `collect --units`. `--authorship` is required and has no default: the ledger records who wrote the unit, and the cache identity is computed for that author.
 
-6. Check status after every major section. Stop when the authoring budget is exceeded; do not silently extend it. Once a document's sections are all checkpointed, audit that document in isolation before moving on:
+Every substantive statement must carry a real backtick evidence-level marker in its visible prose — `fact`, `verified`, `inferred`, or `unavailable`, or their localized equivalents in the requested output language. Each claim names an exact statement that appears in the unit, cites evidence ids for `fact`/`verified`/`inferred`, carries a reason and no evidence for `unavailable`, and lists the work-item ids it satisfies. `collect` applies the grounding verdict at recording time: a unit whose claims leave a material obligation ungrounded is refused, its artifacts are left on disk, and `audit --units` says why. See `references/writing-rules.md` for the marker semantics and the claim binding contract.
 
-   ```bash
-   excavator audit --run <run-dir> --document <document-id>
-   ```
+### 3. Parallel drafting
 
-   A single-document audit checks that document's sections, claims, and the shared evidence catalog as hard errors, but run-wide completeness checks (plan and checklist completion, material work-item coverage) degrade to advisory findings and no run state is mutated. Use it mid-authoring; it does not replace the final full-run audit.
-
-7. Assemble and audit the whole run:
-
-   ```bash
-   excavator assemble --run <run-dir>
-   excavator audit --run <run-dir>
-   ```
-
-### Parallel drafting
-
-The per-section work in steps 3–5 — read the section's packet block, write the section, scaffold and fill its claims — is independent across sections once the investigation is frozen, so the host may run it concurrently. When the host can run concurrent writing subtasks, `begin` each document serially as in step 2, then spawn one writing subtask per not-yet-complete section. Each subtask reads its section block in `context/authoring/<document-id>.md` and the document prompt, writes the section, scaffolds and fills its claims, and records the section with `draft` in place of `checkpoint`:
+The per-unit work is independent once the investigation is frozen and the plan is recorded, so a host that can run concurrent writing subtasks may spawn one subtask per unwritten unit. Each subtask reads its own unit packet, writes the three files, and records the unit with `draft` in place of `checkpoint`:
 
 ```bash
 excavator draft \
-  --run <run-dir> --document <document-id> --section <n> \
-  --file <section.md> --claims <section-claims.json>
+  --run <run-dir> --unit <unit-id> \
+  --file <content.md> --claims <claims.json> --summary <summary.json> \
+  --authorship model-family:<name>
 ```
 
-`draft` writes only that section's files and a receipt under `drafts/`; it never touches the shared timeline, manifest or metrics, so concurrent drafts of different sections cannot collide. It runs the same section and claims validation `checkpoint` does, and refuses an unfrozen run exactly as `begin` does. A host that cannot run concurrent subtasks simply keeps using `checkpoint` and never needs `draft` or `collect`.
+`draft` writes only that unit's own artifacts and a receipt; it never touches the shared unit ledger or the timeline, so concurrent drafts of distinct units cannot collide. A synthesis unit is written from its children's collected summaries, so draft it only after its children are collected.
 
-**Concurrency contract.** While drafts are in flight, the only run-changing command that may run is `draft`. Keep `begin`, `checkpoint`, `collect`, `assemble`, `audit` and any supplement (a `source`, `search`, `workitem`, `checklist` or `trace` carrying `--supplement-reason`) in serial segments — never concurrent with a draft or with each other. `status` and `claims scaffold` are read-only and may run anytime. Draft exactly one writer per section. If a subtask finds a knowledge gap while writing, do not open a supplement in parallel: record the gap and defer it to a serial segment after collect.
+**Concurrency contract.** While drafts are in flight, the only run-changing command that may run is `draft`. Keep `checkpoint`, `collect`, `assemble`, a run-wide `audit` (it writes `audit/audit.json`, appends a timeline event and moves `manifest.state`) and any supplement (a `source`, `search`, `workitem`, `checklist` or `trace` carrying `--supplement-reason`) in serial segments — never concurrent with a draft or with each other. `status`, `resume`, `audit --units`, `plan-packet` and `unit-consistency` are read-only and may run anytime. Draft exactly one writer per unit. If a subtask finds a knowledge gap while writing, do not open a supplement in parallel: record the gap and defer it to a serial segment after collect.
 
 **Collect barrier.** When every drafting subtask has finished, record them all with one serial `collect`:
 
 ```bash
-excavator collect --run <run-dir>
+excavator collect --run <run-dir> --units
 ```
 
-`collect` reads the receipts in a deterministic order — document order, then section index — and appends each section's timeline event and manifest update one at a time, so the append-only hash chain is identical to a serial run's. It is a no-op when nothing is pending, so it is safe to rerun. After collect, run the per-document scoped `audit`, then `assemble` and audit the whole run exactly as in steps 6–7. A revised section after collect may go back through `draft` (and another `collect`) or through `checkpoint`; both paths are valid.
+`collect` reads the pending receipts in the plan's own collection order and appends each unit's ledger row and timeline event one at a time, so the append-only hash chain is identical to a serial run's. It is a no-op when nothing is pending, so it is safe to rerun.
+
+### 4. Audit, assemble, check
+
+```bash
+excavator audit --run <run-dir> --units
+excavator assemble --run <run-dir> --units --mode write
+excavator unit-consistency --run <run-dir>
+excavator coverage-companion --run <run-dir> --out <coverage.md>
+```
+
+`audit --units` is the read-only rerun of the verdict `collect` already applied; its exit code follows the verdict. `assemble --units` is all-or-nothing per run: every unit of every planned document must be collected against the recorded plan and this epoch, and every unit's bytes on disk must still digest to what its ledger row promised, or the run is refused by name with the offending unit ids. `--mode write` puts the deliverable in `reports/`; `--mode plan-only` proves it could be written and writes nothing. `unit-consistency` then checks the assembled deliverable for the cross-unit defects no collect gate can see and prints the exact repair set, exiting non-zero when there is a finding.
+
+### 5. Adding a document, and reusing verified units
+
+A recorded request set grows one document at a time, and the recorded plan must then be revised before authoring resumes:
+
+```bash
+excavator request-append --run <run-dir> --kind overview --audience engineering --detail standard --language <tag>
+excavator plan --run <run-dir> --proposal <proposal.json> --revise --reason "<why the recorded plan no longer covers the request set>"
+```
+
+Units already written and verified do not have to be rewritten when the plan is revised. Their cache identity is the packet they were written from, so a unit whose identity and bytes are unchanged can be re-entered through the same draft and collect gates:
+
+```bash
+excavator unit-cache-identity --run <run-dir> --authorship model-family:<name>
+excavator unit-cache-admit --run <run-dir> --authorship model-family:<name> --mode plan-only
+```
+
+`--mode plan-only` decides and reports, writing nothing; `--mode admit` re-enters the admitted bytes through `draft` and `collect`, so every gate runs again and no stale receipt is ever revived. Every planned unit comes back as admitted, fell-to-rebuild with its cause, or skipped-new.
+
+### Supplements during authoring
 
 When the frozen knowledge is genuinely insufficient — a claim you cannot ground in any existing evidence, or a work item whose frozen disposition is wrong — do not re-open routine investigation and do not edit the artifacts silently. First decide whether it is an expression problem; the evidence you need is usually already in the catalog under a different framing. Only when it is a real knowledge gap, re-run the relevant command with a supplement, which performs the operation and records the exception in the coverage ledger:
 
@@ -320,19 +337,20 @@ excavator search \
   --supplement-workitem feature:<key>:decision-flow
 ```
 
-The same `--supplement-reason` and `--supplement-workitem` pair applies to `source`, `workitem`, `checklist` and `trace`. Both flags are required together, and the work item must already exist in `workitems.json`. Every supplement is counted in `metrics.supplements` and audited: a post-freeze mutation with no recorded supplement fails audit. After the serial supplement segment, run `excavator freeze --run <run-dir>` again. It consumes all supplements since the current epoch into epoch N+1 and refreshes the authoring packets; `begin`, `draft`, `checkpoint`, `collect` and `assemble` refuse to consume a stale epoch while supplements remain unsealed. A draft receipt records the epoch it consumed and must be re-drafted if a later epoch supersedes it.
+The same `--supplement-reason` and `--supplement-workitem` pair applies to `source`, `workitem`, `checklist` and `trace`. Both flags are required together, and the work item must already exist in `workitems.json`. Every supplement is counted in `metrics.supplements` and audited: a post-freeze mutation with no recorded supplement fails audit. After the serial supplement segment, run `excavator freeze --run <run-dir>` again. It consumes all supplements since the current epoch into epoch N+1; `draft`, `checkpoint`, `collect` and `assemble` refuse to consume a stale epoch while supplements remain unsealed. A draft receipt records the epoch it consumed and must be re-drafted if a later epoch supersedes it.
 
 ## Recovery
 
-On interruption or timeout:
+On interruption, ask the run what is left and continue from there:
 
 ```bash
-excavator resume --run <run-dir>
+excavator status --run <run-dir> --units
+excavator resume --run <run-dir> --units
 ```
 
-Resume from the first incomplete section. Do not rebuild CodeGraph, shared context, feature scopes, or completed sections. If the original model session cannot resume, read the document prompt, completed sections, and only the incremental context needed for the next section.
+Both are read-only: `collect` is the only writer of the shared unit ledger, so a unit run is resumed by drafting what is unwritten and collecting what is drafted — both named in the output. Every planned unit reads as exactly one of collected, drafted or unwritten, and a receipt or ledger row from a superseded epoch or plan is reported as superseded rather than silently dropped. Do not rebuild CodeGraph, shared context, feature scopes, or units already collected.
 
-A failed parallel drafting subtask leaves no receipt, so its section is never collected and stays incomplete — `resume` and `status` list it like any other unwritten section. Re-draft that section and run `collect` again; an uncollected receipt left over from an interrupted run is recorded by the next `collect` and, until then, surfaces as an audit warning.
+A failed drafting subtask leaves no receipt, so its unit is never collected and stays unwritten — `status --units` and `resume --units` list it like any other unwritten unit. Re-draft that unit and run `collect --units` again.
 
 ## Report contracts
 

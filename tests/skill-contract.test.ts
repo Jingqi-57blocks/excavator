@@ -106,7 +106,7 @@ test("SKILL.md references only excavator commands, subcommands and flags the CLI
 
   // Guard the source parse itself against silently matching nothing.
   assert.ok(switchCommands.size >= 15, `switch parse found too few commands: ${switchCommands.size}`);
-  assert.deepEqual([...subcommandKeys].sort(), ["claims scaffold", "codegraph build", "codegraph status"]);
+  assert.deepEqual([...subcommandKeys].sort(), ["codegraph build", "codegraph status"]);
 
   const invocations = extractInvocations(skill, subcommandCommands);
   assert.ok(invocations.length >= 12, `extracted too few invocations: ${invocations.length}`);
@@ -114,7 +114,7 @@ test("SKILL.md references only excavator commands, subcommands and flags the CLI
   // Anti-vacuity floor: the SKILL commits to the whole authoring workflow. If the extractor silently
   // degrades, or the workflow examples are gutted, this catches it before the per-invocation checks.
   const commandsSeen = new Set(invocations.map((invocation) => invocation.command));
-  for (const core of ["prepare", "begin", "freeze", "source", "search", "claims", "checkpoint", "draft", "collect", "workitem", "trace", "audit", "assemble", "resume", "codegraph"]) {
+  for (const core of ["prepare", "freeze", "source", "search", "checkpoint", "draft", "collect", "workitem", "trace", "audit", "assemble", "resume", "codegraph"]) {
     assert.ok(commandsSeen.has(core), `SKILL.md no longer shows a \`${core}\` example`);
   }
 

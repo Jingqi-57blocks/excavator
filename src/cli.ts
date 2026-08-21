@@ -2,8 +2,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { Audience, BudgetConfig, ChecklistItem, DetailLevel, DocumentKind, FeatureRequest, InvestigationWorkItem, ReportRequest, SectionClaim, TraceRecord } from "./base/types.ts";
-import { addSourceEvidence, assembleRun, auditRun, beginDocument, checkpointSection, freezeRun, prepareRun, readingCheck, resumeRun, runStatus, scaffoldClaims, searchSourceEvidence, updateChecklist, updateTraces, updateWorkItems, type SupplementInput } from "./run/run.ts";
-import { collectDrafts, draftSection } from "./report/parallel-authoring.ts";
+import { addSourceEvidence, auditRun, freezeRun, prepareRun, readingCheck, runStatus, searchSourceEvidence, updateChecklist, updateTraces, updateWorkItems, type SupplementInput } from "./run/run.ts";
 import { draftUnit, type UnitDraftInput } from "./report/unit-draft.ts";
 import { collectUnits } from "./report/unit-collect.ts";
 import { checkpointUnit } from "./report/unit-checkpoint.ts";
@@ -115,22 +114,6 @@ async function main(): Promise<void> {
         });
         // The scan itself can be large; print the counts and where the full artifact landed.
         print({ target: result.target, jsonPath: result.jsonPath, summaryPath: result.summaryPath, summary: result.scan.summary, routeRecovery: result.scan.routeRecovery });
-        break;
-      }
-      case "claims": {
-        const [subcommand = "scaffold", ...rest] = argv;
-        const args = parseArgs(rest);
-        if (subcommand === "scaffold") {
-          const content = await readFile(required(args.file, "--file"), "utf8");
-          print(await scaffoldClaims(required(args.run, "--run"), required(args.document, "--document"), Number(required(args.section, "--section")), content));
-        } else throw new Error(`Unknown claims subcommand: ${subcommand}`);
-        break;
-      }
-      case "begin": {
-        const args = parseArgs(argv);
-        const manifest = await beginDocument(required(args.run, "--run"), required(args.document, "--document"));
-        const notice = manifest.frozenAt ? {} : { notice: "This run is not frozen; freeze the investigation before authoring so knowledge is stable: excavator freeze --run <run-dir>." };
-        print({ state: manifest.state, document: args.document, startedAt: manifest.documents.find((item) => item.id === args.document)?.startedAt, ...notice });
         break;
       }
       case "plan-packet": {
@@ -301,50 +284,26 @@ async function main(): Promise<void> {
       }
       case "checkpoint": {
         const args = parseArgs(argv);
-        if (unitKeyed(args, "checkpoint")) {
-          const result = await checkpointUnit(required(args.run, "--run"), await unitDraftInput(args));
-          print({ checkpointed: unitReceiptLine(result.receipt), collected: result.collected.collected.map(unitReceiptLine) });
-          break;
-        }
-        const content = await readFile(required(args.file, "--file"), "utf8");
-        let claims: SectionClaim[] | undefined;
-        if (args.claims) {
-          const raw = JSON.parse(await readFile(args.claims, "utf8")) as SectionClaim[] | { claims: SectionClaim[] };
-          claims = Array.isArray(raw) ? raw : raw.claims;
-        }
-        const manifest = await checkpointSection(required(args.run, "--run"), required(args.document, "--document"), Number(required(args.section, "--section")), content, claims);
-        print({ state: manifest.state, document: args.document, section: Number(args.section) });
+        requireUnitKeyed(args, "checkpoint");
+        const result = await checkpointUnit(required(args.run, "--run"), await unitDraftInput(args));
+        print({ checkpointed: unitReceiptLine(result.receipt), collected: result.collected.collected.map(unitReceiptLine) });
         break;
       }
       case "draft": {
         const args = parseArgs(argv);
-        if (unitKeyed(args, "draft")) {
-          print({ drafted: unitReceiptLine(await draftUnit(required(args.run, "--run"), await unitDraftInput(args))) });
-          break;
-        }
-        const content = await readFile(required(args.file, "--file"), "utf8");
-        let claims: SectionClaim[] | undefined;
-        if (args.claims) {
-          const raw = JSON.parse(await readFile(args.claims, "utf8")) as SectionClaim[] | { claims: SectionClaim[] };
-          claims = Array.isArray(raw) ? raw : raw.claims;
-        }
-        const receipt = await draftSection(required(args.run, "--run"), required(args.document, "--document"), Number(required(args.section, "--section")), content, claims);
-        print({ drafted: { document: receipt.documentId, section: receipt.section, revision: receipt.revision, hasClaims: receipt.hasClaims } });
+        requireUnitKeyed(args, "draft");
+        print({ drafted: unitReceiptLine(await draftUnit(required(args.run, "--run"), await unitDraftInput(args))) });
         break;
       }
       case "collect": {
         const args = parseArgs(argv);
-        if (unitScoped(args, "collect")) {
-          const units = await collectUnits(required(args.run, "--run"));
-          print({
-            collected: units.collected.length,
-            units: units.collected.map(unitReceiptLine),
-            ...(units.unplanned.length ? { unplanned: units.unplanned.map(unitReceiptLine) } : {})
-          });
-          break;
-        }
-        const result = await collectDrafts(required(args.run, "--run"));
-        print({ state: result.manifest.state, collected: result.collected.length, sections: result.collected.map((receipt) => ({ document: receipt.documentId, section: receipt.section, revision: receipt.revision })) });
+        requireUnitScoped(args, "collect");
+        const units = await collectUnits(required(args.run, "--run"));
+        print({
+          collected: units.collected.length,
+          units: units.collected.map(unitReceiptLine),
+          ...(units.unplanned.length ? { unplanned: units.unplanned.map(unitReceiptLine) } : {})
+        });
         break;
       }
       case "checklist": {
@@ -374,13 +333,13 @@ async function main(): Promise<void> {
           print(await assembleUnits(required(args.run, "--run"), assembleMode(required(args.mode, "--mode"))));
           break;
         }
-        // A dropped `--units` must not silently become the SECTION assemble, which writes every section report,
-        // sets `manifest.state` and appends its own event. Same slip `unitScoped` refuses one token earlier.
+        // `--units` is absent, and the two refusals are ordered by how much the command line already says.
+        // `--mode` belongs to the unit path and to nothing else, so it names the missing token precisely; the
+        // general refusal below covers a bare `assemble --run <dir>`.
         if (args.mode !== undefined) {
-          throw new Error(`excavator assemble takes --mode only together with --units; without --units it assembles the section path, which has no mode and writes every section report. Add --units, or drop --mode.`);
+          throw new Error(`excavator assemble takes --mode only together with --units; the section assemble is retired, so --units is the only assembly there is. Add --units.`);
         }
-        print(await assembleRun(required(args.run, "--run")));
-        break;
+        throw new Error(`excavator assemble requires --units: the section assemble is retired and the unit path is the only assembly, so there is nothing to fall back to. Add --units --mode plan-only|write.`);
       }
       case "audit": {
         const args = parseArgs(argv);
@@ -398,9 +357,8 @@ async function main(): Promise<void> {
       }
       case "resume": {
         const args = parseArgs(argv);
-        print(unitScoped(args, "resume")
-          ? await resumeUnits(required(args.run, "--run"))
-          : await resumeRun(required(args.run, "--run")));
+        requireUnitScoped(args, "resume");
+        print(await resumeUnits(required(args.run, "--run")));
         break;
       }
       case "status": {
@@ -624,18 +582,44 @@ function detailLevel(value: string): DetailLevel {
 }
 
 /**
- * True when this invocation is keyed by authoring unit, false when it is keyed by (document, section).
+ * True when a two-view read command was keyed to ONE authoring unit rather than to the whole run.
  *
- * There is no default and no inference: `--unit` selects the unit path, its absence selects the section path, and
- * passing both keyings is a named refusal rather than a precedence rule nobody would remember. The section path
- * behaves exactly as it did — the only invocations that reach the unit machinery are the ones that asked for it.
+ * `plan-packet` is the only such command: without `--unit` it renders the planner view of the run, with `--unit`
+ * the bounded view one unit is written from. There is no default and no inference. `--document`/`--section` are
+ * refused rather than ignored — they are the retired section keying, so a caller passing them is asking for a
+ * view this command never had, and answering with the run-wide packet would answer a different question.
  */
 function unitKeyed(args: Record<string, string>, command: string): boolean {
   if (!args.unit) return false;
   if (args.document || args.section) {
-    throw new Error(`excavator ${command} takes either --unit <id> or --document <id> --section <n>, not both; the command is keyed one way`);
+    throw new Error(`excavator ${command} does not take --document <id> --section <n>: the section keying is retired, and this command's two views are the whole run (no --unit) or one authoring unit (--unit <id>)`);
   }
   return true;
+}
+
+/**
+ * The unit keying is the ONLY keying these commands have: the section arms of `checkpoint` and `draft` are
+ * retired (57B-480). An invocation that still carries `--document <id> --section <n>` is refused BY NAME rather
+ * than run with those two flags ignored — an operator repeating a command out of shell history would otherwise
+ * get a unit-shaped refusal about a missing `--unit` and no word about the keying that went away.
+ */
+function requireUnitKeyed(args: Record<string, string>, command: string): void {
+  // The retired flags are named FIRST, and for both shapes an old command line arrives in: with `--unit` (an
+  // operator who added the new flag and left the old ones) and without it. Delegating to `unitKeyed` said
+  // "either --unit <id> or --document <id> --section <n>, not both", which advertises the retired keying as a
+  // live alternative — so the natural retry was to drop `--unit` and be refused again.
+  if (args.document || args.section) {
+    throw new Error(`excavator ${command} no longer takes --document <id> --section <n>: the section keying is retired, so this command is keyed by --unit <id> alone`);
+  }
+  if (!args.unit) {
+    throw new Error(`excavator ${command} requires --unit <id>: the section keying is retired, so authoring writes one planned unit of plan/catalog.json and nothing else`);
+  }
+}
+
+/** The run-wide half of the same retirement: `--units` is required because there is no other arm left. */
+function requireUnitScoped(args: Record<string, string>, command: string): void {
+  if (unitScoped(args, command)) return;
+  throw new Error(`excavator ${command} requires --units: the section arm is retired, so this command is run-wide over the planned units and has nothing to fall back to`);
 }
 
 /**
@@ -837,20 +821,18 @@ Commands:
   unit-consistency   Check the assembled unit path for the five cross-unit content defects no collect gate sees, and print the exact repair set (read-only, zero model)
   plan          Validate a plan proposal against the frozen epoch and record plan/catalog.json + plan/dag.json
   request-append Append one requested document to plan/requests.json (recorded rows are immutable)
-  begin      Start or restart one document authoring timer
   reading    Show which in-boundary decision code no source window covers yet — run it before freeze, where opening one is free
   freeze     Seal epoch 0, or re-seal justified supplements as epoch N+1; renders epoch-bound authoring packets
   source     Record a bounded source excerpt as evidence
   search     Search source under the run snapshot and record a reusable receipt
-  checkpoint Save one completed section and its claims atomically; --unit <id> saves one authoring unit
-  draft      Draft one section in parallel-safe isolation; leaves a receipt for collect (--unit <id> for a unit)
-  collect    Serially record all pending section drafts into the timeline and manifest (--units for unit drafts)
-  claims     Scaffold a claims skeleton from a section's markdown
+  checkpoint Save one authoring unit atomically: draft it and collect it in one command (--unit required)
+  draft      Draft one authoring unit in parallel-safe isolation; leaves a receipt for collect (--unit required)
+  collect    Serially record all pending unit drafts into the ledger and timeline (--units required)
   checklist  Record compatibility checklist dispositions
   workitem   Update the investigation plan and coverage ledger
   trace      Record call, data, business, state or cross-repository traces
-  resume     List incomplete sections and resume a stopped run; --units lists what is left on the unit path
-  assemble   Join completed sections into Markdown reports (--units: assemble the unit path, --mode required)
+  resume     List what is left to draft and collect on the unit path (--units required)
+  assemble   Join collected units into the run's Markdown deliverables (--units and --mode required)
   audit      Validate snapshot, evidence, claims, checklist and report structure; --document <id> scopes to one document, --units reruns the unit grounding audit
   status     Show progress and timing; --units shows the authoring-unit view of the plan
 
@@ -866,11 +848,8 @@ Examples:
   excavator freeze --run <run>
   excavator feature --target ./workspace --subject "Account access" --aliases access,permission,role --audience both --detail detailed
   excavator search --run <run> --query "\\bTODO\\b|@deprecated" --regex --case-sensitive --reason "investigate unfinished behavior"
-  excavator claims scaffold --run <run> --document <id> --section 1 --file section.md
-  excavator checkpoint --run <run> --document <id> --section 1 --file section.md --claims claims.json
-  excavator draft --run <run> --document <id> --section 1 --file section.md --claims claims.json
-  excavator draft --run <run> --unit <unit-id> --file content.md --claims claims.json --summary summary.json
-  excavator collect --run <run>
+  excavator checkpoint --run <run> --unit <unit-id> --file content.md --claims claims.json --summary summary.json --authorship model-family:example
+  excavator draft --run <run> --unit <unit-id> --file content.md --claims claims.json --summary summary.json --authorship model-family:example
   excavator collect --run <run> --units
   excavator workitem --run <run> --file workitem-updates.json
   excavator trace --run <run> --file traces.json
@@ -1074,15 +1053,6 @@ const COMMAND_HELP: Record<string, CommandHelp> = {
     example: "excavator framework --target ./workspace --out ./fw",
     notes: "Deterministic, zero-model. Detects a convention-heavy framework (Catalyst today; pluggable) and recovers its route/action inventory and component roles (controller/model/view/schema/…) from attributes, namespaces and config — the entry-point inventory a generic call graph cannot produce for dynamically-dispatched apps. Writes framework-model.json + framework-summary.md. Paths shown only when stated literally; recovered by convention, still grounded to source."
   },
-  begin: {
-    synopsis: "begin --run <dir> --document <id>",
-    flags: [
-      "--run <dir>          Run directory (required)",
-      "--document <id>      Document to start or restart (required)",
-      "Precondition: the run must be frozen first (excavator freeze --run <dir>); begin refuses an unfrozen run."
-    ],
-    example: "excavator begin --run <run> --document overview-product"
-  },
   reading: {
     synopsis: "reading --run <dir>",
     flags: [
@@ -1131,64 +1101,39 @@ const COMMAND_HELP: Record<string, CommandHelp> = {
     example: 'excavator search --run <run> --query "\\bTODO\\b" --regex --reason "find unfinished work"'
   },
   checkpoint: {
-    synopsis: "checkpoint --run <dir> (--document <id> --section <n> | --unit <id> --authorship <who>) --file <md> [--claims <json>] [--summary <json>]",
+    synopsis: "checkpoint --run <dir> --unit <id> --file <md> --claims <json> --summary <json> --authorship <who>",
     flags: [
       "--run <dir>          Run directory (required)",
-      "--document <id>      Document being authored (section keying)",
-      "--section <n>        Section index (section keying)",
-      "--unit <id>          Authoring unit id from plan/catalog.json (unit keying)",
+      "--unit <id>          Authoring unit id from plan/catalog.json (required)",
       "--file <md>          Markdown to save (required)",
-      "--claims <json>      Claims sidecar (array or {claims:[...]}); required with --unit",
-      "--summary <json>     Unit summary (required with --unit)",
-      "--authorship <who>   model-family:<name> or model-free:<name> — required with --unit, no default"
+      "--claims <json>      Claims sidecar (array or {claims:[...]}) (required)",
+      "--summary <json>     Unit summary (required)",
+      "--authorship <who>   model-family:<name> or model-free:<name> — required, no default"
     ],
-    example: "excavator checkpoint --run <run> --document <id> --section 1 --file section.md --claims claims.json",
-    notes: "One keying or the other, never both. With --unit it is exactly `draft --unit` followed by `collect --units`."
+    example: "excavator checkpoint --run <run> --unit <unit-id> --file content.md --claims claims.json --summary summary.json --authorship model-family:example",
+    notes: "Exactly `draft --unit` followed by `collect --units`, in one command. The section keying (--document/--section) is retired and refused by name."
   },
   draft: {
-    synopsis: "draft --run <dir> (--document <id> --section <n> | --unit <id> --authorship <who>) --file <md> [--claims <json>] [--summary <json>]",
+    synopsis: "draft --run <dir> --unit <id> --file <md> --claims <json> --summary <json> --authorship <who>",
     flags: [
       "--run <dir>          Run directory (required)",
-      "--document <id>      Document being authored (section keying)",
-      "--section <n>        Section index (section keying)",
-      "--unit <id>          Authoring unit id from plan/catalog.json (unit keying)",
+      "--unit <id>          Authoring unit id from plan/catalog.json (required)",
       "--file <md>          Markdown to draft (required)",
-      "--claims <json>      Claims sidecar (array or {claims:[...]}); required with --unit",
-      "--summary <json>     Unit summary: covered topics, key statements, unknowns, terminology and the content/claims digests (required with --unit)",
-      "--authorship <who>   model-family:<name> or model-free:<name> — required with --unit: the record says who wrote it, and the cache key is computed for that author"
+      "--claims <json>      Claims sidecar (array or {claims:[...]}) (required)",
+      "--summary <json>     Unit summary: covered topics, key statements, unknowns, terminology and the content/claims digests (required)",
+      "--authorship <who>   model-family:<name> or model-free:<name> — required: the record says who wrote it, and the cache key is computed for that author"
     ],
     example: "excavator draft --run <run> --unit <unit-id> --file content.md --claims claims.json --summary summary.json",
-    notes: "Parallel-safe either way: a draft writes only its own artifacts and a receipt, never the shared timeline or manifest. One keying or the other, never both. A unit draft is refused unless its summary covers exactly the plan's topics for that unit and records the digests of the very bytes being written. Its receipt records the author and the cache identity of the packet it was written from — the identity is computed here, never accepted as an argument — and its provenance is always `fresh`: only `unit-cache-admit` mints a cache-admitted record, and only against a verified ledger row."
+    notes: "Parallel-safe: a draft writes only its own artifacts and a receipt, never the shared ledger or timeline. The section keying (--document/--section) is retired and refused by name. A unit draft is refused unless its summary covers exactly the plan's topics for that unit and records the digests of the very bytes being written. Its receipt records the author and the cache identity of the packet it was written from — the identity is computed here, never accepted as an argument — and its provenance is always `fresh`: only `unit-cache-admit` mints a cache-admitted record, and only against a verified ledger row."
   },
   collect: {
-    synopsis: "collect --run <dir> [--units]",
+    synopsis: "collect --run <dir> --units",
     flags: [
       "--run <dir>          Run directory (required)",
-      "--units              Collect pending authoring-unit drafts instead of section drafts"
+      "--units              Collect every pending authoring-unit draft (required: the section barrier is retired)"
     ],
     example: "excavator collect --run <run> --units",
-    notes: "Serial barrier: records every pending draft into the timeline in a deterministic order — section drafts by default, unit drafts with --units. A no-op when nothing is pending, so it is safe to rerun."
-  },
-  claims: {
-    synopsis: "claims scaffold --run <dir> --document <id> --section <n> --file <md>",
-    flags: [
-      "scaffold             Emit a claims skeleton, one stub per substantive segment",
-      "--run <dir>          Run directory (required)",
-      "--document <id>      Document the section belongs to (required)",
-      "--section <n>        Section index (required)",
-      "--file <md>          Section markdown to segment (required)"
-    ],
-    example: "excavator claims scaffold --run <run> --document <id> --section 1 --file section.md"
-  },
-  "claims scaffold": {
-    synopsis: "claims scaffold --run <dir> --document <id> --section <n> --file <md>",
-    flags: [
-      "--run <dir>          Run directory (required)",
-      "--document <id>      Document the section belongs to (required)",
-      "--section <n>        Section index (required)",
-      "--file <md>          Section markdown to segment (required)"
-    ],
-    example: "excavator claims scaffold --run <run> --document <id> --section 1 --file section.md"
+    notes: "Serial barrier: records every pending unit draft into the ledger and timeline in the plan's own collection order. A no-op when nothing is pending, so it is safe to rerun."
   },
   checklist: {
     synopsis: "checklist --run <dir> --file <json> [--supplement-reason <text> --supplement-workitem <id>]",
@@ -1221,14 +1166,14 @@ const COMMAND_HELP: Record<string, CommandHelp> = {
     example: "excavator trace --run <run> --file traces.json"
   },
   assemble: {
-    synopsis: "assemble --run <dir> [--units --mode plan-only|write]",
+    synopsis: "assemble --run <dir> --units --mode plan-only|write",
     flags: [
       "--run <dir>          Run directory (required)",
-      "--units              Assemble the authoring-unit path instead of the section path (run-wide)",
-      "--mode <how>         With --units: plan-only (prove the assembly, write nothing) or write — required, no default"
+      "--units              Assemble the authoring-unit path (required, run-wide: the section assemble is retired)",
+      "--mode <how>         plan-only (prove the assembly, write nothing) or write — required, no default"
     ],
     example: "excavator assemble --run <run> --units --mode write",
-    notes: "With --units it is all-or-nothing per run: every unit of every planned document must be collected against the recorded plan and this epoch, and every unit's content, claims and summary on disk must still digest to what its ledger row promised, or the run is refused by name with the offending unit ids. What it writes is deterministic and carries no clock reading — front matter (request row, both policy references, epoch and plan digests), a contents table in the plan's one authoring order, per-unit navigation anchors, then each unit's own collected bytes — plus a claims companion keyed by (unit, claim id) so two units may share a claim id, a traces companion selected only by explicit trace-id reference, and this run's coverage companion. It writes no coverage figure of its own and touches no section-path file; a target the section path already names is a refusal, not an overwrite."
+    notes: "It is all-or-nothing per run: every unit of every planned document must be collected against the recorded plan and this epoch, and every unit's content, claims and summary on disk must still digest to what its ledger row promised, or the run is refused by name with the offending unit ids. What it writes is deterministic and carries no clock reading — front matter (request row, both policy references, epoch and plan digests), a contents table in the plan's one authoring order, per-unit navigation anchors, then each unit's own collected bytes — plus a claims companion keyed by (unit, claim id) so two units may share a claim id, a traces companion selected only by explicit trace-id reference, and this run's coverage companion. It writes no coverage figure of its own and touches no section-path file; a target the section path already names is a refusal, not an overwrite."
   },
   audit: {
     synopsis: "audit --run <dir> [--document <id>] [--units]",
@@ -1241,12 +1186,13 @@ const COMMAND_HELP: Record<string, CommandHelp> = {
     notes: "With --units it reports the plan's own obligation accounting, one three-state verdict per written unit, the open-origin exemptions by id, and the units nothing has been written for. It writes nothing; collect already applied the same verdict when each unit was recorded."
   },
   resume: {
-    synopsis: "resume --run <dir> [--units]",
+    synopsis: "resume --run <dir> --units",
     flags: [
       "--run <dir>          Run directory (required)",
-      "--units              List what is left on the authoring-unit path (read-only)"
+      "--units              List what is left on the authoring-unit path (required, read-only)"
     ],
-    example: "excavator resume --run <run> --units"
+    example: "excavator resume --run <run> --units",
+    notes: "Read-only. `collect` is the only writer of the shared unit ledger, so a unit run is resumed by drafting what is unwritten and collecting what is drafted — both named in the output."
   },
   status: {
     synopsis: "status --run <dir> [--units]",
