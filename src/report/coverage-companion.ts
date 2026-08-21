@@ -5,7 +5,8 @@
  * must reach the coverage output of an appropriate audience." Before this file there was no unit-path companion at
  * all: the section path's `assurance-artifacts.ts` writes a `<document>.coverage.json` whose `complete` field is
  * "work items not pending" — a count with no denominator state, which is the very shape 57B-449 and 57B-456 attack.
- * That file is pinned by `assemble-canonical.txt` and is not touched here; this is a new artifact on the new path.
+ * That file is not touched here — and since 57B-479 retired the golden that pinned it (`assemble-canonical.txt`),
+ * it has no byte-level pin at all until R8c removes the section path. This is a new artifact on the new path.
  *
  * FOUR FAMILIES, FOUR LEDGERS, AND NO SINGLE NUMBER. Material obligations are counted against the plan's own
  * accounting (`plan-obligation-conservation.ts`, wcp 847); read obligations against `coverage/read-obligations.json`
