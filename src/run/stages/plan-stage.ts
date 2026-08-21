@@ -29,6 +29,7 @@ import { PLAN_BUDGET_TABLE } from "../../report/plan-budget.ts";
 import {
   FIRST_PLAN_REVISION,
   buildPlanArtifacts,
+  planCatalogDigest,
   planCatalogPath,
   planDagPath,
   readPlanCatalog,
@@ -53,6 +54,8 @@ import { readReportRequests, reportRequestsPath } from "../../report/report-requ
 import { buildTopicCatalog, type TopicCatalogArtifact } from "../../report/topic-catalog.ts";
 import { loadTopicCatalogSource, type TopicCatalogSource } from "../../report/topic-catalog-source.ts";
 import { topicsPath, writeTopicCatalog } from "../../report/topics-artifact.ts";
+import { strandedUnitDrafts, type StrandedUnitDrafts } from "../../report/plan-revision-stranded.ts";
+import { pendingUnitReceipts } from "../../report/unit-collect.ts";
 import type { ReportRequestsArtifact } from "../../report/report-requests-artifact.ts";
 
 /** Where the proposal comes from. A closed union with no default: the caller states which, always. */
@@ -93,6 +96,15 @@ export interface PlanRevisionResult {
   readonly archive: PlanRevisionArchive | null;
   /** The chain back to revision 0, re-computed from the archive. Empty for revision 0. */
   readonly succession: readonly string[];
+  /**
+   * The drafts this recording just made uncollectable, by unit id, with the reading in words.
+   *
+   * REQUIRED, and taken on BOTH recording arms rather than only on `revise`. The comparison is the same one
+   * either way (a pending receipt's plan digest against the plan now on disk), so making it a revise-only field
+   * would be two answers to one question — and revision 0 over a run that already holds receipts is exactly the
+   * state where a reader would most want the zero to be a measured zero.
+   */
+  readonly strandedDrafts: StrandedUnitDrafts;
 }
 
 export interface PlanRunResult {
@@ -198,13 +210,16 @@ export async function planRun(runDirInput: string, source: PlanProposalSource, r
   const recorded: RecordedPlan = superseded === null
     ? { artifacts: await writePlanArtifacts(runDir, artifacts, catalog, { kind: "record" }), archive: null, succession: [] }
     : await recordPlanRevision(runDir, artifacts, catalog, superseded);
+  // Read AFTER the write, against the plan that is now on disk: the question is what the recorded plan cannot
+  // collect, and comparing against the plan being replaced would answer a question nobody asked.
+  const stranded = strandedUnitDrafts(await pendingUnitReceipts(runDir), planCatalogDigest(recorded.artifacts.planCatalog));
   return {
     runDir,
     topicsPath: topicsPath(runDir),
     planCatalogPath: planCatalogPath(runDir),
     planDagPath: planDagPath(runDir),
     artifacts: recorded.artifacts,
-    revision: { ...revision, archive: recorded.archive, succession: recorded.succession },
+    revision: { ...revision, archive: recorded.archive, succession: recorded.succession, strandedDrafts: stranded },
     report: planned.report,
     verdicts: summarisePlanValidation(planned.report),
     divisions: planned.divisions,

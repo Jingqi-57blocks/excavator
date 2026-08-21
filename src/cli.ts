@@ -238,7 +238,11 @@ async function main(): Promise<void> {
             previousPlanCatalogDigest: result.revision.previousPlanCatalogDigest,
             reason: result.revision.revisionReason,
             archived: result.revision.archive,
-            succession: result.revision.succession
+            succession: result.revision.succession,
+            // What this recording costs in work already done: the drafted-but-uncollected units it stranded, by
+            // id, plus the one-line reading. Printed here rather than left to the next `unit-collect`, which would
+            // name them one at a time and only when someone tried.
+            strandedDrafts: result.revision.strandedDrafts
           },
           verdicts: result.verdicts,
           obligations: result.artifacts.planCatalog.obligationAccounting
