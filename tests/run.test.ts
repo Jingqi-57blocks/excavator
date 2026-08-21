@@ -24,10 +24,6 @@ async function makeRequest(authorMs = 30_000): Promise<ReportRequest> {
   };
 }
 
-function sectionText(title: string, index: number, evidenceId: string): string {
-  return `## ${title}\n\n这是第 ${index} 章的当前状态说明。\`事实\`\n\n**这意味着什么** 本章事实帮助读者理解后续内容。\`推断\`\n\n<details>\n<summary>依据</summary>\n\n- ${evidenceId}\n\n</details>\n`;
-}
-
 // The same substantive prose and claims as `sectionText`, but with the backtick evidence-level markers
 // stripped: a section whose statements a reader cannot tell the evidence level of.
 
@@ -51,8 +47,8 @@ async function dispositionChecklist(runDir: string, _id: string): Promise<void> 
 
 async function completeRun(runDir: string, manifest: Awaited<ReturnType<typeof prepareRun>>["manifest"]): Promise<string> {
   const id = await evidenceId(runDir);
-  // Freeze-before-authoring order (assurance v3): dispose the plan and freeze first, then author. A run
-  // authored without — or before — a freeze fails the audit-time order gate.
+  // Freeze-before-authoring order (assurance v3): dispose the plan and freeze first. The authoring half of
+  // this helper went with the section chain (57B-480); what is left is the premise the checklist cases need.
   await dispositionChecklist(runDir, id);
   const frozen = await freezeRun(runDir);
   assert.equal(frozen.frozen, true, JSON.stringify(frozen.findings, null, 2));

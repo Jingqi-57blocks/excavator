@@ -13,8 +13,9 @@
  *
  * IT DOES NOT TOUCH THE SECTION STATE MACHINE. `manifest.state`, `documents[].sections[]` and `metrics.claims`
  * belong to the section world; a unit assembly is recorded in the timeline and in the files it wrote, and nowhere
- * else. `assembleRun` sets `state = "assembled"`; this does not, deliberately, so a run that assembled units and a
- * run that assembled sections cannot be confused for one another by anything reading the manifest.
+ * else. The section assemble used to set `state = "assembled"` and this deliberately did not, so the two could
+ * never be confused by anything reading the manifest; `assembleRun` was deleted in 57B-480, so no run reaches
+ * that state any more and this file's abstention is now the only behaviour there is.
  *
  * THE CONCURRENCY BASELINE IS TAKEN BEFORE THE LOAD, WHICH IS THE WHOLE POINT OF HAVING ONE. `loadUnitAssembly`
  * is the expensive window — it re-validates the plan gate, reads the ledger and reads every collected unit's three

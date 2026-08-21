@@ -145,6 +145,30 @@ test("a product feature's connected-scope chapter (section 10) is not the proble
   }), []);
 });
 
+// Restored after /code-review caught an over-deletion: this case is a PURE `auditTargetProblemAttribution`
+// call with no section-chain dependency, and it is the only negative control at the correct problem-section
+// index (§11 with prose matching none of `ANALYSIS_METHOD_TERMS` → zero findings). The survivors above assert
+// a positive at §11 and an early return at §10, so without this one an over-broad new term that matches
+// ordinary target prose would go green. The deletion pass mis-flagged it: the detector took each case's body
+// as running to the NEXT `test(`, which swallowed a helper defined in between.
+test("target problem sections allow target-attributable contradictions", () => {
+  const document = {
+    id: "leave-engineering",
+    kind: "feature" as const,
+    audience: "engineering" as const,
+    subject: "Leave",
+    templatePath: "template.md",
+    contextPath: "context.md",
+    sections: []
+  };
+  const findings = auditTargetProblemAttribution({
+    document,
+    sectionIndex: 11,
+    sectionText: "## Current problems\n\nThe production threshold is 166 hours while the target test asserts 200 hours."
+  });
+  assert.equal(findings.length, 0);
+});
+
 // --- 57B-338: audit scoping (single-document mode) and partial-set robustness ---
 
 async function multiFeatureRequest(features: Array<{ subject: string; aliases: string[] }>): Promise<ReportRequest> {

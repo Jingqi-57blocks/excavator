@@ -166,7 +166,8 @@ test("SKILL.md run-directory layout matches what the CLI produces", async () => 
   assert.ok(documented.size >= 15, `parsed too few layout entries: ${documented.size}`);
 
   // Drive a minimal but complete lifecycle so every documented path is produced:
-  //   prepare -> checkpoint each section -> re-checkpoint one (writes history/) -> assemble (writes reports/companions/).
+  //   prepare -> dispose -> freeze -> plan -> checkpoint each UNIT -> re-draft one (writes units/<key>/history/)
+  //   -> assemble --units --mode write (writes the deliverable and reports/companions/).
   const target = await copyFixture();
   const workdir = await tempDir();
   const codegraph = join(workdir, "codegraph.db");

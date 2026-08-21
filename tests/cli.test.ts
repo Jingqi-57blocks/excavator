@@ -41,17 +41,6 @@ async function request(): Promise<ReportRequest> {
   };
 }
 
-function text(title: string, evidenceId: string): string {
-  return `## ${title}\n\nThis section describes the current implementation. \`fact\`\n\n**What this means** It establishes context for the following sections. \`inferred\`\n\n<details>\n<summary>Evidence</summary>\n\n- ${evidenceId}\n\n</details>\n`;
-}
-
-function claims(index: number, evidenceId: string): SectionClaim[] {
-  return [
-    { id: `claim-${index}-fact`, marker: "fact", statement: "This section describes the current implementation.", evidenceIds: [evidenceId] },
-    { id: `claim-${index}-meaning`, marker: "inferred", statement: "It establishes context for the following sections.", evidenceIds: [evidenceId] }
-  ];
-}
-
 test("the audience parser accepts prd but the overview command rejects it (feature-only)", async () => {
   // prd is a valid audience the parser accepts; the Core guard rejects it only for overviews. Reaching the
   // "feature-only" guard (not an "Invalid audience" parse error) proves both: prd parsed, overview refused.

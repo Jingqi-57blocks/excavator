@@ -152,7 +152,6 @@ The prepare command creates a run under the target's own directory inside the wo
 ├── checklist.json              # compatibility view of workitems
 ├── sections/
 ├── claims/
-├── history/
 ├── reports/
 │   └── companions/
 ├── audit/

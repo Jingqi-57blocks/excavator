@@ -10,7 +10,7 @@
  *   $ git grep -n runStatus -- src tests eval
  *   src/cli.ts:368                          the `status` command without `--units`
  *   tests/redaction-mode-end-to-end.test.ts three assertions on `sourceText` (:78, :91, :117)
- *   tests/run-relocation.test.ts:475        the read resolves from `--run`, not from the recorded path
+ *   tests/run-relocation.test.ts:375        the read resolves from `--run`, not from the recorded path
  *
  * `unitStatus` does NOT report `sourceText` (checked: no such field in `unit-status.ts`), so those three
  * assertions have no unit-path home, and an operator deciding whether a run directory may leave the machine

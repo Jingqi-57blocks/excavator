@@ -28,9 +28,9 @@
  * denominators tracked separately, and it moves no ledger byte and no digest.
  */
 
-import { basename, dirname, join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Audience, DocumentPlan, RunManifest } from "../base/types.ts";
+import type { Audience, DocumentPlan } from "../base/types.ts";
 import type { PlannedDocument } from "../contract/bound-run-contract.ts";
 import { sectionFileStem } from "./section-slug.ts";
 
