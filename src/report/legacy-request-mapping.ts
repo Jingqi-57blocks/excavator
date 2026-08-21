@@ -8,7 +8,7 @@
  *
  * `overview` + `prd` is a NAMED REFUSAL rather than a default: prd is a feature-only audience because no
  * prd-overview template exists, which `prepareRun` already enforces at the request boundary
- * (`src/run/run.ts:275`). The refusal here is the same verdict at the same severity — the caller turns it into a
+ * (`src/run/run.ts:280`). The refusal here is the same verdict at the same severity — the caller turns it into a
  * hard error, exactly as that guard does. One fact must not be an error in one place and an advisory in another.
  *
  * The refusal is a RUNTIME value, not a compile-time hole: the legacy `Audience` and `DocumentKind` are
