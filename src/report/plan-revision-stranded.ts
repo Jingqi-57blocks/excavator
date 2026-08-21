@@ -18,18 +18,36 @@
  *
  * IT IS ALSO NOT A REFUSAL. A revise that strands drafts is a legitimate act — the operator asked for it, and the
  * remedy (re-draft) is available. This file returns data; nothing here throws.
+ *
+ * AND IT IS A READING, NOT A GATE, WHICH IS WHY IT HAS A `not-read` ARM. Scanning the receipt directory can fail
+ * by name (a receipt that is not JSON, one that does not parse as a receipt, one filed under another unit's key),
+ * and a plan action must not become hostage to a file it does not otherwise need: `plan` is the command an
+ * operator reaches for to get a stuck run moving, and no command deletes a receipt. So a scan that fails says so
+ * with the failure in it, and the plan is still recorded. What is NOT allowed is the third possibility — reporting
+ * zero stranded drafts because the scan failed — which is the same "empty set meaning two things" this epic keeps
+ * closing. Same shape as `PlanPacketReading`'s `measured` / `not-measured`, for the same reason.
  */
 
 import type { UnitDraftReceipt } from "./unit-receipt.ts";
 import { compareUnitIds } from "./unit-paths.ts";
 
-/** Every drafted-but-uncollected unit that the recorded plan digest has just made uncollectable, plus the sentence. */
-export interface StrandedUnitDrafts {
-  /** Ascending unit ids. Each one has a receipt on disk that `collectUnits` will refuse by name. */
-  readonly unitIds: readonly string[];
-  /** The reading in words — a real statement in the zero case as well as the non-zero one. */
-  readonly sentence: string;
-}
+/**
+ * Every drafted-but-uncollected unit the recorded plan digest has just made uncollectable — or why that could not
+ * be read. Two arms, exhaustive, no default; `sentence` is on both, so a printer never has to reconstruct one.
+ */
+export type StrandedUnitDrafts =
+  | {
+      readonly state: "read";
+      /** Ascending unit ids. Each one has a receipt on disk that `collectUnits` will refuse by name. */
+      readonly unitIds: readonly string[];
+      /** The reading in words — a real statement in the zero case as well as the non-zero one. */
+      readonly sentence: string;
+    }
+  | {
+      readonly state: "not-read";
+      /** Why the receipt directory could not be scanned, verbatim, plus what it means for this plan. */
+      readonly sentence: string;
+    };
 
 /**
  * Which pending drafts the plan now on disk cannot collect.
@@ -47,9 +65,18 @@ export function strandedUnitDrafts(
     .map((receipt) => receipt.unitId)
     .sort(compareUnitIds);
   return {
+    state: "read",
     unitIds,
     sentence: unitIds.length === 0
       ? `No drafted unit is waiting to be collected against a superseded plan, so this plan costs no re-drawing (${pending.length} pending draft(s) checked against plan ${planCatalogDigest.slice(0, 16)})`
       : `${unitIds.length} drafted unit(s) were written against a superseded plan and must be re-drafted before they can be collected — collect refuses them by name: ${unitIds.join(", ")}`
+  };
+}
+
+/** The `not-read` arm, with the scan's own failure in the sentence rather than behind a generic word. */
+export function strandedUnitDraftsUnread(reason: string): StrandedUnitDrafts {
+  return {
+    state: "not-read",
+    sentence: `The drafted-but-uncollected units this plan strands could not be read, so this plan's cost in re-drawing is unknown — not zero: ${reason}. Fix the receipt this names, then run \`excavator collect --run <run> --units\` to see which drafts still stand.`
   };
 }

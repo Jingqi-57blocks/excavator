@@ -54,7 +54,7 @@ import { readReportRequests, reportRequestsPath } from "../../report/report-requ
 import { buildTopicCatalog, type TopicCatalogArtifact } from "../../report/topic-catalog.ts";
 import { loadTopicCatalogSource, type TopicCatalogSource } from "../../report/topic-catalog-source.ts";
 import { topicsPath, writeTopicCatalog } from "../../report/topics-artifact.ts";
-import { strandedUnitDrafts, type StrandedUnitDrafts } from "../../report/plan-revision-stranded.ts";
+import { strandedUnitDrafts, strandedUnitDraftsUnread, type StrandedUnitDrafts } from "../../report/plan-revision-stranded.ts";
 import { pendingUnitReceipts } from "../../report/unit-collect.ts";
 import type { ReportRequestsArtifact } from "../../report/report-requests-artifact.ts";
 
@@ -210,9 +210,7 @@ export async function planRun(runDirInput: string, source: PlanProposalSource, r
   const recorded: RecordedPlan = superseded === null
     ? { artifacts: await writePlanArtifacts(runDir, artifacts, catalog, { kind: "record" }), archive: null, succession: [] }
     : await recordPlanRevision(runDir, artifacts, catalog, superseded);
-  // Read AFTER the write, against the plan that is now on disk: the question is what the recorded plan cannot
-  // collect, and comparing against the plan being replaced would answer a question nobody asked.
-  const stranded = strandedUnitDrafts(await pendingUnitReceipts(runDir), planCatalogDigest(recorded.artifacts.planCatalog));
+  const stranded = await strandedDraftsOf(runDir, planCatalogDigest(recorded.artifacts.planCatalog));
   return {
     runDir,
     topicsPath: topicsPath(runDir),
@@ -225,6 +223,24 @@ export async function planRun(runDirInput: string, source: PlanProposalSource, r
     divisions: planned.divisions,
     refinementPasses: planned.iterations
   };
+}
+
+/**
+ * The stranded-draft reading, taken AFTER the write and against the plan that is now on disk: the question is what
+ * the RECORDED plan cannot collect, and comparing against the plan being replaced would answer a question nobody
+ * asked.
+ *
+ * The scan's failure is caught and CARRIED, never swallowed: `pendingUnitReceipts` refuses a malformed receipt by
+ * name, and letting that refusal take down the plan action would make `plan` — the command that gets a stuck run
+ * moving — hostage to a file it does not need, with nothing on offer to clear it. The plan is still recorded; the
+ * reading says it could not be taken, and why.
+ */
+async function strandedDraftsOf(runDir: string, planCatalogDigest: string): Promise<StrandedUnitDrafts> {
+  try {
+    return strandedUnitDrafts(await pendingUnitReceipts(runDir), planCatalogDigest);
+  } catch (error) {
+    return strandedUnitDraftsUnread((error as Error).message);
+  }
 }
 
 /**
