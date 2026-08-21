@@ -49,6 +49,7 @@ import { plannedDocumentId } from "../report/legacy-request-mapping.ts";
 import { makeDocumentPlan, referencePath } from "../report/authoring-plan.ts";
 import { reportFileName } from "../report/section-report-name.ts";
 import { sectionPaths } from "../report/section-paths.ts";
+import { hasRecordedPlan, sectionCoverageApplies, sectionCoverageState, sectionCoverageVacuousStatement } from "../report/section-coverage-vacuity.ts";
 import { projectCacheDir, reDeriveIdentities } from "./stages/runtime-identity.ts";
 import { readFrozenFactPacks, readRequiredInvestigationResults, readRequiredObligationDeclarations } from "./stages/investigation-read-model.ts";
 import { resolveCrossRepoLinks } from "../crossrepo/resolve-links.ts";
@@ -681,8 +682,14 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
   }
   findings.push(...await auditContractInstances(runDir, manifest));
 
+  // Is the section-completeness family about anything on this run? Read once — it is a property of the run, and
+  // asking per document would let N documents give N answers about one plan directory.
+  const planRecorded = await hasRecordedPlan(runDir);
   const incompleteDocuments: DocumentPlan[] = [];
   for (const document of scopedDocuments) {
+    const sectionCoverage = await sectionCoverageState(runDir, document, planRecorded);
+    const sectionCoverageCounts = sectionCoverageApplies(sectionCoverage);
+    if (!sectionCoverageCounts) findings.push({ level: "warning", document: document.id, message: sectionCoverageVacuousStatement(document.id) });
     const reportPath = join(runDir, "reports", reportFileName(document));
     const reportExists = await exists(reportPath);
     let reportText: string | null = null;
@@ -698,8 +705,9 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
         findings.push({ level: "error", document: document.id, message: `recommendation language is not allowed: ${advice.pattern} — ${advice.excerpt}` });
       }
       if (!hasEvidenceMarkers(text)) findings.push({ level: "warning", document: document.id, message: "no evidence-level marker was found in the report prose" });
-    } else if (!singleDocument) {
-      // A single-document audit runs mid-authoring, before assembly, so a missing report is expected there.
+    } else if (!singleDocument && sectionCoverageCounts) {
+      // A single-document audit runs mid-authoring, before assembly, so a missing report is expected there — and
+      // so is a run whose section family is vacuous, which said so in its own sentence above.
       findings.push({ level: "error", document: document.id, message: "assembled report is missing" });
     }
 
@@ -746,7 +754,7 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
       findings.push(...auditRescuedLogicCoverage(document.id, reportText, featureFactEvidence,
         (claimsByDocument.get(document.id) ?? []).map((entry) => entry.claim), featureKey));
     }
-    if (!document.sections.every((section) => section.complete)) incompleteDocuments.push(document);
+    if (sectionCoverageCounts && !document.sections.every((section) => section.complete)) incompleteDocuments.push(document);
   }
 
   // A trace step cites a claim by its BARE id (`claim-3`), which is how an author writes it, so this check
