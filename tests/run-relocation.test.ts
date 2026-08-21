@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { cp, readFile, readdir } from "node:fs/promises";
+import { cp, readFile, readdir, writeFile } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
 import type { ReportRequest, RunManifest } from "../src/base/types.ts";
 import {
-  addSourceEvidence, freezeRun, prepareRun,
+  addSourceEvidence, auditRun, freezeRun, prepareRun,
   readingCheck, runStatus, searchSourceEvidence, updateChecklist, updateTraces,
   updateWorkItems
 } from "../src/run/run.ts";
@@ -241,6 +241,50 @@ test("relocated run: unit-consistency checks the copy's own assembled deliverabl
   });
   assert.ok(await exists(join(runDir, "units", "collected.json")));
   assert.equal(await exists(join(base.runDir, "units")), false, "no unit artifact may land in the recorded location");
+});
+
+/**
+ * THE RUN-WIDE `audit` ARM, restored (57B-492's debt, due here by 57B-481's ruling).
+ *
+ * `exercised` keys on the COMMAND, and 492 deleted this file's only two run-wide `auditRun` assertions as orphan
+ * imports — after which the `audit` key was claimed by the `--units` arm below, so the totality gate went on
+ * vouching for a relocation property nobody was testing any more. The gate cannot see the difference; only a
+ * fixture can.
+ *
+ * IT DISCRIMINATES BY POLLUTING ONLY THE COPY. `auditRun` compares `manifest.evidenceDigest` against the digest
+ * of the evidence catalog it reads (`run.ts`, "evidence catalog changed outside the recorded source-evidence
+ * workflow"). Editing the COPY's `evidence.json` and leaving the recorded location's pristine makes the two
+ * readings say opposite things: read the copy and the digest mismatches, read the recorded location and it
+ * matches. A fixture that only checked "audit ran" could not tell those apart.
+ *
+ * IT IS ALSO THE SEPARATION PROOF. This run has a recorded plan and no section artifacts, so its section
+ * completeness family is vacuous (57B-481's discriminator) — and the run-level evidence check still fires on the
+ * same audit. Vacuous is scoped to the section family; it does not swallow the run.
+ */
+test("relocated run: audit reads the copy's own evidence catalog, and run-level checks still fire while the section family is vacuous", async () => {
+  const base = await authoringBase();
+  const runDir = await onRelocatedRun(base, ["audit"], async (dir) => {
+    const catalogPath = join(dir, "evidence.json");
+    const catalog = JSON.parse(await readFile(catalogPath, "utf8")) as { evidence: Array<{ title?: string }> };
+    catalog.evidence[0]!.title = `${catalog.evidence[0]!.title ?? ""} — edited in the copy only`;
+    await writeFile(catalogPath, `${JSON.stringify(catalog, null, 2)}\n`);
+
+    const { findings } = await auditRun(dir);
+    assert.ok(
+      findings.some((finding) => finding.level === "error" && finding.document === "evidence"
+        && /evidence catalog changed outside the recorded source-evidence workflow/.test(finding.message)),
+      `the audit read an evidence catalog that was not the copy's: ${JSON.stringify(findings, null, 2)}`);
+
+    // Separation, on the same audit: the section family said "vacuous" rather than reporting two defects about a
+    // path this run never used, while the run-level check above still reported a real one.
+    assert.ok(findings.some((finding) => /^vacuous \(ledger-empty\)/.test(finding.message)),
+      "the section completeness family must state its vacuity rather than going silent");
+    assert.deepEqual(findings.filter((finding) => /assembled report is missing|sections checkpointed/.test(finding.message)), [],
+      "a unit-path run must not be told its section report is missing");
+  });
+  // And the recorded location's catalog is the one it always was — `onRelocatedRun` already proves no write
+  // landed there, so this asserts the read side did not silently repair itself from the original either.
+  assert.notEqual(await readFile(join(runDir, "evidence.json"), "utf8"), await readFile(join(base.runDir, "evidence.json"), "utf8"));
 });
 
 // --- the same commands, keyed on a unit ---------------------------------------------------------------
