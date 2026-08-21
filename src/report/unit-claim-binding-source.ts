@@ -5,8 +5,8 @@
  * IT IS A SEPARATE READING FROM THE GROUNDING ONE, ON PURPOSE. `auditUnitFromDisk` is what the COLLECT barrier
  * calls before it records a unit, so anything folded into `UnitGroundingResult` becomes a collect gate. The
  * binding contract is an AUDIT finding — written, then checked, with `audit --units` saying why and its exit
- * code carrying the verdict — exactly as `auditSectionClaims` is an audit finding on the section path and not a
- * checkpoint refusal. Keeping it out of the grounding result is what keeps that true.
+ * code carrying the verdict — exactly as the section path's claim audit was a finding and not a checkpoint
+ * refusal. Keeping it out of the grounding result is what keeps that true.
  *
  * A UNIT IS CHECKED WHEN BOTH ITS BYTES ARE ON DISK. `content.md` without `claims.json`, or the reverse, is a
  * half-written unit: it is listed as `unwritten` with which of the two is missing, never counted as clean and

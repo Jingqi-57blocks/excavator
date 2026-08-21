@@ -1,4 +1,3 @@
-import { auditSectionClaims } from "../src/report/section-audit.ts";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
@@ -52,54 +51,6 @@ test("source-only provider registry records CodeGraph as unselected", async () =
   assert.equal(graph.selected, false);
   assert.equal(graph.available, false);
   assert.match(graph.selectionReason, /source-only/i);
-});
-
-// The scanner is internal; the ids it extracts surface one-for-one as "cites <id>" findings
-// when the section declares no evidence, so the findings are a faithful readout of the scan.
-function citedEvidenceIds(sectionText: string, knownEvidenceIds: string[] = []): string[] {
-  const findings = auditSectionClaims({
-    documentId: "doc",
-    sectionIndex: 1,
-    sectionText,
-    claimsFile: { version: 2, documentId: "doc", section: 1, claims: [] },
-    evidenceIds: new Set(knownEvidenceIds)
-  });
-  return findings
-    .flatMap((finding) => finding.message.match(/cites (\S+) but no section claim declares it/)?.[1] ?? [])
-    .sort();
-}
-
-test("evidence id scanner never emits ids that end on a separator", () => {
-  assert.deepEqual(citedEvidenceIds("<!--E:S-d59eb3a823-->", ["S-d59eb3a823"]), ["S-d59eb3a823"]);
-  assert.deepEqual(citedEvidenceIds("- S-abc--", ["S-abc"]), ["S-abc"]);
-  assert.deepEqual(citedEvidenceIds("- S-abc.", ["S-abc"]), ["S-abc"]);
-  assert.deepEqual(citedEvidenceIds("- S-abc:", ["S-abc"]), ["S-abc"]);
-  // A separator-terminated token that matches no catalogued id is no longer reported at all,
-  // which is what stops one stray marker from cascading into hundreds of false findings.
-  assert.deepEqual(citedEvidenceIds("<!--E:S-d59eb3a823-->"), []);
-});
-
-test("evidence id scanner still recognizes plain and Unicode ids", () => {
-  assert.deepEqual(citedEvidenceIds("- SEARCH-1a2b3c"), ["SEARCH-1a2b3c"]);
-  assert.deepEqual(citedEvidenceIds("- FG-请假管理-abc12"), ["FG-请假管理-abc12"]);
-  assert.deepEqual(citedEvidenceIds("依据 SEARCH-1a2b3c 与 GIT-9f0e1d。"), ["GIT-9f0e1d", "SEARCH-1a2b3c"]);
-});
-
-test("the pseudo-id scanner flags a fabricated FACT- id but accepts a declared catalog one", () => {
-  // A FACT-* token in prose that no claim declares is a fabricated citation, flagged like any prefix.
-  assert.deepEqual(citedEvidenceIds("- FACT-xyz"), ["FACT-xyz"]);
-  assert.deepEqual(citedEvidenceIds("依据 FACT-leave-mana-entrypoints-f70ad25f。"), ["FACT-leave-mana-entrypoints-f70ad25f"]);
-
-  // A real fact-pack id the catalog carries and a section claim declares raises no pseudo-id finding.
-  const factId = "FACT-leave-mana-entrypoints-f70ad25f";
-  const findings = auditSectionClaims({
-    documentId: "doc",
-    sectionIndex: 1,
-    sectionText: `第 1 节枚举入口 ${factId}。\`事实\``,
-    claimsFile: { version: 2, documentId: "doc", section: 1, claims: [{ id: "C-1", marker: "fact", statement: "第 1 节枚举入口", evidenceIds: [factId] }] },
-    evidenceIds: new Set([factId])
-  });
-  assert.ok(!findings.some((finding) => /FACT-/.test(finding.message)), JSON.stringify(findings));
 });
 
 // --- 57B-338: audit scoping (single-document mode) and partial-set robustness ---
