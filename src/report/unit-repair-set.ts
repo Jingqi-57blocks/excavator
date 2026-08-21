@@ -35,10 +35,13 @@
  * a re-draw can actually fix. Moving any of this into seeds is a planning-layer decision about
  * `COVERAGE_KIND_CATEGORY`, taken in the open; it is not a line added here.
  *
- * TWO CONSERVATION EQUATIONS, ASSERTED. Every finding's units are in the set, and every unit of the set is a unit
- * of the plan. The first stops a finding from being reported and then dropped; the second stops the set from
- * naming something nothing could draw. Both are named throws rather than data, because either one failing is a bug
- * in this file.
+ * TWO CONSERVATION EQUATIONS, ASSERTED — AND ONLY ONE OF THEM IS REACHABLE, which is recorded here rather than
+ * implied. Every finding's units are in the set, and every unit of the set is a unit of the plan. Both are named
+ * throws rather than data, because either one failing is a bug in this file. Measured while falsifying them:
+ * breaking `ancestorClosure` so it drops its seeds makes the FIRST one fire with its own sentence, so it is
+ * load-bearing against a bug in the closure. The SECOND cannot be reached: the closure only ever admits ids it
+ * took from the plan, and any injected id that is not in the plan dies inside the closure's own `via` derivation
+ * before this file sees it. It stays as depth, unfalsified, and it is not claimed as a tested guard.
  *
  * THERE IS NO WHOLE-DOCUMENT REWRITE ENTRY POINT, and that is mechanical rather than a policy: the plan's only
  * output is a list of unit ids, and the action it prints is the existing revision path. A caller that wanted to
@@ -46,7 +49,7 @@
  */
 
 import { assertNever } from "../base/artifact-result.ts";
-import { coverageStatementEntries, type CoverageEntryKind, type CoverageStatement } from "../investigation/coverage-statement.ts";
+import type { CoverageEntryKind, CoverageStatement } from "../investigation/coverage-statement.ts";
 import type { TitledCoverageStatement } from "./coverage-companion.ts";
 import type { AuthoringUnitKind } from "./plan-proposal.ts";
 import { ancestorClosure } from "./unit-ancestor-closure.ts";
@@ -267,9 +270,4 @@ function describeRepairAction(targets: readonly RepairTarget[]): string {
     return "nothing to repair: the checker found no cross-unit defect, so no unit needs to be written again";
   }
   return `re-draft and re-collect exactly these ${targets.length} unit(s) — ${targets.map((target) => target.unitId).join(", ")} — through the existing revision path (draft --unit … then collect --units), then assemble --units --mode write. Every other unit of the plan is left as it is; there is no whole-document rewrite to ask for.`;
-}
-
-/** How many rows one statement's entries account for, whichever arm it took. A reading convenience, not a gate. */
-export function coverageStatementRows(statement: CoverageStatement): number {
-  return coverageStatementEntries(statement).reduce((rows, entry) => rows + entry.rows, 0);
 }
