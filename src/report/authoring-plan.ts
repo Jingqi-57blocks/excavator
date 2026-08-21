@@ -2,7 +2,6 @@ import { basename, dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Audience, DocumentPlan, RunManifest } from "../base/types.ts";
 import type { PlannedDocument } from "../contract/bound-run-contract.ts";
-import { slugify } from "../base/util.ts";
 import { sectionFileStem } from "./section-slug.ts";
 
 const PROJECT_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -60,11 +59,6 @@ export function outputFrontMatter(document: DocumentPlan, manifest: RunManifest,
 
 function yamlScalar(value: string): string {
   return JSON.stringify(value);
-}
-
-export function reportFileName(document: DocumentPlan): string {
-  if (document.kind === "overview") return `${document.audience}-overview.md`;
-  return `${slugify(document.subject ?? "feature")}-${document.audience}.md`;
 }
 
 export function authorPrompt(runDir: string, document: DocumentPlan, language: string, detailLevel: "standard" | "detailed"): string {

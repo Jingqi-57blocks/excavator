@@ -24,7 +24,7 @@ import { join, relative, resolve } from "node:path";
 import type { RunManifest } from "../src/base/types.ts";
 import { readTimeline } from "../src/base/timeline.ts";
 import { exists, sha256 } from "../src/base/util.ts";
-import { reportFileName } from "../src/report/authoring-plan.ts";
+import { reportFileName } from "../src/report/section-report-name.ts";
 import { plannedDocumentId } from "../src/report/legacy-request-mapping.ts";
 import { appendReportRequest } from "../src/report/report-requests-append.ts";
 import { planRun } from "../src/run/stages/plan-stage.ts";

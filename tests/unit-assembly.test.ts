@@ -21,7 +21,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
 import type { DocumentPlan } from "../src/base/types.ts";
-import { reportFileName } from "../src/report/authoring-plan.ts";
+import { reportFileName } from "../src/report/section-report-name.ts";
 import { plannedDocumentId } from "../src/report/legacy-request-mapping.ts";
 import { reportRequestRecordFor } from "../src/report/report-requests-artifact.ts";
 import {

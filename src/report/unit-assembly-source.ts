@@ -30,7 +30,7 @@ import { join, resolve } from "node:path";
 import type { RunManifest, TraceCatalog } from "../base/types.ts";
 import { readJson } from "../base/util.ts";
 import { sectionCompanionRelativePaths } from "./assurance-artifacts.ts";
-import { reportFileName } from "./authoring-plan.ts";
+import { reportFileName } from "./section-report-name.ts";
 import { coverageStatements, renderCoverageCompanion, type TitledCoverageStatement } from "./coverage-companion.ts";
 import { loadCoverageStateFacts } from "./coverage-companion-source.ts";
 import type { PlanCatalogUnit } from "./plan-artifacts.ts";
