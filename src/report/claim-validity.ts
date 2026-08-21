@@ -19,6 +19,15 @@
  * they do NOT check; those are comments, not edges. The section sidecar's own door, `validateClaimsInput`, was
  * deleted with this move: it had no `src/` caller left once the section authoring path retired.
  *
+ * ONE KNOWN WART, MOVED RATHER THAN FIXED, so it is not read as endorsed. The first refusal — "Each claim must
+ * be an object" — is the only one of the four that does not interpolate `where`. A sidecar holding
+ * `[{valid}, null, {valid}]` therefore reaches the operator through `parseUnitClaims` as a problem naming no
+ * index, while every sibling refusal in that same loop would have said `claims[1]`. That is the untrusted-JSON
+ * case the read-back door exists for, so it is the one place the omission costs something. It is NOT fixed here
+ * on purpose: 57B-481 batch (i) is a byte-identical relocation, and an operator-visible message is not a string
+ * to change inside a diff whose whole claim is that nothing changed. Reported for a slice that may change
+ * behaviour.
+ *
  * IT SAYS NOTHING ABOUT WHETHER AN ID EXISTS. That is the grounding audit's job, against the run's own ledgers.
  * This is shape and internal consistency only, pure: no path, no I/O, no clock, no model call.
  */

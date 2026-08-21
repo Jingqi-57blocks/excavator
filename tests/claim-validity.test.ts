@@ -24,6 +24,9 @@ function claim(extra: Record<string, unknown> = {}): SectionClaim {
   return { id: "C-1", marker: "fact", statement: "the leave window is fourteen days", ...extra } as unknown as SectionClaim;
 }
 
+// This exit is the one that does NOT name `where` — asserted as it is, not as it should be. See the wart note in
+// `src/report/claim-validity.ts`: the message is moved unchanged because this slice is a relocation, so this test
+// is a record of current behaviour and a tripwire for it, not an endorsement of the missing place name.
 test("a claim that is not an object is refused before any field is read", () => {
   for (const notAnObject of [null, undefined, "C-1", 7, true]) {
     assert.throws(() => assertValidClaim(notAnObject as unknown as SectionClaim, "unit d::leaf::x"), /Each claim must be an object/);
