@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { join } from "node:path";
 import { readFile, rm, writeFile } from "node:fs/promises";
 import type { EvidenceItem, InvestigationPlan, KnowledgeArtifact, ReportRequest, RunManifest, SectionClaim, TraceRecord } from "../src/base/types.ts";
-import { addSourceEvidence, assembleRun, auditRun, beginDocument, checkpointSection, freezeRun, prepareRun, searchSourceEvidence, updateChecklist, updateTraces, updateWorkItems } from "../src/run/run.ts";
+import { addSourceEvidence, assembleRun, auditRun, checkpointSection, freezeRun, prepareRun, searchSourceEvidence, updateChecklist, updateTraces, updateWorkItems } from "../src/run/run.ts";
 import { canonicalInvestigationResults, knowledgeDigest } from "../src/freeze/freeze.ts";
 import { canonicalJson, exists, sha256 } from "../src/base/util.ts";
 import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, installFixturePlan, tempDir } from "./helpers.ts";
@@ -198,9 +198,6 @@ test("a supplement re-freezes N to immutable N+1, pins the prior digest and cons
     reason: "the first epoch did not contain this phrase search",
     workItemId: itemId
   });
-  const beforeRefreeze = await readManifest(runDir);
-  await assert.rejects(() => beginDocument(runDir, beforeRefreeze.documents[0].id), /unsealed supplements/, "authoring cannot consume a stale epoch packet");
-
   const result = await freezeRun(runDir);
   assert.equal(result.frozen, true, JSON.stringify(result.findings, null, 2));
   assert.equal(await readFile(join(runDir, "knowledge.json"), "utf8"), epochZeroBytes, "epoch 0 bytes never change");

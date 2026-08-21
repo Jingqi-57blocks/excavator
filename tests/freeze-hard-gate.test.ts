@@ -3,14 +3,19 @@ import assert from "node:assert/strict";
 import { join } from "node:path";
 import { readFile, writeFile } from "node:fs/promises";
 import type { EvidenceItem, InvestigationPlan, ReportRequest, RunManifest, SectionClaim, TraceCatalog, TraceRecord } from "../src/base/types.ts";
-import { assembleRun, auditRun, beginDocument, checkpointSection, freezeRun, prepareRun, updateTraces } from "../src/run/run.ts";
+import { assembleRun, auditRun, checkpointSection, freezeRun, prepareRun, updateTraces } from "../src/run/run.ts";
 import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, installFixturePlan, tempDir } from "./helpers.ts";
 
-// The freeze-before-authoring HARD gate (assurance v3). Two enforcement points move in lock-step: `begin`
-// refuses to start authoring an unfrozen current-version run, and the full audit fails a run that was
-// authored without — or before — an `investigation.frozen` event. Both are version-gated, so a run stamped
-// under a pre-v3 version is grandfathered. A pre-v3 literal ("assurance-v2-redaction-v4") stands in for such
-// a run: it is not the current ASSURANCE_VERSION, so `runUsesCurrentAssurance` returns false for it.
+// The freeze-before-authoring HARD gate (assurance v3), AUDIT SIDE ONLY. The gate has two enforcement points
+// and they move in lock-step: one refuses to START authoring an unfrozen current-version run, and the full
+// audit fails a run that was authored without — or before — an `investigation.frozen` event. Only the second
+// is tested here. The first used to be `begin`, retired with the section authoring chain in 57B-480; it now
+// lives on `draft --unit` / `collect --units` and is tested in `tests/unit-freeze-gate.test.ts` — which is why
+// the cases below start at ③: ① and ② moved there rather than disappearing, and the numbering is left alone so
+// the two files can still be read against each other.
+// Both points are version-gated, so a run stamped under a pre-v3 version is grandfathered. A pre-v3 literal
+// ("assurance-v2-redaction-v4") stands in for such a run: it is not the current ASSURANCE_VERSION, so
+// `runUsesCurrentAssurance` returns false for it.
 
 const BUDGETS = { prepareMs: 30_000, authorMs: 30_000, maxGraphQueries: 40, maxSourceWindows: 50, maxSourceCharacters: 120_000, maxFiles: 10_000, maxFeatureNodes: 80, maxExpansionDepth: 2 };
 const LEGACY_VERSION = "assurance-v2-redaction-v4";
@@ -49,37 +54,12 @@ async function authorEvery(runDir: string, manifest: RunManifest, evidenceId: st
   for (const section of document.sections) await checkpointSection(runDir, document.id, section.index, sectionText(section.title, section.index, evidenceId), sectionClaims(section.index, evidenceId));
 }
 
-// --- ① begin rejects an unfrozen current-version run, and admits it once frozen ---
-
-test("begin refuses an unfrozen current-version run; dispose + freeze then admits authoring", async () => {
-  const { runDir, manifest } = await prepareRun(await overviewRequest());
-  const documentId = manifest.documents[0].id;
-  await assert.rejects(() => beginDocument(runDir, documentId), /not frozen/);
-  // The run must be untouched by the refusal: still not frozen, still not authoring.
-  assert.equal((await readManifest(runDir)).frozenAt, undefined);
-
-  await disposeAllWorkItems(runDir);
-  assert.equal((await freezeRun(runDir)).frozen, true);
-  await installFixturePlan(runDir);
-  const begun = await beginDocument(runDir, documentId);
-  assert.equal(begun.state, "authoring");
-});
-
-// --- ② a downgraded pre-v3 run may begin without freezing (grandfather) ---
-
-test("a pre-v3 run may begin authoring without freezing", async () => {
-  const { runDir, manifest } = await prepareRun(await overviewRequest());
-  await downgradeToLegacy(runDir);
-  const begun = await beginDocument(runDir, manifest.documents[0].id);
-  assert.equal(begun.state, "authoring");
-});
-
 // --- ③ authoring without freezing fails the full audit's order gate; downgrading clears it ---
 
 test("a current-version run authored without freezing fails the audit order gate; a downgrade clears it", async () => {
   const { runDir, manifest } = await prepareRun(await overviewRequest());
   const evidenceId = await firstEvidence(runDir);
-  // Bypass begin entirely: checkpoint directly, never freeze.
+  // Never freeze: checkpoint straight onto an unfrozen run, which is what the audit-side gate has to catch.
   await authorEvery(runDir, manifest, evidenceId);
   await disposeAllWorkItems(runDir);
   await assembleRun(runDir);

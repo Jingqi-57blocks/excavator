@@ -54,7 +54,7 @@ import { readFrozenFactPacks, readRequiredInvestigationResults, readRequiredObli
 import { resolveCrossRepoLinks } from "../crossrepo/resolve-links.ts";
 import { auditEvidenceStorage, evidenceStreamDigest, readEvidenceCatalog, writeEvidenceCatalog } from "../investigation/evidence-store.ts";
 
-export { assembleRun, beginDocument, checkpointSection, resumeRun, runStatus, scaffoldClaims } from "./stages/authoring-stage.ts";
+export { assembleRun, checkpointSection, runStatus } from "./stages/authoring-stage.ts";
 export { addSourceEvidence, searchCacheVersion, searchSourceEvidence, SOURCE_SEARCH_VERSION, updateChecklist, updateTraces, updateWorkItems, type SupplementInput } from "./stages/investigation-stage.ts";
 export { readingCheck } from "./stages/investigation-read-model.ts";
 export { freezeRun } from "./stages/freeze-stage.ts";

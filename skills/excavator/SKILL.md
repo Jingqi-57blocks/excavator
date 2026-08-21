@@ -160,7 +160,7 @@ The prepare command creates a run under the target's own directory inside the wo
 └── metrics.json
 ```
 
-Investigate before you write. After prepare and before any `begin`, work the plan in `workitems.json` feature by feature and dimension by dimension so that all knowledge is in place before authoring starts.
+Investigate before you write. After prepare and before `freeze`, work the plan in `workitems.json` feature by feature and dimension by dimension so that all knowledge is in place before authoring starts.
 
 - Treat `workitems.json` as the primary investigation plan and coverage ledger. Every required item ends as `found`, `searched-not-found`, `cannot-determine`, or `not-applicable`. Do not delete a required item. An item that static analysis cannot answer records why, what would settle it, and evidence establishing the limitation.
 

@@ -4,7 +4,7 @@ import { readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { EvidenceItem, ReportRequest, RunManifest } from "../src/base/types.ts";
 import { stableJson } from "../src/base/util.ts";
-import { beginDocument, freezeRun, prepareRun } from "../src/run/run.ts";
+import { freezeRun, prepareRun } from "../src/run/run.ts";
 import { planRun, renderPlannerPacketForRun } from "../src/run/stages/plan-stage.ts";
 import { assertValidatedPlanForAuthoring, PLAN_ARTIFACT_PATHS } from "../src/report/plan-gate.ts";
 import { planCatalogPath, planDagPath } from "../src/report/plan-artifacts.ts";
@@ -39,17 +39,6 @@ function frozenOnce(): Promise<{ runDir: string; manifest: RunManifest; evidence
   return (frozen ??= frozenRun());
 }
 
-test("begin refuses a frozen run with no plan, naming the file and the command", async () => {
-  const { runDir, manifest } = await frozenRun();
-  const document = manifest.documents[0]!;
-  await assert.rejects(() => beginDocument(runDir, document.id),
-    /plan\/topics\.json is missing from .*; authoring cannot start without a validated plan\. Run `excavator plan --run .* --fixture-plan` \(or `--proposal <file>`\) first\./);
-
-  // And with the plan in place the same call goes through, on the same run.
-  await planRun(runDir, { mode: "fixture" }, { kind: "record" });
-  assert.equal((await beginDocument(runDir, document.id)).state, "authoring");
-});
-
 test("each of the four plan files is named individually when it is the one that is missing", async () => {
   const { runDir } = await frozenOnce();
   await planRun(runDir, { mode: "fixture" }, { kind: "record" });
@@ -60,6 +49,13 @@ test("each of the four plan files is named individually when it is the one that 
     await rm(path);
     const relative = path.slice(runDir.length + 1).split("/").join("/");
     await assert.rejects(async () => assertValidatedPlanForAuthoring(runDir, await manifestOf(runDir)), new RegExp(`${relative.replace(".", "\\.")} is missing from`));
+    // THE WHOLE SENTENCE, not just the file name. The section arm that used to assert it (`begin refuses a
+    // frozen run with no plan, naming the file and the command`) went with `beginDocument` in 57B-480, and the
+    // unit-side twin (`unit-authoring.test.ts`, via `unitStatus`) stops its regex at "without a validated plan"
+    // — so the REMEDIATION half had no assertion left anywhere. It is asserted here, on the one function that
+    // produces it, which every unit command reaches through `unit-plan-view.ts:96`.
+    await assert.rejects(async () => assertValidatedPlanForAuthoring(runDir, await manifestOf(runDir)),
+      new RegExp(`; authoring cannot start without a validated plan\\. Run \`excavator plan --run .* --fixture-plan\` \\(or \`--proposal <file>\`\\) first\\.`));
     await writeFile(path, bytes);
   }
   // Restored, the gate passes again — a missing file is a refusal, never a run that has been written off.

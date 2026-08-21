@@ -144,7 +144,7 @@ A workdir holds one directory per analyzed target, named after the target's base
 
 When two targets share a basename, the second directory is suffixed with a digest of its absolute path. The `.target` marker records ownership, so a target always resolves to the same directory.
 
-Cache keys include the source snapshot, optional provider identity, builder version and normalized request. Completed sections and claims are written atomically. A resumed run starts at the first incomplete section and reuses prepared context. Orphan temporary files left by a killed process are ignored.
+Cache keys include the source snapshot, optional provider identity, builder version and normalized request. Completed units and their claims are written atomically. `status --units` and `resume --units` report what is left, and a unit run is continued by drafting what is unwritten and collecting what is drafted.
 
 ## Timing
 
@@ -156,7 +156,7 @@ The default budgets are:
 - 70 source windows;
 - 160,000 source characters.
 
-Use `begin` before authoring. `checkpoint` stops the document when its authoring budget has elapsed and writes a timeout diagnostic.
+`checkpoint --unit` records one authoring unit of the recorded plan; `collect --units` is the serial barrier that writes it into the ledger.
 
 ## Standalone HTML converter
 
@@ -186,7 +186,7 @@ The test suite covers:
 - feature-scope reuse;
 - multi-feature combined runs;
 - zero repeated graph/source reads on a warm cache;
-- section checkpoints, timeout and resume;
+- unit checkpoints and the collect barrier;
 - evidence identity, source range, snapshot and digest validation;
 - section claims bound to visible report statements;
 - required investigation checklist disposition accounting;
