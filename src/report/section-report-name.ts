@@ -9,13 +9,14 @@
  *     a unit deliverable that would write over one — the two report worlds share `reports/`, and that refusal is
  *     the only thing standing between them and one file silently holding two documents.
  *   - `run.ts`'s run-wide audit reports a document whose assembled report is not on disk.
- *   - `authoring-stage.ts`'s `assembleRun` WRITES `reports/<this name>`. It is still exported from `run.ts` and
- *     still exercised by ten test files, so this function is a PRODUCER's name today, not only a reader's.
+ *   - it USED to have a third caller, `authoring-stage.ts`'s `assembleRun`, which wrote `reports/<this name>`.
+ *     That one went in the same slice's next batch, and with it the last producer of this name.
  *
- * READ THE TENSE BEFORE RETIRING IT. Once `assembleRun` goes — the next PR of this same slice family — the two
- * readers above are all that is left and this becomes an archived-run arm, whose retirement belongs with
- * `section-paths.ts` (57B-481). Until then it has a live writer, and deleting or relocating it on the strength of
- * "read-only, no producer" would break that writer.
+ * SO IT IS NOW AN ARCHIVED-RUN ARM, and the tense above is checked rather than assumed: grep-verified when this
+ * was rewritten, the only callers are the two readers named above (`git grep -n reportFileName -- src` → one
+ * conflict-refusal site, one audit site). Nothing writes this name any more, so its retirement belongs with the
+ * rest of that arm — `section-paths.ts`, 57B-481 — which answers "may an archived run still be located and
+ * audited?" once, for all of them.
  *
  * MOVED WITHOUT A BYTE OF BEHAVIOUR CHANGE: same slug, same audience suffix, same `feature` fallback. Its
  * callers' assertions were not touched, which is what makes that claim checkable rather than stated.

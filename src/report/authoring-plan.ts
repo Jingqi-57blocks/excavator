@@ -3,10 +3,10 @@
  * bound contract's per-section REQUIREMENT producers (`bound-run-contract.ts` materializes one requirement row per
  * template section, and layer 6 declares each row as a `knowledge-requirement`). They are deliberately NOT retired.
  *
- * AND ONE STRANDED EXPORT, NAMED SO THE NEXT SLICE DOES NOT HAVE TO REDISCOVER IT: `outputFrontMatter` (with its
- * `yamlScalar` helper) is still here, and its only caller is `assembleRun` — which the CLI already refuses ("the
- * section assemble is retired"). So it is reachable from tests and from nothing else, and it goes with `assembleRun`
- * in the next PR of this family. It is NOT a requirements producer; do not read the paragraph above as covering it.
+ * NOTHING ELSE IS LEFT HERE. The stranded `outputFrontMatter` this banner used to name went with `assembleRun`
+ * in the same slice, so the two functions above are the whole file — and both of them are requirements
+ * producers, not authoring machinery. Grep-verified when this was rewritten: `git grep -n "authoring-plan"
+ * -- src tests` reaches only `run.ts`, which imports exactly `referencePath` and `makeDocumentPlan`.
  *
  * THE AUTHORING PROMPT IS GONE, AND ONE COVERAGE DENOMINATOR WENT WITH IT. `authorPrompt` carried the instruction
  * that a `detailed` feature document account for the consumable fact pack item by item. Stated precisely, because
@@ -28,9 +28,9 @@
  * denominators tracked separately, and it moves no ledger byte and no digest.
  */
 
-import { basename, dirname, join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { Audience, DocumentPlan, RunManifest } from "../base/types.ts";
+import type { Audience, DocumentPlan } from "../base/types.ts";
 import type { PlannedDocument } from "../contract/bound-run-contract.ts";
 import { sectionFileStem } from "./section-slug.ts";
 
@@ -71,22 +71,3 @@ export function makeDocumentPlan(
   };
 }
 
-export function outputFrontMatter(document: DocumentPlan, manifest: RunManifest, body: string): string {
-  const localizedTitle = body.match(/^#\s+(.+)$/m)?.[1]?.trim();
-  const fallbackTitle = document.kind === "overview"
-    ? `${basename(manifest.request.target)} — ${document.audience} overview`
-    : `${document.subject ?? "Feature"} — ${document.audience} report`;
-  const title = localizedTitle || fallbackTitle;
-  const navTitle = localizedTitle || (document.kind === "overview" ? `${document.audience} overview` : document.subject ?? "Feature");
-  const order = manifest.documents.findIndex((item) => item.id === document.id) + 1;
-  // `sourceText` travels with the report because the report is the artifact that LEAVES the machine. With
-  // redaction defaulting off, a quoted evidence excerpt may be verbatim source, and a reader who received
-  // the HTML export has no other way to know which of the two things they are holding.
-  const sourceText = manifest.request.redactSecrets === true ? "redacted" : "verbatim";
-  const epoch = manifest.knowledgeEpoch === undefined ? "" : `\nepoch: ${manifest.knowledgeEpoch}`;
-  return `---\ntitle: ${yamlScalar(title)}\nnavTitle: ${yamlScalar(navTitle)}\nkind: ${document.kind}\naudience: ${document.audience}\nlanguage: ${manifest.request.language}\norder: ${order}\nrun: ${manifest.id}\nsnapshot: ${manifest.snapshot?.id ?? "unknown"}${epoch}\nsourceText: ${sourceText}\n---`;
-}
-
-function yamlScalar(value: string): string {
-  return JSON.stringify(value);
-}

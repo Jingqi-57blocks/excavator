@@ -14,8 +14,9 @@ import { exists, listDirectories } from "../base/util.ts";
  * TWO OF `collectDrafts`'s BEHAVIOURS HAVE NO UNIT COUNTERPART, and neither is covered by the sentence above — it
  * is about the sequence authority alone. (1) The author-budget overrun that set `manifest.state = "timed-out"` and
  * pushed a warning: `budgets.authorMs` is named for retirement (the epic's G1), because the unit path's budget
- * authority is the plan's BYTE budget and a wall-clock gate is the assertion shape this repository forbids. Until
- * that lands, `checkpointSection` is its last enforcer. (2) The once-per-run `metrics.claims` aggregation, which
+ * authority is the plan's BYTE budget and a wall-clock gate is the assertion shape this repository forbids. Its
+ * last enforcer was `checkpointSection`, deleted in the same slice, so the budget now has NO executor at all —
+ * the field and its CLI flag are what 57B-480's third batch retires. (2) The once-per-run `metrics.claims` aggregation, which
  * R8a classified as going with the deletion. `unit-collect.ts`'s own header says it touches neither
  * `manifest.state` nor `metrics.claims`, deliberately — so "same shape" is a claim about the ordering guarantee,
  * not about these two.
