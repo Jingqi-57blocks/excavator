@@ -129,7 +129,7 @@ Before audit, every required item in `workitems.json` is completed. A missing, p
 
 ## Claim binding contract
 
-The audit segments each section into substantive statements and requires every one to be covered by a claim. These rules are fixed; `excavator claims scaffold --run <run> --document <id> --section <n> --file section.md` emits one stub per substantive segment using this exact segmentation, so hand-deriving it is unnecessary — fill the stubs' `evidenceIds`/`workItemIds` and adjust markers.
+The audit segments each section into substantive statements and requires every one to be covered by a claim. These rules are fixed, and the claims sidecar has to match them exactly: one claim per substantive segment, each with its `evidenceIds`/`workItemIds` filled in and its marker set to the right evidence level.
 
 - **Invisible text is excluded first.** Collapsed `<details>` blocks, fenced code blocks, and HTML comments do not produce segments and are not scanned for statement prose.
 - **Structural lines are dropped.** Headings (`#`–`######`) and table separator rows (the `| --- | --- |` line) never yield a segment.
