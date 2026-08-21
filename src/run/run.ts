@@ -699,6 +699,17 @@ export async function auditRun(runDirInput: string, options: { documentId?: stri
     // gone or moved: claim↔prose binding and the evidence-level markers went to the unit path with 57B-491,
     // attribution (G6) and the readability advisory (G10) were ruled retired with a named future home in R7c's
     // policy checker, and the detailed-feature fact-pack rule is G14's already-accepted reduction.
+    //   WHAT RETIRED IS THE ENFORCEMENT HALF, NOT THE RULE — grep-verified when this was written, because "it
+    //   went with a named future home" and "nothing says it any more" are different claims. G6's rule is written
+    //   out in `skills/excavator/references/writing-rules.md` ("analysis-method information, not target problems,
+    //   and MUST NOT appear in a target risk/current-problem section"); G10's glossary table is required by
+    //   `product-feature.md` ("Present the glossary as a Markdown table"); the marker-placement advisory's rule is
+    //   in all five templates ("do not leave a marker on its own line or behind an \"Evidence level:\" lead-in");
+    //   the detailed-mode table and Mermaid requirements are in `engineering-feature.md`, sections 3 and 10 named
+    //   individually. Those files are the bound contract's per-section requirement producers and R8c kept them
+    //   alive on purpose, so an author is still told each rule. What no longer happens is a run being FAILED for
+    //   breaking one. Commands: grep -rn "MUST NOT appear in a target risk" skills/; grep -rln "do not leave a
+    //   marker on its own line" skills/excavator/references/.
     //
     // ONE OF THEM LOSES A GUARANTEE NO RULING HAD NAMED, so it is named here. `auditComparativeClaims`'s layer 2
     // — the SINGLE-SIDED EQUIVALENCE warning: a `fact` claim that asserts sameness across implementations,
