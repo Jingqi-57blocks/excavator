@@ -28,7 +28,7 @@
 import type { SectionClaim } from "../base/types.ts";
 import { canonicalJson, sha256 } from "../base/util.ts";
 import { AUTHORING_UNIT_KINDS, type AuthoringUnitKind } from "./plan-proposal.ts";
-import { assertValidClaim } from "./section-audit.ts";
+import { assertValidClaim } from "./claim-validity.ts";
 import { compareUnitIds } from "./unit-paths.ts";
 
 export const UNIT_CLAIMS_VERSION = "unit-claims-v1";
@@ -123,8 +123,8 @@ export function unitSummaryDigest(summary: UnitSummary): string {
 /**
  * Validate the claims a unit draft was handed and return the sidecar to write.
  *
- * Per-claim rules come from `assertValidClaim` — the section path's own validator, not a second copy of it: one
- * spelling of "this claim is valid" is the only way the two sidecars cannot drift. An EMPTY claim list is legal
+ * Per-claim rules come from `assertValidClaim` (`claim-validity.ts`), not a second copy of them: one spelling of
+ * "this claim is valid" is the only way the two claims doors cannot drift. An EMPTY claim list is legal
  * and still writes a sidecar: the file always exists, so `claimsDigest` always means something and no unit is in
  * the state "has claims that were never written down".
  */

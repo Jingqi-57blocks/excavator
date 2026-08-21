@@ -9,7 +9,8 @@ import type { AuditFinding, EvidenceItem, SectionClaim } from "../base/types.ts"
  * Core makes zero model calls, so the assertion's scope can only be APPROXIMATED mechanically. Two
  * layers do that here:
  *   1. Structural (hard): when a claim declares `sides` (its per-side grouping of evidence), the
- *      grouping must be well-formed — validated at checkpoint and re-checked at audit.
+ *      grouping must be well-formed — refused at the claims door (`assertValidClaim`, in
+ *      `claim-validity.ts`, which turns these violations into a throw) and re-checked at audit.
  *   2. Advisory (warning): a `fact` claim whose statement uses comparative wording, declares no
  *      `sides`, and cites path-bearing evidence that all falls in a single source unit is flagged so
  *      the author either cites every side and declares `sides` or downgrades to `inferred`.

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import type { SectionClaim } from "../src/base/types.ts";
 import { CLAIM_ID_FIELDS, claimIdShapeProblems } from "../src/report/claim-id-shape.ts";
-import { assertValidClaim, validateClaimsInput } from "../src/report/section-audit.ts";
+import { assertValidClaim } from "../src/report/claim-validity.ts";
 import { parseUnitClaims, validateUnitClaims, UNIT_CLAIMS_VERSION } from "../src/report/unit-output.ts";
 
 // THE SHAPE OF A CLAIM'S THREE ID LISTS (57B-434 R7c prerequisite, reported out of R7b).
@@ -13,7 +13,9 @@ import { parseUnitClaims, validateUnitClaims, UNIT_CLAIMS_VERSION } from "../src
 // SPREADS or ITERATES the field. Iterating a string yields its characters: the claim silently declares four
 // one-character trace ids, the audit then reports it as ungrounded, and the message names nothing about the typo.
 //
-// Both doors are tested, because the plan requires ONE validator for both: the section sidecar and the unit sidecar.
+// ONE validator serves every claims door, which is why the shared validator and the unit sidecar's two doors
+// (write and read-back) are all pinned here against the same reading. 57B-481 retired the section sidecar's
+// door; the validator it called did not move behaviour, only files — see `tests/claim-validity.test.ts`.
 
 function claim(extra: Record<string, unknown>): SectionClaim {
   return { id: "C-1", marker: "fact", statement: "the leave window is fourteen days", ...extra } as unknown as SectionClaim;
@@ -56,18 +58,18 @@ test("an object or a number where a list belongs is named by its type, not by a 
 
 // --- both doors, through the one validator ---------------------------------------------------------------------
 
-test("the section path refuses the shape, naming the claim and the field", () => {
+// 57B-481: the section sidecar's door (`validateClaimsInput`) retired with the section path, so the two
+// sentences it used to carry moved to addresses that survive it — the per-claim rule to the shared validator
+// itself, and "every claim in the array, not only the first" to the unit write door in the test below.
+test("the shared validator refuses the shape, naming the claim and the field", () => {
   assert.throws(
     () => assertValidClaim(claim({ traceIds: "T-1" }), "doc section 3"),
     /Invalid claim id list in doc section 3: claim "C-1" declares traceIds as the string "T-1"/
   );
-  assert.throws(
-    () => validateClaimsInput("doc", 3, [claim({ evidenceIds: ["ev-1"] }), claim({ id: "C-2", workItemIds: [""] })]),
-    /claim "C-2" has an empty workItemIds\[0\]/
+  // The legal claim still passes, through the same door: this validator adds a refusal, not a new hurdle.
+  assert.doesNotThrow(
+    () => assertValidClaim(claim({ evidenceIds: ["ev-1"], traceIds: ["T-1"], workItemIds: ["wi-1"] }), "doc section 3")
   );
-  // The legal claims still pass, through the same door.
-  const file = validateClaimsInput("doc", 3, [claim({ evidenceIds: ["ev-1"], traceIds: ["T-1"], workItemIds: ["wi-1"] })]);
-  assert.equal(file.claims.length, 1);
 });
 
 test("the unit path refuses the same shape on write and on read back", () => {
@@ -75,6 +77,14 @@ test("the unit path refuses the same shape on write and on read back", () => {
     () => validateUnitClaims("d::leaf::x", "d", [claim({ workItemIds: "wi-1" })]),
     /Invalid claim id list in unit d::leaf::x: claim "C-1" declares workItemIds as the string "wi-1"/
   );
+  // Every claim in the array, not only the first: the door is a loop over the shared validator, so a legal
+  // claim ahead of a malformed one does not buy the malformed one passage.
+  assert.throws(
+    () => validateUnitClaims("d::leaf::x", "d", [claim({ evidenceIds: ["ev-1"] }), claim({ id: "C-2", workItemIds: [""] })]),
+    /claim "C-2" has an empty workItemIds\[0\]/
+  );
+  // And the same two claims, both legal, pass the loop and land in the sidecar.
+  assert.equal(validateUnitClaims("d::leaf::x", "d", [claim({ evidenceIds: ["ev-1"] }), claim({ id: "C-2", workItemIds: ["wi-1"] })]).claims.length, 2);
   // The read side returns problems as DATA — its caller names the file — but the rule is the same one.
   const parsed = parseUnitClaims({
     version: UNIT_CLAIMS_VERSION,
