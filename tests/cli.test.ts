@@ -188,8 +188,11 @@ test("the retired section arms are named refusals that write nothing", async () 
   for (const command of ["checkpoint", "draft"]) {
     const keyed = await cli([command, "--run", runDir, "--document", documentId, "--section", "1", "--file", sectionFile]);
     assert.equal(keyed.code, 1, keyed.stdout);
-    assert.match(keyed.stderr, new RegExp(`excavator ${command} requires --unit <id>`));
-    assert.match(keyed.stderr, /section keying \(--document <id> --section <n>\) is retired/);
+    assert.match(keyed.stderr, new RegExp(`excavator ${command} no longer takes --document <id> --section <n>`));
+    // And with no keying at all it still names the flag it needs, rather than the one that went away.
+    const bare = await cli([command, "--run", runDir, "--file", sectionFile]);
+    assert.equal(bare.code, 1, bare.stdout);
+    assert.match(bare.stderr, new RegExp(`excavator ${command} requires --unit <id>`));
   }
 
   // The run-wide arms: `--units` is required because there is no second arm to fall back to.
@@ -240,16 +243,16 @@ test("regex search query preserves commas inside quantifiers", async () => {
 });
 
 /**
- * The unit keying is an explicit switch on the commands that already existed, so the two ways of getting it wrong
- * are refusals rather than silent fallbacks: two keyings at once, and `--unit <id>` on a command that is run-wide.
- * A missing letter must not quietly run the section path instead.
+ * The unit keying is an explicit switch, so the two ways of getting it wrong are refusals rather than silent
+ * fallbacks: the retired section flags carried along beside `--unit`, and `--unit <id>` on a command that is
+ * run-wide. A missing letter must not quietly run something else instead.
  */
-test("the unit switch is explicit: both keyings at once, and --unit on a run-wide command, are refused", async () => {
+test("the unit switch is explicit: the retired section flags, and --unit on a run-wide command, are refused", async () => {
   const { runDir } = await prepareRun(await request());
   for (const command of ["draft", "checkpoint"]) {
     const both = await cli([command, "--run", runDir, "--unit", "u::1", "--document", "overview-product", "--section", "1", "--file", "x.md"]);
     assert.equal(both.code, 1);
-    assert.match(both.stderr, new RegExp(`excavator ${command} takes either --unit <id> or --document <id> --section <n>, not both`));
+    assert.match(both.stderr, new RegExp(`excavator ${command} no longer takes --document <id> --section <n>`));
   }
   for (const command of ["collect", "status", "resume"]) {
     const slipped = await cli([command, "--run", runDir, "--unit", "u::1"]);

@@ -582,16 +582,17 @@ function detailLevel(value: string): DetailLevel {
 }
 
 /**
- * True when this invocation is keyed by authoring unit, false when it is keyed by (document, section).
+ * True when a two-view read command was keyed to ONE authoring unit rather than to the whole run.
  *
- * There is no default and no inference: `--unit` selects the unit path, its absence selects the section path, and
- * passing both keyings is a named refusal rather than a precedence rule nobody would remember. The section path
- * behaves exactly as it did — the only invocations that reach the unit machinery are the ones that asked for it.
+ * `plan-packet` is the only such command: without `--unit` it renders the planner view of the run, with `--unit`
+ * the bounded view one unit is written from. There is no default and no inference. `--document`/`--section` are
+ * refused rather than ignored — they are the retired section keying, so a caller passing them is asking for a
+ * view this command never had, and answering with the run-wide packet would answer a different question.
  */
 function unitKeyed(args: Record<string, string>, command: string): boolean {
   if (!args.unit) return false;
   if (args.document || args.section) {
-    throw new Error(`excavator ${command} takes either --unit <id> or --document <id> --section <n>, not both; the command is keyed one way`);
+    throw new Error(`excavator ${command} does not take --document <id> --section <n>: the section keying is retired, and this command's two views are the whole run (no --unit) or one authoring unit (--unit <id>)`);
   }
   return true;
 }
@@ -603,8 +604,16 @@ function unitKeyed(args: Record<string, string>, command: string): boolean {
  * get a unit-shaped refusal about a missing `--unit` and no word about the keying that went away.
  */
 function requireUnitKeyed(args: Record<string, string>, command: string): void {
-  if (unitKeyed(args, command)) return;
-  throw new Error(`excavator ${command} requires --unit <id>: the section keying (--document <id> --section <n>) is retired, so authoring writes one planned unit of plan/catalog.json and nothing else`);
+  // The retired flags are named FIRST, and for both shapes an old command line arrives in: with `--unit` (an
+  // operator who added the new flag and left the old ones) and without it. Delegating to `unitKeyed` said
+  // "either --unit <id> or --document <id> --section <n>, not both", which advertises the retired keying as a
+  // live alternative — so the natural retry was to drop `--unit` and be refused again.
+  if (args.document || args.section) {
+    throw new Error(`excavator ${command} no longer takes --document <id> --section <n>: the section keying is retired, so this command is keyed by --unit <id> alone`);
+  }
+  if (!args.unit) {
+    throw new Error(`excavator ${command} requires --unit <id>: the section keying is retired, so authoring writes one planned unit of plan/catalog.json and nothing else`);
+  }
 }
 
 /** The run-wide half of the same retirement: `--units` is required because there is no other arm left. */

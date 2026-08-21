@@ -286,7 +286,7 @@ excavator draft \
 
 `draft` writes only that unit's own artifacts and a receipt; it never touches the shared unit ledger or the timeline, so concurrent drafts of distinct units cannot collide. A synthesis unit is written from its children's collected summaries, so draft it only after its children are collected.
 
-**Concurrency contract.** While drafts are in flight, the only run-changing command that may run is `draft`. Keep `checkpoint`, `collect`, `assemble` and any supplement (a `source`, `search`, `workitem`, `checklist` or `trace` carrying `--supplement-reason`) in serial segments — never concurrent with a draft or with each other. `status`, `resume`, `audit`, `plan-packet` and `unit-consistency` are read-only and may run anytime. Draft exactly one writer per unit. If a subtask finds a knowledge gap while writing, do not open a supplement in parallel: record the gap and defer it to a serial segment after collect.
+**Concurrency contract.** While drafts are in flight, the only run-changing command that may run is `draft`. Keep `checkpoint`, `collect`, `assemble`, a run-wide `audit` (it writes `audit/audit.json`, appends a timeline event and moves `manifest.state`) and any supplement (a `source`, `search`, `workitem`, `checklist` or `trace` carrying `--supplement-reason`) in serial segments — never concurrent with a draft or with each other. `status`, `resume`, `audit --units`, `plan-packet` and `unit-consistency` are read-only and may run anytime. Draft exactly one writer per unit. If a subtask finds a knowledge gap while writing, do not open a supplement in parallel: record the gap and defer it to a serial segment after collect.
 
 **Collect barrier.** When every drafting subtask has finished, record them all with one serial `collect`:
 
