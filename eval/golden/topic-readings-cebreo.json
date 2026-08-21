@@ -119,6 +119,7 @@
     "facts/producers/crossrepo.json",
     "facts/producers/db-schema.json",
     "knowledge.json",
+    "run.json",
     "workitems.json"
   ],
   "runId": "run-2026_08_20_02_38-overview-239385e1-85a71437-a8618c2d",

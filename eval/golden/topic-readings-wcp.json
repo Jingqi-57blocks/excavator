@@ -122,6 +122,7 @@
     "facts/producers/crossrepo.json",
     "facts/producers/db-schema.json",
     "knowledge.json",
+    "run.json",
     "workitems.json"
   ],
   "runId": "run-2026_08_20_03_48-overview+请假管理+晋升管理-8abb4795-251cd3b2-740f3203",
