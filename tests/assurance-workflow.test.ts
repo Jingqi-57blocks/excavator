@@ -28,7 +28,6 @@ async function request(options: { feature?: boolean; graph?: boolean } = {}): Pr
   };
 }
 
-
 test("prepare persists analysis scope, provider registry, work items, traces and a valid timeline", async () => {
   const { runDir, manifest } = await prepareRun(await request({ graph: true }));
   const scope = JSON.parse(await readFile(join(runDir, "analysis-scope.json"), "utf8"));
