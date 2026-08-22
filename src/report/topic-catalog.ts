@@ -17,9 +17,11 @@
  */
 
 import { assertNever, type NotApplicable, type Unavailable } from "../base/artifact-result.ts";
+import type { FactKindId } from "../base/fact-kind-registry.ts";
 import type { InvestigationWorkItem } from "../base/types.ts";
 import type { ReadCoverageItem } from "../investigation/read-coverage.ts";
 import type { ProducerFactSet } from "../facts/envelope.ts";
+import { facetForFactKind } from "./fact-facet-routing.ts";
 import {
   materialityRequiresDisposition,
   mintTopicCandidate,
@@ -233,21 +235,19 @@ function residualReading(context: CatalogContext, items: readonly InvestigationW
 /**
  * Which facet a producer fact becomes a topic in.
  *
- * Exhaustive over the projected producers with no `default`: adding a producer to the projection list without
- * saying where its facts land is a typecheck failure. `null` means "this kind is not a topic subject here", and
- * every such fact is COUNTED in `factRouting.unmapped` — the 6,008 indexed functions of the wcp baseline are not
- * report topics, and the catalog says so with a number rather than by omission.
+ * TWO closed unions have to stay covered here, so both are switched on. The producer switch keeps "a producer was
+ * added to the projection list without a decision" a typecheck failure; the kind table it delegates to
+ * (`fact-facet-routing.ts`) keeps "a fact KIND was registered without a decision" one too. The kind is the honest
+ * key for the routing itself — the base registry binds each kind to exactly one producer and
+ * `buildProducerFactSet` refuses a fact published under another producer's name — so the two switches cannot
+ * disagree about a fact that is representable at all.
  */
-function facetForFact(producer: ProjectedProducer, kind: string): TopicFacet | null {
+function facetForFact(producer: ProjectedProducer, kind: FactKindId): TopicFacet | null {
   switch (producer) {
     case "codegraph":
-      return kind === "indexed-route" ? "route" : null;
     case "crossrepo":
-      return kind === "recovered-route" ? "route" : null;
-    // The schema producer has no run-scoped fact kind registered today, so this arm is the one that says what
-    // WOULD happen if one appeared: every fact it publishes is an entity/table topic.
     case "db-schema":
-      return "entity";
+      return facetForFactKind(kind);
   }
   return assertNever(producer, "projected fact producer");
 }

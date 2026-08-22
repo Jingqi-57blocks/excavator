@@ -71,6 +71,7 @@ const LEGAL_PAIRINGS: Record<MembershipKind, readonly SeatRule[]> = {
 };
 
 export const FACT_KIND_IDS = [
+  "db-table",
   "frontend-call",
   "http-link",
   "indexed-function",
@@ -145,6 +146,23 @@ const KINDS: readonly FactKindEntry[] = [
     producer: "crossrepo",
     membershipKind: "relation",
     seatRule: "any-endpoint",
+    structuralDeclaration: false
+  },
+  {
+    // The entity/table kind. A physical table is not a code unit, so `structuralDeclaration` is FALSE: normalising
+    // it would either attach a table to whatever class or function happens to sit on the declaring line, or mint a
+    // reference unit for a `createTable(` call. It is filed at its declaration the way `indexed-route` is filed at
+    // its registration line — the anchor says WHERE the table is declared, not that the anchor IS the table.
+    //
+    // One anchor, and the anchor is the declaration closest to physical DDL (`mergeSchemas` orders a table's
+    // declarations by that authority). A table declared in several places — a migration and a gorm model, often in
+    // two repositories — therefore seats on one of them; the others are counted in the producer's own completeness
+    // as `tableDeclarationsBeyondAnchor` rather than left to be inferred from a silence.
+    id: "db-table",
+    title: "A physical database table recovered from a migration, ORM model or SQL dump",
+    producer: "db-schema",
+    membershipKind: "unit",
+    seatRule: "anchor-cell",
     structuralDeclaration: false
   },
   {

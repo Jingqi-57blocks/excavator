@@ -2,9 +2,12 @@
  * `excavator db-schema` orchestration.
  *
  * Pipeline (all deterministic, zero model calls, target is READ-ONLY):
- *   discover (or read --manifest) → run each format's parser on its file set via PARSERS →
- *   mergeSchemas → inject --descriptions (verbatim, validated) → renderSchema → write
- *   <out>/database-design.md and <out>/db-schema.json.
+ *   discover (or read --manifest) → `extractSchema` (parse every source, merge) → inject --descriptions
+ *   (verbatim, validated) → renderSchema → write <out>/database-design.md and <out>/db-schema.json.
+ *
+ * The middle step lives in `schema-extract.ts` because the run-scoped layer-3 producer runs the same one:
+ * two entrances, one pipeline. What is command-only stays here — `--manifest`, `--descriptions`, `--out`,
+ * and the choice to let a parser failure surface to the CLI rather than become an envelope.
  *
  * Every file the parsers read is a relative path under the target, resolved through a single injected
  * reader that refuses to escape the target root — the command never writes to the target, only to
@@ -15,17 +18,14 @@ import { readFileSync } from "node:fs";
 import { execFile } from "node:child_process";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
-import { atomicWrite, ensureDir, safeRelative, writeJson } from "../base/util.ts";
+import { atomicWrite, ensureDir, writeJson } from "../base/util.ts";
 import { DEFAULT_WORKDIR } from "../base/defaults.ts";
 import { discoverSchemaFormats } from "./discover.ts";
 import type { Discovery } from "./discover.ts";
 import { detectEngine } from "./engine.ts";
 import { loadManifest } from "./manifest.ts";
 import { injectDescriptions } from "./descriptions.ts";
-import { mergeSchemas } from "./merge.ts";
-import type { MergeInput } from "./merge.ts";
-import { PARSERS } from "./parsers/parser.ts";
-import type { ReadFile } from "./types.ts";
+import { boundedReader, extractSchema } from "./schema-extract.ts";
 import { renderSchema } from "./render.ts";
 import type { SchemaExtraction } from "./types.ts";
 
@@ -59,17 +59,13 @@ export async function runDbSchema(options: DbSchemaOptions): Promise<DbSchemaRes
     ? await loadManifest(resolve(options.manifest), target)
     : await discoverSchemaFormats(target);
 
-  const read = boundedReader(target);
-  const inputs: MergeInput[] = discovery.sources.map((source) => ({
-    source: { id: source.format, format: source.format, files: source.files },
-    result: PARSERS[source.format].parse(source.files, read),
-  }));
-
-  const gitHead = await headOf(target);
-  const extraction = mergeSchemas(inputs, { target, ...(gitHead ? { gitHead } : {}) });
-  // Discovery/manifest owns the unsupported list; merge cannot see it (it only sees parsed sources).
-  extraction.unsupported = discovery.unsupported;
-  extraction.engine = await detectEngine(target);
+  const extraction = extractSchema({
+    target,
+    discovery,
+    read: boundedReader(target),
+    gitHead: await headOf(target),
+    engine: await detectEngine(target),
+  });
 
   if (options.descriptions) {
     const descriptions = JSON.parse(readFileSync(resolve(options.descriptions), "utf8")) as Record<string, string>;
@@ -97,14 +93,6 @@ export async function runDbSchema(options: DbSchemaOptions): Promise<DbSchemaRes
     warnings: extraction.warnings.length,
     unsupported: extraction.unsupported.map((item) => item.format),
     extraction,
-  };
-}
-
-/** A synchronous reader for parsers: relative paths only, never escaping the read-only target root. */
-function boundedReader(target: string): ReadFile {
-  return (relativePath: string): string => {
-    const rel = safeRelative(target, resolve(target, relativePath));
-    return readFileSync(join(target, rel), "utf8");
   };
 }
 

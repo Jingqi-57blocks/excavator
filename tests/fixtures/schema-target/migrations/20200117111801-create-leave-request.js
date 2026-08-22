@@ -1,0 +1,29 @@
+'use strict';
+module.exports = {
+  up: (queryInterface, Sequelize) => {
+    return queryInterface.createTable('leave_request', {
+      id: {
+        allowNull: false,
+        autoIncrement: true,
+        primaryKey: true,
+        type: Sequelize.INTEGER,
+      },
+      employee_id: {
+        type: Sequelize.BIGINT,
+        allowNull: false,
+      },
+      reason: {
+        type: Sequelize.STRING,
+        allowNull: false,
+      },
+      status: {
+        type: Sequelize.STRING,
+        allowNull: false,
+      },
+      approved_at: {
+        type: Sequelize.DATE,
+      },
+    });
+  },
+  down: (queryInterface) => queryInterface.dropTable('leave_request'),
+};

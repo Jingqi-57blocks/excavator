@@ -27,6 +27,14 @@ import { buildPartition, designatedBuilderGate } from "../facts/units/partition-
 import {
   assembleUnitsArtifact, runObservationPass, serializeUnitsArtifact, unitsContentDigest, type UnitsArtifact
 } from "../facts/units/units-artifact.ts";
+import { discoverSchemaFormats, SCHEMA_EXTENSIONS, type Discovery, type DiscoveredSource } from "../schema/discover.ts";
+import { detectEngine } from "../schema/engine.ts";
+import { boundedReader, extractSchema } from "../schema/schema-extract.ts";
+import {
+  SCHEMA_FACTS_VERSION, schemaCompleteness, schemaConfigDigest, schemaEmptyYieldCause, schemaObservations,
+  schemaSourceDetermination, type SchemaSourceCensus, type SchemaUnsupportedCensus
+} from "../schema/schema-facts.ts";
+import type { SchemaExtraction } from "../schema/types.ts";
 import type { FileLedger } from "../snapshot/file-ledger.ts";
 import type { MechanismLedger } from "../mechanism/mechanism-ledger.ts";
 
@@ -144,6 +152,7 @@ export async function buildFactsStage(input: FactsStageInput): Promise<FactsStag
   const codegraph = await collectCodegraph(input, facts, warnings);
   const modules: CrossRepoModule[] = (input.codegraphModules ?? []).map((module) => ({ id: module.id, dir: module.dir }));
   const crossrepo = collectCrossRepo(input, modules, facts, inheritedCompleteness);
+  const dbSchema = await collectDbSchema(input, facts, warnings, inheritedCompleteness);
 
   // --- one mapping pass over EVERY observation, then the artifact -------------------------------------------
   // One pass and not one per producer, because `observedBy` is a merge across producers: a per-producer pass could
@@ -175,7 +184,7 @@ export async function buildFactsStage(input: FactsStageInput): Promise<FactsStag
     "vocabulary": unavailable("not-implemented: no in-repository term frequency is computed anywhere in this engine today", false),
     "native-graph": unavailable("policy: not-run-scoped — the native tree-sitter graph runs as its own command and writes outside the run directory", true),
     "framework": unavailable("policy: not-run-scoped — framework convention recovery runs as its own command and writes outside the run directory", true),
-    "db-schema": unavailable("policy: not-run-scoped — schema discovery runs as its own command and writes outside the run directory", true),
+    "db-schema": envelopeFor("db-schema", dbSchema, pass.mapping, envelopeIdentity),
     "codegraph": envelopeFor("codegraph", codegraph, pass.mapping, envelopeIdentity),
     "crossrepo": envelopeFor("crossrepo", crossrepo, pass.mapping, envelopeIdentity)
   };
@@ -284,6 +293,96 @@ function collectCrossRepo(
     producerVersion: CROSSREPO_FACTS_VERSION,
     configDigest: crossRepoConfigDigest(modules, scan),
     completeness: crossRepoCompleteness(scan)
+  };
+}
+
+/**
+ * Recover the target's physical tables, or record WHICH kind of nothing this run has.
+ *
+ * The wiring, not a second extractor: discovery, the parsers and the merge are the ones `excavator db-schema`
+ * runs, reached through `extractSchema`. What this function owns is the three things a run-scoped producer owes
+ * and a standalone command does not — narrowing the file set to layer 1's counted census, turning the extraction
+ * into observations the mapper can seat, and answering every no-table path with a written state instead of an
+ * empty `Built`. `schema-facts.ts` holds the determination tree; this function supplies it with the run's records.
+ */
+async function collectDbSchema(
+  input: FactsStageInput,
+  facts: ObservedFact[],
+  warnings: string[],
+  ledgerCompleteness: { readonly capReached: boolean; readonly skippedByCap: number; readonly droppedRoots: readonly string[] }
+): Promise<ProducerPlan> {
+  const availability = input.availability["db-schema"];
+  const counted = new Set(input.ledger.counted.map((row) => row.relativePath));
+  const completeness = {
+    ...ledgerCompleteness,
+    readFailures: input.ledger.counted.filter((row) => row.content.status === "absent").length
+  };
+
+  let discovery: Discovery;
+  try {
+    discovery = await discoverSchemaFormats(input.target);
+  } catch (error) {
+    return { status: "absent", envelope: unavailable(`schema-format fingerprinting over the target failed: ${(error as Error).message}`, true) };
+  }
+
+  // Narrowed to layer 1's census. A file the fingerprinter saw but layer 1 never counted has no partition cell,
+  // so a fact anchored there could hold no membership — and the envelope's identity names a snapshot that does
+  // not contain it. The difference is counted rather than dropped.
+  const sources: DiscoveredSource[] = [];
+  const census: SchemaSourceCensus[] = [];
+  let filesOutsideLedger = 0;
+  for (const source of discovery.sources) {
+    const kept = source.files.filter((file) => counted.has(file));
+    filesOutsideLedger += source.files.length - kept.length;
+    census.push({ format: source.format, discovered: source.files.length, parsed: kept.length });
+    if (kept.length) sources.push({ format: source.format, files: kept });
+  }
+  // NOT narrowed: `.prisma` is not a registered corpus extension, so filtering the unsupported list against the
+  // counted census would delete the one format whose whole point is "schema is here and we cannot read it".
+  const unsupported: SchemaUnsupportedCensus[] = discovery.unsupported.map((entry) => ({ format: entry.format, evidence: entry.evidence.length }));
+
+  const verdict = schemaSourceDetermination({
+    mechanismAvailable: availability.status === "available",
+    mechanismUnavailableCause: availability.status === "unavailable" ? availability.cause : null,
+    sources: census,
+    unsupported,
+    ledgerCompleteness: completeness,
+    matrixTotals: input.mechanismLedger.fileMatrix.find((row) => row.mechanismId === "db-schema")?.totals ?? null,
+    mechanismCoverage: mechanismCoverageValue(input.mechanismLedger, "db-schema")
+  });
+  if (verdict !== null) return { status: "absent", envelope: verdict };
+
+  let extraction: SchemaExtraction;
+  try {
+    extraction = extractSchema({
+      target: input.target,
+      discovery: { sources, unsupported: discovery.unsupported },
+      read: boundedReader(input.target),
+      // Deliberately not read: the envelope's identity already names the snapshot these facts came from, and
+      // shelling out to `git` would put a process spawn inside layer 3 for a field nothing here consumes.
+      gitHead: undefined,
+      engine: await detectEngine(input.target)
+    });
+  } catch (error) {
+    return { status: "absent", envelope: unavailable(`the schema extractor failed over ${census.reduce((total, source) => total + source.parsed, 0)} source file(s): ${(error as Error).message}`, true) };
+  }
+  if (extraction.tables.length === 0) {
+    return { status: "absent", envelope: unavailable(schemaEmptyYieldCause(census, extraction.warnings.length), false) };
+  }
+
+  const observations = schemaObservations(extraction);
+  facts.push(...observations.facts);
+  if (filesOutsideLedger > 0) {
+    warnings.push(`the schema fingerprinter located ${filesOutsideLedger} source file(s) that layer 1's census did not count; their tables are unknown rather than absent`);
+  }
+  if (observations.tablesWithoutDeclaration.length > 0) {
+    warnings.push(`${observations.tablesWithoutDeclaration.length} recovered table(s) carry no declaration to anchor at (${observations.tablesWithoutDeclaration.join(", ")}), so they are counted but published as no fact`);
+  }
+  return {
+    status: "observed",
+    producerVersion: SCHEMA_FACTS_VERSION,
+    configDigest: schemaConfigDigest({ sources: census, engine: extraction.engine, extensions: [...SCHEMA_EXTENSIONS] }),
+    completeness: schemaCompleteness({ extraction, observations, sources: census, unsupported, filesOutsideLedger })
   };
 }
 

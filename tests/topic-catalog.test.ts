@@ -23,7 +23,11 @@ import { copyFixture, manifestOf } from "./helpers.ts";
 //   * 2 bound features, 1 cross-feature relationship, 2 resolved cross-repo links over 2 module pairs, plus one
 //     unresolved and one ambiguous outbound call.
 //   * 3 route facts (2 indexed with the same route name at two paths, 1 recovered) and 2 facts of kinds no facet
-//     claims. `db-schema` is `unavailable`, exactly as every real run records it.
+//     claims. `db-schema` is `unavailable`, carrying the `policy: not-run-scoped` cause runs recorded before the
+//     producer was wired into prepare (57B-483). These are FROZEN BYTES — an archived record, not a prediction:
+//     a run today records Built, NotApplicable{not-detected} or a named Unavailable, and the live producer is
+//     covered end to end in `tests/schema-producer-run.test.ts`. What this fixture still exercises is the
+//     projection's `ledger-absent` arm, which any `Unavailable` cause reaches.
 //   * 4 read obligations, whose residual is 2 covered / 1 not-opened / 1 partial — and the partial one names no
 //     work item, so a residual topic with rows and no bindings is in the fixture on purpose.
 //   * `sections/`, `claims/`, `context/authoring/`, `reports/` and `prompts/` each hold a sentinel string, and so
@@ -325,23 +329,39 @@ test("a facet whose ledger is present but holds no row says so differently from 
   assert.notEqual(feature.state, entity.state, "an empty ledger and an absent ledger are two different statements");
 });
 
-test("a built producer envelope with facts populates its facet — the arm the schema producer has yet to reach", async () => {
-  // No registered fact kind belongs to `db-schema` today, so every real run records the envelope as unavailable.
-  // This rewrites it to a BUILT envelope so the mint-from-facts arm of the entity projection is exercised rather
-  // than shipped untested; the fact kind is borrowed, and the assertion is about the projection, not the producer.
+test("a built producer envelope with facts populates its facet, and the fact's own kind chooses that facet", async () => {
+  // The mint-from-facts arm of the entity projection, over the FIXTURE's frozen run so it stays a pure catalog
+  // test (the live producer is covered end to end in `tests/schema-producer-run.test.ts`). The fact is a real
+  // `db-table` row, not a borrowed kind: the routing table decides the facet from the KIND, so a row carrying
+  // another producer's kind would route elsewhere — which is the second half of this test.
   const runDir = await copyFixture(FIXTURE);
-  const codegraph = JSON.parse(await readFile(join(runDir, "facts/producers/codegraph.json"), "utf8")) as { value: { facts: unknown[]; producer: string } };
-  await writeFile(join(runDir, "facts/producers/db-schema.json"), `${stableJson({
-    status: "built",
-    value: { ...codegraph.value, producer: "db-schema", facts: [codegraph.value.facts[2]] }
-  })}\n`);
+  const codegraph = JSON.parse(await readFile(join(runDir, "facts/producers/codegraph.json"), "utf8")) as { value: { facts: Array<{ membership: unknown; kind: string }>; producer: string } };
+  const membership = codegraph.value.facts[0]!.membership;
+  const writeEntityEnvelope = async (facts: unknown[]): Promise<void> => {
+    await writeFile(join(runDir, "facts/producers/db-schema.json"), `${stableJson({
+      status: "built",
+      value: { ...codegraph.value, producer: "db-schema", facts }
+    })}\n`);
+  };
+
+  await writeEntityEnvelope([{ factId: "table:leave_request", kind: "db-table", membership, detail: { name: "leave_request" } }]);
   const catalog = buildTopicCatalog(await loadTopicCatalogSource(runDir, await manifestOf(runDir)));
   const entity = catalog.facets.find((row) => row.facet === "entity")!;
   assert.deepEqual(entity.outcome, { state: "populated", topics: 1 });
   const topic = catalog.topics.find((row) => row.facet === "entity")!;
   assert.equal(topic.source.ledger, "facts/producers/db-schema.json");
+  assert.equal(topic.title, "leave_request", "the table's own name is the topic title, taken from the fact's detail");
+  assert.equal(topic.kind, "db-table");
   assert.equal(topic.materiality, "unobligated");
   assert.equal(catalog.factRouting.mapped, 4);
+
+  // The counter-case: a fact of an `indexed-function` kind published under the schema producer's name is NOT an
+  // entity topic. Before the routing table it would have been one, because the producer alone chose the facet.
+  await writeEntityEnvelope([{ factId: "fn:borrowed", kind: "indexed-function", membership, detail: { name: "borrowed" } }]);
+  const borrowed = buildTopicCatalog(await loadTopicCatalogSource(runDir, await manifestOf(runDir)));
+  assert.equal(borrowed.facets.find((row) => row.facet === "entity")!.outcome.state, "ledger-empty");
+  assert.ok(borrowed.factRouting.unmapped.some((row) => row.producer === "db-schema" && row.kind === "indexed-function" && row.facts === 1),
+    "and it is counted in the unmapped census rather than dropped");
 });
 
 test("an empty built envelope is a ledger-empty facet, not an absent one", async () => {

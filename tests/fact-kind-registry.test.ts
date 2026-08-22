@@ -203,6 +203,31 @@ async function sourceFiles(): Promise<string[]> {
   return out.sort();
 }
 
+/**
+ * The layer contract enumerates the registry by hand; this is what keeps the two from drifting.
+ *
+ * `docs/layering.md` §一 lists every kind with its membership and seat rule, and that list is the only place a
+ * reader can see the whole table without reading the code. A prose enumeration of a closed union that nothing
+ * checks is the drift this epic keeps finding: `db-table` was added to the registry and the contract's list did
+ * not move, and nothing went red until this test existed.
+ */
+test("the layer contract's per-kind membership list is exactly the registry's", async () => {
+  const { resolve } = await import("node:path");
+  const doc = await readFile(resolve("docs/layering.md"), "utf8");
+  const line = doc.split("\n").find((row) => row.startsWith("- **成员资格逐 kind 取值**"));
+  assert.ok(line, "docs/layering.md must still carry the per-kind membership enumeration");
+  const listed = [...line!.matchAll(/`([a-z-]+)`\(\*{0,2}([a-z-]+)\/([a-z-]+)\*{0,2}\)/g)]
+    .map(([, id, membershipKind, seatRule]) => ({ id, membershipKind, seatRule }))
+    .sort((a, b) => a.id.localeCompare(b.id));
+  assert.deepEqual(
+    listed,
+    [...FACT_KIND_REGISTRY.kinds]
+      .map((kind) => ({ id: kind.id as string, membershipKind: kind.membershipKind as string, seatRule: kind.seatRule as string }))
+      .sort((a, b) => a.id.localeCompare(b.id)),
+    "every registered kind is in the contract's list with its own membership and seat rule, and nothing else is"
+  );
+});
+
 /** A compile-time sibling of the runtime switch: a new arm here is a new arm the judge must handle. */
 export const ALL_ARMS: Membership[] = [
   unitMembership("cell:structure:0-1:a.ts"),
