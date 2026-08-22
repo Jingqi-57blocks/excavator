@@ -40,6 +40,7 @@ import { freezeRun, prepareRun, updateWorkItems } from "../src/run/run.ts";
 import { planRun } from "../src/run/stages/plan-stage.ts";
 import { assembleUnits } from "../src/run/stages/unit-assemble-stage.ts";
 import { manifestOf, planViewOf, unitRequest } from "./unit-fixture.ts";
+import { chapterOrdinalsFor, chapteredProse } from "./fixture-chapters.ts";
 
 /** The two obligations this fixture leaves unanswered. Material, so the grounding audit really owes them. */
 export const UNANSWERED_OBLIGATION_IDS = ["project:deprecated-or-unfinished", "project:discarded-errors"] as const;
@@ -65,9 +66,15 @@ export interface UnitDraftOverride {
   readonly unknowns?: readonly string[];
 }
 
-/** The canned prose of one unit: a heading and one sentence, exactly as `tests/unit-fixture.ts` writes it. */
-export function unitProse(unit: PlanCatalogUnit): string {
-  return `## ${unit.title}\n\n${unit.unitId} 记录当前状态。\`事实\`\n`;
+/**
+ * The canned prose of one unit: the chapters this document owes, dealt to this unit, exactly as
+ * `tests/unit-fixture.ts` writes them.
+ *
+ * `ordinals` is REQUIRED for the reason it is required there: a default would let a draft carry no numbered
+ * chapter without anything going red, and a deliverable short of a chapter is the very defect the contract catches.
+ */
+export function unitProse(unit: PlanCatalogUnit, ordinals: readonly number[]): string {
+  return chapteredProse(unit, ordinals);
 }
 
 /**
@@ -140,7 +147,7 @@ export async function draftAndCollect(run: ConsistencyRun, unitId: string, overr
   const view = await loadUnitPlanView(run.runDir, await manifestOf(run.runDir));
   const unit = view.byId.get(unitId);
   if (!unit) throw new Error(`fixture asked to draft ${unitId}, which this plan does not hold`);
-  const content = override.content ?? unitProse(unit);
+  const content = override.content ?? unitProse(unit, await chapterOrdinalsFor(run.runDir, view, unit));
   const claims = [...unitClaimsFor(view, unit, run.evidenceId), ...(override.extraClaims ?? [])];
   const ledger = await readUnitLedger(run.runDir, view.runId);
   const collected = new Map(collectedUnitsFor(ledger, view.knowledgeEpoch, view.planCatalogDigest).map((row) => [row.unitId, row]));

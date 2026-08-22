@@ -29,6 +29,7 @@ import { compareUnitIds } from "../src/report/unit-paths.ts";
 import type { UnitDraftInput } from "../src/report/unit-draft.ts";
 import type { UnitAuthorship } from "../src/report/unit-provenance.ts";
 import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, manifestOf, tempDir } from "./helpers.ts";
+import { chapterOrdinalsFor, chapteredProse } from "./fixture-chapters.ts";
 
 export { manifestOf };
 
@@ -94,8 +95,15 @@ export async function planViewOf(runDir: string): Promise<UnitPlanView> {
 }
 
 
-export function unitContent(unit: PlanCatalogUnit): string {
-  return `## ${unit.title}\n\n${unit.unitId} 记录当前状态。\`事实\`\n`;
+/**
+ * The canned draft of one unit: the chapters this document owes, dealt to this unit.
+ *
+ * `ordinals` is REQUIRED rather than defaulted. A default would let a new call site produce a draft with no
+ * numbered chapter and no compiler complaint, and a deliverable missing a chapter is exactly the defect the
+ * chapter contract exists to catch — the fixture would drift out of the contract in the quiet direction.
+ */
+export function unitContent(unit: PlanCatalogUnit, ordinals: readonly number[]): string {
+  return chapteredProse(unit, ordinals);
 }
 
 export function unitClaims(unit: PlanCatalogUnit, evidenceId: string): SectionClaim[] {
@@ -120,7 +128,7 @@ export function unitClaims(unit: PlanCatalogUnit, evidenceId: string): SectionCl
 export async function unitDraftFor(run: PlannedRun, unitId: string, overrides: Partial<UnitSummary> = {}): Promise<UnitDraftInput> {
   const unit = run.view.byId.get(unitId);
   if (!unit) throw new Error(`fixture asked for unit ${unitId}, which this plan does not hold`);
-  const content = unitContent(unit);
+  const content = unitContent(unit, await chapterOrdinalsFor(run.runDir, run.view, unit));
   const claims = unitClaims(unit, run.evidenceId);
   const ledger = await readUnitLedger(run.runDir, run.manifest.id);
   const collected = new Map(collectedUnitsFor(ledger, run.view.knowledgeEpoch, run.view.planCatalogDigest).map((row) => [row.unitId, row]));
