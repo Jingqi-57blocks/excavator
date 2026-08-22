@@ -763,7 +763,7 @@ function renderFeatureContext(audience: Audience, language: string, subject: str
   const role = audience === "product"
     ? "Explain what people can do, roles, flow, rules, lifecycle, data, side effects and current problems without exposing implementation detail in the reading flow."
     : audience === "prd"
-    ? "Specify the current behavior as a PRD: rules with formulas & boundary values, permission matrix, precise frontend interaction (colors / verbatim tooltip text / empty-slot symbols / AM-PM time slots), verbatim notification templates, acceptance checklist; NO background chapter; prefer tables/lists."
+    ? "Specify the current behavior as a PRD, in product language a user of the running system could observe: core flows, rules with formulas & boundary values, permission matrix, per-page interaction (entry / list / form / actions, verbatim UI text), verbatim notification templates, requirement trace index. NO background chapter; NO acceptance or sign-off items; keep API routes, table and column names, class and function names out of the reading flow; prefer tables/lists."
     : "Explain feature boundaries, entry points, call paths, repositories, technical stack, data models, storage, authorization, configuration, failure paths, tests and change reachability.";
   return `# Document instructions
 

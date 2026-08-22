@@ -82,8 +82,10 @@ test("a prd feature plans its own document and reuses the audience-independent f
   assert.equal(prd!.id, `feature-${key}-prd`);
   assert.equal(prd!.kind, "feature");
   assert.ok(prd!.templatePath.endsWith("prd-feature.md"), prd!.templatePath);
-  assert.equal(prd!.sections.length, 10, "the prd-feature template's 10 chapters are derived as sections");
-  assert.match(prd!.sections[8].title, /Acceptance checklist/);
+  assert.equal(prd!.sections.length, 11, "the prd-feature template's 11 chapters are derived as sections");
+  // Positional pins on the two chapters 57B-497 added, through the real prepare path rather than the file read.
+  assert.match(prd!.sections[1]!.title, /Core flows/);
+  assert.match(prd!.sections[9]!.title, /Requirement trace index/);
   assert.equal(second.manifest.metrics.cache[`feature:${key}`], "hit", "the feature scope cache is reused across audiences");
 });
 

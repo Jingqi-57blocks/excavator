@@ -31,6 +31,23 @@ export type TerminologyDepth = "business" | "mixed" | "implementation";
 export type IdentifierPlacement = "evidence-only" | "in-prose";
 /** How the document is read: front to back, or looked up. */
 export type ReadingMode = "narrative" | "lookup";
+/**
+ * Whether the document restates its findings as sign-off items.
+ *
+ * `required` no longer has a holder: 57B-497 deleted the PRD's acceptance chapter on the user's instruction ("a PRD
+ * states behavior, not sign-off conditions"), and prd was the only intent that asked for one. The flag is therefore
+ * constant across every intent and reads as a dead declaration — retiring the field outright is the honest end
+ * state, and it is deferred to its own chore rather than folded in here BECAUSE the field is inside the digested
+ * policy content AND is rendered into both packet headers (`unit-packet.ts`, `planner-packet.ts`), which the unit
+ * cache identity digests. Measured, not assumed: deleting the field moved all eight intent digests and shortened
+ * the packet header, which turned five tests red — including the two ARCHIVAL identity readings whose run
+ * directories are not in this repository, so nothing here can regenerate them
+ * (`eval/tests/unit-cache-identity-fixture-readings.test.ts` states that law).
+ *
+ * Flipping prd alone is the narrower bill this slice is scoped to pay, and it is not free either: it moves
+ * `intent.prd`'s digest and the bytes of every prd packet header, so every cached prd unit rebuilds. Nothing goes
+ * red because no checked-in reading holds a prd document — the archival ones are product and engineering.
+ */
 export type AcceptanceChecklist = "required" | "not-required";
 
 export interface LensPolicy {
@@ -181,11 +198,13 @@ const INTENTS: Record<string, PolicyEntry<IntentPolicy>> = {
     acceptanceChecklist: "not-required"
   }),
   // The prd row restates what the existing prd document instruction asks for: boundary values, a permission
-  // matrix, verbatim interface text, an acceptance checklist, tables over prose.
-  "prd": intentEntry("prd", "v1", {
+  // matrix, verbatim interface text, tables over prose. v2 is 57B-497 deleting the acceptance chapter: the entry's
+  // content was revised, so its version moves with it — that is what makes `intent.prd@v2` in a deliverable's front
+  // matter a legible revision instead of a bare digest mismatch against every request recorded under v1.
+  "prd": intentEntry("prd", "v2", {
     task: "Specify the current behaviour as a requirements document: rules with boundary values, permission matrix, verbatim interface text.",
     reading: "lookup",
-    acceptanceChecklist: "required"
+    acceptanceChecklist: "not-required"
   }),
   "audit": intentEntry("audit", "v1", {
     task: "Report what is known about the scope, how it was verified, and what remains undetermined.",

@@ -122,10 +122,13 @@ test("overview packets list project work items in one single-level block, no per
   assert.ok(!/## Section \d/.test(markdown), "an overview packet carries no per-section blocks");
 });
 
-test("a prd feature packet flattens §10-12-pinned work items into one block instead of vanishing (57B-380)", () => {
-  // prd-feature.md has 10 chapters, but work-item reportSections run 1..12. In a section-keyed packet a §10-12
-  // item would match no section block yet is not `undefined`, so it would silently vanish. The prd path uses
-  // one flat "feature" block for every pinned item, plus the trailing logic-disposition block.
+test("a prd feature packet flattens out-of-range-pinned work items into one block instead of vanishing (57B-380)", () => {
+  // prd-feature.md carries fewer chapters than the canonical 1..12 work-item reportSection space — 10 before
+  // 57B-497, 11 after it added Core flows and the trace index — so at least §12 always pins to a chapter the prd
+  // template does not have. In a section-keyed packet such an item would match no section block yet is not
+  // `undefined`, so it would silently vanish. The prd path therefore flattens EVERY pinned item into one "feature"
+  // block rather than rescuing a fixed range, plus the trailing logic-disposition block; this fixture keeps its own
+  // two-section document so the guarantee is read off the branch, not off whatever the template currently holds.
   const prdDoc: DocumentPlan = { id: "feature-abc-prd", kind: "feature", audience: "prd", subject: "Leave", templatePath: "/t", contextPath: "/c", sections: [section(1, "Boundary"), section(2, "Rules")] };
   const workItems = plan([
     wi({ id: "feature:abc:boundary", dimension: "boundary", reportSection: 1, requiredFor: ["feature-abc-prd"], evidenceIds: ["S-1"] }),

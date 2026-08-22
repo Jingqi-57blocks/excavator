@@ -85,14 +85,28 @@ test("engineering-feature keeps exactly 12 chapters (unchanged by 57B-364)", () 
   assert.equal(sectionsOf("engineering-feature.md").length, 12);
 });
 
-test("prd-feature keeps 10 chapters: acceptance at §9, appendix last at §10 (57B-380)", () => {
+test("prd-feature keeps 11 chapters: core flows at §2, trace index at §10, appendix last at §11 (57B-497)", () => {
   const sections = sectionsOf("prd-feature.md");
-  assert.equal(sections.length, 10);
+  assert.equal(sections.length, 11);
   const byIndex = new Map(sections.map((section) => [section.index, section.title]));
-  // §1 opens on current behavior/boundary (no background chapter); §9 acceptance; §10 appendix is last.
+  // §1 opens on current behavior/boundary (no background chapter); §2 and §10 are the two chapters 57B-497
+  // added, and the appendix stays last so the analysis-method chapter is never in the middle of the reading.
   assert.match(byIndex.get(1)!, /boundary/i);
-  assert.equal(byIndex.get(9), "Acceptance checklist");
-  assert.match(byIndex.get(10)!, /^Appendix/);
+  assert.equal(byIndex.get(2), "Core flows");
+  assert.equal(byIndex.get(10), "Requirement trace index");
+  assert.match(byIndex.get(11)!, /^Appendix/);
+  // The acceptance chapter left the set entirely — it was not renamed, moved, or folded into another title.
+  for (const section of sections) assert.doesNotMatch(section.title, /acceptance/i, `prd-feature §${section.index} still names acceptance: ${section.title}`);
+});
+
+// The negative pin for the same removal, one level below the chapter list: a template that still SAYS
+// "Acceptance checklist" in a chapter's writing instruction, or still hands the author a checkbox to copy,
+// reintroduces the chapter the user asked to delete without changing the heading set above. Both literals
+// were present in the template this test was written against, so the instrument is known to be able to go red.
+test("prd-feature's prose asks for no acceptance chapter and no checkbox list (57B-497)", () => {
+  const text = readFileSync(join(REFERENCES, "prd-feature.md"), "utf8");
+  assert.ok(!text.includes("Acceptance checklist"), "prd-feature.md still names the retired acceptance chapter");
+  assert.ok(!text.includes("- [ ]"), "prd-feature.md still hands the author a checkbox item to copy");
 });
 
 test("engineering-overview appends the database-design chapter at §13 (57B-379)", () => {
