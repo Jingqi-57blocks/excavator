@@ -1,5 +1,5 @@
 /**
- * THE CROSS-UNIT CONSISTENCY CHECKER (R7c): the six content-level properties no collect gate can see, checked
+ * THE CROSS-UNIT CONSISTENCY CHECKER (R7c): the seven content-level properties no collect gate can see, checked
  * over an assembled document and reported as findings that NAME THE UNITS.
  *
  * WHAT IT REFUSES TO DO, first, because it is the load-bearing constraint. It does not re-check topic coverage,
@@ -7,10 +7,10 @@
  * of their own, one level down, and a second derivation of any of them would be a second denominator — which is
  * the one thing gate 1b forbids. What is left after subtracting them is exactly what this file checks: properties
  * that are invisible to a gate looking at ONE unit, or that nothing looks at at all. `whyCollectCannotSee` states
- * that per class, as an exhaustive switch, so a seventh class cannot be added without answering the question that
+ * that per class, as an exhaustive switch, so an eighth class cannot be added without answering the question that
  * justifies the file existing.
  *
- * THE SIX CLASSES, and the measured gap each one closes:
+ * THE SEVEN CLASSES, and the measured gap each one closes:
  *
  *   * `terminology-drift` — one term, two meanings, inside one document. `summary.terminology` is required from
  *     day one and shape-checked per unit; nothing ever compares two units' definitions, because collect audits
@@ -42,6 +42,18 @@
  *     `request-append` door grows `plan/requests.json` only) has no chapter count to hold it to. "The document
  *     wrote no numbered chapter" is a FINDING, not an absence of subject — otherwise the cheapest way past this
  *     gate would be to write no chapter at all.
+ *   * `prd-deliverable` — a PRD deliverable whose own words break the four things `prd-feature.md` and
+ *     `writing-rules.md` state about them: no acceptance checkbox lists (the acceptance chapter was deleted from
+ *     the template, and a model that learnt the old shape writes it back), no `AC-\d+` series (the trace index
+ *     "defines no other id series"), `FR-`/`PAGE-` ids of exactly three digits and no id defined twice, and no
+ *     storage-schema vocabulary outside the collapsed evidence block. The contract rules are gates; the
+ *     storage-schema one is a `warning` tripwire, because it is decided by a word list and a word list cannot be
+ *     complete. It reads
+ *     VISIBLE prose only, through `visibleUnitText` — the same authority the claim-binding contract uses — so the
+ *     DDL a PRD's evidence blocks legitimately carry is not a leak, and a fenced Markdown sample is a quotation.
+ *     Its one vacuous arm is about the CONTRACT, never about the document, for the same reason the chapter class
+ *     states: the document TASK comes from the run's recorded request, so no prose can write its way out of the
+ *     rules — a document that is not a PRD has no PRD word-form contract, and every other document is silent.
  *
  * IT IS A PURE FUNCTION OF VALUES. No path, no I/O, no clock, no model: the caller hands over the collected units'
  * bytes, the assembled document's bytes, the obligation ledger and the sealed evidence ids. Two runs of one input
@@ -66,9 +78,16 @@ import { assertNever } from "../base/artifact-result.ts";
 import type { EvidenceMarker, InvestigationWorkItem, SectionClaim, WorkItemStatus } from "../base/types.ts";
 import { chapterInventory, describeChapterProblem, unterminatedFenceClause, type ChapterProblem } from "./chapter-inventory.ts";
 import type { AuthoringUnitKind } from "./plan-proposal.ts";
+import {
+  describePrdProblem,
+  duplicateAnchorDefinitions,
+  prdProblemSeverity,
+  scanPrdUnitProse,
+  type PrdProblem
+} from "./prd-deliverable-checks.ts";
 import { unnegatedAdvice } from "./recommendation-language.ts";
 import type { IdentifierPlacement } from "./report-policy-registry.ts";
-import type { ReportAudience } from "./report-request-v2.ts";
+import type { ReportAudience, ReportIntent } from "./report-request-v2.ts";
 import { anchorReferences, explicitAnchorIds, readDocumentAnchors } from "./unit-document-anchors.ts";
 import type { UnitSummary } from "./unit-output.ts";
 import { compareUnitIds } from "./unit-paths.ts";
@@ -112,9 +131,22 @@ export const CONSISTENCY_FINDING_KINDS = [
   "cross-unit-contradiction",
   "dangling-reference",
   "policy-violation",
-  "chapter-contract"
+  "chapter-contract",
+  "prd-deliverable"
 ] as const;
 export type ConsistencyFindingKind = (typeof CONSISTENCY_FINDING_KINDS)[number];
+
+/**
+ * What one finding costs the run.
+ *
+ * `error` is a gate: the command exits non-zero on it, so a pipeline stops. `warning` is a tripwire: it is
+ * reported, located and carried into the repair set like anything else, and it does NOT fail the check. The
+ * distinction exists because one rule in this checker is decided by a vocabulary list (the PRD technical-leak
+ * shape) and a vocabulary list cannot be complete — a rule that must miss cases has no business stopping a
+ * pipeline. Every other class is `error`, and `tests/unit-consistency.test.ts` asserts that census so a second
+ * warning cannot appear without a decision.
+ */
+export type ConsistencyFindingSeverity = "error" | "warning";
 
 /**
  * WHY THE COLLECT GATES CANNOT SEE THIS CLASS — one clause per class, exhaustive, no `default`.
@@ -137,6 +169,8 @@ export function whyCollectCannotSee(kind: ConsistencyFindingKind): string {
       return "the advice check runs on the section path's assembled report only, and no gate reads the lens policy's identifier placement against prose";
     case "chapter-contract":
       return "a document's chapter set is the concatenation of every unit's prose, so no gate looking at one unit can count it, and nothing anywhere reads the run's recorded requirement rows back against the deliverable they were materialized for";
+    case "prd-deliverable":
+      return "no gate on the unit path learns which document TASK a unit is being written for — the intent lives on the request the assembler resolves per document — so nothing there can apply a rule that holds of PRDs and of nothing else, and an anchor's uniqueness is a property of every unit's prose concatenated";
   }
   return assertNever(kind, "consistency finding kind");
 }
@@ -159,6 +193,15 @@ export interface ConsistencyDocument {
   /** The assembled deliverable's bytes: the object the anchor checks resolve against. */
   readonly markdown: string;
   readonly audience: ReportAudience;
+  /**
+   * The document's TASK, from the same recorded request row the audience comes from.
+   *
+   * It is carried beside the audience rather than derived from it because the two are orthogonal and the PRD
+   * rules key on THIS one: `mapLegacyDocumentRequest` sends a prd request to the `product-manager` READER with
+   * the `prd` INTENT, so an overview for a product manager and a PRD share an audience and share no word-form
+   * contract. A rule keyed on the audience would red every product overview in the run.
+   */
+  readonly intent: ReportIntent;
   /** From this document's lens policy, which plan validation has already pinned to the registry. */
   readonly identifierPlacement: IdentifierPlacement;
   /**
@@ -238,12 +281,17 @@ export type PolicyViolation =
   | { readonly shape: "identifier-in-prose"; readonly evidenceId: string; readonly excerpt: string }
   | { readonly shape: "recommendation-language"; readonly pattern: string; readonly excerpt: string };
 
-/** One finding. Every arm carries the units it names, so a repair set can be built from any of them. */
+/**
+ * One finding. Every arm carries the units it names, so a repair set can be built from any of them, and every arm
+ * carries its own `severity` — a required field rather than a lookup, so a new arm cannot inherit a cost nobody
+ * chose for it. Six of the seven classes can only ever be `error`; see `ConsistencyFindingSeverity`.
+ */
 export type ConsistencyFinding =
   | {
       readonly kind: "terminology-drift";
       readonly documentId: string;
       readonly unitIds: readonly string[];
+      readonly severity: ConsistencyFindingSeverity;
       readonly statement: string;
       readonly term: string;
       readonly definitions: readonly TermDefinition[];
@@ -252,6 +300,7 @@ export type ConsistencyFinding =
       readonly kind: "unknown-overclaim";
       readonly documentId: string;
       readonly unitIds: readonly string[];
+      readonly severity: ConsistencyFindingSeverity;
       readonly statement: string;
       readonly claimId: string;
       readonly marker: EvidenceMarker;
@@ -262,6 +311,7 @@ export type ConsistencyFinding =
       readonly kind: "cross-unit-contradiction";
       readonly documentId: string;
       readonly unitIds: readonly string[];
+      readonly severity: ConsistencyFindingSeverity;
       readonly statement: string;
       readonly conflict: ContradictionConflict;
     }
@@ -269,6 +319,7 @@ export type ConsistencyFinding =
       readonly kind: "dangling-reference";
       readonly documentId: string;
       readonly unitIds: readonly string[];
+      readonly severity: ConsistencyFindingSeverity;
       readonly statement: string;
       readonly reference: DanglingReference;
     }
@@ -276,6 +327,7 @@ export type ConsistencyFinding =
       readonly kind: "policy-violation";
       readonly documentId: string;
       readonly unitIds: readonly string[];
+      readonly severity: ConsistencyFindingSeverity;
       readonly statement: string;
       readonly violation: PolicyViolation;
     }
@@ -291,8 +343,26 @@ export type ConsistencyFinding =
        * and the same stated cost, as terminology-drift naming every unit that defines the term.
        */
       readonly unitIds: readonly string[];
+      readonly severity: ConsistencyFindingSeverity;
       readonly statement: string;
       readonly problem: ChapterProblem;
+    }
+  | {
+      readonly kind: "prd-deliverable";
+      readonly documentId: string;
+      /**
+       * The unit whose prose holds it — or, for a duplicated trace anchor, every unit that defines the id.
+       *
+       * Unlike the chapter contract, four of these five shapes ARE a property of one unit's bytes: a checkbox
+       * line, an `AC-\d+` token, a malformed anchor and a leaked storage token each live in one unit's prose, so
+       * the finding says which one to open.
+       * Uniqueness is the exception and names every definer, because the repair is "make the ids distinct" and
+       * this checker does not decide which of the two lines should be renumbered.
+       */
+      readonly unitIds: readonly string[];
+      readonly severity: ConsistencyFindingSeverity;
+      readonly statement: string;
+      readonly problem: PrdProblem;
     };
 
 /**
@@ -370,6 +440,20 @@ export function describeFinding(finding: ConsistencyFinding): string {
       return finding.problem.shape === "chapter-count"
         ? `the deliverable writes ${finding.problem.found} numbered chapter(s) against ${finding.problem.expected} recorded requirement row(s)`
         : `the deliverable's ${finding.problem.expected} chapter(s) are numbered ${finding.problem.ordinals.join(", ")} rather than 1..${finding.problem.expected}`;
+    case "prd-deliverable":
+      switch (finding.problem.shape) {
+        case "acceptance-residue":
+          return `${finding.problem.occurrences} acceptance checkbox line(s) are in the prd deliverable's visible prose`;
+        case "forbidden-anchor-series":
+          return `acceptance id ${finding.problem.token} is in the prd deliverable's visible prose`;
+        case "anchor-shape":
+          return `${finding.problem.token} is not one of the two trace-anchor shapes (FR-### and PAGE-###)`;
+        case "anchor-duplicate":
+          return `trace anchor ${finding.problem.anchorId} is defined ${finding.problem.definitions} times in one deliverable`;
+        case "technical-leak":
+          return `storage-schema token ${JSON.stringify(finding.problem.token)} is in the prd deliverable's visible prose`;
+      }
+      return assertNever(finding.problem, "prd problem shape");
   }
   return assertNever(finding, "consistency finding");
 }
@@ -389,7 +473,8 @@ export function checkUnitConsistency(input: ConsistencyInput): ConsistencyResult
       crossUnitContradiction(document, input.workItems),
       danglingReference(document, anchors, input.workItems),
       policyViolation(document, input.frozenEvidenceIds),
-      chapterContract(document)
+      chapterContract(document),
+      prdDeliverable(document)
     ];
     // The class order is the union's order, asserted rather than assumed: a reading that silently reordered would
     // move the golden without any check having changed.
@@ -472,6 +557,7 @@ function terminologyDrift(document: ConsistencyDocument): { kind: "terminology-d
     const ordered = [...rows].sort((a, b) => compareUnitIds(a.unitId, b.unitId) || compareUnitIds(a.meaning, b.meaning));
     findings.push({
       kind: "terminology-drift",
+      severity: "error",
       documentId: document.documentId,
       unitIds: unitList(rows.map((row) => row.unitId)),
       term: key,
@@ -520,6 +606,7 @@ function unknownOverclaim(
         if (!OVERCLAIM_MARKERS.includes(claim.marker)) continue;
         findings.push({
           kind: "unknown-overclaim",
+          severity: "error",
           documentId: document.documentId,
           unitIds: [unit.unitId],
           claimId: claim.id,
@@ -604,6 +691,7 @@ function crossUnitContradiction(
     const status = workItems.get(workItemId)!.status;
     findings.push({
       kind: "cross-unit-contradiction",
+      severity: "error",
       documentId: document.documentId,
       unitIds: unitList([...assertingUnits, ...unavailableUnits]),
       conflict: { shape: "incompatible-markers", workItemId, workItemStatus: status, asserting, unavailable },
@@ -654,6 +742,7 @@ function crossUnitContradiction(
     const { sameSide: one, differentSides: other, evidencePairs } = disagreements.get(key)!;
     findings.push({
       kind: "cross-unit-contradiction",
+      severity: "error",
       documentId: document.documentId,
       unitIds: unitList([one.unitId, other.unitId]),
       conflict: { shape: "comparison-side-disagreement", evidencePairs, sameSide: one, differentSides: other },
@@ -703,6 +792,7 @@ function danglingReference(
       if (target !== "" && anchors.resolvable.has(target)) continue;
       findings.push({
         kind: "dangling-reference",
+        severity: "error",
         documentId: document.documentId,
         unitIds: [unit.unitId],
         reference: { shape: "unresolvable-anchor", target },
@@ -719,6 +809,7 @@ function danglingReference(
         if (workItems.has(workItemId)) continue;
         findings.push({
           kind: "dangling-reference",
+          severity: "error",
           documentId: document.documentId,
           unitIds: [unit.unitId],
           reference: { shape: "unknown-work-item", claimId: claim.id, workItemId },
@@ -736,6 +827,7 @@ function danglingReference(
     }
     findings.push({
       kind: "dangling-reference",
+      severity: "error",
       documentId: document.documentId,
       unitIds: unitList(holders),
       reference: { shape: "duplicate-anchor", anchorId, occurrences: occurrences.get(anchorId)! },
@@ -801,6 +893,7 @@ function policyViolation(
         for (const index of identifierOccurrences(unit.content, evidenceId)) {
           findings.push({
             kind: "policy-violation",
+            severity: "error",
             documentId: document.documentId,
             unitIds: [unit.unitId],
             violation: { shape: "identifier-in-prose", evidenceId, excerpt: excerptAround(unit.content, index, evidenceId.length) },
@@ -812,6 +905,7 @@ function policyViolation(
     for (const advice of unnegatedAdvice(unit.content)) {
       findings.push({
         kind: "policy-violation",
+        severity: "error",
         documentId: document.documentId,
         unitIds: [unit.unitId],
         violation: { shape: "recommendation-language", pattern: advice.pattern, excerpt: advice.excerpt },
@@ -884,6 +978,7 @@ function chapterContract(document: ConsistencyDocument): { kind: "chapter-contra
   const fence = unterminatedFenceClause(inventory);
   const findings = inventory.problems.map((problem): ConsistencyFinding => ({
     kind: "chapter-contract",
+    severity: "error",
     documentId: document.documentId,
     unitIds: unitList(document.units.map((unit) => unit.unitId)),
     problem,
@@ -897,5 +992,67 @@ function chapterContract(document: ConsistencyDocument): { kind: "chapter-contra
       subject: `numbered chapter(s) against the ${document.plannedChapterCount} template-section requirement row(s)`
     },
     findings
+  };
+}
+
+// --- 7. prd deliverable word form -------------------------------------------------------------------------------
+
+/**
+ * The four things `prd-feature.md` and `writing-rules.md` state about a PRD deliverable's own WORDS, checked over
+ * the visible prose of its units. The rules themselves live in `prd-deliverable-checks.ts`; this function decides
+ * WHETHER THEY APPLY and turns each problem into a located finding.
+ *
+ * ITS ONE VACUOUS ARM IS ABOUT THE CONTRACT, NEVER ABOUT THE DOCUMENT — the same shape, and the same argument, as
+ * the chapter class. The document task is read off the request row this run recorded, so no prose can write its
+ * way into the arm: a deliverable that is not a PRD has no PRD word-form contract, and the rules say nothing about
+ * it. "This PRD wrote no visible prose" is NOT that arm; it is a reading with a denominator of zero, because the
+ * cheapest way past a prose rule would otherwise be to write the prose inside a collapsed block.
+ *
+ * THE DENOMINATOR IS THE UNIT SCAN, and the line and token counts ride along in the subject. `0 finding(s)` over
+ * "4 unit prose scan(s) covering 96 visible prose line(s) and 14 FR/PAGE token(s)" is a sentence a reader can
+ * check; `0 finding(s)` alone is the sentence this codebase keeps paying for.
+ */
+function prdDeliverable(document: ConsistencyDocument): { kind: "prd-deliverable"; objects: ClassObjects; findings: ConsistencyFinding[] } {
+  if (document.intent !== "prd") {
+    return {
+      kind: "prd-deliverable",
+      objects: {
+        state: "vacuous",
+        reason: `this run records the document task of ${document.documentId} as ${document.intent}, for the ${document.audience} reader, and these four rules — no acceptance checkbox line, no AC id series, FR/PAGE trace anchors of exactly three digits and each defined once, no storage-schema vocabulary in visible prose — are the PRD deliverable's own word-form contract and hold of no other document task; the task comes from the request row this run recorded, so no prose can write itself into or out of this arm`
+      },
+      findings: []
+    };
+  }
+  const scans = document.units.map((unit) => ({ unitId: unit.unitId, scan: scanPrdUnitProse(unit.content) }));
+  const findings: ConsistencyFinding[] = [];
+  for (const row of scans) {
+    for (const problem of row.scan.problems) findings.push(prdFinding(document, [row.unitId], problem));
+  }
+  for (const duplicate of duplicateAnchorDefinitions(scans.map((row) => ({ unitId: row.unitId, anchorIds: row.scan.anchorIds })))) {
+    findings.push(prdFinding(document, duplicate.unitIds, duplicate.problem));
+  }
+  const lines = scans.reduce((total, row) => total + row.scan.visibleLines, 0);
+  const tokens = scans.reduce((total, row) => total + row.scan.anchorTokens, 0);
+  return {
+    kind: "prd-deliverable",
+    objects: {
+      state: "examined",
+      objects: scans.length,
+      subject: `unit prose scan(s) covering ${lines} visible prose line(s) and ${tokens} FR/PAGE token(s) (acceptance checkbox residue, forbidden AC id series, trace-anchor shape and uniqueness, storage-schema leak)`
+    },
+    findings
+  };
+}
+
+/** One located finding for one problem. The severity is the problem's, from the one function that decides it. */
+function prdFinding(document: ConsistencyDocument, unitIds: readonly string[], problem: PrdProblem): ConsistencyFinding {
+  const named = unitList(unitIds);
+  return {
+    kind: "prd-deliverable",
+    documentId: document.documentId,
+    unitIds: named,
+    severity: prdProblemSeverity(problem.shape),
+    problem,
+    statement: describePrdProblem(problem, document.documentId, named.length === 1 ? `unit ${named[0]}` : `units ${named.join(", ")}`)
   };
 }

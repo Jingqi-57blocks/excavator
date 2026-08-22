@@ -1,5 +1,5 @@
 /**
- * R7c - the six content-level classes (`unit-consistency.ts`), each injected and each removed, over VALUES.
+ * R7c - the seven content-level classes (`unit-consistency.ts`), each injected and each removed, over VALUES.
  *
  * WHY THE VALUE-LEVEL TESTS ARE HERE AND THE RUN-LEVEL ONES ARE NOT. The checker is a pure function, so a class is
  * best exercised by handing it the one shape it is about and then handing it the same shape with the defect taken
@@ -119,6 +119,10 @@ function document(units: readonly ConsistencyUnit[], overrides: Partial<Consiste
     documentId: DOCUMENT,
     markdown,
     audience: overrides.audience ?? "product-manager",
+    // The default document is an OVERVIEW for the product manager, which is the sharpest default available: it
+    // shares the prd request's audience and none of its word-form contract, so every test in this file that is
+    // not about the prd class doubles as a control that the class keys on the task and not on the reader.
+    intent: overrides.intent ?? "overview",
     identifierPlacement: overrides.identifierPlacement ?? "evidence-only",
     // `Object.hasOwn`, not `??`: null is a MEANING here (this run recorded no chapter contract for the document),
     // and `null ?? default` would silently hand back the default — the caller asking for the vacuous arm would
@@ -193,9 +197,10 @@ function assertLocated(result: ConsistencyResult, documents: readonly Consistenc
 
 // --- the closed union ---------------------------------------------------------------------------------
 
-test("the six classes are the union, and every one of them answers why no collect gate sees it", () => {
+test("the seven classes are the union, and every one of them answers why no collect gate sees it", () => {
   assert.deepEqual([...CONSISTENCY_FINDING_KINDS], [
-    "terminology-drift", "unknown-overclaim", "cross-unit-contradiction", "dangling-reference", "policy-violation", "chapter-contract"
+    "terminology-drift", "unknown-overclaim", "cross-unit-contradiction", "dangling-reference", "policy-violation",
+    "chapter-contract", "prd-deliverable"
   ]);
   for (const kind of CONSISTENCY_FINDING_KINDS) {
     // Deleting one arm of `whyCollectCannotSee` makes its parameter stop being `never` and the build stops; the
@@ -498,7 +503,7 @@ test("advice a unit does not negate is a violation, and the negated disclaimer i
 
 // --- the result as a whole ---------------------------------------------------------------------------
 
-test("a clean document reports six readings, zero findings, and no boolean anywhere", () => {
+test("a clean document reports seven readings, zero findings, and no boolean anywhere", () => {
   const units = [unit(LEAF), unit(OTHER), unit(ROOT)];
   const result = check([document(units)]);
   assert.equal(result.version, UNIT_CONSISTENCY_VERSION);

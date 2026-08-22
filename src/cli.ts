@@ -183,20 +183,25 @@ async function main(): Promise<void> {
         break;
       }
       case "unit-consistency": {
-        // Read-only: the six cross-unit content properties no collect gate can see, over the ASSEMBLED unit path,
-        // plus the exact set of units a repair would have to redraw. It writes nothing and calls no model. Exit 1
-        // when the checker found something, so a pipeline can gate on it without parsing the reading.
+        // Read-only: the seven cross-unit content properties no collect gate can see, over the ASSEMBLED unit
+        // path, plus the exact set of units a repair would have to redraw. It writes nothing and calls no model.
+        //
+        // EXIT 1 IS DRIVEN BY SEVERITY, NOT BY THE COUNT. Every finding is printed, located and carried into the
+        // repair set; only an `error` fails the check, so a pipeline gating on the exit code is not stopped by
+        // the one rule this checker decides with a vocabulary list (see `ConsistencyFindingSeverity`). The
+        // severity leads each printed line, because an operator reading the lines has to be able to tell a gate
+        // from a tripwire without parsing the JSON.
         const args = parseArgs(argv);
         const reading = await checkRunConsistency(required(args.run, "--run"));
         print({
           ...reading,
           lines: [
             ...reading.result.readings.map((row) => row.statement),
-            ...reading.result.findings.map((finding) => `${finding.kind} [${finding.unitIds.join(", ")}]: ${describeFinding(finding)}`),
+            ...reading.result.findings.map((finding) => `${finding.severity} ${finding.kind} [${finding.unitIds.join(", ")}]: ${describeFinding(finding)}`),
             reading.repair.action
           ]
         });
-        if (reading.result.findings.length > 0) process.exitCode = 1;
+        if (reading.result.findings.some((finding) => finding.severity === "error")) process.exitCode = 1;
         break;
       }
       case "unit-cache-admit": {
@@ -841,7 +846,7 @@ Commands:
   coverage-companion  Render this run's coverage state: four denominators, each naming its own ledger, no combined figure (read-only, zero model)
   unit-cache-identity Print the cache identity of every authoring unit of one planned run (read-only, zero model)
   unit-cache-admit   Re-enter previously verified units through the existing draft/collect gates (--mode required)
-  unit-consistency   Check the assembled unit path for the six cross-unit content defects no collect gate sees, and print the exact repair set (read-only, zero model)
+  unit-consistency   Check the assembled unit path for the seven cross-unit content defects no collect gate sees, and print the exact repair set (read-only, zero model)
   plan          Validate a plan proposal against the frozen epoch and record plan/catalog.json + plan/dag.json
   request-append Append one requested document to plan/requests.json (recorded rows are immutable)
   reading    Show which in-boundary decision code no source window covers yet — run it before freeze, where opening one is free
@@ -949,7 +954,7 @@ const COMMAND_HELP: Record<string, CommandHelp> = {
     synopsis: "unit-consistency --run <dir>",
     flags: ["--run <dir>          Assembled run directory (required)"],
     example: "excavator unit-consistency --run <run>",
-    notes: "Read-only, deterministic, zero model. It checks only what no collect gate can see: one term with two meanings inside a document, a `fact` or `inferred` claim linked to an obligation the ledger records as cannot-determine or searched-not-found, one obligation asserted by one unit and disclaimed by another (and two units disagreeing about which side of a comparison a piece of evidence is on), a `](#…)` or an `<a id>` a model wrote that the assembled document cannot resolve or holds twice, and a lens violation in visible prose. It re-checks no topic coverage, no disposition, no grounding audit and no child digest SEMANTICS — those have denominators one level down, and a second derivation of any of them would be a second denominator. It refuses unless the assembled deliverable on disk is the one this plan and these collected units produce. The repair set is exactly the units the findings name plus the units written from them, each row naming why; the coverage account is ROUTED rather than seeded — every defective coverage kind is owed by the investigation's reading, the obligation ledger's determinations or the plan, so re-drafting a unit cannot pay it. Exit code 1 when there is a finding."
+    notes: "Read-only, deterministic, zero model. It checks only what no collect gate can see: one term with two meanings inside a document, a `fact` or `inferred` claim linked to an obligation the ledger records as cannot-determine or searched-not-found, one obligation asserted by one unit and disclaimed by another (and two units disagreeing about which side of a comparison a piece of evidence is on), a `](#…)` or an `<a id>` a model wrote that the assembled document cannot resolve or holds twice, a lens violation in visible prose, a deliverable whose numbered chapters are not 1..N for the N requirement rows this run recorded for it, and a prd deliverable whose visible prose keeps an acceptance checkbox line, an AC id series, a malformed or duplicated FR/PAGE trace anchor, or storage-schema vocabulary. It re-checks no topic coverage, no disposition, no grounding audit and no child digest SEMANTICS — those have denominators one level down, and a second derivation of any of them would be a second denominator. It refuses unless the assembled deliverable on disk is the one this plan and these collected units produce. The repair set is exactly the units the findings name plus the units written from them, each row naming why; the coverage account is ROUTED rather than seeded — every defective coverage kind is owed by the investigation's reading, the obligation ledger's determinations or the plan, so re-drafting a unit cannot pay it. Exit code 1 when there is an `error` finding; the storage-schema tripwire is a `warning`, printed and repaired like the rest but never failing the check, because a vocabulary list cannot be complete."
   },
   plan: {
     synopsis: "plan --run <dir> (--fixture-plan | --proposal <file>) [--revise --reason <why>]",
