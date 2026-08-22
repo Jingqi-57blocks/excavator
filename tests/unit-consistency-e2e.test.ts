@@ -33,6 +33,15 @@ import { unitPaths } from "../src/report/unit-paths.ts";
 import { assembleUnits } from "../src/run/stages/unit-assemble-stage.ts";
 import { collectedRun } from "./unit-assembly-fixture.ts";
 import {
+  FIRST_DOCUMENT,
+  SECOND_DOCUMENT,
+  admissionRun,
+  authorEveryUnit,
+  recordPlan,
+  requestSecondDocument,
+  withExtraLeaf
+} from "./unit-cache-admission-fixture.ts";
+import {
   SETTLED_OBLIGATION_ID,
   UNANSWERED_OBLIGATION_IDS,
   assembledConsistencyRun,
@@ -183,6 +192,51 @@ test("an evidence id in visible prose violates the product lens, and the enginee
   assert.match(policy[0]!.statement, /whose product-manager lens keeps implementation identifiers in evidence/);
 });
 
+test("a run with no recorded chapter contract still checks, and only the chapter class goes vacuous", async () => {
+  // The denominator is the run's own requirement rows. When they are not there — a run prepared before the
+  // contract generation, or a document added through the request-append door, which grows plan/requests.json and
+  // never the contract — the honest reading is "this run fixed no chapter count for these bytes". Refusing would
+  // produce no reading for ANY document of the run, and defaulting to zero would report every chapter it holds as
+  // an excess: a deliverable declared badly broken because one input was missing.
+  const run = await assembledConsistencyRun();
+  await rm(join(run.runDir, "contract", "requirements.json"));
+  const reading = await checkRunConsistency(run.runDir);
+  assert.deepEqual(reading.result.findings, [], "a missing contract is not a defect in the deliverable");
+  const row = reading.result.readings.find((entry) => entry.kind === "chapter-contract")!;
+  assert.equal(row.objects.state, "vacuous");
+  assert.match(row.statement, /records no template-section requirement row/u);
+  // The other five classes are unaffected: one absent input must not blind the whole checker.
+  assert.equal(reading.result.readings.length, 6);
+  assert.ok(reading.result.readings.filter((entry) => entry.kind !== "chapter-contract").every((entry) => entry.statement.length > 0));
+});
+
+test("a second audience appended to a shipped run still checks, through the real append and re-plan doors", async () => {
+  // The epic's headline case, end to end. `request-append` grows `plan/requests.json`; `contract/requirements.json`
+  // was written once by prepare and does not grow with it, so the appended document has no recorded chapter
+  // contract. Measured here rather than argued: the run really does end up with 2 requested documents and 1 in the
+  // contract. A checker that refused that document would produce no reading for EITHER of them.
+  const run = await admissionRun();
+  await authorEveryUnit(run);
+  await requestSecondDocument(run);
+  const revised = await recordPlan(run, "two-documents", withExtraLeaf(FIRST_DOCUMENT));
+  await authorEveryUnit(revised);
+  await assembleUnits(revised.runDir, "write");
+
+  const contract = JSON.parse(await readFile(join(revised.runDir, "contract", "requirements.json"), "utf8")) as { rows: Array<{ documentId: string | null }> };
+  const recorded = new Set(contract.rows.map((row) => row.documentId).filter((id): id is string => id !== null));
+  assert.deepEqual([...recorded], [FIRST_DOCUMENT], "the contract is written once and the append door does not grow it");
+
+  const reading = await checkRunConsistency(revised.runDir);
+  assert.deepEqual(reading.result.documents, [SECOND_DOCUMENT, FIRST_DOCUMENT].sort());
+  const rows = new Map(reading.result.readings.filter((row) => row.kind === "chapter-contract").map((row) => [row.documentId, row]));
+  assert.equal(rows.get(FIRST_DOCUMENT)!.objects.state, "examined", "the document the contract recorded is held to it");
+  assert.equal(rows.get(SECOND_DOCUMENT)!.objects.state, "vacuous", "the appended document has no recorded chapter contract");
+  assert.match(rows.get(SECOND_DOCUMENT)!.statement, /records no template-section requirement row/u);
+  assert.deepEqual(reading.result.findings.filter((finding) => finding.kind === "chapter-contract"), []);
+  // Both documents still get all six class readings: one absent input must not blind the checker.
+  assert.equal(reading.result.readings.length, 12);
+});
+
 // --- (4) the repair loop -----------------------------------------------------------------------------
 
 test("repairing exactly the repair set clears the checker, and no unit outside it is redrawn", async () => {
@@ -319,7 +373,7 @@ test("the zero-material run checks clean, and its vacuous classes name why they 
   const reading = await checkRunConsistency(run.runDir);
   assert.deepEqual(reading.result.findings, []);
   assert.deepEqual(reading.repair.targets, []);
-  assert.equal(reading.result.readings.length, 5);
+  assert.equal(reading.result.readings.length, 6);
   const vacuous = reading.result.readings.filter((row) => row.objects.state === "vacuous").map((row) => row.kind);
   assert.deepEqual(vacuous, ["terminology-drift", "unknown-overclaim", "cross-unit-contradiction", "dangling-reference"],
     reading.result.readings.map((row) => row.statement).join("\n"));

@@ -8,7 +8,7 @@
  *
  * WHY THE UNIT PATH NEEDED THIS FILE AT ALL. It had none of it. Draft and collect check the summary's digests and
  * the grounding verdict; the grounding audit's subject is OBLIGATIONS (which claim links which work item); the
- * consistency checker's five classes are the properties no per-unit gate sees, and none of them reads a claim's
+ * consistency checker's six classes are the properties no per-unit gate sees, and none of them reads a claim's
  * `statement` at all. So a unit could state anything whatever in its prose and satisfy every gate by linking
  * claims whose statements were nowhere in it. The section path checked this from the beginning; this is that
  * check, on the unit key, and since 57B-481 retired the section audit it is the only one.

@@ -61,6 +61,7 @@
         ],
         "readPaths": [
           "context/boundary-functions.json",
+          "contract/requirements.json",
           "contract/run-intent.json",
           "coverage/read-obligations.json",
           "coverage/read-residual.json",
@@ -232,6 +233,17 @@
                 "subject": "unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against this document's evidence-only product-manager lens)"
               },
               "statement": "checked: policy-violation over 8 unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against this document's evidence-only product-manager lens) of overview-product — 0 finding(s)"
+            },
+            {
+              "documentId": "overview-product",
+              "findings": 0,
+              "kind": "chapter-contract",
+              "objects": {
+                "objects": 10,
+                "state": "examined",
+                "subject": "numbered chapter(s) against the 10 template-section requirement row(s)"
+              },
+              "statement": "checked: chapter-contract over 10 numbered chapter(s) against the 10 template-section requirement row(s) of overview-product — 0 finding(s)"
             }
           ],
           "version": "unit-consistency-v1"
@@ -275,6 +287,7 @@
         ],
         "readPaths": [
           "context/boundary-functions.json",
+          "contract/requirements.json",
           "contract/run-intent.json",
           "coverage/read-obligations.json",
           "coverage/read-residual.json",
@@ -486,6 +499,17 @@
                 "subject": "unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against this document's evidence-only product-manager lens)"
               },
               "statement": "checked: policy-violation over 8 unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against this document's evidence-only product-manager lens) of overview-product — 0 finding(s)"
+            },
+            {
+              "documentId": "overview-product",
+              "findings": 0,
+              "kind": "chapter-contract",
+              "objects": {
+                "objects": 10,
+                "state": "examined",
+                "subject": "numbered chapter(s) against the 10 template-section requirement row(s)"
+              },
+              "statement": "checked: chapter-contract over 10 numbered chapter(s) against the 10 template-section requirement row(s) of overview-product — 0 finding(s)"
             }
           ],
           "version": "unit-consistency-v1"
@@ -529,6 +553,7 @@
         ],
         "readPaths": [
           "context/boundary-functions.json",
+          "contract/requirements.json",
           "contract/run-intent.json",
           "coverage/read-obligations.json",
           "coverage/read-residual.json",
@@ -766,6 +791,17 @@
                 "subject": "unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against this document's evidence-only product-manager lens)"
               },
               "statement": "checked: policy-violation over 8 unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against this document's evidence-only product-manager lens) of overview-product — 0 finding(s)"
+            },
+            {
+              "documentId": "overview-product",
+              "findings": 0,
+              "kind": "chapter-contract",
+              "objects": {
+                "objects": 10,
+                "state": "examined",
+                "subject": "numbered chapter(s) against the 10 template-section requirement row(s)"
+              },
+              "statement": "checked: chapter-contract over 10 numbered chapter(s) against the 10 template-section requirement row(s) of overview-product — 0 finding(s)"
             }
           ],
           "version": "unit-consistency-v1"
@@ -809,6 +845,7 @@
         ],
         "readPaths": [
           "context/boundary-functions.json",
+          "contract/requirements.json",
           "contract/run-intent.json",
           "coverage/read-obligations.json",
           "coverage/read-residual.json",
@@ -1096,6 +1133,17 @@
                 "subject": "unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against this document's evidence-only product-manager lens)"
               },
               "statement": "checked: policy-violation over 8 unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against this document's evidence-only product-manager lens) of overview-product — 1 finding(s)"
+            },
+            {
+              "documentId": "overview-product",
+              "findings": 0,
+              "kind": "chapter-contract",
+              "objects": {
+                "objects": 10,
+                "state": "examined",
+                "subject": "numbered chapter(s) against the 10 template-section requirement row(s)"
+              },
+              "statement": "checked: chapter-contract over 10 numbered chapter(s) against the 10 template-section requirement row(s) of overview-product — 0 finding(s)"
             }
           ],
           "version": "unit-consistency-v1"
@@ -1139,6 +1187,7 @@
         ],
         "readPaths": [
           "context/boundary-functions.json",
+          "contract/requirements.json",
           "contract/run-intent.json",
           "coverage/read-obligations.json",
           "coverage/read-residual.json",
@@ -1311,6 +1360,17 @@
                 "subject": "unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against this document's evidence-only product-manager lens)"
               },
               "statement": "checked: policy-violation over 8 unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against this document's evidence-only product-manager lens) of overview-product — 0 finding(s)"
+            },
+            {
+              "documentId": "overview-product",
+              "findings": 0,
+              "kind": "chapter-contract",
+              "objects": {
+                "objects": 10,
+                "state": "examined",
+                "subject": "numbered chapter(s) against the 10 template-section requirement row(s)"
+              },
+              "statement": "checked: chapter-contract over 10 numbered chapter(s) against the 10 template-section requirement row(s) of overview-product — 0 finding(s)"
             }
           ],
           "version": "unit-consistency-v1"
@@ -1354,6 +1414,7 @@
         ],
         "readPaths": [
           "context/boundary-functions.json",
+          "contract/requirements.json",
           "contract/run-intent.json",
           "coverage/read-obligations.json",
           "coverage/read-residual.json",
@@ -1474,7 +1535,7 @@
                   "policy-violation"
                 ],
                 "statements": [
-                  "policy-violation: unit overview-product::leaf::coverage puts evidence id <SOURCE-EVIDENCE-ID> in the visible prose of overview-product, whose product-manager lens keeps implementation identifiers in evidence (identifierPlacement \"evidence-only\"): \"## coverage 证据 <SOURCE-EVIDENCE-ID> 记录当前状态。\" — no collect gate catches this because the advice check runs on the section path's assembled report only, and no gate reads the lens policy's identifier placement against prose"
+                  "policy-violation: unit overview-product::leaf::coverage puts evidence id <SOURCE-EVIDENCE-ID> in the visible prose of overview-product, whose product-manager lens keeps implementation identifiers in evidence (identifierPlacement \"evidence-only\"): \"cs ## coverage 证据 <SOURCE-EVIDENCE-ID> 记录当前状态。\" — no collect gate catches this because the advice check runs on the section path's assembled report only, and no gate reads the lens policy's identifier placement against prose"
                 ]
               },
               "unitId": "overview-product::leaf::coverage"
@@ -1502,13 +1563,13 @@
             {
               "documentId": "overview-product",
               "kind": "policy-violation",
-              "statement": "unit overview-product::leaf::coverage puts evidence id <SOURCE-EVIDENCE-ID> in the visible prose of overview-product, whose product-manager lens keeps implementation identifiers in evidence (identifierPlacement \"evidence-only\"): \"## coverage 证据 <SOURCE-EVIDENCE-ID> 记录当前状态。\"",
+              "statement": "unit overview-product::leaf::coverage puts evidence id <SOURCE-EVIDENCE-ID> in the visible prose of overview-product, whose product-manager lens keeps implementation identifiers in evidence (identifierPlacement \"evidence-only\"): \"cs ## coverage 证据 <SOURCE-EVIDENCE-ID> 记录当前状态。\"",
               "unitIds": [
                 "overview-product::leaf::coverage"
               ],
               "violation": {
                 "evidenceId": "<SOURCE-EVIDENCE-ID>",
-                "excerpt": "## coverage 证据 <SOURCE-EVIDENCE-ID> 记录当前状态。",
+                "excerpt": "cs ## coverage 证据 <SOURCE-EVIDENCE-ID> 记录当前状态。",
                 "shape": "identifier-in-prose"
               }
             }
@@ -1566,6 +1627,17 @@
                 "subject": "unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against this document's evidence-only product-manager lens)"
               },
               "statement": "checked: policy-violation over 8 unit prose scan(s) (recommendation language, and 11 sealed evidence id(s) against this document's evidence-only product-manager lens) of overview-product — 1 finding(s)"
+            },
+            {
+              "documentId": "overview-product",
+              "findings": 0,
+              "kind": "chapter-contract",
+              "objects": {
+                "objects": 10,
+                "state": "examined",
+                "subject": "numbered chapter(s) against the 10 template-section requirement row(s)"
+              },
+              "statement": "checked: chapter-contract over 10 numbered chapter(s) against the 10 template-section requirement row(s) of overview-product — 0 finding(s)"
             }
           ],
           "version": "unit-consistency-v1"

@@ -1,5 +1,5 @@
 /**
- * R7c - the five content-level classes (`unit-consistency.ts`), each injected and each removed, over VALUES.
+ * R7c - the six content-level classes (`unit-consistency.ts`), each injected and each removed, over VALUES.
  *
  * WHY THE VALUE-LEVEL TESTS ARE HERE AND THE RUN-LEVEL ONES ARE NOT. The checker is a pure function, so a class is
  * best exercised by handing it the one shape it is about and then handing it the same shape with the defect taken
@@ -32,6 +32,7 @@ import {
   type ConsistencyResult,
   type ConsistencyUnit
 } from "../src/report/unit-consistency.ts";
+import { numberedChapters } from "../src/report/chapter-inventory.ts";
 import { headingSlug, readDocumentAnchors } from "../src/report/unit-document-anchors.ts";
 import { UNIT_SUMMARY_VERSION, type UnitSummary, type UnitTerminologyEntry } from "../src/report/unit-output.ts";
 
@@ -87,18 +88,63 @@ function assembled(units: readonly ConsistencyUnit[]): string {
     "",
     "## Contents",
     "",
-    ...units.flatMap((row) => ["", `<a id="${unitAnchorId(row.unitId)}"></a>`, "", row.content.trim()])
+    ...units.flatMap((row, index) => ["", `<a id="${unitAnchorId(row.unitId)}"></a>`, "", numberFirstHeading(row.content.trim(), index + 1)])
   ].join("\n");
 }
 
+/**
+ * Number a unit's own opening chapter heading by its position in the document.
+ *
+ * The stand-in is faithful on this too, now that it has to be: a real deliverable's chapters are numbered `1..N`,
+ * so a stand-in that concatenated unnumbered headings would put every document this file builds outside the one
+ * contract the document format states — and the chapter class would then be exercised by nothing but its own
+ * dedicated tests. Only the FIRST `## ` heading of a unit is touched, and `###` sub-headings never are.
+ */
+function numberFirstHeading(content: string, ordinal: number): string {
+  return content.replace(/^## (?!\d+\.)/mu, `## ${ordinal}. `);
+}
+
+/**
+ * A document for the checker, clean in every class unless the caller injects a defect.
+ *
+ * `plannedChapterCount` DEFAULTS TO WHAT THE MARKDOWN HOLDS, which makes the chapter-contract class silent for
+ * every test that is about another class — the same service the other defaults perform. It is therefore NOT how
+ * that class is exercised: the tests below that are about it state a count, `tests/chapter-inventory.test.ts`
+ * covers the extraction and the four failing shapes over values, and on a real run the count is the run's own
+ * recorded requirement rows, which no test can talk it out of.
+ */
 function document(units: readonly ConsistencyUnit[], overrides: Partial<ConsistencyDocument> = {}): ConsistencyDocument {
+  const markdown = overrides.markdown ?? assembled(units);
   return {
     documentId: DOCUMENT,
-    markdown: overrides.markdown ?? assembled(units),
+    markdown,
     audience: overrides.audience ?? "product-manager",
     identifierPlacement: overrides.identifierPlacement ?? "evidence-only",
+    // `Object.hasOwn`, not `??`: null is a MEANING here (this run recorded no chapter contract for the document),
+    // and `null ?? default` would silently hand back the default — the caller asking for the vacuous arm would
+    // have got the examined one and the test would have passed for the wrong reason.
+    plannedChapterCount: Object.hasOwn(overrides, "plannedChapterCount")
+      ? overrides.plannedChapterCount!
+      : Math.max(1, numberedChapters(markdown).length),
     units
   };
+}
+
+/** A document whose units write the given chapter ordinals, one heading each, in the order given. */
+function chaptered(ordinals: readonly number[], plannedChapterCount: number): ConsistencyDocument {
+  const only = unit(LEAF);
+  // The markdown is stated rather than assembled, so the position-numbering above cannot renumber these ordinals:
+  // the whole point of this helper is to control what the document says its chapter numbers are.
+  const markdown = [
+    `<a id="${CONTENTS_ANCHOR}"></a>`,
+    "",
+    "## Contents",
+    "",
+    `<a id="${unitAnchorId(LEAF)}"></a>`,
+    "",
+    ...ordinals.map((ordinal) => `## ${ordinal}. 章 ${ordinal}\n\n${LEAF} 记录当前状态。\n`)
+  ].join("\n");
+  return document([only], { markdown, plannedChapterCount });
 }
 
 function workItem(id: string, status: WorkItemStatus): InvestigationWorkItem {
@@ -147,9 +193,9 @@ function assertLocated(result: ConsistencyResult, documents: readonly Consistenc
 
 // --- the closed union ---------------------------------------------------------------------------------
 
-test("the five classes are the union, and every one of them answers why no collect gate sees it", () => {
+test("the six classes are the union, and every one of them answers why no collect gate sees it", () => {
   assert.deepEqual([...CONSISTENCY_FINDING_KINDS], [
-    "terminology-drift", "unknown-overclaim", "cross-unit-contradiction", "dangling-reference", "policy-violation"
+    "terminology-drift", "unknown-overclaim", "cross-unit-contradiction", "dangling-reference", "policy-violation", "chapter-contract"
   ]);
   for (const kind of CONSISTENCY_FINDING_KINDS) {
     // Deleting one arm of `whyCollectCannotSee` makes its parameter stop being `never` and the build stops; the
@@ -452,7 +498,7 @@ test("advice a unit does not negate is a violation, and the negated disclaimer i
 
 // --- the result as a whole ---------------------------------------------------------------------------
 
-test("a clean document reports five readings, zero findings, and no boolean anywhere", () => {
+test("a clean document reports six readings, zero findings, and no boolean anywhere", () => {
   const units = [unit(LEAF), unit(OTHER), unit(ROOT)];
   const result = check([document(units)]);
   assert.equal(result.version, UNIT_CONSISTENCY_VERSION);
@@ -490,4 +536,95 @@ test("the same input twice is the same findings in the same order", () => {
 
 test("a document handed over with no unit is a named refusal, not an empty reading", () => {
   assert.throws(() => check([document([])]), /was handed to the consistency checker with no unit/);
+});
+
+// --- 6. chapter contract ------------------------------------------------------------------------------------
+
+test("a document with one chapter more than the run recorded is a chapter-contract finding naming every unit", () => {
+  // The measured defect, at the size it was measured: eleven numbered chapters against ten recorded rows.
+  const eleven = chaptered([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], 10);
+  const findings = check([eleven]).findings.filter((finding) => finding.kind === "chapter-contract");
+  assert.equal(findings.length, 1);
+  const [finding] = findings;
+  assert.equal(finding!.kind === "chapter-contract" && finding!.problem.shape, "chapter-count");
+  assert.match(finding!.statement, /11 numbered chapter\(s\)/u);
+  assert.match(finding!.statement, /10 requirement row\(s\)/u);
+  assert.deepEqual(finding!.unitIds, [LEAF], "a finding nobody can locate is worth nothing to a repair set");
+});
+
+test("a document with one chapter fewer than the run recorded is a chapter-contract finding", () => {
+  const findings = check([chaptered([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 11)]).findings.filter((finding) => finding.kind === "chapter-contract");
+  assert.equal(findings.length, 1);
+  assert.match(findings[0]!.statement, /10 numbered chapter\(s\)/u);
+  assert.match(findings[0]!.statement, /11 requirement row\(s\)/u);
+});
+
+test("chapters out of order and chapters with a gap are both chapter-contract findings, with the count intact", () => {
+  for (const ordinals of [[1, 3, 2], [1, 2, 4]] as const) {
+    const findings = check([chaptered(ordinals, 3)]).findings.filter((finding) => finding.kind === "chapter-contract");
+    assert.equal(findings.length, 1, `${ordinals.join(",")} must be one finding`);
+    const [finding] = findings;
+    // The count matches, so this is the SEQUENCE shape: reporting it as a count problem would ask for the wrong
+    // repair (write another chapter) instead of the right one (renumber).
+    assert.equal(finding!.kind === "chapter-contract" && finding!.problem.shape, "chapter-sequence");
+    assert.ok(finding!.statement.includes(`chapter(s) ${ordinals.join(", ")} rather than 1..3`), finding!.statement);
+  }
+});
+
+test("a document numbered 1..N in order has no chapter-contract finding, and the class still says what it examined", () => {
+  const clean = chaptered([1, 2, 3, 4, 5], 5);
+  const result = check([clean]);
+  assert.deepEqual(result.findings.filter((finding) => finding.kind === "chapter-contract"), []);
+  const row = reading(result, "chapter-contract");
+  // Never vacuous: the run recorded a contract, so there is always an object. A vacuous arm here would be the
+  // cheapest escape from the gate — write no numbered chapter at all and be reported as having nothing to check.
+  assert.equal(row.objects.state, "examined");
+  assert.equal(row.objects.state === "examined" && row.objects.objects, 5);
+  assert.match(row.statement, /5 template-section requirement row\(s\)/u);
+});
+
+test("the assembler's own Contents and Companions headings are not chapters", () => {
+  // The assembled stand-in already emits `## Contents`; `## Companions` is added here so both of the headings the
+  // real assembler writes are present. Neither carries a number, so a document that owes 2 chapters and writes 2
+  // is clean with both of them in place — and would be short by two if they were counted.
+  const withCompanions = chaptered([1, 2], 2);
+  const markdown = `${withCompanions.markdown}\n\n## Companions\n\n| companion | path |\n`;
+  const result = check([{ ...withCompanions, markdown }]);
+  assert.deepEqual(result.findings.filter((finding) => finding.kind === "chapter-contract"), []);
+  assert.equal(numberedChapters(markdown).length, 2, "the two assembler headings must not be counted as chapters");
+  assert.ok(markdown.includes("## Contents") && markdown.includes("## Companions"), "both assembler headings are in these bytes");
+});
+
+test("a document this run recorded no chapter contract for is vacuous, and only that class is", () => {
+  // The one vacuous arm, and it is about the CONTRACT rather than the document. A run that used the
+  // `request-append` door assembles a document `contract/requirements.json` holds no row for; refusing it would
+  // produce no reading for ANY document of that run, and holding it to 0 would call every chapter it wrote an
+  // excess. `tests/unit-consistency-e2e.test.ts` drives the same state through the real append and re-plan doors.
+  const result = check([document([unit(LEAF)], { plannedChapterCount: null })]);
+  assert.deepEqual(result.findings.filter((finding) => finding.kind === "chapter-contract"), []);
+  const row = reading(result, "chapter-contract");
+  assert.equal(row.objects.state, "vacuous");
+  assert.match(row.statement, /records no template-section requirement row/u);
+  // A document that DOES have a contract and writes no chapter is still a finding: the vacuum is not an escape.
+  const noChapters = check([{ ...document([unit(LEAF)]), markdown: "## 概述\n\n正文。\n", plannedChapterCount: 3 }]);
+  assert.equal(noChapters.findings.filter((finding) => finding.kind === "chapter-contract").length, 1);
+});
+
+test("an unterminated code fence is named in the finding, because it is what swallowed the chapters", () => {
+  // A renderer runs an unclosed fence to the end of the document, so the count is right about what a reader sees —
+  // but the repair is one backtick, not the chapters an author would otherwise go looking for, and this class
+  // seeds every unit of the document.
+  const swallowed = { ...chaptered([1], 3), markdown: "## 1. 一\n\n```mermaid\ngraph TD\n\n## 2. 二\n\n## 3. 三\n", plannedChapterCount: 3 };
+  const findings = check([swallowed]).findings.filter((finding) => finding.kind === "chapter-contract");
+  assert.equal(findings.length, 1);
+  assert.match(findings[0]!.statement, /a code fence opened on line 3 of the assembled document is never closed/u);
+});
+
+test("the chapter class is reachable for every audience, not only the prd lens", () => {
+  // The issue's review point: this gate is about the chapter contract every template states, so a document for an
+  // engineer reader is held to it exactly as a prd one is — and its count comes from ITS OWN recorded rows.
+  const engineering = { ...chaptered([1, 2, 3], 4), audience: "engineer" as const, identifierPlacement: "in-prose" as const };
+  const findings = check([engineering]).findings.filter((finding) => finding.kind === "chapter-contract");
+  assert.equal(findings.length, 1, "an engineering deliverable owes its recorded chapters too");
+  assert.equal(reading(check([{ ...engineering, plannedChapterCount: 3 }]), "chapter-contract").findings, 0);
 });

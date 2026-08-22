@@ -1,5 +1,5 @@
 /**
- * THE CROSS-UNIT CONSISTENCY CHECKER (R7c): the five content-level properties no collect gate can see, checked
+ * THE CROSS-UNIT CONSISTENCY CHECKER (R7c): the six content-level properties no collect gate can see, checked
  * over an assembled document and reported as findings that NAME THE UNITS.
  *
  * WHAT IT REFUSES TO DO, first, because it is the load-bearing constraint. It does not re-check topic coverage,
@@ -7,10 +7,10 @@
  * of their own, one level down, and a second derivation of any of them would be a second denominator — which is
  * the one thing gate 1b forbids. What is left after subtracting them is exactly what this file checks: properties
  * that are invisible to a gate looking at ONE unit, or that nothing looks at at all. `whyCollectCannotSee` states
- * that per class, as an exhaustive switch, so a sixth class cannot be added without answering the question that
+ * that per class, as an exhaustive switch, so a seventh class cannot be added without answering the question that
  * justifies the file existing.
  *
- * THE FIVE CLASSES, and the measured gap each one closes:
+ * THE SIX CLASSES, and the measured gap each one closes:
  *
  *   * `terminology-drift` — one term, two meanings, inside one document. `summary.terminology` is required from
  *     day one and shape-checked per unit; nothing ever compares two units' definitions, because collect audits
@@ -31,6 +31,17 @@
  *     in evidence (`identifierPlacement: "evidence-only"`), and recommendation language nothing negates. The
  *     advice check exists and runs on the SECTION path's assembled report only (`run.ts`); no unit ever sees it.
  *     Nothing anywhere reads `identifierPlacement` against prose.
+ *   * `chapter-contract` — a deliverable whose numbered chapters are not `1..N` for the N requirement rows this
+ *     run recorded for it. Every template says its `##` chapters are the fixed contract of the document, and until
+ *     this class nothing executed that sentence: a measured run wrote ELEVEN numbered chapters into a document
+ *     whose plan recorded TEN requirement rows, and no gate went red. The extra chapter's prose answered no
+ *     recorded requirement, so it was content outside the surface the run declares it audited. It counts and
+ *     orders and NEVER compares title text — the titles are written in the run's output language, so matching them
+ *     against the English template headings would red every correct non-English run. Its one vacuous arm is about
+ *     the CONTRACT, never about the document: a run that recorded no requirement row for a document (the
+ *     `request-append` door grows `plan/requests.json` only) has no chapter count to hold it to. "The document
+ *     wrote no numbered chapter" is a FINDING, not an absence of subject — otherwise the cheapest way past this
+ *     gate would be to write no chapter at all.
  *
  * IT IS A PURE FUNCTION OF VALUES. No path, no I/O, no clock, no model: the caller hands over the collected units'
  * bytes, the assembled document's bytes, the obligation ledger and the sealed evidence ids. Two runs of one input
@@ -53,6 +64,7 @@
 
 import { assertNever } from "../base/artifact-result.ts";
 import type { EvidenceMarker, InvestigationWorkItem, SectionClaim, WorkItemStatus } from "../base/types.ts";
+import { chapterInventory, describeChapterProblem, unterminatedFenceClause, type ChapterProblem } from "./chapter-inventory.ts";
 import type { AuthoringUnitKind } from "./plan-proposal.ts";
 import { unnegatedAdvice } from "./recommendation-language.ts";
 import type { IdentifierPlacement } from "./report-policy-registry.ts";
@@ -99,7 +111,8 @@ export const CONSISTENCY_FINDING_KINDS = [
   "unknown-overclaim",
   "cross-unit-contradiction",
   "dangling-reference",
-  "policy-violation"
+  "policy-violation",
+  "chapter-contract"
 ] as const;
 export type ConsistencyFindingKind = (typeof CONSISTENCY_FINDING_KINDS)[number];
 
@@ -122,6 +135,8 @@ export function whyCollectCannotSee(kind: ConsistencyFindingKind): string {
       return "assembly resolves the links IT writes and nothing resolves the ones a model wrote in unit prose; a claim's workItemIds are not validated anywhere on the unit path";
     case "policy-violation":
       return "the advice check runs on the section path's assembled report only, and no gate reads the lens policy's identifier placement against prose";
+    case "chapter-contract":
+      return "a document's chapter set is the concatenation of every unit's prose, so no gate looking at one unit can count it, and nothing anywhere reads the run's recorded requirement rows back against the deliverable they were materialized for";
   }
   return assertNever(kind, "consistency finding kind");
 }
@@ -146,6 +161,22 @@ export interface ConsistencyDocument {
   readonly audience: ReportAudience;
   /** From this document's lens policy, which plan validation has already pinned to the registry. */
   readonly identifierPlacement: IdentifierPlacement;
+  /**
+   * How many numbered chapters this deliverable owes: the number of template-section requirement rows THIS RUN
+   * recorded for it, or null when it recorded none.
+   *
+   * It comes from the run's own `contract/requirements.json` rather than from a template file on disk. A template
+   * is what the code says today; the requirement rows are what the run committed to, and a gate that re-read the
+   * template would change its verdict about an archived run every time a heading moved.
+   *
+   * NULL IS A REAL STATE OF A REAL RUN, not a missing argument, which is why the field is required and its type
+   * admits it. `contract/requirements.json` is written once by prepare; the supported `request-append` door grows
+   * `plan/requests.json` only. So a run that was asked for one more audience assembles a document the contract
+   * never recorded a row for — and the epic's own headline case would otherwise make this checker throw and
+   * produce NO reading for ANY document of that run. Null is reported as `vacuous` with that reason, which leaves
+   * the other five classes speaking.
+   */
+  readonly plannedChapterCount: number | null;
   /** Every unit of this document, in the plan's one collection order. Never empty. */
   readonly units: readonly ConsistencyUnit[];
 }
@@ -247,6 +278,21 @@ export type ConsistencyFinding =
       readonly unitIds: readonly string[];
       readonly statement: string;
       readonly violation: PolicyViolation;
+    }
+  | {
+      readonly kind: "chapter-contract";
+      readonly documentId: string;
+      /**
+       * Every unit of the document.
+       *
+       * The chapter set is the concatenation of every unit's prose, and Core does not decide WHICH unit should
+       * have written the missing chapter or dropped the extra one — that is a judgement about content, and the
+       * repair is "make the document's chapters 1..N", which an author performs across the units. Same doctrine,
+       * and the same stated cost, as terminology-drift naming every unit that defines the term.
+       */
+      readonly unitIds: readonly string[];
+      readonly statement: string;
+      readonly problem: ChapterProblem;
     };
 
 /**
@@ -320,6 +366,10 @@ export function describeFinding(finding: ConsistencyFinding): string {
       return finding.violation.shape === "identifier-in-prose"
         ? `evidence id ${finding.violation.evidenceId} appears in visible prose`
         : `advice wording ${finding.violation.pattern} is not negated`;
+    case "chapter-contract":
+      return finding.problem.shape === "chapter-count"
+        ? `the deliverable writes ${finding.problem.found} numbered chapter(s) against ${finding.problem.expected} recorded requirement row(s)`
+        : `the deliverable's ${finding.problem.expected} chapter(s) are numbered ${finding.problem.ordinals.join(", ")} rather than 1..${finding.problem.expected}`;
   }
   return assertNever(finding, "consistency finding");
 }
@@ -338,7 +388,8 @@ export function checkUnitConsistency(input: ConsistencyInput): ConsistencyResult
       unknownOverclaim(document, input.workItems),
       crossUnitContradiction(document, input.workItems),
       danglingReference(document, anchors, input.workItems),
-      policyViolation(document, input.frozenEvidenceIds)
+      policyViolation(document, input.frozenEvidenceIds),
+      chapterContract(document)
     ];
     // The class order is the union's order, asserted rather than assumed: a reading that silently reordered would
     // move the golden without any check having changed.
@@ -797,4 +848,54 @@ function identifierPlacementSubject(
       return `recommendation language only; this document's ${document.audience} lens places identifiers in prose`;
   }
   return assertNever(state, "identifier placement rule state");
+}
+
+// --- 6. chapter contract ----------------------------------------------------------------------------------------
+
+/**
+ * The deliverable's numbered chapters against the requirement rows this run recorded for it.
+ *
+ * IT IS NEVER VACUOUS, and that is the whole point. Every other class here can honestly have nothing to look at —
+ * a document whose units define no term has no definition to compare. This one always has an object: the run
+ * recorded N requirement rows for this document, so there is always a contract and always a document to hold
+ * against it. A `vacuous` arm would be a hole in the exact shape the gate exists to close, because the cheapest
+ * way to escape a chapter check is to write no numbered chapter at all — that is `0` against `N`, which is a
+ * finding, not an absence of subject.
+ *
+ * IT NAMES EVERY UNIT OF THE DOCUMENT. See the finding arm: the chapter set belongs to the document, not to any
+ * one unit, and choosing a culprit would be Core deciding which unit should have written the missing chapter.
+ */
+function chapterContract(document: ConsistencyDocument): { kind: "chapter-contract"; objects: ClassObjects; findings: ConsistencyFinding[] } {
+  if (document.plannedChapterCount === null) {
+    // The ONLY vacuous arm, and it is about the CONTRACT rather than about the document: this run recorded no
+    // chapter contract for these bytes, so there is nothing to hold them to. It is unreachable from prose — no
+    // model can write its way into it — which is what keeps it from being the cheap escape a "the document has no
+    // chapter" arm would have been.
+    return {
+      kind: "chapter-contract",
+      objects: {
+        state: "vacuous",
+        reason: `this run's contract records no template-section requirement row for ${document.documentId}, so the number of chapters its deliverable owes was never fixed; contract/requirements.json is written once by prepare and the request-append door grows plan/requests.json only, so a document added to an existing run has no recorded chapter contract`
+      },
+      findings: []
+    };
+  }
+  const inventory = chapterInventory(document.markdown, document.plannedChapterCount);
+  const fence = unterminatedFenceClause(inventory);
+  const findings = inventory.problems.map((problem): ConsistencyFinding => ({
+    kind: "chapter-contract",
+    documentId: document.documentId,
+    unitIds: unitList(document.units.map((unit) => unit.unitId)),
+    problem,
+    statement: `${describeChapterProblem(problem, document.documentId)}.${fence === null ? "" : ` ${fence}.`} Every unit of the document is named because the chapters are the concatenation of all of their prose and this checker does not decide which unit owes the repair.`
+  }));
+  return {
+    kind: "chapter-contract",
+    objects: {
+      state: "examined",
+      objects: inventory.chapters.length,
+      subject: `numbered chapter(s) against the ${document.plannedChapterCount} template-section requirement row(s)`
+    },
+    findings
+  };
 }

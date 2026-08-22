@@ -23,7 +23,23 @@
 //
 // THE CANNED DRAFT THIS PINS is `unitContent` in `tests/unit-fixture.ts` — the shared model-free draft generator.
 // Editing it moves this golden on purpose; the negative test below is what proves the sensitivity is real rather
-// than assumed.
+// than assumed. That draft now writes the NUMBERED CHAPTERS the document owes (one per template-section
+// requirement row this run recorded, dealt across the document's units in assembly order), because every report
+// template states its `##` chapters are the fixed contract of the deliverable and a fixture whose deliverable
+// ignored that contract was not shaped like the artifact it stands for.
+//
+// REGENERATING IT, when a reviewed change moves it (verified to reproduce the checked-in bytes exactly, from the
+// repository root):
+//
+//   node --experimental-strip-types --input-type=module-typescript --eval '
+//     import { writeFileSync } from "node:fs";
+//     import { assembleUnits } from "./src/run/stages/unit-assemble-stage.ts";
+//     import { collectedRun } from "./tests/unit-assembly-fixture.ts";
+//     import { canonicalUnitAssembleProjection } from "./eval/unit-assemble-canonical.ts";
+//     const run = await collectedRun();
+//     await assembleUnits(run.runDir, "write");
+//     writeFileSync("eval/golden/unit-assemble-canonical.txt", canonicalUnitAssembleProjection(run.runDir).text);
+//   '
 
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -33,7 +49,8 @@ import { dirname, join } from "node:path";
 import { assembleUnits } from "../../src/run/stages/unit-assemble-stage.ts";
 import { unitDocumentReportPath } from "../../src/report/unit-assembly-paths.ts";
 import { collectedRun, redraftUnit } from "../../tests/unit-assembly-fixture.ts";
-import type { PlannedRun } from "../../tests/unit-fixture.ts";
+import { chapterOrdinalsFor } from "../../tests/fixture-chapters.ts";
+import { unitContent, type PlannedRun } from "../../tests/unit-fixture.ts";
 import { canonicalUnitAssembleProjection } from "../unit-assemble-canonical.ts";
 
 const GOLDEN = join(import.meta.dirname, "..", "golden", "unit-assemble-canonical.txt");
@@ -122,9 +139,13 @@ test("a one-character edit to a drafted unit moves the canonical projection off 
   // Re-drafted and re-collected rather than edited on disk: the ledger row vouches for these bytes, so an edit
   // behind its back is refused by assemble (and that refusal is `tests/unit-assemble.test.ts`'s business). The
   // supported way to change a unit's prose is to write it again.
-  // No heading of its own: `normalizeSection` prepends the PLAN's title, exactly as the fixture's own
-  // canned draft does, so the only difference from the golden is the one character.
-  await redraftUnit(second, unitId, `${unitId} 记录当時状态。\`事实\``);
+  // Built FROM the canned generator rather than typed out beside it, so this unit keeps the exact chapters the
+  // document owes and the only difference from the golden is the one character. Spelling the prose here a second
+  // time would make this test go red for a chapter that moved, which is not the sensitivity it is asserting.
+  const redrafted = second.view.byId.get(unitId)!;
+  const canned = unitContent(redrafted, await chapterOrdinalsFor(second.runDir, second.view, redrafted));
+  // A string replacement hits the FIRST occurrence only, which is the one sentence this flip is aimed at.
+  await redraftUnit(second, unitId, canned.replace("记录当前状态", "记录当時状态"));
   await assembleUnits(second.runDir, "write");
 
   const mutated = canonicalUnitAssembleProjection(second.runDir).text;
