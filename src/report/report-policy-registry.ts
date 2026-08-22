@@ -31,6 +31,18 @@ export type TerminologyDepth = "business" | "mixed" | "implementation";
 export type IdentifierPlacement = "evidence-only" | "in-prose";
 /** How the document is read: front to back, or looked up. */
 export type ReadingMode = "narrative" | "lookup";
+/**
+ * Whether the document restates its findings as sign-off items.
+ *
+ * `required` no longer has a holder: 57B-497 deleted the PRD's acceptance chapter on the user's instruction ("a PRD
+ * states behavior, not sign-off conditions"), and prd was the only intent that asked for one. The flag is therefore
+ * constant across every intent and reads as a dead declaration — retiring the field outright is the honest end
+ * state, and it is deferred to its own chore rather than folded in here BECAUSE the field is inside the digested
+ * policy content: removing it moves all eight intent digests and shortens the packet header, which moves every
+ * recorded-request digest, every unit identity and the two ARCHIVAL identity readings whose run directories are not
+ * in this repository (`eval/tests/unit-cache-identity-fixture-readings.test.ts` states that law). Flipping prd alone
+ * moves one digest and nothing else, which is what this slice is scoped to pay.
+ */
 export type AcceptanceChecklist = "required" | "not-required";
 
 export interface LensPolicy {
@@ -181,11 +193,11 @@ const INTENTS: Record<string, PolicyEntry<IntentPolicy>> = {
     acceptanceChecklist: "not-required"
   }),
   // The prd row restates what the existing prd document instruction asks for: boundary values, a permission
-  // matrix, verbatim interface text, an acceptance checklist, tables over prose.
+  // matrix, verbatim interface text, tables over prose. No acceptance chapter since 57B-497 — see the flag's type.
   "prd": intentEntry("prd", "v1", {
     task: "Specify the current behaviour as a requirements document: rules with boundary values, permission matrix, verbatim interface text.",
     reading: "lookup",
-    acceptanceChecklist: "required"
+    acceptanceChecklist: "not-required"
   }),
   "audit": intentEntry("audit", "v1", {
     task: "Report what is known about the scope, how it was verified, and what remains undetermined.",

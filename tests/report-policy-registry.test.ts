@@ -36,7 +36,7 @@ const PINNED = [
   { key: "deep-dive", id: "intent.deep-dive", version: "v1", digest: "b971bfbe143bccf855876ed5e0827dc13c9c4023243eacf6addb54aacd003329" },
   { key: "onboarding", id: "intent.onboarding", version: "v1", digest: "fda50ebe828634da665f21273232c3565004849974dbf6381d2ac97b958fab51" },
   { key: "reference", id: "intent.reference", version: "v1", digest: "4a3b2dd030571f17f59fe4b9767f0e5a879b4d89c26206e6c0256b3ef5d8d8f8" },
-  { key: "prd", id: "intent.prd", version: "v1", digest: "b99b94e93c04f7a4a71e0c5f580bb20b986a87f518f17d5148b0940067388efb" },
+  { key: "prd", id: "intent.prd", version: "v1", digest: "557f295bf3cf50827cedbe744b5bdf4ca0ddbef849be211277ef2a38bc503862" },
   { key: "audit", id: "intent.audit", version: "v1", digest: "611745b42c8c130753fd32ba7bf0e19427cfb24cbd0caf513d505dd925de0173" },
   { key: "decision-support", id: "intent.decision-support", version: "v1", digest: "3f15a6136cfedd7cabf6d3fcf6fbc362d2dbebae7b199a9b7594ee891cad6eb4" },
   { key: "change-impact", id: "intent.change-impact", version: "v1", digest: "c65522048e6ab79e69cab72b257a5da0c701e068b75c5ebf94eb776060bf2e47" }
@@ -143,10 +143,16 @@ test("the two audiences the legacy vocabulary had keep the distinction the exist
   assert.equal(lensPolicyFor("product-manager").content.terminologyDepth, "business");
   assert.equal(lensPolicyFor("engineer").content.identifiers, "in-prose");
   assert.equal(lensPolicyFor("engineer").content.terminologyDepth, "implementation");
-  // prd is the one intent that asks for an acceptance checklist, and it reads as lookup, not narrative.
-  assert.equal(intentPolicyFor("prd").content.acceptanceChecklist, "required");
+  // prd reads as lookup, not narrative — that part is unchanged. What changed in 57B-497: prd was the ONE intent
+  // that asked for an acceptance checklist, and its chapter is gone, so no intent asks for one any more. The loop
+  // is the shape of that claim: a future entry that reintroduces `required` has to argue with a red test rather
+  // than slip in beside the other seven. (The flag is now constant and therefore dead; retiring the field
+  // itself is deferred to its own chore because it is digested content — see the type's comment in the registry.)
   assert.equal(intentPolicyFor("prd").content.reading, "lookup");
-  assert.equal(intentPolicyFor("overview").content.acceptanceChecklist, "not-required");
+  for (const intent of REPORT_INTENTS) {
+    assert.equal(intentPolicyFor(intent).content.acceptanceChecklist, "not-required",
+      `intent ${intent} asks for an acceptance checklist; no report intent may, since 57B-497 deleted the PRD's acceptance chapter`);
+  }
   // No intent licenses advice: recommendations are out of contract for the whole report side.
   for (const intent of REPORT_INTENTS) assert.doesNotMatch(intentPolicyFor(intent).content.task, /recommend|propose the/i);
 });

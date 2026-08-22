@@ -1,6 +1,6 @@
 ---
 id: excavator-writing-rules
-version: 1.3.0
+version: 1.4.0
 ---
 
 # Excavator writing rules
@@ -35,8 +35,6 @@ A claim that asserts equivalence, consistency, sameness, or shared values or beh
 ## Current state only
 
 Describe what the reviewed snapshot contains and what its paths permit. Do not provide recommendations, remediation plans, target architectures, migration steps, acceptance criteria, or action items.
-
-**Exception — PRD reports' acceptance chapter.** A PRD report's acceptance chapter is exempt from the acceptance-criteria prohibition: each acceptance item restates a current behavior that is already shown in the report's evidence. Introducing behavior not shown in evidence remains forbidden, so the chapter is a checklist view of established facts, never a list of new requirements.
 
 A problem may include:
 
@@ -87,10 +85,14 @@ Use careful language:
 The `prd` feature audience produces a requirement-shaped statement of a capability's current behavior (`references/prd-feature.md`). It is feature-only — there is no prd overview. Its rules refine, not replace, the general rules above:
 
 - No background chapter. Open with current behavior; do not write goals, history or roadmap narrative.
+- **No acceptance chapter, no sign-off conditions, no checkbox lists.** The "current state only" rule above applies to a PRD without exception: the document states how the capability behaves, never how someone would verify it.
+- **Product language decides what may appear in a chapter.** The test: information a person who only *uses* the running system can observe in the interface, or be told as a business rule, is product information and belongs in the reading flow; information that takes reading code or inspecting the database to know is implementation information and belongs only in the collapsed evidence block. Where one fact has both forms, the product form is the one written — "the reset link stops working 30 minutes after the email is sent", not "the token lifetime is 1800 seconds".
+  - **Product, so it may be written in prose:** page names and **frontend route paths** (`/manage/employee/list` — the user reads it in the address bar and can bookmark it); a field's business name, whether it is required or unique, its format and its length limit (the form tells the user); thresholds, time limits and formulas; verbatim UI text; role and permission-point names as the product names them; the observable behavior of an underlying mechanism, such as a link expiring after 30 minutes or an expired session returning the user to the sign-in page with a given message.
+  - **Implementation, so it stays in the evidence block:** HTTP methods and server API paths; table names, column names, column types, indexes, foreign keys and schema definitions; class, function and file names; middleware and framework mechanisms, including whether an authorization is a declared route guard or an inline check; HTTP status codes; how a token is implemented.
 - Every rule line carries the actual formula or threshold **values** from the evidence, not a vague description of the rule.
 - UI strings and notification templates are quoted **verbatim** from the source string literals or template constants, with a cited source window. A string assembled at runtime, or a template that lives outside the reviewed source, is not covered — do not write it.
-- The permission matrix distinguishes authorization that is **declared** (middleware, route guards) from authorization enforced by an **inline check** inside the handler.
-- Acceptance items are claim-bound like any substantive statement (see the acceptance-chapter exception under "Current state only").
+- The **declared** (middleware, route guard) versus **inline check** distinction is a diagnostic fact about the code, not a permission fact: keep it out of the permission matrix, record it in the evidence block, and state it in the appendix chapter when it limits what the matrix could establish.
+- **Requirement trace anchors.** The trace index defines exactly two id series: `FR-` plus three digits (`FR-001`), one line per established capability, and `PAGE-` plus three digits (`PAGE-001`), one line per page entry. Each id is unique within the document and numbered from `001` upward in document order. No other series is defined there — no acceptance ids, no interaction-component ids, no test ids.
 - Prefer tables, lists and short paragraphs; no long prose. Implementation identifiers stay in the collapsed evidence blocks, the same as product reports.
 - A PRD covers only what the code can analyze. Things code inherently cannot give — runtime configuration values, rendered pixels or animation, real delivery success, design intent — are simply **not written**; padding the report with "unavailable" placeholders for them violates readability. Reserve `unavailable` / `cannot-determine` for something that *should* exist in the code but was not found this pass.
 
