@@ -73,6 +73,9 @@ const PRODUCER_IDS: readonly string[] = ARTIFACT_REGISTRY.producers.map((produce
 const INVENTORY_QUERY_BUDGET = 400;
 const CODEGRAPH_PRODUCER_VERSION = "codegraph-producer-v2-function-and-route";
 
+/** How many unanchored table names one warning spells out before it rolls the rest up. A warning is bounded. */
+const UNANCHORED_TABLES_NAMED = 10;
+
 export interface FactsStageResult {
   readonly units: ArtifactResult<UnitsArtifact>;
   /** One entry per registered producer. Checked against the registry before anything is written. */
@@ -376,7 +379,11 @@ async function collectDbSchema(
     warnings.push(`the schema fingerprinter located ${filesOutsideLedger} source file(s) that layer 1's census did not count; their tables are unknown rather than absent`);
   }
   if (observations.tablesWithoutDeclaration.length > 0) {
-    warnings.push(`${observations.tablesWithoutDeclaration.length} recovered table(s) carry no declaration to anchor at (${observations.tablesWithoutDeclaration.join(", ")}), so they are counted but published as no fact`);
+    // Bounded, and the bound is self-describing: a warning that inlines an unbounded list is P18 in a metrics
+    // field. The full count is the number; `tablesWithoutDeclaration` in the envelope carries the same count.
+    const named = observations.tablesWithoutDeclaration.slice(0, UNANCHORED_TABLES_NAMED);
+    const rest = observations.tablesWithoutDeclaration.length - named.length;
+    warnings.push(`${observations.tablesWithoutDeclaration.length} recovered table(s) carry no declaration to anchor at (${named.join(", ")}${rest > 0 ? ` and ${rest} more` : ""}), so they are counted but published as no fact`);
   }
   return {
     status: "observed",
