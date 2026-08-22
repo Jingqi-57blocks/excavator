@@ -18,7 +18,7 @@ Supported requests:
 - several feature reports;
 - overview plus one or several feature reports;
 - product audience, engineering audience, or both;
-- a `prd` feature audience — a requirement-shaped statement of a feature's current behavior. Feature-only: there is no prd overview, and `both`/`all` never imply prd (request it by name);
+- a `prd` feature audience — a requirement-shaped statement of a feature's current behavior. Feature-only: there is no prd overview, and `both`/`all` never imply prd (request it by name). One PRD request produces **one document** unless the user asked for several — see "One capability, one PRD" below;
 - any output language.
 
 Examples:
@@ -110,6 +110,16 @@ Example:
 ```
 
 Generate aliases semantically from the subject before preparing the run. Aliases are navigation terms, not report terminology.
+
+### One capability, one PRD
+
+Each `features[]` entry is one scope and produces one document. Splitting a capability across entries therefore splits the report, so choose the entries deliberately rather than by how the user happened to phrase the request.
+
+Default to **one subject covering the whole capability the user named**, with every sub-domain term carried in `aliases`. A request naming two things that the interface presents as one — "clients and projects", "orders and shipments" — is one subject with both vocabularies in its aliases, not two entries. Create a second entry only when the user asked for separate documents.
+
+**Split on interface entry points, not on backend structure.** Two candidate subjects that share a router outlet, a landing page, or a list screen must stay in one subject: separate storage, separate services or separate route groups behind that shared screen do not justify the split, because the cut would run through the middle of a page and leave shared screens described by neither document. A shared list page is the clearest signal — whichever document you assign it to, the other one loses it, and in practice both authors assume it belongs to the other and nobody opens it.
+
+Splitting is also the more expensive default: two documents re-establish the same shared context twice and can disagree about it.
 
 
 ## Optional index management
