@@ -1,5 +1,5 @@
 import { assertNever } from "../base/artifact-result.ts";
-import type { FactKindId } from "../base/fact-kind-registry.ts";
+import { isFactKindId } from "../base/fact-kind-registry.ts";
 import type { TopicFacet } from "./topic-candidate.ts";
 
 /**
@@ -17,8 +17,16 @@ import type { TopicFacet } from "./topic-candidate.ts";
  * `null` is a decision, not a gap: it means "this kind is not a topic subject", and the catalog COUNTS every such
  * fact in `factRouting.unmapped`. The wcp baseline's 6,008 indexed functions are not report topics, and the
  * catalog says so with a number rather than by omission.
+ *
+ * AND THAT IS WHY THE PARAMETER IS A STRING. Producer envelopes are JSON read off disk, so a relocated or resumed
+ * run directory can carry a kind this revision does not register. Answering `null` puts it in the unmapped census
+ * with its own row; narrowing to `FactKindId` and letting the switch fall through to `assertNever` would take the
+ * whole catalog — and the plan stage behind it — down over one row it could have counted. The guard is the
+ * registry's own, so "registered" has one definition; the exhaustive switch below is still compile-time total
+ * over the union, which is what makes a NEW kind a typecheck failure here.
  */
-export function facetForFactKind(kind: FactKindId): TopicFacet | null {
+export function facetForFactKind(kind: string): TopicFacet | null {
+  if (!isFactKindId(kind)) return null;
   switch (kind) {
     // Routes: one topic per ledger row, per producer. An indexed route and a recovered route are two rows and
     // therefore two topics — merging them would be a graph computation wearing a de-duplication's clothes.

@@ -362,6 +362,15 @@ test("a built producer envelope with facts populates its facet, and the fact's o
   assert.equal(borrowed.facets.find((row) => row.facet === "entity")!.outcome.state, "ledger-empty");
   assert.ok(borrowed.factRouting.unmapped.some((row) => row.producer === "db-schema" && row.kind === "indexed-function" && row.facts === 1),
     "and it is counted in the unmapped census rather than dropped");
+
+  // A kind THIS revision does not register at all — the shape a relocated or resumed run directory written by
+  // another engine revision carries. It must be COUNTED, not fatal: taking the whole catalog (and the plan stage
+  // behind it) down over one row the census could have held is the opposite of "no fact is silently dropped".
+  await writeEntityEnvelope([{ factId: "x:from-the-future", kind: "db-materialized-view", membership, detail: { name: "x" } }]);
+  const unknown = buildTopicCatalog(await loadTopicCatalogSource(runDir, await manifestOf(runDir)));
+  assert.equal(unknown.facets.find((row) => row.facet === "entity")!.outcome.state, "ledger-empty");
+  assert.ok(unknown.factRouting.unmapped.some((row) => row.producer === "db-schema" && row.kind === "db-materialized-view" && row.facts === 1),
+    "an unregistered kind gets its own census row instead of throwing");
 });
 
 test("an empty built envelope is a ledger-empty facet, not an absent one", async () => {

@@ -370,7 +370,7 @@ async function collectDbSchema(
     return { status: "absent", envelope: unavailable(`the schema extractor failed over ${census.reduce((total, source) => total + source.parsed, 0)} source file(s): ${(error as Error).message}`, true) };
   }
   if (extraction.tables.length === 0) {
-    return { status: "absent", envelope: unavailable(schemaEmptyYieldCause(census, extraction.warnings.length), false) };
+    return { status: "absent", envelope: unavailable(schemaEmptyYieldCause(census, unsupported, extraction.warnings.length), false) };
   }
 
   const observations = schemaObservations(extraction);
@@ -388,7 +388,7 @@ async function collectDbSchema(
   return {
     status: "observed",
     producerVersion: SCHEMA_FACTS_VERSION,
-    configDigest: schemaConfigDigest({ sources: census, engine: extraction.engine, extensions: [...SCHEMA_EXTENSIONS] }),
+    configDigest: schemaConfigDigest({ sources: census, extensions: [...SCHEMA_EXTENSIONS] }),
     completeness: schemaCompleteness({ extraction, observations, sources: census, unsupported, filesOutsideLedger })
   };
 }

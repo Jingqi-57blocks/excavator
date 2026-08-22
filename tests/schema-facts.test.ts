@@ -170,19 +170,29 @@ test("not-detected is a determination, and it carries the two premises layer 8 r
 });
 
 test("a parse that read real sources and recovered no table says so, with the counts", () => {
-  const cause = schemaEmptyYieldCause([
+  const parsed: readonly SchemaSourceCensus[] = [
     { format: "sequelize-migration", discovered: 293, parsed: 293 },
     { format: "gorm", discovered: 315, parsed: 300 }
-  ], 7);
-  assert.match(cause, /^593 schema source file\(s\) were parsed \(gorm 300, sequelize-migration 293\) and yielded no table, with 7 parser warning\(s\); the sources exist, so their tables are unrecovered rather than absent$/);
+  ];
+  assert.match(schemaEmptyYieldCause(parsed, [], 7),
+    /^593 schema source file\(s\) were parsed \(gorm 300, sequelize-migration 293\) and yielded no table, with 7 parser warning\(s\); the sources exist, so their tables are unrecovered rather than absent$/);
+
+  // This is the ONE path with no `producerCompleteness` to carry `unsupportedFormats`, so the located-but-
+  // unparseable half has to ride on the cause or it leaves no trace anywhere.
+  assert.match(schemaEmptyYieldCause(parsed, [{ format: "Prisma", evidence: 2 }], 0),
+    /; 1 further format\(s\) with no parser were located \(at least Prisma 2 file\(s\)\)$/);
 });
 
 test("the producer's identity carries its mode, and its completeness names what it did not publish", () => {
-  const base = { sources: PARSED, extensions: [".go", ".js"] };
-  const mysql = schemaConfigDigest({ ...base, engine: { name: "MySQL", confidence: "high", evidence: [], alternatives: [] } });
-  const postgres = schemaConfigDigest({ ...base, engine: { name: "PostgreSQL", confidence: "high", evidence: [], alternatives: [] } });
-  const noEngine = schemaConfigDigest({ ...base, engine: undefined });
-  assert.equal(new Set([mysql, postgres, noEngine]).size, 3, "the detected engine is an input to the facts, so it is in the identity");
+  const base = schemaConfigDigest({ sources: PARSED, extensions: [".go", ".js"] });
+  assert.equal(schemaConfigDigest({ sources: PARSED, extensions: [".js", ".go"] }), base, "the extension set is a set, not an order");
+  assert.notEqual(schemaConfigDigest({ sources: PARSED, extensions: [".go"] }), base, "which extensions the fingerprinter branches on is part of the mode");
+  assert.notEqual(schemaConfigDigest({ sources: [{ format: "gorm", discovered: 2, parsed: 2 }], extensions: [".go", ".js"] }), base,
+    "which formats were parsed, and how many of their files, is part of the mode");
+  // The `discovered` count is NOT in it: the fingerprinter walks the target directory while layer 1's census may
+  // have been capped, so a digest over it would move with files the run was told not to look at.
+  assert.equal(schemaConfigDigest({ sources: [{ format: "sequelize-migration", discovered: 9000, parsed: 2 }], extensions: [".go", ".js"] }), base,
+    "a file the census never counted may not move the producer's identity");
   assert.equal(SCHEMA_FACTS_VERSION, "schema-facts-v1");
 
   const recovered = extraction({

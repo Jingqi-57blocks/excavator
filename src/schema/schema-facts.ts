@@ -4,7 +4,7 @@ import {
 } from "../base/coverage-basis.ts";
 import { sha256, stableJson } from "../base/util.ts";
 import type { FactDetail, ObservedFact } from "../facts/units/membership-map.ts";
-import type { DetectedEngine, SchemaExtraction, TableSchema } from "./types.ts";
+import type { SchemaExtraction, TableSchema } from "./types.ts";
 
 /**
  * The schema extractor as a layer-3 fact producer: one fact kind, one determination tree.
@@ -158,6 +158,12 @@ export interface SchemaSourceDeterminationInput {
  */
 export function schemaSourceDetermination(input: SchemaSourceDeterminationInput): NotApplicable | Unavailable | null {
   if (!input.mechanismAvailable) {
+    // UNREACHABLE TODAY and kept deliberately, which is not the same as a bucket that lies. `db-schema`'s
+    // availability is the constant `builtIn` (`src/run/mechanism-availability.ts`), so nothing produces this arm
+    // now. It stays because it is the branch that keeps the producer's answer CONSISTENT with the record layer 8
+    // re-reads: `validateNotApplicable` refuses a not-detected whose mechanism the ledger calls unavailable, so
+    // without this check the producer could publish a determination its own freeze gate rejects. It is a
+    // precondition on a record, not a census bucket, and it does not claim to be reachable.
     return unavailable(`the db-schema mechanism is unavailable this run (${input.mechanismUnavailableCause ?? "no cause recorded"}), so no source file could be fingerprinted`, true);
   }
   // A parseable source outranks an unparseable one: a target with both gorm models and a Prisma schema still has
@@ -205,22 +211,43 @@ export function schemaSourceDetermination(input: SchemaSourceDeterminationInput)
  * This is the silent-empty the slice was written against: a `Built` envelope with zero facts reads downstream as
  * "the ledger is there and holds no row for this facet", which is indistinguishable from a target with no data
  * model. A parser that read 293 migrations and produced nothing is a parser failure, and it says so.
+ *
+ * It also carries the unparseable families, because this is the ONE path that never reaches
+ * `schemaCompleteness` — an `Unavailable` envelope has no `producerCompleteness` to put `unsupportedFormats` in,
+ * so a located Prisma schema would otherwise leave no trace at all on exactly the run that most needs it.
  */
-export function schemaEmptyYieldCause(sources: readonly SchemaSourceCensus[], warnings: number): string {
-  return `${sources.reduce((total, source) => total + source.parsed, 0)} schema source file(s) were parsed (${census(sources.map((source) => ({ label: source.format, count: source.parsed })))}) and yielded no table, with ${warnings} parser warning(s); the sources exist, so their tables are unrecovered rather than absent`;
+export function schemaEmptyYieldCause(
+  sources: readonly SchemaSourceCensus[],
+  unsupported: readonly SchemaUnsupportedCensus[],
+  warnings: number
+): string {
+  const located = unsupported.length
+    ? `; ${unsupported.length} further format(s) with no parser were located (at least ${census(unsupported.map((entry) => ({ label: entry.format, count: entry.evidence })))} file(s))`
+    : "";
+  return `${sources.reduce((total, source) => total + source.parsed, 0)} schema source file(s) were parsed (${census(sources.map((source) => ({ label: source.format, count: source.parsed })))}) and yielded no table, with ${warnings} parser warning(s); the sources exist, so their tables are unrecovered rather than absent${located}`;
 }
 
-/** The producer's configuration and mode, digested into its envelope identity. */
+/**
+ * The producer's configuration and mode, digested into its envelope identity.
+ *
+ * EVERYTHING IN HERE IS A FUNCTION OF THE RUN'S OWN INPUTS, and two things are deliberately left out for that
+ * reason. The `discovered` counts, because the fingerprinter walks the target directory while layer 1's census may
+ * have been capped — a digest over `discovered` would move with files the run was told not to look at, which is
+ * the semantic-input-outside-the-identity failure one step removed. And the detected ENGINE, because it is not an
+ * input to these facts at all: no parser and no merge step reads it (`extractSchema` attaches it after the merge),
+ * so it is an annotation, and an annotation in an identity is a cache miss with no meaning. It stays in
+ * `producerCompleteness`, where a reading belongs.
+ */
 export function schemaConfigDigest(input: {
   readonly sources: readonly SchemaSourceCensus[];
-  readonly engine: DetectedEngine | undefined;
   readonly extensions: readonly string[];
 }): string {
   return sha256(stableJson({
     factsVersion: SCHEMA_FACTS_VERSION,
-    sources: [...input.sources].sort((a, b) => a.format.localeCompare(b.format)),
-    // The detected engine is an input to what the parsers make of a type string, so it belongs in the identity.
-    engine: input.engine ? { name: input.engine.name, confidence: input.engine.confidence } : null,
+    sources: input.sources
+      .filter((source) => source.parsed > 0)
+      .map((source) => ({ format: source.format, parsed: source.parsed }))
+      .sort((a, b) => a.format.localeCompare(b.format)),
     extensions: [...input.extensions].sort()
   }));
 }

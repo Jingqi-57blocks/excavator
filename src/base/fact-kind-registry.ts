@@ -273,6 +273,17 @@ function pairingBug(entry: FactKindEntry, membership: Membership): Error {
   return new Error(`Fact kind ${JSON.stringify(entry.id)} pairs seat rule ${JSON.stringify(entry.seatRule)} with membership ${JSON.stringify(membership.kind)}, which the legal-pairing table forbids`);
 }
 
+/**
+ * Whether a value off disk names a registered kind.
+ *
+ * The one guard, here rather than in each consumer: a producer envelope is JSON, so `kind` arrives as an
+ * unchecked string, and every consumer that switches on the closed union first has to ask this question. Two
+ * copies of the question would eventually disagree about what "registered" means.
+ */
+export function isFactKindId(value: unknown): value is FactKindId {
+  return typeof value === "string" && (FACT_KIND_IDS as readonly string[]).includes(value);
+}
+
 export function factKindById(id: FactKindId, registry: FactKindRegistry = FACT_KIND_REGISTRY): FactKindEntry {
   const entry = registry.kinds.find((kind) => kind.id === id);
   if (!entry) throw new Error(`Fact kind ${JSON.stringify(id)} is not registered`);
