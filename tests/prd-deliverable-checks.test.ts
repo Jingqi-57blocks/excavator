@@ -256,6 +256,31 @@ test("every leak token in the list is reachable, and each one names itself", () 
   }
 });
 
+// --- emphasis is decoration, and an upper-case word is not an id --------------------------------------
+
+test("underscore emphasis does not hide a defect from any of the four rules", () => {
+  // MEASURED HOLE, PINNED. `_` used to be a boundary character in the token rules while `DEFINITION_LEAD` treated
+  // it as decoration, so which emphasis mark a model reached for decided whether an error gate fired: `**AC-001**`
+  // was caught and `_AC-001_` was invisible, on three rules at once. Each line below was silent before the fix.
+  assert.deepEqual(shapes(prd(document([unit(LEAF, 1, "_FR-1_ 员工可登录。")]))), ["anchor-shape"]);
+  assert.deepEqual(shapes(prd(document([unit(LEAF, 1, "_AC-001_ 员工可登录。")]))), ["forbidden-anchor-series"]);
+  assert.deepEqual(shapes(prd(document([unit(LEAF, 1, "_FR-001_ 员工可登录。\n_FR-001_ 员工可重置密码。")]))), ["anchor-duplicate"]);
+  assert.deepEqual(shapes(prd(document([unit(LEAF, 1, "字段 _varchar_(100)。")]))), ["technical-leak"]);
+});
+
+test("an upper-case word that merely starts FR- or PAGE- is not a trace anchor", () => {
+  // A gate that redded a document for writing a locale or a key name would be redding prose that has nothing to do
+  // with the trace index. Every plausible drift from FR-001 keeps a digit, so nothing is given up here.
+  for (const line of ["语言代码 FR-FR 与 zh-CN 均支持。", "快捷键 PAGE-DOWN 翻页。", "字段前缀 FR- 保留。"]) {
+    assert.deepEqual(prd(document([unit(LEAF, 1, line)])), [], line);
+    assert.equal(scanPrdUnitProse(line).anchorTokens, 0, `${line} is not a trace anchor at all`);
+  }
+  // And the malformed shapes that DO carry a digit are untouched by that narrowing.
+  for (const line of ["- FR-00A 一。", "- FR-0012 一。", "- PAGE-1 一。"]) {
+    assert.deepEqual(shapes(prd(document([unit(LEAF, 1, line)]))), ["anchor-shape"], line);
+  }
+});
+
 // --- the three negative controls ------------------------------------------------------------------------
 
 test("the same bytes inside a collapsed evidence block or a fenced sample are silent", () => {

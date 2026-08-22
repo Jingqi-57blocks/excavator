@@ -44,7 +44,9 @@
 import { assertNever } from "../base/artifact-result.ts";
 import { visibleUnitText } from "./unit-claim-binding.ts";
 
-export const PRD_DELIVERABLE_CHECKS_VERSION = "prd-deliverable-checks-v1";
+// NO MODULE VERSION CONSTANT HERE, deliberately: this file publishes no artifact of its own. Its problems are
+// carried inside a `ConsistencyFinding`, and `UNIT_CONSISTENCY_VERSION` is the one version those bytes answer to.
+// A second version string nothing writes down would be a number that could never disagree with anything.
 
 /**
  * The five shapes, as a census. `tests/prd-deliverable-checks.test.ts` walks it and demands a fixture that
@@ -151,14 +153,32 @@ const TASK_LIST_ITEM = /^[\s>|]*(?:[-*+]|\d+[.)])[ \t]+\[[ xX]\](?=[\s|]|$)/u;
  * matched `(FR|PAGE)-\d{3}` could not see a violation: `FR-1` would simply not be a token it knows. Case-sensitive
  * on purpose — the contract's series are upper-case, and a case-insensitive rule would read `page-break` and the
  * `fr-` of an ordinary word as trace anchors.
+ *
+ * `_` IS NOT A BOUNDARY CHARACTER HERE, and that is a fix rather than an oversight. It used to be, and it made the
+ * gate depend on which emphasis mark a model reached for: `**FR-1**` was caught and `_FR-1_` was invisible —
+ * measured, on all three anchor rules at once — because the underscore of the emphasis read as part of an
+ * identifier. `DEFINITION_LEAD` below has always listed `_` as decoration, so the two rules in this file
+ * disagreed about one character. The cost of the fix is stated: `SOME_FR-001` now reads as a trace anchor. That
+ * is a shape no PRD writes, and a silent hole in an `error` gate is worth more than it.
  */
-const ANCHOR_TOKEN = /(?<![0-9A-Za-z_-])(FR|PAGE)-([0-9A-Za-z_-]*)/gu;
+const ANCHOR_TOKEN = /(?<![0-9A-Za-z-])(FR|PAGE)-([0-9A-Za-z-]*)/gu;
 
 /** The one legal suffix: exactly three ASCII digits. `FR-1`, `FR-0012` and `FR-A01` all fail it. */
 const WELL_FORMED_SUFFIX = /^[0-9]{3}$/u;
 
+/**
+ * A trace anchor is a NUMBERED series, so a suffix with no digit in it is not one of these ids at all.
+ *
+ * Without this, every upper-case word starting `FR-` or `PAGE-` was an `error`: a locale (`FR-FR`, `FR-CA`), a key
+ * name (`PAGE-DOWN`), a product code. That is a gate redding a document for prose that has nothing to do with the
+ * trace index — the one thing these rules may not do. Every plausible drift from `FR-001` keeps a digit (`FR-1`,
+ * `FR-01`, `FR-0012`, `FR-00A`), so nothing this rule exists for is given up; a bare `FR-` and an all-letter
+ * suffix are simply not this series.
+ */
+const NUMBERED_SUFFIX = /[0-9]/u;
+
 /** The id series the trace index is forbidden to define, by name: acceptance ids. */
-const FORBIDDEN_SERIES = /(?<![0-9A-Za-z_-])AC-[0-9]+/gu;
+const FORBIDDEN_SERIES = /(?<![0-9A-Za-z-])AC-[0-9]+/gu;
 
 /**
  * The decoration a definition may hide behind at the start of its line: whitespace, blockquote marks, table-cell
@@ -172,7 +192,9 @@ const DEFINITION_LEAD = /^(?:#{1,6}[ \t]|[-*+][ \t]|[0-9]+[.)][ \t]|[\s>|`*_])*/
 /** One compiled leak rule: the canonical token from the list, and the pattern that finds it. */
 const LEAK_RULES: ReadonlyArray<{ readonly token: string; readonly pattern: RegExp }> = TECHNICAL_LEAK_TOKENS.map((token) => ({
   token,
-  pattern: new RegExp(`(?<![0-9A-Za-z_])${token.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&").replace(/ /gu, "\\s+")}(?![0-9A-Za-z_])`, "giu")
+  // The boundaries exclude letters and digits but NOT `_`, for the reason `ANCHOR_TOKEN` states: with `_` in the
+  // class, `_varchar_` and `_NOT NULL_` — ordinary Markdown emphasis — were invisible to the tripwire.
+  pattern: new RegExp(`(?<![0-9A-Za-z])${token.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&").replace(/ /gu, "\\s+")}(?![0-9A-Za-z])`, "giu")
 }));
 
 /** Read one unit's visible prose against the four rules that need only that unit. */
@@ -194,6 +216,8 @@ export function scanPrdUnitProse(content: string): PrdUnitScan {
     }
     const lead = DEFINITION_LEAD.exec(line)![0].length;
     for (const match of line.matchAll(ANCHOR_TOKEN)) {
+      // An upper-case word that merely starts `FR-` or `PAGE-` is not a numbered id; see `NUMBERED_SUFFIX`.
+      if (!NUMBERED_SUFFIX.test(match[2]!)) continue;
       anchorTokens += 1;
       const token = match[0];
       if (!WELL_FORMED_SUFFIX.test(match[2]!)) {
