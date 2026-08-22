@@ -314,6 +314,13 @@ test("the scanner reports what it read, and a definition is an id that leads its
   for (const line of ["- **FR-001** — 员工可以提交请假申请。", "1. `FR-001` 员工可以提交请假申请。", "| FR-001 | 员工可以提交请假申请 |", "> FR-001 员工可以提交请假申请。"]) {
     assert.deepEqual(scanPrdUnitProse(line).anchorIds, ["FR-001"], line);
   }
+
+  // THE EDGE OF THE RULE, PINNED RATHER THAN LEFT TO CHANCE: an id in a table's SECOND column is a citation, not a
+  // definition, so two such rows are not reported as a duplicate. The trace index the template asks for puts the
+  // id first — as a list item or as the first cell — and both of those are covered above. This assertion exists so
+  // the limit is a decision somebody can find and argue with, not a surprise the day a model writes such a table.
+  assert.deepEqual(scanPrdUnitProse("| 员工登录 | FR-001 | 第 2 章 |").anchorIds, []);
+  assert.equal(scanPrdUnitProse("| 员工登录 | FR-001 | 第 2 章 |").anchorTokens, 1, "it is still read for shape");
 });
 
 test("duplicate detection groups by id, counts definitions and names every definer", () => {

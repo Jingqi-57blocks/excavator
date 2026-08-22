@@ -26,7 +26,9 @@
  * two places, which is the property the contract is about. An id MENTIONED mid-sentence somewhere else in the
  * document is a citation, and reporting that as a duplicate would red a document for doing the thing the index is
  * for. THE COST IS NAMED: a second definition written mid-line is not counted as a definition, so it is not
- * reported as a duplicate. The shape rule still reads that occurrence, and no observed defect has that form.
+ * reported as a duplicate — including an index written as a table whose id sits in the SECOND column. The trace
+ * index the template asks for leads with the id (a list item, or a table's first cell), both of which are
+ * definition sites; the shape rule still reads every other occurrence, and no observed defect has that form.
  *
  * THE TECHNICAL-LEAK LIST IS A TRIPWIRE AND SAYS SO IN ITS SEVERITY. A vocabulary list cannot be complete — that
  * is a property of vocabulary lists, not a gap in this one — so it reports `warning` and never fails a check. The
