@@ -1,0 +1,77 @@
+{
+  "appendStreams": [
+    {
+      "frozenThroughSequence": 5,
+      "id": "evidence.json",
+      "tailDigest": "382d154f3ff33a3c798e824ff3af8cc3cb2930e92b2051c8da128ef078963041"
+    }
+  ],
+  "assuranceVersion": "assurance-v5",
+  "boundaryFunctionsDigest": "4b74a7f9eeae791e5e27afec68cb119581f07faf164d133b0c335f6b1143ec47",
+  "completeness": {
+    "checks": [],
+    "closure": {
+      "decisions": 3,
+      "materialFlowsWithTraces": 1,
+      "probeResiduals": 0,
+      "sourceReadsWithoutObligation": 0,
+      "workItems": 6
+    },
+    "domains": [],
+    "version": "completeness-v1",
+    "warnings": []
+  },
+  "crossFeatureDigest": "421c8ad94a17777504338e32e0e55dfd2eafccda2073efd4b6236ade46635749",
+  "crossRepoLinksDigest": "ed6424bf39c68dd2ae350b164117660312a7ee2267fc78a5b8f8ff4472d599a2",
+  "epoch": 0,
+  "evidenceDigest": "d3ce897060370e11bf5d074cdd206001b9d85244e1c6cd50831e52e03e792fa8",
+  "evidenceIds": [
+    "S-aaaaaaaaaa",
+    "S-bbbbbbbbbb",
+    "S-cccccccccc",
+    "S-dddddddddd",
+    "S-eeeeeeeeee"
+  ],
+  "factPackDigests": {},
+  "frozenAt": "2026-01-01T01:00:00.000Z",
+  "readObligationsDigest": "5727253f841266e341d0b0ece228a3454d28c7e698d98dd861b67f53a8c7d13e",
+  "runId": "run-topic-catalog-mini",
+  "snapshotId": "snap-topic-mini",
+  "supplements": [],
+  "traceIds": [
+    "T-1111111111"
+  ],
+  "tracesDigest": "b303c8d0fc59cc45e2ad557e3aaee57a7cc8de7ce891378fa2a151a84ab1ffb7",
+  "truncationPolicy": {
+    "evidenceBounds": "evidence-bounds-v1",
+    "redactionVersion": "redaction-v1-plain"
+  },
+  "version": "knowledge-v1",
+  "workitems": [
+    {
+      "id": "feature:9f8e7d6c5b:api-entrypoints",
+      "status": "found"
+    },
+    {
+      "id": "feature:leave-1a2b3c4d5e:logic:approve@svc/holiday/approve.go:20",
+      "status": "found"
+    },
+    {
+      "id": "feature:leave-1a2b3c4d5e:logic:approve@svc/leave/approve.go:10",
+      "status": "found"
+    },
+    {
+      "id": "feature:promo-9f8e7d6c5b:logic:rank@svc/promo/rank.go:5",
+      "status": "searched-not-found"
+    },
+    {
+      "id": "project:literal-secrets",
+      "status": "found"
+    },
+    {
+      "id": "project:open-investigation",
+      "status": "cannot-determine"
+    }
+  ],
+  "workitemsDigest": "d7d2911a222a8c325d03b72aad3513ee6ca7771acb9794bf1a8f5513f0b96af4"
+}

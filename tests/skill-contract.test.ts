@@ -3,11 +3,13 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { readFile, readdir } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
-import type { ReportRequest } from "../src/base/types.ts";
-import { assembleRun, checkpointSection, freezeRun, prepareRun } from "../src/run/run.ts";
-import { collectDrafts, draftSection } from "../src/report/parallel-authoring.ts";
-import { slugify } from "../src/base/util.ts";
-import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, tempDir } from "./helpers.ts";
+import type { EvidenceItem, ReportRequest } from "../src/base/types.ts";
+import { freezeRun, prepareRun } from "../src/run/run.ts";
+import { checkpointUnit } from "../src/report/unit-checkpoint.ts";
+import { assembleUnits } from "../src/run/stages/unit-assemble-stage.ts";
+import { exists, slugify } from "../src/base/util.ts";
+import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, installFixturePlan, manifestOf, tempDir } from "./helpers.ts";
+import { planViewOf, unitDraftFor } from "./unit-fixture.ts";
 
 // SKILL.md tells the model which `excavator` commands and flags to run. When it drifts from the real
 // CLI the skill breaks silently, so this test pins the two together: every command/subcommand/flag the
@@ -103,7 +105,7 @@ test("SKILL.md references only excavator commands, subcommands and flags the CLI
 
   // Guard the source parse itself against silently matching nothing.
   assert.ok(switchCommands.size >= 15, `switch parse found too few commands: ${switchCommands.size}`);
-  assert.deepEqual([...subcommandKeys].sort(), ["claims scaffold", "codegraph build", "codegraph status"]);
+  assert.deepEqual([...subcommandKeys].sort(), ["codegraph build", "codegraph status"]);
 
   const invocations = extractInvocations(skill, subcommandCommands);
   assert.ok(invocations.length >= 12, `extracted too few invocations: ${invocations.length}`);
@@ -111,7 +113,7 @@ test("SKILL.md references only excavator commands, subcommands and flags the CLI
   // Anti-vacuity floor: the SKILL commits to the whole authoring workflow. If the extractor silently
   // degrades, or the workflow examples are gutted, this catches it before the per-invocation checks.
   const commandsSeen = new Set(invocations.map((invocation) => invocation.command));
-  for (const core of ["prepare", "begin", "freeze", "source", "search", "claims", "checkpoint", "draft", "collect", "workitem", "trace", "audit", "assemble", "resume", "codegraph"]) {
+  for (const core of ["prepare", "freeze", "source", "search", "checkpoint", "draft", "collect", "workitem", "trace", "audit", "assemble", "resume", "codegraph"]) {
     assert.ok(commandsSeen.has(core), `SKILL.md no longer shows a \`${core}\` example`);
   }
 
@@ -164,7 +166,8 @@ test("SKILL.md run-directory layout matches what the CLI produces", async () => 
   assert.ok(documented.size >= 15, `parsed too few layout entries: ${documented.size}`);
 
   // Drive a minimal but complete lifecycle so every documented path is produced:
-  //   prepare -> checkpoint each section -> re-checkpoint one (writes history/) -> assemble (writes reports/companions/).
+  //   prepare -> dispose -> freeze -> plan -> checkpoint each UNIT -> re-draft one (writes units/<key>/history/)
+  //   -> assemble --units --mode write (writes the deliverable and reports/companions/).
   const target = await copyFixture();
   const workdir = await tempDir();
   const codegraph = join(workdir, "codegraph.db");
@@ -178,7 +181,7 @@ test("SKILL.md run-directory layout matches what the CLI produces", async () => 
     features: [],
     budgets: { prepareMs: 30_000, authorMs: 30_000, maxGraphQueries: 30, maxSourceWindows: 30, maxSourceCharacters: 80_000, maxFiles: 10_000, maxFeatureNodes: 60, maxExpansionDepth: 2 }
   };
-  const { runDir, manifest } = await prepareRun(request);
+  const { runDir } = await prepareRun(request);
 
   // The workdir-layout contract the SKILL documents: `<workdir>/<project>/runs/<run-id>/`, where
   // `<project>` is the slugified target basename. Validate the template without pinning the run-id value.
@@ -186,23 +189,39 @@ test("SKILL.md run-directory layout matches what the CLI produces", async () => 
   assert.equal(dirname(dirname(runDir)), projectDir, `run directory is not under <workdir>/<project>: ${runDir}`);
   assert.equal(basename(dirname(runDir)), "runs", `run directory is not under a runs/ segment: ${runDir}`);
 
-  const document = manifest.documents[0];
-  const body = (title: string): string => `## ${title}\n\nThe system records each incoming request. \`fact\`\n`;
   // Dispose the plan and freeze so the run produces knowledge.json, the frozen record the tree documents.
   await disposeAllWorkItems(runDir);
   await freezeRun(runDir);
-  for (const section of document.sections) await checkpointSection(runDir, document.id, section.index, body(section.title));
-  // Re-checkpoint the first section so archiveCheckpoint writes the documented history/ directory.
-  await checkpointSection(runDir, document.id, document.sections[0].index, body(document.sections[0].title));
-  // Exercise the parallel draft/collect path so the documented drafts/ directory is produced.
-  await draftSection(runDir, document.id, document.sections[0].index, body(document.sections[0].title));
-  await collectDrafts(runDir);
-  await assembleRun(runDir);
+  // The plan precondition of authoring, derived from this run's own catalog (zero model calls).
+  await installFixturePlan(runDir);
+
+  // The UNIT lifecycle on the same run, so the tree this test drives is not only the section one:
+  //   plan (already recorded above) -> checkpoint each unit -> re-draft one (writes units/<key>/history/)
+  //   -> assemble --units --mode write (writes the unit deliverable and its companions).
+  // The two paths write disjoint names under reports/, and `assemble --units` refuses a collision by name
+  // rather than overwriting, so driving both on one run is legal rather than lucky.
+  const evidence = JSON.parse(await readFile(join(runDir, "evidence.json"), "utf8")) as { evidence: EvidenceItem[] };
+  const evidenceId = (evidence.evidence.find((item) => item.kind === "source") ?? evidence.evidence[0]!).id;
+  const unitRun = { runDir, workdir, manifest: await manifestOf(runDir), evidenceId, view: await planViewOf(runDir) };
+  for (const unitId of unitRun.view.collectionOrder) {
+    await checkpointUnit(runDir, await unitDraftFor({ ...unitRun, view: await planViewOf(runDir) }, unitId));
+  }
+  const redrawn = unitRun.view.collectionOrder[0]!;
+  await checkpointUnit(runDir, await unitDraftFor({ ...unitRun, view: await planViewOf(runDir) }, redrawn));
+  const assembledUnits = await assembleUnits(runDir, "write");
 
   // Every documented entry must exist somewhere under the run directory. Matching on basename keeps the
   // check independent of the tree's nesting (e.g. companions/ lives under reports/).
   const present = await collectBasenames(runDir);
   for (const entry of documented) {
     assert.ok(present.has(entry), `SKILL.md documents \`${entry}\` but the run produced no such path`);
+  }
+  // What ONLY the unit lifecycle produces, so the addition above is not inert and cannot be deleted silently.
+  // `plan/` is deliberately not in this list: `installFixturePlan` already created it before any unit command,
+  // so asserting it would pass for a reason that has nothing to do with the lifecycle it names.
+  assert.ok(present.has("units"), "the unit lifecycle produced no `units/` directory");
+  assert.ok(assembledUnits.documents.length > 0, "the unit lifecycle assembled no document");
+  for (const document of assembledUnits.documents) {
+    assert.ok(await exists(join(runDir, document.path)), `the unit deliverable ${document.path} is not on disk`);
   }
 });

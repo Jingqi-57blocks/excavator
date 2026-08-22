@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
-import { readFile } from "node:fs/promises";
-import type { DocumentPlan, EvidenceItem, FeatureFactPack, InvestigationPlan, InvestigationWorkItem, SectionClaim, TraceCatalog, TraceRecord } from "../src/base/types.ts";
+import { readdir, readFile } from "node:fs/promises";
+import type { DocumentPlan, EvidenceItem, FeatureFactPack, InvestigationPlan, InvestigationWorkItem, SectionClaim, TraceCatalog } from "../src/base/types.ts";
 import { auditAuthoringPacketConsumption, buildAuthoringPacket, DIMENSION_FACT_CATEGORY, packetEvidenceForDocument } from "../src/report/authoring-packet.ts";
 import { FACT_PACK_CATEGORIES } from "../src/context/factpack.ts";
 import { freezeRun, prepareRun } from "../src/run/run.ts";
@@ -218,25 +218,51 @@ async function featureRequest() {
   return { target, codegraph, workdir, language: "zh-CN", detailLevel: "standard" as const, overviewAudiences: [] as ("product" | "engineering")[], features: [{ subject: "Leave management", aliases: ["leave", "holiday"], audiences: ["product" as const] }], budgets: { prepareMs: 30_000, authorMs: 30_000, maxGraphQueries: 40, maxSourceWindows: 50, maxSourceCharacters: 120_000, maxFiles: 10_000, maxFeatureNodes: 80, maxExpansionDepth: 2 } };
 }
 
-test("a successful freeze writes one packet per document; a refused freeze writes none", async () => {
+/**
+ * The INVERSE of what this case used to assert. Freeze rendered one `context/authoring/<document>.md` per
+ * document and recorded the count on its own timeline event; 57B-480 retired both, because every reader was the
+ * section authoring chain. This asserts the retirement is COMPLETE rather than partial — three ways, because a
+ * half-retired producer is the failure mode: the directory has no packet in it, the run has no such file
+ * anywhere, and the frozen event carries no packet count for a reader to mistake for a rendered one.
+ *
+ * `buildAuthoringPacket` is deliberately still exercised by the rest of this file: the renderer stays (the eval
+ * baseline re-renders its committed fixtures with it), only the freeze wiring is gone.
+ */
+test("freeze renders no authoring packet, and its event claims no packet count", async () => {
   const { runDir, manifest } = await prepareRun(await featureRequest());
   await disposeAllWorkItems(runDir);
   const result = await freezeRun(runDir);
   assert.equal(result.frozen, true, JSON.stringify(result.findings, null, 2));
+
   for (const document of manifest.documents) {
-    assert.equal(await exists(join(runDir, "context", "authoring", `${document.id}.md`)), true, `packet missing for ${document.id}`);
+    assert.equal(await exists(join(runDir, "context", "authoring", `${document.id}.md`)), false, `freeze wrote a packet for ${document.id}`);
   }
+  // Not just "the name we know is absent". The first version of this assertion listed `context/authoring/` and
+  // swallowed the ENOENT — which nothing creates any more, so it could only ever go green, and a packet written
+  // to `context/packets/` would have passed it. Two checks that a renamed or relocated packet must also satisfy:
+  // `context/` grew no `authoring` entry, and NO file anywhere under the run carries the packet's own header line.
+  assert.deepEqual((await readdir(join(runDir, "context"))).filter((entry) => entry === "authoring"), []);
+  const everyFile = async (dir: string): Promise<string[]> => {
+    const out: string[] = [];
+    for (const entry of await readdir(dir, { withFileTypes: true })) {
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) out.push(...await everyFile(path));
+      else if (entry.isFile()) out.push(path);
+    }
+    return out;
+  };
+  const carriers: string[] = [];
+  for (const path of await everyFile(runDir)) {
+    if (!path.endsWith(".md")) continue;
+    if ((await readFile(path, "utf8")).includes("Sealed knowledge epoch:")) carriers.push(path);
+  }
+  assert.deepEqual(carriers, [], "some file still carries the authoring packet's own header line");
+
   const timeline = (await readFile(join(runDir, "timeline.jsonl"), "utf8")).trim().split("\n").map((line) => JSON.parse(line));
   const frozen = timeline.find((event) => event.action === "investigation.frozen");
-  assert.equal((frozen.data as Record<string, unknown>).authoringPackets, manifest.documents.length);
-
-  // A run that still has pending required items is refused, and no packet is written.
-  const { runDir: pendingDir, manifest: pendingManifest } = await prepareRun(await featureRequest());
-  const refused = await freezeRun(pendingDir);
-  assert.equal(refused.frozen, false);
-  for (const document of pendingManifest.documents) {
-    assert.equal(await exists(join(pendingDir, "context", "authoring", `${document.id}.md`)), false, `refused freeze wrote a packet for ${document.id}`);
-  }
+  assert.ok(frozen, "the run did freeze");
+  assert.equal("authoringPackets" in (frozen.data as Record<string, unknown>), false,
+    "the frozen event must not report a packet count it no longer produces — a 0 would read as a measurement");
 });
 
 // --- 6. consumption advisory ---

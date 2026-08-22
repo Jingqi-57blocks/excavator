@@ -1,0 +1,181 @@
+{
+  "bucketDefinitions": [
+    "`material` — at least one obligation bound to this topic is material: the report owes the reader an account of it.",
+    "`obligated-non-material` — obligations bind to this topic and none of them is material.",
+    "`unobligated` — NO obligation in this run's ledger binds to this topic. It does not mean the subject is out of scope, and it does not mean nothing needs explaining: it is a reading of how far the obligation ledger reaches. For the route facet it means nobody computes the join between the route ledger and the obligation ledger — the obligation ledger does carry route-identified rows (the `route-handler` and `recovered-route-handler` kinds name a method and a path), so a route topic being unobligated is a missing join, not an unreachable subject."
+  ],
+  "dagDigest": "1753df08f45c5218cf0a81b60d57b9645e3369cd154de15d4c6635a4264a5638",
+  "divisions": [],
+  "documents": [
+    {
+      "audience": "product-manager",
+      "detailBudget": "standard",
+      "documentId": "overview-product",
+      "inputBytes": 42278,
+      "intent": "overview",
+      "perUnitInputBytes": 786432,
+      "rootUnitId": "overview-product::synthesis::document",
+      "totalInputBytes": 3145728,
+      "units": 2
+    }
+  ],
+  "facetVerdicts": [
+    {
+      "facet": "coverage",
+      "verdict": "vacuous: the material-topic denominator is empty, so nothing was checked — the coverage facet holds 2 topic(s), none of them material (1 obligated-non-material, 1 unobligated)"
+    },
+    {
+      "facet": "entity",
+      "verdict": "vacuous: the material-topic denominator is empty, so nothing was checked — the entity facet is empty because its ledger is absent: facts/producers/db-schema.json records status unavailable: policy: not-run-scoped — schema discovery runs as its own command and writes outside the run directory"
+    },
+    {
+      "facet": "external-system",
+      "verdict": "vacuous: the material-topic denominator is empty, so nothing was checked — the external-system facet is empty because its ledger is absent: context/crossrepo-links.json is absent from this run and knowledge.json declares no digest for it"
+    },
+    {
+      "facet": "feature",
+      "verdict": "vacuous: the material-topic denominator is empty, so nothing was checked — the feature facet is empty because its ledger holds no row: contract/run-intent.json binds no feature to this run, so there is no feature topic to project"
+    },
+    {
+      "facet": "route",
+      "verdict": "vacuous: the material-topic denominator is empty, so nothing was checked — the route facet is empty because its ledger is absent: facts/producers/codegraph.json records status unavailable: index-not-present: this run resolved no readable CodeGraph database, so no indexed function or route could be enumerated; facts/producers/crossrepo.json records status not-applicable: single-module (based on ledger/files.json#completeness, ledger/files.json#completeness.roots, ledger/mechanisms.json#mechanism:crossrepo)"
+    },
+    {
+      "facet": "work-item-dimension",
+      "verdict": "vacuous: the material-topic denominator is empty, so nothing was checked — the work-item-dimension facet holds 12 topic(s), none of them material (12 obligated-non-material, 0 unobligated)"
+    }
+  ],
+  "knowledgeDigest": "b576ab30545c0c8d6a32f44dde68a2c28f89179593e0e836e63ad0b58b100f6b",
+  "knowledgeEpoch": 0,
+  "materialTopics": 0,
+  "namedEmptyFacets": [
+    {
+      "facet": "entity",
+      "reason": "facts/producers/db-schema.json records status unavailable: policy: not-run-scoped — schema discovery runs as its own command and writes outside the run directory",
+      "state": "ledger-absent"
+    },
+    {
+      "facet": "external-system",
+      "reason": "context/crossrepo-links.json is absent from this run and knowledge.json declares no digest for it",
+      "state": "ledger-absent"
+    },
+    {
+      "facet": "feature",
+      "reason": "contract/run-intent.json binds no feature to this run, so there is no feature topic to project",
+      "state": "ledger-empty"
+    },
+    {
+      "facet": "route",
+      "reason": "facts/producers/codegraph.json records status unavailable: index-not-present: this run resolved no readable CodeGraph database, so no indexed function or route could be enumerated; facts/producers/crossrepo.json records status not-applicable: single-module (based on ledger/files.json#completeness, ledger/files.json#completeness.roots, ledger/mechanisms.json#mechanism:crossrepo)",
+      "state": "ledger-absent"
+    }
+  ],
+  "obligations": {
+    "inUnits": 0,
+    "materialObligations": 0,
+    "undispositioned": 0,
+    "undispositionedObligations": [],
+    "unplaced": 0,
+    "unplacedObligations": [],
+    "unplacedTopicIds": [],
+    "waived": 0,
+    "waivedByState": [
+      {
+        "obligations": 0,
+        "state": "cannot-determine"
+      },
+      {
+        "obligations": 0,
+        "state": "not-applicable"
+      },
+      {
+        "obligations": 0,
+        "state": "omitted-for-audience"
+      }
+    ],
+    "waivedObligations": []
+  },
+  "obligationSummary": "0 material obligation(s): 0 in units, 0 waived (cannot-determine=0, not-applicable=0, omitted-for-audience=0), 0 claimed but unplaced, 0 undispositioned",
+  "overallVerdict": "vacuous: the material-topic denominator is empty, so nothing was checked — this catalog holds 14 topic(s) of which 0 are material, 13 obligated-non-material and 1 unobligated, over 12 work item(s)",
+  "overBudgetUnitIds": [],
+  "ownership": [
+    {
+      "documentId": "overview-product",
+      "ownedByUnit": [
+        {
+          "kind": "appendix",
+          "owned": 0,
+          "role": "owning",
+          "unitId": "overview-product::appendix::coverage"
+        },
+        {
+          "kind": "synthesis",
+          "owned": 0,
+          "role": "topic-free",
+          "unitId": "overview-product::synthesis::document"
+        }
+      ],
+      "reachedObligations": 0,
+      "unownedObligationIds": []
+    }
+  ],
+  "packetByteLimit": 524288,
+  "packetBytes": 9944,
+  "packetLimitations": [],
+  "planCatalogDigest": "606538c8317842158047332140277914ae88a6c8c66a3e374b44364f79e8633f",
+  "readPaths": [
+    "context/boundary-functions.json",
+    "contract/run-intent.json",
+    "coverage/read-obligations.json",
+    "coverage/read-residual.json",
+    "evidence.json",
+    "facts/producers/codegraph.json",
+    "facts/producers/crossrepo.json",
+    "facts/producers/db-schema.json",
+    "knowledge.json",
+    "workitems.json"
+  ],
+  "refinementPasses": 1,
+  "requestsDigest": "4621702ae68f1f4938bb871dd3b403d37bc4d0514b87f94cfba811749c24fc05",
+  "routeFacetUnobligated": 0,
+  "runId": "run-2026_08_20_02_38-overview-239385e1-85a71437-a8618c2d",
+  "topicsDigest": "90aa91bdb03df7a1777763c9fb6a76599afe82eecdb95b9a590c6581516dcf5b",
+  "unitBytes": [
+    {
+      "byteLimit": 786432,
+      "bytes": 27760,
+      "costState": "rendered",
+      "kind": "appendix",
+      "overBy": 0,
+      "unitId": "overview-product::appendix::coverage"
+    },
+    {
+      "byteLimit": 786432,
+      "bytes": 14518,
+      "costState": "bounded",
+      "kind": "synthesis",
+      "overBy": 0,
+      "unitId": "overview-product::synthesis::document"
+    }
+  ],
+  "units": 2,
+  "unitsByKind": [
+    {
+      "kind": "appendix",
+      "units": 1
+    },
+    {
+      "kind": "bridge",
+      "units": 0
+    },
+    {
+      "kind": "leaf",
+      "units": 0
+    },
+    {
+      "kind": "synthesis",
+      "units": 1
+    }
+  ],
+  "version": "plan-readings-v1"
+}

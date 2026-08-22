@@ -2,7 +2,7 @@ import { join } from "node:path";
 import { assertNever, type ArtifactResult, type NotApplicable } from "../base/artifact-result.ts";
 import {
   coverageBasisDigest, fileCompletenessValue, FILE_COMPLETENESS_BASIS, FILE_ROOTS_BASIS, fileRootCensusValue,
-  mechanismCoverageBasisName, mechanismCoverageValue, type CoverageBasisValue
+  mechanismCoverageValue, type CoverageBasisValue
 } from "../base/coverage-basis.ts";
 import type {
   AuditFinding, CompletenessSource, DomainCompleteness, EvidenceItem, FreezeAuditCheck, InvestigationPlan,

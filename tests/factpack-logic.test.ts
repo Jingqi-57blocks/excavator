@@ -2,10 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { logicItems, logicClaimKey, LOGIC_LOCATION_SEP, type LogicFeatureGraph, type LogicSelection } from "../src/context/factpack-logic.ts";
 import { buildFactPack } from "../src/context/factpack.ts";
-import { auditRescuedLogicCoverage } from "../src/report/section-audit.ts";
 import { stableJson } from "../src/base/util.ts";
 import type { SourceReader } from "../src/snapshot/source.ts";
-import type { EvidenceItem } from "../src/base/types.ts";
 
 // Synthetic small-graph unit tests for the complement enumeration. No fixtures, no CodeGraph: the rule,
 // the tiering, the in-degree cap, the claim/kind exclusion and the honest empty case, each in isolation.
@@ -134,23 +132,3 @@ test("the separator is an escaped control char, and no output carries a literal 
   assert.ok(!stableJson(logicItems(graph, selection())).includes("\u0000"));
 });
 
-function logicEvidence(items: Array<{ name?: string; filePath?: string; line?: number; signal?: string }>): EvidenceItem {
-  return { id: "FACT-k-logic-snap", snapshotId: "snap", kind: "derived", title: "Fact pack: logic", data: { category: "logic", items }, reason: "test", digest: "d" };
-}
-
-test("rescued-logic advisory: warns (once) for each rescued fact the report leaves unrepresented, only rescued ones", () => {
-  const factEvidence = [logicEvidence([
-    { name: "calcHours", filePath: "svc/c.go", line: 5, signal: "anchor-token leave" },
-    { name: "plainLogic", filePath: "svc/a.go", line: 1 } // no signal -> never nagged
-  ])];
-  // A report that names the non-rescued item but not the rescued one still warns about the rescued one.
-  const missing = auditRescuedLogicCoverage("doc", "the report mentions plainLogic only", factEvidence);
-  assert.equal(missing.length, 1);
-  assert.equal(missing[0].level, "warning");
-  assert.match(missing[0].message, /calcHours/);
-  // Mentioning the rescued item (by name or path:line) satisfies the advisory.
-  assert.deepEqual(auditRescuedLogicCoverage("doc", "we cover calcHours here", factEvidence), []);
-  assert.deepEqual(auditRescuedLogicCoverage("doc", "see svc/c.go:5 for the rule", factEvidence), []);
-  // No logic evidence at all -> nothing to reconcile.
-  assert.deepEqual(auditRescuedLogicCoverage("doc", "anything", []), []);
-});

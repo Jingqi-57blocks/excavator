@@ -1,0 +1,161 @@
+{
+  "absentByMode": [],
+  "auditUnscoped": {
+    "errors": 0,
+    "scopes": [],
+    "warnings": 0
+  },
+  "documents": [
+    {
+      "absentUnits": [],
+      "audience": "product",
+      "auditErrors": 0,
+      "auditWarnings": 0,
+      "blocks": 1,
+      "buckets": {
+        "anchor-line": 1171,
+        "evidence": 41410,
+        "factpack": 0,
+        "trace": 0,
+        "unattributed": 700,
+        "work-item": 3202
+      },
+      "claims": 293,
+      "documentId": "overview-product",
+      "factPack": "not-applicable",
+      "kind": "overview",
+      "packetBytes": 46483,
+      "packetDigest": "76cde4f2a79c6e217ec57ce99d0fc93210de20fb32cab476f8c2fc8b3e100932",
+      "repeatedUnits": [],
+      "sections": 10,
+      "units": {
+        "absent": 0,
+        "anchorOnly": 0,
+        "full": 47,
+        "total": 47
+      }
+    }
+  ],
+  "duplication": {
+    "anchorLineBytes": 1171,
+    "byKind": {
+      "evidence": {
+        "bytes": 41410,
+        "duplicateBytes": 0,
+        "units": 35
+      },
+      "factpack": {
+        "bytes": 0,
+        "duplicateBytes": 0,
+        "units": 0
+      },
+      "trace": {
+        "bytes": 0,
+        "duplicateBytes": 0,
+        "units": 0
+      },
+      "work-item": {
+        "bytes": 4373,
+        "duplicateBytes": 0,
+        "units": 12
+      }
+    },
+    "duplicateBytes": 0,
+    "duplicatedUnits": [],
+    "duplicateRatio": 0,
+    "totalPacketBytes": 46483,
+    "unattributedBytes": 700,
+    "unitsDuplicated": 0,
+    "unitsTotal": 47
+  },
+  "knowledgeEpoch": 0,
+  "mode": "authored",
+  "readCoverage": {
+    "consumptionEvaluated": true,
+    "items": 0,
+    "itemsByStatus": {},
+    "notOpenedByAttribution": {
+      "anchorName": 0,
+      "anchorPath": 0,
+      "retained": 0,
+      "unclassified": 0
+    },
+    "notOpenedLinesByAttribution": {
+      "anchorName": 0,
+      "anchorPath": 0,
+      "retained": 0,
+      "unclassified": 0
+    },
+    "summary": {
+      "cannotDetermine": 0,
+      "counted": 0,
+      "covered": 0,
+      "gatedNotOpened": 0,
+      "notOpened": 0,
+      "obligationLines": 0,
+      "openedLines": 0,
+      "openedNotConsumed": 0,
+      "partial": 0,
+      "uncoveredLines": 0
+    },
+    "version": "read-coverage-v1"
+  },
+  "runId": "run-2026_08_20_02_38-overview-239385e1-85a71437-a8618c2d",
+  "snapshotId": "239385e1ec5fed4b5cf1",
+  "totals": {
+    "auditErrors": 0,
+    "auditFindings": 0,
+    "auditWarnings": 0,
+    "claims": 293,
+    "documents": 1,
+    "packetBytes": 46483,
+    "sections": 10
+  },
+  "version": 2,
+  "workItems": {
+    "byDimensionStatus": {
+      "deprecated-or-unfinished": {
+        "found": 1
+      },
+      "discarded-errors": {
+        "found": 1
+      },
+      "documentation-drift": {
+        "found": 1
+      },
+      "duplicate-entrypoints": {
+        "found": 1
+      },
+      "external-call-in-transaction": {
+        "cannot-determine": 1
+      },
+      "feature-switches": {
+        "found": 1
+      },
+      "guard-polarity": {
+        "found": 1
+      },
+      "literal-identifiers": {
+        "found": 1
+      },
+      "literal-secrets": {
+        "found": 1
+      },
+      "open-investigation": {
+        "found": 1
+      },
+      "shared-storage": {
+        "found": 1
+      },
+      "uncalled-entrypoints": {
+        "found": 1
+      }
+    },
+    "byStatus": {
+      "cannot-determine": 1,
+      "found": 11
+    },
+    "total": 12,
+    "unsettled": 0
+  }
+}

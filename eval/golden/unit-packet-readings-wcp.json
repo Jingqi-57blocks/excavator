@@ -1,0 +1,1302 @@
+{
+  "absentBindings": [],
+  "boundEvidenceIds": 953,
+  "divisions": [
+    {
+      "level": "topic",
+      "measuredBytes": 1994095,
+      "partUnitIds": [
+        "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-28bd6c37c830540a",
+        "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3"
+      ],
+      "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature"
+    },
+    {
+      "level": "topic",
+      "measuredBytes": 1994074,
+      "partUnitIds": [
+        "feature-请假管理-8c2d685d81-product::leaf::feature#t-28bd6c37c830540a",
+        "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3"
+      ],
+      "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature"
+    },
+    {
+      "level": "topic",
+      "measuredBytes": 1993913,
+      "partUnitIds": [
+        "overview-engineering::leaf::feature#t-28bd6c37c830540a",
+        "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3"
+      ],
+      "unitId": "overview-engineering::leaf::feature"
+    },
+    {
+      "level": "topic",
+      "measuredBytes": 1993892,
+      "partUnitIds": [
+        "overview-product::leaf::feature#t-28bd6c37c830540a",
+        "overview-product::leaf::feature#t-ba5c5ed978e23ca3"
+      ],
+      "unitId": "overview-product::leaf::feature"
+    },
+    {
+      "level": "dimension",
+      "measuredBytes": 866263,
+      "partUnitIds": [
+        "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+        "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-28bd6c37c830540a#d-documentation-drift"
+      ],
+      "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-28bd6c37c830540a"
+    },
+    {
+      "level": "dimension",
+      "measuredBytes": 1227093,
+      "partUnitIds": [
+        "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+        "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift"
+      ],
+      "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3"
+    },
+    {
+      "level": "dimension",
+      "measuredBytes": 866242,
+      "partUnitIds": [
+        "feature-请假管理-8c2d685d81-product::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+        "feature-请假管理-8c2d685d81-product::leaf::feature#t-28bd6c37c830540a#d-documentation-drift"
+      ],
+      "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature#t-28bd6c37c830540a"
+    },
+    {
+      "level": "dimension",
+      "measuredBytes": 1227072,
+      "partUnitIds": [
+        "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+        "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift"
+      ],
+      "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3"
+    },
+    {
+      "level": "dimension",
+      "measuredBytes": 866081,
+      "partUnitIds": [
+        "overview-engineering::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+        "overview-engineering::leaf::feature#t-28bd6c37c830540a#d-documentation-drift"
+      ],
+      "unitId": "overview-engineering::leaf::feature#t-28bd6c37c830540a"
+    },
+    {
+      "level": "dimension",
+      "measuredBytes": 1226911,
+      "partUnitIds": [
+        "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+        "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift"
+      ],
+      "unitId": "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3"
+    },
+    {
+      "level": "dimension",
+      "measuredBytes": 866060,
+      "partUnitIds": [
+        "overview-product::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+        "overview-product::leaf::feature#t-28bd6c37c830540a#d-documentation-drift"
+      ],
+      "unitId": "overview-product::leaf::feature#t-28bd6c37c830540a"
+    },
+    {
+      "level": "dimension",
+      "measuredBytes": 1226890,
+      "partUnitIds": [
+        "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+        "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift"
+      ],
+      "unitId": "overview-product::leaf::feature#t-ba5c5ed978e23ca3"
+    },
+    {
+      "level": "dimension",
+      "measuredBytes": 1147451,
+      "partUnitIds": [
+        "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+        "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function"
+      ],
+      "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints"
+    },
+    {
+      "level": "dimension",
+      "measuredBytes": 1147422,
+      "partUnitIds": [
+        "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+        "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function"
+      ],
+      "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints"
+    },
+    {
+      "level": "dimension",
+      "measuredBytes": 1147223,
+      "partUnitIds": [
+        "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+        "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function"
+      ],
+      "unitId": "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints"
+    },
+    {
+      "level": "dimension",
+      "measuredBytes": 1147194,
+      "partUnitIds": [
+        "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+        "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function"
+      ],
+      "unitId": "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints"
+    },
+    {
+      "level": "items",
+      "measuredBytes": 975824,
+      "partUnitIds": [
+        "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+        "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d"
+      ],
+      "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function"
+    },
+    {
+      "level": "items",
+      "measuredBytes": 975791,
+      "partUnitIds": [
+        "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+        "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d"
+      ],
+      "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function"
+    },
+    {
+      "level": "items",
+      "measuredBytes": 975573,
+      "partUnitIds": [
+        "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+        "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d"
+      ],
+      "unitId": "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function"
+    },
+    {
+      "level": "items",
+      "measuredBytes": 975540,
+      "partUnitIds": [
+        "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+        "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d"
+      ],
+      "unitId": "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function"
+    }
+  ],
+  "documents": [
+    {
+      "documentId": "feature-晋升管理-01e5065d19-engineering",
+      "measuredBytes": 3038806,
+      "renderedBytes": 2957724,
+      "totalInputBytes": 3145728,
+      "units": 10
+    },
+    {
+      "documentId": "feature-请假管理-8c2d685d81-product",
+      "measuredBytes": 3034416,
+      "renderedBytes": 2953391,
+      "totalInputBytes": 3145728,
+      "units": 10
+    },
+    {
+      "documentId": "overview-engineering",
+      "measuredBytes": 3012951,
+      "renderedBytes": 2932258,
+      "totalInputBytes": 3145728,
+      "units": 10
+    },
+    {
+      "documentId": "overview-product",
+      "measuredBytes": 3008561,
+      "renderedBytes": 2927925,
+      "totalInputBytes": 3145728,
+      "units": 10
+    }
+  ],
+  "evidenceAbsent": 0,
+  "evidenceRequired": 895,
+  "frozenEvidenceIds": 1884,
+  "inUnitsObligations": 847,
+  "knowledgeDigest": "e70e928538b66f36de5dbd4fd37de4a53ac0422766a75efe4545992efcc4e15f",
+  "knowledgeEpoch": 0,
+  "namedEmptyFacets": [
+    {
+      "facet": "entity",
+      "reason": "facts/producers/db-schema.json records status unavailable: policy: not-run-scoped — schema discovery runs as its own command and writes outside the run directory",
+      "state": "ledger-absent"
+    }
+  ],
+  "notRenderable": [
+    {
+      "reason": "a synthesis unit is written from its children's COLLECTED summaries, and this archival run has authored no unit, so there is no summary to render",
+      "unitId": "feature-晋升管理-01e5065d19-engineering::synthesis::document"
+    },
+    {
+      "reason": "a synthesis unit is written from its children's COLLECTED summaries, and this archival run has authored no unit, so there is no summary to render",
+      "unitId": "feature-请假管理-8c2d685d81-product::synthesis::document"
+    },
+    {
+      "reason": "a synthesis unit is written from its children's COLLECTED summaries, and this archival run has authored no unit, so there is no summary to render",
+      "unitId": "overview-engineering::synthesis::document"
+    },
+    {
+      "reason": "a synthesis unit is written from its children's COLLECTED summaries, and this archival run has authored no unit, so there is no summary to render",
+      "unitId": "overview-product::synthesis::document"
+    }
+  ],
+  "obligations": {
+    "inUnits": 847,
+    "materialObligations": 847,
+    "undispositioned": 0,
+    "undispositionedObligations": [],
+    "unplaced": 0,
+    "unplacedObligations": [],
+    "unplacedTopicIds": [],
+    "waived": 0,
+    "waivedByState": [
+      {
+        "obligations": 0,
+        "state": "cannot-determine"
+      },
+      {
+        "obligations": 0,
+        "state": "not-applicable"
+      },
+      {
+        "obligations": 0,
+        "state": "omitted-for-audience"
+      }
+    ],
+    "waivedObligations": []
+  },
+  "obligationsOwedByMoreThanOneUnit": 0,
+  "obligationSummary": "847 material obligation(s): 847 in units, 0 waived (cannot-determine=0, not-applicable=0, omitted-for-audience=0), 0 claimed but unplaced, 0 undispositioned",
+  "openOriginExemptObligations": [],
+  "overBudgetUnits": 0,
+  "ownerEvidenceRequired": 3580,
+  "ownership": [
+    {
+      "documentId": "feature-晋升管理-01e5065d19-engineering",
+      "owedByMoreThanOneUnit": 0,
+      "owedByUnit": [
+        {
+          "owed": 0,
+          "unitId": "feature-晋升管理-01e5065d19-engineering::appendix::coverage"
+        },
+        {
+          "owed": 0,
+          "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::coverage"
+        },
+        {
+          "owed": 274,
+          "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints"
+        },
+        {
+          "owed": 24,
+          "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-28bd6c37c830540a#d-documentation-drift"
+        },
+        {
+          "owed": 0,
+          "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints"
+        },
+        {
+          "owed": 271,
+          "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c"
+        },
+        {
+          "owed": 254,
+          "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d"
+        },
+        {
+          "owed": 24,
+          "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift"
+        },
+        {
+          "owed": 0,
+          "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::work-item-dimension"
+        },
+        {
+          "owed": 0,
+          "unitId": "feature-晋升管理-01e5065d19-engineering::synthesis::document"
+        }
+      ],
+      "reachedObligations": 847,
+      "unownedObligationIds": []
+    },
+    {
+      "documentId": "feature-请假管理-8c2d685d81-product",
+      "owedByMoreThanOneUnit": 0,
+      "owedByUnit": [
+        {
+          "owed": 0,
+          "unitId": "feature-请假管理-8c2d685d81-product::appendix::coverage"
+        },
+        {
+          "owed": 0,
+          "unitId": "feature-请假管理-8c2d685d81-product::leaf::coverage"
+        },
+        {
+          "owed": 274,
+          "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints"
+        },
+        {
+          "owed": 24,
+          "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature#t-28bd6c37c830540a#d-documentation-drift"
+        },
+        {
+          "owed": 0,
+          "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints"
+        },
+        {
+          "owed": 271,
+          "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c"
+        },
+        {
+          "owed": 254,
+          "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d"
+        },
+        {
+          "owed": 24,
+          "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift"
+        },
+        {
+          "owed": 0,
+          "unitId": "feature-请假管理-8c2d685d81-product::leaf::work-item-dimension"
+        },
+        {
+          "owed": 0,
+          "unitId": "feature-请假管理-8c2d685d81-product::synthesis::document"
+        }
+      ],
+      "reachedObligations": 847,
+      "unownedObligationIds": []
+    },
+    {
+      "documentId": "overview-engineering",
+      "owedByMoreThanOneUnit": 0,
+      "owedByUnit": [
+        {
+          "owed": 0,
+          "unitId": "overview-engineering::appendix::coverage"
+        },
+        {
+          "owed": 0,
+          "unitId": "overview-engineering::leaf::coverage"
+        },
+        {
+          "owed": 274,
+          "unitId": "overview-engineering::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints"
+        },
+        {
+          "owed": 24,
+          "unitId": "overview-engineering::leaf::feature#t-28bd6c37c830540a#d-documentation-drift"
+        },
+        {
+          "owed": 0,
+          "unitId": "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints"
+        },
+        {
+          "owed": 271,
+          "unitId": "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c"
+        },
+        {
+          "owed": 254,
+          "unitId": "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d"
+        },
+        {
+          "owed": 24,
+          "unitId": "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift"
+        },
+        {
+          "owed": 0,
+          "unitId": "overview-engineering::leaf::work-item-dimension"
+        },
+        {
+          "owed": 0,
+          "unitId": "overview-engineering::synthesis::document"
+        }
+      ],
+      "reachedObligations": 847,
+      "unownedObligationIds": []
+    },
+    {
+      "documentId": "overview-product",
+      "owedByMoreThanOneUnit": 0,
+      "owedByUnit": [
+        {
+          "owed": 0,
+          "unitId": "overview-product::appendix::coverage"
+        },
+        {
+          "owed": 0,
+          "unitId": "overview-product::leaf::coverage"
+        },
+        {
+          "owed": 274,
+          "unitId": "overview-product::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints"
+        },
+        {
+          "owed": 24,
+          "unitId": "overview-product::leaf::feature#t-28bd6c37c830540a#d-documentation-drift"
+        },
+        {
+          "owed": 0,
+          "unitId": "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints"
+        },
+        {
+          "owed": 271,
+          "unitId": "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c"
+        },
+        {
+          "owed": 254,
+          "unitId": "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d"
+        },
+        {
+          "owed": 24,
+          "unitId": "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift"
+        },
+        {
+          "owed": 0,
+          "unitId": "overview-product::leaf::work-item-dimension"
+        },
+        {
+          "owed": 0,
+          "unitId": "overview-product::synthesis::document"
+        }
+      ],
+      "reachedObligations": 847,
+      "unownedObligationIds": []
+    }
+  ],
+  "planCatalogDigest": "48ab55257abdc9618ac67ee76014d05770fa774b4d2c95dd18568bcdc9d6b2e4",
+  "readPaths": [
+    "context/boundary-functions.json",
+    "context/cross-feature.json",
+    "context/crossrepo-links.json",
+    "contract/run-intent.json",
+    "coverage/read-obligations.json",
+    "coverage/read-residual.json",
+    "evidence.json",
+    "facts/producers/codegraph.json",
+    "facts/producers/crossrepo.json",
+    "facts/producers/db-schema.json",
+    "knowledge.json",
+    "run.json",
+    "workitems.json"
+  ],
+  "refinementPasses": 5,
+  "rendered": [
+    {
+      "documentId": "feature-晋升管理-01e5065d19-engineering",
+      "kind": "appendix",
+      "materialObligations": 0,
+      "obligations": 2,
+      "openOriginExempt": 0,
+      "ownedMaterial": 0,
+      "packetByteLimit": 786432,
+      "packetBytes": 192003,
+      "packetDigest": "ce57df5cea9ea7089d638afe20c292caadd97078880c0eff7216df50a691bf77",
+      "packetLimitations": [],
+      "precheckBytes": 192003,
+      "reachableMaterial": 0,
+      "renderedEvidenceIds": 2,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 0,
+      "scopeExcludedObligations": 0,
+      "stubObligations": 0,
+      "topics": 55,
+      "unitId": "feature-晋升管理-01e5065d19-engineering::appendix::coverage"
+    },
+    {
+      "documentId": "feature-晋升管理-01e5065d19-engineering",
+      "kind": "leaf",
+      "materialObligations": 164,
+      "obligations": 164,
+      "openOriginExempt": 0,
+      "ownedMaterial": 0,
+      "packetByteLimit": 786432,
+      "packetBytes": 55207,
+      "packetDigest": "f1770f333485361e122c5b7283536bf77455763cbd04b5d67449be437ce55001",
+      "packetLimitations": [],
+      "precheckBytes": 55207,
+      "reachableMaterial": 164,
+      "renderedEvidenceIds": 0,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 0,
+      "scopeExcludedObligations": 0,
+      "stubObligations": 164,
+      "topics": 1,
+      "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::coverage"
+    },
+    {
+      "documentId": "feature-晋升管理-01e5065d19-engineering",
+      "kind": "leaf",
+      "materialObligations": 298,
+      "obligations": 327,
+      "openOriginExempt": 0,
+      "ownedMaterial": 274,
+      "packetByteLimit": 786432,
+      "packetBytes": 755971,
+      "packetDigest": "fd6ab7be07d3093497c632a835b348fc3ab3087eaabe2e55b3709964847e41a9",
+      "packetLimitations": [],
+      "precheckBytes": 755971,
+      "reachableMaterial": 298,
+      "renderedEvidenceIds": 313,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 24,
+      "scopeExcludedObligations": 41,
+      "stubObligations": 0,
+      "topics": 1,
+      "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints"
+    },
+    {
+      "documentId": "feature-晋升管理-01e5065d19-engineering",
+      "kind": "leaf",
+      "materialObligations": 298,
+      "obligations": 327,
+      "openOriginExempt": 0,
+      "ownedMaterial": 24,
+      "packetByteLimit": 786432,
+      "packetBytes": 292738,
+      "packetDigest": "0b8eb6bd2a581b708feb147643faaa2a170eac457bf3a24df7586b98b4a4b63b",
+      "packetLimitations": [],
+      "precheckBytes": 292738,
+      "reachableMaterial": 298,
+      "renderedEvidenceIds": 103,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 274,
+      "scopeExcludedObligations": 286,
+      "stubObligations": 0,
+      "topics": 1,
+      "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-28bd6c37c830540a#d-documentation-drift"
+    },
+    {
+      "documentId": "feature-晋升管理-01e5065d19-engineering",
+      "kind": "leaf",
+      "materialObligations": 549,
+      "obligations": 578,
+      "openOriginExempt": 0,
+      "ownedMaterial": 0,
+      "packetByteLimit": 786432,
+      "packetBytes": 227748,
+      "packetDigest": "272793f257a359c845b4891bd0f9a69cb2075034c11d15f60eefdacff2e3dd3c",
+      "packetLimitations": [],
+      "precheckBytes": 227748,
+      "reachableMaterial": 549,
+      "renderedEvidenceIds": 63,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 549,
+      "scopeExcludedObligations": 566,
+      "stubObligations": 0,
+      "topics": 1,
+      "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints"
+    },
+    {
+      "documentId": "feature-晋升管理-01e5065d19-engineering",
+      "kind": "leaf",
+      "materialObligations": 549,
+      "obligations": 578,
+      "openOriginExempt": 0,
+      "ownedMaterial": 271,
+      "packetByteLimit": 786432,
+      "packetBytes": 491570,
+      "packetDigest": "3c1739fe97fbf816bc075da53a55b87a97bb1c52b6c3c3093fe0086d4839f25e",
+      "packetLimitations": [],
+      "precheckBytes": 491570,
+      "reachableMaterial": 549,
+      "renderedEvidenceIds": 277,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 278,
+      "scopeExcludedObligations": 307,
+      "stubObligations": 0,
+      "topics": 1,
+      "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c"
+    },
+    {
+      "documentId": "feature-晋升管理-01e5065d19-engineering",
+      "kind": "leaf",
+      "materialObligations": 549,
+      "obligations": 578,
+      "openOriginExempt": 0,
+      "ownedMaterial": 254,
+      "packetByteLimit": 786432,
+      "packetBytes": 493001,
+      "packetDigest": "7e8b24aa27a12227c404edc7c0c74f3a71550b8a9bd4c36dd9903c7160485788",
+      "packetLimitations": [],
+      "precheckBytes": 493001,
+      "reachableMaterial": 549,
+      "renderedEvidenceIds": 262,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 295,
+      "scopeExcludedObligations": 324,
+      "stubObligations": 0,
+      "topics": 1,
+      "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d"
+    },
+    {
+      "documentId": "feature-晋升管理-01e5065d19-engineering",
+      "kind": "leaf",
+      "materialObligations": 549,
+      "obligations": 578,
+      "openOriginExempt": 0,
+      "ownedMaterial": 24,
+      "packetByteLimit": 786432,
+      "packetBytes": 190513,
+      "packetDigest": "13ba75a9dfee8df40c024485777ac11270cf15732dcfd82f71fcd6a351e42931",
+      "packetLimitations": [],
+      "precheckBytes": 190513,
+      "reachableMaterial": 549,
+      "renderedEvidenceIds": 105,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 525,
+      "scopeExcludedObligations": 537,
+      "stubObligations": 0,
+      "topics": 1,
+      "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift"
+    },
+    {
+      "documentId": "feature-晋升管理-01e5065d19-engineering",
+      "kind": "leaf",
+      "materialObligations": 847,
+      "obligations": 847,
+      "openOriginExempt": 0,
+      "ownedMaterial": 0,
+      "packetByteLimit": 786432,
+      "packetBytes": 258973,
+      "packetDigest": "fd10916f331a01c4ecffe57f4eff4de2ee5b9d815487a4b454bb8cd6435fd072",
+      "packetLimitations": [],
+      "precheckBytes": 258973,
+      "reachableMaterial": 847,
+      "renderedEvidenceIds": 0,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 0,
+      "scopeExcludedObligations": 0,
+      "stubObligations": 847,
+      "topics": 4,
+      "unitId": "feature-晋升管理-01e5065d19-engineering::leaf::work-item-dimension"
+    },
+    {
+      "documentId": "feature-请假管理-8c2d685d81-product",
+      "kind": "appendix",
+      "materialObligations": 0,
+      "obligations": 2,
+      "openOriginExempt": 0,
+      "ownedMaterial": 0,
+      "packetByteLimit": 786432,
+      "packetBytes": 191982,
+      "packetDigest": "8a4e7b5e0f02fb7fab68d68053633e5f1f30ad7b27d6df9ca290b54e21d73de2",
+      "packetLimitations": [],
+      "precheckBytes": 191982,
+      "reachableMaterial": 0,
+      "renderedEvidenceIds": 2,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 0,
+      "scopeExcludedObligations": 0,
+      "stubObligations": 0,
+      "topics": 55,
+      "unitId": "feature-请假管理-8c2d685d81-product::appendix::coverage"
+    },
+    {
+      "documentId": "feature-请假管理-8c2d685d81-product",
+      "kind": "leaf",
+      "materialObligations": 164,
+      "obligations": 164,
+      "openOriginExempt": 0,
+      "ownedMaterial": 0,
+      "packetByteLimit": 786432,
+      "packetBytes": 54526,
+      "packetDigest": "c7ef4ea161c63878a88bda5a664fd5862404616c94c04509f90132ced29c32a7",
+      "packetLimitations": [],
+      "precheckBytes": 54526,
+      "reachableMaterial": 164,
+      "renderedEvidenceIds": 0,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 0,
+      "scopeExcludedObligations": 0,
+      "stubObligations": 164,
+      "topics": 1,
+      "unitId": "feature-请假管理-8c2d685d81-product::leaf::coverage"
+    },
+    {
+      "documentId": "feature-请假管理-8c2d685d81-product",
+      "kind": "leaf",
+      "materialObligations": 298,
+      "obligations": 327,
+      "openOriginExempt": 0,
+      "ownedMaterial": 274,
+      "packetByteLimit": 786432,
+      "packetBytes": 755942,
+      "packetDigest": "8707328a2f36e2d33722e5563dcd8e7ea98e3c8e1f25ab79190101a4943b1551",
+      "packetLimitations": [],
+      "precheckBytes": 755942,
+      "reachableMaterial": 298,
+      "renderedEvidenceIds": 313,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 24,
+      "scopeExcludedObligations": 41,
+      "stubObligations": 0,
+      "topics": 1,
+      "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints"
+    },
+    {
+      "documentId": "feature-请假管理-8c2d685d81-product",
+      "kind": "leaf",
+      "materialObligations": 298,
+      "obligations": 327,
+      "openOriginExempt": 0,
+      "ownedMaterial": 24,
+      "packetByteLimit": 786432,
+      "packetBytes": 292709,
+      "packetDigest": "819ebffaa2a310976016167d054b16765565abcfd90f0d23d6fb499156055069",
+      "packetLimitations": [],
+      "precheckBytes": 292709,
+      "reachableMaterial": 298,
+      "renderedEvidenceIds": 103,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 274,
+      "scopeExcludedObligations": 286,
+      "stubObligations": 0,
+      "topics": 1,
+      "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature#t-28bd6c37c830540a#d-documentation-drift"
+    },
+    {
+      "documentId": "feature-请假管理-8c2d685d81-product",
+      "kind": "leaf",
+      "materialObligations": 549,
+      "obligations": 578,
+      "openOriginExempt": 0,
+      "ownedMaterial": 0,
+      "packetByteLimit": 786432,
+      "packetBytes": 227711,
+      "packetDigest": "a9c2b0a9431f4c3114b292beb461b9960e7b4f8b45dd58f4772f755ec6e519b4",
+      "packetLimitations": [],
+      "precheckBytes": 227711,
+      "reachableMaterial": 549,
+      "renderedEvidenceIds": 63,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 549,
+      "scopeExcludedObligations": 566,
+      "stubObligations": 0,
+      "topics": 1,
+      "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints"
+    },
+    {
+      "documentId": "feature-请假管理-8c2d685d81-product",
+      "kind": "leaf",
+      "materialObligations": 549,
+      "obligations": 578,
+      "openOriginExempt": 0,
+      "ownedMaterial": 271,
+      "packetByteLimit": 786432,
+      "packetBytes": 491533,
+      "packetDigest": "914e8a673f9d05867af47ede4fb60315708e5f040c82bb906021e163b621b23d",
+      "packetLimitations": [],
+      "precheckBytes": 491533,
+      "reachableMaterial": 549,
+      "renderedEvidenceIds": 277,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 278,
+      "scopeExcludedObligations": 307,
+      "stubObligations": 0,
+      "topics": 1,
+      "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c"
+    },
+    {
+      "documentId": "feature-请假管理-8c2d685d81-product",
+      "kind": "leaf",
+      "materialObligations": 549,
+      "obligations": 578,
+      "openOriginExempt": 0,
+      "ownedMaterial": 254,
+      "packetByteLimit": 786432,
+      "packetBytes": 492964,
+      "packetDigest": "001850fea129c29d297f7bb859c50e25b425813addd0b297cd3a241cedc4f73d",
+      "packetLimitations": [],
+      "precheckBytes": 492964,
+      "reachableMaterial": 549,
+      "renderedEvidenceIds": 262,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 295,
+      "scopeExcludedObligations": 324,
+      "stubObligations": 0,
+      "topics": 1,
+      "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d"
+    },
+    {
+      "documentId": "feature-请假管理-8c2d685d81-product",
+      "kind": "leaf",
+      "materialObligations": 549,
+      "obligations": 578,
+      "openOriginExempt": 0,
+      "ownedMaterial": 24,
+      "packetByteLimit": 786432,
+      "packetBytes": 190476,
+      "packetDigest": "a21aaab40f44e1a8c0dbc803fb4cd5092a897f7c78780df8c008e9e266a87e7b",
+      "packetLimitations": [],
+      "precheckBytes": 190476,
+      "reachableMaterial": 549,
+      "renderedEvidenceIds": 105,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 525,
+      "scopeExcludedObligations": 537,
+      "stubObligations": 0,
+      "topics": 1,
+      "unitId": "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift"
+    },
+    {
+      "documentId": "feature-请假管理-8c2d685d81-product",
+      "kind": "leaf",
+      "materialObligations": 847,
+      "obligations": 847,
+      "openOriginExempt": 0,
+      "ownedMaterial": 0,
+      "packetByteLimit": 786432,
+      "packetBytes": 255548,
+      "packetDigest": "194c8ceb2c006dfde1b9e65474aefe82884e27b8cb9d920a3dec5ababce8a0c5",
+      "packetLimitations": [],
+      "precheckBytes": 255548,
+      "reachableMaterial": 847,
+      "renderedEvidenceIds": 0,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 0,
+      "scopeExcludedObligations": 0,
+      "stubObligations": 847,
+      "topics": 4,
+      "unitId": "feature-请假管理-8c2d685d81-product::leaf::work-item-dimension"
+    },
+    {
+      "documentId": "overview-engineering",
+      "kind": "appendix",
+      "materialObligations": 0,
+      "obligations": 2,
+      "openOriginExempt": 0,
+      "ownedMaterial": 0,
+      "packetByteLimit": 786432,
+      "packetBytes": 191821,
+      "packetDigest": "7c6611c47d3caa0184b09543bdd5de7d49a304e11bc84e94cb213892edb6b806",
+      "packetLimitations": [],
+      "precheckBytes": 191821,
+      "reachableMaterial": 0,
+      "renderedEvidenceIds": 2,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 0,
+      "scopeExcludedObligations": 0,
+      "stubObligations": 0,
+      "topics": 55,
+      "unitId": "overview-engineering::appendix::coverage"
+    },
+    {
+      "documentId": "overview-engineering",
+      "kind": "leaf",
+      "materialObligations": 164,
+      "obligations": 164,
+      "openOriginExempt": 0,
+      "ownedMaterial": 0,
+      "packetByteLimit": 786432,
+      "packetBytes": 51230,
+      "packetDigest": "21abf2f69cb6e66a9abf1e97c6f8ea67609ee1294dc58fe26cb90aa240c0b962",
+      "packetLimitations": [],
+      "precheckBytes": 51230,
+      "reachableMaterial": 164,
+      "renderedEvidenceIds": 0,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 0,
+      "scopeExcludedObligations": 0,
+      "stubObligations": 164,
+      "topics": 1,
+      "unitId": "overview-engineering::leaf::coverage"
+    },
+    {
+      "documentId": "overview-engineering",
+      "kind": "leaf",
+      "materialObligations": 298,
+      "obligations": 327,
+      "openOriginExempt": 0,
+      "ownedMaterial": 274,
+      "packetByteLimit": 786432,
+      "packetBytes": 755743,
+      "packetDigest": "55a4686dfc54337aacaab7af23f32de74f5f3b115d00205c2b71234dcaa9accf",
+      "packetLimitations": [],
+      "precheckBytes": 755743,
+      "reachableMaterial": 298,
+      "renderedEvidenceIds": 313,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 24,
+      "scopeExcludedObligations": 41,
+      "stubObligations": 0,
+      "topics": 1,
+      "unitId": "overview-engineering::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints"
+    },
+    {
+      "documentId": "overview-engineering",
+      "kind": "leaf",
+      "materialObligations": 298,
+      "obligations": 327,
+      "openOriginExempt": 0,
+      "ownedMaterial": 24,
+      "packetByteLimit": 786432,
+      "packetBytes": 292510,
+      "packetDigest": "3fae9f82e7564a5ddff781477f412b621b1c1033f54402c92aacd25d10d4eb6c",
+      "packetLimitations": [],
+      "precheckBytes": 292510,
+      "reachableMaterial": 298,
+      "renderedEvidenceIds": 103,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 274,
+      "scopeExcludedObligations": 286,
+      "stubObligations": 0,
+      "topics": 1,
+      "unitId": "overview-engineering::leaf::feature#t-28bd6c37c830540a#d-documentation-drift"
+    },
+    {
+      "documentId": "overview-engineering",
+      "kind": "leaf",
+      "materialObligations": 549,
+      "obligations": 578,
+      "openOriginExempt": 0,
+      "ownedMaterial": 0,
+      "packetByteLimit": 786432,
+      "packetBytes": 227474,
+      "packetDigest": "06c357974789f5fc934bce0942d85d70037c8fed99c33f49e263a4618cec9d69",
+      "packetLimitations": [],
+      "precheckBytes": 227474,
+      "reachableMaterial": 549,
+      "renderedEvidenceIds": 63,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 549,
+      "scopeExcludedObligations": 566,
+      "stubObligations": 0,
+      "topics": 1,
+      "unitId": "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints"
+    },
+    {
+      "documentId": "overview-engineering",
+      "kind": "leaf",
+      "materialObligations": 549,
+      "obligations": 578,
+      "openOriginExempt": 0,
+      "ownedMaterial": 271,
+      "packetByteLimit": 786432,
+      "packetBytes": 491296,
+      "packetDigest": "13cad518abd8e544a984ed3e4cde6ab17d7b1d851781d936c41bb541225a2723",
+      "packetLimitations": [],
+      "precheckBytes": 491296,
+      "reachableMaterial": 549,
+      "renderedEvidenceIds": 277,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 278,
+      "scopeExcludedObligations": 307,
+      "stubObligations": 0,
+      "topics": 1,
+      "unitId": "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c"
+    },
+    {
+      "documentId": "overview-engineering",
+      "kind": "leaf",
+      "materialObligations": 549,
+      "obligations": 578,
+      "openOriginExempt": 0,
+      "ownedMaterial": 254,
+      "packetByteLimit": 786432,
+      "packetBytes": 492727,
+      "packetDigest": "e0b802fe2f5821961a986d2b83c3f64c79dd781dc60be21a5fd860ad8ab6c23c",
+      "packetLimitations": [],
+      "precheckBytes": 492727,
+      "reachableMaterial": 549,
+      "renderedEvidenceIds": 262,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 295,
+      "scopeExcludedObligations": 324,
+      "stubObligations": 0,
+      "topics": 1,
+      "unitId": "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d"
+    },
+    {
+      "documentId": "overview-engineering",
+      "kind": "leaf",
+      "materialObligations": 549,
+      "obligations": 578,
+      "openOriginExempt": 0,
+      "ownedMaterial": 24,
+      "packetByteLimit": 786432,
+      "packetBytes": 190239,
+      "packetDigest": "97774f05d7741b7e9692e4737e28c8eddf1e00efd5c8deb6b41c859474bf6ff1",
+      "packetLimitations": [],
+      "precheckBytes": 190239,
+      "reachableMaterial": 549,
+      "renderedEvidenceIds": 105,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 525,
+      "scopeExcludedObligations": 537,
+      "stubObligations": 0,
+      "topics": 1,
+      "unitId": "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift"
+    },
+    {
+      "documentId": "overview-engineering",
+      "kind": "leaf",
+      "materialObligations": 847,
+      "obligations": 847,
+      "openOriginExempt": 0,
+      "ownedMaterial": 0,
+      "packetByteLimit": 786432,
+      "packetBytes": 239218,
+      "packetDigest": "6d594a3a314c4de8bd9952e0e4190a6878b3b9f111ca85538a8ff9a293b7828a",
+      "packetLimitations": [],
+      "precheckBytes": 239218,
+      "reachableMaterial": 847,
+      "renderedEvidenceIds": 0,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 0,
+      "scopeExcludedObligations": 0,
+      "stubObligations": 847,
+      "topics": 4,
+      "unitId": "overview-engineering::leaf::work-item-dimension"
+    },
+    {
+      "documentId": "overview-product",
+      "kind": "appendix",
+      "materialObligations": 0,
+      "obligations": 2,
+      "openOriginExempt": 0,
+      "ownedMaterial": 0,
+      "packetByteLimit": 786432,
+      "packetBytes": 191800,
+      "packetDigest": "2e68573c7c29f68c35f92b37802a0e2d5b37163ce274968c412cbb28ac4c81dd",
+      "packetLimitations": [],
+      "precheckBytes": 191800,
+      "reachableMaterial": 0,
+      "renderedEvidenceIds": 2,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 0,
+      "scopeExcludedObligations": 0,
+      "stubObligations": 0,
+      "topics": 55,
+      "unitId": "overview-product::appendix::coverage"
+    },
+    {
+      "documentId": "overview-product",
+      "kind": "leaf",
+      "materialObligations": 164,
+      "obligations": 164,
+      "openOriginExempt": 0,
+      "ownedMaterial": 0,
+      "packetByteLimit": 786432,
+      "packetBytes": 50549,
+      "packetDigest": "14379a6009ab3910741f5d0623a620b56af7d7c8e157d5a9f4af8f5b76415f2d",
+      "packetLimitations": [],
+      "precheckBytes": 50549,
+      "reachableMaterial": 164,
+      "renderedEvidenceIds": 0,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 0,
+      "scopeExcludedObligations": 0,
+      "stubObligations": 164,
+      "topics": 1,
+      "unitId": "overview-product::leaf::coverage"
+    },
+    {
+      "documentId": "overview-product",
+      "kind": "leaf",
+      "materialObligations": 298,
+      "obligations": 327,
+      "openOriginExempt": 0,
+      "ownedMaterial": 274,
+      "packetByteLimit": 786432,
+      "packetBytes": 755714,
+      "packetDigest": "f2c1771db852ad659d2823b8bae25f1f73a3c0dcf61e5dcbecc1264b5f95fb2c",
+      "packetLimitations": [],
+      "precheckBytes": 755714,
+      "reachableMaterial": 298,
+      "renderedEvidenceIds": 313,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 24,
+      "scopeExcludedObligations": 41,
+      "stubObligations": 0,
+      "topics": 1,
+      "unitId": "overview-product::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints"
+    },
+    {
+      "documentId": "overview-product",
+      "kind": "leaf",
+      "materialObligations": 298,
+      "obligations": 327,
+      "openOriginExempt": 0,
+      "ownedMaterial": 24,
+      "packetByteLimit": 786432,
+      "packetBytes": 292481,
+      "packetDigest": "b3e503bf8b5562ceaa7af153dc89149662e735fa38c59b5166ed66c2220058c3",
+      "packetLimitations": [],
+      "precheckBytes": 292481,
+      "reachableMaterial": 298,
+      "renderedEvidenceIds": 103,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 274,
+      "scopeExcludedObligations": 286,
+      "stubObligations": 0,
+      "topics": 1,
+      "unitId": "overview-product::leaf::feature#t-28bd6c37c830540a#d-documentation-drift"
+    },
+    {
+      "documentId": "overview-product",
+      "kind": "leaf",
+      "materialObligations": 549,
+      "obligations": 578,
+      "openOriginExempt": 0,
+      "ownedMaterial": 0,
+      "packetByteLimit": 786432,
+      "packetBytes": 227437,
+      "packetDigest": "a9424ee1598b306ee1f7d05f6a99b9943d4b9c645fffe8e2ef15030c7feef038",
+      "packetLimitations": [],
+      "precheckBytes": 227437,
+      "reachableMaterial": 549,
+      "renderedEvidenceIds": 63,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 549,
+      "scopeExcludedObligations": 566,
+      "stubObligations": 0,
+      "topics": 1,
+      "unitId": "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints"
+    },
+    {
+      "documentId": "overview-product",
+      "kind": "leaf",
+      "materialObligations": 549,
+      "obligations": 578,
+      "openOriginExempt": 0,
+      "ownedMaterial": 271,
+      "packetByteLimit": 786432,
+      "packetBytes": 491259,
+      "packetDigest": "94a901b2ee2140527f96f9fc6219ee72510360f382459fafb7a8d6e8d3ec439a",
+      "packetLimitations": [],
+      "precheckBytes": 491259,
+      "reachableMaterial": 549,
+      "renderedEvidenceIds": 277,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 278,
+      "scopeExcludedObligations": 307,
+      "stubObligations": 0,
+      "topics": 1,
+      "unitId": "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c"
+    },
+    {
+      "documentId": "overview-product",
+      "kind": "leaf",
+      "materialObligations": 549,
+      "obligations": 578,
+      "openOriginExempt": 0,
+      "ownedMaterial": 254,
+      "packetByteLimit": 786432,
+      "packetBytes": 492690,
+      "packetDigest": "7ec220e0d98cdd101be8fb838878fcb693d305b0d8da5a7f4d095fa2ada447c5",
+      "packetLimitations": [],
+      "precheckBytes": 492690,
+      "reachableMaterial": 549,
+      "renderedEvidenceIds": 262,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 295,
+      "scopeExcludedObligations": 324,
+      "stubObligations": 0,
+      "topics": 1,
+      "unitId": "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d"
+    },
+    {
+      "documentId": "overview-product",
+      "kind": "leaf",
+      "materialObligations": 549,
+      "obligations": 578,
+      "openOriginExempt": 0,
+      "ownedMaterial": 24,
+      "packetByteLimit": 786432,
+      "packetBytes": 190202,
+      "packetDigest": "56fd7f700170fc07210480ec3089aed5f3e286ec191bcadc56cca390959beca7",
+      "packetLimitations": [],
+      "precheckBytes": 190202,
+      "reachableMaterial": 549,
+      "renderedEvidenceIds": 105,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 525,
+      "scopeExcludedObligations": 537,
+      "stubObligations": 0,
+      "topics": 1,
+      "unitId": "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift"
+    },
+    {
+      "documentId": "overview-product",
+      "kind": "leaf",
+      "materialObligations": 847,
+      "obligations": 847,
+      "openOriginExempt": 0,
+      "ownedMaterial": 0,
+      "packetByteLimit": 786432,
+      "packetBytes": 235793,
+      "packetDigest": "62c3550373e76df4e9a298f89d536d12ba351287d4c0cee0fe0789cd0a377250",
+      "packetLimitations": [],
+      "precheckBytes": 235793,
+      "reachableMaterial": 847,
+      "renderedEvidenceIds": 0,
+      "renderedTwiceIdentical": true,
+      "scopeExcludedMaterial": 0,
+      "scopeExcludedObligations": 0,
+      "stubObligations": 847,
+      "topics": 4,
+      "unitId": "overview-product::leaf::work-item-dimension"
+    }
+  ],
+  "runId": "run-2026_08_20_03_48-overview+请假管理+晋升管理-8abb4795-251cd3b2-740f3203",
+  "unboundEvidenceByKind": [
+    {
+      "kind": "derived",
+      "records": 766
+    },
+    {
+      "kind": "fact",
+      "records": 14
+    },
+    {
+      "kind": "graph",
+      "records": 1
+    },
+    {
+      "kind": "manifest",
+      "records": 11
+    },
+    {
+      "kind": "provider",
+      "records": 1
+    },
+    {
+      "kind": "readme",
+      "records": 3
+    },
+    {
+      "kind": "scope",
+      "records": 1
+    },
+    {
+      "kind": "source",
+      "records": 134
+    }
+  ],
+  "unboundEvidenceIds": 931,
+  "units": 40,
+  "unitsByKind": [
+    {
+      "kind": "appendix",
+      "units": 4
+    },
+    {
+      "kind": "bridge",
+      "units": 0
+    },
+    {
+      "kind": "leaf",
+      "units": 32
+    },
+    {
+      "kind": "synthesis",
+      "units": 4
+    }
+  ],
+  "version": "unit-packet-readings-v1"
+}

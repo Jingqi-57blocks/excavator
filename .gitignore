@@ -69,7 +69,14 @@ excavator-work/
 *.sqlite3
 
 # --- Test / tooling scratch ---
-coverage/
+# ANCHORED to the repo root on purpose. This rule exists for the coverage reporter's own output, which lands
+# here and nowhere else. Unanchored, it also hid every `*/coverage/` directory in the tree — and a run directory
+# keeps its read-coverage residual under exactly that name, so checked-in fixture runs went missing from a fresh
+# clone while staying green locally. That was patched once with a negation for `eval/tests/fixtures/*/coverage/`,
+# and the trap sprang a second time on `tests/fixtures/topic-catalog-mini/coverage/`, which the negation did not
+# reach. A per-location negation is a list someone has to remember to extend; an anchor is not. Run directories
+# under `.work/` are ignored wholesale by their own rule, so nothing needs this pattern to be recursive.
+/coverage/
 .nyc_output/
 tmp/
 .tmp/

@@ -1,0 +1,412 @@
+{
+  "authorship": "model-free generator eval-unit-cache-identity-readings",
+  "bytesNotVerified": "this run authored no unit, so no candidate's content, claims or summary exists to verify; every reading here is the DECISION an admission would make, and none of them is an admission",
+  "candidateUnits": 36,
+  "knowledgeDigest": "e70e928538b66f36de5dbd4fd37de4a53ac0422766a75efe4545992efcc4e15f",
+  "knowledgeEpoch": 0,
+  "planCatalogDigest": "48ab55257abdc9618ac67ee76014d05770fa774b4d2c95dd18568bcdc9d6b2e4",
+  "plannedUnits": 40,
+  "readPaths": [
+    "context/boundary-functions.json",
+    "context/cross-feature.json",
+    "context/crossrepo-links.json",
+    "contract/run-intent.json",
+    "coverage/read-obligations.json",
+    "coverage/read-residual.json",
+    "evidence.json",
+    "facts/producers/codegraph.json",
+    "facts/producers/crossrepo.json",
+    "facts/producers/db-schema.json",
+    "knowledge.json",
+    "run.json",
+    "workitems.json"
+  ],
+  "runId": "run-2026_08_20_03_48-overview+请假管理+晋升管理-8abb4795-251cd3b2-740f3203",
+  "scenarios": [
+    {
+      "outcome": {
+        "bucketsAgree": true,
+        "candidateStatement": "36 prior verified unit(s) offered by run run-2026_08_20_03_48-overview+请假管理+晋升管理-8abb4795-251cd3b2-740f3203, knowledge epoch 0, plan catalog 48ab55257abdc9618ac67ee76014d05770fa774b4d2c95dd18568bcdc9d6b2e4",
+        "fromRecordedDigests": {
+          "new": [
+            "feature-晋升管理-01e5065d19-engineering::synthesis::document",
+            "feature-请假管理-8c2d685d81-product::synthesis::document",
+            "overview-engineering::synthesis::document",
+            "overview-product::synthesis::document"
+          ],
+          "rebuild": [],
+          "retired": [],
+          "reusable": [
+            "feature-晋升管理-01e5065d19-engineering::appendix::coverage",
+            "feature-晋升管理-01e5065d19-engineering::leaf::coverage",
+            "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+            "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+            "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+            "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+            "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+            "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+            "feature-晋升管理-01e5065d19-engineering::leaf::work-item-dimension",
+            "feature-请假管理-8c2d685d81-product::appendix::coverage",
+            "feature-请假管理-8c2d685d81-product::leaf::coverage",
+            "feature-请假管理-8c2d685d81-product::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+            "feature-请假管理-8c2d685d81-product::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+            "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+            "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+            "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+            "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+            "feature-请假管理-8c2d685d81-product::leaf::work-item-dimension",
+            "overview-engineering::appendix::coverage",
+            "overview-engineering::leaf::coverage",
+            "overview-engineering::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+            "overview-engineering::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+            "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+            "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+            "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+            "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+            "overview-engineering::leaf::work-item-dimension",
+            "overview-product::appendix::coverage",
+            "overview-product::leaf::coverage",
+            "overview-product::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+            "overview-product::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+            "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+            "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+            "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+            "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+            "overview-product::leaf::work-item-dimension"
+          ]
+        },
+        "fromWholeIdentities": {
+          "new": [
+            "feature-晋升管理-01e5065d19-engineering::synthesis::document",
+            "feature-请假管理-8c2d685d81-product::synthesis::document",
+            "overview-engineering::synthesis::document",
+            "overview-product::synthesis::document"
+          ],
+          "rebuild": [],
+          "retired": [],
+          "reusable": [
+            "feature-晋升管理-01e5065d19-engineering::appendix::coverage",
+            "feature-晋升管理-01e5065d19-engineering::leaf::coverage",
+            "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+            "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+            "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+            "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+            "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+            "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+            "feature-晋升管理-01e5065d19-engineering::leaf::work-item-dimension",
+            "feature-请假管理-8c2d685d81-product::appendix::coverage",
+            "feature-请假管理-8c2d685d81-product::leaf::coverage",
+            "feature-请假管理-8c2d685d81-product::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+            "feature-请假管理-8c2d685d81-product::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+            "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+            "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+            "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+            "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+            "feature-请假管理-8c2d685d81-product::leaf::work-item-dimension",
+            "overview-engineering::appendix::coverage",
+            "overview-engineering::leaf::coverage",
+            "overview-engineering::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+            "overview-engineering::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+            "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+            "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+            "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+            "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+            "overview-engineering::leaf::work-item-dimension",
+            "overview-product::appendix::coverage",
+            "overview-product::leaf::coverage",
+            "overview-product::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+            "overview-product::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+            "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+            "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+            "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+            "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+            "overview-product::leaf::work-item-dimension"
+          ]
+        },
+        "plannedUnits": 40,
+        "rebuildCauses": [],
+        "rebuildsNamingSections": [
+          {
+            "form": "whole-identities",
+            "units": 0
+          },
+          {
+            "form": "recorded-digests",
+            "units": 0
+          }
+        ],
+        "state": "derived"
+      },
+      "perturbation": "nothing is changed; the plan is compared with the identities of its own units",
+      "scenario": "unchanged"
+    },
+    {
+      "outcome": {
+        "bucketsAgree": true,
+        "candidateStatement": "36 prior verified unit(s) offered by run run-2026_08_20_03_48-overview+请假管理+晋升管理-8abb4795-251cd3b2-740f3203, knowledge epoch 0, plan catalog 48ab55257abdc9618ac67ee76014d05770fa774b4d2c95dd18568bcdc9d6b2e4",
+        "fromRecordedDigests": {
+          "new": [
+            "feature-晋升管理-01e5065d19-engineering::synthesis::document",
+            "feature-请假管理-8c2d685d81-engineering::appendix::coverage",
+            "feature-请假管理-8c2d685d81-engineering::leaf::coverage",
+            "feature-请假管理-8c2d685d81-engineering::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+            "feature-请假管理-8c2d685d81-engineering::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+            "feature-请假管理-8c2d685d81-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+            "feature-请假管理-8c2d685d81-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+            "feature-请假管理-8c2d685d81-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+            "feature-请假管理-8c2d685d81-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+            "feature-请假管理-8c2d685d81-engineering::leaf::work-item-dimension",
+            "feature-请假管理-8c2d685d81-engineering::synthesis::document",
+            "feature-请假管理-8c2d685d81-product::synthesis::document",
+            "overview-engineering::synthesis::document",
+            "overview-product::synthesis::document"
+          ],
+          "rebuild": [],
+          "retired": [],
+          "reusable": [
+            "feature-晋升管理-01e5065d19-engineering::appendix::coverage",
+            "feature-晋升管理-01e5065d19-engineering::leaf::coverage",
+            "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+            "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+            "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+            "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+            "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+            "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+            "feature-晋升管理-01e5065d19-engineering::leaf::work-item-dimension",
+            "feature-请假管理-8c2d685d81-product::appendix::coverage",
+            "feature-请假管理-8c2d685d81-product::leaf::coverage",
+            "feature-请假管理-8c2d685d81-product::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+            "feature-请假管理-8c2d685d81-product::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+            "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+            "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+            "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+            "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+            "feature-请假管理-8c2d685d81-product::leaf::work-item-dimension",
+            "overview-engineering::appendix::coverage",
+            "overview-engineering::leaf::coverage",
+            "overview-engineering::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+            "overview-engineering::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+            "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+            "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+            "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+            "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+            "overview-engineering::leaf::work-item-dimension",
+            "overview-product::appendix::coverage",
+            "overview-product::leaf::coverage",
+            "overview-product::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+            "overview-product::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+            "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+            "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+            "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+            "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+            "overview-product::leaf::work-item-dimension"
+          ]
+        },
+        "fromWholeIdentities": {
+          "new": [
+            "feature-晋升管理-01e5065d19-engineering::synthesis::document",
+            "feature-请假管理-8c2d685d81-engineering::appendix::coverage",
+            "feature-请假管理-8c2d685d81-engineering::leaf::coverage",
+            "feature-请假管理-8c2d685d81-engineering::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+            "feature-请假管理-8c2d685d81-engineering::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+            "feature-请假管理-8c2d685d81-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+            "feature-请假管理-8c2d685d81-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+            "feature-请假管理-8c2d685d81-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+            "feature-请假管理-8c2d685d81-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+            "feature-请假管理-8c2d685d81-engineering::leaf::work-item-dimension",
+            "feature-请假管理-8c2d685d81-engineering::synthesis::document",
+            "feature-请假管理-8c2d685d81-product::synthesis::document",
+            "overview-engineering::synthesis::document",
+            "overview-product::synthesis::document"
+          ],
+          "rebuild": [],
+          "retired": [],
+          "reusable": [
+            "feature-晋升管理-01e5065d19-engineering::appendix::coverage",
+            "feature-晋升管理-01e5065d19-engineering::leaf::coverage",
+            "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+            "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+            "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+            "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+            "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+            "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+            "feature-晋升管理-01e5065d19-engineering::leaf::work-item-dimension",
+            "feature-请假管理-8c2d685d81-product::appendix::coverage",
+            "feature-请假管理-8c2d685d81-product::leaf::coverage",
+            "feature-请假管理-8c2d685d81-product::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+            "feature-请假管理-8c2d685d81-product::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+            "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+            "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+            "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+            "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+            "feature-请假管理-8c2d685d81-product::leaf::work-item-dimension",
+            "overview-engineering::appendix::coverage",
+            "overview-engineering::leaf::coverage",
+            "overview-engineering::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+            "overview-engineering::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+            "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+            "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+            "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+            "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+            "overview-engineering::leaf::work-item-dimension",
+            "overview-product::appendix::coverage",
+            "overview-product::leaf::coverage",
+            "overview-product::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+            "overview-product::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+            "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+            "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+            "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+            "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+            "overview-product::leaf::work-item-dimension"
+          ]
+        },
+        "plannedUnits": 50,
+        "rebuildCauses": [],
+        "rebuildsNamingSections": [
+          {
+            "form": "whole-identities",
+            "units": 0
+          },
+          {
+            "form": "recorded-digests",
+            "units": 0
+          }
+        ],
+        "state": "derived"
+      },
+      "perturbation": "one document added to the recorded requests: feature-请假管理-8c2d685d81-engineering (feature, audience engineering)",
+      "scenario": "second-audience-document"
+    },
+    {
+      "outcome": {
+        "bucketsAgree": true,
+        "candidateStatement": "36 prior verified unit(s) offered by run run-2026_08_20_03_48-overview+请假管理+晋升管理-8abb4795-251cd3b2-740f3203, knowledge epoch 0, plan catalog 48ab55257abdc9618ac67ee76014d05770fa774b4d2c95dd18568bcdc9d6b2e4",
+        "fromRecordedDigests": {
+          "new": [
+            "feature-晋升管理-01e5065d19-engineering::synthesis::document",
+            "feature-请假管理-8c2d685d81-product::synthesis::document",
+            "overview-engineering::synthesis::document",
+            "overview-product::synthesis::document"
+          ],
+          "rebuild": [
+            "feature-晋升管理-01e5065d19-engineering::leaf::work-item-dimension",
+            "feature-请假管理-8c2d685d81-product::leaf::work-item-dimension",
+            "overview-engineering::leaf::work-item-dimension",
+            "overview-product::leaf::work-item-dimension"
+          ],
+          "retired": [],
+          "reusable": [
+            "feature-晋升管理-01e5065d19-engineering::appendix::coverage",
+            "feature-晋升管理-01e5065d19-engineering::leaf::coverage",
+            "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+            "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+            "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+            "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+            "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+            "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+            "feature-请假管理-8c2d685d81-product::appendix::coverage",
+            "feature-请假管理-8c2d685d81-product::leaf::coverage",
+            "feature-请假管理-8c2d685d81-product::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+            "feature-请假管理-8c2d685d81-product::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+            "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+            "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+            "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+            "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+            "overview-engineering::appendix::coverage",
+            "overview-engineering::leaf::coverage",
+            "overview-engineering::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+            "overview-engineering::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+            "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+            "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+            "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+            "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+            "overview-product::appendix::coverage",
+            "overview-product::leaf::coverage",
+            "overview-product::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+            "overview-product::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+            "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+            "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+            "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+            "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift"
+          ]
+        },
+        "fromWholeIdentities": {
+          "new": [
+            "feature-晋升管理-01e5065d19-engineering::synthesis::document",
+            "feature-请假管理-8c2d685d81-product::synthesis::document",
+            "overview-engineering::synthesis::document",
+            "overview-product::synthesis::document"
+          ],
+          "rebuild": [
+            "feature-晋升管理-01e5065d19-engineering::leaf::work-item-dimension",
+            "feature-请假管理-8c2d685d81-product::leaf::work-item-dimension",
+            "overview-engineering::leaf::work-item-dimension",
+            "overview-product::leaf::work-item-dimension"
+          ],
+          "retired": [],
+          "reusable": [
+            "feature-晋升管理-01e5065d19-engineering::appendix::coverage",
+            "feature-晋升管理-01e5065d19-engineering::leaf::coverage",
+            "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+            "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+            "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+            "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+            "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+            "feature-晋升管理-01e5065d19-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+            "feature-请假管理-8c2d685d81-product::appendix::coverage",
+            "feature-请假管理-8c2d685d81-product::leaf::coverage",
+            "feature-请假管理-8c2d685d81-product::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+            "feature-请假管理-8c2d685d81-product::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+            "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+            "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+            "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+            "feature-请假管理-8c2d685d81-product::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+            "overview-engineering::appendix::coverage",
+            "overview-engineering::leaf::coverage",
+            "overview-engineering::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+            "overview-engineering::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+            "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+            "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+            "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+            "overview-engineering::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift",
+            "overview-product::appendix::coverage",
+            "overview-product::leaf::coverage",
+            "overview-product::leaf::feature#t-28bd6c37c830540a#d-api-entrypoints",
+            "overview-product::leaf::feature#t-28bd6c37c830540a#d-documentation-drift",
+            "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-api-entrypoints",
+            "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-95543e0dad2c",
+            "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-decision-function#w-a70de8851c5d",
+            "overview-product::leaf::feature#t-ba5c5ed978e23ca3#d-documentation-drift"
+          ]
+        },
+        "plannedUnits": 40,
+        "rebuildCauses": [
+          {
+            "cause": "identity-changed",
+            "form": "whole-identities",
+            "units": 4
+          },
+          {
+            "cause": "recorded-identity-differs",
+            "form": "recorded-digests",
+            "units": 4
+          }
+        ],
+        "rebuildsNamingSections": [
+          {
+            "form": "whole-identities",
+            "units": 4
+          },
+          {
+            "form": "recorded-digests",
+            "units": 0
+          }
+        ],
+        "state": "derived"
+      },
+      "perturbation": "binding-preserving: the title of topic work-item-dimension:34fcd3cb942604c7 (facet work-item-dimension, 24 binding(s)) changed; its binding set and every other topic are untouched",
+      "scenario": "content-change-smallest-topic"
+    }
+  ],
+  "version": "unit-cache-admission-readings-v1"
+}

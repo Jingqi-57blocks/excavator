@@ -1,0 +1,789 @@
+{
+  "facets": [
+    {
+      "facet": "coverage",
+      "materiality": {
+        "material": 3,
+        "obligatedNonMaterial": 1,
+        "unobligated": 6
+      },
+      "outcome": {
+        "state": "populated",
+        "topics": 10
+      }
+    },
+    {
+      "facet": "entity",
+      "materiality": {
+        "material": 0,
+        "obligatedNonMaterial": 0,
+        "unobligated": 0
+      },
+      "outcome": {
+        "reason": "facts/producers/db-schema.json records status unavailable: policy: not-run-scoped — schema discovery runs as its own command and writes outside the run directory",
+        "state": "ledger-absent"
+      }
+    },
+    {
+      "facet": "external-system",
+      "materiality": {
+        "material": 0,
+        "obligatedNonMaterial": 0,
+        "unobligated": 2
+      },
+      "outcome": {
+        "state": "populated",
+        "topics": 2
+      }
+    },
+    {
+      "facet": "feature",
+      "materiality": {
+        "material": 2,
+        "obligatedNonMaterial": 0,
+        "unobligated": 0
+      },
+      "outcome": {
+        "state": "populated",
+        "topics": 2
+      }
+    },
+    {
+      "facet": "route",
+      "materiality": {
+        "material": 0,
+        "obligatedNonMaterial": 0,
+        "unobligated": 3
+      },
+      "outcome": {
+        "state": "populated",
+        "topics": 3
+      }
+    },
+    {
+      "facet": "work-item-dimension",
+      "materiality": {
+        "material": 2,
+        "obligatedNonMaterial": 3,
+        "unobligated": 0
+      },
+      "outcome": {
+        "state": "populated",
+        "topics": 5
+      }
+    }
+  ],
+  "factRouting": {
+    "mapped": 3,
+    "unmapped": [
+      {
+        "facts": 1,
+        "kind": "indexed-function",
+        "producer": "codegraph"
+      },
+      {
+        "facts": 1,
+        "kind": "http-link",
+        "producer": "crossrepo"
+      }
+    ]
+  },
+  "knowledgeDigest": "3bf7e058c0e7b0e29e6be73dbb5b3453c837fd3f109023215c7cf7bb025e7010",
+  "knowledgeEpoch": 0,
+  "materiality": {
+    "material": 7,
+    "obligatedNonMaterial": 4,
+    "unobligated": 11
+  },
+  "obligationAccounting": {
+    "assigned": 6,
+    "total": 6,
+    "unassigned": 0,
+    "unassignedWorkItemIds": []
+  },
+  "runId": "run-topic-catalog-mini",
+  "snapshotId": "snap-topic-mini",
+  "topics": [
+    {
+      "bindings": [],
+      "canonicalKey": "coverage/boundary-scan/files-without-candidates/svc/a/dup.go",
+      "completeness": {
+        "boundWorkItems": 0,
+        "residualRows": 0,
+        "settledWorkItems": 0,
+        "uncoveredLines": 0
+      },
+      "confidence": "unbound",
+      "digest": "f16e75c1b0d735e43dc312690b41c0984171a22c2d4132964272509e047302ba",
+      "facet": "coverage",
+      "kind": "boundary-scan-blind-file",
+      "materiality": "unobligated",
+      "relationIds": [],
+      "source": {
+        "ledger": "context/boundary-functions.json",
+        "rowId": "svc/a/dup.go"
+      },
+      "title": "no function-shaped symbol was enumerable in svc/a/dup.go",
+      "topicId": "coverage:04f271b6e55b7d74",
+      "unknown": true
+    },
+    {
+      "bindings": [
+        {
+          "dimension": "open-investigation",
+          "evidenceIds": [],
+          "material": false,
+          "status": "cannot-determine",
+          "traceIds": [],
+          "workItemId": "project:open-investigation"
+        }
+      ],
+      "canonicalKey": "coverage/determination/cannot-determine",
+      "completeness": {
+        "boundWorkItems": 1,
+        "residualRows": 0,
+        "settledWorkItems": 1,
+        "uncoveredLines": 0
+      },
+      "confidence": "unsettled",
+      "digest": "acc07ee4dff4fc431c987372793ad41922e8bc5cf26cf5ed9b19d05d4ec310e0",
+      "facet": "coverage",
+      "kind": "work-item-status",
+      "materiality": "obligated-non-material",
+      "relationIds": [],
+      "source": {
+        "ledger": "workitems.json",
+        "rowId": "cannot-determine"
+      },
+      "title": "work items whose determination is cannot-determine",
+      "topicId": "coverage:1d6a62b745efa3a4",
+      "unknown": true
+    },
+    {
+      "bindings": [
+        {
+          "dimension": "logic-disposition",
+          "evidenceIds": [
+            "S-eeeeeeeeee"
+          ],
+          "material": true,
+          "status": "searched-not-found",
+          "traceIds": [],
+          "workItemId": "feature:promo-9f8e7d6c5b:logic:rank@svc/promo/rank.go:5"
+        }
+      ],
+      "canonicalKey": "coverage/read-residual/not-opened",
+      "completeness": {
+        "boundWorkItems": 1,
+        "residualRows": 1,
+        "settledWorkItems": 1,
+        "uncoveredLines": 15
+      },
+      "confidence": "qualified",
+      "digest": "eb54531b0a4595c6445f0a44396fd3a12ebfbc8f23dab4343dac92dc267fff59",
+      "facet": "coverage",
+      "kind": "read-residual",
+      "materiality": "material",
+      "relationIds": [],
+      "source": {
+        "ledger": "coverage/read-residual.json",
+        "rowId": "not-opened"
+      },
+      "title": "read obligations whose spans are not-opened",
+      "topicId": "coverage:3c7bfb50d9ce5b71",
+      "unknown": true
+    },
+    {
+      "bindings": [
+        {
+          "dimension": "decision-function",
+          "evidenceIds": [
+            "S-cccccccccc"
+          ],
+          "material": true,
+          "status": "found",
+          "traceIds": [],
+          "workItemId": "feature:leave-1a2b3c4d5e:logic:approve@svc/holiday/approve.go:20"
+        },
+        {
+          "dimension": "decision-function",
+          "evidenceIds": [
+            "S-bbbbbbbbbb",
+            "S-aaaaaaaaaa"
+          ],
+          "material": true,
+          "status": "found",
+          "traceIds": [
+            "T-1111111111"
+          ],
+          "workItemId": "feature:leave-1a2b3c4d5e:logic:approve@svc/leave/approve.go:10"
+        }
+      ],
+      "canonicalKey": "coverage/read-residual/covered",
+      "completeness": {
+        "boundWorkItems": 2,
+        "residualRows": 2,
+        "settledWorkItems": 2,
+        "uncoveredLines": 0
+      },
+      "confidence": "grounded",
+      "digest": "4c24c52ccdeb1fdd1b87998a6e96b8921d644bd95490deb5f1a52028f4feefc6",
+      "facet": "coverage",
+      "kind": "read-residual",
+      "materiality": "material",
+      "relationIds": [],
+      "source": {
+        "ledger": "coverage/read-residual.json",
+        "rowId": "covered"
+      },
+      "title": "read obligations whose spans are covered",
+      "topicId": "coverage:510e691a6643fdfa",
+      "unknown": false
+    },
+    {
+      "bindings": [
+        {
+          "dimension": "logic-disposition",
+          "evidenceIds": [
+            "S-eeeeeeeeee"
+          ],
+          "material": true,
+          "status": "searched-not-found",
+          "traceIds": [],
+          "workItemId": "feature:promo-9f8e7d6c5b:logic:rank@svc/promo/rank.go:5"
+        }
+      ],
+      "canonicalKey": "coverage/determination/searched-not-found",
+      "completeness": {
+        "boundWorkItems": 1,
+        "residualRows": 1,
+        "settledWorkItems": 1,
+        "uncoveredLines": 15
+      },
+      "confidence": "qualified",
+      "digest": "5b4d0dc789726763297d13974003f71275147c54cfb53be39a2336847a44070d",
+      "facet": "coverage",
+      "kind": "work-item-status",
+      "materiality": "material",
+      "relationIds": [],
+      "source": {
+        "ledger": "workitems.json",
+        "rowId": "searched-not-found"
+      },
+      "title": "work items whose determination is searched-not-found",
+      "topicId": "coverage:7f6798f415ce602b",
+      "unknown": false
+    },
+    {
+      "bindings": [],
+      "canonicalKey": "coverage/crossrepo-call/unresolved/ui/ui/src/api/legacy.ts:3:DELETE",
+      "completeness": {
+        "boundWorkItems": 0,
+        "residualRows": 0,
+        "settledWorkItems": 0,
+        "uncoveredLines": 0
+      },
+      "confidence": "unbound",
+      "digest": "11448aea16519296e6177eb75d2e8e8d97ba788dc2d6bf0738916a0ad7bff054",
+      "facet": "coverage",
+      "kind": "crossrepo-call-unresolved",
+      "materiality": "unobligated",
+      "relationIds": [],
+      "source": {
+        "ledger": "context/crossrepo-links.json",
+        "rowId": "unresolved/ui/src/api/legacy.ts:3:DELETE"
+      },
+      "title": "an outbound DELETE call at ui/src/api/legacy.ts:3 resolved to no route (unresolved)",
+      "topicId": "coverage:a1f654adbb0832ca",
+      "unknown": true
+    },
+    {
+      "bindings": [],
+      "canonicalKey": "coverage/crossrepo-call/ambiguous/ui/ui/src/api/shared.ts:9:GET",
+      "completeness": {
+        "boundWorkItems": 0,
+        "residualRows": 0,
+        "settledWorkItems": 0,
+        "uncoveredLines": 0
+      },
+      "confidence": "unbound",
+      "digest": "5665a0458025c72fbe1770d69998566cdbfa5f0686255f5767bd8fa6c83d9031",
+      "facet": "coverage",
+      "kind": "crossrepo-call-ambiguous",
+      "materiality": "unobligated",
+      "relationIds": [],
+      "source": {
+        "ledger": "context/crossrepo-links.json",
+        "rowId": "ambiguous/ui/src/api/shared.ts:9:GET"
+      },
+      "title": "an outbound GET call at ui/src/api/shared.ts:9 resolved to no route (ambiguous)",
+      "topicId": "coverage:b2de2942143536c3",
+      "unknown": true
+    },
+    {
+      "bindings": [],
+      "canonicalKey": "coverage/boundary-scan/files-without-candidates/svc/leave/util.go",
+      "completeness": {
+        "boundWorkItems": 0,
+        "residualRows": 0,
+        "settledWorkItems": 0,
+        "uncoveredLines": 0
+      },
+      "confidence": "unbound",
+      "digest": "5b46f03a24961a8bcd90cb1f20eea78d5dc9421e609e05169e00910151c2c4a6",
+      "facet": "coverage",
+      "kind": "boundary-scan-blind-file",
+      "materiality": "unobligated",
+      "relationIds": [],
+      "source": {
+        "ledger": "context/boundary-functions.json",
+        "rowId": "svc/leave/util.go"
+      },
+      "title": "no function-shaped symbol was enumerable in svc/leave/util.go",
+      "topicId": "coverage:cea640bda8d60aa2",
+      "unknown": true
+    },
+    {
+      "bindings": [],
+      "canonicalKey": "coverage/boundary-scan/files-without-candidates/svc/b/dup.go",
+      "completeness": {
+        "boundWorkItems": 0,
+        "residualRows": 0,
+        "settledWorkItems": 0,
+        "uncoveredLines": 0
+      },
+      "confidence": "unbound",
+      "digest": "728113649f225c98e06fdf251b5448ffddb6ac266055cc423292dad02bf461b4",
+      "facet": "coverage",
+      "kind": "boundary-scan-blind-file",
+      "materiality": "unobligated",
+      "relationIds": [],
+      "source": {
+        "ledger": "context/boundary-functions.json",
+        "rowId": "svc/b/dup.go"
+      },
+      "title": "no function-shaped symbol was enumerable in svc/b/dup.go",
+      "topicId": "coverage:e0950422dfe76fc0",
+      "unknown": true
+    },
+    {
+      "bindings": [],
+      "canonicalKey": "coverage/read-residual/partial",
+      "completeness": {
+        "boundWorkItems": 0,
+        "residualRows": 1,
+        "settledWorkItems": 0,
+        "uncoveredLines": 3
+      },
+      "confidence": "unbound",
+      "digest": "209ac23e197e7d5202da7edb4dca6cbd94f6bc4040601fd99436d2a3f6ce98d7",
+      "facet": "coverage",
+      "kind": "read-residual",
+      "materiality": "unobligated",
+      "relationIds": [],
+      "source": {
+        "ledger": "coverage/read-residual.json",
+        "rowId": "partial"
+      },
+      "title": "read obligations whose spans are partial",
+      "topicId": "coverage:ecf95a511e7a2e46",
+      "unknown": true
+    },
+    {
+      "bindings": [],
+      "canonicalKey": "external-system/ui->svc-v2",
+      "completeness": {
+        "boundWorkItems": 0,
+        "residualRows": 0,
+        "settledWorkItems": 0,
+        "uncoveredLines": 0
+      },
+      "confidence": "unbound",
+      "digest": "af0135656836a479c3f3fbe46ef9b9f292d2a42f47278ee68750b6d3af99eb3b",
+      "facet": "external-system",
+      "kind": "http-link",
+      "materiality": "unobligated",
+      "relationIds": [
+        "L-0002"
+      ],
+      "source": {
+        "ledger": "context/crossrepo-links.json",
+        "rowId": "ui->svc-v2"
+      },
+      "title": "ui calls svc-v2 over HTTP",
+      "topicId": "external-system:213acc2a90a4cdfb",
+      "unknown": false
+    },
+    {
+      "bindings": [],
+      "canonicalKey": "external-system/ui->svc",
+      "completeness": {
+        "boundWorkItems": 0,
+        "residualRows": 0,
+        "settledWorkItems": 0,
+        "uncoveredLines": 0
+      },
+      "confidence": "unbound",
+      "digest": "ac3ce9b82ccfe7899b8c7436f8687388146d412afc4b3d823c54f4edefeb15cb",
+      "facet": "external-system",
+      "kind": "http-link",
+      "materiality": "unobligated",
+      "relationIds": [
+        "L-0001"
+      ],
+      "source": {
+        "ledger": "context/crossrepo-links.json",
+        "rowId": "ui->svc"
+      },
+      "title": "ui calls svc over HTTP",
+      "topicId": "external-system:ccbdd2bc84f66b1b",
+      "unknown": false
+    },
+    {
+      "bindings": [
+        {
+          "dimension": "decision-function",
+          "evidenceIds": [
+            "S-cccccccccc"
+          ],
+          "material": true,
+          "status": "found",
+          "traceIds": [],
+          "workItemId": "feature:leave-1a2b3c4d5e:logic:approve@svc/holiday/approve.go:20"
+        },
+        {
+          "dimension": "decision-function",
+          "evidenceIds": [
+            "S-bbbbbbbbbb",
+            "S-aaaaaaaaaa"
+          ],
+          "material": true,
+          "status": "found",
+          "traceIds": [
+            "T-1111111111"
+          ],
+          "workItemId": "feature:leave-1a2b3c4d5e:logic:approve@svc/leave/approve.go:10"
+        }
+      ],
+      "canonicalKey": "feature/leave-1a2b3c4d5e",
+      "completeness": {
+        "boundWorkItems": 2,
+        "residualRows": 2,
+        "settledWorkItems": 2,
+        "uncoveredLines": 0
+      },
+      "confidence": "grounded",
+      "digest": "47ee03ac866254133f6a593e410af0d9fc1c8658f1ba52946e0ff70179de2244",
+      "facet": "feature",
+      "kind": "feature",
+      "materiality": "material",
+      "relationIds": [
+        "cross-feature:leave-1a2b3c4d5e|promo-9f8e7d6c5b"
+      ],
+      "source": {
+        "ledger": "contract/run-intent.json",
+        "rowId": "leave-1a2b3c4d5e"
+      },
+      "title": "leave",
+      "topicId": "feature:bc52e64d1cbcc204",
+      "unknown": false
+    },
+    {
+      "bindings": [
+        {
+          "dimension": "api-entrypoints",
+          "evidenceIds": [
+            "S-dddddddddd"
+          ],
+          "material": false,
+          "status": "found",
+          "traceIds": [],
+          "workItemId": "feature:9f8e7d6c5b:api-entrypoints"
+        },
+        {
+          "dimension": "logic-disposition",
+          "evidenceIds": [
+            "S-eeeeeeeeee"
+          ],
+          "material": true,
+          "status": "searched-not-found",
+          "traceIds": [],
+          "workItemId": "feature:promo-9f8e7d6c5b:logic:rank@svc/promo/rank.go:5"
+        }
+      ],
+      "canonicalKey": "feature/promo-9f8e7d6c5b",
+      "completeness": {
+        "boundWorkItems": 2,
+        "residualRows": 1,
+        "settledWorkItems": 2,
+        "uncoveredLines": 15
+      },
+      "confidence": "qualified",
+      "digest": "7de245af1ca00a9cdb0f07cb2ea5709ddd6028b9dc7e2132e2d80e45e7d69624",
+      "facet": "feature",
+      "kind": "feature",
+      "materiality": "material",
+      "relationIds": [
+        "cross-feature:leave-1a2b3c4d5e|promo-9f8e7d6c5b"
+      ],
+      "source": {
+        "ledger": "contract/run-intent.json",
+        "rowId": "promo-9f8e7d6c5b"
+      },
+      "title": "promotion",
+      "topicId": "feature:c006dc666115c79b",
+      "unknown": false
+    },
+    {
+      "bindings": [],
+      "canonicalKey": "route/crossrepo/route:svc:svc/routes/leave.js:12:GET /leaves",
+      "completeness": {
+        "boundWorkItems": 0,
+        "residualRows": 0,
+        "settledWorkItems": 0,
+        "uncoveredLines": 0
+      },
+      "confidence": "unbound",
+      "digest": "54d2756ed76decaa9a3e74209797f504de20e093c62fe042ae2a18f37025b383",
+      "facet": "route",
+      "kind": "recovered-route",
+      "materiality": "unobligated",
+      "relationIds": [],
+      "source": {
+        "ledger": "facts/producers/crossrepo.json",
+        "rowId": "route:svc:svc/routes/leave.js:12:GET /leaves"
+      },
+      "title": "route:svc:svc/routes/leave.js:12:GET /leaves",
+      "topicId": "route:2c817875b40a5b3a",
+      "unknown": false
+    },
+    {
+      "bindings": [],
+      "canonicalKey": "route/codegraph/route:svc/routes/leave.js:12-12:GET /leaves",
+      "completeness": {
+        "boundWorkItems": 0,
+        "residualRows": 0,
+        "settledWorkItems": 0,
+        "uncoveredLines": 0
+      },
+      "confidence": "unbound",
+      "digest": "ece5ad90901bac7859470f44e07aaff036163ff2b89ec857d00db56b5aa5334a",
+      "facet": "route",
+      "kind": "indexed-route",
+      "materiality": "unobligated",
+      "relationIds": [],
+      "source": {
+        "ledger": "facts/producers/codegraph.json",
+        "rowId": "route:svc/routes/leave.js:12-12:GET /leaves"
+      },
+      "title": "GET /leaves",
+      "topicId": "route:b96a0e183358b9e9",
+      "unknown": false
+    },
+    {
+      "bindings": [],
+      "canonicalKey": "route/codegraph/route:svc-v2/internal/handlers/legacy/router.go:12-12:GET /leaves",
+      "completeness": {
+        "boundWorkItems": 0,
+        "residualRows": 0,
+        "settledWorkItems": 0,
+        "uncoveredLines": 0
+      },
+      "confidence": "unbound",
+      "digest": "4be27dda7f148268e37803301ad0d25c7498d8a3206b1112eea6b1979686e44a",
+      "facet": "route",
+      "kind": "indexed-route",
+      "materiality": "unobligated",
+      "relationIds": [],
+      "source": {
+        "ledger": "facts/producers/codegraph.json",
+        "rowId": "route:svc-v2/internal/handlers/legacy/router.go:12-12:GET /leaves"
+      },
+      "title": "GET /leaves",
+      "topicId": "route:e87fb22b7ecaef80",
+      "unknown": false
+    },
+    {
+      "bindings": [
+        {
+          "dimension": "api-entrypoints",
+          "evidenceIds": [
+            "S-dddddddddd"
+          ],
+          "material": false,
+          "status": "found",
+          "traceIds": [],
+          "workItemId": "feature:9f8e7d6c5b:api-entrypoints"
+        }
+      ],
+      "canonicalKey": "work-item-dimension/feature:9f8e7d6c5b/api-entrypoints",
+      "completeness": {
+        "boundWorkItems": 1,
+        "residualRows": 0,
+        "settledWorkItems": 1,
+        "uncoveredLines": 0
+      },
+      "confidence": "grounded",
+      "digest": "aac1e7fe49b583ba0e08f90c5150e1a391d504562be7c4d809af37154255d9d8",
+      "facet": "work-item-dimension",
+      "kind": "api-entrypoints",
+      "materiality": "obligated-non-material",
+      "relationIds": [],
+      "source": {
+        "ledger": "workitems.json",
+        "rowId": "feature:9f8e7d6c5b|api-entrypoints"
+      },
+      "title": "api-entrypoints obligations in scope feature:9f8e7d6c5b",
+      "topicId": "work-item-dimension:4e4ae2b38b50a732",
+      "unknown": false
+    },
+    {
+      "bindings": [
+        {
+          "dimension": "logic-disposition",
+          "evidenceIds": [
+            "S-eeeeeeeeee"
+          ],
+          "material": true,
+          "status": "searched-not-found",
+          "traceIds": [],
+          "workItemId": "feature:promo-9f8e7d6c5b:logic:rank@svc/promo/rank.go:5"
+        }
+      ],
+      "canonicalKey": "work-item-dimension/feature:promo-9f8e7d6c5b/logic-disposition",
+      "completeness": {
+        "boundWorkItems": 1,
+        "residualRows": 1,
+        "settledWorkItems": 1,
+        "uncoveredLines": 15
+      },
+      "confidence": "qualified",
+      "digest": "9952de2959460f1de08cac37c89599aee4ded89ad9fbd94613b44d7157c6cf23",
+      "facet": "work-item-dimension",
+      "kind": "logic-disposition",
+      "materiality": "material",
+      "relationIds": [],
+      "source": {
+        "ledger": "workitems.json",
+        "rowId": "feature:promo-9f8e7d6c5b|logic-disposition"
+      },
+      "title": "logic-disposition obligations in scope feature:promo-9f8e7d6c5b",
+      "topicId": "work-item-dimension:6a63ee40acc92789",
+      "unknown": false
+    },
+    {
+      "bindings": [
+        {
+          "dimension": "open-investigation",
+          "evidenceIds": [],
+          "material": false,
+          "status": "cannot-determine",
+          "traceIds": [],
+          "workItemId": "project:open-investigation"
+        }
+      ],
+      "canonicalKey": "work-item-dimension/project/open-investigation",
+      "completeness": {
+        "boundWorkItems": 1,
+        "residualRows": 0,
+        "settledWorkItems": 1,
+        "uncoveredLines": 0
+      },
+      "confidence": "unsettled",
+      "digest": "bf437d0b1f66f525f3a2044754073c0707fe4409fced3f0f3b084d6a5d0fe0d1",
+      "facet": "work-item-dimension",
+      "kind": "open-investigation",
+      "materiality": "obligated-non-material",
+      "relationIds": [],
+      "source": {
+        "ledger": "workitems.json",
+        "rowId": "project|open-investigation"
+      },
+      "title": "open-investigation obligations in scope project",
+      "topicId": "work-item-dimension:7ab106a327fca3e4",
+      "unknown": true
+    },
+    {
+      "bindings": [
+        {
+          "dimension": "literal-secrets",
+          "evidenceIds": [
+            "S-aaaaaaaaaa"
+          ],
+          "material": false,
+          "status": "found",
+          "traceIds": [],
+          "workItemId": "project:literal-secrets"
+        }
+      ],
+      "canonicalKey": "work-item-dimension/project/literal-secrets",
+      "completeness": {
+        "boundWorkItems": 1,
+        "residualRows": 0,
+        "settledWorkItems": 1,
+        "uncoveredLines": 0
+      },
+      "confidence": "grounded",
+      "digest": "25f5694c82520ec12a9e7ae0dc061602105e2a101b550aa4c07b210369d60eca",
+      "facet": "work-item-dimension",
+      "kind": "literal-secrets",
+      "materiality": "obligated-non-material",
+      "relationIds": [],
+      "source": {
+        "ledger": "workitems.json",
+        "rowId": "project|literal-secrets"
+      },
+      "title": "literal-secrets obligations in scope project",
+      "topicId": "work-item-dimension:86fee2b7b230654e",
+      "unknown": false
+    },
+    {
+      "bindings": [
+        {
+          "dimension": "decision-function",
+          "evidenceIds": [
+            "S-cccccccccc"
+          ],
+          "material": true,
+          "status": "found",
+          "traceIds": [],
+          "workItemId": "feature:leave-1a2b3c4d5e:logic:approve@svc/holiday/approve.go:20"
+        },
+        {
+          "dimension": "decision-function",
+          "evidenceIds": [
+            "S-bbbbbbbbbb",
+            "S-aaaaaaaaaa"
+          ],
+          "material": true,
+          "status": "found",
+          "traceIds": [
+            "T-1111111111"
+          ],
+          "workItemId": "feature:leave-1a2b3c4d5e:logic:approve@svc/leave/approve.go:10"
+        }
+      ],
+      "canonicalKey": "work-item-dimension/feature:leave-1a2b3c4d5e/decision-function",
+      "completeness": {
+        "boundWorkItems": 2,
+        "residualRows": 2,
+        "settledWorkItems": 2,
+        "uncoveredLines": 0
+      },
+      "confidence": "grounded",
+      "digest": "5e3dd65a76c19ebb799e5c6ac4d471aa1f31fd879c88fdcd8da424525056738c",
+      "facet": "work-item-dimension",
+      "kind": "decision-function",
+      "materiality": "material",
+      "relationIds": [],
+      "source": {
+        "ledger": "workitems.json",
+        "rowId": "feature:leave-1a2b3c4d5e|decision-function"
+      },
+      "title": "decision-function obligations in scope feature:leave-1a2b3c4d5e",
+      "topicId": "work-item-dimension:dacb48b0720f0ed5",
+      "unknown": false
+    }
+  ],
+  "version": "topic-catalog-v1"
+}

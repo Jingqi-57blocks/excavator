@@ -24,10 +24,21 @@ npm run eval -- view --run <dir> [--json]
 npm run eval -- compare --a <dir> --b <dir> [--json]
 npm run eval -- boundary (--run <dir> | --nodes <file>) --gold <file> [--layer fg|factpack|both] [--json]
 npm run eval -- prune-replay (--pool <file> | --run <dir> --module <db>...) --gold <file> [--emit-pool <file>] [--json]
+npm run eval -- packet-readings --run <dir> --mode <authored|frozen-not-authored> [--out <file>]
+npm run eval -- ledger-closeout --run <dir> [--out <file>] [--updates <file>]
 ```
 
 `diff` exits **1** on any mustFind missing, forbidden violation, or coverage failure; **0** otherwise.
 `boundary` exits **1** on any mustFind miss; **0** otherwise (the same honest-red contract as `diff`).
+
+`packet-readings` requires `--mode`. `authored` reads `claims/` and `audit/audit.json`; `frozen-not-authored`
+projects a run that stopped at the freeze boundary and writes those two readings down as the literal
+`"absent-by-mode"`. The mode is checked against the run in both directions — a declared-absent reading whose
+artifact is on disk is a named failure, and every input the mode does **not** excuse still throws by name when
+missing. There is no inferred mode and no third value a reading can take.
+
+`ledger-closeout` exits **1** when any unsettled work item has no transcribable cause; **0** otherwise. See its
+own section below.
 
 `view` and `compare` have no semantic-fail concept: they exit **0** on success and **2** on error
 (missing run dir, missing `metrics.json`/`timeline.jsonl`, malformed timeline). Both are read-only on
@@ -182,6 +193,31 @@ It reuses the same extractors as `view` and `extract`: the CLI loads both runs i
    best-effort by the same anchor rule; coverage aligns by `dimension` (a stable label). All output lists
    are sorted (anchors by path/line, dimensions/markers in a fixed order) so the report is deterministic.
 
+## `ledger-closeout` — transcribing budget-exhausted reads to a terminal status
+
+Freeze runs `auditWorkItems` (`src/freeze/freeze.ts:77`), which errors on **any** `pending` work item
+(`src/investigation/assurance.ts:351`), so a run renders no authoring packet until every work item is terminal.
+On a run whose authorized reads hit the source-window budget, the pipeline already recorded *why*: prepare writes
+the executing `settledBy` and the LEDGER-READ evidence onto the item and leaves it `pending`
+(`src/run/investigation-stage.ts:70-80`). This command turns that into `cannot-determine` by **transcription** —
+`reason` quotes the execution's own `outcome` and `cause` out of `investigation/results.json`, `settledBy` is that
+execution's id, `evidenceIds` are its evidence ids.
+
+Nothing is ever invented. An unsettled item is closed **only** when the record carries all three fields the
+`cannot-determine` contract demands; anything else is named in `gaps` with the structural fact that stops it, and
+the command exits 1. There is no fallback wording, no default cause and no "unknown" bucket. Items already in a
+terminal status are never touched, so a rerun produces the same updates.
+
+`--out` writes the full report (each row's update **plus** the provenance it was read from, so any single row can
+be re-walked). `--updates` writes the apply-ready array for `excavator workitem --run <dir> --file <file>` — that
+array holds only work-item fields, because `mergeWorkItems` spreads an update onto the item and any extra key
+would land inside `workitems.json`. This command never writes to the run directory itself.
+
+Note what it does **not** reach: `investigation-closure` (`src/freeze/completeness.ts:462-467`) errors once per
+execution with `outcome: "unavailable"` and once per `pending` disposition, and both are read from
+`investigation/results.json`, which no work-item update changes. A run whose reads were all cut off by budget is
+therefore not freezable by any close-out — that is a property of the run's own read record, not of this tool.
+
 ## Diff semantics (summary)
 
 - **fact hit** — a claim whose cited `S-*` window matches an anchor (path in three forms:
@@ -245,3 +281,34 @@ The point of the harness is that most iterations never call a model:
   entries (union + dedupe), a `CG-NODES-*` decoy (must not be credited), a `CG-*` summary decoy, and two
   source windows, plus `gold-pass.json` / `gold-fail.json` exercising exit 0/1 and the
   `coveredBySourceWindow` true/false split.
+- `tests/fixtures/packet-twin-overviews/`, `packet-feature-blocks/` & `packet-feature-factpack/` — three
+  synthetic completed runs for `packet-readings`, each with one job. The twin holds two overview documents over
+  the same work items, evidence and traces, so its two packets differ only in the H1 document id and the
+  duplication numbers are derivable by hand. `packet-feature-blocks` holds one document whose three blocks share
+  an evidence id and a trace id and which has **no** fact pack, which is what puts the renderer's cross-block
+  back-reference lines into the `anchor-line` bucket and exercises the `factPack: absent` reading.
+  `packet-feature-factpack` holds the same feature for two audiences over one fact pack, with a category that two
+  section blocks both map to, so a fact listing is rendered twice per packet and once per audience. Their
+  `context/authoring/*.md` are real `buildAuthoringPacket` output over their own artifacts, so a renderer change
+  makes the projection lose those chunks instead of quietly reading zero. Each also carries a
+  `coverage/read-residual.json`, which the readings copy field for field — note that `.gitignore`'s unanchored
+  `coverage/` pattern is negated for exactly these directories.
+- `tests/fixtures/closeout-budget-exhausted/` — a synthetic prepared run for `ledger-closeout`, with exactly one
+  item per way a transcription can be refused (no `settledBy`, a `settledBy` naming no execution, an execution
+  that delivered source and so records no cause, an execution citing no limitation evidence, an execution with no
+  disposition, and one whose disposition is `fulfilled`), two transcribable items carrying two **different**
+  causes, and one item already `found` so the never-touch-a-terminal-item rule has a witness.
+- `golden/unit-assemble-canonical.txt` — the canonical projection of `assemble --units --mode write` over the
+  model-free unit chain (plan → draft every unit → collect), pinned byte for byte by
+  `eval/tests/unit-assemble-golden.test.ts`. It adds two substitution rules the shared rule set in
+  `report-canonical.ts` does not need — the plan catalog digest and the knowledge digest, both of which the unit
+  front matter prints.
+- `golden/unit-consistency-readings.json` — the cross-unit consistency checker's own reading (R7c), over six
+  scenarios of the model-free chain in `tests/unit-consistency-fixture.ts`: clean, an unknown overclaim, a
+  terminology drift, a contradiction plus two unresolvable references plus a policy violation, the drift run after
+  it was repaired through exactly the repair set it named, and the run's own evidence id in visible prose. What it
+  pins is the SENTENCES — the vacuous reasons, the finding statements, the "no collect gate catches this because …"
+  clauses, the repair reasons and the coverage routes — because those are what an operator acts on. Volatile
+  identifiers (run id, plan catalog digest in both the full and 16-character forms, and the sealed evidence ids) are
+  substituted as exact strings and every rule reports its replacement count, so a hand-pinned constant still shows
+  as a diff. Pinned by `eval/tests/unit-consistency-readings.test.ts`.

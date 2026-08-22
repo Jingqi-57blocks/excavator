@@ -71,6 +71,7 @@ const LEGAL_PAIRINGS: Record<MembershipKind, readonly SeatRule[]> = {
 };
 
 export const FACT_KIND_IDS = [
+  "db-table",
   "frontend-call",
   "http-link",
   "indexed-function",
@@ -145,6 +146,23 @@ const KINDS: readonly FactKindEntry[] = [
     producer: "crossrepo",
     membershipKind: "relation",
     seatRule: "any-endpoint",
+    structuralDeclaration: false
+  },
+  {
+    // The entity/table kind. A physical table is not a code unit, so `structuralDeclaration` is FALSE: normalising
+    // it would either attach a table to whatever class or function happens to sit on the declaring line, or mint a
+    // reference unit for a `createTable(` call. It is filed at its declaration the way `indexed-route` is filed at
+    // its registration line — the anchor says WHERE the table is declared, not that the anchor IS the table.
+    //
+    // One anchor, and the anchor is the declaration closest to physical DDL (`mergeSchemas` orders a table's
+    // declarations by that authority). A table declared in several places — a migration and a gorm model, often in
+    // two repositories — therefore seats on one of them; the others are counted in the producer's own completeness
+    // as `tableDeclarationsBeyondAnchor` rather than left to be inferred from a silence.
+    id: "db-table",
+    title: "A physical database table recovered from a migration, ORM model or SQL dump",
+    producer: "db-schema",
+    membershipKind: "unit",
+    seatRule: "anchor-cell",
     structuralDeclaration: false
   },
   {
@@ -253,6 +271,17 @@ export function evaluateSeat(
 /** Unreachable while `validateFactKindRegistry` runs at load; it names the pairing so the cause is findable. */
 function pairingBug(entry: FactKindEntry, membership: Membership): Error {
   return new Error(`Fact kind ${JSON.stringify(entry.id)} pairs seat rule ${JSON.stringify(entry.seatRule)} with membership ${JSON.stringify(membership.kind)}, which the legal-pairing table forbids`);
+}
+
+/**
+ * Whether a value off disk names a registered kind.
+ *
+ * The one guard, here rather than in each consumer: a producer envelope is JSON, so `kind` arrives as an
+ * unchecked string, and every consumer that switches on the closed union first has to ask this question. Two
+ * copies of the question would eventually disagree about what "registered" means.
+ */
+export function isFactKindId(value: unknown): value is FactKindId {
+  return typeof value === "string" && (FACT_KIND_IDS as readonly string[]).includes(value);
 }
 
 export function factKindById(id: FactKindId, registry: FactKindRegistry = FACT_KIND_REGISTRY): FactKindEntry {

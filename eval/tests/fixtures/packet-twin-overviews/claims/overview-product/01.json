@@ -1,0 +1,27 @@
+{
+  "claims": [
+    {
+      "confidence": "high",
+      "evidenceIds": [
+        "E-1"
+      ],
+      "id": "claim-1",
+      "marker": "fact",
+      "statement": "The product tracks leave requests.",
+      "status": "verified"
+    },
+    {
+      "confidence": "high",
+      "evidenceIds": [
+        "E-1"
+      ],
+      "id": "claim-2",
+      "marker": "fact",
+      "statement": "A manager approves them.",
+      "status": "verified"
+    }
+  ],
+  "documentId": "overview-product",
+  "section": 1,
+  "version": 2
+}

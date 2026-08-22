@@ -1,0 +1,101 @@
+{
+  "coverage": [
+    {
+      "category": "entrypoints",
+      "itemCount": 2,
+      "method": "graph",
+      "truncated": false
+    },
+    {
+      "category": "entities",
+      "itemCount": 1,
+      "method": "graph",
+      "truncated": false
+    }
+  ],
+  "featureKey": "leave",
+  "items": [
+    {
+      "category": "entrypoints",
+      "endLine": 12,
+      "filePath": "src/leave.ts",
+      "granularity": "graph-node",
+      "line": 10,
+      "membership": {
+        "joined": {
+          "factId": "F-route-1",
+          "kind": "indexed-route",
+          "membership": {
+            "kind": "unit",
+            "unitId": "U-leave-route-1"
+          }
+        }
+      },
+      "name": "POST /leave",
+      "relation": {
+        "basis": "explicit-seed",
+        "kind": "seeded"
+      },
+      "source": "graph"
+    },
+    {
+      "category": "entrypoints",
+      "endLine": 22,
+      "filePath": "src/leave.ts",
+      "granularity": "graph-node",
+      "line": 20,
+      "membership": {
+        "joined": {
+          "factId": "F-route-2",
+          "kind": "indexed-route",
+          "membership": {
+            "kind": "unit",
+            "unitId": "U-leave-route-2"
+          }
+        }
+      },
+      "name": "GET /leave",
+      "relation": {
+        "basis": "explicit-seed",
+        "kind": "seeded"
+      },
+      "source": "graph"
+    },
+    {
+      "category": "entities",
+      "endLine": 32,
+      "filePath": "src/leave.ts",
+      "granularity": "graph-node",
+      "line": 30,
+      "membership": {
+        "joined": {
+          "factId": "F-entity-1",
+          "kind": "indexed-route",
+          "membership": {
+            "kind": "unit",
+            "unitId": "U-leave-entity-1"
+          }
+        }
+      },
+      "name": "LeaveRequest",
+      "relation": {
+        "basis": "explicit-seed",
+        "kind": "seeded"
+      },
+      "source": "graph"
+    }
+  ],
+  "relations": {
+    "byBasis": {
+      "explicit-seed": 3
+    },
+    "coLocated": 0,
+    "notApplicable": 0,
+    "retained": 0,
+    "seeded": 3,
+    "total": 3
+  },
+  "snapshotId": "fixturesnapshot03",
+  "version": "factpack-v2",
+  "warnings": []
+}

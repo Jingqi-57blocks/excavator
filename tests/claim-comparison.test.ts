@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { auditComparativeClaims, comparativeWording, validateComparisonSides } from "../src/report/claim-comparison.ts";
-import { validateClaimsInput } from "../src/report/section-audit.ts";
+import { assertValidClaim } from "../src/report/claim-validity.ts";
 import type { EvidenceItem, SectionClaim } from "../src/base/types.ts";
 
 // Synthetic-only identifiers throughout: never a real target repo/route/table name.
@@ -102,8 +102,12 @@ for (const { name, claim: bad } of STRUCTURAL_CASES) {
     assert.ok(validateComparisonSides(bad).length > 0);
   });
 
-  test(`validateClaimsInput throws at checkpoint: ${name}`, () => {
-    assert.throws(() => validateClaimsInput("doc", 4, [bad]), /comparison sides/i);
+  // The claims DOOR must turn these violations into a THROW, not merely report them as data the way the test
+  // above does — the rule is only enforced because `assertValidClaim` raises on a non-empty violation list.
+  // 57B-481 moved the subject, not the sentence: the section sidecar's own door retired with the section path,
+  // and the one door both surviving claims sidecars pass through is this validator.
+  test(`the claims door throws on the malformed grouping: ${name}`, () => {
+    assert.throws(() => assertValidClaim(bad, "doc section 4"), /comparison sides/i);
   });
 
   test(`auditComparativeClaims emits an error finding: ${name}`, () => {
@@ -112,10 +116,10 @@ for (const { name, claim: bad } of STRUCTURAL_CASES) {
   });
 }
 
-test("a well-formed two-side grouping passes validateComparisonSides and validateClaimsInput", () => {
+test("a well-formed two-side grouping passes validateComparisonSides and the claims door", () => {
   const good = claim({ id: "ok", marker: "fact", statement: "a equals b", evidenceIds: ["S-a", "S-b"], sides: [["S-a"], ["S-b"]] });
   assert.deepEqual(validateComparisonSides(good), []);
-  assert.doesNotThrow(() => validateClaimsInput("doc", 4, [good]));
+  assert.doesNotThrow(() => assertValidClaim(good, "doc section 4"));
 });
 
 test("an absent sides field is always valid", () => {

@@ -4,7 +4,7 @@
 // was mechanically verified: the `retained`/`named`/`in-directory` partitions are 92.9% real misses, while
 // `unclassified` is 84.1% denominator noise. But measured on the real run that produced those numbers, the
 // partition reached nobody who could use it: `read residual`, `not opened` and `阅读义务` appear ZERO times
-// in that run's `prompts/` and `context/authoring/`, while the condition inventory — which IS rendered into
+// in that run's `prompts/` (retired in 57B-480) and `context/authoring/`, while the condition inventory — which IS rendered into
 // the packet — appears in both. The only channel was two aggregate lines on freeze's stdout plus a pointer
 // to a JSON file. A reading nobody reads changes no reading.
 //
@@ -30,6 +30,7 @@
 // Pure: zero I/O, zero model call, byte-stable ordering. The grouping is shared by both renderers, so the
 // console and the packet can never disagree about what the residual says.
 
+import { coverageStatement, coverageEntry, renderCoverageStatement, type CoverageStatement } from "./coverage-statement.ts";
 import type { ReadCoverageItem } from "./read-coverage.ts";
 import type { ReadObligation } from "../obligation/read-obligations.ts";
 
@@ -65,6 +66,38 @@ export interface UnclassifiedFile {
   unreadLines: number;
 }
 
+/**
+ * THE DENOMINATOR THIS EXPOSURE WAS COMPUTED OVER, and the 57B-449 fix in one field.
+ *
+ * Required, not optional, and carried on the exposure rather than re-derived by each renderer. The defect was that
+ * nothing downstream held this number: `totals.functions === 0` is true both of a run whose every obligation has a
+ * window and of a run that minted no obligation at all, and the renderer printed the first sentence for both. With
+ * `rows` on the exposure, the empty case is a different arm rather than a different reading of one arm.
+ *
+ * `rows` is scoped exactly as the exposure is: with a `featureKey` it counts that feature's obligations, without one
+ * it counts the whole run's, so the number and the list can never be about different sets.
+ */
+export interface ReadingDenominator {
+  /** Read obligations in scope. Zero is the 449 shape: an overview-only run mints none. */
+  readonly rows: number;
+  /** Rows a source window covers, fully or partly. The ONLY bucket a coverage statement may call covered. */
+  readonly withWindowRows: number;
+  /** Obligations in scope that no source window covers — the strong partition plus the unplaceable one. */
+  readonly notOpened: number;
+  /** Counted rows whose coverage could not be reconciled at all: a counted obligation with no end line. */
+  readonly unreconcilableRows: number;
+  /**
+   * Rows the LEDGER removed from its own counted denominator before anything was measured — declaration-only, or
+   * contained in another obligation. They are neither read nor unread.
+   *
+   * Carried because `rows - notOpened` is NOT the covered count and the first version of this file computed it that
+   * way: on wcp that folds 27 of 946 rows (26 declaration-only + 1 contained) into "covered" and lets the console
+   * print the covered wording over rows nothing ever measured — the exact mis-fold `coverage-statement.ts`'s own
+   * header forbids, and a direct contradiction of what the companion says about the same ledger.
+   */
+  readonly ledgerExcludedRows: number;
+}
+
 export interface ReadingExposure {
   /**
    * False when the run carries no anchor labels. There is then no strong partition to steer by, and this
@@ -72,6 +105,8 @@ export interface ReadingExposure {
    * must read exactly as it did then, the same discipline `attributionPartitions` follows.
    */
   annotated: boolean;
+  /** The read-obligation denominator, in scope. Required: see `ReadingDenominator`. */
+  denominator: ReadingDenominator;
   files: ExposureFile[];
   totals: { functions: number; files: number; unreadLines: number; retained: number; named: number; inDirectory: number };
   unclassified: { count: number; unreadLines: number; files: UnclassifiedFile[] };
@@ -134,12 +169,29 @@ export function readingExposure(input: ReadingExposureInput): ReadingExposure {
   totals.files = files.length;
 
   const unclassifiedFiles = [...unclassifiedByFile.values()].sort((a, b) => b.unreadLines - a.unreadLines || cmp(a.path, b.path));
+  const unclassifiedCount = unclassifiedFiles.reduce((sum, entry) => sum + entry.count, 0);
+  // The denominator is counted from the OBLIGATIONS, in the same scope the list above was filtered to, and never
+  // from the coverage items: audit legitimately omits rows from an un-annotated run's residual, so counting the
+  // items would report a smaller denominator than the run actually has — the same trap `partitionOf` avoids.
+  const inScope = input.featureKey === undefined
+    ? input.obligations
+    : input.obligations.filter((obligation) => obligation.featureKey === input.featureKey);
+  const inScopeIds = new Set(inScope.map((obligation) => obligation.id));
+  const scopedItems = input.items.filter((item) => inScopeIds.has(item.id));
+  const withStatus = (status: ReadCoverageItem["status"]): number => scopedItems.filter((item) => item.status === status).length;
   return {
     annotated: input.annotated,
+    denominator: {
+      rows: inScope.length,
+      withWindowRows: withStatus("covered") + withStatus("partial"),
+      notOpened: totals.functions + unclassifiedCount,
+      unreconcilableRows: withStatus("cannot-determine"),
+      ledgerExcludedRows: inScope.filter((obligation) => obligation.excluded !== undefined).length
+    },
     files,
     totals,
     unclassified: {
-      count: unclassifiedFiles.reduce((sum, entry) => sum + entry.count, 0),
+      count: unclassifiedCount,
       unreadLines: unclassifiedFiles.reduce((sum, entry) => sum + entry.unreadLines, 0),
       files: unclassifiedFiles,
     },
@@ -147,12 +199,94 @@ export function readingExposure(input: ReadingExposureInput): ReadingExposure {
 }
 
 /**
+ * How many ids one console bullet lists before it says how many more there are.
+ *
+ * Zero: the residual's ids are function names whose spans the list below already prints in full, so repeating them
+ * in the statement bullet would be the same rows twice. The bullet still states its row COUNT, which is the part
+ * that may never be bounded.
+ */
+const CHECK_MAX_STATEMENT_IDS = 0;
+
+/** The one noun phrase every read-coverage statement is about, so two renderings cannot name it two ways. */
+export const READ_OBLIGATION_SUBJECT = "read obligations";
+
+/**
+ * The two names the read-obligation denominator goes by, and why there are two.
+ *
+ * After freeze the denominator IS a file, sealed and digest-checked. Before freeze it is derived in memory from the
+ * work set, and naming the path there would point a reader at bytes that do not exist yet. Both are this run's
+ * read-obligation ledger; only one of them is addressable, and the sentence says which.
+ */
+export const FROZEN_READ_LEDGER = "coverage/read-obligations.json";
+export const DERIVED_READ_LEDGER = "this run's derived read-obligation set (not frozen yet, so not on disk)";
+
+/**
+ * The coverage statement about one run's read obligations — the 57B-449 wording authority, in one place.
+ *
+ * The ledger name is a parameter because the two paths have two different sources and saying so matters: before
+ * freeze the denominator is DERIVED in memory from the work set, and after freeze it is the sealed
+ * `coverage/read-obligations.json`. Naming the file in the pre-freeze case would point at bytes that do not exist
+ * yet. Both are the run's read-obligation ledger; only one of them is a path.
+ */
+export function readingCoverageStatement(exposure: ReadingExposure, ledger: string): CoverageStatement {
+  const { rows, withWindowRows, notOpened, unreconcilableRows, ledgerExcludedRows } = exposure.denominator;
+  return coverageStatement({
+    subject: READ_OBLIGATION_SUBJECT,
+    // `withWindowRows`, not `rows - notOpened`: the three buckets below are the rest of the partition, and a
+    // subtraction would put every one of them on the covered side of the sentence.
+    denominator: { state: "present", ledger, rows, counted: withWindowRows },
+    entries: [
+      coverageEntry(
+        "unread-residual",
+        notOpened,
+        [],
+        `${exposure.totals.functions} inside this feature's boundary or carrying its vocabulary, ${exposure.unclassified.count} carrying neither`
+      ),
+      coverageEntry("cannot-determine", unreconcilableRows, [], "counted read obligations with no end line, so their coverage cannot be reconciled"),
+      coverageEntry("ledger-excluded", ledgerExcludedRows, [], "declaration-only or contained in another obligation, per the ledger's own exclusion reason")
+    ]
+  });
+}
+
+/**
+ * The statement for a run whose read-obligation ledger could not be read at all.
+ *
+ * Kept in this module rather than spelled at the two orchestration call sites, so `ledger-absent` and
+ * `ledger-empty` are produced by ONE constructor and cannot drift into one sentence. 57B-449 required them to stay
+ * two sentences; the facet census already keeps them apart one layer up, and this is the same rule for reads.
+ */
+export function absentReadingCoverageStatement(ledger: string, reason: string): CoverageStatement {
+  return coverageStatement({ subject: READ_OBLIGATION_SUBJECT, denominator: { state: "absent", ledger, reason }, entries: [] });
+}
+
+/** The one opening line of the console check, shared by every arm so the reply always names its subject. */
+const READING_CHECK_HEADLINE = "Read residual — decision code inside this feature's boundary that no source window covers yet.";
+
+/**
+ * The whole console reply for a run whose read-obligation ledger could not be read.
+ *
+ * Rendered HERE rather than as a bare sentence at the two orchestration call sites: those two sites used to hold
+ * their own prose, which is how `ledger-absent` and `ledger-empty` would eventually have converged on one phrasing.
+ * The caller supplies only the reason, which is the one thing it knows and this module does not.
+ */
+export function renderAbsentReadingCheck(ledger: string, reason: string): string {
+  return [READING_CHECK_HEADLINE, "", ...renderCoverageStatement(absentReadingCoverageStatement(ledger, reason), CHECK_MAX_STATEMENT_IDS)].join("\n");
+}
+
+/**
  * The console rendering, for the pre-freeze check. It answers a direct question, so an empty result is
  * PRINTED rather than omitted — silence in reply to a query reads as a malfunction, which is the opposite
  * of the empty-advisory rule that governs the packet block.
+ *
+ * 57B-449 IS FIXED HERE, AND IT WAS A WORDING DEFECT WITH A STRUCTURAL CAUSE. The old empty arm printed "No
+ * feature-associated read residual: every strong-partition obligation has at least one window", which is TRUE over
+ * an empty obligation set and reads as "this target is covered". Measured on the cebreo baseline: 2,142 counted
+ * files, `obligations: []`, 22 usable windows, and that sentence. The arm is now chosen by `coverageStatement` from
+ * the denominator, so the empty case cannot reach the covered wording at all — and the strong-partition sentence,
+ * which is still true and still useful, is printed only when there IS a denominator for it to be about.
  */
 export function renderReadingCheck(exposure: ReadingExposure, options: { frozen: boolean }): string {
-  const lines = ["Read residual — decision code inside this feature's boundary that no source window covers yet."];
+  const lines = [READING_CHECK_HEADLINE];
   if (!exposure.annotated) {
     lines.push(
       "This run carries no anchor labels, so it has no feature-associated partition to steer by. The undivided",
@@ -168,8 +302,26 @@ export function renderReadingCheck(exposure: ReadingExposure, options: { frozen:
     "aid, not a quota. Open the files you judge heavy enough to hide reportable behavior; leaving the rest unread",
     "is the normal outcome, and nothing counts how many entries you clear.",
   );
+  const statement = readingCoverageStatement(exposure, options.frozen ? FROZEN_READ_LEDGER : DERIVED_READ_LEDGER);
+  lines.push("", ...renderCoverageStatement(statement, CHECK_MAX_STATEMENT_IDS));
+  if (exposure.denominator.rows === 0) {
+    // WHAT AN EMPTY DENOMINATOR MEANS, stated rather than left for a reader to infer from silence. A read
+    // obligation is minted per ReadSpec and per decision-bearing candidate of a REQUESTED FEATURE, so a run with
+    // no feature request has none by construction — and the count of files this run scanned says nothing about
+    // how much of them anybody looked at.
+    lines.push(
+      "",
+      "A read obligation is minted per authorized read and per decision-bearing candidate of a REQUESTED FEATURE, so",
+      "a run that requested no feature has none by construction. This is not a statement that the target was read:",
+      "it is a statement that this run recorded nothing against which reading could be measured. Request a feature",
+      "and re-prepare if a read-coverage account is what you need.",
+    );
+  }
   if (!exposure.totals.functions) {
-    lines.push("", "No feature-associated read residual: every strong-partition obligation has at least one window.");
+    // Only sayable when a denominator exists. Over an empty one it is the 449 sentence.
+    if (exposure.denominator.rows > 0) {
+      lines.push("", "No feature-associated read residual: every strong-partition obligation has at least one window.");
+    }
   } else {
     lines.push("", headline(exposure));
     for (const file of exposure.files.slice(0, CHECK_MAX_FILES)) {

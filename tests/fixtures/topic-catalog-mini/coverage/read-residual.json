@@ -1,0 +1,98 @@
+{
+  "consumptionEvaluated": false,
+  "items": [
+    {
+      "consumedBy": [],
+      "endLine": 40,
+      "gated": true,
+      "id": "feature:leave-1a2b3c4d5e:logic:approve@svc/leave/approve.go:10",
+      "kind": "decision-function",
+      "name": "approve",
+      "openedLines": 31,
+      "openedWindows": [
+        "S-aaaaaaaaaa"
+      ],
+      "path": "svc/leave/approve.go",
+      "startLine": 10,
+      "status": "covered",
+      "tier": 0,
+      "uncovered": [],
+      "uncoveredLines": 0
+    },
+    {
+      "consumedBy": [],
+      "endLine": 33,
+      "gated": false,
+      "id": "feature:leave-1a2b3c4d5e:logic:approve@svc/holiday/approve.go:20",
+      "kind": "decision-function",
+      "name": "approve",
+      "openedLines": 14,
+      "openedWindows": [
+        "S-cccccccccc"
+      ],
+      "path": "svc/holiday/approve.go",
+      "startLine": 20,
+      "status": "covered",
+      "tier": 1,
+      "uncovered": [],
+      "uncoveredLines": 0
+    },
+    {
+      "consumedBy": [],
+      "endLine": 19,
+      "gated": false,
+      "id": "feature:promo-9f8e7d6c5b:logic:rank@svc/promo/rank.go:5",
+      "kind": "decision-function",
+      "name": "rank",
+      "openedLines": 0,
+      "openedWindows": [],
+      "path": "svc/promo/rank.go",
+      "startLine": 5,
+      "status": "not-opened",
+      "tier": 1,
+      "uncovered": [
+        {
+          "end": 19,
+          "start": 5
+        }
+      ],
+      "uncoveredLines": 15
+    },
+    {
+      "consumedBy": [],
+      "endLine": 9,
+      "gated": false,
+      "id": "feature:leave-1a2b3c4d5e:boundary-fn:helper@svc/leave/util.go:3",
+      "kind": "boundary-decision-function",
+      "name": "helper",
+      "openedLines": 3,
+      "openedWindows": [
+        "S-bbbbbbbbbb"
+      ],
+      "path": "svc/leave/util.go",
+      "startLine": 3,
+      "status": "partial",
+      "tier": 2,
+      "uncovered": [
+        {
+          "end": 9,
+          "start": 7
+        }
+      ],
+      "uncoveredLines": 3
+    }
+  ],
+  "summary": {
+    "cannotDetermine": 0,
+    "counted": 4,
+    "covered": 2,
+    "gatedNotOpened": 0,
+    "notOpened": 1,
+    "obligationLines": 67,
+    "openedLines": 48,
+    "openedNotConsumed": 3,
+    "partial": 1,
+    "uncoveredLines": 18
+  },
+  "version": "read-coverage-v1"
+}

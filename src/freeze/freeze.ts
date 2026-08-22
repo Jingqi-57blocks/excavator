@@ -236,9 +236,22 @@ export function knowledgeEpochRelativePath(epoch: number): string {
   return epoch === 0 ? "knowledge.json" : join("knowledge", "epochs", `epoch-${epoch}.json`);
 }
 
+/**
+ * The run-relative path of the epoch this manifest selects.
+ *
+ * WHY IT IS A FUNCTION AND NOT AN EXPRESSION AT EACH READER. It is the only place `manifest.knowledgeEpoch ??
+ * 0` — the legacy reading of a manifest recorded before the field existed — is written down. A reader that
+ * spelled the fallback itself would own a second copy of that interpretation, and two copies of "which epoch is
+ * current" drift the moment one of them is updated. Callers outside `src/freeze/` select an epoch; they never
+ * map one to a path.
+ */
+export function currentKnowledgeRelativePath(manifest: RunManifest): string {
+  return knowledgeEpochRelativePath(manifest.knowledgeEpoch ?? 0);
+}
+
 /** Read the manifest-selected epoch. Field-less manifests retain the legacy knowledge.json interpretation. */
 export async function readCurrentKnowledge(runDir: string, manifest: RunManifest): Promise<KnowledgeArtifact> {
-  return readJson<KnowledgeArtifact>(join(runDir, knowledgeEpochRelativePath(manifest.knowledgeEpoch ?? 0)));
+  return readJson<KnowledgeArtifact>(join(runDir, currentKnowledgeRelativePath(manifest)));
 }
 
 /** Authoring may consume only an epoch that includes every supplement committed so far. */

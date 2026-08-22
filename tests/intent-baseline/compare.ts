@@ -1,5 +1,4 @@
 import { canonicalJson } from "../../src/base/util.ts";
-import type { BaselineProjection } from "./projection.ts";
 
 export interface BaselineDiff {
   readonly path: string;

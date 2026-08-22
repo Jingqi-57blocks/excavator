@@ -2,11 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
 import { readFile, rm, writeFile } from "node:fs/promises";
-import type { EvidenceItem, InvestigationPlan, KnowledgeArtifact, ReportRequest, RunManifest, SectionClaim, TraceRecord } from "../src/base/types.ts";
-import { addSourceEvidence, assembleRun, auditRun, beginDocument, checkpointSection, freezeRun, prepareRun, searchSourceEvidence, updateChecklist, updateTraces, updateWorkItems } from "../src/run/run.ts";
+import type { EvidenceItem, InvestigationPlan, KnowledgeArtifact, ReportRequest, RunManifest, TraceRecord } from "../src/base/types.ts";
+import { addSourceEvidence, auditRun, freezeRun, prepareRun, searchSourceEvidence, updateChecklist, updateTraces, updateWorkItems } from "../src/run/run.ts";
 import { canonicalInvestigationResults, knowledgeDigest } from "../src/freeze/freeze.ts";
 import { canonicalJson, exists, sha256 } from "../src/base/util.ts";
-import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, tempDir } from "./helpers.ts";
+import { copyFixture, createCodeGraphFixture, disposeAllWorkItems, installFixturePlan, tempDir } from "./helpers.ts";
 
 const BUDGETS = { prepareMs: 30_000, authorMs: 30_000, maxGraphQueries: 40, maxSourceWindows: 50, maxSourceCharacters: 120_000, maxFiles: 10_000, maxFeatureNodes: 80, maxExpansionDepth: 2 };
 
@@ -26,12 +26,6 @@ async function featureRequest(): Promise<ReportRequest> {
   return { target, codegraph, workdir, language: "zh-CN", detailLevel: "standard", overviewAudiences: [], features: [{ subject: "Leave management", aliases: ["leave", "holiday"], audiences: ["product"] }], budgets: BUDGETS };
 }
 
-function sectionText(title: string, index: number, evidenceId: string): string {
-  return `## ${title}\n\n第 ${index} 节记录当前状态。\`事实\`\n\n<details><summary>依据</summary>\n\n- ${evidenceId}\n\n</details>\n`;
-}
-function sectionClaims(index: number, evidenceId: string): SectionClaim[] {
-  return [{ id: `C-${index}`, marker: "fact", statement: `第 ${index} 节记录当前状态。`, evidenceIds: [evidenceId], confidence: "high", status: "verified" }];
-}
 async function firstEvidence(runDir: string): Promise<string> {
   const catalog = JSON.parse(await readFile(join(runDir, "evidence.json"), "utf8")) as { evidence: EvidenceItem[] };
   return catalog.evidence.find((item) => item.kind === "source")?.id ?? catalog.evidence[0].id;
@@ -51,11 +45,6 @@ async function readManifest(runDir: string): Promise<RunManifest> {
 async function readTimeline(runDir: string): Promise<Array<{ action: string; stage: string; data?: Record<string, unknown> }>> {
   return (await readFile(join(runDir, "timeline.jsonl"), "utf8")).trim().split("\n").map((line) => JSON.parse(line));
 }
-async function authorAll(runDir: string, manifest: RunManifest, evidenceId: string): Promise<void> {
-  const document = manifest.documents[0];
-  for (const section of document.sections) await checkpointSection(runDir, document.id, section.index, sectionText(section.title, section.index, evidenceId), sectionClaims(section.index, evidenceId));
-}
-
 // --- Group 1: freeze rejection ---
 
 test("freeze is refused while required work items are still pending; no knowledge is written and the manifest is untouched", async () => {
@@ -127,11 +116,6 @@ test("freeze writes epoch 0, stamps the manifest and refuses a re-freeze with no
   assert.equal(frozen.stage, "investigation");
   assert.equal((frozen.data as Record<string, unknown>).knowledgeDigest, persisted.knowledgeDigest);
 
-  // Freeze renders one authoring packet per document; the frozen event records how many.
-  assert.equal((frozen.data as Record<string, unknown>).authoringPackets, manifest.documents.length);
-  for (const document of manifest.documents) {
-    assert.equal(await exists(join(runDir, "context", "authoring", `${document.id}.md`)), true, `packet missing for ${document.id}`);
-  }
 
   await assert.rejects(() => freezeRun(runDir), /no new supplement to seal/);
 });
@@ -198,9 +182,6 @@ test("a supplement re-freezes N to immutable N+1, pins the prior digest and cons
     reason: "the first epoch did not contain this phrase search",
     workItemId: itemId
   });
-  const beforeRefreeze = await readManifest(runDir);
-  await assert.rejects(() => beginDocument(runDir, beforeRefreeze.documents[0].id), /unsealed supplements/, "authoring cannot consume a stale epoch packet");
-
   const result = await freezeRun(runDir);
   assert.equal(result.frozen, true, JSON.stringify(result.findings, null, 2));
   assert.equal(await readFile(join(runDir, "knowledge.json"), "utf8"), epochZeroBytes, "epoch 0 bytes never change");
@@ -214,13 +195,9 @@ test("a supplement re-freezes N to immutable N+1, pins the prior digest and cons
   const refrozen = (await readTimeline(runDir)).filter((event) => event.action === "investigation.refrozen").at(-1);
   assert.equal(refrozen?.data?.epoch, 1);
   assert.equal(refrozen?.data?.knowledgeDigest, manifest.knowledgeDigest, "the causal timeline anchors the epoch head digest");
-  for (const document of manifest.documents) {
-    assert.match(await readFile(join(runDir, "context", "authoring", `${document.id}.md`), "utf8"), /Sealed knowledge epoch: 1/);
-  }
-  const evidenceId = await firstEvidence(runDir);
-  await authorAll(runDir, manifest, evidenceId);
-  await assembleRun(runDir);
-  assert.match(await readFile(join(runDir, "reports", "product-overview.md"), "utf8"), /^epoch: 1$/m, "the report binds its sealed epoch");
+  await firstEvidence(runDir);
+  // Epoch 1 needs its own plan: the catalog projects the epoch, so a re-freeze is re-planned, not inherited.
+  await installFixturePlan(runDir);
   const audit = await auditRun(runDir);
   assert.deepEqual(audit.findings.filter((finding) => finding.level === "error" && finding.document === "knowledge"), [], JSON.stringify(audit.findings, null, 2));
   await assert.rejects(() => freezeRun(runDir), /no new supplement to seal/, "an already-consumed supplement cannot authorize another epoch");
@@ -271,15 +248,11 @@ test("a supplement reason without a work item — and a work item without a reas
 // --- Group 4: audit consistency ---
 
 test("a frozen run with a recorded supplement audits without a frozen-knowledge error", async () => {
-  const { runDir, manifest } = await prepareRun(await overviewRequest());
-  const evidenceId = await firstEvidence(runDir);
+  const { runDir } = await prepareRun(await overviewRequest());
+  await firstEvidence(runDir);
   await disposeAllWorkItems(runDir);
   assert.equal((await freezeRun(runDir)).frozen, true);
-  await authorAll(runDir, manifest, evidenceId);
-  await assembleRun(runDir);
-
-  const clean = await auditRun(runDir);
-  assert.deepEqual(clean.findings.filter((finding) => finding.level === "error"), [], JSON.stringify(clean.findings, null, 2));
+  await installFixturePlan(runDir);
 
   const itemId = (await readPlan(runDir)).items[0].id;
   await searchSourceEvidence(runDir, ["Leave requests"], "confirm a phrase", { maxResults: 10 }, { reason: "framing gap in the frozen catalog", workItemId: itemId });
@@ -288,12 +261,11 @@ test("a frozen run with a recorded supplement audits without a frozen-knowledge 
 });
 
 test("changing a work item's disposition after freeze without a supplement fails audit", async () => {
-  const { runDir, manifest } = await prepareRun(await overviewRequest());
+  const { runDir } = await prepareRun(await overviewRequest());
   const evidenceId = await firstEvidence(runDir);
   await disposeAllWorkItems(runDir);
   assert.equal((await freezeRun(runDir)).frozen, true);
-  await authorAll(runDir, manifest, evidenceId);
-  await assembleRun(runDir);
+  await installFixturePlan(runDir);
 
   // Bypass the mutator: rewrite workitems.json directly, so no supplement is ever recorded.
   const planPath = join(runDir, "workitems.json");
@@ -306,34 +278,6 @@ test("changing a work item's disposition after freeze without a supplement fails
   assert.ok(audit.findings.some((finding) => finding.level === "error" && finding.document === "knowledge" && /disposition changed after freeze without a recorded supplement/.test(finding.message)), JSON.stringify(audit.findings, null, 2));
 });
 
-test("an unfrozen current-version run fails the freeze-order gate but triggers no frozen-knowledge check; a downgraded version grandfathers it", async () => {
-  const { runDir, manifest } = await prepareRun(await overviewRequest());
-  const evidenceId = await firstEvidence(runDir);
-  await authorAll(runDir, manifest, evidenceId);
-  await disposeAllWorkItems(runDir);
-  await assembleRun(runDir);
-
-  // Current version: no knowledge.json exists, so the frozen-knowledge reconciliation stays silent — but
-  // the run was authored without ever freezing, so the freeze-order gate fires as a hard error.
-  const current = await auditRun(runDir);
-  assert.equal(await exists(join(runDir, "knowledge.json")), false);
-  assert.ok(!current.findings.some((finding) => finding.document === "knowledge"), JSON.stringify(current.findings, null, 2));
-  assert.ok(
-    current.findings.some((finding) => finding.level === "error" && finding.document === "freeze" && /never frozen/.test(finding.message)),
-    JSON.stringify(current.findings, null, 2)
-  );
-
-  // Downgrade the stamped version to a pre-v3 literal: a run prepared before freeze became a hard
-  // authoring precondition is grandfathered — neither the freeze-order gate nor the strict marker check
-  // fires — so it audits clean.
-  const runPath = join(runDir, "run.json");
-  const persisted = JSON.parse(await readFile(runPath, "utf8")) as RunManifest;
-  persisted.assuranceVersion = "assurance-v2-redaction-v4";
-  await writeFile(runPath, JSON.stringify(persisted, null, 2));
-  const legacy = await auditRun(runDir);
-  assert.deepEqual(legacy.findings.filter((finding) => finding.level === "error"), [], JSON.stringify(legacy.findings, null, 2));
-});
-
 // --- Group 5: scoped audit downgrade ---
 
 test("a scoped single-document audit downgrades a frozen-knowledge violation to advisory", async () => {
@@ -341,8 +285,8 @@ test("a scoped single-document audit downgrades a frozen-knowledge violation to 
   const evidenceId = await firstEvidence(runDir);
   await disposeAllWorkItems(runDir);
   assert.equal((await freezeRun(runDir)).frozen, true);
+  await installFixturePlan(runDir);
   const document = manifest.documents[0];
-  await authorAll(runDir, manifest, evidenceId);
 
   const planPath = join(runDir, "workitems.json");
   const plan = await readPlan(runDir);

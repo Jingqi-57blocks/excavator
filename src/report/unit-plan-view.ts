@@ -1,0 +1,216 @@
+/**
+ * The plan, as the unit machinery needs to read it: which units exist, what each one is, and the ONE order they
+ * are collected in.
+ *
+ * THE ORDER IS A PURE FUNCTION OF THE PLAN, never of who finished drafting first. Documents ascending by
+ * `documentId`, and inside a document the `authoringOrder` `plan/dag.json` already records — children before
+ * parents, because a synthesis may only be written from summaries that exist. `collect` filters this order down
+ * to the receipts on disk, so the timeline event sequence it produces is decided by the plan and reproducible
+ * from it.
+ *
+ * IT RE-VALIDATES THROUGH THE ONE GATE. Everything here comes from `assertValidatedPlanForAuthoring`, so a unit
+ * is never drafted or collected against a plan that no longer validates against its own epoch. There is no
+ * lighter path that reads the files without checking them.
+ *
+ * IT ALSO OWNS THE TWO EPOCH PREMISES, because draft, collect and status all stand on them and a premise stated
+ * three times is a premise that will one day be stated three ways: a run must have a current knowledge epoch,
+ * and the recorded plan must project that same epoch. Authoring against a plan built from superseded knowledge
+ * is refused by name rather than performed.
+ *
+ * THE TWO CONSERVATION CHECKS BELOW ARE NOT CEREMONY. If the recorded authoring order held fewer units than the
+ * plan, `collect` would skip the missing ones in silence and every count downstream would still add up — the
+ * order would just quietly not mention them. And if two unit ids encoded to one directory, two units would share
+ * one set of artifacts while every row count stayed balanced. Both are stated as named failures here, once, for
+ * every caller.
+ */
+
+import type { InvestigationWorkItem, RunManifest } from "../base/types.ts";
+import type { PacketCoverageFacts } from "./coverage-companion.ts";
+import { projectEpochCoverage } from "./coverage-projection.ts";
+import { assertValidatedPlanForAuthoring } from "./plan-gate.ts";
+import { planCatalogDigest, type PlanCatalogArtifact, type PlanCatalogUnit, type PlanDagArtifact } from "./plan-artifacts.ts";
+import {
+  deriveObligationOwnership,
+  materialObligationTopics,
+  type MaterialObligationTopics,
+  type ObligationOwnershipIndex,
+  type OwnershipUnit
+} from "./plan-obligation-conservation.ts";
+import type { ReportRequestsArtifact } from "./report-requests-artifact.ts";
+import type { TopicCandidate } from "./topic-candidate.ts";
+import type { TopicCatalogArtifact } from "./topic-catalog.ts";
+import { assertDistinctUnitPathKeys, compareUnitIds, unitPathKey } from "./unit-paths.ts";
+
+export interface UnitPlanView {
+  readonly runId: string;
+  readonly knowledgeEpoch: number;
+  readonly planCatalogDigest: string;
+  /** The recorded plan, as the gate re-validated it. */
+  readonly planCatalog: PlanCatalogArtifact;
+  readonly dag: PlanDagArtifact;
+  readonly requests: ReportRequestsArtifact;
+  /** The topics catalog re-derived from the epoch, and its rows by id. */
+  readonly catalog: TopicCatalogArtifact;
+  readonly topicsById: ReadonlyMap<string, TopicCandidate>;
+  /**
+   * This run's obligation ledger, keyed by the ids the catalog's bindings copied.
+   *
+   * Carried so the grounding audit's `origin` lookup is an EQUALITY LOOKUP IN THIS SAME LEDGER — the bytes the gate
+   * already digest-checked against the sealed epoch — and not a second, unchecked read of `workitems.json` (nor,
+   * ever, an id join across two ledgers: 57B-458 measured 665 of 946 rows silently lost to one).
+   */
+  readonly workItems: ReadonlyMap<string, InvestigationWorkItem>;
+  /** The shared material-obligation index: the same rows gate 1b's plan accounting is computed from. */
+  readonly obligations: readonly MaterialObligationTopics[];
+  /**
+   * R5a's ownership, derived once per load from the same catalog the index above comes from.
+   *
+   * Carried on the view rather than derived per unit so the packet renderer, the grounding audit and any reading
+   * over this run read ONE ownership: three derivations of "who owes this obligation" would be three denominators,
+   * which is what gate 1b forbids one level up.
+   */
+  readonly ownership: ObligationOwnershipIndex;
+  /** The evidence ids the epoch sealed. The denominator of "how far does the obligation ledger reach". */
+  readonly frozenEvidenceIds: readonly string[];
+  /**
+   * The epoch-only coverage families the projected epoch sealed (R7a): read coverage, the closure, and the
+   * obligation ledger's determination census.
+   *
+   * Carried here for the same reason `ownership` is: the coverage companion and the appendix packet's coverage
+   * block must read ONE projection of them, and the only other way to reach the gate's loaded ledgers from the
+   * packet loader would be to run the plan gate a second time. It is a field selection over bytes the gate has
+   * already digest-checked against the sealed epoch, never a re-derivation.
+   */
+  readonly epochCoverage: PacketCoverageFacts;
+  /** Every run-relative path the catalog projection opened, sorted. A caller republishes it, never re-derives it. */
+  readonly sourceReadPaths: readonly string[];
+  /** Every unit of the plan, ascending by unit id. */
+  readonly units: readonly PlanCatalogUnit[];
+  readonly byId: ReadonlyMap<string, PlanCatalogUnit>;
+  /** Every unit exactly once: documents ascending, then each document's authoring order. */
+  readonly collectionOrder: readonly string[];
+}
+
+/** Load and re-validate this run's plan, then derive the unit view of it, at the epoch `manifest` selects. */
+export async function loadUnitPlanView(runDir: string, manifest: RunManifest): Promise<UnitPlanView> {
+  const gate = await assertValidatedPlanForAuthoring(runDir, manifest);
+  const units = [...gate.planCatalog.units].sort((a, b) => compareUnitIds(a.unitId, b.unitId));
+  assertDistinctUnitPathKeys(units.map((unit) => unit.unitId), unitPathKey);
+  const collectionOrder = unitCollectionOrder(units.map((unit) => unit.unitId), gate.dag.documents);
+  return {
+    runId: gate.planCatalog.runId,
+    knowledgeEpoch: gate.planCatalog.knowledgeEpoch,
+    planCatalogDigest: planCatalogDigest(gate.planCatalog),
+    planCatalog: gate.planCatalog,
+    dag: gate.dag,
+    requests: gate.requests,
+    catalog: gate.catalog,
+    topicsById: new Map(gate.catalog.topics.map((topic) => [topic.topicId, topic])),
+    workItems: new Map(gate.source.workItems.map((item) => [item.id, item])),
+    obligations: materialObligationTopics(gate.catalog),
+    ownership: deriveObligationOwnership(gate.catalog, ownershipUnitsOfPlanCatalog(units)),
+    frozenEvidenceIds: gate.source.knowledge.evidenceIds ?? [],
+    epochCoverage: projectEpochCoverage(gate.source),
+    sourceReadPaths: gate.source.readPaths,
+    units,
+    byId: new Map(units.map((unit) => [unit.unitId, unit])),
+    collectionOrder
+  };
+}
+
+/**
+ * A recorded plan's units, as ownership sees them.
+ *
+ * It lives here rather than in `plan-obligation-conservation.ts` because that file may not import
+ * `plan-artifacts.ts`: the two already point the other way, and `tests/layer-order.test.ts` refuses the cycle
+ * (measured — it named `plan-artifacts -> plan-obligation-conservation -> plan-validation` the moment the import
+ * was added). The projection is field selection, not a second derivation; the derivation stays in one file.
+ */
+function ownershipUnitsOfPlanCatalog(units: readonly PlanCatalogUnit[]): readonly OwnershipUnit[] {
+  return units.map((unit) => ({
+    unitId: unit.unitId,
+    documentId: unit.documentId,
+    kind: unit.kind,
+    topics: unit.topics.map((topic) => ({ topicId: topic.topicId, obligationScope: topic.obligationScope }))
+  }));
+}
+
+/** The epoch a unit is drafted from. Absent is a named refusal, never a draft that skips the comparison. */
+export function requireKnowledgeEpoch(manifest: RunManifest, action: string): number {
+  if (manifest.knowledgeEpoch === undefined) {
+    throw new Error(`This run has no current knowledge epoch, so a unit cannot be ${action}; re-prepare it under the current assurance version and freeze it`);
+  }
+  return manifest.knowledgeEpoch;
+}
+
+/**
+ * The plan and the manifest must name one epoch. A disagreement is a bug in the run, and it is named as one.
+ *
+ * THIS CHECK IS DEFENCE IN DEPTH, NOT A LIVE GATE, AND IT IS KEPT DELIBERATELY (57B-434, item #1 of the R8
+ * pre-cleanup). It used to be the visible face of the epoch defect: after a re-freeze the recorded plan projected
+ * epoch 0 while the manifest was at epoch 1, and every unit command refused with this message. 57B-462 put three
+ * checks in front of it, each of which now catches that state first:
+ *
+ *   1. `assertSelectedEpoch` in `topic-catalog-source.ts` pins the projected record to the epoch the manifest selects;
+ *   2. the plan gate re-derives the topics catalog and refuses a recorded `plan/topics.json` that differs;
+ *   3. `readPlanCatalog` (`plan-artifacts.ts`) refuses a `plan/catalog.json` whose `knowledgeEpoch` is not the
+ *      topics catalog's.
+ *
+ * So no supported operation and no hand edit of a run directory reaches this throw today. It is NOT DELETED,
+ * because an unexercised throw is the one nobody notices going missing, and the three checks above are three
+ * separate files that a future change may reorder or retire. Its coverage is the pure function it is:
+ * `tests/topic-catalog-epoch.test.ts` asserts both directions over a hand-made view and states in writing that it
+ * does not claim a run can produce the disagreement — measured coverage with an honest scope, not a fixture that
+ * pretends to be an end-to-end path.
+ *
+ * WHEN TO COME BACK: if any one of the three upstream checks is retired or moved behind this one, this becomes the
+ * FIRST line again, and it then needs a fixture that reaches it through a command — not a pure-function test. Same
+ * for a new caller that loads a plan view without going through the plan gate.
+ */
+export function assertPlanEpoch(view: UnitPlanView, knowledgeEpoch: number): void {
+  if (view.knowledgeEpoch !== knowledgeEpoch) {
+    throw new Error(`The recorded plan projects knowledge epoch ${view.knowledgeEpoch} but the run manifest is at epoch ${knowledgeEpoch}; re-plan this run before authoring units`);
+  }
+}
+
+/**
+ * The one collection order, as a pure function of the plan: documents ascending, then each document's recorded
+ * authoring order.
+ *
+ * Both refusals are about the same silent failure. If the recorded order held FEWER units than the plan, collect
+ * would skip the missing ones and say nothing — every count it reported would still add up, because the order
+ * would simply not mention them. If it named a unit the plan does not hold, collect would look for a receipt that
+ * can never exist. R3's `readPlanDag` re-derives this order and refuses a recorded one that differs, so a plan
+ * that gets this far has already been checked once; this is the second, cheap statement of the same law, at the
+ * place that consumes it.
+ */
+export function unitCollectionOrder(
+  unitIds: readonly string[],
+  documents: readonly { readonly documentId: string; readonly authoringOrder: readonly string[] }[]
+): readonly string[] {
+  const order = [...documents]
+    .sort((a, b) => compareUnitIds(a.documentId, b.documentId))
+    .flatMap((document) => [...document.authoringOrder]);
+  if (order.length !== unitIds.length || new Set(order).size !== unitIds.length) {
+    throw new Error(`The recorded authoring order covers ${new Set(order).size} of this plan's ${unitIds.length} unit(s); a unit missing from the order would be skipped by collect without anything saying so`);
+  }
+  const known = new Set(unitIds);
+  for (const unitId of order) {
+    if (!known.has(unitId)) throw new Error(`The recorded authoring order names ${JSON.stringify(unitId)}, which is not a unit of this plan`);
+  }
+  return order;
+}
+
+/**
+ * The plan row for one unit id, or a named refusal.
+ *
+ * "Not in the plan" and "not a unit at all" are one message on purpose: from the writer's side they are the same
+ * fact — the plan does not give this run a unit by that name — and the plan is the thing to fix either way.
+ */
+export function planUnit(view: UnitPlanView, unitId: string): PlanCatalogUnit {
+  const unit = view.byId.get(unitId);
+  if (!unit) {
+    throw new Error(`Unknown authoring unit ${JSON.stringify(unitId)}; this run's validated plan holds ${view.units.length} unit(s): ${view.units.map((row) => row.unitId).join(", ")}`);
+  }
+  return unit;
+}

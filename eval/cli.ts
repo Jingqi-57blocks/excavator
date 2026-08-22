@@ -8,6 +8,14 @@
 //   read-denominator --run <dir> [--must <path:line>]... [--json]   what the boundary second source added
 //   crossrepo --run <dir> --gold <file> [--sample N] [--json]       cross-repo link gate + review sample
 //   read-attribution --gold <file> --anchors a,b,c [--json]         does the partitioned reading still point right
+//   packet-readings --run <dir> --mode <authored|frozen-not-authored> [--out <file>]
+//                                                           per-document packet byte readings + cross-packet duplication
+//   ledger-closeout --run <dir> [--out <file>] [--updates <file>]   transcribe unsettled read obligations to cannot-determine
+//   topic-readings --run <dir> [--out <file>]               Topic Catalog facet/materiality/conservation readings
+//   plan-readings --run <dir> [--out <file>]                planner packet bytes, fixture plan, plan verdicts, gate-1b obligation buckets
+//   unit-packet-readings --run <dir> [--out <file>]         per-unit packet bytes + the 57B-453 closure reading (absent evidence bindings)
+//   unit-cache-identity-readings --run <dir> [--out <file>]       per-unit cache identity + the four-bucket invalidation plan of five scenarios
+//   unit-cache-admission-readings --run <dir> [--out <file>]      the two candidate forms agree bucket for bucket (R6b decision side)
 // diff exits 1 on any mustFind missing / forbidden violation / coverage failure; 0 otherwise.
 // boundary exits 1 on any mustFind miss; 0 otherwise (same honest-red contract as diff).
 // --prepare-only runs ONLY the anchor-in-scope containment check (zero model, sub-second).
@@ -38,6 +46,14 @@ import { buildPoolFromRun, loadPrunePool, prunePoolToNodes, writePrunePool } fro
 import { buildDenominatorReport, denominatorExitCode, parseMust, renderDenominator } from "./read-denominator.ts";
 import { artifactExists, buildCrossRepoReport, crossRepoExitCode, loadCrossRepoGold, renderCrossRepoReport } from "./crossrepo.ts";
 import { attributionExitCode, buildAttributionReport, renderAttributionReport } from "./read-attribution.ts";
+import { extractPacketReadings, PACKET_READINGS_MODES, type PacketReadingsMode } from "./packet-readings.ts";
+import { buildLedgerCloseout } from "./ledger-closeout.ts";
+import { extractTopicReadings } from "./topic-readings.ts";
+import { extractPlanReadings } from "./plan-readings.ts";
+import { extractUnitPacketReadings } from "./unit-packet-readings.ts";
+import { extractUnitIdentityReadings } from "./unit-cache-identity-readings.ts";
+import { extractUnitAdmissionReadings } from "./unit-cache-admission-readings.ts";
+import { stableJson } from "../src/base/util.ts";
 
 interface Flags {
   run?: string;
@@ -48,6 +64,8 @@ interface Flags {
   nodes?: string;
   layer?: string;
   out?: string;
+  mode?: string;
+  updates?: string;
   pool?: string;
   emitPool?: string;
   modules: string[];
@@ -73,6 +91,8 @@ function parseFlags(argv: string[]): Flags {
     else if (arg === "--sample") flags.sample = argv[++i];
     else if (arg === "--anchors") flags.anchors = argv[++i];
     else if (arg === "--out") flags.out = argv[++i];
+    else if (arg === "--mode") flags.mode = argv[++i];
+    else if (arg === "--updates") flags.updates = argv[++i];
     else if (arg === "--pool") flags.pool = argv[++i];
     else if (arg === "--emit-pool") flags.emitPool = argv[++i];
     else if (arg === "--module") flags.modules.push(argv[++i]);
@@ -95,7 +115,14 @@ const USAGE = `eval harness
   view    --run <dir> [--json]
   compare --a <dir> --b <dir> [--json]
   boundary (--run <dir> | --nodes <file>) --gold <file> [--layer fg|factpack|both] [--json]
-  prune-replay (--pool <file> | --run <dir> --module <db> [--module <db>...]) --gold <file> [--emit-pool <file>] [--json]`;
+  prune-replay (--pool <file> | --run <dir> --module <db> [--module <db>...]) --gold <file> [--emit-pool <file>] [--json]
+  packet-readings --run <dir> --mode <authored|frozen-not-authored> [--out <file>]
+  ledger-closeout --run <dir> [--out <file>] [--updates <file>]
+  topic-readings --run <dir> [--out <file>]
+  plan-readings --run <dir> [--out <file>]
+  unit-packet-readings --run <dir> [--out <file>]
+  unit-cache-identity-readings --run <dir> [--out <file>]
+  unit-cache-admission-readings --run <dir> [--out <file>]`;
 
 function renderContainment(containment: Containment): string {
   const lines = [`=== prepare containment (${containment.contained.length}/${containment.contained.length + containment.missing.length} anchors in scope) ===`];
@@ -300,6 +327,94 @@ function runExtract(flags: Flags): number {
   return 0;
 }
 
+/**
+ * Project one completed run's authoring packets into byte readings: per document sections / claims / packet
+ * bytes / audit findings, plus the run's cross-packet duplication. Key-sorted output, so re-running the
+ * extractor over the same run directory writes the same bytes.
+ */
+function runPacketReadings(flags: Flags): number {
+  const mode = requireFlag(flags.mode, "--mode");
+  if (!PACKET_READINGS_MODES.includes(mode as PacketReadingsMode)) throw new Error(`--mode must be one of ${PACKET_READINGS_MODES.join(", ")}, got ${mode}`);
+  const readings = extractPacketReadings(requireFlag(flags.run, "--run"), mode as PacketReadingsMode);
+  const text = stableJson(readings);
+  if (flags.out) writeFileSync(flags.out, `${text}\n`);
+  else process.stdout.write(`${text}\n`);
+  return 0;
+}
+
+/**
+ * Transcribe a prepared run's unsettled read obligations into `cannot-determine` work-item updates, taking every
+ * reason off the run's own `investigation/results.json` execution records. Exits 1 when ANY unsettled item has no
+ * transcribable cause: that gap is a real finding, and the tool never fills it with a generic wording. `--out`
+ * writes the full report (updates plus per-row provenance); `--updates` writes the apply-ready array for
+ * `excavator workitem --run <dir> --file <file>`. Both are written even on the red exit, so the gap can be read
+ * next to what would have been applied.
+ */
+function runLedgerCloseout(flags: Flags): number {
+  const closeout = buildLedgerCloseout(requireFlag(flags.run, "--run"));
+  const text = stableJson(closeout);
+  if (flags.out) writeFileSync(flags.out, `${text}\n`);
+  if (flags.updates) writeFileSync(flags.updates, `${stableJson(closeout.rows.map((row) => row.update))}\n`);
+  if (!flags.out) process.stdout.write(`${text}\n`);
+  else process.stdout.write(`transcribed ${closeout.transcribed}/${closeout.unsettled} unsettled work items; ${closeout.untranscribable} have no transcribable cause\n`);
+  return closeout.untranscribable === 0 ? 0 : 1;
+}
+
+/**
+ * Project one frozen run's Topic Catalog into readings. Never writes into the run directory: the R0 baselines are
+ * archival and 57B-452 (a copied run splitting in two) is unfixed, so `--out` is the only place bytes land.
+ *
+ * Always exits 0. The disposition verdict it records is taken over an EMPTY disposition set, because nothing in
+ * the engine produces dispositions yet — a red exit here would be a gate that can only ever fail, which trains
+ * everyone to ignore it. The gate belongs where the plan is (the epic's R3).
+ */
+async function runTopicReadings(flags: Flags): Promise<number> {
+  const readings = await extractTopicReadings(requireFlag(flags.run, "--run"));
+  const text = stableJson(readings);
+  if (flags.out) writeFileSync(flags.out, `${text}\n`);
+  else process.stdout.write(`${text}\n`);
+  return 0;
+}
+
+/**
+ * Plan readings for one frozen run: what the planner packet costs, what a model-free fixture plan looks like on
+ * this catalog, what validation concludes per facet, and where every material OBLIGATION goes under that plan.
+ *
+ * Always exits 0, and never writes into the run: it builds the plan artifacts in memory, so an archival baseline
+ * can be projected without a `plan/` directory appearing inside it.
+ */
+async function runUnitPacketReadings(flags: Flags): Promise<number> {
+  const readings = await extractUnitPacketReadings(requireFlag(flags.run, "--run"));
+  const text = stableJson(readings);
+  if (flags.out) writeFileSync(flags.out, `${text}\n`);
+  else process.stdout.write(`${text}\n`);
+  return 0;
+}
+
+async function runUnitIdentityReadings(flags: Flags): Promise<number> {
+  const readings = await extractUnitIdentityReadings(requireFlag(flags.run, "--run"));
+  const text = stableJson(readings);
+  if (flags.out) writeFileSync(flags.out, `${text}\n`);
+  else process.stdout.write(`${text}\n`);
+  return 0;
+}
+
+async function runUnitAdmissionReadings(flags: Flags): Promise<number> {
+  const readings = await extractUnitAdmissionReadings(requireFlag(flags.run, "--run"));
+  const text = stableJson(readings);
+  if (flags.out) writeFileSync(flags.out, `${text}\n`);
+  else process.stdout.write(`${text}\n`);
+  return 0;
+}
+
+async function runPlanReadings(flags: Flags): Promise<number> {
+  const readings = await extractPlanReadings(requireFlag(flags.run, "--run"));
+  const text = stableJson(readings);
+  if (flags.out) writeFileSync(flags.out, `${text}\n`);
+  else process.stdout.write(`${text}\n`);
+  return 0;
+}
+
 function runDiff(flags: Flags): number {
   const knowledge = extractKnowledge(requireFlag(flags.run, "--run"));
   const expected = loadExpected(requireFlag(flags.expected, "--expected"));
@@ -334,7 +449,7 @@ function runCompare(flags: Flags): number {
   return 0;
 }
 
-function main(argv: string[]): number {
+function main(argv: string[]): number | Promise<number> {
   const [command, ...rest] = argv;
   if (!command || command === "help" || command === "--help" || command === "-h") {
     process.stdout.write(`${USAGE}\n`);
@@ -350,6 +465,13 @@ function main(argv: string[]): number {
   if (command === "read-denominator") return runReadDenominator(flags);
   if (command === "crossrepo") return runCrossRepoGate(flags);
   if (command === "read-attribution") return runReadAttribution(flags);
+  if (command === "packet-readings") return runPacketReadings(flags);
+  if (command === "ledger-closeout") return runLedgerCloseout(flags);
+  if (command === "topic-readings") return runTopicReadings(flags);
+  if (command === "plan-readings") return runPlanReadings(flags);
+  if (command === "unit-packet-readings") return runUnitPacketReadings(flags);
+  if (command === "unit-cache-identity-readings") return runUnitIdentityReadings(flags);
+  if (command === "unit-cache-admission-readings") return runUnitAdmissionReadings(flags);
   throw new Error(`unknown command: ${command}`);
 }
 
@@ -357,7 +479,9 @@ function main(argv: string[]): number {
 // to a pipe is async, and process.exit() would truncate it at the pipe buffer.
 // With exitCode the process ends naturally once stdout has drained.
 try {
-  process.exitCode = main(process.argv.slice(2));
+  // One command reads its inputs asynchronously; awaiting inside the try keeps its rejection on the same path as
+  // every synchronous command's throw, so there is no second error contract.
+  process.exitCode = await main(process.argv.slice(2));
 } catch (error) {
   process.stderr.write(`error: ${(error as Error).message}\n`);
   process.exitCode = 2;

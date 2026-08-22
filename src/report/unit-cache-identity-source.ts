@@ -1,0 +1,113 @@
+/**
+ * Every authoring unit's cache identity for one run ON DISK — the read-only reading behind `excavator unit-cache-identity`.
+ *
+ * THE RENDERER TAKES VALUES; THIS FILE TAKES A PATH, the same split `unit-packet-source.ts` uses and for the same
+ * reason: the identity of a unit must be computable over an archival run without writing a byte into it, and the
+ * command an operator runs must not be a second way of assembling the packet inputs. So this loads through
+ * `loadUnitPacketSource` per unit rather than rebuilding the input map beside it — one spelling of "what a unit's
+ * packet is rendered from", or the identity would be measured over inputs no packet was ever rendered from.
+ *
+ * THAT COSTS A RELOAD PER UNIT, deliberately. Each call re-reads the plan gate's inputs and the evidence ledger, so
+ * a forty-unit plan opens them forty times. The alternative is to assemble the packet inputs once here, which is
+ * exactly the second spelling R5b's nine-fold measurement gap came from — and this is a read-only diagnostic, while
+ * that would be a drift the identity itself could not detect. A projection over MANY plan states (the eval readings)
+ * builds its inputs in memory once per state instead, which is the right place for the sharper cost.
+ *
+ * A SYNTHESIS WITHOUT COLLECTED CHILDREN IS NAMED, NEVER SKIPPED AND NEVER GUESSED. Its packet is its children's
+ * verified summaries, so before any child is collected there is no identity to compute — and that is a fact about
+ * the run's state, not a gap in the reading. The row says which children are missing. Nothing here invents a
+ * placeholder summary: an identity computed from a summary nobody wrote would be the one thing a cache key may
+ * never be.
+ */
+
+import { join } from "node:path";
+import { assertNever } from "../base/artifact-result.ts";
+import type { RunManifest } from "../base/types.ts";
+import { readJson } from "../base/util.ts";
+import type { PlanCatalogUnit } from "./plan-artifacts.ts";
+import { collectedUnitsFor, readUnitLedger } from "./unit-ledger.ts";
+import { unitIdentityOf, type UnitIdentity } from "./unit-cache-identity.ts";
+import type { UnitAuthorship } from "./unit-provenance.ts";
+import { loadUnitPacketSource, planReadPaths } from "./unit-packet-source.ts";
+import { compareUnitIds } from "./unit-paths.ts";
+import { loadUnitPlanView } from "./unit-plan-view.ts";
+
+/** One unit's row: an identity, or the named reason there is none yet. No third state. */
+export type RunUnitIdentityRow =
+  | { readonly state: "identified"; readonly identity: UnitIdentity }
+  | {
+      readonly state: "unavailable";
+      readonly unitId: string;
+      readonly documentId: string;
+      readonly kind: PlanCatalogUnit["kind"];
+      readonly reason: string;
+    };
+
+export interface RunUnitIdentities {
+  readonly runId: string;
+  readonly knowledgeEpoch: number;
+  readonly planCatalogDigest: string;
+  readonly authorship: UnitAuthorship;
+  /** One row per planned unit, ascending by unit id. Every unit of the plan is here, identified or named. */
+  readonly rows: readonly RunUnitIdentityRow[];
+  /** Every run-relative path this reading opened, sorted. The input contract, as data. */
+  readonly readPaths: readonly string[];
+}
+
+/** The unit id of one row, whichever arm it is. */
+export function rowUnitId(row: RunUnitIdentityRow): string {
+  switch (row.state) {
+    case "identified":
+      return row.identity.unitId;
+    case "unavailable":
+      return row.unitId;
+  }
+  return assertNever(row, "run unit identity row state");
+}
+
+/**
+ * Compute the identity of every unit of a planned run. Never writes; every failure is a named throw.
+ *
+ * `authorship` is required and has no default for the reason the identity carries it at all: a reading that
+ * silently assumed an author would report identities admissible for a draft nobody said was written by anyone.
+ */
+export async function loadRunUnitIdentities(runDir: string, authorship: UnitAuthorship): Promise<RunUnitIdentities> {
+  // The manifest is read here rather than taken as a parameter because this IS the entry point of a read-only
+  // command: it selects the epoch the plan view is re-derived at, so a re-frozen run's identities are computed over
+  // its current knowledge. `run.json` was already in the published `readPaths` below, and now the load opens it.
+  const manifest = await readJson<RunManifest>(join(runDir, "run.json"));
+  const view = await loadUnitPlanView(runDir, manifest);
+  const ledger = await readUnitLedger(runDir, view.runId);
+  const collected = new Set(collectedUnitsFor(ledger, view.knowledgeEpoch, view.planCatalogDigest).map((row) => row.unitId));
+  // Seeded with what the plan view and the ledger opened, so the published contract is complete even when no unit
+  // could be identified: a `readPaths` that only listed what the per-unit loads happened to open would under-report
+  // exactly on the run where nothing was identifiable.
+  const readPaths = new Set<string>(["run.json", "units/collected.json", ...planReadPaths(view)]);
+  const rows: RunUnitIdentityRow[] = [];
+  for (const unit of [...view.planCatalog.units].sort((a, b) => compareUnitIds(a.unitId, b.unitId))) {
+    const missing = [...unit.childUnitIds].filter((childUnitId) => !collected.has(childUnitId)).sort(compareUnitIds);
+    if (missing.length > 0) {
+      rows.push({
+        state: "unavailable",
+        unitId: unit.unitId,
+        documentId: unit.documentId,
+        kind: unit.kind,
+        reason: `written from collected child summaries, and ${missing.length} of its ${unit.childUnitIds.length} child unit(s) are not collected for knowledge epoch ${view.knowledgeEpoch} under this plan: ${missing.join(", ")}`
+      });
+      continue;
+    }
+    // `overBudget` decides what happens to a packet that does not fit its bound; an identity is a measurement over
+    // the same composition and never consults it, so the mode here changes nothing about what is digested.
+    const source = await loadUnitPacketSource(runDir, { unitId: unit.unitId, overBudget: "record-limitation", childSummaries: { from: "collected-for-this-plan" } });
+    for (const path of source.readPaths) readPaths.add(path);
+    rows.push({ state: "identified", identity: unitIdentityOf(source.input, authorship) });
+  }
+  return {
+    runId: view.runId,
+    knowledgeEpoch: view.knowledgeEpoch,
+    planCatalogDigest: view.planCatalogDigest,
+    authorship,
+    rows,
+    readPaths: [...readPaths].sort((a, b) => a.localeCompare(b))
+  };
+}

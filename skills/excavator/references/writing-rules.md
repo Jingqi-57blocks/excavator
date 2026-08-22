@@ -129,7 +129,7 @@ Before audit, every required item in `workitems.json` is completed. A missing, p
 
 ## Claim binding contract
 
-The audit segments each section into substantive statements and requires every one to be covered by a claim. These rules are fixed; `excavator claims scaffold --run <run> --document <id> --section <n> --file section.md` emits one stub per substantive segment using this exact segmentation, so hand-deriving it is unnecessary — fill the stubs' `evidenceIds`/`workItemIds` and adjust markers.
+The audit segments each section into substantive statements and requires every one to be covered by a claim. These rules are fixed, and the claims sidecar has to match them exactly: one claim per substantive segment, each with its `evidenceIds`/`workItemIds` filled in and its marker set to the right evidence level.
 
 - **Invisible text is excluded first.** Collapsed `<details>` blocks, fenced code blocks, and HTML comments do not produce segments and are not scanned for statement prose.
 - **Structural lines are dropped.** Headings (`#`–`######`) and table separator rows (the `| --- | --- |` line) never yield a segment.
@@ -138,7 +138,8 @@ The audit segments each section into substantive statements and requires every o
 - **Statements split on terminators.** Within a line, text is split after `。！？!?；;` and after a period that is followed by whitespace and an uppercase letter or digit.
 - **The substantive threshold is 8 semantic characters.** A candidate is substantive only when it contains at least 8 semantic characters, where a semantic character matches `\p{Letter}` or `\p{Number}` (Unicode letters and digits). Punctuation, spaces and symbols do not count toward the threshold.
 - **Normalization is shared by segments and claims.** Both a segment and a claim `statement` are normalized the same way before comparison: the characters `` ` ``, `*`, `_`, `>`, `#` and `-` are replaced with a space, runs of whitespace collapse to one space, and the result is trimmed.
-- **Coverage is containment, either direction.** A substantive segment is covered when some claim's normalized statement contains the segment or is contained by it. An uncovered segment is an `unclaimed substantive statement` error. Separately, a claim `statement` must normalize to at least 6 characters and appear verbatim in the section's normalized visible text.
+- **A claim statement must be bindable.** It must normalize to at least 6 characters and appear verbatim in the section's normalized visible text. A shorter statement is reported `statement is too short to bind`: a two- or three-character string is contained by most sentences of any length, so it is bound to nothing in particular.
+- **Coverage is containment, either direction, from bindable claims only.** A substantive segment is covered when some claim that clears the 6-character threshold has a normalized statement that contains the segment or is contained by it. An uncovered segment is an `unclaimed substantive statement` error. The two rules share one threshold on purpose: a claim that cannot be bound to the prose cannot vouch for the prose, so a stub statement never silences an unclaimed sentence — it is reported beside it.
 
 ## Report section derivation
 

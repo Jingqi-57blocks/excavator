@@ -1,0 +1,120 @@
+{
+  "authorship": "model-free generator eval-unit-cache-identity-readings",
+  "bytesNotVerified": "this run authored no unit, so no candidate's content, claims or summary exists to verify; every reading here is the DECISION an admission would make, and none of them is an admission",
+  "candidateUnits": 1,
+  "knowledgeDigest": "b576ab30545c0c8d6a32f44dde68a2c28f89179593e0e836e63ad0b58b100f6b",
+  "knowledgeEpoch": 0,
+  "planCatalogDigest": "606538c8317842158047332140277914ae88a6c8c66a3e374b44364f79e8633f",
+  "plannedUnits": 2,
+  "readPaths": [
+    "context/boundary-functions.json",
+    "contract/run-intent.json",
+    "coverage/read-obligations.json",
+    "coverage/read-residual.json",
+    "evidence.json",
+    "facts/producers/codegraph.json",
+    "facts/producers/crossrepo.json",
+    "facts/producers/db-schema.json",
+    "knowledge.json",
+    "run.json",
+    "workitems.json"
+  ],
+  "runId": "run-2026_08_20_02_38-overview-239385e1-85a71437-a8618c2d",
+  "scenarios": [
+    {
+      "outcome": {
+        "bucketsAgree": true,
+        "candidateStatement": "1 prior verified unit(s) offered by run run-2026_08_20_02_38-overview-239385e1-85a71437-a8618c2d, knowledge epoch 0, plan catalog 606538c8317842158047332140277914ae88a6c8c66a3e374b44364f79e8633f",
+        "fromRecordedDigests": {
+          "new": [
+            "overview-product::synthesis::document"
+          ],
+          "rebuild": [],
+          "retired": [],
+          "reusable": [
+            "overview-product::appendix::coverage"
+          ]
+        },
+        "fromWholeIdentities": {
+          "new": [
+            "overview-product::synthesis::document"
+          ],
+          "rebuild": [],
+          "retired": [],
+          "reusable": [
+            "overview-product::appendix::coverage"
+          ]
+        },
+        "plannedUnits": 2,
+        "rebuildCauses": [],
+        "rebuildsNamingSections": [
+          {
+            "form": "whole-identities",
+            "units": 0
+          },
+          {
+            "form": "recorded-digests",
+            "units": 0
+          }
+        ],
+        "state": "derived"
+      },
+      "perturbation": "nothing is changed; the plan is compared with the identities of its own units",
+      "scenario": "unchanged"
+    },
+    {
+      "outcome": {
+        "bucketsAgree": true,
+        "candidateStatement": "1 prior verified unit(s) offered by run run-2026_08_20_02_38-overview-239385e1-85a71437-a8618c2d, knowledge epoch 0, plan catalog 606538c8317842158047332140277914ae88a6c8c66a3e374b44364f79e8633f",
+        "fromRecordedDigests": {
+          "new": [
+            "overview-engineering::appendix::coverage",
+            "overview-engineering::synthesis::document",
+            "overview-product::synthesis::document"
+          ],
+          "rebuild": [],
+          "retired": [],
+          "reusable": [
+            "overview-product::appendix::coverage"
+          ]
+        },
+        "fromWholeIdentities": {
+          "new": [
+            "overview-engineering::appendix::coverage",
+            "overview-engineering::synthesis::document",
+            "overview-product::synthesis::document"
+          ],
+          "rebuild": [],
+          "retired": [],
+          "reusable": [
+            "overview-product::appendix::coverage"
+          ]
+        },
+        "plannedUnits": 4,
+        "rebuildCauses": [],
+        "rebuildsNamingSections": [
+          {
+            "form": "whole-identities",
+            "units": 0
+          },
+          {
+            "form": "recorded-digests",
+            "units": 0
+          }
+        ],
+        "state": "derived"
+      },
+      "perturbation": "one document added to the recorded requests: overview-engineering (overview, audience engineering)",
+      "scenario": "second-audience-document"
+    },
+    {
+      "outcome": {
+        "reason": "this catalog holds no material topic with a binding, so a topic perturbation cannot be applied to one",
+        "state": "not-applicable"
+      },
+      "perturbation": "no material topic exists to perturb",
+      "scenario": "content-change-smallest-topic"
+    }
+  ],
+  "version": "unit-cache-admission-readings-v1"
+}

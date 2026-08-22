@@ -1,0 +1,63 @@
+{
+  "createdAt": "2026-01-01T00:01:00.000Z",
+  "items": [
+    {
+      "dimension": "api-entrypoints",
+      "evidenceIds": [
+        "E-1"
+      ],
+      "hypothesis": "the leave route is the entry point",
+      "id": "W-1",
+      "material": true,
+      "origin": "default",
+      "reportSection": 1,
+      "requiredFor": [
+        "feature-leave-product",
+        "feature-leave-engineering"
+      ],
+      "scope": "fixture",
+      "status": "found",
+      "traceIds": [
+        "T-1"
+      ]
+    },
+    {
+      "dimension": "ui-entrypoints",
+      "evidenceIds": [
+        "E-2"
+      ],
+      "hypothesis": "a panel submits the request",
+      "id": "W-2",
+      "material": true,
+      "origin": "default",
+      "reportSection": 2,
+      "requiredFor": [
+        "feature-leave-product",
+        "feature-leave-engineering"
+      ],
+      "scope": "fixture",
+      "status": "found",
+      "traceIds": []
+    },
+    {
+      "dimension": "entities-and-fields",
+      "evidenceIds": [
+        "E-3"
+      ],
+      "hypothesis": "leave requests carry a day count",
+      "id": "W-3",
+      "material": true,
+      "origin": "default",
+      "reportSection": 2,
+      "requiredFor": [
+        "feature-leave-product",
+        "feature-leave-engineering"
+      ],
+      "scope": "fixture",
+      "status": "found",
+      "traceIds": []
+    }
+  ],
+  "runId": "run-fixture-factpack",
+  "version": 1
+}

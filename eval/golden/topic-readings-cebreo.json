@@ -1,0 +1,130 @@
+{
+  "bindings": 13,
+  "catalogDigest": "90aa91bdb03df7a1777763c9fb6a76599afe82eecdb95b9a590c6581516dcf5b",
+  "confidence": {
+    "grounded": 11,
+    "qualified": 0,
+    "unbound": 1,
+    "unsettled": 2
+  },
+  "distinctBoundWorkItems": 12,
+  "facets": [
+    {
+      "facet": "coverage",
+      "material": 0,
+      "obligatedNonMaterial": 1,
+      "reason": "",
+      "state": "populated",
+      "topics": 2,
+      "unobligated": 1,
+      "verdictWithNoDispositions": "vacuous: the material-topic denominator is empty, so nothing was checked — the coverage facet holds 2 topic(s), none of them material (1 obligated-non-material, 1 unobligated)"
+    },
+    {
+      "facet": "entity",
+      "material": 0,
+      "obligatedNonMaterial": 0,
+      "reason": "facts/producers/db-schema.json records status unavailable: policy: not-run-scoped — schema discovery runs as its own command and writes outside the run directory",
+      "state": "ledger-absent",
+      "topics": 0,
+      "unobligated": 0,
+      "verdictWithNoDispositions": "vacuous: the material-topic denominator is empty, so nothing was checked — the entity facet is empty because its ledger is absent: facts/producers/db-schema.json records status unavailable: policy: not-run-scoped — schema discovery runs as its own command and writes outside the run directory"
+    },
+    {
+      "facet": "external-system",
+      "material": 0,
+      "obligatedNonMaterial": 0,
+      "reason": "context/crossrepo-links.json is absent from this run and knowledge.json declares no digest for it",
+      "state": "ledger-absent",
+      "topics": 0,
+      "unobligated": 0,
+      "verdictWithNoDispositions": "vacuous: the material-topic denominator is empty, so nothing was checked — the external-system facet is empty because its ledger is absent: context/crossrepo-links.json is absent from this run and knowledge.json declares no digest for it"
+    },
+    {
+      "facet": "feature",
+      "material": 0,
+      "obligatedNonMaterial": 0,
+      "reason": "contract/run-intent.json binds no feature to this run, so there is no feature topic to project",
+      "state": "ledger-empty",
+      "topics": 0,
+      "unobligated": 0,
+      "verdictWithNoDispositions": "vacuous: the material-topic denominator is empty, so nothing was checked — the feature facet is empty because its ledger holds no row: contract/run-intent.json binds no feature to this run, so there is no feature topic to project"
+    },
+    {
+      "facet": "route",
+      "material": 0,
+      "obligatedNonMaterial": 0,
+      "reason": "facts/producers/codegraph.json records status unavailable: index-not-present: this run resolved no readable CodeGraph database, so no indexed function or route could be enumerated; facts/producers/crossrepo.json records status not-applicable: single-module (based on ledger/files.json#completeness, ledger/files.json#completeness.roots, ledger/mechanisms.json#mechanism:crossrepo)",
+      "state": "ledger-absent",
+      "topics": 0,
+      "unobligated": 0,
+      "verdictWithNoDispositions": "vacuous: the material-topic denominator is empty, so nothing was checked — the route facet is empty because its ledger is absent: facts/producers/codegraph.json records status unavailable: index-not-present: this run resolved no readable CodeGraph database, so no indexed function or route could be enumerated; facts/producers/crossrepo.json records status not-applicable: single-module (based on ledger/files.json#completeness, ledger/files.json#completeness.roots, ledger/mechanisms.json#mechanism:crossrepo)"
+    },
+    {
+      "facet": "work-item-dimension",
+      "material": 0,
+      "obligatedNonMaterial": 12,
+      "reason": "",
+      "state": "populated",
+      "topics": 12,
+      "unobligated": 0,
+      "verdictWithNoDispositions": "vacuous: the material-topic denominator is empty, so nothing was checked — the work-item-dimension facet holds 12 topic(s), none of them material (12 obligated-non-material, 0 unobligated)"
+    }
+  ],
+  "factRouting": {
+    "mapped": 0,
+    "unmapped": []
+  },
+  "knowledgeDigest": "b576ab30545c0c8d6a32f44dde68a2c28f89179593e0e836e63ad0b58b100f6b",
+  "knowledgeEpoch": 0,
+  "materiality": {
+    "material": 0,
+    "obligatedNonMaterial": 13,
+    "unobligated": 1
+  },
+  "namedEmptyFacets": [
+    {
+      "facet": "entity",
+      "reason": "facts/producers/db-schema.json records status unavailable: policy: not-run-scoped — schema discovery runs as its own command and writes outside the run directory",
+      "state": "ledger-absent"
+    },
+    {
+      "facet": "external-system",
+      "reason": "context/crossrepo-links.json is absent from this run and knowledge.json declares no digest for it",
+      "state": "ledger-absent"
+    },
+    {
+      "facet": "feature",
+      "reason": "contract/run-intent.json binds no feature to this run, so there is no feature topic to project",
+      "state": "ledger-empty"
+    },
+    {
+      "facet": "route",
+      "reason": "facts/producers/codegraph.json records status unavailable: index-not-present: this run resolved no readable CodeGraph database, so no indexed function or route could be enumerated; facts/producers/crossrepo.json records status not-applicable: single-module (based on ledger/files.json#completeness, ledger/files.json#completeness.roots, ledger/mechanisms.json#mechanism:crossrepo)",
+      "state": "ledger-absent"
+    }
+  ],
+  "obligationAccounting": {
+    "assigned": 12,
+    "total": 12,
+    "unassigned": 0,
+    "unassignedWorkItemIds": []
+  },
+  "overallVerdictWithNoDispositions": "vacuous: the material-topic denominator is empty, so nothing was checked — this catalog holds 14 topic(s) of which 0 are material, 13 obligated-non-material and 1 unobligated, over 12 work item(s)",
+  "readPaths": [
+    "context/boundary-functions.json",
+    "contract/run-intent.json",
+    "coverage/read-obligations.json",
+    "coverage/read-residual.json",
+    "facts/producers/codegraph.json",
+    "facts/producers/crossrepo.json",
+    "facts/producers/db-schema.json",
+    "knowledge.json",
+    "run.json",
+    "workitems.json"
+  ],
+  "runId": "run-2026_08_20_02_38-overview-239385e1-85a71437-a8618c2d",
+  "snapshotId": "239385e1ec5fed4b5cf1",
+  "topics": 14,
+  "unknownTopics": 3,
+  "version": "topic-readings-v1"
+}

@@ -1,10 +1,30 @@
 #!/usr/bin/env -S node --experimental-strip-types --no-warnings
-import { readFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
-import type { Audience, BudgetConfig, ChecklistItem, FeatureRequest, InvestigationWorkItem, ReportRequest, SectionClaim, TraceRecord } from "./base/types.ts";
-import { addSourceEvidence, assembleRun, auditRun, beginDocument, checkpointSection, freezeRun, prepareRun, readingCheck, resumeRun, runStatus, scaffoldClaims, searchSourceEvidence, updateChecklist, updateTraces, updateWorkItems, type SupplementInput } from "./run/run.ts";
-import { collectDrafts, draftSection } from "./report/parallel-authoring.ts";
+import type { Audience, BudgetConfig, ChecklistItem, DetailLevel, DocumentKind, FeatureRequest, InvestigationWorkItem, ReportRequest, SectionClaim, TraceRecord } from "./base/types.ts";
+import { addSourceEvidence, auditRun, freezeRun, prepareRun, readingCheck, runStatus, searchSourceEvidence, updateChecklist, updateTraces, updateWorkItems, type SupplementInput } from "./run/run.ts";
+import { draftUnit, type UnitDraftInput } from "./report/unit-draft.ts";
+import { collectUnits } from "./report/unit-collect.ts";
+import { checkpointUnit } from "./report/unit-checkpoint.ts";
+import { resumeUnits, unitStatus } from "./report/unit-status.ts";
+import { renderUnitPacketForRun } from "./report/unit-packet-source.ts";
+import { loadCoverageStateFacts } from "./report/coverage-companion-source.ts";
+import { renderCoverageCompanion } from "./report/coverage-companion.ts";
+import { loadRunUnitIdentities } from "./report/unit-cache-identity-source.ts";
+import { admitUnits, planUnitAdmission } from "./report/unit-cache-admission-run.ts";
+import { summariseAdmission, type CandidateLedgerRow } from "./report/unit-cache-admission.ts";
+import { describeAuthorship, describeProvenance, type UnitAuthorship, type UnitProvenance } from "./report/unit-provenance.ts";
+import { readUnitGroundingForRun, summariseUnitGroundingReading } from "./report/unit-grounding-reading.ts";
+import { readUnitClaimBindingForRun, summariseUnitClaimBindingReading } from "./report/unit-claim-binding-source.ts";
+import { checkRunConsistency } from "./report/unit-consistency-source.ts";
+import { describeFinding } from "./report/unit-consistency.ts";
+import { assembleUnits, UNIT_ASSEMBLE_MODES, type UnitAssembleMode } from "./run/stages/unit-assemble-stage.ts";
+import { planRun, renderPlannerPacketForRun, DEFAULT_PLANNER_PACKET_BYTE_LIMIT, type PlanProposalSource, type PlanRecording } from "./run/stages/plan-stage.ts";
+import { appendReportRequest } from "./report/report-requests-append.ts";
+import { plannedDocumentId, type LegacyDocumentRequest } from "./report/legacy-request-mapping.ts";
+import { PACKET_OVER_BUDGET_MODES, type PacketOverBudgetMode } from "./report/planner-packet.ts";
 import { stableJson } from "./base/util.ts";
+import { assertNever } from "./base/artifact-result.ts";
 import { buildCodeGraph, codeGraphStatus } from "./codegraph/codegraph-command.ts";
 import { runDbSchema } from "./schema/db-schema-command.ts";
 import { runNativeGraph } from "./nativegraph/native-graph-command.ts";
@@ -97,20 +117,132 @@ async function main(): Promise<void> {
         print({ target: result.target, jsonPath: result.jsonPath, summaryPath: result.summaryPath, summary: result.scan.summary, routeRecovery: result.scan.routeRecovery });
         break;
       }
-      case "claims": {
-        const [subcommand = "scaffold", ...rest] = argv;
-        const args = parseArgs(rest);
-        if (subcommand === "scaffold") {
-          const content = await readFile(required(args.file, "--file"), "utf8");
-          print(await scaffoldClaims(required(args.run, "--run"), required(args.document, "--document"), Number(required(args.section, "--section")), content));
-        } else throw new Error(`Unknown claims subcommand: ${subcommand}`);
+      case "plan-packet": {
+        // Read-only, both keyings. Without `--unit` it renders the planner view of the whole run; with `--unit <id>`
+        // it renders the bounded view ONE authoring unit is written from — obligation rows carrying their own
+        // evidence and trace ids, and every bound record in full. The model is called from the skill, never here.
+        const args = parseArgs(argv);
+        if (unitKeyed(args, "plan-packet")) {
+          const { packet, readPaths } = await renderUnitPacketForRun(required(args.run, "--run"), {
+            unitId: required(args.unit, "--unit"),
+            overBudget: overBudgetMode(required(args.overBudget, "--over-budget")),
+            childSummaries: { from: "collected-for-this-plan" },
+            ...(args.byteLimit ? { byteLimit: Number(args.byteLimit) } : {})
+          });
+          if (args.out) {
+            await writeFile(resolve(args.out), packet.markdown);
+            print({ out: resolve(args.out), unit: packet.unitId, kind: packet.kind, bytes: packet.bytes, byteLimit: packet.byteLimit, obligations: packet.obligationIds.length, evidence: packet.renderedEvidenceIds.length, limitations: packet.limitations, readPaths });
+          } else process.stdout.write(packet.markdown);
+          break;
+        }
+        const packet = await renderPlannerPacketForRun(required(args.run, "--run"), {
+          overBudget: overBudgetMode(required(args.overBudget, "--over-budget")),
+          byteLimit: args.byteLimit ? Number(args.byteLimit) : DEFAULT_PLANNER_PACKET_BYTE_LIMIT
+        });
+        if (args.out) {
+          await writeFile(resolve(args.out), packet.markdown);
+          print({ out: resolve(args.out), bytes: packet.bytes, byteLimit: packet.byteLimit, limitations: packet.limitations });
+        } else process.stdout.write(packet.markdown);
         break;
       }
-      case "begin": {
+      case "coverage-companion": {
+        // Read-only, same shape as `plan-packet`: this run's coverage state from the four ledgers that own it,
+        // every statement naming its own denominator, with no combined figure. It writes nothing.
         const args = parseArgs(argv);
-        const manifest = await beginDocument(required(args.run, "--run"), required(args.document, "--document"));
-        const notice = manifest.frozenAt ? {} : { notice: "This run is not frozen; freeze the investigation before authoring so knowledge is stable: excavator freeze --run <run-dir>." };
-        print({ state: manifest.state, document: args.document, startedAt: manifest.documents.find((item) => item.id === args.document)?.startedAt, ...notice });
+        const { facts, readPaths } = await loadCoverageStateFacts(required(args.run, "--run"));
+        const markdown = renderCoverageCompanion(facts);
+        if (args.out) {
+          await writeFile(resolve(args.out), markdown);
+          print({ out: resolve(args.out), run: facts.runId, knowledgeEpoch: facts.knowledgeEpoch, bytes: Buffer.byteLength(markdown, "utf8"), readPaths });
+        } else process.stdout.write(markdown);
+        break;
+      }
+      case "unit-cache-identity": {
+        // Read-only: the CACHE IDENTITY of every unit of this run's plan — the packet's own bytes with the three
+        // plan-global digest lines normalized, digested. It admits nothing and writes nothing; it answers "which
+        // units of this plan would a verified draft still be an answer for" one unit at a time.
+        const args = parseArgs(argv);
+        const identities = await loadRunUnitIdentities(required(args.run, "--run"), authorshipOf(required(args.authorship, "--authorship")));
+        print({
+          run: identities.runId,
+          knowledgeEpoch: identities.knowledgeEpoch,
+          planCatalogDigest: identities.planCatalogDigest,
+          authorship: describeAuthorship(identities.authorship),
+          units: identities.rows.map((row) => row.state === "identified"
+            ? {
+                unit: row.identity.unitId,
+                document: row.identity.documentId,
+                kind: row.identity.kind,
+                identityDigest: row.identity.digest,
+                viewBytes: row.identity.viewBytes,
+                sections: row.identity.sections
+              }
+            : { unit: row.unitId, document: row.documentId, kind: row.kind, identity: "unavailable", reason: row.reason }),
+          readPaths: identities.readPaths
+        });
+        break;
+      }
+      case "unit-consistency": {
+        // Read-only: the five cross-unit content properties no collect gate can see, over the ASSEMBLED unit path,
+        // plus the exact set of units a repair would have to redraw. It writes nothing and calls no model. Exit 1
+        // when the checker found something, so a pipeline can gate on it without parsing the reading.
+        const args = parseArgs(argv);
+        const reading = await checkRunConsistency(required(args.run, "--run"));
+        print({
+          ...reading,
+          lines: [
+            ...reading.result.readings.map((row) => row.statement),
+            ...reading.result.findings.map((finding) => `${finding.kind} [${finding.unitIds.join(", ")}]: ${describeFinding(finding)}`),
+            reading.repair.action
+          ]
+        });
+        if (reading.result.findings.length > 0) process.exitCode = 1;
+        break;
+      }
+      case "unit-cache-admit": {
+        // The one explicit act: re-enter previously verified units through the existing draft and collect doors.
+        // `--mode` is required and has no default — one arm writes into the run and the other cannot.
+        const args = parseArgs(argv);
+        print(await unitAdmissionOutput(
+          required(args.run, "--run"),
+          authorshipOf(required(args.authorship, "--authorship")),
+          admissionMode(required(args.mode, "--mode"))
+        ));
+        break;
+      }
+      case "plan": {
+        const args = parseArgs(argv);
+        const result = await planRun(required(args.run, "--run"), proposalSource(args), planRecording(args));
+        print({
+          topics: result.topicsPath,
+          catalog: result.planCatalogPath,
+          dag: result.planDagPath,
+          revision: {
+            planRevision: result.revision.planRevision,
+            previousPlanCatalogDigest: result.revision.previousPlanCatalogDigest,
+            reason: result.revision.revisionReason,
+            archived: result.revision.archive,
+            succession: result.revision.succession,
+            // What this recording costs in work already done: the drafted-but-uncollected units it stranded, by
+            // id, plus the one-line reading. Printed here rather than left to the next `unit-collect`, which would
+            // name them one at a time and only when someone tried.
+            strandedDrafts: result.revision.strandedDrafts
+          },
+          verdicts: result.verdicts,
+          obligations: result.artifacts.planCatalog.obligationAccounting
+        });
+        break;
+      }
+      case "request-append": {
+        // The one supported way a recorded request set grows: one document, appended, with every field stated.
+        const args = parseArgs(argv);
+        const result = await appendReportRequest(required(args.run, "--run"), appendedDocument(args));
+        print({
+          requests: result.path,
+          appended: result.appended,
+          documents: result.artifact.requests.map((record) => record.documentId),
+          next: "The recorded plan no longer covers this request set: run `excavator plan --run <run> --fixture-plan --revise --reason <why>` before drafting."
+        });
         break;
       }
       case "freeze": {
@@ -153,32 +285,26 @@ async function main(): Promise<void> {
       }
       case "checkpoint": {
         const args = parseArgs(argv);
-        const content = await readFile(required(args.file, "--file"), "utf8");
-        let claims: SectionClaim[] | undefined;
-        if (args.claims) {
-          const raw = JSON.parse(await readFile(args.claims, "utf8")) as SectionClaim[] | { claims: SectionClaim[] };
-          claims = Array.isArray(raw) ? raw : raw.claims;
-        }
-        const manifest = await checkpointSection(required(args.run, "--run"), required(args.document, "--document"), Number(required(args.section, "--section")), content, claims);
-        print({ state: manifest.state, document: args.document, section: Number(args.section) });
+        requireUnitKeyed(args, "checkpoint");
+        const result = await checkpointUnit(required(args.run, "--run"), await unitDraftInput(args));
+        print({ checkpointed: unitReceiptLine(result.receipt), collected: result.collected.collected.map(unitReceiptLine) });
         break;
       }
       case "draft": {
         const args = parseArgs(argv);
-        const content = await readFile(required(args.file, "--file"), "utf8");
-        let claims: SectionClaim[] | undefined;
-        if (args.claims) {
-          const raw = JSON.parse(await readFile(args.claims, "utf8")) as SectionClaim[] | { claims: SectionClaim[] };
-          claims = Array.isArray(raw) ? raw : raw.claims;
-        }
-        const receipt = await draftSection(required(args.run, "--run"), required(args.document, "--document"), Number(required(args.section, "--section")), content, claims);
-        print({ drafted: { document: receipt.documentId, section: receipt.section, revision: receipt.revision, hasClaims: receipt.hasClaims } });
+        requireUnitKeyed(args, "draft");
+        print({ drafted: unitReceiptLine(await draftUnit(required(args.run, "--run"), await unitDraftInput(args))) });
         break;
       }
       case "collect": {
         const args = parseArgs(argv);
-        const result = await collectDrafts(required(args.run, "--run"));
-        print({ state: result.manifest.state, collected: result.collected.length, sections: result.collected.map((receipt) => ({ document: receipt.documentId, section: receipt.section, revision: receipt.revision })) });
+        requireUnitScoped(args, "collect");
+        const units = await collectUnits(required(args.run, "--run"));
+        print({
+          collected: units.collected.length,
+          units: units.collected.map(unitReceiptLine),
+          ...(units.unplanned.length ? { unplanned: units.unplanned.map(unitReceiptLine) } : {})
+        });
         break;
       }
       case "checklist": {
@@ -200,16 +326,65 @@ async function main(): Promise<void> {
         print(await updateTraces(required(args.run, "--run"), Array.isArray(raw) ? raw : raw.traces, supplementFrom(args)));
         break;
       }
-      case "assemble": print(await assembleRun(required(parseArgs(argv).run, "--run"))); break;
+      case "assemble": {
+        const args = parseArgs(argv);
+        if (unitScoped(args, "assemble")) {
+          // The unit path's deterministic assembly. `--mode` is required and has no default: one arm writes the
+          // deliverable into the run and the other only proves it could be written.
+          print(await assembleUnits(required(args.run, "--run"), assembleMode(required(args.mode, "--mode"))));
+          break;
+        }
+        // `--units` is absent, and the two refusals are ordered by how much the command line already says.
+        // `--mode` belongs to the unit path and to nothing else, so it names the missing token precisely; the
+        // general refusal below covers a bare `assemble --run <dir>`.
+        if (args.mode !== undefined) {
+          throw new Error(`excavator assemble takes --mode only together with --units; the section assemble is retired, so --units is the only assembly there is. Add --units.`);
+        }
+        throw new Error(`excavator assemble requires --units: the section assemble is retired and the unit path is the only assembly, so there is nothing to fall back to. Add --units --mode plan-only|write.`);
+      }
       case "audit": {
         const args = parseArgs(argv);
+        if (unitScoped(args, "audit")) {
+          // The read-only rerun of the grounding verdict `collect` already applied. Same rules, same denominator.
+          const reading = await readUnitGroundingForRun(required(args.run, "--run"));
+          // The second per-unit audit on this command: the claim ↔ prose binding contract. It is NOT part of the
+          // grounding result because `auditUnitFromDisk` is a collect gate and this is an audit finding — the
+          // section path's own split, kept. Both readings load the same run read-only; neither writes.
+          //
+          // EACH READING ESTABLISHES ITS OWN PREMISES, so the plan view is loaded twice. That is the house form —
+          // every `…ForRun` entry point in `src/report/` reads the manifest, checks the knowledge epoch with its
+          // own verb and re-checks the plan epoch — and hoisting it here would put a seventh copy of that
+          // sequence in the CLI layer. Measured on a real run rather than assumed: the second load is ~6 ms, and
+          // it does not close the race it looks like it would, because the window that matters is the per-unit
+          // file reads inside each loop, which both readings do either way.
+          const binding = await readUnitClaimBindingForRun(required(args.run, "--run"));
+          print({
+            ...reading,
+            binding,
+            lines: [...summariseUnitGroundingReading(reading), ...summariseUnitClaimBindingReading(binding)]
+          });
+          if (reading.units.some((row) => row.verdict.conclusion === "violations")
+            || binding.units.some((row) => row.verdict.conclusion === "violations")) process.exitCode = 1;
+          break;
+        }
         const result = await auditRun(required(args.run, "--run"), args.document ? { documentId: args.document } : {});
         print(result);
         if (result.findings.some((finding) => finding.level === "error")) process.exitCode = 1;
         break;
       }
-      case "resume": print(await resumeRun(required(parseArgs(argv).run, "--run"))); break;
-      case "status": print(await runStatus(required(parseArgs(argv).run, "--run"))); break;
+      case "resume": {
+        const args = parseArgs(argv);
+        requireUnitScoped(args, "resume");
+        print(await resumeUnits(required(args.run, "--run")));
+        break;
+      }
+      case "status": {
+        const args = parseArgs(argv);
+        print(unitScoped(args, "status")
+          ? await unitStatus(required(args.run, "--run"))
+          : await runStatus(required(args.run, "--run")));
+        break;
+      }
       case "help":
       case "--help":
       case "-h": console.log(help()); break;
@@ -284,8 +459,14 @@ function defaultBudgets(docs: Pick<ReportRequest, "overviewAudiences" | "feature
 }
 
 function budgetOverrides(args: Record<string, string>): Partial<BudgetConfig> {
+  // `--author-ms` is REFUSED, not ignored. `parseArgs` drops unrecognised flags silently, so removing the mapping
+  // alone would let a command re-run from shell history keep the flag and lose its value without a word — the same
+  // silent drift `requireUnitKeyed` refuses by name for the retired section keying.
+  if (args.authorMs != null) {
+    throw new Error(`--author-ms is retired (57B-480): its two executors went with the section authoring chain, and the unit path's budget authority is the plan's BYTE budget. Drop the flag; there is no wall-clock authoring budget to set.`);
+  }
   const mapping: Record<string, keyof BudgetConfig> = {
-    prepareMs: "prepareMs", authorMs: "authorMs", maxGraphQueries: "maxGraphQueries", maxSourceWindows: "maxSourceWindows",
+    prepareMs: "prepareMs", maxGraphQueries: "maxGraphQueries", maxSourceWindows: "maxSourceWindows",
     maxSourceCharacters: "maxSourceCharacters", maxFiles: "maxFiles", maxFeatureNodes: "maxFeatureNodes", maxExpansionDepth: "maxExpansionDepth"
   };
   const result: Partial<BudgetConfig> = {};
@@ -334,6 +515,313 @@ function supplementFrom(args: Record<string, string>): SupplementInput {
 function csv(value?: string): string[] { return (value ?? "").split(",").map((item) => item.trim()).filter(Boolean); }
 function camel(value: string): string { return value.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase()); }
 function required(value: string | undefined, name: string): string { if (!value) throw new Error(`Missing ${name}`); return value; }
+
+/** Exactly one proposal source, stated. Neither flag has a default: a plan nobody chose a source for is not a plan. */
+function proposalSource(args: Record<string, string>): PlanProposalSource {
+  const fixture = args.fixturePlan === "true";
+  if (fixture && args.proposal) throw new Error("Pass either --fixture-plan or --proposal <file>, not both; a plan has exactly one source");
+  if (fixture) return { mode: "fixture" };
+  if (args.proposal) return { mode: "file", path: args.proposal };
+  throw new Error("Missing --fixture-plan or --proposal <file>; a plan proposal comes from the deterministic generator or from a file");
+}
+
+/**
+ * Whether this plan action records the first revision of the epoch or supersedes the recorded plan.
+ *
+ * `--revise` and `--reason` are one flag in two halves: a revision with no stated reason is a plan replaced for
+ * reasons nobody recorded, and a reason with no `--revise` is a caller who thinks they are superseding a plan and
+ * is not. Both halves missing is the default path, which behaves exactly as it always has.
+ */
+function planRecording(args: Record<string, string>): PlanRecording {
+  // The VALUE is tested before the flag is read as a boolean. `parseArgs` hands a flag the next non-`--` token, so
+  // `--revise yes` arrives as `revise: "yes"`, and a `=== "true"` test alone would fall through to the recording
+  // path — the revise silently dropped, and the refusal the operator then gets telling them to use `--revise`.
+  if (args.revise !== undefined && args.revise !== "true") {
+    throw new Error(`excavator plan takes --revise as a bare flag; ${JSON.stringify(args.revise)} is not a value it accepts`);
+  }
+  if (args.revise === undefined) {
+    if (args.reason) throw new Error("--reason applies to --revise; a plain `plan` records the first revision of this epoch and supersedes nothing");
+    return { kind: "record" };
+  }
+  return { kind: "revise", reason: required(args.reason, "--reason (a plan revision states why the plan it supersedes was replaced)") };
+}
+
+/**
+ * The one document a `request-append` adds, with every field stated and its id DERIVED.
+ *
+ * The id is not a flag: `plannedDocumentId` is the same function prepare names its documents with, and letting a
+ * caller invent one would let a document id that no convention produces into the recorded request set — where the
+ * feature key is recovered from the id.
+ *
+ * `--feature-key` IS EXACTLY AS REQUIRED AS THE KIND IT BELONGS TO, in both directions. A feature document without
+ * one has a boundary with no name; an overview document with one has a boundary the project scope does not have.
+ * Neither is defaulted and neither is dropped: a flag silently ignored is how an operator who meant `--kind feature`
+ * gets a project-scope document and a duplicate-id refusal two commands later. Whether the key names a feature this
+ * run actually investigated is NOT decided here — `request-append-boundary.ts` checks it against
+ * `contract/run-intent.json`, so the API caller and the CLI caller get the same verdict.
+ */
+function appendedDocument(args: Record<string, string>): LegacyDocumentRequest {
+  const kind = documentKind(required(args.kind, "--kind"));
+  const audience = singleAudience(required(args.audience, "--audience"));
+  const featureKey = appendedFeatureKey(kind, args.featureKey);
+  return {
+    documentId: plannedDocumentId(kind, audience, featureKey),
+    kind,
+    audience,
+    featureKey,
+    detailLevel: detailLevel(required(args.detail, "--detail")),
+    language: required(args.language, "--language")
+  };
+}
+
+/** Exhaustive over the kinds: a document kind whose boundary flag nobody stated does not compile. */
+function appendedFeatureKey(kind: DocumentKind, value: string | undefined): string | null {
+  switch (kind) {
+    case "overview":
+      if (value !== undefined) {
+        throw new Error(`--feature-key ${JSON.stringify(value)} was given for --kind overview; the project scope is not addressed by feature. Drop the flag, or pass --kind feature.`);
+      }
+      return null;
+    case "feature":
+      return required(value, "--feature-key (a feature document is written against exactly one feature key from contract/run-intent.json)");
+  }
+  return assertNever(kind, "appended document kind");
+}
+
+function documentKind(value: string): DocumentKind {
+  if (value === "overview" || value === "feature") return value;
+  throw new Error(`--kind ${JSON.stringify(value)} is not one of: overview, feature`);
+}
+
+function singleAudience(value: string): Audience {
+  const parsed = audiences(value);
+  if (parsed.length !== 1) throw new Error(`--audience ${JSON.stringify(value)} names ${parsed.length} audiences; one appended document is written for exactly one reader`);
+  return parsed[0]!;
+}
+
+function detailLevel(value: string): DetailLevel {
+  if (value === "standard" || value === "detailed") return value;
+  throw new Error(`--detail ${JSON.stringify(value)} is not one of: standard, detailed`);
+}
+
+/**
+ * True when a two-view read command was keyed to ONE authoring unit rather than to the whole run.
+ *
+ * `plan-packet` is the only such command: without `--unit` it renders the planner view of the run, with `--unit`
+ * the bounded view one unit is written from. There is no default and no inference. `--document`/`--section` are
+ * refused rather than ignored — they are the retired section keying, so a caller passing them is asking for a
+ * view this command never had, and answering with the run-wide packet would answer a different question.
+ */
+function unitKeyed(args: Record<string, string>, command: string): boolean {
+  if (!args.unit) return false;
+  if (args.document || args.section) {
+    throw new Error(`excavator ${command} does not take --document <id> --section <n>: the section keying is retired, and this command's two views are the whole run (no --unit) or one authoring unit (--unit <id>)`);
+  }
+  return true;
+}
+
+/**
+ * The unit keying is the ONLY keying these commands have: the section arms of `checkpoint` and `draft` are
+ * retired (57B-480). An invocation that still carries `--document <id> --section <n>` is refused BY NAME rather
+ * than run with those two flags ignored — an operator repeating a command out of shell history would otherwise
+ * get a unit-shaped refusal about a missing `--unit` and no word about the keying that went away.
+ */
+function requireUnitKeyed(args: Record<string, string>, command: string): void {
+  // The retired flags are named FIRST, and for both shapes an old command line arrives in: with `--unit` (an
+  // operator who added the new flag and left the old ones) and without it. Delegating to `unitKeyed` said
+  // "either --unit <id> or --document <id> --section <n>, not both", which advertises the retired keying as a
+  // live alternative — so the natural retry was to drop `--unit` and be refused again.
+  if (args.document || args.section) {
+    throw new Error(`excavator ${command} no longer takes --document <id> --section <n>: the section keying is retired, so this command is keyed by --unit <id> alone`);
+  }
+  if (!args.unit) {
+    throw new Error(`excavator ${command} requires --unit <id>: the section keying is retired, so authoring writes one planned unit of plan/catalog.json and nothing else`);
+  }
+}
+
+/** The run-wide half of the same retirement: `--units` is required because there is no other arm left. */
+function requireUnitScoped(args: Record<string, string>, command: string): void {
+  if (unitScoped(args, command)) return;
+  throw new Error(`excavator ${command} requires --units: the section arm is retired, so this command is run-wide over the planned units and has nothing to fall back to`);
+}
+
+/**
+ * True when a run-wide command was asked for the unit view. `--units` takes no id, so a `--unit <id>` here is a
+ * REFUSAL rather than a flag nobody reads: silently falling through to the section path would run the wrong
+ * command on the strength of one missing letter.
+ */
+function unitScoped(args: Record<string, string>, command: string): boolean {
+  if (args.unit) {
+    throw new Error(`excavator ${command} takes --units (no id): it is run-wide over every planned unit, not one unit at a time`);
+  }
+  if (args.units === undefined) return false;
+  // `parseArgs` hands a flag the next non-`--` token as its value, so `--units 1` would leave `args.units === "1"`
+  // and a `=== "true"` test would silently run the SECTION barrier instead. The value case is the same silent
+  // mode default as the `--unit` slip above, one token further along.
+  if (args.units !== "true") {
+    throw new Error(`excavator ${command} takes --units as a bare flag; ${JSON.stringify(args.units)} is not a value it accepts`);
+  }
+  return true;
+}
+
+/**
+ * The three files a unit draft is made of. All required: the claims sidecar and the summary are part of a unit's
+ * output contract, so a unit drafted without them is not a unit that is missing extras — it is a refusal.
+ */
+/**
+ * One hand-written unit draft, from the four files and the one required author.
+ *
+ * `provenance` is `fresh` and cannot be anything else from here: a draft a person or a model just wrote IS fresh,
+ * and the only thing that may mint a `cache-admitted` record is the admission command, which has a verified ledger
+ * row to name. A flag for it would be a way to claim a cache hit for bytes nobody verified.
+ */
+async function unitDraftInput(args: Record<string, string>): Promise<UnitDraftInput> {
+  const raw = JSON.parse(await readFile(required(args.claims, "--claims"), "utf8")) as SectionClaim[] | { claims: SectionClaim[] };
+  return {
+    unitId: required(args.unit, "--unit"),
+    content: await readFile(required(args.file, "--file"), "utf8"),
+    claims: Array.isArray(raw) ? raw : raw.claims,
+    summary: JSON.parse(await readFile(required(args.summary, "--summary"), "utf8")) as unknown,
+    authorship: authorshipOf(required(args.authorship, "--authorship")),
+    provenance: { kind: "fresh" }
+  };
+}
+
+/** The two admission modes. Required, closed, no default: one of them writes into the run and one cannot. */
+const UNIT_ADMISSION_MODES = ["plan-only", "admit"] as const;
+type UnitAdmissionMode = (typeof UNIT_ADMISSION_MODES)[number];
+
+/**
+ * The unit-assemble mode. Required at the call site, so an unknown value is a refusal rather than a fallback.
+ *
+ * Same shape as `admissionMode` and for the same reason: `write` puts the deliverable on disk and `plan-only`
+ * cannot, so a default would be a mode somebody gets by forgetting to say which one they wanted.
+ */
+function assembleMode(value: string): UnitAssembleMode {
+  if ((UNIT_ASSEMBLE_MODES as readonly string[]).includes(value)) return value as UnitAssembleMode;
+  throw new Error(`--mode ${JSON.stringify(value)} is not one of: ${UNIT_ASSEMBLE_MODES.join(", ")}; assembling the unit path is an explicit act and there is no default mode`);
+}
+
+function admissionMode(value: string): UnitAdmissionMode {
+  if ((UNIT_ADMISSION_MODES as readonly string[]).includes(value)) return value as UnitAdmissionMode;
+  throw new Error(`--mode ${JSON.stringify(value)} is not one of: ${UNIT_ADMISSION_MODES.join(", ")}; admission is an explicit act and there is no default mode`);
+}
+
+/**
+ * Both admission passes, exhaustive over the modes — a third mode has to say what it does before this compiles.
+ *
+ * The two vocabularies are deliberately different: `plan-only` reports what it WOULD do (`admit` / `rebuild` /
+ * `new`), the executing pass reports what happened (`admitted` / `fell-to-rebuild` / `skipped-new`). One shared
+ * vocabulary would let a dry run be read as a record of hits.
+ */
+async function unitAdmissionOutput(runDir: string, authorship: UnitAuthorship, mode: UnitAdmissionMode): Promise<Record<string, unknown>> {
+  switch (mode) {
+    case "plan-only": {
+      const plan = await planUnitAdmission(runDir, authorship);
+      return {
+        mode,
+        wrote: "nothing: this mode reads the run and decides, and admission itself is --mode admit",
+        run: plan.runId,
+        knowledgeEpoch: plan.knowledgeEpoch,
+        planCatalogDigest: plan.planCatalogDigest,
+        authorship: plan.authorship,
+        candidates: plan.candidateStatement,
+        summary: summariseAdmission(plan.account, ["admissible", "to rebuild", "new"]),
+        units: plan.intents.map((intent) => (intent.intent === "admit"
+          ? { unit: intent.unit.unitId, kind: intent.unit.kind, intent: intent.intent, identityDigest: intent.identityDigest, why: intent.statement }
+          : intent.intent === "rebuild"
+            ? { unit: intent.unit.unitId, kind: intent.unit.kind, intent: intent.intent, cause: intent.cause, why: intent.statement }
+            : { unit: intent.unit.unitId, kind: intent.unit.kind, intent: intent.intent, why: intent.statement })),
+        ledgerRows: plan.ledgerRows.map(admissionLedgerLine),
+        retired: plan.retired.map((row) => ({ unit: row.unitId, kind: row.kind })),
+        account: plan.account.statements,
+        // The invalidation plan the intents above ARE: printed so the two can be read side by side rather than
+        // taken on trust.
+        invalidationPlan: plan.cachePlan.conservation.statements
+      };
+    }
+    case "admit": {
+      const report = await admitUnits(runDir, authorship);
+      return {
+        mode,
+        run: report.runId,
+        knowledgeEpoch: report.knowledgeEpoch,
+        planCatalogDigest: report.planCatalogDigest,
+        authorship: report.authorship,
+        candidates: report.candidateStatement,
+        summary: summariseAdmission(report.account, ["admitted", "fell to rebuild", "skipped as new"]),
+        units: report.outcomes.map((outcome) => (outcome.outcome === "admitted"
+          ? { unit: outcome.unit.unitId, kind: outcome.unit.kind, outcome: outcome.outcome, identityDigest: outcome.identityDigest, admittedFrom: outcome.source, why: outcome.statement }
+          : outcome.outcome === "fell-to-rebuild"
+            ? { unit: outcome.unit.unitId, kind: outcome.unit.kind, outcome: outcome.outcome, cause: outcome.cause, why: outcome.statement }
+            : { unit: outcome.unit.unitId, kind: outcome.unit.kind, outcome: outcome.outcome, why: outcome.statement })),
+        ledgerRows: report.ledgerRows.map(admissionLedgerLine),
+        retired: report.retired.map((row) => ({ unit: row.unitId, kind: row.kind })),
+        account: report.account.statements
+      };
+    }
+  }
+  return assertNever(mode, "unit admission mode");
+}
+
+/**
+ * One prior ledger row and what the admission did with it. Every row is printed; nothing is capped.
+ *
+ * Typed as the row itself and exhaustive over its disposition, so a new arm of `CandidateDisposition` fails the
+ * typecheck here instead of printing nothing — which is how a hand-written structural type loses a field in silence.
+ */
+function admissionLedgerLine(row: CandidateLedgerRow): Record<string, unknown> {
+  const shared = { unit: row.unitId, knowledgeEpoch: row.knowledgeEpoch, disposition: row.disposition.state };
+  switch (row.disposition.state) {
+    case "offered": {
+      const verification = row.disposition.verification;
+      return {
+        ...shared,
+        bytes: verification.state,
+        ...(verification.state === "drifted" ? { problems: verification.problems } : {})
+      };
+    }
+    case "excluded":
+      return { ...shared, cause: row.disposition.cause, why: row.disposition.statement };
+  }
+  return assertNever(row.disposition, "unit admission candidate disposition");
+}
+
+/**
+ * One drafted or collected unit, as a line.
+ *
+ * `provenance` is printed because it is the one thing an operator cannot see any other way: a unit whose bytes were
+ * re-entered from a prior verified draft and one a model just wrote are otherwise the same line.
+ */
+function unitReceiptLine(receipt: { unitId: string; documentId: string; kind: string; revision: boolean; provenance: UnitProvenance }): Record<string, unknown> {
+  return { unit: receipt.unitId, document: receipt.documentId, kind: receipt.kind, revision: receipt.revision, provenance: describeProvenance(receipt.provenance) };
+}
+
+/** The over-budget mode, named. There is no default: truncation is not one of the options, and neither is guessing. */
+function overBudgetMode(value: string): PacketOverBudgetMode {
+  if ((PACKET_OVER_BUDGET_MODES as readonly string[]).includes(value)) return value as PacketOverBudgetMode;
+  throw new Error(`--over-budget ${JSON.stringify(value)} is not one of: ${PACKET_OVER_BUDGET_MODES.join(", ")}`);
+}
+/**
+ * `--authorship model-family:<name>` or `--authorship model-free:<name>`. Required, closed, and never defaulted.
+ *
+ * A cache identity says "a verified draft of THIS is still an answer", and a draft written by one model family is
+ * not evidence about another. A default here would answer that question on the operator's behalf.
+ */
+function authorshipOf(value: string): UnitAuthorship {
+  const separator = value.indexOf(":");
+  const kind = separator < 0 ? value : value.slice(0, separator);
+  // Trimmed HERE, at the boundary where a shell quoted the argument: "model-family: opus" and
+  // "model-family:opus" name one author, and letting the space through would produce a different digest — a total
+  // cache miss that reads as a real change. Core refuses an untrimmed name rather than normalizing it silently.
+  const name = separator < 0 ? "" : value.slice(separator + 1).trim();
+  if (name !== "") {
+    if (kind === "model-family") return { kind: "model-family", family: name };
+    if (kind === "model-free") return { kind: "model-free", generator: name };
+  }
+  throw new Error(`--authorship ${JSON.stringify(value)} must be model-family:<name> or model-free:<name>; an identity has to name who would have written the draft it stands for, and there is no default author`);
+}
+
 function print(value: unknown): void { console.log(stableJson(value)); }
 
 function help(): string {
@@ -349,22 +837,27 @@ Commands:
   crossrepo     Resolve frontend HTTP calls to the backend routes that serve them (deterministic, zero model)
   native-graph  Build a symbol+call navigation graph for CodeGraph-unsupported languages (Perl, Zope templates)
   framework  Recover routes/components from framework conventions (Catalyst, …) — for dynamically-dispatched apps
-  begin      Start or restart one document authoring timer
+  plan-packet   Render the deterministic, bounded planner view of one frozen run; --unit <id> renders one authoring unit's view instead (read-only, zero model)
+  coverage-companion  Render this run's coverage state: four denominators, each naming its own ledger, no combined figure (read-only, zero model)
+  unit-cache-identity Print the cache identity of every authoring unit of one planned run (read-only, zero model)
+  unit-cache-admit   Re-enter previously verified units through the existing draft/collect gates (--mode required)
+  unit-consistency   Check the assembled unit path for the five cross-unit content defects no collect gate sees, and print the exact repair set (read-only, zero model)
+  plan          Validate a plan proposal against the frozen epoch and record plan/catalog.json + plan/dag.json
+  request-append Append one requested document to plan/requests.json (recorded rows are immutable)
   reading    Show which in-boundary decision code no source window covers yet — run it before freeze, where opening one is free
-  freeze     Seal epoch 0, or re-seal justified supplements as epoch N+1; renders epoch-bound authoring packets
+  freeze     Seal epoch 0, or re-seal justified supplements as epoch N+1 (writes the sealed epoch and nothing else)
   source     Record a bounded source excerpt as evidence
   search     Search source under the run snapshot and record a reusable receipt
-  checkpoint Save one completed section and its claims atomically
-  draft      Draft one section in parallel-safe isolation; leaves a receipt for collect
-  collect    Serially record all pending section drafts into the timeline and manifest
-  claims     Scaffold a claims skeleton from a section's markdown
+  checkpoint Save one authoring unit atomically: draft it and collect it in one command (--unit required)
+  draft      Draft one authoring unit in parallel-safe isolation; leaves a receipt for collect (--unit required)
+  collect    Serially record all pending unit drafts into the ledger and timeline (--units required)
   checklist  Record compatibility checklist dispositions
   workitem   Update the investigation plan and coverage ledger
   trace      Record call, data, business, state or cross-repository traces
-  resume     List incomplete sections and resume a stopped run
-  assemble   Join completed sections into Markdown reports
-  audit      Validate snapshot, evidence, claims, checklist and report structure; --document <id> scopes to one document
-  status     Show progress and timing
+  resume     List what is left to draft and collect on the unit path (--units required)
+  assemble   Join collected units into the run's Markdown deliverables (--units and --mode required)
+  audit      Validate snapshot, evidence, claims, checklist and report structure; --document <id> scopes to one document, --units reruns the unit grounding and claim-binding audits
+  status     Show progress and timing; --units shows the authoring-unit view of the plan
 
 Examples:
   excavator overview --target ./workspace --audience both
@@ -378,14 +871,18 @@ Examples:
   excavator freeze --run <run>
   excavator feature --target ./workspace --subject "Account access" --aliases access,permission,role --audience both --detail detailed
   excavator search --run <run> --query "\\bTODO\\b|@deprecated" --regex --case-sensitive --reason "investigate unfinished behavior"
-  excavator claims scaffold --run <run> --document <id> --section 1 --file section.md
-  excavator checkpoint --run <run> --document <id> --section 1 --file section.md --claims claims.json
-  excavator draft --run <run> --document <id> --section 1 --file section.md --claims claims.json
-  excavator collect --run <run>
+  excavator checkpoint --run <run> --unit <unit-id> --file content.md --claims claims.json --summary summary.json --authorship model-family:example
+  excavator draft --run <run> --unit <unit-id> --file content.md --claims claims.json --summary summary.json --authorship model-family:example
+  excavator collect --run <run> --units
   excavator workitem --run <run> --file workitem-updates.json
   excavator trace --run <run> --file traces.json
   excavator checklist --run <run> --file checklist-updates.json
+  excavator plan-packet --run <run> --unit <unit-id> --over-budget record-limitation --out unit-packet.md
+  excavator assemble --run <run> --units --mode write
+  excavator unit-cache-identity --run <run> --authorship model-family:example
+  excavator unit-cache-admit --run <run> --authorship model-free:fixture-plan --mode plan-only
   excavator audit --run <run> --document <id>
+  excavator audit --run <run> --units
   excavator report --request request.json
 
 Secret redaction:
@@ -408,6 +905,77 @@ interface CommandHelp { synopsis: string; flags: string[]; example: string; note
 // One entry per command (and per subcommand for the ones that take a subcommand). Keys with a space
 // are `<command> <subcommand>`; they take priority over the bare command when the subcommand matches.
 const COMMAND_HELP: Record<string, CommandHelp> = {
+  "plan-packet": {
+    synopsis: "plan-packet --run <dir> [--unit <id>] --over-budget refuse|record-limitation [--byte-limit N] [--out <file>]",
+    flags: [
+      "--run <dir>          Frozen run directory (required)",
+      "--unit <id>          Render the view ONE authoring unit is written from (plan/catalog.json unit id) instead of the planner view",
+      "--over-budget <how>  refuse (name it at the entry) or record-limitation (keep the whole packet) — required",
+      "--byte-limit <n>     Declared byte bound (default 524288; with --unit, the plan's perUnitInputBytes for that unit's document)",
+      "--out <file>         Write the packet here instead of stdout"
+    ],
+    example: "excavator plan-packet --run <run> --over-budget refuse --out packet.md",
+    notes: "Read-only and deterministic: it writes nothing into the run and never truncates. Over the bound it either refuses by name or records the overrun as a limitation. With --unit every obligation gets its own row with its own evidence and trace ids and every bound record is rendered in full — nothing clipped, capped or truncated — and a synthesis unit is rendered from its collected children's summaries with no topic dossier at all."
+  },
+  "coverage-companion": {
+    synopsis: "coverage-companion --run <dir> [--out <file>]",
+    flags: [
+      "--run <dir>          Planned run directory (required)",
+      "--out <file>         Write the companion here instead of stdout"
+    ],
+    example: "excavator coverage-companion --run <run> --out coverage.md",
+    notes: "Read-only, deterministic, zero model. Four families, four ledgers, four denominators: the plan's material obligation accounting, this run's read-obligation ledger, the sealed epoch's completeness closure, and the obligation ledger's determinations. Every statement names the ONE ledger its denominator came from, and there is no combined coverage figure and no percentage anywhere — combining two of these ledgers needs an id join that was measured to lose 665 of 946 rows silently. An empty denominator reads as `vacuous`, never as covered, and `ledger-absent` (nobody can tell) stays a different sentence from `ledger-empty` (this run genuinely recorded none). A closure field an older epoch never sealed is reported NOT MEASURED, never zero."
+  },
+  "unit-cache-identity": {
+    synopsis: "unit-cache-identity --run <dir> --authorship model-family:<name>|model-free:<name>",
+    flags: [
+      "--run <dir>          Planned run directory (required)",
+      "--authorship <who>   model-family:<name> or model-free:<name> — required, no default"
+    ],
+    example: "excavator unit-cache-identity --run <run> --authorship model-free:fixture-plan",
+    notes: "Read-only and deterministic: it writes nothing and calls no model. Each unit's identity is its own packet, composed with the three plan-global digest lines (topics catalog, plan catalog, recorded requests) normalized, then digested — so the epoch, the audience lens, the obligation scope, the ownership stubs and the budget rows are all in it, while a change to one topic does not move every unit of the run. A synthesis whose children are not collected has no identity yet and says so by name."
+  },
+  "unit-cache-admit": {
+    synopsis: "unit-cache-admit --run <dir> --authorship model-family:<name>|model-free:<name> --mode plan-only|admit",
+    flags: [
+      "--run <dir>          Planned run directory (required)",
+      "--authorship <who>   model-family:<name> or model-free:<name> — required, no default",
+      "--mode <how>         plan-only (decide and report, write nothing) or admit (re-enter through draft+collect) — required"
+    ],
+    example: "excavator unit-cache-admit --run <run> --authorship model-free:fixture-plan --mode plan-only",
+    notes: "A unit is admitted only when its cache identity equals the one its ledger row recorded AND its content, claims and summary on disk still digest to what that row promised. Admission then re-enters those exact bytes through `draft` and `collect` — the summary agreement check, the output budget, the grounding audit, the synthesis backlink check and the promised-artifact digests all run again, and a new receipt is minted; no stale receipt is ever revived. Every planned unit comes back as admitted, fell-to-rebuild (with the cause: a changed identity, drifted bytes, a collect refusal, or a pass halted by an earlier refusal) or skipped-new, and every prior ledger row is listed with what was done with it. A refusal leaves the receipt in place so a corrected re-draft can be collected."
+  },
+  "unit-consistency": {
+    synopsis: "unit-consistency --run <dir>",
+    flags: ["--run <dir>          Assembled run directory (required)"],
+    example: "excavator unit-consistency --run <run>",
+    notes: "Read-only, deterministic, zero model. It checks only what no collect gate can see: one term with two meanings inside a document, a `fact` or `inferred` claim linked to an obligation the ledger records as cannot-determine or searched-not-found, one obligation asserted by one unit and disclaimed by another (and two units disagreeing about which side of a comparison a piece of evidence is on), a `](#…)` or an `<a id>` a model wrote that the assembled document cannot resolve or holds twice, and a lens violation in visible prose. It re-checks no topic coverage, no disposition, no grounding audit and no child digest SEMANTICS — those have denominators one level down, and a second derivation of any of them would be a second denominator. It refuses unless the assembled deliverable on disk is the one this plan and these collected units produce. The repair set is exactly the units the findings name plus the units written from them, each row naming why; the coverage account is ROUTED rather than seeded — every defective coverage kind is owed by the investigation's reading, the obligation ledger's determinations or the plan, so re-drafting a unit cannot pay it. Exit code 1 when there is a finding."
+  },
+  plan: {
+    synopsis: "plan --run <dir> (--fixture-plan | --proposal <file>) [--revise --reason <why>]",
+    flags: [
+      "--run <dir>          Frozen run directory (required)",
+      "--fixture-plan       Derive the proposal deterministically from the catalog",
+      "--proposal <file>    Validate a proposal produced elsewhere (a model, through the skill)",
+      "--revise             Supersede the plan this run records by writing its next revision (requires --reason)",
+      "--reason <why>       Why the recorded plan is being superseded (required with --revise)"
+    ],
+    example: "excavator plan --run <run> --proposal proposal.json",
+    notes: "Writes plan/topics.json, plan/catalog.json and plan/dag.json. A recorded plan is identified by (knowledge epoch, plan revision) and written once: identical bytes are a no-op, different bytes for a revision already recorded are refused. --revise is the explicit way past that — it records revision N+1, naming revision N's digest, and archives revision N under plan/revisions/ before replacing the current files; a proposed revision that says exactly what the recorded plan says is refused as superseding nothing. A proposal that does not validate is refused by name and writes nothing; correct it and run again."
+  },
+  "request-append": {
+    synopsis: "request-append --run <dir> --kind overview|feature [--feature-key <key>] --audience product|engineering|prd --detail standard|detailed --language <tag>",
+    flags: [
+      "--run <dir>          Run directory whose plan/requests.json is appended to (required)",
+      "--kind <what>        overview or feature (required)",
+      "--feature-key <key>  Required with --kind feature, refused with --kind overview: a key contract/run-intent.json binds",
+      "--audience <who>     One reader: product, engineering, or prd (feature documents only) (required)",
+      "--detail <level>     standard or detailed (required)",
+      "--language <tag>     Output language of the appended document (required)"
+    ],
+    example: "excavator request-append --run <run> --kind overview --audience engineering --detail standard --language zh-CN",
+    notes: "APPEND ONLY: the recorded rows are copied byte for byte and one row is added, so a duplicate document id and any change to a row already recorded are named refusals. The document id is derived from kind, audience and feature key, the same way prepare derives it. A FEATURE document's key is CHECKED against contract/run-intent.json — a key this run did not investigate is a named refusal listing the keys it did, because that document would have no knowledge to be written from. Appending leaves the recorded plan not covering the request set: authoring refuses by name until `plan --revise --reason <why>` records the next revision."
+  },
   overview: {
     synopsis: "overview --target <dir> [--audience product|engineering|both] [--detail standard|detailed] [--no-codegraph]",
     flags: [
@@ -508,15 +1076,6 @@ const COMMAND_HELP: Record<string, CommandHelp> = {
     example: "excavator framework --target ./workspace --out ./fw",
     notes: "Deterministic, zero-model. Detects a convention-heavy framework (Catalyst today; pluggable) and recovers its route/action inventory and component roles (controller/model/view/schema/…) from attributes, namespaces and config — the entry-point inventory a generic call graph cannot produce for dynamically-dispatched apps. Writes framework-model.json + framework-summary.md. Paths shown only when stated literally; recovered by convention, still grounded to source."
   },
-  begin: {
-    synopsis: "begin --run <dir> --document <id>",
-    flags: [
-      "--run <dir>          Run directory (required)",
-      "--document <id>      Document to start or restart (required)",
-      "Precondition: the run must be frozen first (excavator freeze --run <dir>); begin refuses an unfrozen run."
-    ],
-    example: "excavator begin --run <run> --document overview-product"
-  },
   reading: {
     synopsis: "reading --run <dir>",
     flags: [
@@ -530,7 +1089,7 @@ const COMMAND_HELP: Record<string, CommandHelp> = {
     synopsis: "freeze --run <dir>",
     flags: ["--run <dir>          Run directory (required)"],
     example: "excavator freeze --run <run>",
-    notes: "On success, also renders per-document authoring packets under context/authoring/, including a reading-boundary block naming what the investigation never opened."
+    notes: "The reading boundary — what the investigation never opened — is reported by `excavator reading --run <dir>` before freeze, and by the coverage companion after it. Freeze itself writes only the sealed epoch; it no longer renders a per-document authoring packet (57B-480)."
   },
   source: {
     synopsis: "source --run <dir> --path <file> --start <n> --end <n> --reason <text> [--supplement-reason <text> --supplement-workitem <id>]",
@@ -565,54 +1124,39 @@ const COMMAND_HELP: Record<string, CommandHelp> = {
     example: 'excavator search --run <run> --query "\\bTODO\\b" --regex --reason "find unfinished work"'
   },
   checkpoint: {
-    synopsis: "checkpoint --run <dir> --document <id> --section <n> --file <md> [--claims <json>]",
+    synopsis: "checkpoint --run <dir> --unit <id> --file <md> --claims <json> --summary <json> --authorship <who>",
     flags: [
       "--run <dir>          Run directory (required)",
-      "--document <id>      Document being authored (required)",
-      "--section <n>        Section index (required)",
-      "--file <md>          Section markdown to save (required)",
-      "--claims <json>      Claims sidecar (array or {claims:[...]})"
+      "--unit <id>          Authoring unit id from plan/catalog.json (required)",
+      "--file <md>          Markdown to save (required)",
+      "--claims <json>      Claims sidecar (array or {claims:[...]}) (required)",
+      "--summary <json>     Unit summary (required)",
+      "--authorship <who>   model-family:<name> or model-free:<name> — required, no default"
     ],
-    example: "excavator checkpoint --run <run> --document <id> --section 1 --file section.md --claims claims.json"
+    example: "excavator checkpoint --run <run> --unit <unit-id> --file content.md --claims claims.json --summary summary.json --authorship model-family:example",
+    notes: "Exactly `draft --unit` followed by `collect --units`, in one command. The section keying (--document/--section) is retired and refused by name."
   },
   draft: {
-    synopsis: "draft --run <dir> --document <id> --section <n> --file <md> [--claims <json>]",
+    synopsis: "draft --run <dir> --unit <id> --file <md> --claims <json> --summary <json> --authorship <who>",
     flags: [
       "--run <dir>          Run directory (required)",
-      "--document <id>      Document being authored (required)",
-      "--section <n>        Section index (required)",
-      "--file <md>          Section markdown to draft (required)",
-      "--claims <json>      Claims sidecar (array or {claims:[...]})"
+      "--unit <id>          Authoring unit id from plan/catalog.json (required)",
+      "--file <md>          Markdown to draft (required)",
+      "--claims <json>      Claims sidecar (array or {claims:[...]}) (required)",
+      "--summary <json>     Unit summary: covered topics, key statements, unknowns, terminology and the content/claims digests (required)",
+      "--authorship <who>   model-family:<name> or model-free:<name> — required: the record says who wrote it, and the cache key is computed for that author"
     ],
-    example: "excavator draft --run <run> --document <id> --section 1 --file section.md --claims claims.json",
-    notes: "Parallel-safe: writes only this section's files and a receipt, never the shared timeline or manifest. Run one draft per section concurrently, then a single `collect`."
+    example: "excavator draft --run <run> --unit <unit-id> --file content.md --claims claims.json --summary summary.json",
+    notes: "Parallel-safe: a draft writes only its own artifacts and a receipt, never the shared ledger or timeline. The section keying (--document/--section) is retired and refused by name. A unit draft is refused unless its summary covers exactly the plan's topics for that unit and records the digests of the very bytes being written. Its receipt records the author and the cache identity of the packet it was written from — the identity is computed here, never accepted as an argument — and its provenance is always `fresh`: only `unit-cache-admit` mints a cache-admitted record, and only against a verified ledger row."
   },
   collect: {
-    synopsis: "collect --run <dir>",
-    flags: ["--run <dir>          Run directory (required)"],
-    example: "excavator collect --run <run>",
-    notes: "Serial barrier: records every pending section draft into the timeline and manifest in a deterministic order. A no-op when nothing is pending, so it is safe to rerun."
-  },
-  claims: {
-    synopsis: "claims scaffold --run <dir> --document <id> --section <n> --file <md>",
-    flags: [
-      "scaffold             Emit a claims skeleton, one stub per substantive segment",
-      "--run <dir>          Run directory (required)",
-      "--document <id>      Document the section belongs to (required)",
-      "--section <n>        Section index (required)",
-      "--file <md>          Section markdown to segment (required)"
-    ],
-    example: "excavator claims scaffold --run <run> --document <id> --section 1 --file section.md"
-  },
-  "claims scaffold": {
-    synopsis: "claims scaffold --run <dir> --document <id> --section <n> --file <md>",
+    synopsis: "collect --run <dir> --units",
     flags: [
       "--run <dir>          Run directory (required)",
-      "--document <id>      Document the section belongs to (required)",
-      "--section <n>        Section index (required)",
-      "--file <md>          Section markdown to segment (required)"
+      "--units              Collect every pending authoring-unit draft (required: the section barrier is retired)"
     ],
-    example: "excavator claims scaffold --run <run> --document <id> --section 1 --file section.md"
+    example: "excavator collect --run <run> --units",
+    notes: "Serial barrier: records every pending unit draft into the ledger and timeline in the plan's own collection order. A no-op when nothing is pending, so it is safe to rerun."
   },
   checklist: {
     synopsis: "checklist --run <dir> --file <json> [--supplement-reason <text> --supplement-workitem <id>]",
@@ -645,27 +1189,41 @@ const COMMAND_HELP: Record<string, CommandHelp> = {
     example: "excavator trace --run <run> --file traces.json"
   },
   assemble: {
-    synopsis: "assemble --run <dir>",
-    flags: ["--run <dir>          Run directory (required)"],
-    example: "excavator assemble --run <run>"
-  },
-  audit: {
-    synopsis: "audit --run <dir> [--document <id>]",
+    synopsis: "assemble --run <dir> --units --mode plan-only|write",
     flags: [
       "--run <dir>          Run directory (required)",
-      "--document <id>      Scope the audit to one document (advisory run-wide checks)"
+      "--units              Assemble the authoring-unit path (required, run-wide: the section assemble is retired)",
+      "--mode <how>         plan-only (prove the assembly, write nothing) or write — required, no default"
     ],
-    example: "excavator audit --run <run> --document <id>"
+    example: "excavator assemble --run <run> --units --mode write",
+    notes: "It is all-or-nothing per run: every unit of every planned document must be collected against the recorded plan and this epoch, and every unit's content, claims and summary on disk must still digest to what its ledger row promised, or the run is refused by name with the offending unit ids. What it writes is deterministic and carries no clock reading — front matter (request row, both policy references, epoch and plan digests), a contents table in the plan's one authoring order, per-unit navigation anchors, then each unit's own collected bytes — plus a claims companion keyed by (unit, claim id) so two units may share a claim id, a traces companion selected only by explicit trace-id reference, and this run's coverage companion. It writes no coverage figure of its own and touches no section-path file; a target the section path already names is a refusal, not an overwrite."
+  },
+  audit: {
+    synopsis: "audit --run <dir> [--document <id>] [--units]",
+    flags: [
+      "--run <dir>          Run directory (required)",
+      "--document <id>      Scope the audit to one document (advisory run-wide checks)",
+      "--units              Rerun the two per-unit audits (read-only): every material obligation a unit reaches grounded by that unit's own claims, and every claim statement bound to that unit's own prose"
+    ],
+    example: "excavator audit --run <run> --document <id>",
+    notes: "With --units it reports the plan's own obligation accounting, one three-state grounding verdict per written unit, the open-origin exemptions by id, and the units nothing has been written for; then, under `binding`, one three-state verdict per unit for the claim \u2194 prose contract \u2014 an unclaimed substantive statement, a claim statement absent from the unit that declares it, a statement too short to bind, and substantive prose carrying no evidence-level marker. It writes nothing; collect already applied the grounding verdict when each unit was recorded, and the binding contract is checked here rather than at collect so a written unit can be inspected instead of refused."
   },
   resume: {
-    synopsis: "resume --run <dir>",
-    flags: ["--run <dir>          Run directory (required)"],
-    example: "excavator resume --run <run>"
+    synopsis: "resume --run <dir> --units",
+    flags: [
+      "--run <dir>          Run directory (required)",
+      "--units              List what is left on the authoring-unit path (required, read-only)"
+    ],
+    example: "excavator resume --run <run> --units",
+    notes: "Read-only. `collect` is the only writer of the shared unit ledger, so a unit run is resumed by drafting what is unwritten and collecting what is drafted — both named in the output."
   },
   status: {
-    synopsis: "status --run <dir>",
-    flags: ["--run <dir>          Run directory (required)"],
-    example: "excavator status --run <run>"
+    synopsis: "status --run <dir> [--units]",
+    flags: [
+      "--run <dir>          Run directory (required)",
+      "--units              Show the authoring-unit view: every planned unit as collected, drafted or not yet written"
+    ],
+    example: "excavator status --run <run> --units"
   }
 };
 

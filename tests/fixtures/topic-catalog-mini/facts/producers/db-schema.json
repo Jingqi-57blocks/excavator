@@ -1,0 +1,5 @@
+{
+  "cause": "policy: not-run-scoped — schema discovery runs as its own command and writes outside the run directory",
+  "retryable": true,
+  "status": "unavailable"
+}

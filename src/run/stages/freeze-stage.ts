@@ -1,7 +1,7 @@
 import { join, resolve } from "node:path";
-import type { AuditFinding, EvidenceItem, InvestigationPlan, KnowledgeArtifact, RunManifest, TraceCatalog } from "../../base/types.ts";
+import type { AuditFinding, InvestigationPlan, KnowledgeArtifact, RunManifest, TraceCatalog } from "../../base/types.ts";
 import { READ_EXECUTION_ASSURANCE_GENERATION, WORKSET_OBLIGATION_ASSURANCE_GENERATION, assuranceGenerationAtLeast } from "../../base/assurance-version.ts";
-import { atomicWrite, exists, nowIso, readJson, writeJson } from "../../base/util.ts";
+import { exists, nowIso, readJson, writeJson } from "../../base/util.ts";
 import { appendTimeline, readTimeline } from "../../base/timeline.ts";
 import { readCheckpoint } from "../../base/single-writer.ts";
 import { auditContractInstances } from "../../freeze/contract-instance-audit.ts";
@@ -12,7 +12,6 @@ import { auditReadAccountability } from "../../investigation/read-coverage.ts";
 import { inventoryConditions } from "../../investigation/condition-inventory.ts";
 import { createInvestigationPlan } from "../../investigation/assurance.ts";
 import { warmExtractors } from "../../facts/probe/condition-extract.ts";
-import { buildAuthoringPacket } from "../../report/authoring-packet.ts";
 import { declarationWorkItems } from "../obligation-stage.ts";
 import { logicWorkItems, LOGIC_DISPOSITION_ASSURANCE_GENERATION } from "../../obligation/logic-workitems.ts";
 import { deriveReadAccountability, readCrossRepoLinks, readFrozenFactPacks, readRequiredInvestigationResults, readRequiredObligationDeclarations } from "./investigation-read-model.ts";
@@ -20,8 +19,9 @@ import { reDeriveIdentities } from "./runtime-identity.ts";
 import { canonicalEvidenceDigest, readEvidenceCatalog } from "../../investigation/evidence-store.ts";
 
 /**
- * Freeze a run: verify the investigation-side gate, write the immutable knowledge record and render the
- * deterministic authoring views. Post-freeze changes continue through the supplement channel.
+ * Freeze a run: verify the investigation-side gate and write the immutable knowledge record. It rendered a
+ * deterministic per-document authoring view too, until 57B-480 retired that — see the comment where that write
+ * used to be. Post-freeze changes continue through the supplement channel.
  */
 export async function freezeRun(runDirInput: string): Promise<{ manifest: RunManifest; findings: AuditFinding[]; frozen: boolean; knowledge?: KnowledgeArtifact }> {
   const runDir = resolve(runDirInput);
@@ -116,14 +116,20 @@ export async function freezeRun(runDirInput: string): Promise<{ manifest: RunMan
     ...(previousKnowledge ? { previousEpochDigest: knowledgeDigest(previousKnowledge) } : {})
   });
   await writeKnowledgeArtifact(runDir, knowledge);
-  let authoringPackets = 0;
-  for (const document of manifest.documents) {
-    const markdown = buildAuthoringPacket(document, plan, evidenceById, traces, factPacks, freezeConditions ?? undefined,
-      accountability ? { obligations: accountability.obligations.obligations, items: accountability.residual.items, annotated: accountability.annotated } : undefined,
-      nextEpoch);
-    await atomicWrite(join(runDir, "context", "authoring", `${document.id}.md`), markdown);
-    authoringPackets += 1;
-  }
+  // FREEZE NO LONGER RENDERS AN AUTHORING PACKET (57B-480). It used to write one `context/authoring/<document>.md`
+  // per document — the section path's model-facing view, laid out by template chapter and keyed by the work item's
+  // `reportSection`. Its READER, the section authoring chain, is gone, and so is the count this event used to
+  // carry. The unit path's model-facing view is `plan-packet --run <dir> --unit <id> --over-budget <how>`, rendered
+  // on demand from the recorded plan rather than written at freeze, which is why nothing replaces the write here.
+  //
+  // ONE CONSUMER IS STILL WIRED, DELIBERATELY: `auditAuthoringPacketConsumption` (`run.ts:847`) self-gates on this
+  // file existing, so from here on it can never fire on a new run — and it is left byte-for-byte alone because it
+  // is ARCHIVED-RUN audit behaviour, which this slice may not change (57B-481 owns that). Writing "every reader of
+  // it is gone" here, as the first version of this comment did, would be the false version of the sentence.
+  //
+  // `authoring-packet.ts` itself stays: `buildAuthoringPacket` is still the renderer the eval baseline re-renders
+  // its committed fixtures with (`eval/tests/packet-fixture-freshness.test.ts`), and `featureKeyOf` is imported by
+  // three eval readings extractors. What was deleted is this wiring, not the module.
   manifest.frozenAt = frozenAt;
   manifest.knowledgeEpoch = nextEpoch;
   manifest.knowledgeDigest = knowledgeDigest(knowledge);
@@ -132,7 +138,7 @@ export async function freezeRun(runDirInput: string): Promise<{ manifest: RunMan
   await appendTimeline(runDir, manifest.id, {
     stage: "investigation",
     action: refreeze ? "investigation.refrozen" : "investigation.frozen",
-    data: { epoch: nextEpoch, knowledgeDigest: manifest.knowledgeDigest, evidence: knowledge.evidenceIds.length, workItems: knowledge.completeness.closure.workItems, traces: knowledge.traceIds.length, authoringPackets }
+    data: { epoch: nextEpoch, knowledgeDigest: manifest.knowledgeDigest, evidence: knowledge.evidenceIds.length, workItems: knowledge.completeness.closure.workItems, traces: knowledge.traceIds.length }
   });
   manifest.metrics.timelineEvents = (manifest.metrics.timelineEvents ?? 0) + 1;
   await writeJson(runPath, manifest);

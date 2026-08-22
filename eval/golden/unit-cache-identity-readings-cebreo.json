@@ -1,0 +1,177 @@
+{
+  "authorship": "model-free generator eval-unit-cache-identity-readings",
+  "contract": {
+    "identity": "unit-cache-identity-v2",
+    "output": {
+      "claimsVersion": "unit-claims-v1",
+      "summaryVersion": "unit-summary-v1"
+    },
+    "policy": "report-policy-v1",
+    "requestMapping": "legacy-request-mapping-v1",
+    "view": "unit-packet-v3"
+  },
+  "identified": [
+    {
+      "documentId": "overview-product",
+      "identityDigest": "9e7d312268fb05782665f1f7989b0b3d76163e8c3d1834df965f03c12b50123f",
+      "kind": "appendix",
+      "normalizedLabels": [
+        "topics catalog digest",
+        "plan catalog digest",
+        "recorded requests digest"
+      ],
+      "packetBytes": 27760,
+      "sectionHeadings": [
+        "(packet header)",
+        "## What this packet is not",
+        "## Grounding: what the unit audit checks the moment this unit is completed",
+        "## Ownership and scope: exactly one unit grounds each material obligation of this document",
+        "## Required dispositions",
+        "## Obligations bound to this unit's topics (1 obligation(s), 0 material, 1 written here, 0 carried by another unit of this document)",
+        "## Evidence bound to the obligations this unit writes (3 record(s), all rendered in full)",
+        "## Facet census of this run's Topic Catalog",
+        "## Coverage state of this run (from the sealed ledgers, not from this document)",
+        "## Evidence this run captured that no obligation binds (27 record(s))"
+      ],
+      "sections": 10,
+      "unitId": "overview-product::appendix::coverage",
+      "viewBytes": 27661
+    }
+  ],
+  "knowledgeDigest": "b576ab30545c0c8d6a32f44dde68a2c28f89179593e0e836e63ad0b58b100f6b",
+  "knowledgeEpoch": 0,
+  "planCatalogDigest": "606538c8317842158047332140277914ae88a6c8c66a3e374b44364f79e8633f",
+  "readPaths": [
+    "context/boundary-functions.json",
+    "contract/run-intent.json",
+    "coverage/read-obligations.json",
+    "coverage/read-residual.json",
+    "evidence.json",
+    "facts/producers/codegraph.json",
+    "facts/producers/crossrepo.json",
+    "facts/producers/db-schema.json",
+    "knowledge.json",
+    "run.json",
+    "workitems.json"
+  ],
+  "runId": "run-2026_08_20_02_38-overview-239385e1-85a71437-a8618c2d",
+  "scenarios": [
+    {
+      "outcome": {
+        "candidateStatement": "0 prior verified units: this projection offers no prior verified unit: an archival run has authored none",
+        "candidateUnits": 0,
+        "conservation": [
+          "planned = reusable + rebuild + new: 2 = 0 + 0 + 2",
+          "candidates = reusable + rebuild + retired: 0 = 0 + 0 + 0"
+        ],
+        "new": [
+          "overview-product::appendix::coverage",
+          "overview-product::synthesis::document"
+        ],
+        "plannedUnits": 2,
+        "rebuild": [],
+        "retired": [],
+        "reusable": [],
+        "state": "derived"
+      },
+      "perturbation": "nothing is changed; the candidate set is empty, as it is on a run that has collected no unit",
+      "scenario": "first-run"
+    },
+    {
+      "outcome": {
+        "candidateStatement": "1 prior verified unit(s) offered by run run-2026_08_20_02_38-overview-239385e1-85a71437-a8618c2d, knowledge epoch 0, plan catalog 606538c8317842158047332140277914ae88a6c8c66a3e374b44364f79e8633f",
+        "candidateUnits": 1,
+        "conservation": [
+          "planned = reusable + rebuild + new: 2 = 1 + 0 + 1",
+          "candidates = reusable + rebuild + retired: 1 = 1 + 0 + 0"
+        ],
+        "new": [
+          "overview-product::synthesis::document"
+        ],
+        "plannedUnits": 2,
+        "rebuild": [],
+        "retired": [],
+        "reusable": [
+          "overview-product::appendix::coverage"
+        ],
+        "state": "derived"
+      },
+      "perturbation": "nothing is changed; the plan is compared with the identities of its own units",
+      "scenario": "unchanged"
+    },
+    {
+      "outcome": {
+        "candidateStatement": "1 prior verified unit(s) offered by run run-2026_08_20_02_38-overview-239385e1-85a71437-a8618c2d, knowledge epoch 0, plan catalog 606538c8317842158047332140277914ae88a6c8c66a3e374b44364f79e8633f",
+        "candidateUnits": 1,
+        "conservation": [
+          "planned = reusable + rebuild + new: 4 = 1 + 0 + 3",
+          "candidates = reusable + rebuild + retired: 1 = 1 + 0 + 0"
+        ],
+        "new": [
+          "overview-engineering::appendix::coverage",
+          "overview-engineering::synthesis::document",
+          "overview-product::synthesis::document"
+        ],
+        "plannedUnits": 4,
+        "rebuild": [],
+        "retired": [],
+        "reusable": [
+          "overview-product::appendix::coverage"
+        ],
+        "state": "derived"
+      },
+      "perturbation": "one document added to the recorded requests: overview-engineering (overview, audience engineering)",
+      "scenario": "second-audience-document"
+    },
+    {
+      "outcome": {
+        "reason": "this catalog holds no material topic with a binding, so a topic perturbation cannot be applied to one",
+        "state": "not-applicable"
+      },
+      "perturbation": "no material topic exists to perturb",
+      "scenario": "content-change-smallest-topic"
+    },
+    {
+      "outcome": {
+        "reason": "this catalog holds no material topic that both OWNS an obligation and binds at least two, so neither ownership migration nor a division can be perturbed here",
+        "state": "not-applicable"
+      },
+      "perturbation": "no owning topic with two bindings exists",
+      "scenario": "content-change-owner-topic"
+    },
+    {
+      "outcome": {
+        "reason": "this catalog holds no material topic that both OWNS an obligation and binds at least two, so neither ownership migration nor a division can be perturbed here",
+        "state": "not-applicable"
+      },
+      "perturbation": "no owning topic with two bindings exists",
+      "scenario": "binding-dropped-owner-topic"
+    }
+  ],
+  "unidentified": [
+    {
+      "reason": "a synthesis unit is written from its children's COLLECTED summaries, and this archival run has authored no unit, so there is no verified summary to compute an identity from",
+      "unitId": "overview-product::synthesis::document"
+    }
+  ],
+  "units": 2,
+  "unitsByKind": [
+    {
+      "kind": "appendix",
+      "units": 1
+    },
+    {
+      "kind": "bridge",
+      "units": 0
+    },
+    {
+      "kind": "leaf",
+      "units": 0
+    },
+    {
+      "kind": "synthesis",
+      "units": 1
+    }
+  ],
+  "version": "unit-cache-identity-readings-v2"
+}

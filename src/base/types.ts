@@ -57,7 +57,24 @@ export interface ReportRequest {
 
 export interface BudgetConfig {
   prepareMs: number;
-  authorMs: number;
+  /**
+   * RETIRED (57B-480). Optional because archived requests and archived `run.json` files carry it; nothing reads
+   * it. This is a statement of what happened, not a judgement call:
+   *
+   *   - Its two executors were `checkpointSection` and `collectDrafts`, both deleted with the section authoring
+   *     chain. Since then `--author-ms` was accepted, written into `run.json`, and enforced by nothing.
+   *   - Even before that it had self-destructed: `beginDocument` was the only path that re-armed the timer, so
+   *     once `documents[].completedAt` was set, every later `checkpointSection` short-circuited the elapsed
+   *     recalculation permanently. Deleting `begin` left a budget that could not be enforced again.
+   *   - The unit path never had it. Its budget authority is the plan's BYTE budget (`plan/catalog.json`'s
+   *     `perUnitInputBytes` / document total, enforced by `unit-packet.ts`, which is both the measure and the
+   *     renderer). A wall-clock gate is the assertion shape this repository forbids: 57B-466 and 57B-474 are two
+   *     separate slices spent on wall-clock ratios that jittered under load.
+   *
+   * So no replacement is planned, and nothing new should read this field. It is kept only so a recorded request
+   * from before the retirement still parses.
+   */
+  authorMs?: number;
   maxGraphQueries: number;
   maxSourceWindows: number;
   maxSourceCharacters: number;
@@ -212,27 +229,6 @@ export interface SectionClaimsFile {
   documentId: string;
   section: number;
   claims: SectionClaim[];
-}
-
-/**
- * The commit marker a parallel `draft` writes last, after a section and its claims are on disk, under
- * `drafts/<documentId>/<NN>.json`. It records what `collect` needs to append the section's timeline
- * event serially: whether the draft overwrote a prior checkpoint (`revision`), the true completion
- * moment (`draftedAt`), and the evidence/trace ids the event carries. A draft that dies mid-write leaves
- * no receipt, so `collect` never records a half-written section. Additive — no ledger reads it but `collect`.
- */
-export interface DraftReceipt {
-  version: 1;
-  runId: string;
-  /** Epoch whose authoring packet this draft consumed; absent on pre-epoch archived receipts. */
-  knowledgeEpoch?: number;
-  documentId: string;
-  section: number;
-  draftedAt: string;
-  revision: boolean;
-  evidenceIds: string[];
-  traceIds: string[];
-  hasClaims: boolean;
 }
 
 export interface TraceStep {

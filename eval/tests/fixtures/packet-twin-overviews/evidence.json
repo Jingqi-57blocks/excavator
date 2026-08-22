@@ -1,0 +1,56 @@
+{
+  "evidence": [
+    {
+      "content": "app.post('/leave', requireManager, createLeave);\nconst MAX_DAYS = 20;\nreturn { ok: true };",
+      "digest": "d1",
+      "endLine": 12,
+      "id": "E-1",
+      "kind": "source",
+      "path": "src/leave.ts",
+      "reason": "the request entry point",
+      "snapshotId": "fixturesnapshot01",
+      "startLine": 10,
+      "title": "leave route handler"
+    },
+    {
+      "data": {
+        "candidateFiles": 7,
+        "matches": [
+          {
+            "line": 10,
+            "path": "src/leave.ts"
+          },
+          {
+            "line": 4,
+            "path": "src/approve.ts"
+          }
+        ],
+        "terms": [
+          "leave",
+          "approval"
+        ],
+        "truncated": false
+      },
+      "digest": "d2",
+      "id": "E-2",
+      "kind": "search",
+      "reason": "locate the approval path",
+      "snapshotId": "fixturesnapshot01",
+      "title": "search for leave"
+    },
+    {
+      "content": "# Leave\nRequests are approved by a manager.",
+      "digest": "d3",
+      "endLine": 2,
+      "id": "E-3",
+      "kind": "readme",
+      "path": "README.md",
+      "reason": "documented intent",
+      "snapshotId": "fixturesnapshot01",
+      "startLine": 1,
+      "title": "README leave section"
+    }
+  ],
+  "runId": "run-fixture-twin",
+  "version": 1
+}

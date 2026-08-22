@@ -21,7 +21,6 @@ for (const moduleName of modules) {
   const db = new DatabaseSync(`${ROOT}/${moduleName}/.codegraph/codegraph.db`, { readOnly: true });
   const rows = db.prepare("SELECT name, file_path, start_line, end_line FROM nodes ORDER BY file_path, start_line, name").all() as Array<{ name: string; file_path: string; start_line: number | null; end_line: number | null }>;
   for (const row of rows) {
-    const relative = row.file_path.replace(/^.*?\/?(?=$)/, "");
     const path = row.file_path.startsWith(moduleName) ? row.file_path : `${moduleName}/${row.file_path.replace(/^\.?\//, "")}`;
     nodes.push({ filePath: path, name: row.name, startLine: row.start_line ?? undefined, endLine: row.end_line ?? undefined });
   }

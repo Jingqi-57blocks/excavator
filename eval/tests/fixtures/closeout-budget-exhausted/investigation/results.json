@@ -1,0 +1,91 @@
+{
+  "status": "built",
+  "value": {
+    "version": "read-execution-v1",
+    "identity": {
+      "snapshotId": "fixture-snapshot",
+      "filesContentManifestDigest": "fixture-files",
+      "worksetDigest": "fixture-workset",
+      "obligationsDigest": "fixture-obligations",
+      "judgementsDigest": "fixture-judgements",
+      "evidencePolicy": "fixture-policy"
+    },
+    "judgements": [],
+    "executions": [
+      {
+        "id": "EXEC-1",
+        "readSpecId": "READ-1",
+        "declarationId": "OBL-DEC-1",
+        "path": "src/leave.ts",
+        "requestedSpan": { "startLine": 10, "endLine": 90 },
+        "observedSpan": null,
+        "outcome": "unavailable",
+        "evidenceIds": ["LEDGER-READ-1"],
+        "cause": "source-window-budget-exceeded"
+      },
+      {
+        "id": "EXEC-2",
+        "readSpecId": "READ-2",
+        "declarationId": "OBL-DEC-2",
+        "path": "src/approve.ts",
+        "requestedSpan": { "startLine": 5, "endLine": 40 },
+        "observedSpan": { "startLine": 5, "endLine": 12 },
+        "outcome": "unavailable",
+        "evidenceIds": ["LEDGER-READ-2", "LEDGER-READ-3"],
+        "cause": "authorized-span-past-end-of-file"
+      },
+      {
+        "id": "EXEC-NO-CAUSE",
+        "readSpecId": "READ-3",
+        "declarationId": "OBL-DEC-3",
+        "path": "src/y.ts",
+        "requestedSpan": { "startLine": 1, "endLine": 20 },
+        "observedSpan": { "startLine": 1, "endLine": 20 },
+        "outcome": "source",
+        "evidenceIds": ["LEDGER-READ-4"]
+      },
+      {
+        "id": "EXEC-NO-EVIDENCE",
+        "readSpecId": "READ-4",
+        "declarationId": "OBL-DEC-4",
+        "path": "src/z.ts",
+        "requestedSpan": { "startLine": 1, "endLine": 20 },
+        "observedSpan": null,
+        "outcome": "unavailable",
+        "evidenceIds": [],
+        "cause": "source-window-budget-exceeded"
+      },
+      {
+        "id": "EXEC-NO-DISPOSITION",
+        "readSpecId": "READ-5",
+        "declarationId": "OBL-DEC-5",
+        "path": "src/w.ts",
+        "requestedSpan": { "startLine": 1, "endLine": 20 },
+        "observedSpan": null,
+        "outcome": "unavailable",
+        "evidenceIds": ["LEDGER-READ-5"],
+        "cause": "source-window-budget-exceeded"
+      },
+      {
+        "id": "EXEC-FULFILLED",
+        "readSpecId": "READ-6",
+        "declarationId": "OBL-DEC-6",
+        "path": "src/v.ts",
+        "requestedSpan": { "startLine": 1, "endLine": 20 },
+        "observedSpan": null,
+        "outcome": "unavailable",
+        "evidenceIds": ["LEDGER-READ-6"],
+        "cause": "source-window-budget-exceeded"
+      }
+    ],
+    "dispositions": [
+      { "declarationId": "OBL-DEC-1", "readSpecId": "READ-1", "executionId": "EXEC-1", "status": "pending", "positiveKnowledge": false, "evidenceIds": ["LEDGER-READ-1"] },
+      { "declarationId": "OBL-DEC-2", "readSpecId": "READ-2", "executionId": "EXEC-2", "status": "pending", "positiveKnowledge": false, "evidenceIds": ["LEDGER-READ-2", "LEDGER-READ-3"] },
+      { "declarationId": "OBL-DEC-3", "readSpecId": "READ-3", "executionId": "EXEC-NO-CAUSE", "status": "fulfilled", "positiveKnowledge": true, "evidenceIds": ["LEDGER-READ-4"] },
+      { "declarationId": "OBL-DEC-4", "readSpecId": "READ-4", "executionId": "EXEC-NO-EVIDENCE", "status": "pending", "positiveKnowledge": false, "evidenceIds": [] },
+      { "declarationId": "OBL-DEC-6", "readSpecId": "READ-6", "executionId": "EXEC-FULFILLED", "status": "fulfilled", "positiveKnowledge": true, "evidenceIds": ["LEDGER-READ-6"] }
+    ],
+    "residuals": [],
+    "summary": { "executions": 6, "dispositions": 5, "residuals": 0 }
+  }
+}

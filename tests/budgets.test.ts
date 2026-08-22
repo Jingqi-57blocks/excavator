@@ -32,7 +32,6 @@ async function fixtureTarget(): Promise<{ target: string; workdir: string; codeg
 test("default budgets are derived from the requested document and feature counts", () => {
   assert.deepEqual(deriveDefaultBudgets(0, 0), {
     prepareMs: 180_000,
-    authorMs: 2_400_000,
     maxGraphQueries: 60,
     maxSourceWindows: 150,
     maxSourceCharacters: 300_000,
@@ -99,7 +98,9 @@ test("a request file budget overrides the derived default while unset fields sta
   const budgets = JSON.parse(result.stdout).run.request.budgets;
   assert.equal(budgets.maxSourceWindows, 11, "an explicit request budget wins over the derived default");
   assert.equal(budgets.maxSourceCharacters, 1_000_000, "unset budgets stay derived from the request shape");
-  assert.equal(budgets.authorMs, 2_400_000);
+  // `authorMs` used to be asserted here. It is retired (57B-480) and no longer derived, so a recorded request
+  // must not carry it: a budget nothing enforces, minted into every new run, is the shape this epic attacks.
+  assert.equal("authorMs" in budgets, false);
 });
 
 test("a CLI budget flag overrides both the derived default and the request file", async () => {

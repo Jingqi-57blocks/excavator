@@ -45,7 +45,7 @@ const ANCHORS: Record<string, Classification> = {
   "src/base/assurance-version.ts:91": { kind: "current", expect: "export function runUsesCurrentAssurance" },
   "src/run/stages/investigation-stage.ts:35": { kind: "current", expect: "plan.items.some((item) => item.id === normalized.workItemId)" },
   "src/crossrepo/link-match.ts:42": { kind: "current", expect: "export interface MatchedLink" },
-  "src/run/run.ts:335": { kind: "current", expect: "createInvestigationPlan(runId, effectiveRequest, documents)" },
+  "src/run/run.ts:341": { kind: "current", expect: "createInvestigationPlan(runId, effectiveRequest, documents)" },
   // The two-bucket ruling on "the read did not happen": the demand arithmetic and the module whose advisory
   // policy the ruling aligns with. Cited by file, so the citation cannot rot on a line.
   "src/investigation/read-budget.ts": { kind: "current-file" },
@@ -67,10 +67,12 @@ const ANCHORS: Record<string, Classification> = {
   "src/base/executable.ts": { kind: "current-file" },
   "src/context/context.ts": { kind: "current-file" },
   // The layer-5 forbidden-input violation the contract now states instead of claiming it was already fixed.
-  "src/context/context.ts:175": { kind: "current", expect: "new SourceReader({" },
+  "src/context/context.ts:174": { kind: "current", expect: "new SourceReader({" },
   "src/report/checkpoint.ts": { kind: "current-file" },
   "src/base/assurance-version.ts": { kind: "current-file" },
-  "src/report/section-audit.ts": { kind: "current-file" },
+  // Deleted with the section authoring path (57B-481). §三's sentence records the assurance.ts split as it
+  // happened, so the anchor stays in the document as provenance and stops being a claim about today's tree.
+  "src/report/section-audit.ts": { kind: "historical", why: "the third piece of the assurance.ts split; the file was deleted when the section audit retired" },
   "src/investigation/investigation-artifacts.ts": { kind: "current-file" },
   "src/investigation/assurance.ts": { kind: "current-file" },
   "src/report/assurance-artifacts.ts": { kind: "current-file" },
@@ -91,12 +93,12 @@ const ANCHORS: Record<string, Classification> = {
   "src/base/timeline.ts:18-19": { kind: "historical", why: "the pre-57B-430 full-history read on every timeline append; the document explicitly says 57B-430 前" },
   "src/base/single-writer.ts:28-50": { kind: "current", expect: "export async function withRunWriter" },
   "src/investigation/evidence-store.ts:129-145": { kind: "current", expect: "export async function appendEvidence" },
-  "src/report/parallel-authoring.ts:100-110": { kind: "current", expect: "export async function collectDrafts" },
+  "src/report/unit-collect.ts:115-120": { kind: "current", expect: "view.collectionOrder.filter" },
   "src/run/stages/investigation-stage.ts:152": { kind: "historical", why: "the pre-57B-430 full-catalog normalize-and-hash on each evidence append; the document explicitly says 57B-430 前" },
   "src/workset/factpack-view.ts:54": { kind: "current", expect: "maxRowsPerCategory = 60" },
 
   // --- §五 P1-P18 -------------------------------------------------------------------------------------------
-  "src/workset/census.ts:95": { kind: "current", expect: "export function buildScopeCensus" },
+  "src/workset/census.ts:94": { kind: "current", expect: "export function buildScopeCensus" },
   "snapshot.ts:211": { kind: "historical", why: "P13's provenance: the pre-57B-418 scan loop, kept because the document says so explicitly" },
   "snapshot.ts:215": { kind: "historical", why: "P13's provenance: the silent path-escape continue" },
   "snapshot.ts:218": { kind: "historical", why: "P13's provenance: the silent irregular-file/symlink/oversize continue" },
@@ -118,7 +120,10 @@ const ANCHORS: Record<string, Classification> = {
   "src/facts/units/unit-identity.ts": { kind: "current-file" },
   "src/facts/units/membership-map.ts": { kind: "current-file" },
   "src/base/fact-kind-registry.ts": { kind: "current-file" },
-  "src/base/partition-designation.ts": { kind: "current-file" }
+  "src/base/partition-designation.ts": { kind: "current-file" },
+  // The contract's per-kind membership list names the test that holds it to the registry. Cited by file: the
+  // claim is "this check exists", and a line number for it would rot on the next test added above it.
+  "tests/fact-kind-registry.test.ts": { kind: "current-file" }
 };
 
 interface Anchor {

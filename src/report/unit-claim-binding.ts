@@ -1,0 +1,375 @@
+/**
+ * THE CLAIM ↔ PROSE BINDING CONTRACT, PER AUTHORING UNIT.
+ *
+ * Three questions about one unit's own bytes: is every substantive statement its visible prose makes bound to a
+ * claim, does every claim's `statement` really appear in that prose, and is a statement long enough that
+ * "appears in" means anything. Plus the fourth rule that shares this file's folding — a unit with substantive
+ * prose must carry a real evidence-level marker in it.
+ *
+ * WHY THE UNIT PATH NEEDED THIS FILE AT ALL. It had none of it. Draft and collect check the summary's digests and
+ * the grounding verdict; the grounding audit's subject is OBLIGATIONS (which claim links which work item); the
+ * consistency checker's five classes are the properties no per-unit gate sees, and none of them reads a claim's
+ * `statement` at all. So a unit could state anything whatever in its prose and satisfy every gate by linking
+ * claims whose statements were nowhere in it. The section path checked this from the beginning; this is that
+ * check, on the unit key, and since 57B-481 retired the section audit it is the only one.
+ *
+ * VERIFIED, NOT REMEMBERED: `grep -rn --include='*.ts' '\.statement' src/` — outside this file every hit is a
+ * statement of some OTHER kind (a coverage statement, a finding's own text, a
+ * cache-intent reason) or reads a claim statement for something other than prose containment
+ * (`claim-comparison.ts` checks comparative wording, `condition-inventory.ts` looks for a literal, `run.ts` copies
+ * it into the claims companion). Re-run it before treating this paragraph as current.
+ *
+ * ═══ SINGLE FOLDING AUTHORITY ═══
+ *
+ * `substantiveUnitSegments` (which parts of the prose must be claimed) and the statement comparison below fold
+ * text through `foldUnitText` and nothing else. The fold is NOT a parameter of the segmenter — the section path
+ * made it one, and the accident that cost a real report ~30 errors was exactly two halves folding differently:
+ * the segmenter dropped `**` while the comparator turned it into a SPACE, so `产品名为 **CMS3000**，其源码`
+ * folded to `… CMS3000 ，其源码` on one side only — a space before the comma that appears in no rendering of the
+ * prose and in nothing an author would write. Every claim binding a bold lead-in became unbindable, while
+ * `writing-rules.md` asks every chapter for bold lead-ins. Making the fold uninjectable is the structural form
+ * of that fix: the two halves cannot drift, because there is nothing to set differently.
+ *
+ * ═══ ONE GENERATION, AND THE LAW FOR CHANGING IT ═══
+ *
+ * The section path judges a section under TWO foldings and keeps the reading that costs least, because runs
+ * archived before the fold changed carry the old artefact IN THEIR CLAIMS. Its own words: "Mixing generations is
+ * what broke archived runs." That machinery — the folding array, the cost comparison, the folding-sensitive
+ * finding pattern — is deliberately NOT here: authoring units exist only from R4a onward, every unit product on
+ * disk was written under this one folding, and there is no archived generation to be compatible with. A second
+ * generation with an empty population is a mechanism that can only ever be wrong.
+ *
+ * FORWARD-LOOKING RULE, so this is not left to anyone's memory: THE MOMENT `foldUnitText` CHANGES IN A WAY THAT
+ * MOVES WHICH STATEMENTS BIND, unit products written before the change become a second generation, and the
+ * per-generation judgement must be rebuilt with it — segments and statements folded the same way, one generation
+ * at a time, whole, and the reading chosen per unit rather than per finding. Do not add a per-check fallback:
+ * comparing the two sides across generations is the drift this file exists to make impossible. The tuition for
+ * this lesson has been paid once already, on the section path, in archived runs that fell out of audit.
+ *
+ * ═══ WHAT THIS FILE DOES NOT CHECK ═══
+ *
+ * Claim SHAPE (`assertValidClaim`), which obligation a claim grounds (`unit-grounding-audit.ts`), and every
+ * cross-unit property (`unit-consistency.ts`). Those have denominators of their own and a second derivation of
+ * any of them would be a second denominator.
+ *
+ * IT IS A PURE FUNCTION OF VALUES: no path, no I/O, no clock, no model. `unit-claim-binding-source.ts` is the
+ * half that opens files.
+ */
+
+import { assertNever } from "../base/artifact-result.ts";
+import type { SectionClaim } from "../base/types.ts";
+// THE MARKER VOCABULARY HAS ONE READER, AND THESE TWO IMPORTS ARE WHAT KEEP IT SO. `hasEvidenceMarkers` routes
+// through `markersIn`/`MARKER_TOKENS`, which `tests/evidence-marker-vocabulary.test.ts` pins BIDIRECTIONALLY
+// against `skills/excavator/references/evidence-markers.json`. Copying the table here would give that contract a
+// second reader covered by half a test.
+//
+// THE SECOND IMPORT IS 57B-494's WHOLE MARKER CHANGE. This file used to spell the marker token itself, as four
+// Chinese words, beside a vocabulary that listed eight; the pattern is now declared next to that vocabulary as a
+// named subset of it. The fold matches exactly what it always did — what changed is that the subset is written
+// down and partition-checked, so widening the vocabulary can no longer move the check while leaving the fold
+// behind in silence. See `foldInlineDecoration`'s header for the measurement behind not merging the two sets.
+//
+// THE RELOCATION AN EARLIER PARAGRAPH PREDICTED IS DONE: `section-audit.ts` no longer exists. `hasEvidenceMarkers`
+// moved to `evidence-markers.ts` (this import), `assertValidClaim` to `claim-validity.ts`, the work-item coverage
+// audit to `work-item-claim-coverage.ts`; everything else in that module was section-keyed and was deleted with
+// the section path (57B-481). These imports are the whole of what the unit path inherited from it.
+import { EVIDENCE_MARKER_TOKEN_PATTERN, hasEvidenceMarkers } from "./evidence-markers.ts";
+
+export const UNIT_CLAIM_BINDING_VERSION = "unit-claim-binding-v1";
+
+/**
+ * The shortest folded statement that may be said to "appear in" a unit's prose.
+ *
+ * Six characters, byte for byte the section path's threshold. Below it a substring match says nothing: a
+ * three-character statement is contained by most sentences of any length, so a claim that short is bound to
+ * nothing in particular and the binding guarantee is void for it.
+ */
+const MINIMUM_BINDABLE_STATEMENT_LENGTH = 6;
+
+/**
+ * Remove what is decoration rather than content: the evidence-level marker token, and the backticks and
+ * asterisks that sit BETWEEN characters a reader sees as adjacent.
+ *
+ * INLINE DECORATION IS REMOVED, NOT SPACED, and that is the whole substance of the bold lead-in fix. Turning `*`
+ * or `` ` `` into whitespace injects a separator that exists in no rendering of the text.
+ *
+ * THE MARKER TOKEN IS ONE DEFINITION, used by the segmenter and by this fold: the segmenter strips it and the
+ * fold must strip it identically, or a segment stops being a substring of the very unit that produced it. That
+ * was the SECOND independent drift of this kind on the section path — the segmenter removed the token outright
+ * while the fold removed only the backticks and left `事实` standing as a bare word.
+ *
+ * WHERE THAT DEFINITION LIVES CHANGED IN 57B-494; WHAT IT MATCHES DID NOT. This file used to spell four Chinese
+ * tokens of its own. It now imports `EVIDENCE_MARKER_TOKEN_PATTERN`, which is built from `MARKER_FOLDING.folded`
+ * — the same four, declared beside the vocabulary they are a subset of. THE FOLD IS BYTE-FOR-BYTE WHAT IT WAS.
+ *
+ * WHY THE SUBSET IS NOT SIMPLY WIDENED TO THE WHOLE VOCABULARY, WHICH IS THE OBVIOUS TIDY-UP. `markersIn`
+ * recognises eight tokens; this fold removes four, so `` `已验证` `` is a recognised evidence level that folds as
+ * ordinary prose. Measured on the real command before deciding: stripping all eight flips a unit whose claim
+ * statement swallowed `` `已验证` `` from `complete` to `violations`, and flips a claim spanning two
+ * `已验证`-annotated sentences from unclaimed to covered — movement in BOTH directions, which is exactly what the
+ * one-generation law above is about. Unit products live in whatever run dir `audit --units` is pointed at, so the
+ * population is not bounded by this repository, and `tests/evidence-marker-vocabulary.test.ts` records that a
+ * real zh-CN run wrote `` `已验证` `` and `` `不可用` `` in good faith. So unifying the two sets is a migration,
+ * not a cleanup, and it is left to the decision that can price it.
+ *
+ * WHAT WAS ACTUALLY SILENT IS NOW NOT. Today's asymmetry costs nothing — both halves of THIS file share one
+ * pattern, so no segment goes missing from its own unit. The hazard was that widening the vocabulary moved only
+ * the RECOGNITION, with nothing able to see it. `MARKER_FOLDING` declares the split as a total partition of the
+ * vocabulary and `tests/evidence-marker-vocabulary.test.ts` asserts it against the real fold, so a ninth synonym
+ * belongs to neither list and goes red until somebody decides which.
+ */
+function foldInlineDecoration(value: string): string {
+  return value.replace(EVIDENCE_MARKER_TOKEN_PATTERN, "").replace(/[`*]/g, "");
+}
+
+/**
+ * Fold unit prose and a claim statement into one comparable form. THE authority — there is no second one.
+ *
+ * `-` and `_` stay SPACED rather than removed: they occur INSIDE identifiers (`read-obligations`, `snake_case`),
+ * where removal would weld words together and silently change which statements match — a different way to break
+ * the same binding.
+ */
+export function foldUnitText(value: string): string {
+  return foldInlineDecoration(value).replace(/[_>#-]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+/**
+ * The reading flow of a unit: what a reader sees, with collapsed evidence blocks, fenced code and HTML comments
+ * removed. A table living only inside a collapsed block is not part of the prose a claim binds to.
+ */
+export function visibleUnitText(content: string): string {
+  return content
+    .replace(/<details[\s\S]*?<\/details>/gi, " ")
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/<!--([\s\S]*?)-->/g, " ");
+}
+
+/**
+ * Every substantive statement a unit's visible prose makes, folded, de-duplicated, in reading order.
+ *
+ * Headings, table rules and list markers are structure rather than statement. A part survives only if it carries
+ * at least eight letters or digits after folding — the threshold that keeps a `| --- |` fragment or a two-word
+ * cell from demanding a claim of its own.
+ *
+ * A TABLE ROW IS CLAIMED CELL BY CELL, NOT AS A ROW, AND ONE ARTEFACT COMES WITH THAT. The cells are joined with
+ * `；` and the very next line SPLITS on `；`, so the join is an artificial sentence terminator that makes each
+ * cell its own segment — a row is not one statement. The cost, measured rather than assumed: every non-final
+ * cell keeps a trailing `；` that appears in no rendering of the prose, so such a segment is NOT a substring of
+ * the folded visible text. The section path's scaffolder recorded the same artefact and dealt with it
+ * the same way this file's contract does — a claim statement is the segment MINUS its trailing terminator, which
+ * is contained in the prose, and coverage is bidirectional containment so the trimmed statement still covers the
+ * segment it came from. `tests/unit-claim-binding.test.ts` states the containment invariant in exactly that form
+ * and carries a two-long-cell row so the caveat is exercised rather than avoided.
+ *
+ * WHAT THIS COSTS AN AUTHOR, stated because writing-rules mandates tables: a claim that covers a whole row as a
+ * reader reads it binds to nothing — the folded prose keeps the `|` separators and the segments carry `；` — so
+ * a table needs one claim per substantive cell. That is the section path's behaviour, byte for byte, and it is
+ * carried here unchanged rather than quietly improved: changing which parts of a table demand a claim is a rule
+ * change, not a move, and this slice moves the rule.
+ *
+ * THE FOLD IS NOT A PARAMETER. See the file header: the segmenter and the comparator sharing one fold by
+ * construction is the fix for the defect this whole file records.
+ */
+export function substantiveUnitSegments(content: string): readonly string[] {
+  const segments: string[] = [];
+  for (const raw of visibleUnitText(content).split(/\r?\n/)) {
+    let line = raw.trim();
+    if (!line || /^#{1,6}\s+/.test(line) || /^[-| :]+$/.test(line)) continue;
+    if (/^\|?(?:\s*:?-{3,}:?\s*\|)+\s*$/.test(line)) continue;
+    line = line
+      .replace(/^[-*+]\s+/, "")
+      .replace(/^\d+[.)]\s+/, "")
+      .replace(/\*\*([^*]+)\*\*/g, "$1")
+      .replace(EVIDENCE_MARKER_TOKEN_PATTERN, "")
+      .trim();
+    if (line.startsWith("|") && line.endsWith("|")) {
+      line = line.slice(1, -1).split("|").map((cell) => cell.trim()).filter(Boolean).join("；");
+    }
+    for (const part of line.split(/(?<=[。！？!?；;])\s*|(?<=\.)\s+(?=[A-Z0-9])/u)) {
+      const normalized = foldUnitText(part).trim();
+      const semanticLength = (normalized.match(/[\p{Letter}\p{Number}]/gu) ?? []).length;
+      if (semanticLength >= 8) segments.push(normalized);
+    }
+  }
+  return [...new Set(segments)];
+}
+
+/**
+ * The four ways a unit can break the binding contract. Named so a caller can route one kind without matching on
+ * a message.
+ *
+ * THE ARRAY IS A CENSUS, NOT DECORATION: `tests/unit-claim-binding.test.ts` walks it and demands a named fixture
+ * that produces each member, so a fifth kind cannot be added with nothing reaching it.
+ *
+ * ONE SECTION-PATH RULE HAS NO MEMBER HERE, AND SAYING SO IS THE POINT OF THIS PARAGRAPH. `auditSectionClaims`
+ * also SCANNED THE PROSE for evidence-id shapes and reported two things this census does not: an id written in
+ * the text that no claim declares, and a token of id shape (`FACT-…`, `S-…`) matching nothing in the catalog —
+ * a fabricated citation. That check read prose, not claims, so nothing on the unit path inherits it: the census
+ * above is claim-keyed and the unit segmenter never looks at id shapes. It was already unreachable in the
+ * product before deletion — after 57B-481 moved the audit to units, `auditSectionClaims` had no `src/` caller
+ * at all — so retiring it removed tests of dead code rather than a running gate. Whether a unit's prose may
+ * cite an id no claim declares is therefore an OPEN question for the unit path, not a settled one.
+ */
+export const UNIT_BINDING_PROBLEM_KINDS = [
+  "unclaimed-statement",
+  "statement-absent",
+  "statement-too-short",
+  "missing-evidence-marker"
+] as const;
+
+export type UnitBindingProblemKind = (typeof UNIT_BINDING_PROBLEM_KINDS)[number];
+
+/** One violation. `claimId` is null exactly for the two kinds whose subject is the unit rather than a claim. */
+export interface UnitBindingProblem {
+  readonly kind: UnitBindingProblemKind;
+  readonly claimId: string | null;
+  readonly message: string;
+}
+
+/**
+ * The three-state verdict. No boolean anywhere.
+ *
+ * `vacuous` is a unit with neither a substantive statement nor a claim: there is nothing to bind, which is a
+ * different fact about a run from "everything binds" and must never render with the same words. `complete`
+ * carries BOTH denominators — how many statements were required to be claimed and how many claims were required
+ * to appear — because "0 findings" over an empty denominator is the sentence this codebase keeps paying for.
+ */
+export type UnitBindingVerdict =
+  | { readonly conclusion: "complete"; readonly segments: number; readonly statements: number }
+  | { readonly conclusion: "vacuous"; readonly source: string }
+  | { readonly conclusion: "violations"; readonly segments: number; readonly statements: number; readonly problems: readonly string[] };
+
+export interface UnitClaimBindingResult {
+  readonly version: typeof UNIT_CLAIM_BINDING_VERSION;
+  readonly unitId: string;
+  readonly documentId: string;
+  /** Every substantive statement of this unit's visible prose, folded — the claimed-coverage denominator. */
+  readonly segments: readonly string[];
+  readonly problems: readonly UnitBindingProblem[];
+  readonly verdict: UnitBindingVerdict;
+}
+
+export interface UnitClaimBindingInput {
+  readonly unitId: string;
+  readonly documentId: string;
+  /** The unit's `content.md`, as written. */
+  readonly content: string;
+  /** The unit's claims sidecar, as written. */
+  readonly claims: readonly SectionClaim[];
+}
+
+/**
+ * Audit one unit's binding contract. Pure: the caller hands over the bytes.
+ *
+ * ORDER MATTERS FOR ONE PAIR. A statement below the length threshold is reported as too short and NOT also as
+ * absent: "abc is not in the prose" would be a second, misleading sentence about the same defect, and the repair
+ * for both is to write a real statement.
+ */
+export function auditUnitClaimBinding(input: UnitClaimBindingInput): UnitClaimBindingResult {
+  const { unitId, documentId, content, claims } = input;
+  const segments = substantiveUnitSegments(content);
+  const visible = foldUnitText(visibleUnitText(content));
+  const problems: UnitBindingProblem[] = [];
+
+  for (const claim of claims) {
+    const statement = foldUnitText(claim.statement);
+    const claimId = claim.id || "<missing>";
+    if (statement.length < MINIMUM_BINDABLE_STATEMENT_LENGTH) {
+      problems.push({
+        kind: "statement-too-short",
+        claimId,
+        message: `claim ${claimId} statement is too short to bind to the prose of unit ${JSON.stringify(unitId)}`
+      });
+      continue;
+    }
+    if (!visible.includes(statement)) {
+      problems.push({
+        kind: "statement-absent",
+        claimId,
+        message: `claim ${claimId} statement is not present in unit ${JSON.stringify(unitId)}: ${statement.slice(0, 120)}`
+      });
+    }
+  }
+
+  // Bidirectional containment, as on the section path: a claim may state more than one segment carries, and a
+  // segment split off a longer sentence may be a substring of the statement that covers it.
+  //
+  // SUB-THRESHOLD STATEMENTS ARE OUT OF THE COVERAGE SET (57B-494), filtered by the SAME constant the loop above
+  // judges with — one number, so "too short to bind" and "too short to vouch" cannot drift apart. Letting a
+  // sub-threshold statement in made it a wildcard under bidirectional containment, because a two-character
+  // string is a substring of nearly every segment: measured, a single `验证` claim — reported as unbindable in
+  // the same breath — silenced all three `unclaimed-statement` findings of a three-statement unit. Those are two
+  // internal states that cannot both be true. The too-short finding still fires; what it no longer does is stand
+  // in for a claim nobody wrote. `tests/unit-claim-binding.test.ts` carries that fixture with its direction
+  // reversed and is the test that goes red if this filter is removed.
+  //
+  // WHAT THIS FILTER DOES NOT DO, STATED HERE BECAUSE THE OBVIOUS READING OF IT IS WRONG. It is NOT "only
+  // bindable claims vouch". The loop above rejects a claim for TWO reasons and this set excludes only one of
+  // them: a claim reported `statement-absent` — a statement that is nowhere in this unit's prose — is still in
+  // the coverage set and still silences every segment it happens to contain. Measured on the same fixture: one
+  // absent claim whose statement is the three sentences plus a fourth that appears nowhere reports exactly
+  // `["statement-absent"]`, with all three `unclaimed-statement` findings gone. That residual is WIDER than the
+  // one removed here, because a model that paraphrases instead of quoting produces a long non-verbatim statement
+  // far more readily than a two-character stub. It is not closed here because 57B-494's decision names the
+  // sub-threshold contradiction only, and closing the absent half changes the finding volume of every unit whose
+  // claims are paraphrased — its own decision, with its own real-run measurement. Pinned by name in
+  // `tests/unit-claim-binding.test.ts` so the coverage axis is not read as sound.
+  const folded = claims
+    .map((claim) => foldUnitText(claim.statement))
+    .filter((statement) => statement.length >= MINIMUM_BINDABLE_STATEMENT_LENGTH);
+  for (const segment of segments) {
+    if (folded.some((statement) => statement.includes(segment) || segment.includes(statement))) continue;
+    problems.push({
+      kind: "unclaimed-statement",
+      claimId: null,
+      message: `unit ${JSON.stringify(unitId)} has an unclaimed substantive statement: ${segment.slice(0, 120)}`
+    });
+  }
+
+  // The fourth rule, sharing this file's segmentation: the report's "evidence levels are annotated" conclusion is
+  // only trustworthy if a unit with substantive prose actually carries a marker in it. `hasEvidenceMarkers` is
+  // the one rule for that and is imported rather than re-spelled, so the marker VOCABULARY has a single reader.
+  // NOT version-gated: the section path grandfathers runs prepared before the rule existed, and no unit product
+  // predates this contract, so a gate here would have an empty population.
+  if (segments.length > 0 && !hasEvidenceMarkers(content)) {
+    problems.push({
+      kind: "missing-evidence-marker",
+      claimId: null,
+      message: `unit ${JSON.stringify(unitId)} has substantive statements but no evidence-level marker in its visible prose`
+    });
+  }
+
+  return {
+    version: UNIT_CLAIM_BINDING_VERSION,
+    unitId,
+    documentId,
+    segments,
+    problems,
+    verdict: verdictOf(unitId, segments.length, claims.length, problems)
+  };
+}
+
+function verdictOf(unitId: string, segments: number, statements: number, problems: readonly UnitBindingProblem[]): UnitBindingVerdict {
+  if (problems.length > 0) return { conclusion: "violations", segments, statements, problems: problems.map((row) => row.message) };
+  if (segments === 0 && statements === 0) {
+    return {
+      conclusion: "vacuous",
+      source: `unit ${JSON.stringify(unitId)} makes no substantive statement in its visible prose and declares no claim, so there is nothing to bind in either direction`
+    };
+  }
+  return { conclusion: "complete", segments, statements };
+}
+
+/** One sentence a reader cannot mistake for the other two states. Exhaustive; there is no `passed` boolean. */
+export function summariseUnitClaimBinding(result: UnitClaimBindingResult): string {
+  const { verdict } = result;
+  switch (verdict.conclusion) {
+    case "complete":
+      return `complete: unit ${result.unitId} binds all ${verdict.statements} claim statement(s) to its prose and leaves none of its ${verdict.segments} substantive statement(s) unclaimed`;
+    case "vacuous":
+      return `vacuous: unit ${result.unitId} has no binding to check — ${verdict.source}`;
+    case "violations":
+      return `violations: unit ${result.unitId} breaks the binding contract in ${verdict.problems.length} place(s) over ${verdict.segments} substantive statement(s) and ${verdict.statements} claim(s)`;
+  }
+  return assertNever(verdict, "unit claim binding conclusion");
+}

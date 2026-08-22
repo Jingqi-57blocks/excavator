@@ -1,0 +1,3435 @@
+{
+  "absentByMode": [
+    "audit",
+    "claims"
+  ],
+  "auditUnscoped": "absent-by-mode",
+  "documents": [
+    {
+      "absentUnits": [],
+      "audience": "product",
+      "auditErrors": "absent-by-mode",
+      "auditWarnings": "absent-by-mode",
+      "blocks": 1,
+      "buckets": {
+        "anchor-line": 0,
+        "evidence": 35455,
+        "factpack": 0,
+        "trace": 0,
+        "unattributed": 22274,
+        "work-item": 2052
+      },
+      "claims": "absent-by-mode",
+      "documentId": "overview-product",
+      "factPack": "not-applicable",
+      "kind": "overview",
+      "packetBytes": 59781,
+      "packetDigest": "c88cceac6bbfb9454d6bb671bf061d593c956e48ac0c21ae7d6a2bf416f6a8ec",
+      "repeatedUnits": [],
+      "sections": 10,
+      "units": {
+        "absent": 0,
+        "anchorOnly": 0,
+        "full": 42,
+        "total": 42
+      }
+    },
+    {
+      "absentUnits": [],
+      "audience": "engineering",
+      "auditErrors": "absent-by-mode",
+      "auditWarnings": "absent-by-mode",
+      "blocks": 1,
+      "buckets": {
+        "anchor-line": 0,
+        "evidence": 35455,
+        "factpack": 0,
+        "trace": 0,
+        "unattributed": 22278,
+        "work-item": 2052
+      },
+      "claims": "absent-by-mode",
+      "documentId": "overview-engineering",
+      "factPack": "not-applicable",
+      "kind": "overview",
+      "packetBytes": 59785,
+      "packetDigest": "57c52b9d716005b7c31326b269265b20c532f0e20d78aa23cc343ef1ac23b226",
+      "repeatedUnits": [],
+      "sections": 13,
+      "units": {
+        "absent": 0,
+        "anchorOnly": 0,
+        "full": 42,
+        "total": 42
+      }
+    },
+    {
+      "absentUnits": [
+        {
+          "id": "S-0d9b6d4bef",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-e3183bdf61",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-53a93bcc05",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-b0a2ba4d5b",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-8ff6eda98b",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-f3627baf50",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-f5798806a9",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-091c680805",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-af1db4342b",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-bae4fe7623",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-31332ae2e6",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-ebfac6fbd8",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-bb918f4efb",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-6a660c7b20",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-df50378ac6",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-2054af76b0",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-13cec5a8ee",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-43462f9284",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-63e897becc",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-73b38e078d",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-42ab37c4b5",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-874d773dbc",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-5d1bd8930a",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-ed02a38dc7",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-44290db60e",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-a892f16d93",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-37530f2590",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-f178a5b52a",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-c92eb32e22",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-fc62ebf316",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-d8abefe914",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-1117ecc57b",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-f894cc3f61",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-8dddb938e6",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-f65780a130",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-a849fee809",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-d30431ebfc",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-e848eb9e36",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-23495666e0",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-677a6f5584",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-718e6d7339",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-75144f2d6e",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-791c78b207",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-30c40021b5",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-f7cd4f69b5",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-9f35304ca1",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-10594a4841",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-f1c5f798c6",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-cc6a1a8bf7",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-40b332430f",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-1fb03f5edb",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-cf122e4cd5",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-ef363d6404",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-90a5a9e150",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-c0e8732282",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-b524a5c57d",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-26927dbd17",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-d78d144749",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-df43a53957",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-ae033f2748",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-c156b6769f",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-6a1685d014",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-beee6f0a53",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-50f2cf1bcb",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-424dd20a8b",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-2dea685c9c",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-619777ff9b",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-fa19a7ceab",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-98fd2e385e",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-10cee0e678",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-6657002bfb",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-d3c16953d9",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-6e008f02e1",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-60c0b71d2c",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-2589107115",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-70f4d709d7",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-cf25800d74",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-6ff8d509ff",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-88ddb94763",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-af3bdc8f65",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-caa7adeeb6",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-a222db52e3",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-3ae81c0706",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-e1de6f507a",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-80f319faab",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-606c42ca44",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-1bcea1b938",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-0ba0b3fbd9",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-caf5a6859a",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-8254204e75",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-7fd27d335a",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-0cde4198b4",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-610e990683",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-55df8ff4c0",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-9333416a1a",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-79ae98dc49",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-1d7cea0768",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-34b866c30e",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-a1f5cb773c",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-6fc4dcd2f4",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-14c541b470",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-f181757ec6",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-7fb4108110",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-e908f19117",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-e208ea210b",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-9e6d6cd8e3",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-e288ccffd1",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-775b3e17cb",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-8e6cc12f8f",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-84c6c4c61a",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-89d8c67945",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-36d567364d",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-6672109ab6",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-2f019516c2",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-11a30a5d57",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-56070885e9",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-9c11f74203",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-dcf6e42acd",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-995fbabb96",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-6b425923ec",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-57cc814aab",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-cd6cdaa788",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-d865b5dbeb",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-2b40c3881e",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-bab745c0e6",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-e965df2470",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-00b608190a",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-6003ed0b5f",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-be77624db5",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-a7a582241b",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-de67f6b646",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-40615584ce",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-6ea3ab8d75",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-ec5db4c118",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-a481df8d4c",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-56b2440ce4",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-012955cd05",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-ffb505dc96",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-9d09407b8d",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-356e9b5e08",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-97c7675b34",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-cb70afabe3",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-392db4d4fe",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-1aad48a1ec",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-dce16f97e8",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-9082c8e8cb",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-4593da8b37",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-581b726e92",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-af77f779a7",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-189e6293e7",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-a3f358d5e6",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-d29b37d742",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-fc46346fc0",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-60427777bf",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-408d1baf3a",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-a85573b075",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-9f032ba98d",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-1aa93967a8",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-8d1f571524",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-559c65b87f",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-a42b2929c5",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-2fca3c6af3",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-919e5ca8d2",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-b1207770af",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-10ff8e0fe4",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-36618c2575",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-1c9618b3e3",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-16a899a18a",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-e9e82357be",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-ce2f6bb771",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-12f89dfad4",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-b8a5472b08",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-4600fc7411",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-2531d77c70",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-b235a63c23",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-a981a0ea47",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-9cdcbd735c",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-ee5b2fea66",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-9652202573",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-bb02346b54",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-664c871c4e",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-748ca32bf0",
+          "kind": "evidence"
+        }
+      ],
+      "audience": "product",
+      "auditErrors": "absent-by-mode",
+      "auditWarnings": "absent-by-mode",
+      "blocks": 13,
+      "buckets": {
+        "anchor-line": 3926,
+        "evidence": 203266,
+        "factpack": 44174,
+        "trace": 0,
+        "unattributed": 33584,
+        "work-item": 86330
+      },
+      "claims": "absent-by-mode",
+      "documentId": "feature-请假管理-8c2d685d81-product",
+      "factPack": "present",
+      "kind": "feature",
+      "packetBytes": 371280,
+      "packetDigest": "f6f137faf0cf0ca673216980354b3305d055d555ded874f9739a7de5ba00d118",
+      "repeatedUnits": [
+        {
+          "id": "factpack:请假管理-8c2d685d81:logic",
+          "kind": "factpack",
+          "occurrences": 3
+        }
+      ],
+      "sections": 13,
+      "units": {
+        "absent": 182,
+        "anchorOnly": 1,
+        "full": 509,
+        "total": 692
+      }
+    },
+    {
+      "absentUnits": [
+        {
+          "id": "S-ce2ad5ede0",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-5754ab9095",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-7417918541",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-12217dc2f4",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-0a325e0606",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-0d9b6d4bef",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-9e2590e24c",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-33d9409c66",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-274bfa06b8",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-95e30362ff",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-77c1a4be80",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-241ceb1190",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-dfa83209ec",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-16f4d22576",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-e33ecad786",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-70cf65f50a",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-9158b12c89",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-dff5a81fdb",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-1599e0b727",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-3f95a2b859",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-88b7d920db",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-3fe662b8bd",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-1f98767122",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-47bcbdf60e",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-077a09b664",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-d48f060e33",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-76ff21b938",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-1f37e5ed52",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-ae3058a8c9",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-3de075b642",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-9f60e6cb75",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-e728f6be0e",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-8c551e15aa",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-06631025be",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-ed6d2c311e",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-c4f452fb74",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-de67f6b646",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-35d6e9ca86",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-f2833fcd2c",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-1ad252f39c",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-501f6982d2",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-53a93bcc05",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-1b171315ef",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-322b214922",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-f064647c76",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-8860118136",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-28e085ef7e",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-f113f477b2",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-b1f988af36",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-9366d1c3fc",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-ba6ec91b47",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-f2e7acf606",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-4bdef1a799",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-246a25d25a",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-1b53b9ffad",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-8bbe2ea5a5",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-851a40d6de",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-1a6907dc9e",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-15b6eb5a61",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-c31890e265",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-de0249ad4b",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-97a50915fd",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-4bd94b7c1b",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-709da6b382",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-747c337ba4",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-7985cef306",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-ca59d2e16a",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-723ad35406",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-d0fdb6c565",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-9a9d3078eb",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-38cdfeafdf",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-31966b7504",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-36d18ec088",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-464fee7807",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-827f4e261e",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-dcb67fa4f6",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-76dbb4a8bc",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-664c871c4e",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-4ac605b243",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-69d845c2dd",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-fc758bd51f",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-215cd9c939",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-5d1bd8930a",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-01cd7b2bb7",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-31d2762727",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-80f5a2faf6",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-fce742358c",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-19eec34f28",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-9d20d9b449",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-d64cc3a8d7",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-bc2642e496",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-6894e371c0",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-dcccb3ccfb",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-5fe11a2fff",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-797411617c",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-ec1e926f14",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-34da0c3306",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-4c167a987a",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-d0368aa332",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-e59c7e8704",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-cef9e7a8ac",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-14d4a76b67",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-2c003de0d0",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-3e06e0f2d5",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-74c39abdb0",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-91ac4ef7f2",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-523c9f4e1c",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-0340d34386",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-2cec159667",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-a0549a4ea7",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-29d08d917d",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-283e98c7c9",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-5f79e5973f",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-cb20805b7b",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-90df928920",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-5d926add19",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-c785954667",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-2728c6551c",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-45e2ae323e",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-1e81ec19b0",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-4af9b1e94d",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-d444decc45",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-2d1f7648d5",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-431d62479b",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-ca5709ed62",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-6dbde34bb7",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-9db6542a45",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-6dba7e9bb4",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-155910d7fc",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-844efbded5",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-06ab8e864e",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-70d239fb1b",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-7370fe5e9c",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-104ca1cafc",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-7afa0a8f29",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-9b0f2d3c25",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-8697743625",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-fd5eedce78",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-3fb0ced788",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-a892f16d93",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-4ed3e93e66",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-5871b984e0",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-92b6d2f8b8",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-3b6218abea",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-e2fa6e6f68",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-39066d43d0",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-f10fc81437",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-2b40c3881e",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-46e4b78a84",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-1326db9ffe",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-44922fd971",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-46f64c4a6c",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-5614efee55",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-86dc2e0c6b",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-94d4679d66",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-b8631840ea",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-e8badfeba5",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-fc22999079",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-b2d2f3b344",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-da208e3da5",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-b2103a6d2f",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-bddb0d0dbc",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-993a270faa",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-1a9f87c960",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-913e1c29b9",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-98d25f210b",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-acdda6ecc2",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-8b5b3b5769",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-a8282d3e91",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-fce0d6f1ef",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-5d29298ea2",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-e949a5d7c9",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-c2894043bd",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-e87b0be2d6",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-4d5c2cf3e9",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-90c8877fc5",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-8ab70caf5c",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-026f0cbf1c",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-b0255de393",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-89d5f50b30",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-54251a492a",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-d84b1b2c95",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-4ce550465c",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-994af54343",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-e286c3ca7c",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-0cde4198b4",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-14c541b470",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-6657002bfb",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-f37cc5a495",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-37461b3e0c",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-eb513e1107",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-4ca65dab1e",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-b25071beb8",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-7332be454e",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-f1e64bc4b6",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-8d797b225e",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-cbc2f08420",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-0f8310406f",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-808f4a84b4",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-c2160bfd8b",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-2ecbe14ee8",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-2bd51c7279",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-6284074bec",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-d2324a6141",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-efd315461a",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-3328642878",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-61319aace8",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-fbb2dd3e1d",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-8114a123c7",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-90d1db2aa0",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-83460a4aa5",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-b859f1dfc6",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-4c07291515",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-82e99927eb",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-e1a53d53b8",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-7de7ff927f",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-86f152c7f3",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-b0a2ba4d5b",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-2319bd5219",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-809b26a4d3",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-d05477e73f",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-88ddb94763",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-8fd3530504",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-a317911946",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-4b0b7d0de5",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-cd2da013f1",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-b23461302f",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-dcb3a85e45",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-78cbfcd964",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-acec73f5c0",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-2f3be61db4",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-9969293886",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-d6ea3848ee",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-e26a0a2120",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-6dea065bc5",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-4600fc7411",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-426aa905ee",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-874d773dbc",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-d4431a96ec",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-6ebd401977",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-2f019516c2",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-52b72e563e",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-6b12c13ccc",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-02e5c85aa6",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-40ca3e464f",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-b2418639b8",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-95c2c02fb4",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-ff03c86250",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-ef7a1ba39c",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-e6b98aca82",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-fe08e94e59",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-0e231d587d",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-912fa15999",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-f08fdd8311",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-affa75f02d",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-dedb05d24a",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-6d3553b132",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-6a41cb9b02",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-b2c8a0dcdd",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-6ad9724af6",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-b7cf31d4f8",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-fd7d43bc26",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-f7c4e125aa",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-7310cd3f71",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-e5a5016929",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-367c251890",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-c9a2dfcc06",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-7fd27d335a",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-95920868e0",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-0aa85c3b22",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-d28cdc6643",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-bfe8474a42",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-cfbed3d3fd",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-d4f9c69277",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-c7653d2576",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-00567799f1",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-0f46a2e9d9",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-1c0acc142d",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-e7d0992aa9",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-da1bf0e982",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-6677293907",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-1bd6300a05",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-7a55bc3127",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-dead95ea41",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-5f0120732f",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-fe309a255c",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-34b7184ccb",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-725aeacea3",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-54d15928c6",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-8b827ad8da",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-a981a0ea47",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-3df076be7e",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-995fbabb96",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-e3217a37eb",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-18ac668b7d",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-ec04876a26",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-5ad0d9f745",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-af0d3f5e30",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-cfa7541073",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-6ae15a6ccf",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-a201ca5a2f",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-f1a4f5d1d4",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-b686dd2148",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-d876c9fa98",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-0e8db58398",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-043c6e7748",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-518344485b",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-1be00429cb",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-da58c7d945",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-10f6f773cf",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-0da75837ec",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-eeea388e09",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-5632923561",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-1b46d42e87",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-7189ac6efe",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-7c1055be07",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-04c2b6cff4",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-85dccf9c35",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-7d02b4eef0",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-43ac6f580d",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-71c18cbd8b",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-2d159ca5d6",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-3147a9f4c4",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-b596c6f93f",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-d4b515b258",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-f8b4cac41c",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-049b3602ad",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-03240075da",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-1c0f46ace9",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-1c56e497bf",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-5dec54464c",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-0541203888",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-34b866c30e",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-5b4c5f9e15",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-9bea605b1a",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-0e4eeb903e",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-b528ff29f7",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-7c8adf1721",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-d89c80f5ca",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-6edf0d8ee7",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-5ae9a775f6",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-60b204eb49",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-b20a5dabee",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-ddadd7f342",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-c6f012b2cb",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-e60f015023",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-ebfac6fbd8",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-9082c8e8cb",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-14d64bcb92",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-c1fda5241a",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-590478a434",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-b170c6879a",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-b903ad638d",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-23774bc8a9",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-d0a488aa6b",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-43e887a2e5",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-f0fc61f991",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-982e5ae19a",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-2c02fbdba0",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-35d0b9968a",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-dc67f7243f",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-23cb35798e",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-689303836d",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-a4fded630d",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-b2a6f89af6",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-b2155c8fd6",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-4937a2234b",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-9f4159ec0f",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-e30c1e72ce",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-42c20b1a19",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-35b867812c",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-bb953b0757",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-3f2547a123",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-0886349ff6",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-279e122152",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-3fc0f976f3",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-23004c9e01",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-d80ad54651",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-2b6b0ae68b",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-f0ca8946c7",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-73c639b2b0",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-add7157523",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-cd8ac57e17",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-6e37889c5e",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-8d499afe58",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-b959d7c114",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-e0ecbc7cbe",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-ddab573a0d",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-840f636136",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-199eb84fb3",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-e5d023767d",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-e1b5965f32",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-d8b35f00ca",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-ec08f09a73",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-08e31bca46",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-c374b6edac",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-6fc4dcd2f4",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-f56e3bfd17",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-ef7a92776d",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-c0cda727b0",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-61e45b3916",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-8256d11d71",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-91ef1ff2ff",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-a090c88d3d",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-5b6baaa7d0",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-bb3548821d",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-a722af8299",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-878b6e170f",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-d0fbed427b",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-118104850c",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-36c8f48c12",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-63e98f7654",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-ae7ba3c8f7",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-0105469033",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-5a30a0a455",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-a076e05f6a",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-17ebb4ac63",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-091b3201ea",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-21092758d7",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-3035eadab0",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-90d45ea6c3",
+          "kind": "evidence"
+        },
+        {
+          "id": "S-2ff2668590",
+          "kind": "evidence"
+        }
+      ],
+      "audience": "engineering",
+      "auditErrors": "absent-by-mode",
+      "auditWarnings": "absent-by-mode",
+      "blocks": 13,
+      "buckets": {
+        "anchor-line": 3284,
+        "evidence": 172814,
+        "factpack": 39280,
+        "trace": 0,
+        "unattributed": 28585,
+        "work-item": 155369
+      },
+      "claims": "absent-by-mode",
+      "documentId": "feature-晋升管理-01e5065d19-engineering",
+      "factPack": "present",
+      "kind": "feature",
+      "packetBytes": 399332,
+      "packetDigest": "a4e43c91f8167b52b9234dfb154b11efd06a593260d1ec47f6666145cc80570a",
+      "repeatedUnits": [
+        {
+          "id": "factpack:晋升管理-01e5065d19:logic",
+          "kind": "factpack",
+          "occurrences": 3
+        }
+      ],
+      "sections": 12,
+      "units": {
+        "absent": 422,
+        "anchorOnly": 1,
+        "full": 781,
+        "total": 1204
+      }
+    }
+  ],
+  "duplication": {
+    "anchorLineBytes": 7210,
+    "byKind": {
+      "evidence": {
+        "bytes": 453872,
+        "duplicateBytes": 49908,
+        "units": 389
+      },
+      "factpack": {
+        "bytes": 83454,
+        "duplicateBytes": 0,
+        "units": 14
+      },
+      "trace": {
+        "bytes": 0,
+        "duplicateBytes": 0,
+        "units": 0
+      },
+      "work-item": {
+        "bytes": 246131,
+        "duplicateBytes": 2052,
+        "units": 917
+      }
+    },
+    "duplicateBytes": 51960,
+    "duplicatedUnits": [
+      {
+        "bytes": [
+          1818,
+          1818,
+          1994
+        ],
+        "documentIds": [
+          "overview-product",
+          "overview-engineering",
+          "feature-请假管理-8c2d685d81-product"
+        ],
+        "duplicateBytes": 3812,
+        "id": "S-9a1992dbfc",
+        "kind": "evidence",
+        "packets": 3
+      },
+      {
+        "bytes": [
+          1901,
+          1901,
+          1901
+        ],
+        "documentIds": [
+          "overview-product",
+          "overview-engineering",
+          "feature-晋升管理-01e5065d19-engineering"
+        ],
+        "duplicateBytes": 3802,
+        "id": "S-0e2a0af522",
+        "kind": "evidence",
+        "packets": 3
+      },
+      {
+        "bytes": [
+          1532,
+          1532,
+          1620
+        ],
+        "documentIds": [
+          "overview-product",
+          "overview-engineering",
+          "feature-晋升管理-01e5065d19-engineering"
+        ],
+        "duplicateBytes": 3152,
+        "id": "S-8834d41e9c",
+        "kind": "evidence",
+        "packets": 3
+      },
+      {
+        "bytes": [
+          1564,
+          1564,
+          1564
+        ],
+        "documentIds": [
+          "overview-product",
+          "overview-engineering",
+          "feature-晋升管理-01e5065d19-engineering"
+        ],
+        "duplicateBytes": 3128,
+        "id": "S-03b7d249f6",
+        "kind": "evidence",
+        "packets": 3
+      },
+      {
+        "bytes": [
+          1431,
+          1431,
+          1475
+        ],
+        "documentIds": [
+          "overview-product",
+          "overview-engineering",
+          "feature-请假管理-8c2d685d81-product"
+        ],
+        "duplicateBytes": 2906,
+        "id": "S-d5fbb5ce23",
+        "kind": "evidence",
+        "packets": 3
+      },
+      {
+        "bytes": [
+          1433,
+          1433,
+          1433
+        ],
+        "documentIds": [
+          "overview-product",
+          "overview-engineering",
+          "feature-晋升管理-01e5065d19-engineering"
+        ],
+        "duplicateBytes": 2866,
+        "id": "S-abd59f43a9",
+        "kind": "evidence",
+        "packets": 3
+      },
+      {
+        "bytes": [
+          1279,
+          1279,
+          1323
+        ],
+        "documentIds": [
+          "overview-product",
+          "overview-engineering",
+          "feature-晋升管理-01e5065d19-engineering"
+        ],
+        "duplicateBytes": 2602,
+        "id": "S-e2f536cfe1",
+        "kind": "evidence",
+        "packets": 3
+      },
+      {
+        "bytes": [
+          1060,
+          1060,
+          1060
+        ],
+        "documentIds": [
+          "overview-product",
+          "overview-engineering",
+          "feature-晋升管理-01e5065d19-engineering"
+        ],
+        "duplicateBytes": 2120,
+        "id": "S-4e3eb8e444",
+        "kind": "evidence",
+        "packets": 3
+      },
+      {
+        "bytes": [
+          2042,
+          2042
+        ],
+        "documentIds": [
+          "overview-product",
+          "overview-engineering"
+        ],
+        "duplicateBytes": 2042,
+        "id": "S-a760acb321",
+        "kind": "evidence",
+        "packets": 2
+      },
+      {
+        "bytes": [
+          1661,
+          1661
+        ],
+        "documentIds": [
+          "overview-product",
+          "overview-engineering"
+        ],
+        "duplicateBytes": 1661,
+        "id": "S-73d6664709",
+        "kind": "evidence",
+        "packets": 2
+      },
+      {
+        "bytes": [
+          1546,
+          1546
+        ],
+        "documentIds": [
+          "overview-product",
+          "overview-engineering"
+        ],
+        "duplicateBytes": 1546,
+        "id": "S-c5109a68cd",
+        "kind": "evidence",
+        "packets": 2
+      },
+      {
+        "bytes": [
+          739,
+          739,
+          783
+        ],
+        "documentIds": [
+          "overview-product",
+          "overview-engineering",
+          "feature-请假管理-8c2d685d81-product"
+        ],
+        "duplicateBytes": 1522,
+        "id": "S-1187ab1e08",
+        "kind": "evidence",
+        "packets": 3
+      },
+      {
+        "bytes": [
+          1468,
+          1468
+        ],
+        "documentIds": [
+          "overview-product",
+          "overview-engineering"
+        ],
+        "duplicateBytes": 1468,
+        "id": "S-6c70ed741c",
+        "kind": "evidence",
+        "packets": 2
+      },
+      {
+        "bytes": [
+          676,
+          676,
+          720
+        ],
+        "documentIds": [
+          "overview-product",
+          "overview-engineering",
+          "feature-请假管理-8c2d685d81-product"
+        ],
+        "duplicateBytes": 1396,
+        "id": "S-3dde48835d",
+        "kind": "evidence",
+        "packets": 3
+      },
+      {
+        "bytes": [
+          1391,
+          1391
+        ],
+        "documentIds": [
+          "overview-product",
+          "overview-engineering"
+        ],
+        "duplicateBytes": 1391,
+        "id": "S-d081512d82",
+        "kind": "evidence",
+        "packets": 2
+      },
+      {
+        "bytes": [
+          1356,
+          1356
+        ],
+        "documentIds": [
+          "overview-product",
+          "overview-engineering"
+        ],
+        "duplicateBytes": 1356,
+        "id": "S-b475049e7a",
+        "kind": "evidence",
+        "packets": 2
+      },
+      {
+        "bytes": [
+          1301,
+          1301
+        ],
+        "documentIds": [
+          "overview-product",
+          "overview-engineering"
+        ],
+        "duplicateBytes": 1301,
+        "id": "S-4764072e43",
+        "kind": "evidence",
+        "packets": 2
+      },
+      {
+        "bytes": [
+          1252,
+          1252
+        ],
+        "documentIds": [
+          "overview-product",
+          "overview-engineering"
+        ],
+        "duplicateBytes": 1252,
+        "id": "S-f6cbbe7e81",
+        "kind": "evidence",
+        "packets": 2
+      },
+      {
+        "bytes": [
+          1230,
+          1230
+        ],
+        "documentIds": [
+          "overview-product",
+          "overview-engineering"
+        ],
+        "duplicateBytes": 1230,
+        "id": "S-c220de7344",
+        "kind": "evidence",
+        "packets": 2
+      },
+      {
+        "bytes": [
+          1170,
+          1170
+        ],
+        "documentIds": [
+          "overview-product",
+          "overview-engineering"
+        ],
+        "duplicateBytes": 1170,
+        "id": "S-33a8747593",
+        "kind": "evidence",
+        "packets": 2
+      },
+      {
+        "bytes": [
+          1077,
+          1077
+        ],
+        "documentIds": [
+          "overview-product",
+          "overview-engineering"
+        ],
+        "duplicateBytes": 1077,
+        "id": "S-8be67474ce",
+        "kind": "evidence",
+        "packets": 2
+      },
+      {
+        "bytes": [
+          1033,
+          1033
+        ],
+        "documentIds": [
+          "overview-product",
+          "overview-engineering"
+        ],
+        "duplicateBytes": 1033,
+        "id": "S-e2c5f59217",
+        "kind": "evidence",
+        "packets": 2
+      },
+      {
+        "bytes": [
+          957,
+          957
+        ],
+        "documentIds": [
+          "overview-product",
+          "overview-engineering"
+        ],
+        "duplicateBytes": 957,
+        "id": "S-971b60cafa",
+        "kind": "evidence",
+        "packets": 2
+      },
+      {
+        "bytes": [
+          926,
+          926
+        ],
+        "documentIds": [
+          "overview-product",
+          "overview-engineering"
+        ],
+        "duplicateBytes": 926,
+        "id": "S-cca4696077",
+        "kind": "evidence",
+        "packets": 2
+      },
+      {
+        "bytes": [
+          889,
+          889
+        ],
+        "documentIds": [
+          "overview-product",
+          "overview-engineering"
+        ],
+        "duplicateBytes": 889,
+        "id": "S-5aa754ac09",
+        "kind": "evidence",
+        "packets": 2
+      },
+      {
+        "bytes": [
+          740,
+          740
+        ],
+        "documentIds": [
+          "overview-product",
+          "overview-engineering"
+        ],
+        "duplicateBytes": 740,
+        "id": "S-7ebe6b3043",
+        "kind": "evidence",
+        "packets": 2
+      },
+      {
+        "bytes": [
+          677,
+          677
+        ],
+        "documentIds": [
+          "overview-product",
+          "overview-engineering"
+        ],
+        "duplicateBytes": 677,
+        "id": "S-6e256e788e",
+        "kind": "evidence",
+        "packets": 2
+      },
+      {
+        "bytes": [
+          563,
+          563
+        ],
+        "documentIds": [
+          "overview-product",
+          "overview-engineering"
+        ],
+        "duplicateBytes": 563,
+        "id": "S-0aff7a1531",
+        "kind": "evidence",
+        "packets": 2
+      },
+      {
+        "bytes": [
+          562,
+          562
+        ],
+        "documentIds": [
+          "overview-product",
+          "overview-engineering"
+        ],
+        "duplicateBytes": 562,
+        "id": "S-13a172511f",
+        "kind": "evidence",
+        "packets": 2
+      },
+      {
+        "bytes": [
+          407,
+          407
+        ],
+        "documentIds": [
+          "feature-请假管理-8c2d685d81-product",
+          "feature-晋升管理-01e5065d19-engineering"
+        ],
+        "duplicateBytes": 407,
+        "id": "S-934270453c",
+        "kind": "evidence",
+        "packets": 2
+      },
+      {
+        "bytes": [
+          189,
+          189
+        ],
+        "documentIds": [
+          "overview-product",
+          "overview-engineering"
+        ],
+        "duplicateBytes": 189,
+        "id": "project:literal-identifiers",
+        "kind": "work-item",
+        "packets": 2
+      },
+      {
+        "bytes": [
+          182,
+          182
+        ],
+        "documentIds": [
+          "overview-product",
+          "overview-engineering"
+        ],
+        "duplicateBytes": 182,
+        "id": "project:discarded-errors",
+        "kind": "work-item",
+        "packets": 2
+      },
+      {
+        "bytes": [
+          181,
+          181
+        ],
+        "documentIds": [
+          "overview-product",
+          "overview-engineering"
+        ],
+        "duplicateBytes": 181,
+        "id": "SEARCH-904f4b2a59a5",
+        "kind": "evidence",
+        "packets": 2
+      },
+      {
+        "bytes": [
+          180,
+          180
+        ],
+        "documentIds": [
+          "overview-product",
+          "overview-engineering"
+        ],
+        "duplicateBytes": 180,
+        "id": "project:deprecated-or-unfinished",
+        "kind": "work-item",
+        "packets": 2
+      },
+      {
+        "bytes": [
+          180,
+          180
+        ],
+        "documentIds": [
+          "overview-product",
+          "overview-engineering"
+        ],
+        "duplicateBytes": 180,
+        "id": "project:shared-storage",
+        "kind": "work-item",
+        "packets": 2
+      },
+      {
+        "bytes": [
+          171,
+          171
+        ],
+        "documentIds": [
+          "overview-product",
+          "overview-engineering"
+        ],
+        "duplicateBytes": 171,
+        "id": "project:documentation-drift",
+        "kind": "work-item",
+        "packets": 2
+      },
+      {
+        "bytes": [
+          171,
+          171
+        ],
+        "documentIds": [
+          "overview-product",
+          "overview-engineering"
+        ],
+        "duplicateBytes": 171,
+        "id": "project:external-call-in-transaction",
+        "kind": "work-item",
+        "packets": 2
+      },
+      {
+        "bytes": [
+          171,
+          171
+        ],
+        "documentIds": [
+          "overview-product",
+          "overview-engineering"
+        ],
+        "duplicateBytes": 171,
+        "id": "project:feature-switches",
+        "kind": "work-item",
+        "packets": 2
+      },
+      {
+        "bytes": [
+          170,
+          170
+        ],
+        "documentIds": [
+          "overview-product",
+          "overview-engineering"
+        ],
+        "duplicateBytes": 170,
+        "id": "project:open-investigation",
+        "kind": "work-item",
+        "packets": 2
+      },
+      {
+        "bytes": [
+          166,
+          166
+        ],
+        "documentIds": [
+          "overview-product",
+          "overview-engineering"
+        ],
+        "duplicateBytes": 166,
+        "id": "project:literal-secrets",
+        "kind": "work-item",
+        "packets": 2
+      },
+      {
+        "bytes": [
+          162,
+          162
+        ],
+        "documentIds": [
+          "overview-product",
+          "overview-engineering"
+        ],
+        "duplicateBytes": 162,
+        "id": "project:duplicate-entrypoints",
+        "kind": "work-item",
+        "packets": 2
+      },
+      {
+        "bytes": [
+          155,
+          155
+        ],
+        "documentIds": [
+          "overview-product",
+          "overview-engineering"
+        ],
+        "duplicateBytes": 155,
+        "id": "project:guard-polarity",
+        "kind": "work-item",
+        "packets": 2
+      },
+      {
+        "bytes": [
+          155,
+          155
+        ],
+        "documentIds": [
+          "overview-product",
+          "overview-engineering"
+        ],
+        "duplicateBytes": 155,
+        "id": "project:uncalled-entrypoints",
+        "kind": "work-item",
+        "packets": 2
+      },
+      {
+        "bytes": [
+          62,
+          62
+        ],
+        "documentIds": [
+          "feature-请假管理-8c2d685d81-product",
+          "feature-晋升管理-01e5065d19-engineering"
+        ],
+        "duplicateBytes": 62,
+        "id": "CG-ROUTES-8abb47953398270d7f0c",
+        "kind": "evidence",
+        "packets": 2
+      },
+      {
+        "bytes": [
+          56,
+          56
+        ],
+        "documentIds": [
+          "feature-请假管理-8c2d685d81-product",
+          "feature-晋升管理-01e5065d19-engineering"
+        ],
+        "duplicateBytes": 56,
+        "id": "GIT-8abb47953398270d7f0c",
+        "kind": "evidence",
+        "packets": 2
+      },
+      {
+        "bytes": [
+          55,
+          55
+        ],
+        "documentIds": [
+          "feature-请假管理-8c2d685d81-product",
+          "feature-晋升管理-01e5065d19-engineering"
+        ],
+        "duplicateBytes": 55,
+        "id": "CG-8abb47953398270d7f0c",
+        "kind": "evidence",
+        "packets": 2
+      }
+    ],
+    "duplicateRatio": 0.05837,
+    "totalPacketBytes": 890178,
+    "unattributedBytes": 106721,
+    "unitsDuplicated": 46,
+    "unitsTotal": 1320
+  },
+  "knowledgeEpoch": 0,
+  "mode": "frozen-not-authored",
+  "readCoverage": {
+    "consumptionEvaluated": false,
+    "items": 919,
+    "itemsByStatus": {
+      "covered": 875,
+      "not-opened": 42,
+      "partial": 2
+    },
+    "notOpenedByAttribution": {
+      "anchorName": 0,
+      "anchorPath": 0,
+      "retained": 0,
+      "unclassified": 42
+    },
+    "notOpenedLinesByAttribution": {
+      "anchorName": 0,
+      "anchorPath": 0,
+      "retained": 0,
+      "unclassified": 1010
+    },
+    "summary": {
+      "cannotDetermine": 0,
+      "counted": 919,
+      "covered": 875,
+      "gatedNotOpened": 0,
+      "notOpened": 42,
+      "obligationLines": 37338,
+      "openedLines": 36265,
+      "openedNotConsumed": 877,
+      "partial": 2,
+      "uncoveredLines": 1073
+    },
+    "version": "read-coverage-v1"
+  },
+  "runId": "run-2026_08_20_03_48-overview+请假管理+晋升管理-8abb4795-251cd3b2-740f3203",
+  "snapshotId": "8abb47953398270d7f0c",
+  "totals": {
+    "auditErrors": "absent-by-mode",
+    "auditFindings": "absent-by-mode",
+    "auditWarnings": "absent-by-mode",
+    "claims": "absent-by-mode",
+    "documents": 4,
+    "packetBytes": 890178,
+    "sections": 48
+  },
+  "version": 2,
+  "workItems": {
+    "byDimensionStatus": {
+      "api-entrypoints": {
+        "found": 2
+      },
+      "authorization": {
+        "found": 2
+      },
+      "background-work": {
+        "found": 2
+      },
+      "boundary": {
+        "found": 2
+      },
+      "calculations-and-thresholds": {
+        "found": 2
+      },
+      "callers": {
+        "found": 2
+      },
+      "configuration": {
+        "found": 2
+      },
+      "connected-change-scope": {
+        "found": 2
+      },
+      "coverage-accounting": {
+        "found": 2
+      },
+      "data-and-shared-storage": {
+        "found": 2
+      },
+      "data-scope": {
+        "found": 2
+      },
+      "decision-flow": {
+        "found": 2
+      },
+      "decision-function": {
+        "found": 799
+      },
+      "deprecated-or-unfinished": {
+        "found": 1
+      },
+      "discarded-errors": {
+        "found": 1
+      },
+      "documentation-drift": {
+        "found": 2,
+        "searched-not-found": 1
+      },
+      "duplicate-entrypoints": {
+        "found": 1
+      },
+      "entities-and-fields": {
+        "found": 2
+      },
+      "external-call-in-transaction": {
+        "found": 1
+      },
+      "failure-modes": {
+        "found": 2
+      },
+      "feature-switches": {
+        "found": 1
+      },
+      "files-and-integrations": {
+        "found": 2
+      },
+      "guard-polarity": {
+        "found": 1
+      },
+      "literal-identifiers": {
+        "found": 1
+      },
+      "literal-secrets": {
+        "found": 1
+      },
+      "logic-disposition": {
+        "found": 48
+      },
+      "model-parity": {
+        "found": 2
+      },
+      "normal-flow": {
+        "found": 2
+      },
+      "notifications-and-exports": {
+        "found": 2
+      },
+      "open-investigation": {
+        "found": 3
+      },
+      "reversal-flow": {
+        "found": 2
+      },
+      "scheduled-entrypoints": {
+        "found": 2
+      },
+      "shared-storage": {
+        "found": 1
+      },
+      "states-and-lifecycle": {
+        "found": 2
+      },
+      "tests": {
+        "found": 1,
+        "searched-not-found": 1
+      },
+      "transactions-and-partial-success": {
+        "found": 2
+      },
+      "type-variants": {
+        "found": 2
+      },
+      "ui-entrypoints": {
+        "found": 2
+      },
+      "uncalled-entrypoints": {
+        "found": 1
+      },
+      "unfinished-and-current-problems": {
+        "found": 2
+      },
+      "validation-and-duplicates": {
+        "found": 2
+      }
+    },
+    "byStatus": {
+      "found": 915,
+      "searched-not-found": 2
+    },
+    "total": 917,
+    "unsettled": 0
+  }
+}

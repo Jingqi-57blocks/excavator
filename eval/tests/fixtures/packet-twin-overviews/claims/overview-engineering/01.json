@@ -1,0 +1,17 @@
+{
+  "claims": [
+    {
+      "confidence": "high",
+      "evidenceIds": [
+        "E-1"
+      ],
+      "id": "claim-1",
+      "marker": "fact",
+      "statement": "The route is registered on the express app.",
+      "status": "verified"
+    }
+  ],
+  "documentId": "overview-engineering",
+  "section": 1,
+  "version": 2
+}

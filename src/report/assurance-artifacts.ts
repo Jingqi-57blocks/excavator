@@ -1,9 +1,6 @@
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
-import type {
-  DocumentPlan, InvestigationPlan, SectionClaim, SectionClaimsFile, TraceCatalog
-} from "../base/types.ts";
-import { exists, writeJson } from "../base/util.ts";
+import type { DocumentPlan, SectionClaim, SectionClaimsFile } from "../base/types.ts";
+import { exists } from "../base/util.ts";
 import { sectionPaths } from "./section-paths.ts";
 
 /**
@@ -29,26 +26,17 @@ export async function collectClaims(runDir: string, documents: DocumentPlan[]): 
   return claims;
 }
 
-export async function writeReportCompanions(runDir: string, document: DocumentPlan, plan: InvestigationPlan, traces: TraceCatalog): Promise<void> {
-  const claims: Array<SectionClaimsFile> = [];
-  for (const section of document.sections) {
-    const claimsPath = sectionPaths(runDir, document.id, section).claimsFile;
-    if (await exists(claimsPath)) claims.push(await readJsonFile<SectionClaimsFile>(claimsPath));
-  }
-  const documentClaimIds = new Set(claims.flatMap((file) => file.claims.map((claim) => claim.id)));
-  const documentTraces = traces.traces.filter((trace) => trace.documentIds.includes(document.id) || trace.steps.some((step) => (step.claimIds ?? []).some((id) => documentClaimIds.has(id))));
-  const workItems = plan.items.filter((item) => item.requiredFor.includes(document.id));
-  const base = join(runDir, "reports", "companions", document.id);
-  await writeJson(`${base}.claims.json`, { version: 1, documentId: document.id, sections: claims });
-  await writeJson(`${base}.traces.json`, { version: 1, documentId: document.id, traces: documentTraces });
-  await writeJson(`${base}.coverage.json`, {
-    version: 1,
-    documentId: document.id,
-    total: workItems.length,
-    complete: workItems.filter((item) => !["pending", "in_progress"].includes(item.status)).length,
-    material: workItems.filter((item) => item.material).length,
-    items: workItems
-  });
+/**
+ * The three run-relative companion paths one SECTION-path document occupies.
+ *
+ * Extracted from the section path's companion WRITER so the unit path could refuse to assemble into a name that
+ * path already owns without spelling these three names a second time. The writer itself was deleted with the
+ * section audit (57B-481); these names outlived it because the refusal still has to know them — an assembled unit
+ * document must not land on a section run's companion path.
+ */
+export function sectionCompanionRelativePaths(documentId: string): { readonly claims: string; readonly traces: string; readonly coverage: string } {
+  const base = `reports/companions/${documentId}`;
+  return { claims: `${base}.claims.json`, traces: `${base}.traces.json`, coverage: `${base}.coverage.json` };
 }
 
 async function readJsonFile<T>(path: string): Promise<T> {

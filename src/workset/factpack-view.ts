@@ -1,6 +1,6 @@
 import {
-  FACT_KIND_IDS, MEMBERSHIP_KINDS, evaluateSeat, factKindById,
-  type FactKindId, type Membership
+  MEMBERSHIP_KINDS, evaluateSeat, factKindById, isFactKindId,
+  type Membership
 } from "../base/fact-kind-registry.ts";
 import type { EvidenceItem, FactPackCategory, FactPackItem, FeatureFactPack } from "../base/types.ts";
 import { sha256, stableJson } from "../base/util.ts";
@@ -235,10 +235,6 @@ function validateMembership(value: unknown, source: string): asserts value is Me
   if (membership.kind === "span-set" && !ids(membership.unitIds)) throw new Error(source + " span-set arm requires non-empty unitIds");
   if (membership.kind === "relation" && !ids(membership.endpoints)) throw new Error(source + " relation arm requires non-empty endpoints");
   if (membership.kind === "module" && !id(membership.moduleId)) throw new Error(source + " module arm requires a non-empty moduleId");
-}
-
-function isFactKindId(value: unknown): value is FactKindId {
-  return typeof value === "string" && (FACT_KIND_IDS as readonly string[]).includes(value);
 }
 
 function relationCounts(items: readonly FactPackItem[]): { seeded: number; retained: number; coLocated: number; notApplicable: number } {
