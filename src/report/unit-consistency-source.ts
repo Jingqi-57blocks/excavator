@@ -36,9 +36,10 @@
  */
 
 import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 import type { SectionClaim } from "../base/types.ts";
 import { exists, readJson } from "../base/util.ts";
+import type { Requirements } from "../contract/bound-run-contract.ts";
 import { lensPolicyFor } from "./report-policy-registry.ts";
 import { assembledJsonBytes } from "./unit-assembly.ts";
 import { runRelativePath } from "./unit-assembly-paths.ts";
@@ -115,7 +116,8 @@ export async function checkRunConsistency(runDirInput: string): Promise<UnitCons
     statement: `every synthesis unit's recorded childSummaryDigests equal the digests of its children's summaries as they are on disk now (${[...summaries.keys()].length} summary/summaries read)`
   });
 
-  const documents: ConsistencyDocument[] = assembly.documents.map((document) => toConsistencyDocument(document, summaries, assembly));
+  const chapterCounts = await readPlannedChapterCounts(runDir, readPaths);
+  const documents: ConsistencyDocument[] = assembly.documents.map((document) => toConsistencyDocument(document, summaries, assembly, chapterCounts));
   const result = checkUnitConsistency({
     documents,
     workItems: assembly.plan.workItems,
@@ -226,11 +228,41 @@ function assertChildSummaryDigestsCurrent(assembly: UnitAssembly, summaries: Rea
   throw new Error(`This run's collected units disagree about what their children said, so it cannot be checked for consistency: ${problems.join("; ")}. Re-draft and re-collect the units named first, then assemble again.`);
 }
 
+/**
+ * How many numbered chapters each planned document owes, from THIS RUN's recorded requirement rows.
+ *
+ * `contract/requirements.json` is one of the three inputs materialized before any producer ran, and it holds one
+ * row per level-two template section of every requested document. That is the denominator the chapter contract is
+ * checked against, and reading it here — rather than re-reading a template off disk — is what makes the verdict a
+ * statement about the run instead of about whatever the templates say today.
+ *
+ * Run-level rows carry no `documentId` and no `sectionIndex`; they are requirements of the run, not chapters of a
+ * document, so they are not counted.
+ */
+async function readPlannedChapterCounts(runDir: string, readPaths: Set<string>): Promise<ReadonlyMap<string, number>> {
+  const path = join("contract", "requirements.json");
+  readPaths.add(path);
+  const full = runRelativePath(runDir, path);
+  // An absent contract is an empty map, not a refusal. A run prepared before the contract generation is
+  // grandfathered by the generation gate and has no `contract/` at all, and this checker is READ-ONLY: locking an
+  // operator out of inspecting a shipped deliverable because one input postdates it would be the same failure the
+  // freeze gate was moved off this path to avoid. Every document then reads `vacuous` with the reason.
+  if (!await exists(full)) return new Map();
+  const requirements = await readJson<Requirements>(full);
+  const counts = new Map<string, number>();
+  for (const row of requirements.rows) {
+    if (row.documentId === null || row.sectionIndex === null) continue;
+    counts.set(row.documentId, (counts.get(row.documentId) ?? 0) + 1);
+  }
+  return counts;
+}
+
 /** One document's checker input: the assembled bytes, the lens's identifier rule, and every unit's three parts. */
 function toConsistencyDocument(
   document: AssembledUnitDocument,
   summaries: ReadonlyMap<string, UnitSummary>,
-  assembly: UnitAssembly
+  assembly: UnitAssembly,
+  chapterCounts: ReadonlyMap<string, number>
 ): ConsistencyDocument {
   const request = assembly.plan.requests.requests.find((record) => record.documentId === document.documentId);
   if (!request) {
@@ -239,6 +271,11 @@ function toConsistencyDocument(
   // Resolved from the registry rather than from the recorded reference, which carries only a digest. Plan
   // validation has already refused a recorded reference that is not this registry's, so the two cannot disagree.
   const lens = lensPolicyFor(request.request.audience);
+  // Null rather than a refusal or a zero. Zero would report every chapter the document holds as an excess; a
+  // refusal would produce no reading for ANY document of a run that used the supported `request-append` door,
+  // because that door grows `plan/requests.json` and never the contract. The class reports null as vacuous and
+  // says so, and the other five classes keep speaking about this document.
+  const plannedChapterCount = chapterCounts.get(document.documentId) ?? null;
   const claimsByUnit = new Map<string, SectionClaim[]>();
   for (const row of document.claims.companion.claims) {
     claimsByUnit.set(row.unitId, [...(claimsByUnit.get(row.unitId) ?? []), row.claim]);
@@ -261,6 +298,7 @@ function toConsistencyDocument(
     markdown: document.markdown,
     audience: request.request.audience,
     identifierPlacement: lens.content.identifiers,
+    plannedChapterCount,
     units
   };
 }

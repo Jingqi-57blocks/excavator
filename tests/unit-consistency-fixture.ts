@@ -40,7 +40,7 @@ import { freezeRun, prepareRun, updateWorkItems } from "../src/run/run.ts";
 import { planRun } from "../src/run/stages/plan-stage.ts";
 import { assembleUnits } from "../src/run/stages/unit-assemble-stage.ts";
 import { manifestOf, planViewOf, unitRequest } from "./unit-fixture.ts";
-import { chapterOrdinalsFor, chapteredProse } from "./fixture-chapters.ts";
+import { chapterOrdinalsFor, chapteredBody, chapteredProse } from "./fixture-chapters.ts";
 
 /** The two obligations this fixture leaves unanswered. Material, so the grounding audit really owes them. */
 export const UNANSWERED_OBLIGATION_IDS = ["project:deprecated-or-unfinished", "project:discarded-errors"] as const;
@@ -59,6 +59,13 @@ export interface ConsistencyRun {
 
 /** How one unit's draft differs from the canned one. Every member optional; absent means "the canned form". */
 export interface UnitDraftOverride {
+  /**
+   * This unit's prose BODY, which the fixture writes into the first of the chapters this document owes.
+   *
+   * It is the body and not the whole draft on purpose: a test injecting a defect into one unit's prose must not
+   * also take that unit's chapters out of the deliverable, or every injection would trip the chapter contract as
+   * well as the class it is about, and the finding under test would arrive buried in noise it made itself.
+   */
   readonly content?: string;
   /** Extra claims appended after the canned ones. */
   readonly extraClaims?: readonly SectionClaim[];
@@ -147,7 +154,10 @@ export async function draftAndCollect(run: ConsistencyRun, unitId: string, overr
   const view = await loadUnitPlanView(run.runDir, await manifestOf(run.runDir));
   const unit = view.byId.get(unitId);
   if (!unit) throw new Error(`fixture asked to draft ${unitId}, which this plan does not hold`);
-  const content = override.content ?? unitProse(unit, await chapterOrdinalsFor(run.runDir, view, unit));
+  const ordinals = await chapterOrdinalsFor(run.runDir, view, unit);
+  const content = override.content === undefined
+    ? unitProse(unit, ordinals)
+    : chapteredBody(unit, ordinals, override.content.trim());
   const claims = [...unitClaimsFor(view, unit, run.evidenceId), ...(override.extraClaims ?? [])];
   const ledger = await readUnitLedger(run.runDir, view.runId);
   const collected = new Map(collectedUnitsFor(ledger, view.knowledgeEpoch, view.planCatalogDigest).map((row) => [row.unitId, row]));

@@ -183,7 +183,7 @@ async function main(): Promise<void> {
         break;
       }
       case "unit-consistency": {
-        // Read-only: the five cross-unit content properties no collect gate can see, over the ASSEMBLED unit path,
+        // Read-only: the six cross-unit content properties no collect gate can see, over the ASSEMBLED unit path,
         // plus the exact set of units a repair would have to redraw. It writes nothing and calls no model. Exit 1
         // when the checker found something, so a pipeline can gate on it without parsing the reading.
         const args = parseArgs(argv);
@@ -841,7 +841,7 @@ Commands:
   coverage-companion  Render this run's coverage state: four denominators, each naming its own ledger, no combined figure (read-only, zero model)
   unit-cache-identity Print the cache identity of every authoring unit of one planned run (read-only, zero model)
   unit-cache-admit   Re-enter previously verified units through the existing draft/collect gates (--mode required)
-  unit-consistency   Check the assembled unit path for the five cross-unit content defects no collect gate sees, and print the exact repair set (read-only, zero model)
+  unit-consistency   Check the assembled unit path for the six cross-unit content defects no collect gate sees, and print the exact repair set (read-only, zero model)
   plan          Validate a plan proposal against the frozen epoch and record plan/catalog.json + plan/dag.json
   request-append Append one requested document to plan/requests.json (recorded rows are immutable)
   reading    Show which in-boundary decision code no source window covers yet — run it before freeze, where opening one is free

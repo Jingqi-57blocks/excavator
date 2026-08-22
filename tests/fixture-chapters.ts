@@ -71,10 +71,13 @@ export function chapterAllocation(unitIds: readonly string[], chapters: number):
  * quietly produce a deliverable with fewer chapters than the run recorded.
  */
 export async function chapterOrdinalsFor(runDir: string, view: UnitPlanView, unit: PlanCatalogUnit): Promise<readonly number[]> {
+  // No recorded row for this document means NO CHAPTER CONTRACT, which is a real state of a real run rather than a
+  // fixture fault: `contract/requirements.json` is written once by prepare and the `request-append` door grows
+  // `plan/requests.json` only, so a document added to a shipped run has no chapter count to write to. The draft
+  // then carries no numbered chapter, which is exactly what the checker reads as vacuous. The other refusal below
+  // stays a refusal, because a unit the collection order does not place IS a fixture fault.
   const chapters = (await plannedChapterCounts(runDir)).get(unit.documentId);
-  if (chapters === undefined) {
-    throw new Error(`fixture cannot draft ${unit.unitId}: this run records no template-section requirement row for document ${unit.documentId}, so the number of chapters its deliverable owes is not knowable`);
-  }
+  if (chapters === undefined) return [];
   const siblings = view.collectionOrder.filter((unitId) => view.byId.get(unitId)?.documentId === unit.documentId);
   const ordinals = chapterAllocation(siblings, chapters).get(unit.unitId);
   if (!ordinals) {
@@ -92,12 +95,24 @@ export async function chapterOrdinalsFor(runDir: string, view: UnitPlanView, uni
  * sentence rather than an empty body: a chapter heading with nothing under it is not a shape any deliverable has.
  */
 export function chapteredProse(unit: PlanCatalogUnit, ordinals: readonly number[]): string {
-  if (ordinals.length === 0) return `## ${unit.title}\n\n${unit.unitId} 记录当前状态。\`事实\`\n`;
+  return chapteredBody(unit, ordinals, `${unit.unitId} 记录当前状态。\`事实\``);
+}
+
+/**
+ * The chapters one unit owes, with a caller's own text as the FIRST chapter's body.
+ *
+ * This is what lets a test inject a defect into one unit's prose without also taking that unit's chapters out of
+ * the deliverable. Before it, a fixture that overrode a unit's prose silently dropped the chapters dealt to it and
+ * the document came out short — so every injection test would have tripped the chapter contract as well as the
+ * class it was actually about, and the finding under test would have arrived buried in noise it caused itself.
+ */
+export function chapteredBody(unit: PlanCatalogUnit, ordinals: readonly number[], body: string): string {
+  if (ordinals.length === 0) return `## ${unit.title}\n\n${body}\n`;
   const [first, ...rest] = ordinals;
   const blocks = [
     `## ${first}. ${unit.title}`,
     "",
-    `${unit.unitId} 记录当前状态。\`事实\``,
+    body,
     ...rest.flatMap((ordinal) => ["", `## ${ordinal}. ${unit.title}`, "", `${unit.unitId} 第 ${ordinal} 章记录当前状态。\`事实\``])
   ];
   return `${blocks.join("\n")}\n`;
