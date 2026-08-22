@@ -160,13 +160,17 @@ export function schemaSourceDetermination(input: SchemaSourceDeterminationInput)
   if (!input.mechanismAvailable) {
     return unavailable(`the db-schema mechanism is unavailable this run (${input.mechanismUnavailableCause ?? "no cause recorded"}), so no source file could be fingerprinted`, true);
   }
+  // A parseable source outranks an unparseable one: a target with both gorm models and a Prisma schema still has
+  // recoverable tables, and refusing the whole envelope over the half we cannot read would throw away the half we
+  // can. The unparseable formats travel on as `unsupportedFormats` in the producer's completeness instead.
+  if (input.sources.some((source) => source.parsed > 0)) return null;
   if (input.unsupported.length > 0) {
-    // Located, recognised by family, unparseable. Calling this "not detected" would turn a schema this engine
-    // cannot read into a target that has none — the exact confusion this producer exists to keep apart.
+    // Located, recognised by family, unparseable, and nothing else parseable. Calling this "not detected" would
+    // turn a schema this engine cannot read into a target that has none — the confusion this tree exists to keep
+    // apart.
     const located = input.unsupported.map((entry) => ({ label: entry.format, count: entry.evidence }));
     return unavailable(`schema sources were located in ${input.unsupported.length} format(s) this extractor has no parser for (at least ${census(located)} file(s)), so the target's tables are known to exist and cannot be recovered`, false);
   }
-  if (input.sources.some((source) => source.parsed > 0)) return null;
   if (input.sources.length > 0) {
     // Fingerprinted, then filtered away: every file carrying a schema signature is outside this run's counted
     // census. Publishing facts about them would put anchors into an envelope whose identity names a snapshot
@@ -231,6 +235,8 @@ export function schemaCompleteness(input: {
 }): FactDetail {
   const { extraction, observations, sources } = input;
   return {
+    // Every format the fingerprinter matched, including one whose files were all outside the counted census —
+    // `filesDiscovered` minus `filesParsed` is where that shows up, and dropping the format name would hide it.
     formats: sources.map((source) => source.format).sort().join(", "),
     filesDiscovered: sources.reduce((total, source) => total + source.discovered, 0),
     filesParsed: sources.reduce((total, source) => total + source.parsed, 0),

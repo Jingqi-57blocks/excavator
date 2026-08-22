@@ -122,6 +122,11 @@ test("the determination tree gives every kind of nothing its own written state",
   assert.match(unsupported?.status === "unavailable" ? unsupported.cause : "", /no parser for \(at least Prisma 3 file\(s\)\), so the target's tables are known to exist/);
 
   assert.equal(schemaSourceDetermination(determinationInput({ sources: PARSED })), null, "a parseable source means proceed");
+  assert.equal(
+    schemaSourceDetermination(determinationInput({ sources: PARSED, unsupported: [{ format: "Prisma", evidence: 3 }] })),
+    null,
+    "and a target with BOTH a parseable source and an unparseable family still publishes the tables it can recover; the unreadable half travels on as unsupportedFormats, it does not veto the readable half"
+  );
 
   const filteredAway = schemaSourceDetermination(determinationInput({
     sources: [{ format: "gorm", discovered: 4, parsed: 0 }]
