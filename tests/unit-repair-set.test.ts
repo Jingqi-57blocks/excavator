@@ -54,6 +54,7 @@ function drift(unitIds: readonly string[]): ConsistencyFinding {
     kind: "terminology-drift",
     documentId: DOCUMENT,
     unitIds: [...unitIds],
+    severity: "error",
     statement: `document ${DOCUMENT} defines term "tenant" with 2 different meanings`,
     term: "tenant",
     definitions: unitIds.map((unitId) => ({ unitId, term: "tenant", meaning: unitId }))
@@ -65,6 +66,7 @@ function overclaim(unitId: string): ConsistencyFinding {
     kind: "unknown-overclaim",
     documentId: DOCUMENT,
     unitIds: [unitId],
+    severity: "error",
     statement: `unit ${unitId} states claim F-1 as "fact" on an unanswered obligation`,
     claimId: "F-1",
     marker: "fact",

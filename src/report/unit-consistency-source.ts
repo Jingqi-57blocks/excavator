@@ -297,6 +297,10 @@ function toConsistencyDocument(
     documentId: document.documentId,
     markdown: document.markdown,
     audience: request.request.audience,
+    // The TASK, from the same recorded row as the reader. The PRD word-form rules key on this one: a prd request
+    // is recorded as the `product-manager` audience with the `prd` intent, so keying them on the audience would
+    // apply them to every product overview in the run.
+    intent: request.request.intent,
     identifierPlacement: lens.content.identifiers,
     plannedChapterCount,
     units

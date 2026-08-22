@@ -205,8 +205,8 @@ test("a run with no recorded chapter contract still checks, and only the chapter
   const row = reading.result.readings.find((entry) => entry.kind === "chapter-contract")!;
   assert.equal(row.objects.state, "vacuous");
   assert.match(row.statement, /records no template-section requirement row/u);
-  // The other five classes are unaffected: one absent input must not blind the whole checker.
-  assert.equal(reading.result.readings.length, 6);
+  // The other six classes are unaffected: one absent input must not blind the whole checker.
+  assert.equal(reading.result.readings.length, 7);
   assert.ok(reading.result.readings.filter((entry) => entry.kind !== "chapter-contract").every((entry) => entry.statement.length > 0));
 });
 
@@ -233,8 +233,8 @@ test("a second audience appended to a shipped run still checks, through the real
   assert.equal(rows.get(SECOND_DOCUMENT)!.objects.state, "vacuous", "the appended document has no recorded chapter contract");
   assert.match(rows.get(SECOND_DOCUMENT)!.statement, /records no template-section requirement row/u);
   assert.deepEqual(reading.result.findings.filter((finding) => finding.kind === "chapter-contract"), []);
-  // Both documents still get all six class readings: one absent input must not blind the checker.
-  assert.equal(reading.result.readings.length, 12);
+  // Both documents still get all seven class readings: one absent input must not blind the checker.
+  assert.equal(reading.result.readings.length, 14);
 });
 
 // --- (4) the repair loop -----------------------------------------------------------------------------
@@ -354,7 +354,8 @@ test("the command prints the reading and exits 1 exactly when there is a finding
   const red = await cli(["unit-consistency", "--run", defective.runDir]);
   assert.equal(red.code, 1, red.stdout);
   const lines = (JSON.parse(red.stdout) as { lines: string[] }).lines;
-  assert.ok(lines.some((line) => line.startsWith(`terminology-drift [${APPENDIX}, ${COVERAGE_LEAF}]:`)), lines.join("\n"));
+  // The severity leads the line: an operator has to be able to tell a gate from a tripwire without parsing JSON.
+  assert.ok(lines.some((line) => line.startsWith(`error terminology-drift [${APPENDIX}, ${COVERAGE_LEAF}]:`)), lines.join("\n"));
   assert.ok(lines.some((line) => line.includes("re-draft and re-collect exactly these 3 unit(s)")), lines.join("\n"));
 
   // A run that was never assembled is a named refusal, not a silent pass.
@@ -366,16 +367,18 @@ test("the command prints the reading and exits 1 exactly when there is a finding
 
 test("the zero-material run checks clean, and its vacuous classes name why they had nothing", async () => {
   // The shape the epic's second target has: every work item `not-applicable` and non-material, so the plan holds
-  // one appendix and one synthesis and every coverage denominator is empty. The checker must still run all five
+  // one appendix and one synthesis and every coverage denominator is empty. The checker must still run all seven
   // classes and report vacuous WITH ITS SOURCE rather than a zero that reads like a pass.
   const run = await collectedRun();
   await assembleUnits(run.runDir, "write");
   const reading = await checkRunConsistency(run.runDir);
   assert.deepEqual(reading.result.findings, []);
   assert.deepEqual(reading.repair.targets, []);
-  assert.equal(reading.result.readings.length, 6);
+  assert.equal(reading.result.readings.length, 7);
   const vacuous = reading.result.readings.filter((row) => row.objects.state === "vacuous").map((row) => row.kind);
-  assert.deepEqual(vacuous, ["terminology-drift", "unknown-overclaim", "cross-unit-contradiction", "dangling-reference"],
+  // `prd-deliverable` is vacuous here for a reason nothing in the prose can change: this fixture's document is an
+  // overview for the product manager, and the word-form contract belongs to the prd TASK.
+  assert.deepEqual(vacuous, ["terminology-drift", "unknown-overclaim", "cross-unit-contradiction", "dangling-reference", "prd-deliverable"],
     reading.result.readings.map((row) => row.statement).join("\n"));
   for (const row of reading.result.readings) {
     if (row.objects.state !== "vacuous") continue;

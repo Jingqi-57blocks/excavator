@@ -244,6 +244,16 @@
                 "subject": "numbered chapter(s) against the 10 template-section requirement row(s)"
               },
               "statement": "checked: chapter-contract over 10 numbered chapter(s) against the 10 template-section requirement row(s) of overview-product — 0 finding(s)"
+            },
+            {
+              "documentId": "overview-product",
+              "findings": 0,
+              "kind": "prd-deliverable",
+              "objects": {
+                "reason": "this run records the document task of overview-product as overview, for the product-manager reader, and these four rules — no acceptance checkbox line, no AC id series, FR/PAGE trace anchors of exactly three digits and each defined once, no storage-schema vocabulary in visible prose — are the PRD deliverable's own word-form contract and hold of no other document task; the task comes from the request row this run recorded, so no prose can write itself into or out of this arm",
+                "state": "vacuous"
+              },
+              "statement": "vacuous: prd-deliverable had no object to check in overview-product — this run records the document task of overview-product as overview, for the product-manager reader, and these four rules — no acceptance checkbox line, no AC id series, FR/PAGE trace anchors of exactly three digits and each defined once, no storage-schema vocabulary in visible prose — are the PRD deliverable's own word-form contract and hold of no other document task; the task comes from the request row this run recorded, so no prose can write itself into or out of this arm"
             }
           ],
           "version": "unit-consistency-v1"
@@ -438,6 +448,7 @@
               "documentId": "overview-product",
               "kind": "unknown-overclaim",
               "marker": "fact",
+              "severity": "error",
               "statement": "unit overview-product::leaf::work-item-dimension states claim F-overclaim as \"fact\" and links it to obligation project:deprecated-or-unfinished, which this run's ledger records as \"cannot-determine\"; a document may not present an unanswered question as an established one",
               "unitIds": [
                 "overview-product::leaf::work-item-dimension"
@@ -510,6 +521,16 @@
                 "subject": "numbered chapter(s) against the 10 template-section requirement row(s)"
               },
               "statement": "checked: chapter-contract over 10 numbered chapter(s) against the 10 template-section requirement row(s) of overview-product — 0 finding(s)"
+            },
+            {
+              "documentId": "overview-product",
+              "findings": 0,
+              "kind": "prd-deliverable",
+              "objects": {
+                "reason": "this run records the document task of overview-product as overview, for the product-manager reader, and these four rules — no acceptance checkbox line, no AC id series, FR/PAGE trace anchors of exactly three digits and each defined once, no storage-schema vocabulary in visible prose — are the PRD deliverable's own word-form contract and hold of no other document task; the task comes from the request row this run recorded, so no prose can write itself into or out of this arm",
+                "state": "vacuous"
+              },
+              "statement": "vacuous: prd-deliverable had no object to check in overview-product — this run records the document task of overview-product as overview, for the product-manager reader, and these four rules — no acceptance checkbox line, no AC id series, FR/PAGE trace anchors of exactly three digits and each defined once, no storage-schema vocabulary in visible prose — are the PRD deliverable's own word-form contract and hold of no other document task; the task comes from the request row this run recorded, so no prose can write itself into or out of this arm"
             }
           ],
           "version": "unit-consistency-v1"
@@ -729,6 +750,7 @@
               ],
               "documentId": "overview-product",
               "kind": "terminology-drift",
+              "severity": "error",
               "statement": "document overview-product defines term \"tenant\" with 2 different meanings: overview-product::appendix::coverage says \"一个付费客户\"; overview-product::leaf::coverage says \"一个数据库 schema\". Every unit that defines it is named because making them agree is the repair and this checker does not choose which meaning is right.",
               "term": "tenant",
               "unitIds": [
@@ -802,6 +824,16 @@
                 "subject": "numbered chapter(s) against the 10 template-section requirement row(s)"
               },
               "statement": "checked: chapter-contract over 10 numbered chapter(s) against the 10 template-section requirement row(s) of overview-product — 0 finding(s)"
+            },
+            {
+              "documentId": "overview-product",
+              "findings": 0,
+              "kind": "prd-deliverable",
+              "objects": {
+                "reason": "this run records the document task of overview-product as overview, for the product-manager reader, and these four rules — no acceptance checkbox line, no AC id series, FR/PAGE trace anchors of exactly three digits and each defined once, no storage-schema vocabulary in visible prose — are the PRD deliverable's own word-form contract and hold of no other document task; the task comes from the request row this run recorded, so no prose can write itself into or out of this arm",
+                "state": "vacuous"
+              },
+              "statement": "vacuous: prd-deliverable had no object to check in overview-product — this run records the document task of overview-product as overview, for the product-manager reader, and these four rules — no acceptance checkbox line, no AC id series, FR/PAGE trace anchors of exactly three digits and each defined once, no storage-schema vocabulary in visible prose — are the PRD deliverable's own word-form contract and hold of no other document task; the task comes from the request row this run recorded, so no prose can write itself into or out of this arm"
             }
           ],
           "version": "unit-consistency-v1"
@@ -1034,6 +1066,7 @@
               },
               "documentId": "overview-product",
               "kind": "cross-unit-contradiction",
+              "severity": "error",
               "statement": "document overview-product both asserts and disclaims obligation project:literal-secrets (ledger status \"not-applicable\"): overview-product::leaf::coverage/F-settled is fact against overview-product::appendix::coverage/U-settled is unavailable",
               "unitIds": [
                 "overview-product::appendix::coverage",
@@ -1048,6 +1081,7 @@
                 "occurrences": 2,
                 "shape": "duplicate-anchor"
               },
+              "severity": "error",
               "statement": "assembled document overview-product holds anchor id \"contents\" 2 times — written by overview-product::leaf::coverage — so every link to it lands on whichever copy the plan's order put first",
               "unitIds": [
                 "overview-product::leaf::coverage"
@@ -1060,6 +1094,7 @@
                 "shape": "unresolvable-anchor",
                 "target": "nowhere-at-all"
               },
+              "severity": "error",
               "statement": "unit overview-product::appendix::coverage links to \"#nowhere-at-all\", which the assembled document overview-product holds neither as an explicit anchor nor as a heading a renderer would slug to it",
               "unitIds": [
                 "overview-product::appendix::coverage"
@@ -1068,6 +1103,7 @@
             {
               "documentId": "overview-product",
               "kind": "policy-violation",
+              "severity": "error",
               "statement": "unit overview-product::leaf::coverage of overview-product tells the reader what to do and nothing negates it (/修复建议/g): \"id=\\\"contents\\\"></a> 修复建议见附录，请将超时下调\"",
               "unitIds": [
                 "overview-product::leaf::coverage"
@@ -1144,6 +1180,16 @@
                 "subject": "numbered chapter(s) against the 10 template-section requirement row(s)"
               },
               "statement": "checked: chapter-contract over 10 numbered chapter(s) against the 10 template-section requirement row(s) of overview-product — 0 finding(s)"
+            },
+            {
+              "documentId": "overview-product",
+              "findings": 0,
+              "kind": "prd-deliverable",
+              "objects": {
+                "reason": "this run records the document task of overview-product as overview, for the product-manager reader, and these four rules — no acceptance checkbox line, no AC id series, FR/PAGE trace anchors of exactly three digits and each defined once, no storage-schema vocabulary in visible prose — are the PRD deliverable's own word-form contract and hold of no other document task; the task comes from the request row this run recorded, so no prose can write itself into or out of this arm",
+                "state": "vacuous"
+              },
+              "statement": "vacuous: prd-deliverable had no object to check in overview-product — this run records the document task of overview-product as overview, for the product-manager reader, and these four rules — no acceptance checkbox line, no AC id series, FR/PAGE trace anchors of exactly three digits and each defined once, no storage-schema vocabulary in visible prose — are the PRD deliverable's own word-form contract and hold of no other document task; the task comes from the request row this run recorded, so no prose can write itself into or out of this arm"
             }
           ],
           "version": "unit-consistency-v1"
@@ -1371,6 +1417,16 @@
                 "subject": "numbered chapter(s) against the 10 template-section requirement row(s)"
               },
               "statement": "checked: chapter-contract over 10 numbered chapter(s) against the 10 template-section requirement row(s) of overview-product — 0 finding(s)"
+            },
+            {
+              "documentId": "overview-product",
+              "findings": 0,
+              "kind": "prd-deliverable",
+              "objects": {
+                "reason": "this run records the document task of overview-product as overview, for the product-manager reader, and these four rules — no acceptance checkbox line, no AC id series, FR/PAGE trace anchors of exactly three digits and each defined once, no storage-schema vocabulary in visible prose — are the PRD deliverable's own word-form contract and hold of no other document task; the task comes from the request row this run recorded, so no prose can write itself into or out of this arm",
+                "state": "vacuous"
+              },
+              "statement": "vacuous: prd-deliverable had no object to check in overview-product — this run records the document task of overview-product as overview, for the product-manager reader, and these four rules — no acceptance checkbox line, no AC id series, FR/PAGE trace anchors of exactly three digits and each defined once, no storage-schema vocabulary in visible prose — are the PRD deliverable's own word-form contract and hold of no other document task; the task comes from the request row this run recorded, so no prose can write itself into or out of this arm"
             }
           ],
           "version": "unit-consistency-v1"
@@ -1563,6 +1619,7 @@
             {
               "documentId": "overview-product",
               "kind": "policy-violation",
+              "severity": "error",
               "statement": "unit overview-product::leaf::coverage puts evidence id <SOURCE-EVIDENCE-ID> in the visible prose of overview-product, whose product-manager lens keeps implementation identifiers in evidence (identifierPlacement \"evidence-only\"): \"cs ## coverage 证据 <SOURCE-EVIDENCE-ID> 记录当前状态。\"",
               "unitIds": [
                 "overview-product::leaf::coverage"
@@ -1638,6 +1695,16 @@
                 "subject": "numbered chapter(s) against the 10 template-section requirement row(s)"
               },
               "statement": "checked: chapter-contract over 10 numbered chapter(s) against the 10 template-section requirement row(s) of overview-product — 0 finding(s)"
+            },
+            {
+              "documentId": "overview-product",
+              "findings": 0,
+              "kind": "prd-deliverable",
+              "objects": {
+                "reason": "this run records the document task of overview-product as overview, for the product-manager reader, and these four rules — no acceptance checkbox line, no AC id series, FR/PAGE trace anchors of exactly three digits and each defined once, no storage-schema vocabulary in visible prose — are the PRD deliverable's own word-form contract and hold of no other document task; the task comes from the request row this run recorded, so no prose can write itself into or out of this arm",
+                "state": "vacuous"
+              },
+              "statement": "vacuous: prd-deliverable had no object to check in overview-product — this run records the document task of overview-product as overview, for the product-manager reader, and these four rules — no acceptance checkbox line, no AC id series, FR/PAGE trace anchors of exactly three digits and each defined once, no storage-schema vocabulary in visible prose — are the PRD deliverable's own word-form contract and hold of no other document task; the task comes from the request row this run recorded, so no prose can write itself into or out of this arm"
             }
           ],
           "version": "unit-consistency-v1"
