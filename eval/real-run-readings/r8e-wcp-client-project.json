@@ -1,0 +1,293 @@
+{
+ "version": "r8e-real-run-readings-v1",
+ "whatThisIs": "A RECORD of one real run, not a reproducible fixture. The run directory is gitignored, so nobody can recompute these numbers from this repository alone; the run identity below is what a reader checks them against. Every number names the ledger it came from and no number here is a ratio.",
+ "source": {
+  "runDir": "/Users/57block/Documents/excavator/.work/wcp/runs/run-2026_08_22_16_05-client+project-6be8f611-5094df03-375c4842",
+  "recomputeWith": "RUN=<runDir> node --experimental-strip-types <runDir>/readings/r8e-readings.mjs"
+ },
+ "run": {
+  "id": "run-2026_08_22_16_05-client+project-6be8f611-5094df03-375c4842",
+  "target": "/Users/57block/Documents/excavator-test-repos/wcp",
+  "knowledgeEpoch": 3,
+  "knowledgeDigest": "9a9a8edcdd3c178add3464972dc6132bad4d8dc0bd752fcf17e2e12bcdcd9b77",
+  "planCatalogDigest": "993e6c00d636d840a90a4ae8b394fa890f25e1ef6f4ece0c204e0081509fbbb4",
+  "planRevision": 2,
+  "redactSecrets": true,
+  "language": "zh-CN"
+ },
+ "ledgers": {
+  "facts/producers/db-schema.json": {
+   "tables": 197,
+   "byAnchorRepo": {
+    "wcp-service": 195,
+    "wcp_review_service": 2
+   },
+   "membershipUnmapped": 0,
+   "unmappableFactIds": 0,
+   "filesDiscovered": 650,
+   "filesOutsideLedger": 0
+  },
+  "facts/producers/crossrepo.json": {
+   "frontend-call": 433,
+   "http-link": 386,
+   "recovered-route": 511
+  },
+  "plan/topics.json": {
+   "coverage": 61,
+   "entity": 197,
+   "external-system": 4,
+   "feature": 2,
+   "route": 1441,
+   "work-item-dimension": 62
+  },
+  "workitems.json": {
+   "total": 1467,
+   "byStatus": {
+    "found": 1463,
+    "searched-not-found": 4
+   }
+  },
+  "coverage/read-obligations.json": {
+   "counted": 1512,
+   "excluded": null
+  },
+  "investigation/results.json": {
+   "authorized": 1522,
+   "buckets": {
+    "fulfilled": 1398,
+    "closed-negative": 0,
+    "cannot-determine": 0,
+    "displaced": 0,
+    "pending": 0
+   }
+  },
+  "coverage/condition-inventory.json": {
+   "conditions": 214
+  }
+ },
+ "decisionObligationsByScope": {
+  "feature:68e115798c": {
+   "total": 1,
+   "byStatus": {
+    "found": 1
+   }
+  },
+  "feature:28230e7cdb": {
+   "total": 1,
+   "byStatus": {
+    "found": 1
+   }
+  },
+  "feature:client-68e115798c": {
+   "total": 686,
+   "byStatus": {
+    "found": 686
+   }
+  },
+  "feature:project-28230e7cdb": {
+   "total": 723,
+   "byStatus": {
+    "found": 723
+   }
+  }
+ },
+ "documents": {
+  "feature-client-68e115798c-engineering": {
+   "tables": {
+    "envelopeFacts": 197,
+    "entityTopics": 197,
+    "inPlan": 9,
+    "namedInProse": 9,
+    "namedWithEvidenceBackedClaim": 9
+   },
+   "claims": 610,
+   "claimsWithEvidence": 608,
+   "decisions": {
+    "claimsCitingDecisionEvidence": 262,
+    "claimsLinkingDecisionObligations": 73,
+    "decisionObligationsLinked": 766
+   },
+   "states": {
+    "denominator": null,
+    "denominatorReason": "no producer enumerates a state machine; this family is numerator-only",
+    "claimsNamingAState": 61,
+    "ofThoseWithEvidence": 61
+   },
+   "frontend": {
+    "frontendCallFactsInEnvelope": 433,
+    "frontendCallFactsThatBecameTopics": 0,
+    "frontendCallFactsBoundToAnObligation": 0,
+    "denominatorReason": "crossrepo frontend-call facts became no topic and bind no obligation in this run, so the family has no denominator inside the plan",
+    "claimsStatingAValidationRule": 41,
+    "ofThoseWithEvidence": 41
+   }
+  },
+  "feature-client-68e115798c-prd": {
+   "tables": {
+    "envelopeFacts": 197,
+    "entityTopics": 197,
+    "inPlan": 9,
+    "namedInProse": 9,
+    "namedWithEvidenceBackedClaim": 9
+   },
+   "claims": 601,
+   "claimsWithEvidence": 599,
+   "decisions": {
+    "claimsCitingDecisionEvidence": 257,
+    "claimsLinkingDecisionObligations": 73,
+    "decisionObligationsLinked": 766
+   },
+   "states": {
+    "denominator": null,
+    "denominatorReason": "no producer enumerates a state machine; this family is numerator-only",
+    "claimsNamingAState": 60,
+    "ofThoseWithEvidence": 60
+   },
+   "frontend": {
+    "frontendCallFactsInEnvelope": 433,
+    "frontendCallFactsThatBecameTopics": 0,
+    "frontendCallFactsBoundToAnObligation": 0,
+    "denominatorReason": "crossrepo frontend-call facts became no topic and bind no obligation in this run, so the family has no denominator inside the plan",
+    "claimsStatingAValidationRule": 40,
+    "ofThoseWithEvidence": 40
+   }
+  },
+  "feature-project-28230e7cdb-engineering": {
+   "tables": {
+    "envelopeFacts": 197,
+    "entityTopics": 197,
+    "inPlan": 35,
+    "namedInProse": 35,
+    "namedWithEvidenceBackedClaim": 35
+   },
+   "claims": 751,
+   "claimsWithEvidence": 749,
+   "decisions": {
+    "claimsCitingDecisionEvidence": 253,
+    "claimsLinkingDecisionObligations": 60,
+    "decisionObligationsLinked": 845
+   },
+   "states": {
+    "denominator": null,
+    "denominatorReason": "no producer enumerates a state machine; this family is numerator-only",
+    "claimsNamingAState": 53,
+    "ofThoseWithEvidence": 53
+   },
+   "frontend": {
+    "frontendCallFactsInEnvelope": 433,
+    "frontendCallFactsThatBecameTopics": 0,
+    "frontendCallFactsBoundToAnObligation": 0,
+    "denominatorReason": "crossrepo frontend-call facts became no topic and bind no obligation in this run, so the family has no denominator inside the plan",
+    "claimsStatingAValidationRule": 71,
+    "ofThoseWithEvidence": 71
+   }
+  },
+  "feature-project-28230e7cdb-prd": {
+   "tables": {
+    "envelopeFacts": 197,
+    "entityTopics": 197,
+    "inPlan": 35,
+    "namedInProse": 35,
+    "namedWithEvidenceBackedClaim": 35
+   },
+   "claims": 742,
+   "claimsWithEvidence": 740,
+   "decisions": {
+    "claimsCitingDecisionEvidence": 249,
+    "claimsLinkingDecisionObligations": 60,
+    "decisionObligationsLinked": 845
+   },
+   "states": {
+    "denominator": null,
+    "denominatorReason": "no producer enumerates a state machine; this family is numerator-only",
+    "claimsNamingAState": 52,
+    "ofThoseWithEvidence": 52
+   },
+   "frontend": {
+    "frontendCallFactsInEnvelope": 433,
+    "frontendCallFactsThatBecameTopics": 0,
+    "frontendCallFactsBoundToAnObligation": 0,
+    "denominatorReason": "crossrepo frontend-call facts became no topic and bind no obligation in this run, so the family has no denominator inside the plan",
+    "claimsStatingAValidationRule": 70,
+    "ofThoseWithEvidence": 70
+   }
+  }
+ },
+ "cacheAdmission": [
+  {
+   "at": "plan revision 0 -> 1 (两份 engineering 文档追加进请求集)",
+   "result": "44 planned: 22 admitted, 0 fell to rebuild, 22 skipped as new; 22 of 22 prior ledger rows offered as candidates",
+   "costStatement": "省下的是 22 次模型撰写调用；被 admit 的 22 个单元各自重跑了 draft 与 collect 的全部门，流水线一次没少跑"
+  },
+  {
+   "at": "plan revision 1 -> 2 (四个根 synthesis 单元改标题)",
+   "result": "44 planned: 40 admitted, 4 fell to rebuild, 0 skipped as new; 44 of 44 prior ledger rows offered as candidates",
+   "costStatement": "反向承重：只有标题被改的那 4 个单元 identity-differs 落回重画，其余 40 个仍被 admit"
+  }
+ ],
+ "namedGaps": [
+  {
+   "id": "G14",
+   "subject": "fact pack 的六个结构类别在 unit 路径上没有逐条覆盖分母",
+   "measuredHere": "本次运行的 44 个单元没有任何一条读数以这六个类别为分母；覆盖账目走的是义务与冻结证据两个分母",
+   "consequence": "PRD 在“结构类别是否被覆盖”这条轴上无法读出完整或不完整，只能读出没有被计量",
+   "owner": "57B-489 族"
+  },
+  {
+   "id": "entity-arm-a",
+   "subject": "197 张表可点名、0 张被义务覆盖",
+   "measuredHere": "entity facet 197 topic，全部 unobligated；进 plan 的是 9（client）与 35（project），全部由 proposal 自愿分配",
+   "consequence": "写了的受核、漏了的不响：作者点名的每张表都有 topic/fact/evidence 链可绑，写错表名或编造表会被绑定审计抓住；漏写的表不会触发任何 finding",
+   "owner": "57B-489 族（L6 义务铸造）"
+  },
+  {
+   "id": "claim-axis-statement-absent",
+   "subject": "statement-absent 的 claim 仍是通配符",
+   "measuredHere": "本次运行 2704 条 claim 全部由脚本按分段生成，逐字等于正文，因此这条残洞在本次运行上没有被触发——它没有被证伪，只是没有被踩到",
+   "consequence": "模型转述而非逐字引用是常态；一旦 claim 的 statement 不在正文里，绑定审计只报该条，不会因此判定正文未覆盖",
+   "owner": "57B-494 交付方钉住"
+  },
+  {
+   "id": "claim-axis-common-word",
+   "subject": "阈值以上的常见词仍可作通配符",
+   "measuredHere": "本次运行以中文撰写，未构造常见词 claim；英文 system 一类的词可让一个单元读作 complete 且零 finding",
+   "consequence": "绑定审计的 complete 不等于逐句被实质覆盖",
+   "owner": "57B-494 交付方钉住"
+  },
+  {
+   "id": "states-numerator-only",
+   "subject": "流程状态族没有分母",
+   "measuredHere": "没有任何生产者枚举状态机；本族只有分子（client 60 条、project 52 条带证据的状态 claim）",
+   "consequence": "无法回答“状态覆盖了几分之几”，只能回答“报告点名了多少个状态”",
+   "owner": "57B-489 族"
+  },
+  {
+   "id": "form-validation-numerator-only",
+   "subject": "表单验证族没有分母",
+   "measuredHere": "crossrepo 的 433 条 frontend-call fact 没有成为 topic，也没有绑定任何义务；ui 校验逻辑无专用生产者。本族只有分子（client 40 条、project 70 条带证据的校验 claim）",
+   "consequence": "无法回答“表单规则覆盖了几分之几”",
+   "owner": "57B-489 族"
+  },
+  {
+   "id": "57B-488",
+   "subject": "读义务分母的窗口召回天花板未落地",
+   "measuredHere": "判定函数分母（client 686 / project 723）由检索词汇决定：client 一词把 OAuth 客户端与账单文件拉进边界，project 与 status 把请假、报销、绩效拉进边界",
+   "consequence": "条件分支族的分母同时偏大（含无关文件）与偏小（漏掉不带词汇的分支），两个方向都无法量化",
+   "owner": "57B-488"
+  },
+  {
+   "id": "G17",
+   "subject": "db-schema 指纹器忽略 budgets.maxFiles",
+   "measuredHere": "filesDiscovered=650，filesOutsideLedger=0，ledger 未撞 cap（capReached=false）",
+   "consequence": "本次运行未触发该缺口的可见分叉；按 57B-434 评论的触发条件，此处不立片",
+   "owner": "已按触发条件实测，未触发"
+  },
+  {
+   "id": "unit-consistency-visible-prose",
+   "subject": "unit-consistency 的 policy 扫描把 <details> 当作可见正文",
+   "measuredHere": "首轮 246 条 identifier-in-prose 全部来自折叠证据块；同一命令里的 claim 绑定检查用 visibleUnitText 排除 <details>，两个检查对“可见正文”的定义不一致",
+   "consequence": "按 writing-rules 把标识符放进折叠块，会被 policy 扫描判为违反 evidence-only 镜头",
+   "owner": "本片范围外，只报不修"
+  }
+ ]
+}
