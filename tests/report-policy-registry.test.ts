@@ -36,7 +36,7 @@ const PINNED = [
   { key: "deep-dive", id: "intent.deep-dive", version: "v1", digest: "b971bfbe143bccf855876ed5e0827dc13c9c4023243eacf6addb54aacd003329" },
   { key: "onboarding", id: "intent.onboarding", version: "v1", digest: "fda50ebe828634da665f21273232c3565004849974dbf6381d2ac97b958fab51" },
   { key: "reference", id: "intent.reference", version: "v1", digest: "4a3b2dd030571f17f59fe4b9767f0e5a879b4d89c26206e6c0256b3ef5d8d8f8" },
-  { key: "prd", id: "intent.prd", version: "v1", digest: "557f295bf3cf50827cedbe744b5bdf4ca0ddbef849be211277ef2a38bc503862" },
+  { key: "prd", id: "intent.prd", version: "v2", digest: "556a24225a08aed02ade319cab8e5904c158f95fe611d5ab6b5390cce1bc9214" },
   { key: "audit", id: "intent.audit", version: "v1", digest: "611745b42c8c130753fd32ba7bf0e19427cfb24cbd0caf513d505dd925de0173" },
   { key: "decision-support", id: "intent.decision-support", version: "v1", digest: "3f15a6136cfedd7cabf6d3fcf6fbc362d2dbebae7b199a9b7594ee891cad6eb4" },
   { key: "change-impact", id: "intent.change-impact", version: "v1", digest: "c65522048e6ab79e69cab72b257a5da0c701e068b75c5ebf94eb776060bf2e47" }
@@ -131,8 +131,10 @@ test("the registry digest moves when any single entry does — a policy change i
 });
 
 test("a recorded policy reference is id + version + digest and nothing else", () => {
+  // v2 since 57B-497 revised the prd policy (the acceptance chapter is gone). The version moving WITH the content
+  // is the point: a request recorded under v1 is legibly a different policy, not a corrupt digest.
   assert.deepEqual(policyReference(intentPolicyFor("prd")), {
-    id: "intent.prd", version: "v1", digest: PINNED.find((row) => row.id === "intent.prd")!.digest
+    id: "intent.prd", version: "v2", digest: PINNED.find((row) => row.id === "intent.prd")!.digest
   });
 });
 
