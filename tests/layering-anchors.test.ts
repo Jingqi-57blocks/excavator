@@ -120,7 +120,10 @@ const ANCHORS: Record<string, Classification> = {
   "src/facts/units/unit-identity.ts": { kind: "current-file" },
   "src/facts/units/membership-map.ts": { kind: "current-file" },
   "src/base/fact-kind-registry.ts": { kind: "current-file" },
-  "src/base/partition-designation.ts": { kind: "current-file" }
+  "src/base/partition-designation.ts": { kind: "current-file" },
+  // The contract's per-kind membership list names the test that holds it to the registry. Cited by file: the
+  // claim is "this check exists", and a line number for it would rot on the next test added above it.
+  "tests/fact-kind-registry.test.ts": { kind: "current-file" }
 };
 
 interface Anchor {

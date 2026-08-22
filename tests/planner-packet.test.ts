@@ -91,6 +91,9 @@ test("every facet has a census row, and an empty one quotes the ledger's own cau
     if (row.outcome.state === "populated") continue;
     assert.ok(packet.markdown.includes(row.outcome.reason), `${row.facet} must quote its own reason`);
   }
+  // The `policy: not-run-scoped` wording is the MINI FIXTURE's frozen bytes, not a sentence the producer still
+  // emits — since 57B-483 a run records Built, NotApplicable{not-detected} or a named Unavailable. What is
+  // asserted here is verbatim propagation: whatever cause the envelope carries reaches the packet unedited.
   assert.ok(packet.markdown.includes("facts/producers/db-schema.json records status unavailable: policy: not-run-scoped"),
     "the entity facet's ledger-absent reason is visible verbatim");
   assert.ok(packet.markdown.includes("ledger-absent"));

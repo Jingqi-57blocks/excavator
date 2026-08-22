@@ -1,0 +1,5 @@
+{
+  "name": "sample-collaboration-app",
+  "type": "module",
+  "dependencies": { "hono": "^4.0.0" }
+}
