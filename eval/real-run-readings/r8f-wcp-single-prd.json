@@ -1,0 +1,407 @@
+{
+ "version": "r8f-real-run-readings-v1",
+ "whatThisIs": "A RECORD of one real run, not a reproducible fixture. The run directory is gitignored, so nobody can recompute these numbers from this repository alone; the run identity below is what a reader checks them against. Every number names the ledger it came from and no number here is a ratio.",
+ "issue": "57B-501",
+ "source": {
+  "runDir": "/Users/57block/Documents/excavator/.work/wcp/runs/run-2026_08_23_02_30-client-project-m-6be8f611-1dbd31f6-f124b021",
+  "deliverable": "/Users/57block/Documents/excavator/.work/wcp/runs/run-2026_08_23_02_30-client-project-m-6be8f611-1dbd31f6-f124b021/reports/feature-client-project-management-0fe4755f37-prd.md",
+  "deliverableCopy": "/Users/57block/Documents/excavator-deliverables/57B-501/feature-client-project-management-0fe4755f37-prd.md"
+ },
+ "run": {
+  "id": "run-2026_08_23_02_30-client-project-m-6be8f611-1dbd31f6-f124b021",
+  "target": "/Users/57block/Documents/excavator-test-repos/wcp",
+  "snapshotId": "6be8f611c2a85ec0df32",
+  "contentManifestDigest": "2beb0a55befe2e5ce8b4bf082cce83cc31a9b6d5b26aa715844deb37952f8e35",
+  "knowledgeEpoch": 0,
+  "knowledgeDigest": "6e875e07b449e3a2c30dfbdbe1c4b6f819de627ff0d596e57d1c0de42a408c77",
+  "planCatalogDigest": "7c12faa290a774294b48c1783a06558a286fac28efdec2a4cde986eda53ca90b",
+  "planRevision": 0,
+  "redactSecrets": true,
+  "language": "zh-CN",
+  "targetHeads": {
+   "wcp-auth": "76e958d51b802c0a0619d11f21984fcf6ea6c895",
+   "wcp-service": "efb884f05f16e2fa5d11180e4c00f18d8495ab28",
+   "wcp-service-v2": "51cb436a98d142c8cc268b5d269945d36f6c6698",
+   "wcp-ui": "895dad43f968238cde1387cf7f68293a2d20166b",
+   "wcp_review_service": "272bbe725fe84d15973fff50b606184c88743fe6"
+  },
+  "targetWorkingTree": "all five repos: staged 0, modified 0, behind origin/master 0, before and after the run"
+ },
+ "requestShaping": {
+  "features": 1,
+  "subject": "Client project management",
+  "aliases": [
+   "client",
+   "clients",
+   "project",
+   "projects",
+   "clientProj",
+   "projectspace",
+   "position",
+   "hiring",
+   "candidate",
+   "archived",
+   "contact"
+  ],
+  "aliasLanguage": "English only — the issue's pre-run measurement found Chinese aliases hit 0 (客户) and 1 (项目) files across the five repos, so they would occupy the vocabulary without navigating anywhere. Output language stays zh-CN.",
+  "statusExcluded": "`status` was kept out of aliases deliberately: it hits 539 files across the five repos and is what pulled leave, reimbursement and performance into the previous round's decision-branch denominator.",
+  "audiences": [
+   "prd"
+  ],
+  "budgets": {
+   "maxSourceWindows": 1710,
+   "maxSourceCharacters": 4000000,
+   "maxGraphQueries": 400,
+   "maxFeatureNodes": 1200,
+   "maxExpansionDepth": 2
+  },
+  "budgetNote": "maxFeatureNodes was raised from the 440 first tried because at 440 the fact pack marked entrypoints, entities and states `truncated: true` with the note 'the feature scope node cap was reached upstream'. At 1200 those three rows read truncated:false (entrypoints 491 items, states 25, config-keys 40, external-calls 49, logic 316) and the cap warning disappeared. maxSourceWindows was never binding: the run reported requiredRunWindowBudget 1159 against availableWindows 1710."
+ },
+ "deterministicVerdicts": {
+  "exactlyOnePrdDocument": {
+   "value": true,
+   "measured": "reports/ holds one .md deliverable: feature-client-project-management-0fe4755f37-prd.md (107374 bytes)"
+  },
+  "chapterContract": {
+   "finding": 0,
+   "measured": "unit-consistency: 'checked: chapter-contract over 11 numbered chapter(s) against the 11 template-section requirement row(s) — 0 finding(s)'",
+   "ordinals": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
+   ]
+  },
+  "prdWordForm": {
+   "finding": 0,
+   "measured": "unit-consistency: 'checked: prd-deliverable over 12 unit prose scan(s) covering 786 visible prose line(s) and 64 FR/PAGE token(s) — 0 finding(s)'",
+   "sqlDdlWarnings": 0,
+   "acceptanceCheckboxes": 0,
+   "acIds": 0
+  },
+  "anchors": {
+   "FR": 50,
+   "PAGE": 10,
+   "malformed": 0,
+   "duplicates": 0
+  },
+  "chainExitCodes": {
+   "prepare": 0,
+   "freeze": 0,
+   "plan": 0,
+   "draft": 0,
+   "collect": 0,
+   "auditUnits": 0,
+   "auditRun": 0,
+   "assemble": 0,
+   "unitConsistency": 0,
+   "coverageCompanion": 0
+  },
+  "unitConsistencyClasses": {
+   "terminology-drift": 0,
+   "unknown-overclaim": 0,
+   "cross-unit-contradiction": "vacuous (no obligation cited by two units)",
+   "dangling-reference": 0,
+   "policy-violation": 0,
+   "chapter-contract": 0,
+   "prd-deliverable": 0,
+   "note": "the first pass reported ONE error — terminology-drift: term 归档 defined twice with two meanings across u01 and u04. Fixed by aligning the two glossary entries and re-drafting u01, u04 and their parent u12; second pass 0 findings."
+  }
+ },
+ "singleDocumentAcceptance": {
+  "why": "the previous round split wcp into client and project reports and the shared pieces fell into the seam; the issue named five files that were referenced by NONE of the four reports.",
+  "targets": {
+   "wcp-ui/src/pages/project/Projects.tsx": {
+    "inDeliverable": true,
+    "occurrences": 3,
+    "wherePresentedInVisibleProse": "chapter 7 page section 客户与项目列表 (/manage/project/list), plus chapter 1 entry-point table and PAGE-001"
+   },
+   "wcp-ui/src/pages/project/ArchivedProjects.tsx": {
+    "inDeliverable": true,
+    "occurrences": 1,
+    "wherePresentedInVisibleProse": "chapter 7 page section 已归档客户列表 (/manage/project/list/archived), plus PAGE-002"
+   },
+   "wcp-ui/src/pages/project/components/ProjectList.tsx": {
+    "inDeliverable": true,
+    "occurrences": 4,
+    "wherePresentedInVisibleProse": "chapter 7 列表区 field table and filter/search table of both list pages"
+   },
+   "wcp-ui/src/pages/project/components/ProjectListItem.tsx": {
+    "inDeliverable": true,
+    "occurrences": 5,
+    "wherePresentedInVisibleProse": "chapter 7 项目卡片 rows and chapter 4 type-badge table"
+   },
+   "wcp-ui/src/pages/project/PositionEditor.tsx": {
+    "inDeliverable": true,
+    "occurrences": 5,
+    "wherePresentedInVisibleProse": "chapter 7 page section 新增招聘岗位 / 编辑招聘岗位, chapter 3 招聘岗位的规则, PAGE-009 and PAGE-010"
+   }
+  },
+  "verdict": "5 of 5. Merging the two subjects into one is the change that put them there: every one of the five is reached through the shared list page or the shared route tree, which is exactly the seam the split ran through.",
+  "directoryReading": {
+   "filesUnderPagesProject": 39,
+   "referencedByThisDeliverable": 14,
+   "notReferenced": 25,
+   "priorRoundBaselineFromIssue": "16 of 39 referenced across FOUR reports, with the five targets above in none of them",
+   "howToReadIt": "14 < 16 is not a regression: the 25 unreferenced files are the team, worklog-review, billing-review, hiring-dashboard and member-selection surface, which chapter 1's out-of-scope table names explicitly. The count fell and the composition improved — the previous round's 16 excluded every one of the five shared pieces."
+  }
+ },
+ "ledgers": {
+  "workitems.json": {
+   "total": 956,
+   "byStatus": {
+    "found": 953,
+    "searched-not-found": 3
+   },
+   "byDimension": {
+    "decision-function": 903,
+    "logic-disposition": 24,
+    "dimension-defaults": 29
+   }
+  },
+  "plan/topics.json": {
+   "total": 1732,
+   "route": 1441,
+   "entity": 197,
+   "coverage": 58,
+   "work-item-dimension": 31,
+   "external-system": 4,
+   "feature": 1
+  },
+  "planObligationAccounting": {
+   "materialObligations": 955,
+   "inUnits": 955,
+   "waived": 0,
+   "unplaced": 0,
+   "undispositioned": 0
+  },
+  "facts/producers/crossrepo.json": {
+   "frontend-call": 433,
+   "http-link": 386,
+   "recovered-route": 511
+  },
+  "facts/producers/db-schema.json": {
+   "db-table": 197
+  },
+  "producerFactsThatBecameTopics": {
+   "became": 1638,
+   "didNot": 6875,
+   "breakdown": {
+    "codegraph/indexed-function": 6056,
+    "crossrepo/frontend-call": 433,
+    "crossrepo/http-link": 386
+   }
+  },
+  "evidence.json": {
+   "total": 2058,
+   "source": 1255,
+   "derived": 772,
+   "search": 3,
+   "fact": 7,
+   "manifest": 11,
+   "graph": 4,
+   "readme": 3,
+   "ledger": 1,
+   "provider": 1,
+   "scope": 1
+  },
+  "coverage/read-obligations.json": {
+   "counted": 1019,
+   "total": 1114,
+   "excludedDeclarationOnly": 95,
+   "lines": 39582
+  },
+  "coverage/read-residual.json": {
+   "counted": 1019,
+   "covered": 948,
+   "notOpened": 69,
+   "notOpenedByAttribution": {
+    "anchorName": 11,
+    "unclassified": 58,
+    "retained": 0
+   },
+   "notOpenedLines": {
+    "anchorName": 252,
+    "unclassified": 2478
+   },
+   "openedNotConsumed": 950
+  },
+  "coverage/condition-inventory.json": {
+   "conditions": 145,
+   "statedByNoClaim": 144
+  },
+  "metrics.json": {
+   "filesConsidered": 2007,
+   "codegraphIndexed": 1675,
+   "graphQueries": 18,
+   "boundaryFiles": 79,
+   "candidateGraphNodes": 476,
+   "graphEdges": 856,
+   "unresolvedReferences": 150
+  }
+ },
+ "document": {
+  "id": "feature-client-project-management-0fe4755f37-prd",
+  "bytes": 107374,
+  "visibleProseBytes": 97417,
+  "units": 12,
+  "unitKinds": {
+   "leaf": 9,
+   "bridge": 1,
+   "appendix": 1,
+   "synthesis": 1
+  },
+  "claims": 997,
+  "claimsByMarker": {
+   "fact": 967,
+   "inferred": 15,
+   "verified": 6,
+   "unavailable": 9
+  },
+  "claimsWithEvidence": 988,
+  "claimsWithoutEvidence": 9,
+  "claimsWithoutEvidenceAreAllUnavailable": true,
+  "claimsCitingATrace": 93,
+  "claimsLinkingObligations": 50,
+  "distinctObligationsLinked": 956,
+  "claimsPerUnit": {
+   "u01-overview": 53,
+   "u02-flows": 90,
+   "u03-rules": 164,
+   "u04-states": 47,
+   "u05-permissions": 33,
+   "u06-data": 109,
+   "u07-pages": 211,
+   "u08-notifications": 51,
+   "u09-failure": 82,
+   "u10-trace-index": 63,
+   "u11-appendix": 74,
+   "u12-document": 20
+  },
+  "obligationOwnershipPerUnit": {
+   "u01-overview": 5,
+   "u02-flows": 3,
+   "u03-rules": 929,
+   "u04-states": 2,
+   "u05-permissions": 2,
+   "u06-data": 3,
+   "u07-pages": 2,
+   "u08-notifications": 2,
+   "u09-failure": 4,
+   "u10-trace-index": 0,
+   "u11-appendix": 3,
+   "u12-document": 0
+  }
+ },
+ "observationalReadings": {
+  "pageChapterFourPartSkeleton": {
+   "measured": "chapter 7 visible prose carries 页面入口 ×6, 列表区 ×3, 表单 ×6, 弹窗与操作 ×6",
+   "reading": "the four-part skeleton is followed; 列表区 appears only on the three pages that have a list area (both list pages and the client detail's project tabs), which is the template's 'drop a part the page does not have'."
+  },
+  "productLanguageCompliance": {
+   "httpMethodsInVisibleProse": 0,
+   "sqlDdlTokensInVisibleProse": 0,
+   "sourceFileNamesInVisibleProse": 0,
+   "evidenceIdsInVisibleProse": 0,
+   "httpStatusCodeLikeTokens": "12 occurrences of the digits 200, every one of them a field length limit (客户名称/实体名/开票说明 最多 200 个字符), not a status code",
+   "frontendRoutePathsInVisibleProse": {
+    "/manage/project/list": 7,
+    "/manage/project/list/archived": 3,
+    "/manage/project/client/:id": 6,
+    "/manage/project/client/add": 3,
+    "/manage/project/add": 3,
+    "/manage/project/:id/edit": 3,
+    "/manage/project-tracking/hiring/position/add/:positionId": 3
+   },
+   "reading": "chapter 1 carries no API inventory and chapter 6 carries no column type; both keep implementation identifiers inside the collapsed evidence blocks, which is where every source path and every configuration key in this document lives."
+  },
+  "coreFlowChapterShape": {
+   "measured": "chapter 2 holds seven flows (A–G), each a 1..N numbered step list written from outside the system; 90 claims",
+   "reading": "no state machine and no function call appears as a step; branches are written as steps naming both outcomes (project card click, project type change confirmations)."
+  },
+  "clientOutletBothSides": {
+   "measured": "both branches of the shared route tree are covered: the project branch (list, list/archived, add, :id/edit) and the client branch (client/add, client/:id, client/:id/edit) each have chapter 7 page sections and PAGE anchors; the second outlet (/manage/project-tracking/*) contributes the hiring position pages",
+   "reading": "single-document coverage holds across the shared outlet — this is the property the split broke."
+  },
+  "chapterTitleWording": {
+   "measured": "1 能力概览与边界 / 2 核心流程 / 3 业务规则 / 4 状态与生命周期 / 5 角色权限 / 6 业务记录与联动 / 7 页面交互 / 8 通知与操作记录 / 9 异常与边界行为 / 10 需求追踪索引 / 11 附录：术语、覆盖与待解问题",
+   "reading": "all eleven map one-to-one onto the template's English headings; the gate compares count and ordinal only, and the titles did not drift semantically."
+  },
+  "numeratorOnlyFamilies": {
+   "claimsNamingAState": 91,
+   "ofThoseWithEvidence": 193,
+   "claimsStatingAValidationRule": 112,
+   "claimsQuotingVerbatimInterfaceText": 194,
+   "denominator": null,
+   "denominatorReason": "no producer enumerates how many states, validation rules or interface strings this capability has, so these are counts of what the report named, never a share of what exists"
+  }
+ },
+ "namedCeilings": [
+  {
+   "id": "57B-488",
+   "subject": "the window-recall ceiling on the read-obligation denominator is not landed",
+   "measuredHere": "the boundary is 79 files and 903 decision-function obligations, all of it selected by one English alias set; 69 of 1019 counted read obligations were never opened (11 carrying this feature's vocabulary, 58 carrying none)",
+   "consequence": "the decision-branch denominator is biased in both directions at once — too wide where an alias is a common word (project, position), too narrow where a branch carries none of the vocabulary. The absolute numbers here are comparable ONLY against another run on the same target with the same alias set."
+  },
+  {
+   "id": "G14",
+   "subject": "the fact pack's six structural categories have no per-item coverage denominator on the unit path",
+   "measuredHere": "none of the 12 units carries a reading whose denominator is entrypoints / entities / states / config-keys / jobs / external-calls; the accounting runs on obligations and frozen evidence instead",
+   "consequence": "citations are audited, coverage is not: every page, field and rule the document names is bound to evidence and would be caught if invented, and a page the document never names triggers no finding at all"
+  },
+  {
+   "id": "entity-arm-a",
+   "subject": "197 database tables are nameable and 0 are covered by an obligation",
+   "measuredHere": "the entity facet holds 197 topics, every one of them unobligated; this document names none of them, because chapter 6 is forbidden to carry table names",
+   "consequence": "the storage side of this capability is outside what any gate in this run measures"
+  },
+  {
+   "id": "form-validation-numerator-only",
+   "subject": "the form-validation family has no denominator",
+   "measuredHere": "the 433 crossrepo frontend-call facts became no topic and bind no obligation; the document states 112 validation rules with evidence and nothing counts how many exist",
+   "consequence": "the question 'what share of the form rules is written down' has no answer in this run"
+  },
+  {
+   "id": "process-state-numerator-only",
+   "subject": "the process-state family has no denominator",
+   "measuredHere": "no producer enumerates a state machine; the document names 91 state statements, 89 of them evidence-backed",
+   "consequence": "the same as above for states"
+  },
+  {
+   "id": "claim-axis-common-word",
+   "subject": "a batch claim whose statement is a chapter-level sentence is a wildcard carrier",
+   "measuredHere": "927 of the 929 obligations u03-rules owns (903 decision-function + 24 logic-disposition) were grounded by 24 batch claims that all reuse the chapter's opening sentence as their statement, each citing exactly its own batch's evidence ids",
+   "consequence": "grounding says every rescued decision function is answered by chapter 3 as a whole, not that any individual one has its own sentence. The claim-binding audit reads 'complete' either way. This is the same shape the previous round used (73 claims linking 766 obligations) and it is recorded rather than hidden."
+  },
+  {
+   "id": "opened-not-consumed",
+   "subject": "950 read obligations had a window opened and no claim cites it",
+   "measuredHere": "coverage/read-residual.json: covered 948 of 1019 counted, openedNotConsumed 950",
+   "consequence": "reading a span and reporting what it says are two different accounts; this run closed the first and left most of the second to the batch grounding above"
+  },
+  {
+   "id": "condition-residual",
+   "subject": "144 of 145 literal domain conditions inside opened windows are stated by no claim",
+   "measuredHere": "audit advisory over coverage/condition-inventory.json (86 numeric, 59 string-enum)",
+   "consequence": "chapter 3 carries the boundary values that belong to the client-and-project capability; the residual is dominated by conditions in files the alias set dragged in (OAuth, worklog export, leave)"
+  }
+ ],
+ "defectsFound": [
+  {
+   "id": "source-cli-accepts-a-non-numeric-span",
+   "where": "src/cli.ts:270 — addSourceEvidence(… Number(required(args.start, \"--start\")), Number(required(args.end, \"--end\")) …)",
+   "what": "`required` only checks presence, so a --start/--end that does not parse reaches the recorder as NaN. The run committed an evidence record with startLine null, endLine null, empty content and the digest of the empty string (S-d41cb011fa, wcp-service/routes/projects.js:NaN-NaN).",
+   "cost": "freeze then refuses the whole run by name — 'S-d41cb011fa source evidence is missing path or line range' (src/investigation/assurance.ts:276) — and there is no command that withdraws a recorded evidence id, so the run was unrecoverable and had to be re-prepared and the whole investigation replayed.",
+   "shape": "a guard that exists one layer too late: the value is validated where it is consumed rather than where it is accepted, so a fail-closed check turns into a poisoned artifact",
+   "disposition": "out of this slice's scope (evidence run, zero src changes). Reported for its own slice."
+  }
+ ],
+ "chain": "prepare → 73 source windows + 3 searches (all cache hits on the shared window cache) → 29 dimension work items disposed + 5 traces recorded → freeze(epoch 0) → plan(12 units, revision 0) → draft ×12 → collect ×4 batches → audit --units (0 violations) → assemble --units --mode write → unit-consistency (1 error, repaired, then 0) → audit --run (0 errors, 9 advisories) → coverage-companion"
+}
